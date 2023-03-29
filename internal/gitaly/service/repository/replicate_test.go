@@ -48,7 +48,7 @@ func TestReplicateRepository_success(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil)
+	client, serverSocketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -122,7 +122,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil)
+	client, serverSocketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
@@ -206,7 +206,7 @@ func TestReplicateRepository_transactional(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	_, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	_, serverSocketPath := runRepositoryService(t, cfg, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
 	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -432,7 +432,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			testcfg.BuildGitalyHooks(t, cfg)
 			testcfg.BuildGitalySSH(t, cfg)
 
-			client, serverSocketPath := runRepositoryService(t, cfg, nil)
+			client, serverSocketPath := runRepositoryService(t, cfg)
 			cfg.SocketPath = serverSocketPath
 
 			sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -488,7 +488,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	client, socketPath := runRepositoryService(t, cfg, nil)
+	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
 	targetRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -568,7 +568,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, remoteCfg)
 	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
 
-	_, remoteAddr := runRepositoryService(t, remoteCfg, nil, testserver.WithDisablePraefect())
+	_, remoteAddr := runRepositoryService(t, remoteCfg, testserver.WithDisablePraefect())
 
 	localCfg := testcfg.Build(t)
 	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, localCfg, gittest.CreateRepositoryConfig{
@@ -584,7 +584,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 
 	// We do not require the server's address, but it needs to be around regardless such that
 	// `FetchInternalRemote` can reach the hook service which is injected via the config.
-	runRepositoryService(t, localCfg, nil, testserver.WithHookManager(gitalyhook.NewMockManager(t, nil, nil, nil,
+	runRepositoryService(t, localCfg, testserver.WithHookManager(gitalyhook.NewMockManager(t, nil, nil, nil,
 		func(t *testing.T, _ context.Context, _ gitalyhook.ReferenceTransactionState, _ []string, stdin io.Reader) error {
 			// We need to discard stdin or otherwise the sending Goroutine may return an
 			// EOF error and cause the test to fail.
@@ -669,7 +669,7 @@ func TestReplicateRepository_hooks(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	service, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	service, serverSocketPath := runRepositoryService(t, cfg, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
 	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{})

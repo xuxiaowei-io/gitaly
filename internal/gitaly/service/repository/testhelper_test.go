@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/commit"
 	hookservice "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
@@ -83,8 +82,8 @@ func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool
 	return t.Failed()
 }
 
-func runRepositoryService(tb testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (gitalypb.RepositoryServiceClient, string) {
-	serverSocketPath := testserver.RunGitalyServer(tb, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.GitalyServerOpt) (gitalypb.RepositoryServiceClient, string) {
+	serverSocketPath := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
 			cfg,
 			deps.GetRubyServer(),
@@ -148,7 +147,7 @@ func setupRepositoryServiceWithoutRepo(tb testing.TB, opts ...testserver.GitalyS
 	testcfg.BuildGitalyHooks(tb, cfg)
 	testcfg.BuildGitalySSH(tb, cfg)
 
-	client, serverSocketPath := runRepositoryService(tb, cfg, nil, opts...)
+	client, serverSocketPath := runRepositoryService(tb, cfg, opts...)
 	cfg.SocketPath = serverSocketPath
 
 	return cfg, client

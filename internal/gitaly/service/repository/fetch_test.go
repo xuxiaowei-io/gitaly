@@ -384,7 +384,7 @@ func TestFetchSourceBranch(t *testing.T) {
 						exec %q "$@"`, execEnv.BinaryPath, execEnv.BinaryPath)
 				})
 
-				client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+				client, serverSocketPath := runRepositoryService(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 				cfg.SocketPath = serverSocketPath
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)

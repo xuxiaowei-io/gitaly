@@ -30,7 +30,7 @@ func TestSuccessfulRepositorySizeRequestPoolMember(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	repoClient, serverSocketPath := runRepositoryService(t, cfg, nil)
+	repoClient, serverSocketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
 	objectPoolClient := newObjectPoolClient(t, cfg, serverSocketPath)

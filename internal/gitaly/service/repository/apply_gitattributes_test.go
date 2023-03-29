@@ -103,7 +103,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 	commitWithoutGitattributes := gittest.WriteCommit(t, cfg, repoPath)
 
 	transactionServer := &testTransactionServer{}
-	runRepositoryService(t, cfg, nil)
+	runRepositoryService(t, cfg)
 
 	// We're using internal listener in order to route around
 	// Praefect in our tests. Otherwise Praefect would replace our

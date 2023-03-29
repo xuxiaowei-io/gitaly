@@ -82,7 +82,7 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	client, socketPath := runRepositoryService(t, cfg, nil)
+	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
 	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -135,7 +135,7 @@ func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	client, socketPath := runRepositoryService(t, cfg, nil)
+	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
 	// This creates the first repository on the server. As this test can run with Praefect in front of it,
@@ -162,7 +162,7 @@ func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	client, socketPath := runRepositoryService(t, cfg, nil)
+	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
@@ -228,7 +228,7 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := testcfg.Build(t)
-			client, socketPath := runRepositoryService(t, cfg, nil)
+			client, socketPath := runRepositoryService(t, cfg)
 			cfg.SocketPath = socketPath
 
 			req := &gitalypb.CreateRepositoryFromSnapshotRequest{
@@ -255,7 +255,7 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	client, socketPath := runRepositoryService(t, cfg, nil)
+	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -296,7 +296,7 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	client, socketPath := runRepositoryService(t, cfg, nil)
+	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
 	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)

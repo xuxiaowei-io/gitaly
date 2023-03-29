@@ -261,7 +261,7 @@ func TestFindLicense_validate(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	client, serverSocketPath := runRepositoryService(t, cfg, nil)
+	client, serverSocketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = serverSocketPath
 	_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: nil})
 	msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
@@ -276,7 +276,6 @@ func BenchmarkFindLicense(b *testing.B) {
 	client, serverSocketPath := runRepositoryService(
 		b,
 		cfg,
-		nil,
 		testserver.WithGitCommandFactory(gitCmdFactory),
 	)
 	cfg.SocketPath = serverSocketPath

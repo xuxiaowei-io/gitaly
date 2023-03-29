@@ -81,7 +81,7 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	})
 
 	hookManager := &mockHookManager{}
-	client, _ := runRepositoryService(t, cfg, nil, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())
+	client, _ := runRepositoryService(t, cfg, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())
 
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
