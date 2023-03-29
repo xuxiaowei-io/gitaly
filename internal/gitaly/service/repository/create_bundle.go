@@ -23,7 +23,7 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 		return stream.Send(&gitalypb.CreateBundleResponse{Data: p})
 	})
 
-	if err := s.localrepo(repository).CreateBundle(ctx, writer); err != nil {
+	if err := s.localrepo(repository).CreateBundle(ctx, writer, nil); err != nil {
 		return err
 	}
 

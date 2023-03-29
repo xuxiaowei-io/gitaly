@@ -136,7 +136,7 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 				Repository: repo,
 				Patterns:   [][]byte{[]byte("master"), []byte("^master")},
 			},
-			expectedErr: status.Error(codes.FailedPrecondition, "cmd wait failed: refusing to create empty bundle"),
+			expectedErr: status.Error(codes.FailedPrecondition, "create bundle: refusing to create empty bundle"),
 		},
 	}
 
