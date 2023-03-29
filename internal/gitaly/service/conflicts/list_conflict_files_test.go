@@ -83,6 +83,63 @@ func TestListConflictFiles(t *testing.T) {
 				}
 			},
 		},
+		{
+			"Lists the expected conflict files with ancestor path",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				commonCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "apple"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "banana"},
+				))
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(commonCommitID),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "a", Mode: "100644", Content: "grape"},
+						gittest.TreeEntry{Path: "b", Mode: "100644", Content: "pineapple"},
+					),
+				)
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(commonCommitID),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+						gittest.TreeEntry{Path: "b", Mode: "100644", Content: "peach"},
+					),
+				)
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:  client,
+					request: request,
+					expectedFiles: []*conflictFile{
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid:    ourCommitID.String(),
+								TheirPath:    []byte("a"),
+								OurPath:      []byte("a"),
+								OurMode:      int32(0o100644),
+								AncestorPath: []byte("a"),
+							},
+							Content: []byte("<<<<<<< a\ngrape\n=======\nmango\n>>>>>>> a\n"),
+						},
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid:    ourCommitID.String(),
+								TheirPath:    []byte("b"),
+								OurPath:      []byte("b"),
+								OurMode:      int32(0o100644),
+								AncestorPath: []byte("b"),
+							},
+							Content: []byte("<<<<<<< b\npineapple\n=======\npeach\n>>>>>>> b\n"),
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -95,52 +152,6 @@ func TestListConflictFiles(t *testing.T) {
 
 			testhelper.ProtoEqual(t, data.expectedFiles, getConflictFiles(t, c))
 		})
-	}
-}
-
-func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setupConflictsService(t, ctx, nil)
-
-	ourCommitOid := "824be604a34828eb682305f0d963056cfac87b2d"
-	theirCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
-
-	request := &gitalypb.ListConflictFilesRequest{
-		Repository:     repo,
-		OurCommitOid:   ourCommitOid,
-		TheirCommitOid: theirCommitOid,
-	}
-
-	c, err := client.ListConflictFiles(ctx, request)
-	require.NoError(t, err)
-
-	expectedFiles := []*conflictFile{
-		{
-			Header: &gitalypb.ConflictFileHeader{
-				CommitOid:    ourCommitOid,
-				OurMode:      int32(0o100644),
-				OurPath:      []byte("files/ruby/popen.rb"),
-				TheirPath:    []byte("files/ruby/popen.rb"),
-				AncestorPath: []byte("files/ruby/popen.rb"),
-			},
-		},
-		{
-			Header: &gitalypb.ConflictFileHeader{
-				CommitOid:    ourCommitOid,
-				OurMode:      int32(0o100644),
-				OurPath:      []byte("files/ruby/regex.rb"),
-				TheirPath:    []byte("files/ruby/regex.rb"),
-				AncestorPath: []byte("files/ruby/regex.rb"),
-			},
-		},
-	}
-
-	receivedFiles := getConflictFiles(t, c)
-	require.Len(t, receivedFiles, len(expectedFiles))
-
-	for i := 0; i < len(expectedFiles); i++ {
-		testhelper.ProtoEqual(t, receivedFiles[i].Header, expectedFiles[i].Header)
 	}
 }
 
