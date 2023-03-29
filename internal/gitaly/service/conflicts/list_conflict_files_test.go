@@ -4,6 +4,7 @@ package conflicts
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -140,6 +141,59 @@ func TestListConflictFiles(t *testing.T) {
 				}
 			},
 		},
+		{
+			"Lists the expected conflict files with huge diff",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("a\n", 128*1024)},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: strings.Repeat("b\n", 128*1024)},
+				))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("x\n", 128*1024)},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: strings.Repeat("y\n", 128*1024)},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:  client,
+					request: request,
+					expectedFiles: []*conflictFile{
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid: ourCommitID.String(),
+								TheirPath: []byte("a"),
+								OurPath:   []byte("a"),
+								OurMode:   int32(0o100644),
+							},
+							Content: []byte(fmt.Sprintf("<<<<<<< a\n%s=======\n%s>>>>>>> a\n",
+								strings.Repeat("a\n", 128*1024),
+								strings.Repeat("x\n", 128*1024),
+							)),
+						},
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid: ourCommitID.String(),
+								TheirPath: []byte("b"),
+								OurPath:   []byte("b"),
+								OurMode:   int32(0o100644),
+							},
+							Content: []byte(fmt.Sprintf("<<<<<<< b\n%s=======\n%s>>>>>>> b\n",
+								strings.Repeat("b\n", 128*1024),
+								strings.Repeat("y\n", 128*1024),
+							)),
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -153,45 +207,6 @@ func TestListConflictFiles(t *testing.T) {
 			testhelper.ProtoEqual(t, data.expectedFiles, getConflictFiles(t, c))
 		})
 	}
-}
-
-func TestListConflictFilesHugeDiff(t *testing.T) {
-	ctx := testhelper.Context(t)
-
-	cfg, repo, repoPath, client := setupConflictsService(t, ctx, nil)
-
-	ourCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("a\n", 128*1024)},
-		gittest.TreeEntry{Path: "b", Mode: "100644", Content: strings.Repeat("b\n", 128*1024)},
-	))
-	theirCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("x\n", 128*1024)},
-		gittest.TreeEntry{Path: "b", Mode: "100644", Content: strings.Repeat("y\n", 128*1024)},
-	))
-
-	request := &gitalypb.ListConflictFilesRequest{
-		Repository:     repo,
-		OurCommitOid:   ourCommitID.String(),
-		TheirCommitOid: theirCommitID.String(),
-	}
-
-	c, err := client.ListConflictFiles(ctx, request)
-	require.NoError(t, err)
-
-	receivedFiles := getConflictFiles(t, c)
-	testhelper.ProtoEqual(t, &gitalypb.ConflictFileHeader{
-		CommitOid: ourCommitID.String(),
-		OurMode:   int32(0o100644),
-		OurPath:   []byte("a"),
-		TheirPath: []byte("a"),
-	}, receivedFiles[0].Header)
-
-	testhelper.ProtoEqual(t, &gitalypb.ConflictFileHeader{
-		CommitOid: ourCommitID.String(),
-		OurMode:   int32(0o100644),
-		OurPath:   []byte("b"),
-		TheirPath: []byte("b"),
-	}, receivedFiles[1].Header)
 }
 
 func TestListConflictFilesFailedPrecondition(t *testing.T) {
