@@ -18,6 +18,8 @@ type ObjectInfo struct {
 	Oid  git.ObjectID
 	Type string
 	Size int64
+	// Format is the object format used by this object, e.g. "sha1" or "sha256".
+	Format string
 }
 
 // IsBlob returns true if object type is "blob"
@@ -87,9 +89,10 @@ restart:
 	}
 
 	return &ObjectInfo{
-		Oid:  oid,
-		Type: info[1],
-		Size: objectSize,
+		Oid:    oid,
+		Type:   info[1],
+		Size:   objectSize,
+		Format: objectHash.Format,
 	}, nil
 }
 

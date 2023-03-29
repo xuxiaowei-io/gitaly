@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"fmt"
 	"io"
 	pathPkg "path"
@@ -66,11 +65,11 @@ func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision,
 	return nil, nil
 }
 
-const (
-	oidSize = sha1.Size
-)
-
-func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPath, oid string) ([]*gitalypb.TreeEntry, error) {
+func extractEntryInfoFromTreeData(
+	objectHash git.ObjectHash,
+	treeData io.Reader,
+	commitOid, rootOid, rootPath, oid string,
+) ([]*gitalypb.TreeEntry, error) {
 	if len(oid) == 0 {
 		return nil, fmt.Errorf("empty tree oid")
 	}
@@ -79,6 +78,8 @@ func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPa
 
 	var entries []*gitalypb.TreeEntry
 	oidBuf := &bytes.Buffer{}
+
+	oidSize := int64(objectHash.Hash().Size())
 
 	for {
 		modeBytes, err := bufReader.ReadBytes(' ')
@@ -154,6 +155,11 @@ func TreeEntries(
 		return nil, err
 	}
 
+	objectHash, err := git.ObjectHashByFormat(treeObj.Format)
+	if err != nil {
+		return nil, fmt.Errorf("looking up object hash: %w", err)
+	}
+
 	// The tree entry may not refer to a subtree, but instead to a blob. Historically, we have
 	// simply ignored such objects altogether and didn't return an error, so we keep the same
 	// behaviour.
@@ -165,7 +171,7 @@ func TreeEntries(
 		return nil, nil
 	}
 
-	entries, err := extractEntryInfoFromTreeData(treeObj, revision, rootOid, path, treeObj.Oid.String())
+	entries, err := extractEntryInfoFromTreeData(objectHash, treeObj, revision, rootOid, path, treeObj.Oid.String())
 	if err != nil {
 		return nil, err
 	}

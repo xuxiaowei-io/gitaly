@@ -1,14 +1,14 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/bzip2"
+	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -18,410 +18,432 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"gitlab.com/gitlab-org/labkit/correlation"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-const (
-	secretToken = "topsecret"
-	lfsBody     = "hello world\n"
-)
-
-func TestGetArchive_success(t *testing.T) {
+func TestGetArchive(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
 
-	formats := []gitalypb.GetArchiveRequest_Format{
+	gitlabURL, cleanup := gitlab.NewTestServer(t, gitlab.TestServerOptions{
+		SecretToken: "gitlab-secret-token",
+		LfsBody:     "replaced LFS pointer contents",
+	})
+	t.Cleanup(cleanup)
+
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+		Gitlab: config.Gitlab{
+			URL:        gitlabURL,
+			SecretFile: gitlab.WriteShellSecretFile(t, testhelper.TempDir(t), "gitlab-secret-token"),
+		},
+	}))
+	testcfg.BuildGitalyLFSSmudge(t, cfg)
+
+	client, socketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = socketPath
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	gitattributesContent := "*.lfs filter=lfs diff=lfs merge=lfs -text"
+	lfsPointerContent := "version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
+		gittest.TreeEntry{Path: "pointer.lfs", Mode: "100644", Content: lfsPointerContent},
+		gittest.TreeEntry{Path: "LICENSE", Mode: "100644", Content: "license content"},
+		gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "readme content"},
+		gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{Path: "subfile", Mode: "100644", Content: "subfile content"},
+			{Path: "subsubdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				{Path: "subsubfile", Mode: "100644", Content: "subsubfile content"},
+			})},
+		})},
+	))
+
+	for _, format := range []gitalypb.GetArchiveRequest_Format{
 		gitalypb.GetArchiveRequest_ZIP,
 		gitalypb.GetArchiveRequest_TAR,
 		gitalypb.GetArchiveRequest_TAR_GZ,
 		gitalypb.GetArchiveRequest_TAR_BZ2,
-	}
+	} {
+		format := format
 
-	testCases := []struct {
-		desc      string
-		prefix    string
-		commitID  string
-		path      []byte
-		exclude   [][]byte
-		elidePath bool
-		contents  []string
-		excluded  []string
-	}{
-		{
-			desc:     "without-prefix",
-			commitID: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-			prefix:   "",
-			contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
-		},
-		{
-			desc:     "with-prefix",
-			commitID: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-			prefix:   "my-prefix",
-			contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
-		},
-		{
-			desc:     "with path as blank string",
-			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:   "",
-			path:     []byte(""),
-			contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
-		},
-		{
-			desc:     "with path as nil",
-			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:   "",
-			path:     nil,
-			contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
-		},
-		{
-			desc:     "with path",
-			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:   "",
-			path:     []byte("files"),
-			contents: []string{"/whitespace", "/html/500.html"},
-		},
-		{
-			desc:     "with path and trailing slash",
-			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:   "",
-			path:     []byte("files/"),
-			contents: []string{"/whitespace", "/html/500.html"},
-		},
-		{
-			desc:     "with exclusion",
-			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:   "",
-			exclude:  [][]byte{[]byte("files")},
-			contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
-			excluded: []string{"/files/whitespace", "/files/html/500.html"},
-		},
-		{
-			desc:      "with path elision",
-			commitID:  "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:    "my-prefix",
-			elidePath: true,
-			path:      []byte("files/"),
-			contents:  []string{"/whitespace", "/html/500.html"},
-		},
-		{
-			desc:      "with path elision and exclusion",
-			commitID:  "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:    "my-prefix",
-			elidePath: true,
-			path:      []byte("files/"),
-			exclude:   [][]byte{[]byte("files/images")},
-			contents:  []string{"/whitespace", "/html/500.html"},
-			excluded:  []string{"/images/emoji.png"},
-		},
-		{
-			desc:      "with path elision at root",
-			commitID:  "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:    "my-prefix",
-			elidePath: true,
-			contents:  []string{"/files/whitespace", "/files/html/500.html"},
-		},
-	}
+		t.Run(format.String(), func(t *testing.T) {
+			t.Parallel()
 
-	for _, tc := range testCases {
-		// Run test case with each format
-		for _, format := range formats {
-			testCaseName := fmt.Sprintf("%s-%s", tc.desc, format.String())
-			t.Run(testCaseName, func(t *testing.T) {
-				req := &gitalypb.GetArchiveRequest{
-					Repository: repo,
-					CommitId:   tc.commitID,
-					Prefix:     tc.prefix,
-					Format:     format,
-					Path:       tc.path,
-					Exclude:    tc.exclude,
-					ElidePath:  tc.elidePath,
-				}
-				stream, err := client.GetArchive(ctx, req)
-				require.NoError(t, err)
+			for _, tc := range []struct {
+				desc             string
+				request          *gitalypb.GetArchiveRequest
+				expectedErr      error
+				expectedContents map[string]string
+			}{
+				{
+					desc: "invalid storage",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "fake",
+							RelativePath: "path",
+						},
+						CommitId: commitID.String(),
+						Format:   gitalypb.GetArchiveRequest_ZIP,
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						`GetStorageByName: no such storage: "fake"`,
+						"repo scoped: invalid Repository",
+					)),
+				},
+				{
+					desc: "unset repository",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: nil,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
+				},
+				{
+					desc: "empty commit ID",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   "",
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid commitId: empty revision"),
+				},
+				{
+					desc: "invalid format",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_Format(-1),
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid format"),
+				},
+				{
+					desc: "non-existent path in commit",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+						Path:       []byte("unknown-path"),
+					},
+					expectedErr: structerr.NewFailedPrecondition("path doesn't exist"),
+				},
+				{
+					desc: "empty root tree",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+						Path:       []byte("."),
+					},
+					expectedErr: structerr.NewFailedPrecondition("path doesn't exist"),
+				},
+				{
+					desc: "nonexistent excluded path",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+						Exclude:    [][]byte{[]byte("files/")},
+					},
+					expectedErr: structerr.NewFailedPrecondition("exclude[0] doesn't exist"),
+				},
+				{
+					desc: "path contains directory traversal outside repository root",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+						Path:       []byte("../../foo"),
+					},
+					expectedErr: structerr.NewInvalidArgument("relative path escapes root directory"),
+				},
+				{
+					desc: "repo with missing relative path",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: &gitalypb.Repository{
+							StorageName: repo.GetStorageName(),
+						},
+						Prefix:   "qwert",
+						CommitId: commitID.String(),
+						Format:   gitalypb.GetArchiveRequest_TAR,
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty RelativePath",
+						"repo scoped: invalid Repository",
+					)),
+				},
+				{
+					desc: "with path is file and path elision",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Prefix:     "my-prefix",
+						ElidePath:  true,
+						Path:       []byte("subdir/subsubdir/subsubfile"),
+						Exclude:    [][]byte{[]byte("subdir/subsubdir")},
+					},
+					expectedErr: structerr.NewInvalidArgument(`invalid exclude: "subdir/subsubdir" is not a subdirectory of "subdir/subsubdir/subsubfile"`),
+				},
+				{
+					desc: "without-prefix",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+					},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/.gitattributes":              gitattributesContent,
+						"/pointer.lfs":                 lfsPointerContent,
+						"/LICENSE":                     "license content",
+						"/README.md":                   "readme content",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with-prefix",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "my-prefix",
+					},
+					expectedContents: map[string]string{
+						"my-prefix/":                            "",
+						"my-prefix/.gitattributes":              gitattributesContent,
+						"my-prefix/pointer.lfs":                 lfsPointerContent,
+						"my-prefix/LICENSE":                     "license content",
+						"my-prefix/README.md":                   "readme content",
+						"my-prefix/subdir/":                     "",
+						"my-prefix/subdir/subfile":              "subfile content",
+						"my-prefix/subdir/subsubdir/":           "",
+						"my-prefix/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with path as blank string",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "",
+						Path:       []byte(""),
+					},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/.gitattributes":              gitattributesContent,
+						"/pointer.lfs":                 lfsPointerContent,
+						"/LICENSE":                     "license content",
+						"/README.md":                   "readme content",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with path as nil",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "",
+						Path:       nil,
+					},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/.gitattributes":              gitattributesContent,
+						"/pointer.lfs":                 lfsPointerContent,
+						"/LICENSE":                     "license content",
+						"/README.md":                   "readme content",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with path",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "",
+						Path:       []byte("subdir"),
+					},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with path and trailing slash",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "",
+						Path:       []byte("subdir/"),
+					},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with exclusion",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "",
+						Exclude:    [][]byte{[]byte("subdir")},
+					},
+					expectedContents: map[string]string{
+						"/":               "",
+						"/.gitattributes": gitattributesContent,
+						"/pointer.lfs":    lfsPointerContent,
+						"/LICENSE":        "license content",
+						"/README.md":      "readme content",
+					},
+				},
+				{
+					desc: "with path elision",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "my-prefix",
+						ElidePath:  true,
+						Path:       []byte("subdir/"),
+					},
+					expectedContents: map[string]string{
+						"my-prefix/":                     "",
+						"my-prefix/subfile":              "subfile content",
+						"my-prefix/subsubdir/":           "",
+						"my-prefix/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with path elision and exclusion",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "my-prefix",
+						ElidePath:  true,
+						Path:       []byte("subdir/"),
+						Exclude:    [][]byte{[]byte("subdir/subsubdir")},
+					},
+					expectedContents: map[string]string{
+						"my-prefix/":        "",
+						"my-prefix/subfile": "subfile content",
+					},
+				},
+				{
+					desc: "with path elision at root",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   commitID.String(),
+						Prefix:     "my-prefix",
+						ElidePath:  true,
+					},
+					expectedContents: map[string]string{
+						"my-prefix/":                            "",
+						"my-prefix/.gitattributes":              gitattributesContent,
+						"my-prefix/pointer.lfs":                 lfsPointerContent,
+						"my-prefix/LICENSE":                     "license content",
+						"my-prefix/README.md":                   "readme content",
+						"my-prefix/subdir/":                     "",
+						"my-prefix/subdir/subfile":              "subfile content",
+						"my-prefix/subdir/subsubdir/":           "",
+						"my-prefix/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "without prefix and with LFS blobs",
+					request: &gitalypb.GetArchiveRequest{
+						Repository:      repo,
+						Format:          format,
+						CommitId:        commitID.String(),
+						Prefix:          "",
+						IncludeLfsBlobs: true,
+					},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/.gitattributes":              gitattributesContent,
+						"/pointer.lfs":                 "replaced LFS pointer contents",
+						"/LICENSE":                     "license content",
+						"/README.md":                   "readme content",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with prefix and with LFS blobs",
+					request: &gitalypb.GetArchiveRequest{
+						Repository:      repo,
+						Format:          format,
+						CommitId:        commitID.String(),
+						Prefix:          "my-prefix",
+						IncludeLfsBlobs: true,
+					},
+					expectedContents: map[string]string{
+						"my-prefix/":                            "",
+						"my-prefix/.gitattributes":              gitattributesContent,
+						"my-prefix/pointer.lfs":                 "replaced LFS pointer contents",
+						"my-prefix/LICENSE":                     "license content",
+						"my-prefix/README.md":                   "readme content",
+						"my-prefix/subdir/":                     "",
+						"my-prefix/subdir/subfile":              "subfile content",
+						"my-prefix/subdir/subsubdir/":           "",
+						"my-prefix/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+			} {
+				tc := tc
 
-				data, err := consumeArchive(stream)
-				require.NoError(t, err)
+				t.Run(tc.desc, func(t *testing.T) {
+					t.Parallel()
 
-				contents := compressedFileContents(t, format, data)
+					stream, err := client.GetArchive(ctx, tc.request)
+					require.NoError(t, err)
 
-				for _, content := range tc.contents {
-					require.Contains(t, contents, tc.prefix+content)
-				}
-
-				for _, excluded := range tc.excluded {
-					require.NotContains(t, contents, tc.prefix+excluded)
-				}
-			})
-		}
-	}
-}
-
-func TestGetArchive_includeLfsBlobs(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	defaultOptions := gitlab.TestServerOptions{
-		SecretToken: secretToken,
-		LfsBody:     lfsBody,
-	}
-
-	url, cleanup := gitlab.NewTestServer(t, defaultOptions)
-	t.Cleanup(cleanup)
-
-	shellDir := testhelper.TempDir(t)
-
-	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
-		GitlabShell: config.GitlabShell{Dir: shellDir},
-		Gitlab: config.Gitlab{
-			URL:        url,
-			SecretFile: gitlab.WriteShellSecretFile(t, shellDir, defaultOptions.SecretToken),
-		},
-	}))
-
-	client, serverSocketPath := runRepositoryService(t, cfg, nil)
-	cfg.SocketPath = serverSocketPath
-
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	testcfg.BuildGitalyLFSSmudge(t, cfg)
-
-	// lfs-moar branch SHA
-	sha := "46abbb087fcc0fd02c340f0f2f052bd2c7708da3"
-
-	testCases := []struct {
-		desc            string
-		prefix          string
-		path            []byte
-		includeLfsBlobs bool
-	}{
-		{
-			desc:            "without prefix and with LFS blobs",
-			prefix:          "",
-			includeLfsBlobs: true,
-		},
-		{
-			desc:            "without prefix and without LFS blobs",
-			prefix:          "",
-			includeLfsBlobs: false,
-		},
-		{
-			desc:            "with prefix and with LFS blobs",
-			prefix:          "my-prefix",
-			includeLfsBlobs: true,
-		},
-		{
-			desc:            "with prefix and without LFS blobs",
-			prefix:          "my-prefix",
-			includeLfsBlobs: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			req := &gitalypb.GetArchiveRequest{
-				Repository:      repo,
-				CommitId:        sha,
-				Prefix:          tc.prefix,
-				Format:          gitalypb.GetArchiveRequest_ZIP,
-				Path:            tc.path,
-				IncludeLfsBlobs: tc.includeLfsBlobs,
-			}
-			stream, err := client.GetArchive(ctx, req)
-			require.NoError(t, err)
-
-			data, err := consumeArchive(stream)
-			require.NoError(t, err)
-			reader := bytes.NewReader(data)
-
-			zipReader, err := zip.NewReader(reader, int64(reader.Len()))
-			require.NoError(t, err)
-
-			lfsFiles := []string{"/30170.lfs", "/another.lfs"}
-			for _, lfsFile := range lfsFiles {
-				found := false
-				for _, f := range zipReader.File {
-					if f.Name != tc.prefix+lfsFile {
-						continue
+					data, err := consumeArchive(stream)
+					testhelper.RequireGrpcError(t, tc.expectedErr, err)
+					if err != nil {
+						require.Empty(t, data)
+						return
 					}
 
-					found = true
-
-					fc, err := f.Open()
-					require.NoError(t, err)
-					defer fc.Close()
-
-					data, err := io.ReadAll(fc)
-					require.NoError(t, err)
-
-					if tc.includeLfsBlobs {
-						require.Equal(t, lfsBody, string(data))
-					} else {
-						require.Contains(t, string(data), "oid sha256:")
-					}
-				}
-
-				require.True(t, found, "expected to find LFS file")
+					require.Equal(t, tc.expectedContents, compressedFileContents(t, format, data))
+				})
 			}
-		})
-	}
-}
-
-func TestGetArchive_inputValidation(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
-
-	testCases := []struct {
-		desc        string
-		repo        *gitalypb.Repository
-		prefix      string
-		commitID    string
-		format      gitalypb.GetArchiveRequest_Format
-		path        []byte
-		exclude     [][]byte
-		elidePath   bool
-		expectedErr error
-	}{
-		{
-			desc:     "Repository doesn't exist",
-			repo:     &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
-			prefix:   "",
-			commitID: commitID,
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc:     "Repository is nil",
-			repo:     nil,
-			prefix:   "",
-			commitID: commitID,
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc:        "CommitId is empty",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "",
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			expectedErr: status.Error(codes.InvalidArgument, "invalid commitId: empty revision"),
-		},
-		{
-			desc:        "Format is invalid",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "stub",
-			format:      gitalypb.GetArchiveRequest_Format(-1),
-			expectedErr: status.Error(codes.InvalidArgument, "invalid format"),
-		},
-		{
-			desc:        "Non-existing path in repository",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			path:        []byte("unknown-path"),
-			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
-		},
-		{
-			desc:        "Root tree is empty",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "7efb185dd22fd5c51ef044795d62b7847900c341",
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			path:        []byte("."),
-			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
-		},
-		{
-			desc:        "Non-existing path in repository on commit ID",
-			repo:        repo,
-			prefix:      "",
-			commitID:    commitID,
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			path:        []byte("files/"),
-			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
-		},
-		{
-			desc:        "Non-existing exclude path in repository on commit ID",
-			repo:        repo,
-			prefix:      "",
-			commitID:    commitID,
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			exclude:     [][]byte{[]byte("files/")},
-			expectedErr: status.Error(codes.FailedPrecondition, "exclude[0] doesn't exist"),
-		},
-		{
-			desc:        "path contains directory traversal outside repository root",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			path:        []byte("../../foo"),
-			expectedErr: status.Error(codes.InvalidArgument, "relative path escapes root directory"),
-		},
-		{
-			desc:     "repo missing fields",
-			repo:     &gitalypb.Repository{StorageName: repo.GetStorageName()},
-			prefix:   "qwert",
-			commitID: "sadf",
-			format:   gitalypb.GetArchiveRequest_TAR,
-			path:     []byte("Here is a string...."),
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty RelativePath",
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc:        "with path is file and path elision",
-			repo:        repo,
-			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:      "my-prefix",
-			elidePath:   true,
-			path:        []byte("files/html/500.html"),
-			exclude:     [][]byte{[]byte("files/html")},
-			expectedErr: status.Error(codes.InvalidArgument, `invalid exclude: "files/html" is not a subdirectory of "files/html/500.html"`),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			req := &gitalypb.GetArchiveRequest{
-				Repository: tc.repo,
-				CommitId:   tc.commitID,
-				Prefix:     tc.prefix,
-				Format:     tc.format,
-				Path:       tc.path,
-				Exclude:    tc.exclude,
-				ElidePath:  tc.elidePath,
-			}
-			stream, err := client.GetArchive(ctx, req)
-			require.NoError(t, err)
-
-			_, err = consumeArchive(stream)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
@@ -430,7 +452,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	// It used to be possible to inject options into `git-archive(1)`, with the worst outcome
 	// being that an adversary may create or overwrite arbitrary files in the filesystem in case
@@ -443,6 +465,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	// a path and does not interpret it as an option.
 	outputPath := "/non/existent"
 
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "--output=", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 			{Path: "non", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
@@ -467,22 +490,17 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoFileExists(t, outputPath)
-	require.Equal(t,
-		strings.Join([]string{
-			"/",
-			"/--output=/",
-			"/--output=/non/",
-			"/--output=/non/existent/",
-			"/--output=/non/existent/injected file",
-		}, "\n"),
-		compressedFileContents(t, gitalypb.GetArchiveRequest_TAR, content),
-	)
+	require.Equal(t, map[string]string{
+		"/":                                     "",
+		"/--output=/":                           "",
+		"/--output=/non/":                       "",
+		"/--output=/non/existent/":              "",
+		"/--output=/non/existent/injected file": "injected content",
+	}, compressedFileContents(t, gitalypb.GetArchiveRequest_TAR, content))
 }
 
 func TestGetArchive_environment(t *testing.T) {
 	t.Parallel()
-
-	testhelper.SkipWithPraefect(t, "It's not possible to create repositories through the API with the git command overwritten by the script.")
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
@@ -503,11 +521,10 @@ func TestGetArchive_environment(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "some file", Mode: "100644", Content: "some content"},
+	))
 
 	correlationID := correlation.SafeRandomID()
 	ctx = correlation.ContextWithCorrelation(ctx, correlationID)
@@ -547,7 +564,7 @@ func TestGetArchive_environment(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			stream, err := client.GetArchive(ctx, &gitalypb.GetArchiveRequest{
 				Repository:      repo,
-				CommitId:        commitID,
+				CommitId:        commitID.String(),
 				IncludeLfsBlobs: tc.includeLFSBlobs,
 			})
 			require.NoError(t, err)
@@ -559,23 +576,66 @@ func TestGetArchive_environment(t *testing.T) {
 	}
 }
 
-func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, contents []byte) string {
-	path := filepath.Join(testhelper.TempDir(t), "archive")
-	require.NoError(t, os.WriteFile(path, contents, perm.SharedFile))
-
+func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, contents []byte) map[string]string {
 	switch format {
-	case gitalypb.GetArchiveRequest_TAR:
-		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "tf", path))
 	case gitalypb.GetArchiveRequest_TAR_GZ:
-		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "ztf", path))
+		reader, err := gzip.NewReader(bytes.NewReader(contents))
+		require.NoError(t, err)
+
+		contents, err = io.ReadAll(reader)
+		require.NoError(t, err)
 	case gitalypb.GetArchiveRequest_TAR_BZ2:
-		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "jtf", path))
+		reader := bzip2.NewReader(bytes.NewReader(contents))
+
+		var err error
+		contents, err = io.ReadAll(reader)
+		require.NoError(t, err)
+	}
+
+	reader := bytes.NewReader(contents)
+
+	contentByName := map[string]string{}
+	switch format {
+	case gitalypb.GetArchiveRequest_TAR, gitalypb.GetArchiveRequest_TAR_GZ, gitalypb.GetArchiveRequest_TAR_BZ2:
+		tarReader := tar.NewReader(reader)
+
+		for {
+			header, err := tarReader.Next()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			require.NoError(t, err)
+
+			if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeDir {
+				continue
+			}
+
+			content, err := io.ReadAll(tarReader)
+			require.NoError(t, err)
+
+			contentByName[header.Name] = string(content)
+		}
 	case gitalypb.GetArchiveRequest_ZIP:
-		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "unzip", "-l", path))
+		zipReader, err := zip.NewReader(reader, int64(len(contents)))
+		require.NoError(t, err)
+
+		for _, file := range zipReader.File {
+			reader, err := file.Open()
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, reader)
+
+			content, err := io.ReadAll(reader)
+			require.NoError(t, err)
+
+			contentByName[file.Name] = string(content)
+
+			require.NoError(t, reader.Close())
+		}
 	default:
 		require.FailNow(t, "unsupported archive format: %v", format)
-		return ""
 	}
+
+	return contentByName
 }
 
 func consumeArchive(stream gitalypb.RepositoryService_GetArchiveClient) ([]byte, error) {

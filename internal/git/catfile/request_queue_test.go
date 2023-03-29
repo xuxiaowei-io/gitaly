@@ -126,9 +126,10 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		object, err := queue.ReadObject(ctx)
 		require.NoError(t, err)
 		require.Equal(t, ObjectInfo{
-			Oid:  oid,
-			Type: "blob",
-			Size: 10,
+			Oid:    oid,
+			Type:   "blob",
+			Size:   10,
+			Format: gittest.DefaultObjectHash.Format,
 		}, object.ObjectInfo)
 
 		data, err := io.ReadAll(object)
@@ -158,17 +159,19 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		}{
 			{
 				info: ObjectInfo{
-					Oid:  oid,
-					Type: "blob",
-					Size: 10,
+					Oid:    oid,
+					Type:   "blob",
+					Size:   10,
+					Format: gittest.DefaultObjectHash.Format,
 				},
 				data: "1234567890",
 			},
 			{
 				info: ObjectInfo{
-					Oid:  secondOID,
-					Type: "commit",
-					Size: 10,
+					Oid:    secondOID,
+					Type:   "commit",
+					Size:   10,
+					Format: gittest.DefaultObjectHash.Format,
 				},
 				data: "0987654321",
 			},
@@ -199,9 +202,10 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		object, err := queue.ReadObject(ctx)
 		require.NoError(t, err)
 		require.Equal(t, ObjectInfo{
-			Oid:  oid,
-			Type: "blob",
-			Size: 10,
+			Oid:    oid,
+			Type:   "blob",
+			Size:   10,
+			Format: gittest.DefaultObjectHash.Format,
 		}, object.ObjectInfo)
 
 		// The first read will succeed and return the prefix.
@@ -321,7 +325,7 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
-	expectedInfo := &ObjectInfo{oid, "blob", 955}
+	expectedInfo := &ObjectInfo{oid, "blob", 955, gittest.DefaultObjectHash.Format}
 
 	requireRevision := func(t *testing.T, queue *requestQueue) {
 		info, err := queue.ReadInfo(ctx)

@@ -33,9 +33,10 @@ func TestParseObjectInfo_success(t *testing.T) {
 			desc:  "existing object",
 			input: fmt.Sprintf("%s commit 222\n", gittest.DefaultObjectHash.EmptyTreeOID),
 			expectedObjectInfo: &ObjectInfo{
-				Oid:  gittest.DefaultObjectHash.EmptyTreeOID,
-				Type: "commit",
-				Size: 222,
+				Oid:    gittest.DefaultObjectHash.EmptyTreeOID,
+				Type:   "commit",
+				Size:   222,
+				Format: gittest.DefaultObjectHash.Format,
 			},
 		},
 		{
@@ -136,9 +137,10 @@ func TestObjectInfoReader(t *testing.T) {
 		objectContents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", objectType, revision)
 
 		oiByRevision[revision] = &ObjectInfo{
-			Oid:  objectID,
-			Type: objectType,
-			Size: int64(len(objectContents)),
+			Oid:    objectID,
+			Type:   objectType,
+			Size:   int64(len(objectContents)),
+			Format: gittest.DefaultObjectHash.Format,
 		}
 	}
 
@@ -218,9 +220,10 @@ func TestObjectInfoReader_queue(t *testing.T) {
 
 	blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	blobInfo := ObjectInfo{
-		Oid:  blobOID,
-		Type: "blob",
-		Size: int64(len("foobar")),
+		Oid:    blobOID,
+		Type:   "blob",
+		Size:   int64(len("foobar")),
+		Format: gittest.DefaultObjectHash.Format,
 	}
 
 	commitOID := gittest.WriteCommit(t, cfg, repoPath)
@@ -233,6 +236,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 			}
 			return 177
 		}(),
+		Format: gittest.DefaultObjectHash.Format,
 	}
 
 	t.Run("reader is dirty with acquired queue", func(t *testing.T) {
