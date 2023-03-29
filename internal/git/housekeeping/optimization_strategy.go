@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // OptimizationStrategy is an interface to determine which parts of a repository should be
@@ -107,7 +106,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		// Alternatively, we could enable writing cruft packs, but never expire the objects.
 		// This is left for another iteration though once we have determined that this is
 		// even necessary.
-		if featureflag.WriteCruftPacks.IsEnabled(ctx) && !s.info.IsObjectPool {
+		if !s.info.IsObjectPool {
 			cfg.Strategy = RepackObjectsStrategyFullWithCruft
 			cfg.CruftExpireBefore = s.expireBefore
 		}
@@ -280,7 +279,7 @@ func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (boo
 
 	// Object pools should neither have unreachable objects, nor should we ever try to delete
 	// any if there are some. So we disable cruft packs and expiration of them for them.
-	if featureflag.WriteCruftPacks.IsEnabled(ctx) && !s.info.IsObjectPool {
+	if !s.info.IsObjectPool {
 		cfg.Strategy = RepackObjectsStrategyFullWithCruft
 		cfg.CruftExpireBefore = s.expireBefore
 	}
