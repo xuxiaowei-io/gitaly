@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -31,6 +32,7 @@ func TestListConflictFiles(t *testing.T) {
 		request       *gitalypb.ListConflictFilesRequest
 		client        gitalypb.ConflictsServiceClient
 		expectedFiles []*conflictFile
+		expectedError error
 	}
 
 	for _, tc := range []struct {
@@ -194,6 +196,114 @@ func TestListConflictFiles(t *testing.T) {
 				}
 			},
 		},
+		{
+			"invalid commit id on 'our' side",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "peach"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   "foobar",
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:        client,
+					request:       request,
+					expectedError: structerr.NewFailedPrecondition("could not lookup 'our' OID: reference not found"),
+				}
+			},
+		},
+		{
+			"invalid commit id on 'their' side",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "peach"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: "foobar",
+				}
+
+				return setupData{
+					client:        client,
+					request:       request,
+					expectedError: structerr.NewFailedPrecondition("could not lookup 'their' OID: reference not found"),
+				}
+			},
+		},
+		{
+			"conflict side missing",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				commonCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "apple"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "banana"},
+				))
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(commonCommitID),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+					),
+				)
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(commonCommitID),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "b", Mode: "100644", Content: "peach"},
+					),
+				)
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:        client,
+					request:       request,
+					expectedError: structerr.NewFailedPrecondition("conflict side missing"),
+				}
+			},
+		},
+		{
+			"encoding error",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a\xc5z"},
+				))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "ascii normal"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:        client,
+					request:       request,
+					expectedError: structerr.NewFailedPrecondition("unsupported encoding"),
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -202,66 +312,14 @@ func TestListConflictFiles(t *testing.T) {
 
 			data := tc.setup(t, ctx)
 			c, err := data.client.ListConflictFiles(ctx, data.request)
-			require.NoError(t, err)
-
-			testhelper.ProtoEqual(t, data.expectedFiles, getConflictFiles(t, c))
-		})
-	}
-}
-
-func TestListConflictFilesFailedPrecondition(t *testing.T) {
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setupConflictsService(t, ctx, nil)
-
-	testCases := []struct {
-		desc           string
-		ourCommitOid   string
-		theirCommitOid string
-	}{
-		{
-			desc:           "conflict side missing",
-			ourCommitOid:   "eb227b3e214624708c474bdab7bde7afc17cefcc",
-			theirCommitOid: "824be604a34828eb682305f0d963056cfac87b2d",
-		},
-		{
-			// These commits have a conflict on the 'VERSION' file in the test repo.
-			// The conflict is expected to raise an encoding error.
-			desc:           "encoding error",
-			ourCommitOid:   "bd493d44ae3c4dd84ce89cb75be78c4708cbd548",
-			theirCommitOid: "7df99c9ad5b8c9bfc5ae4fb7a91cc87adcce02ef",
-		},
-		{
-			desc:           "submodule object lookup error",
-			ourCommitOid:   "de78448b0b504f3f60093727bddfda1ceee42345",
-			theirCommitOid: "2f61d70f862c6a4f782ef7933e020a118282db29",
-		},
-		{
-			desc:           "invalid commit id on 'our' side",
-			ourCommitOid:   "abcdef0000000000000000000000000000000000",
-			theirCommitOid: "1a35b5a77cf6af7edf6703f88e82f6aff613666f",
-		},
-		{
-			desc:           "invalid commit id on 'their' side",
-			ourCommitOid:   "1a35b5a77cf6af7edf6703f88e82f6aff613666f",
-			theirCommitOid: "abcdef0000000000000000000000000000000000",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			request := &gitalypb.ListConflictFilesRequest{
-				Repository:     repo,
-				OurCommitOid:   tc.ourCommitOid,
-				TheirCommitOid: tc.theirCommitOid,
-			}
-
-			c, err := client.ListConflictFiles(ctx, request)
-			if err == nil {
+			if data.expectedError != nil && err == nil {
 				err = drainListConflictFilesResponse(c)
 			}
+			testhelper.RequireGrpcError(t, data.expectedError, err)
 
-			testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
+			if data.expectedError == nil {
+				testhelper.ProtoEqual(t, data.expectedFiles, getConflictFiles(t, c))
+			}
 		})
 	}
 }
