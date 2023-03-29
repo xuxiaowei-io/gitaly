@@ -3,7 +3,6 @@
 package repository
 
 import (
-	"context"
 	"math/rand"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -27,18 +25,10 @@ import (
 // repository, even in optimally packed state, is greater than this.
 const testRepoMinSizeKB = 10000
 
-func TestRepositorySize_SuccessfulRequest(t *testing.T) {
+func TestSuccessfulRepositorySizeRequestPoolMember(t *testing.T) {
 	t.Parallel()
 
-	featureSet := testhelper.NewFeatureSets(featureflag.RepositorySizeViaWalk)
-
-	featureSet.Run(t, testSuccessfulRepositorySizeRequest)
-	featureSet.Run(t, testSuccessfulRepositorySizeRequestPoolMember)
-}
-
-func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	repoClient, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
@@ -89,9 +79,10 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 	assert.Less(t, response.GetSize(), sizeBeforePool)
 }
 
-func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
+func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repo}
@@ -156,65 +147,40 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 }
 
 func BenchmarkRepositorySize(b *testing.B) {
+	ctx := testhelper.Context(b)
 	cfg, client := setupRepositoryServiceWithoutRepo(b)
 
-	for _, implementationTC := range []struct {
-		desc         string
-		setupContext func(b *testing.B) context.Context
+	for _, tc := range []struct {
+		desc  string
+		setup func(b *testing.B) *gitalypb.Repository
 	}{
 		{
-			desc: "disk-usage with du",
-			setupContext: func(b *testing.B) context.Context {
-				ctx := testhelper.Context(b)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
-				return ctx
+			desc: "empty repository",
+			setup: func(b *testing.B) *gitalypb.Repository {
+				repo, _ := gittest.CreateRepository(b, ctx, cfg)
+				return repo
 			},
 		},
 		{
-			desc: "disk-usage with walk",
-			setupContext: func(b *testing.B) context.Context {
-				ctx := testhelper.Context(b)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, true)
-				return ctx
+			desc: "benchmark repository",
+			setup: func(b *testing.B) *gitalypb.Repository {
+				repo, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+					Seed: "benchmark.git",
+				})
+				return repo
 			},
 		},
 	} {
-		b.Run(implementationTC.desc, func(b *testing.B) {
-			ctx := implementationTC.setupContext(b)
+		b.Run(tc.desc, func(b *testing.B) {
+			repo := tc.setup(b)
 
-			for _, tc := range []struct {
-				desc  string
-				setup func(b *testing.B) *gitalypb.Repository
-			}{
-				{
-					desc: "empty repository",
-					setup: func(b *testing.B) *gitalypb.Repository {
-						repo, _ := gittest.CreateRepository(b, ctx, cfg)
-						return repo
-					},
-				},
-				{
-					desc: "benchmark repository",
-					setup: func(b *testing.B) *gitalypb.Repository {
-						repo, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
-							Seed: "benchmark.git",
-						})
-						return repo
-					},
-				},
-			} {
-				b.Run(tc.desc, func(b *testing.B) {
-					repo := tc.setup(b)
+			b.StartTimer()
 
-					b.StartTimer()
-
-					for i := 0; i < b.N; i++ {
-						_, err := client.RepositorySize(ctx, &gitalypb.RepositorySizeRequest{
-							Repository: repo,
-						})
-						require.NoError(b, err)
-					}
+			for i := 0; i < b.N; i++ {
+				_, err := client.RepositorySize(ctx, &gitalypb.RepositorySizeRequest{
+					Repository: repo,
 				})
+				require.NoError(b, err)
 			}
 		})
 	}
@@ -222,10 +188,8 @@ func BenchmarkRepositorySize(b *testing.B) {
 
 func TestRepositorySize_SuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RepositorySizeViaWalk).Run(t, testSuccessfulGetObjectDirectorySizeRequest)
-}
 
-func testSuccessfulGetObjectDirectorySizeRequest(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRepositoryService(t, ctx)
 	repo.GitObjectDirectory = "objects/"
 
@@ -241,10 +205,8 @@ func testSuccessfulGetObjectDirectorySizeRequest(t *testing.T, ctx context.Conte
 
 func TestRepositorySize_GetObjectDirectorySize_quarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RepositorySizeViaWalk).Run(t, testGetObjectDirectorySizeQuarantine)
-}
 
-func testGetObjectDirectorySizeQuarantine(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	locator := config.NewLocator(cfg)
 

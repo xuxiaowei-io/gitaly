@@ -1,20 +1,14 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -33,19 +27,12 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 		return nil, err
 	}
 
-	var sizeKiB int64
-	if featureflag.RepositorySizeViaWalk.IsEnabled(ctx) {
-		sizeBytes, err := dirSizeInBytes(path)
-		if err != nil {
-			return nil, fmt.Errorf("calculating directory size: %w", err)
-		}
-
-		sizeKiB = sizeBytes / 1024
-	} else {
-		sizeKiB = getPathSize(ctx, path)
+	sizeInBytes, err := dirSizeInBytes(path)
+	if err != nil {
+		return nil, fmt.Errorf("calculating directory size: %w", err)
 	}
 
-	return &gitalypb.RepositorySizeResponse{Size: sizeKiB}, nil
+	return &gitalypb.RepositorySizeResponse{Size: sizeInBytes / 1024}, nil
 }
 
 func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObjectDirectorySizeRequest) (*gitalypb.GetObjectDirectorySizeResponse, error) {
@@ -60,52 +47,12 @@ func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObj
 		return nil, err
 	}
 
-	var sizeKiB int64
-	if featureflag.RepositorySizeViaWalk.IsEnabled(ctx) {
-		sizeBytes, err := dirSizeInBytes(path)
-		if err != nil {
-			return nil, fmt.Errorf("calculating directory size: %w", err)
-		}
-
-		sizeKiB = sizeBytes / 1024
-	} else {
-		sizeKiB = getPathSize(ctx, path)
-	}
-
-	return &gitalypb.GetObjectDirectorySizeResponse{Size: sizeKiB}, nil
-}
-
-func getPathSize(ctx context.Context, path string) int64 {
-	cmd, err := command.New(ctx, []string{"du", "-sk", path})
+	sizeInBytes, err := dirSizeInBytes(path)
 	if err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Warn("ignoring du command error")
-		return 0
+		return nil, fmt.Errorf("calculating directory size: %w", err)
 	}
 
-	sizeLine, err := io.ReadAll(cmd)
-	if err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Warn("ignoring command read error")
-		return 0
-	}
-
-	if err := cmd.Wait(); err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Warn("ignoring du wait error")
-		return 0
-	}
-
-	sizeParts := bytes.Split(sizeLine, []byte("\t"))
-	if len(sizeParts) != 2 {
-		ctxlogrus.Extract(ctx).Warn(fmt.Sprintf("ignoring du malformed output: %q", sizeLine))
-		return 0
-	}
-
-	size, err := strconv.ParseInt(string(sizeParts[0]), 10, 0)
-	if err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Warn("ignoring parsing size error")
-		return 0
-	}
-
-	return size
+	return &gitalypb.GetObjectDirectorySizeResponse{Size: sizeInBytes / 1024}, nil
 }
 
 func dirSizeInBytes(path string) (int64, error) {
