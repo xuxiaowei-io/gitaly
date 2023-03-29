@@ -8,17 +8,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testHeuristicalOptimizationStrategyShouldRepackObjects)
-}
 
-func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc           string
@@ -209,7 +205,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					// the boundary of having to repack.
 					strategy.info.Packfiles.Count++
 
-					if featureflag.WriteCruftPacks.IsDisabled(ctx) || tc.isPool {
+					if tc.isPool {
 						expireBefore = time.Time{}
 					}
 
@@ -217,7 +213,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					require.True(t, repackNeeded)
 					require.Equal(t, RepackObjectsConfig{
 						Strategy: func() RepackObjectsStrategy {
-							if featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.isPool {
+							if !tc.isPool {
 								return RepackObjectsStrategyFullWithCruft
 							}
 							return RepackObjectsStrategyFullWithLooseUnreachable
@@ -447,11 +443,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testHeuristicalOptimizationStrategyNeedsWriteCommitGraph)
-}
-
-func testHeuristicalOptimizationStrategyNeedsWriteCommitGraph(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc           string
@@ -616,7 +608,7 @@ func testHeuristicalOptimizationStrategyNeedsWriteCommitGraph(t *testing.T, ctx 
 			// a stale commit-graph. We thus need to replace the whole chain.
 			expectedNeeded: true,
 			expectedCfg: WriteCommitGraphConfig{
-				ReplaceChain: featureflag.WriteCruftPacks.IsEnabled(ctx),
+				ReplaceChain: true,
 			},
 		},
 	} {
@@ -630,12 +622,8 @@ func testHeuristicalOptimizationStrategyNeedsWriteCommitGraph(t *testing.T, ctx 
 
 func TestEagerOptimizationStrategy(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testEagerOptimizationStrategy)
-}
 
-func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	expireBefore := time.Now()
 
 	for _, tc := range []struct {
@@ -696,7 +684,7 @@ func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			var expectedExpireBefore time.Time
-			if featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.strategy.info.IsObjectPool {
+			if !tc.strategy.info.IsObjectPool {
 				expectedExpireBefore = expireBefore
 			}
 
@@ -704,7 +692,7 @@ func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
 			require.True(t, shouldRepackObjects)
 			require.Equal(t, RepackObjectsConfig{
 				Strategy: func() RepackObjectsStrategy {
-					if featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.strategy.info.IsObjectPool {
+					if !tc.strategy.info.IsObjectPool {
 						return RepackObjectsStrategyFullWithCruft
 					}
 					return RepackObjectsStrategyFullWithLooseUnreachable

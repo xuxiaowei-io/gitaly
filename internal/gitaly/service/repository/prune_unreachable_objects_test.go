@@ -3,7 +3,6 @@
 package repository
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,12 +20,8 @@ import (
 
 func TestPruneUnreachableObjects(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testPruneUnreachableObjects)
-}
 
-func testPruneUnreachableObjects(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	setObjectTime := func(t *testing.T, repoPath string, objectID git.ObjectID, when time.Time) {
@@ -236,11 +230,7 @@ func testPruneUnreachableObjects(t *testing.T, ctx context.Context) {
 
 		// The reachable commit should exist, but the unreachable one shouldn't.
 		gittest.RequireObjectExists(t, cfg, repoPath, reachableCommitID)
-		if featureflag.WriteCruftPacks.IsEnabled(ctx) {
-			gittest.RequireObjectNotExists(t, cfg, repoPath, unreachableCommitID)
-		} else {
-			gittest.RequireObjectExists(t, cfg, repoPath, unreachableCommitID)
-		}
+		gittest.RequireObjectNotExists(t, cfg, repoPath, unreachableCommitID)
 	})
 
 	t.Run("object pool", func(t *testing.T) {
