@@ -9,6 +9,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 )
 
+// NewTracingExporter initializes TracingExporter, which is a hook to convert Trace2 events to
+// corresponding distributed tracing
+func NewTracingExporter() *TracingExporter {
+	return &TracingExporter{}
+}
+
 // TracingExporter is a trace2 hook that converts the trace2 tree to corresponding distributed
 // tracing's spans. These spans are then collected if the process initializes labkit's tracing
 // utility.
