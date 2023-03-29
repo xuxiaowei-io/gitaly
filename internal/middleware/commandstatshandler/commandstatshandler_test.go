@@ -6,7 +6,6 @@ import (
 	"net"
 	"testing"
 
-	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -37,18 +36,18 @@ func createNewServer(t *testing.T, cfg config.Cfg, logger *logrus.Logger) *grpc.
 	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
 
 	opts := []grpc.ServerOption{
-		grpc.StreamInterceptor(grpcmw.ChainStreamServer(
+		grpc.ChainStreamInterceptor(
 			StreamInterceptor,
 			grpcmwlogrus.StreamServerInterceptor(logrusEntry,
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
-		)),
-		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
+		),
+		grpc.ChainUnaryInterceptor(
 			UnaryInterceptor,
 			grpcmwlogrus.UnaryServerInterceptor(logrusEntry,
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
-		)),
+		),
 	}
 
 	server := grpc.NewServer(opts...)

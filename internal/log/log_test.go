@@ -36,33 +36,29 @@ func TestPayloadBytes(t *testing.T) {
 			Underlying:     &grpcstats.PayloadBytes{},
 			FieldProducers: []FieldsProducer{grpcstats.FieldsProducer},
 		}),
-		grpc.UnaryInterceptor(
-			grpcmw.ChainUnaryServer(
-				grpcmwlogrus.UnaryServerInterceptor(
-					logrus.NewEntry(logger),
-					grpcmwlogrus.WithMessageProducer(
-						MessageProducer(
-							PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-							grpcstats.FieldsProducer,
-						),
+		grpc.ChainUnaryInterceptor(
+			grpcmwlogrus.UnaryServerInterceptor(
+				logrus.NewEntry(logger),
+				grpcmwlogrus.WithMessageProducer(
+					MessageProducer(
+						PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+						grpcstats.FieldsProducer,
 					),
 				),
-				UnaryLogDataCatcherServerInterceptor(),
 			),
+			UnaryLogDataCatcherServerInterceptor(),
 		),
-		grpc.StreamInterceptor(
-			grpcmw.ChainStreamServer(
-				grpcmwlogrus.StreamServerInterceptor(
-					logrus.NewEntry(logger),
-					grpcmwlogrus.WithMessageProducer(
-						MessageProducer(
-							PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-							grpcstats.FieldsProducer,
-						),
+		grpc.ChainStreamInterceptor(
+			grpcmwlogrus.StreamServerInterceptor(
+				logrus.NewEntry(logger),
+				grpcmwlogrus.WithMessageProducer(
+					MessageProducer(
+						PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+						grpcstats.FieldsProducer,
 					),
 				),
-				StreamLogDataCatcherServerInterceptor(),
 			),
+			StreamLogDataCatcherServerInterceptor(),
 		),
 	}
 
