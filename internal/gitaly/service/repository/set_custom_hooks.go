@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
@@ -54,7 +53,7 @@ func (s *server) SetCustomHooks(stream gitalypb.RepositoryService_SetCustomHooks
 	})
 
 	if err := s.setCustomHooks(ctx, reader, repo); err != nil {
-		return structerr.NewInternal("%w", err)
+		return structerr.NewInternal("setting custom hooks: %w", err)
 	}
 
 	return stream.SendAndClose(&gitalypb.SetCustomHooksResponse{})
@@ -88,36 +87,16 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 	})
 
 	if err := s.setCustomHooks(ctx, reader, repo); err != nil {
-		return structerr.NewInternal("%w", err)
+		return structerr.NewInternal("setting custom hooks: %w", err)
 	}
 
 	return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})
 }
 
+// setCustomHooks transactionally and atomically sets custom hooks for a
+// repository. The provided reader should be a tarball containing the custom
+// hooks to be extracted to the specified Git repository.
 func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repository.GitRepo) error {
-	if featureflag.TransactionalRestoreCustomHooks.IsEnabled(ctx) {
-		if err := s.setCustomHooksTransaction(ctx, reader, repo); err != nil {
-			return fmt.Errorf("setting custom hooks: %w", err)
-		}
-
-		return nil
-	}
-
-	repoPath, err := s.locator.GetRepoPath(repo)
-	if err != nil {
-		return fmt.Errorf("getting repo path: %w", err)
-	}
-
-	if err := hook.ExtractHooks(ctx, reader, repoPath, false); err != nil {
-		return fmt.Errorf("extracting hooks: %w", err)
-	}
-
-	return nil
-}
-
-// setCustomHooksTransaction transactionally and atomically sets the provided
-// custom hooks for the specified repository.
-func (s *server) setCustomHooksTransaction(ctx context.Context, tar io.Reader, repo repository.GitRepo) error {
 	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
 		return fmt.Errorf("getting repo path: %w", err)
@@ -157,7 +136,7 @@ func (s *server) setCustomHooksTransaction(ctx context.Context, tar io.Reader, r
 		}
 	}()
 
-	if err := hook.ExtractHooks(ctx, tar, tmpDir.Path(), false); err != nil {
+	if err := hook.ExtractHooks(ctx, reader, tmpDir.Path(), false); err != nil {
 		return fmt.Errorf("extracting hooks: %w", err)
 	}
 
