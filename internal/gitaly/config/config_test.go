@@ -46,8 +46,9 @@ func TestLoadEmptyConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedCfg := Cfg{
-		Prometheus:       prometheus.DefaultConfig(),
-		PackObjectsCache: defaultPackObjectsCacheConfig(),
+		Prometheus:          prometheus.DefaultConfig(),
+		PackObjectsCache:    defaultPackObjectsCacheConfig(),
+		PackObjectsLimiting: defaultPackObjectsLimiting(),
 	}
 	require.NoError(t, expectedCfg.setDefaults())
 
@@ -186,8 +187,9 @@ func TestLoadConfigCommand(t *testing.T) {
 
 	modifyDefaultConfig := func(modify func(cfg *Cfg)) Cfg {
 		cfg := &Cfg{
-			Prometheus:       prometheus.DefaultConfig(),
-			PackObjectsCache: defaultPackObjectsCacheConfig(),
+			Prometheus:          prometheus.DefaultConfig(),
+			PackObjectsCache:    defaultPackObjectsCacheConfig(),
+			PackObjectsLimiting: defaultPackObjectsLimiting(),
 		}
 		require.NoError(t, cfg.setDefaults())
 		modify(cfg)
@@ -1619,11 +1621,13 @@ func TestPackObjectsLimiting(t *testing.T) {
 			rawCfg: `[pack_objects_limiting]
 			key = "repository"
 			max_concurrency = 20
+ 			max_queue_length = 100
 			max_queue_wait = "10s"
 			`,
 			expectedCfg: PackObjectsLimiting{
 				Key:            PackObjectsLimitingKeyRepository,
 				MaxConcurrency: 20,
+				MaxQueueLength: 100,
 				MaxQueueWait:   duration.Duration(10 * time.Second),
 			},
 		},
@@ -1632,11 +1636,28 @@ func TestPackObjectsLimiting(t *testing.T) {
 			rawCfg: `[pack_objects_limiting]
 			key = "user"
 			max_concurrency = 10
+			max_queue_length = 100
 			max_queue_wait = "1m"
 			`,
 			expectedCfg: PackObjectsLimiting{
 				Key:            PackObjectsLimitingKeyUser,
 				MaxConcurrency: 10,
+				MaxQueueLength: 100,
+				MaxQueueWait:   duration.Duration(1 * time.Minute),
+			},
+		},
+		{
+			desc: "using remote_ip as key",
+			rawCfg: `[pack_objects_limiting]
+			key = "remote_ip"
+			max_concurrency = 10
+			max_queue_length = 100
+			max_queue_wait = "1m"
+			`,
+			expectedCfg: PackObjectsLimiting{
+				Key:            PackObjectsLimitingKeyRemoteIP,
+				MaxConcurrency: 10,
+				MaxQueueLength: 100,
 				MaxQueueWait:   duration.Duration(1 * time.Minute),
 			},
 		},
@@ -1645,6 +1666,7 @@ func TestPackObjectsLimiting(t *testing.T) {
 			rawCfg: `[pack_objects_limiting]
 			key = "project"
 			max_concurrency = 10
+			max_queue_length = 100
 			max_queue_wait = "1m"
 			`,
 			expectedErrString: `unsupported pack objects limiting key: "project"`,
@@ -1667,8 +1689,122 @@ func TestPackObjectsLimiting(t *testing.T) {
 	}
 }
 
+// This test uses (*testing.T).Setenv. Thus, it should not run in parallel.
+func TestPackObjectsLimiting_defaultPackObjectsLimiting(t *testing.T) {
+	testCases := []struct {
+		desc        string
+		envs        map[string]string
+		expectedCfg PackObjectsLimiting
+	}{
+		{
+			desc: "not relative envs are set",
+			expectedCfg: PackObjectsLimiting{
+				MaxConcurrency: 200,
+				MaxQueueWait:   0,
+				MaxQueueLength: 0,
+			},
+		},
+		{
+			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY is set",
+			envs: map[string]string{
+				"GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY": "100",
+			},
+			expectedCfg: PackObjectsLimiting{
+				MaxConcurrency: 100,
+				MaxQueueWait:   0,
+				MaxQueueLength: 0,
+			},
+		},
+		{
+			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY is invalid",
+			envs: map[string]string{
+				"GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY": "hello",
+			},
+			expectedCfg: PackObjectsLimiting{
+				MaxConcurrency: 200,
+				MaxQueueWait:   0,
+				MaxQueueLength: 0,
+			},
+		},
+		{
+			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH is set",
+			envs: map[string]string{
+				"GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH": "100",
+			},
+			expectedCfg: PackObjectsLimiting{
+				MaxConcurrency: 200,
+				MaxQueueWait:   0,
+				MaxQueueLength: 100,
+			},
+		},
+		{
+			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH is invalid",
+			envs: map[string]string{
+				"GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH": "hello",
+			},
+			expectedCfg: PackObjectsLimiting{
+				MaxConcurrency: 200,
+				MaxQueueWait:   0,
+				MaxQueueLength: 0,
+			},
+		},
+		{
+			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY and GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH are bot set",
+			envs: map[string]string{
+				"GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH": "1",
+				"GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY":  "2",
+			},
+			expectedCfg: PackObjectsLimiting{
+				MaxConcurrency: 2,
+				MaxQueueWait:   0,
+				MaxQueueLength: 1,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			for key, value := range tc.envs {
+				t.Setenv(key, value)
+			}
+
+			cfg := defaultPackObjectsLimiting()
+			require.Equal(t, tc.expectedCfg, cfg)
+		})
+	}
+}
+
 func TestPackObjectsLimiting_Validate(t *testing.T) {
 	t.Parallel()
+
+	require.NoError(t, PackObjectsLimiting{MaxConcurrency: 0}.Validate())
+	require.NoError(t, PackObjectsLimiting{MaxConcurrency: 1}.Validate())
+	require.NoError(t, PackObjectsLimiting{MaxConcurrency: 100}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1", cfgerror.ErrIsNegative),
+				"max_concurrency",
+			),
+		},
+		PackObjectsLimiting{MaxConcurrency: -1}.Validate(),
+	)
+
+	require.NoError(t, PackObjectsLimiting{MaxQueueLength: 0}.Validate())
+	require.NoError(t, PackObjectsLimiting{MaxQueueLength: 1}.Validate())
+	require.NoError(t, PackObjectsLimiting{MaxQueueLength: 100}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1", cfgerror.ErrIsNegative),
+				"max_queue_length",
+			),
+		},
+		PackObjectsLimiting{MaxQueueLength: -1}.Validate(),
+	)
+
 	require.NoError(t, PackObjectsLimiting{MaxQueueWait: duration.Duration(1)}.Validate())
 	require.Equal(
 		t,
