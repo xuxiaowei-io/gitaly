@@ -31,6 +31,7 @@ type objectsState struct {
 	looseObjects            uint64
 	packfiles               uint64
 	cruftPacks              uint64
+	keepPacks               uint64
 	hasBitmap               bool
 	hasMultiPackIndex       bool
 	hasMultiPackIndexBitmap bool
@@ -46,6 +47,7 @@ func requireObjectsState(tb testing.TB, repo *localrepo.Repo, expectedState obje
 		looseObjects:            repoInfo.LooseObjects.Count,
 		packfiles:               repoInfo.Packfiles.Count,
 		cruftPacks:              repoInfo.Packfiles.CruftCount,
+		keepPacks:               repoInfo.Packfiles.KeepCount,
 		hasBitmap:               repoInfo.Packfiles.Bitmap.Exists,
 		hasMultiPackIndex:       repoInfo.Packfiles.MultiPackIndex.Exists,
 		hasMultiPackIndexBitmap: repoInfo.Packfiles.MultiPackIndexBitmap.Exists,

@@ -1,7 +1,9 @@
 package housekeeping
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -41,9 +44,20 @@ func TestRepackObjects(t *testing.T) {
 		expectedErr       error
 	}{
 		{
+			desc:  "default strategy fails",
+			setup: func(t *testing.T, repoPath string) {},
+			repackCfg: RepackObjectsConfig{
+				Strategy: 0,
+			},
+			expectedErr: structerr.NewInvalidArgument("invalid strategy 0"),
+		},
+		{
 			desc: "incremental repack packs objects",
 			setup: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyIncremental,
 			},
 			stateBeforeRepack: objectsState{
 				looseObjects: 2,
@@ -61,6 +75,9 @@ func TestRepackObjects(t *testing.T) {
 				repack(t, repoPath, "-d")
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyIncremental,
+			},
 			stateBeforeRepack: objectsState{
 				packfiles:    2,
 				looseObjects: 1,
@@ -75,6 +92,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
 			},
 			repackCfg: RepackObjectsConfig{
+				Strategy:    RepackObjectsStrategyIncremental,
 				WriteBitmap: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -96,7 +114,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack: true,
+				Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
 			},
 			stateBeforeRepack: objectsState{
 				looseObjects: 1,
@@ -117,7 +135,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:  true,
+				Strategy:    RepackObjectsStrategyFullWithLooseUnreachable,
 				WriteBitmap: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -135,6 +153,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 			},
 			repackCfg: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteMultiPackIndex: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -151,6 +170,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 			},
 			repackCfg: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteMultiPackIndex: true,
 				WriteBitmap:         true,
 			},
@@ -174,7 +194,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:          true,
+				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 				WriteMultiPackIndex: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -197,7 +217,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:          true,
+				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -219,6 +239,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
 			},
 			repackCfg: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -251,7 +272,7 @@ func TestRepackObjects(t *testing.T) {
 				repack(t, repoPath, "-d")
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:          true,
+				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -266,22 +287,13 @@ func TestRepackObjects(t *testing.T) {
 			},
 		},
 		{
-			desc:  "writing cruft pack requires full repack",
-			setup: func(t *testing.T, repoPath string) {},
-			repackCfg: RepackObjectsConfig{
-				WriteCruftPack: true,
-			},
-			expectedErr: structerr.NewInvalidArgument("cannot write cruft packs for an incremental repack"),
-		},
-		{
 			desc: "unreachable objects get moved into cruft pack",
 			setup: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("reachable"), gittest.WithBranch("reachable"))
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:     true,
-				WriteCruftPack: true,
+				Strategy: RepackObjectsStrategyFullWithCruft,
 			},
 			stateBeforeRepack: objectsState{
 				looseObjects: 3,
@@ -295,6 +307,7 @@ func TestRepackObjects(t *testing.T) {
 			desc:  "expiring cruft objects requires writing cruft packs",
 			setup: func(t *testing.T, repoPath string) {},
 			repackCfg: RepackObjectsConfig{
+				Strategy:          RepackObjectsStrategyIncremental,
 				CruftExpireBefore: time.Now(),
 			},
 			expectedErr: structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs"),
@@ -306,8 +319,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: time.Now().Add(time.Hour),
 			},
 			stateBeforeRepack: objectsState{
@@ -328,8 +340,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: time.Now().Add(-1 * time.Hour),
 			},
 			stateBeforeRepack: objectsState{
@@ -350,8 +361,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d", "-n", "--no-write-bitmap-index")
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: time.Now().Add(-1 * time.Hour),
 			},
 			stateBeforeRepack: objectsState{
@@ -371,8 +381,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d", "-n", "--no-write-bitmap-index")
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: time.Now().Add(1 * time.Hour),
 			},
 			stateBeforeRepack: objectsState{
@@ -381,6 +390,215 @@ func TestRepackObjects(t *testing.T) {
 			},
 			stateAfterRepack: objectsState{
 				packfiles: 1,
+			},
+		},
+		{
+			desc: "geometric repack with reachable object",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("unreachable"))
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyGeometric,
+			},
+			stateBeforeRepack: objectsState{
+				looseObjects: 2,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 1,
+			},
+		},
+		{
+			desc: "geometric repack soaks up unreachable objects",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteBlob(t, cfg, repoPath, []byte("unreachable blob"))
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyGeometric,
+			},
+			stateBeforeRepack: objectsState{
+				looseObjects: 1,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 1,
+			},
+		},
+		{
+			desc: "geometric repack leaves cruft pack alone",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteBlob(t, cfg, repoPath, []byte("unreachable blob"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d", "-n", "--no-write-bitmap-index")
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyGeometric,
+			},
+			stateBeforeRepack: objectsState{
+				packfiles:  1,
+				cruftPacks: 1,
+			},
+			stateAfterRepack: objectsState{
+				packfiles:  1,
+				cruftPacks: 1,
+			},
+		},
+		{
+			desc: "geometric repack leaves keep pack alone",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "-n", "--no-write-bitmap-index")
+
+				packPath, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.pack"))
+				require.NoError(t, err)
+				require.Len(t, packPath, 1)
+
+				keepPath := strings.TrimSuffix(packPath[0], ".pack") + ".keep"
+				require.NoError(t, os.WriteFile(keepPath, nil, perm.PrivateFile))
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyGeometric,
+			},
+			stateBeforeRepack: objectsState{
+				packfiles: 1,
+				keepPacks: 1,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 1,
+				keepPacks: 1,
+			},
+		},
+		{
+			desc: "geometric repack keeps valid geometric sequence",
+			setup: func(t *testing.T, repoPath string) {
+				// Write a commit that in total contains 3 objects: 1 commit, 1 tree
+				// and 1 blob.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a"},
+				), gittest.WithBranch("main"))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "-n", "--no-write-bitmap-index")
+
+				// Now we write another blob. As the previous packfile contains 3x
+				// the amount of objects we should just create a new packfile
+				// instead of merging them.
+				gittest.WriteBlob(t, cfg, repoPath, []byte("new blob"))
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyGeometric,
+			},
+			stateBeforeRepack: objectsState{
+				packfiles:    1,
+				looseObjects: 1,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 2,
+			},
+		},
+		{
+			desc: "geometric repack keeps preexisting pack when new pack violates sequence",
+			setup: func(t *testing.T, repoPath string) {
+				// Write a commit that in total contains 3 objects: 1 commit, 1 tree
+				// and 1 blob.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a"},
+				), gittest.WithBranch("main"))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "-n", "--no-write-bitmap-index")
+
+				// Now we write two additional blobs. Even though the newly written
+				// packfile will cause us to invalidate the geometric sequence, we
+				// still create it without merging them. This _seems_ to be on
+				// purpose: packfiles will only be merged when preexisting packs
+				// validate the sequence.
+				gittest.WriteBlob(t, cfg, repoPath, []byte("one"))
+				gittest.WriteBlob(t, cfg, repoPath, []byte("two"))
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyGeometric,
+			},
+			stateBeforeRepack: objectsState{
+				packfiles:    1,
+				looseObjects: 2,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 2,
+			},
+		},
+		{
+			desc: "geometric repack repacks when geometric sequence is invalidated",
+			setup: func(t *testing.T, repoPath string) {
+				// Write a commit that in total contains 3 objects: 1 commit, 1 tree
+				// and 1 blob.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a"},
+				), gittest.WithBranch("main"))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "-n", "--no-write-bitmap-index")
+
+				// Write a second set of objects that is reachable so that we can
+				// create a second packfile easily.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "1", Mode: "100644", Content: "1"},
+				), gittest.WithBranch("main"))
+				// Do an incremental repack now. We thus have two packfiles that
+				// invalidate the geometric sequence.
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-d", "-n", "--no-write-bitmap-index")
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyGeometric,
+			},
+			stateBeforeRepack: objectsState{
+				packfiles: 2,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 1,
+			},
+		},
+		{
+			desc: "geometric repack consolidates multiple packs into one",
+			setup: func(t *testing.T, repoPath string) {
+				// Write a commit that in total contains 3 objects: 1 commit, 1 tree
+				// and 1 blob.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a"},
+				), gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-d", "-n", "--no-write-bitmap-index")
+
+				// Write another commit with three new objects, so that we now have
+				// two packfiles with three objects each.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "b"},
+				), gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-d", "-n", "--no-write-bitmap-index")
+
+				// Write a third commit with 12 new objects.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "01", Mode: "100644", Content: "01"},
+					gittest.TreeEntry{Path: "02", Mode: "100644", Content: "02"},
+					gittest.TreeEntry{Path: "03", Mode: "100644", Content: "03"},
+					gittest.TreeEntry{Path: "04", Mode: "100644", Content: "04"},
+					gittest.TreeEntry{Path: "05", Mode: "100644", Content: "05"},
+					gittest.TreeEntry{Path: "06", Mode: "100644", Content: "06"},
+					gittest.TreeEntry{Path: "07", Mode: "100644", Content: "07"},
+					gittest.TreeEntry{Path: "08", Mode: "100644", Content: "08"},
+					gittest.TreeEntry{Path: "09", Mode: "100644", Content: "09"},
+					gittest.TreeEntry{Path: "10", Mode: "100644", Content: "10"},
+				), gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-d", "-n", "--no-write-bitmap-index")
+
+				// We now have three packfiles: two with three objects respectively,
+				// and one with 12 objects. The first two packfiles do not form a
+				// geometric sequence, but if they are packed together they result
+				// in a packfile with 6 objects, which would restore the sequence.
+				// So what we want to see is that we start with three, but end with
+				// 2 packfiles.
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyGeometric,
+			},
+			stateBeforeRepack: objectsState{
+				packfiles: 3,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 2,
 			},
 		},
 	} {
@@ -400,9 +618,10 @@ func TestRepackObjects(t *testing.T) {
 			require.Equal(t, tc.expectedErr, RepackObjects(ctx, repo, tc.repackCfg))
 			requireObjectsState(t, repo, tc.stateAfterRepack)
 
-			if tc.repackCfg.FullRepack {
+			switch tc.repackCfg.Strategy {
+			case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft:
 				require.FileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
-			} else {
+			default:
 				require.NoFileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
 			}
 
@@ -423,7 +642,7 @@ func TestRepackObjects(t *testing.T) {
 
 		gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, stats.IsPoolRepository(repoProto), func() error {
 			return RepackObjects(ctx, repo, RepackObjectsConfig{
-				FullRepack: true,
+				Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
 			})
 		})
 	})

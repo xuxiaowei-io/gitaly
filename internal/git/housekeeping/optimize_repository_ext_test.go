@@ -204,6 +204,13 @@ func testOptimizeRepositoryObjectPoolMember(t *testing.T, ctx context.Context) {
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
+	fullOrCruft := func() string {
+		if featureflag.WriteCruftPacks.IsEnabled(ctx) {
+			return "packed_objects_cruft"
+		}
+		return "packed_objects_full"
+	}()
+
 	for _, tc := range []struct {
 		desc                string
 		strategyConstructor housekeeping.OptimizationStrategyConstructor
@@ -216,7 +223,7 @@ func testOptimizeRepositoryObjectPoolMember(t *testing.T, ctx context.Context) {
 			},
 			expectedLogEntries: map[string]string{
 				"packed_refs":               "success",
-				"packed_objects_full":       "success",
+				fullOrCruft:                 "success",
 				"pruned_objects":            "success",
 				"written_commit_graph_full": "success",
 				"written_multi_pack_index":  "success",

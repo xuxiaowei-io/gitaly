@@ -45,7 +45,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			},
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
-				FullRepack:          false,
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -71,6 +71,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			// exist in pooled repositories.
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteMultiPackIndex: true,
 			},
 		},
@@ -88,7 +89,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			},
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
-				FullRepack:          false,
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -215,10 +216,14 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					repackNeeded, repackCfg := strategy.ShouldRepackObjects(ctx)
 					require.True(t, repackNeeded)
 					require.Equal(t, RepackObjectsConfig{
-						FullRepack:          true,
+						Strategy: func() RepackObjectsStrategy {
+							if featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.isPool {
+								return RepackObjectsStrategyFullWithCruft
+							}
+							return RepackObjectsStrategyFullWithLooseUnreachable
+						}(),
 						WriteBitmap:         len(tc.alternates) == 0,
 						WriteMultiPackIndex: true,
-						WriteCruftPack:      featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.isPool,
 						CruftExpireBefore:   expireBefore,
 					}, repackCfg)
 				})
@@ -288,7 +293,12 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 				repackNeeded, repackCfg := strategy.ShouldRepackObjects(ctx)
 				require.Equal(t, outerTC.expectedRepack, repackNeeded)
 				require.Equal(t, RepackObjectsConfig{
-					FullRepack:          false,
+					Strategy: func() RepackObjectsStrategy {
+						if repackNeeded {
+							return RepackObjectsStrategyIncremental
+						}
+						return 0
+					}(),
 					WriteBitmap:         repackNeeded,
 					WriteMultiPackIndex: repackNeeded,
 				}, repackCfg)
@@ -693,10 +703,14 @@ func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
 			shouldRepackObjects, repackObjectsCfg := tc.strategy.ShouldRepackObjects(ctx)
 			require.True(t, shouldRepackObjects)
 			require.Equal(t, RepackObjectsConfig{
-				FullRepack:          true,
+				Strategy: func() RepackObjectsStrategy {
+					if featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.strategy.info.IsObjectPool {
+						return RepackObjectsStrategyFullWithCruft
+					}
+					return RepackObjectsStrategyFullWithLooseUnreachable
+				}(),
 				WriteBitmap:         tc.expectWriteBitmap,
 				WriteMultiPackIndex: true,
-				WriteCruftPack:      featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.strategy.info.IsObjectPool,
 				CruftExpireBefore:   expectedExpireBefore,
 			}, repackObjectsCfg)
 
