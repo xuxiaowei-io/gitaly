@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -22,7 +21,6 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedRepositoryServiceServer
-	ruby                *rubyserver.Server
 	conns               *client.Pool
 	locator             storage.Locator
 	txManager           transaction.Manager
@@ -39,7 +37,6 @@ type server struct {
 // NewServer creates a new instance of a gRPC repo server
 func NewServer(
 	cfg config.Cfg,
-	rs *rubyserver.Server,
 	locator storage.Locator,
 	txManager transaction.Manager,
 	gitCmdFactory git.CommandFactory,
@@ -49,7 +46,6 @@ func NewServer(
 	housekeepingManager housekeeping.Manager,
 ) gitalypb.RepositoryServiceServer {
 	return &server{
-		ruby:                rs,
 		locator:             locator,
 		txManager:           txManager,
 		gitCmdFactory:       gitCmdFactory,

@@ -42,7 +42,6 @@ func setupDiffServiceWithoutRepo(tb testing.TB, opt ...testserver.GitalyServerOp
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

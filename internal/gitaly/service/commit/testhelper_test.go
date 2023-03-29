@@ -80,7 +80,6 @@ func startTestServices(tb testing.TB, cfg config.Cfg, opts ...testserver.GitalyS
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

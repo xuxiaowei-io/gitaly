@@ -74,7 +74,6 @@ func runHooksServer(tb testing.TB, cfg config.Cfg, opts []serverOption, serverOp
 		gitalypb.RegisterHookServiceServer(srv, hookServer)
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

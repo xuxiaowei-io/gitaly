@@ -86,7 +86,6 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.Gita
 	serverSocketPath := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
 			cfg,
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

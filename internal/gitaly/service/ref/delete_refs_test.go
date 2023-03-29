@@ -130,7 +130,6 @@ func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

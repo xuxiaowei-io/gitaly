@@ -580,7 +580,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				))
 				gitalypb.RegisterRepositoryServiceServer(srv, repositorysvc.NewServer(
 					deps.GetCfg(),
-					deps.GetRubyServer(),
 					deps.GetLocator(),
 					deps.GetTxManager(),
 					deps.GetGitCmdFactory(),

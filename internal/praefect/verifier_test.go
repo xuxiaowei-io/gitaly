@@ -481,7 +481,6 @@ func TestVerifier(t *testing.T) {
 					registerFunc = func(srv *grpc.Server, deps *service.Dependencies) {
 						gitalypb.RegisterRepositoryServiceServer(srv, erroringRepositoryService{repository.NewServer(
 							deps.GetCfg(),
-							deps.GetRubyServer(),
 							deps.GetLocator(),
 							deps.GetTxManager(),
 							deps.GetGitCmdFactory(),

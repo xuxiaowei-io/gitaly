@@ -31,7 +31,6 @@ func setup(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobService
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

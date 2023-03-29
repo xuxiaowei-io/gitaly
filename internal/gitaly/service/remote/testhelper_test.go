@@ -34,7 +34,6 @@ func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.Gi
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),
