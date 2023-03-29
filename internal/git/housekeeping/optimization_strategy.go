@@ -52,6 +52,16 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		return false, RepackObjectsConfig{}
 	}
 
+	cfg := RepackObjectsConfig{
+		// We cannot write bitmaps when there are alternates as we don't have full closure
+		// of all objects in the packfile. This also does not currently work with multi pack
+		// indices.
+		WriteBitmap: len(s.info.Alternates) == 0,
+		// We want to always update the multi-pack-index while we're already at it repacking
+		// some of the objects.
+		WriteMultiPackIndex: true,
+	}
+
 	// Whenever we do an incremental repack we create a new packfile, and as a result Git may
 	// have to look into every one of the packfiles to find objects. This is less efficient the
 	// more packfiles we have, but we cannot repack the whole repository every time either given
@@ -93,12 +103,6 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	if uint64(math.Max(lowerLimit,
 		math.Log(float64(s.info.Packfiles.Size/1024/1024))/math.Log(log))) <= s.info.Packfiles.Count {
 
-		cfg := RepackObjectsConfig{
-			Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
-			WriteBitmap:         len(s.info.Alternates) == 0,
-			WriteMultiPackIndex: true,
-		}
-
 		// Object pools should neither have unreachable objects, nor should we ever try to
 		// delete any if there are some. So we disable cruft packs and expiration of them
 		// for them.
@@ -109,6 +113,8 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		if !s.info.IsObjectPool {
 			cfg.Strategy = RepackObjectsStrategyFullWithCruft
 			cfg.CruftExpireBefore = s.expireBefore
+		} else {
+			cfg.Strategy = RepackObjectsStrategyFullWithLooseUnreachable
 		}
 
 		return true, cfg
@@ -128,23 +134,15 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// In our case we typically want to ensure that our repositories are much better packed than
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
 	if s.info.LooseObjects.Count > looseObjectLimit {
-		return true, RepackObjectsConfig{
-			Strategy: RepackObjectsStrategyIncremental,
-			// Without multi-pack-index we cannot write bitmaps during an incremental
-			// repack.
-			WriteBitmap:         len(s.info.Alternates) == 0,
-			WriteMultiPackIndex: true,
-		}
+		cfg.Strategy = RepackObjectsStrategyIncremental
+		return true, cfg
 	}
 
 	// In case both packfiles and loose objects are in a good state, but we don't yet have a
 	// multi-pack-index we perform an incremental repack to generate one.
 	if !s.info.Packfiles.MultiPackIndex.Exists {
-		return true, RepackObjectsConfig{
-			Strategy:            RepackObjectsStrategyIncremental,
-			WriteBitmap:         len(s.info.Alternates) == 0,
-			WriteMultiPackIndex: true,
-		}
+		cfg.Strategy = RepackObjectsStrategyIncremental
+		return true, cfg
 	}
 
 	return false, RepackObjectsConfig{}
