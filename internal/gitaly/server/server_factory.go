@@ -22,8 +22,7 @@ type GitalyServerFactory struct {
 	internalServers  []*grpc.Server
 }
 
-// NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
-// server shared in between.
+// NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server's.
 func NewGitalyServerFactory(
 	cfg config.Cfg,
 	logger *logrus.Entry,

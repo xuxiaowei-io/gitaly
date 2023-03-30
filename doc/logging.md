@@ -20,31 +20,6 @@ Many Gitaly RPC's spawn Git processes which may write errors or
 warnings to stderr. Gitaly will capture these stderr messages and
 include them in its main log, tagged with the request correlation ID.
 
-## `gitaly-ruby` application logs
-
-### Unstructured logs
-
-`gitaly-ruby` writes logs to stdout. These logs are not structured. The
-main Gitaly process captures the `gitaly-ruby` process log messages and
-converts each line into a structured message that includes information
-about the `gitaly-ruby` process such as the PID. These logs then get
-printed as part of the log stream of the main Gitaly process.
-
-There is no attribution of log messages in `gitaly-ruby` beyond the
-`gitaly-ruby` process ID. If an RPC implemented in `gitaly-ruby` runs a
-Git command, and if that Git command prints to stderr, it will show up
-as untagged data in the log stream for the `gitaly-ruby` parent process.
-
-Because of these properties, `gitaly-ruby` logs are often hard to read,
-and it is often not possible to attribute log messages to individual
-RPC requests.
-
-### Structured logs
-
-`gitaly-ruby` also writes a JSON structured log file with access log
-information (method, duration, response code). It can be found in
-`gitaly_ruby_json.log`.
-
 ## Log files
 
 In a few cases, Gitaly spawns process that cannot log to stderr
@@ -58,8 +33,3 @@ Examples are:
 
 - `gitlab-shell.log`
 - `gitaly_hooks.log`
-- `gitaly_ruby_json.log`
-
-There is another log file called `githost.log`. This log is generated
-by legacy code in `gitaly-ruby`. The way it is used, it might as well
-write to stdout.
