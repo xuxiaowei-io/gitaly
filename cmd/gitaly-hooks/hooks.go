@@ -153,6 +153,8 @@ func injectMetadataIntoOutgoingCtx(ctx context.Context, payload git.HooksPayload
 			payload.UserDetails.UserID,
 			"username",
 			payload.UserDetails.Username,
+			"remote_ip",
+			payload.UserDetails.RemoteIP,
 		)
 	}
 
@@ -396,12 +398,13 @@ func handlePackObjectsWithSidechannel(ctx context.Context, payload git.HooksPayl
 		_ = wt.Close()
 	}()
 
-	var glID, glUsername, gitProtocol string
+	var glID, glUsername, gitProtocol, remoteIP string
 
 	if payload.UserDetails != nil {
 		glID = payload.UserDetails.UserID
 		glUsername = payload.UserDetails.Username
 		gitProtocol = payload.UserDetails.Protocol
+		remoteIP = payload.UserDetails.RemoteIP
 	}
 
 	if _, err := hookClient.PackObjectsHookWithSidechannel(
@@ -412,6 +415,7 @@ func handlePackObjectsWithSidechannel(ctx context.Context, payload git.HooksPayl
 			GlId:        glID,
 			GlUsername:  glUsername,
 			GitProtocol: gitProtocol,
+			RemoteIp:    remoteIP,
 		},
 	); err != nil {
 		return fmt.Errorf("call PackObjectsHookWithSidechannel: %w", err)

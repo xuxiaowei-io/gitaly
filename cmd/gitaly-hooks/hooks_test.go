@@ -43,8 +43,8 @@ import (
 )
 
 type glHookValues struct {
-	GLID, GLUsername, GLProtocol, GitObjectDir string
-	GitAlternateObjectDirs                     []string
+	GLID, GLUsername, GLProtocol, GitObjectDir, RemoteIP string
+	GitAlternateObjectDirs                               []string
 }
 
 type proxyValues struct {
@@ -57,6 +57,7 @@ var (
 	correlationID       = "correlation-id-999"
 	glID                = "key-1234"
 	glUsername          = "iamgitlab"
+	remoteIP            = "1.2.3.4"
 )
 
 func featureFlags(ctx context.Context) map[featureflag.FeatureFlag]bool {
@@ -71,6 +72,7 @@ func envForHooks(tb testing.TB, ctx context.Context, cfg config.Cfg, repo *gital
 		UserID:   glHookValues.GLID,
 		Username: glHookValues.GLUsername,
 		Protocol: glHookValues.GLProtocol,
+		RemoteIP: glHookValues.RemoteIP,
 	}, git.AllHooks, featureFlags(ctx)).Env()
 	require.NoError(tb, err)
 
@@ -218,6 +220,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 					GLProtocol:             glProtocol,
 					GitObjectDir:           c.GitObjectDir,
 					GitAlternateObjectDirs: c.GitAlternateObjectDirs,
+					RemoteIP:               remoteIP,
 				},
 				proxyValues{
 					HTTPProxy:  httpProxy,
@@ -290,6 +293,7 @@ func TestHooksUpdate(t *testing.T) {
 		GLID:       glID,
 		GLUsername: glUsername,
 		GLProtocol: glProtocol,
+		RemoteIP:   remoteIP,
 	})
 }
 
@@ -432,6 +436,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 					UserID:   glID,
 					Username: glUsername,
 					Protocol: glProtocol,
+					RemoteIP: remoteIP,
 				},
 				git.PostReceiveHook,
 				featureFlags(ctx),
@@ -507,6 +512,7 @@ func TestHooksNotAllowed(t *testing.T) {
 			GLID:       glID,
 			GLUsername: glUsername,
 			GLProtocol: glProtocol,
+			RemoteIP:   remoteIP,
 		},
 		proxyValues{})
 	cmd.Dir = repoPath
@@ -542,6 +548,7 @@ func (svc baggageAsserter) assert(ctx context.Context) {
 	if svc.assertUserDetails {
 		assert.Equal(svc.t, glID, metadata.GetValue(ctx, "user_id"))
 		assert.Equal(svc.t, glUsername, metadata.GetValue(ctx, "username"))
+		assert.Equal(svc.t, remoteIP, metadata.GetValue(ctx, "remote_ip"))
 	}
 }
 

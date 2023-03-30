@@ -96,6 +96,9 @@ type UserDetails struct {
 	// Protocol contains the protocol via which the hook was executed. This
 	// can be one of "web", "ssh" or "smarthttp".
 	Protocol string `json:"protocol"`
+	// RemoteIP contains the original IP of the client who initiated the flow leading to this
+	// target hook.
+	RemoteIP string `json:"remote_ip"`
 }
 
 // jsonHooksPayload wraps the HooksPayload such that we can manually encode the
