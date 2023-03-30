@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/fs"
 	"sync"
@@ -111,6 +112,10 @@ func TestTransactionManager(t *testing.T) {
 	nonExistentOID, err := objectHash.FromHex(hex.EncodeToString(hasher.Sum(nil)))
 	require.NoError(t, err)
 
+	// errSimulatedCrash is used in the tests to simulate a crash at a certain point during
+	// TransactionManager.Run execution.
+	errSimulatedCrash := errors.New("simulated crash")
+
 	type testHooks struct {
 		// BeforeApplyLogEntry is called before a log entry is applied to the repository.
 		BeforeApplyLogEntry hookFunc
@@ -125,1388 +130,1072 @@ func TestTransactionManager(t *testing.T) {
 		WaitForTransactionsWhenStopping bool
 	}
 
-	// Step defines a single execution step in a test. Each test case can define multiple steps to setup exercise
-	// more complex behavior and to assert the state after each step.
-	type steps []struct {
-		// StopManager stops the manager in the beginning of the step.
-		StopManager bool
-		// RestartManager can be used to start the manager again after stopping it.
-		RestartManager bool
-		// SkipStartManager can be used to skip starting the manager at the start of the step.
-		SkipStartManager bool
-		// CommitContext is the context to use for the Commit call of the step.
-		CommitContext context.Context
-		// SkipVerificationFailures sets the verification failure handling for this step.
-		SkipVerificationFailures bool
-		// ReferenceUpdates are the reference updates to perform in this step.
-		ReferenceUpdates ReferenceUpdates
-		// DefaultBranchUpdate is the default branch update to perform in this step.
-		DefaultBranchUpdate *DefaultBranchUpdate
-		// CustomHooksUpdate is the custom hooks update to perform in this step.
-		CustomHooksUpdate *CustomHooksUpdate
+	// StartManager starts a TransactionManager.
+	type StartManager struct {
 		// Hooks contains the hook functions that are configured on the TransactionManager. These allow
 		// for better synchronization.
 		Hooks testHooks
-		// ExpectedRunError is the expected error to be returned from Run from this step.
-		ExpectedRunError bool
-		// ExpectedCommitError is the error that is expected to be returned when committing the transaction in this step.
-		ExpectedCommitError error
-		// ExpectedHooks is the expected state of the hooks at the end of this step.
-		ExpectedHooks testhelper.DirectoryState
-		// ExpectedReferences is the expected state of references at the end of this step.
-		ExpectedReferences []git.Reference
-		// ExpectedDefaultBranch is the expected refname that HEAD points to.
-		ExpectedDefaultBranch git.ReferenceName
-		// ExpectedDatabase is the expected state of the database at the end of this step.
-		ExpectedDatabase DatabaseState
-		// ExpectedPanic is used to denote the panic, if any. Panics are triggered to stop the transaction
-		// manager and the database/disk writes.
-		ExpectedPanic any
+		// ExpectedError is the expected error to be raised from the manager's Run. Panics are converted
+		// to errors and asserted to match this as well.
+		ExpectedError error
 	}
 
+	// StopManager stops a TransactionManager.
+	type StopManager struct{}
+
+	// AssertManager asserts whether the manager has stopped and Run returned. If it has, it asserts the
+	// error matched the expected. If the manager has exited with an error, AssertManager must be called
+	// or the test case fails.
+	type AssertManager struct {
+		// ExpectedError is the error TransactionManager's Run method is expected to return.
+		ExpectedError error
+	}
+
+	// Begin calls Begin on the TransactionManager to start a new transaction.
+	type Begin struct {
+		// TransactionID is the identifier given to the transaction created. This is used to identify
+		// the transaction in later steps.
+		TransactionID int
+		// Context is the context to use for the Begin call.
+		Context context.Context
+		// ExpectedError is the error expected to be returned from the Begin call.
+		ExpectedError error
+	}
+
+	// Commit calls Commit on a transaction.
+	type Commit struct {
+		// TransactionID identifies the transaction to commit.
+		TransactionID int
+		// Context is the context to use for the Commit call.
+		Context context.Context
+		// ExpectedError is the error that is expected to be returned when committing the transaction.
+		ExpectedError error
+
+		// SkipVerificationFailures sets the verification failure handling for this commit.
+		SkipVerificationFailures bool
+		// ReferenceUpdates are the reference updates to commit.
+		ReferenceUpdates ReferenceUpdates
+		// DefaultBranchUpdate is the default branch update to commit.
+		DefaultBranchUpdate *DefaultBranchUpdate
+		// CustomHooksUpdate is the custom hooks update to commit.
+		CustomHooksUpdate *CustomHooksUpdate
+	}
+
+	// StateAssertions models an assertion of the entire state managed by the TransactionManager.
+	type StateAssertion struct {
+		// DefaultBranch is the expected refname that HEAD points to.
+		DefaultBranch git.ReferenceName
+		// References is the expected state of references.
+		References []git.Reference
+		// Database is the expected state of the database.
+		Database DatabaseState
+		// Hooks is the expected state of the hooks.
+		Hooks testhelper.DirectoryState
+	}
+
+	// steps defines execution steps in a test. Each test case can define multiple steps to exercise
+	// more complex behavior.
+	type steps []any
+
 	type testCase struct {
-		desc  string
-		steps steps
+		desc          string
+		steps         steps
+		expectedState StateAssertion
 	}
 
 	testCases := []testCase{
 		{
 			desc: "invalid reference aborts the entire transaction",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError:   updateref.InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
-					ExpectedDefaultBranch: "",
+					ExpectedError: updateref.InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
 				},
 			},
 		},
 		{
 			desc: "continues processing after aborting due to an invalid reference",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError:   updateref.InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
-					ExpectedDefaultBranch: "",
+					ExpectedError: updateref.InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "create reference",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "create a file-directory reference conflict different transaction",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/parent", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/parent"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/parent",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: updateref.FileDirectoryConflictError{
+					ExpectedError: updateref.FileDirectoryConflictError{
 						ExistingReferenceName:    "refs/heads/parent",
 						ConflictingReferenceName: "refs/heads/parent/child",
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/parent", Target: rootCommitOID.String()}},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/parent",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/parent",
+				References:    []git.Reference{{Name: "refs/heads/parent", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "create a file-directory reference conflict in same transaction",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: updateref.InTransactionConflictError{
+					ExpectedError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
-					ExpectedDefaultBranch: "",
 				},
 			},
 		},
 		{
 			desc: "file-directory conflict aborts the transaction with verification failures skipped",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":         {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: updateref.InTransactionConflictError{
+					ExpectedError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
-					ExpectedDefaultBranch: "",
 				},
 			},
 		},
 		{
 			desc: "delete file-directory conflict in different transaction",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/parent/child", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/parent/child"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/parent/child",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedCommitError: updateref.FileDirectoryConflictError{
+					ExpectedError: updateref.FileDirectoryConflictError{
 						ExistingReferenceName:    "refs/heads/parent/child",
 						ConflictingReferenceName: "refs/heads/parent",
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/parent/child", Target: rootCommitOID.String()}},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/parent/child",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/parent/child",
+				References:    []git.Reference{{Name: "refs/heads/parent/child", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "delete file-directory conflict in same transaction",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedCommitError: updateref.InTransactionConflictError{
+					ExpectedError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
-					ExpectedDefaultBranch: "",
 				},
 			},
 		},
 		{
 			desc: "create a branch to a non-commit object",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
 						// The error should abort the entire transaction.
 						"refs/heads/branch-1": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/branch-2": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
 					},
-					ExpectedCommitError: updateref.NonCommitObjectError{
+					ExpectedError: updateref.NonCommitObjectError{
 						ReferenceName: "refs/heads/branch-2",
 						ObjectID:      objectHash.EmptyTreeOID.String(),
 					},
-					ExpectedDefaultBranch: "",
 				},
 			},
 		},
 		{
 			desc: "create a tag to a non-commit object",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/tags/v1.0.0": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/tags/v1.0.0", Target: objectHash.EmptyTreeOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/tags/v1.0.0"),
-											NewOid:        []byte(objectHash.EmptyTreeOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "",
+				},
+			},
+			expectedState: StateAssertion{
+				References: []git.Reference{{Name: "refs/tags/v1.0.0", Target: objectHash.EmptyTreeOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "create a reference to non-existent object",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: nonExistentOID},
 					},
-					ExpectedCommitError: updateref.NonExistentObjectError{
+					ExpectedError: updateref.NonExistentObjectError{
 						ReferenceName: "refs/heads/main",
 						ObjectID:      nonExistentOID.String(),
 					},
-					ExpectedDefaultBranch: "",
 				},
 			},
 		},
 		{
 			desc: "create reference ignoring verification failure",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID:            2,
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-						{Name: "refs/heads/non-conflicting", Target: secondCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/non-conflicting"),
-											NewOid:        []byte(secondCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					{Name: "refs/heads/non-conflicting", Target: secondCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "create reference that already exists",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   objectHash.ZeroOID,
 						ActualOID:     rootCommitOID,
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "create reference no-op",
 			steps: steps{
-				{
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				StartManager{},
+				Begin{
+					TransactionID: 1,
 				},
-				{
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+					},
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   objectHash.ZeroOID,
 						ActualOID:     rootCommitOID,
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "update reference",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(secondCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "update reference ignoring verification failures",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-						{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-										{
-											ReferenceName: []byte("refs/heads/non-conflicting"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID:            2,
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
 						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-						{Name: "refs/heads/non-conflicting", Target: thirdCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/non-conflicting"),
-											NewOid:        []byte(thirdCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					{Name: "refs/heads/non-conflicting", Target: thirdCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "update reference with incorrect old tip",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-						{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-										{
-											ReferenceName: []byte("refs/heads/non-conflicting"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
 						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     rootCommitOID,
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-						{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "update non-existent reference",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: secondCommitOID, NewOID: thirdCommitOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     objectHash.ZeroOID,
 					},
-					ExpectedDefaultBranch: "",
 				},
 			},
 		},
 		{
 			desc: "update reference no-op",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "delete reference",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(objectHash.ZeroOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "",
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "delete reference ignoring verification failures",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-						{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-										{
-											ReferenceName: []byte("refs/heads/non-conflicting"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID:            2,
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
 						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/non-conflicting"),
-											NewOid:        []byte(objectHash.ZeroOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "delete reference with incorrect old tip",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-						{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-										{
-											ReferenceName: []byte("refs/heads/non-conflicting"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
 						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     rootCommitOID,
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-						{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "delete non-existent reference",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
 					},
-					ExpectedDefaultBranch: "",
 				},
 			},
 		},
 		{
 			desc: "delete reference no-op",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(objectHash.ZeroOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "",
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "set custom hooks successfully",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					CustomHooksUpdate: &CustomHooksUpdate{
 						CustomHooksTAR: validCustomHooks(t),
 					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									CustomHooksUpdate: &gitalypb.LogEntry_CustomHooksUpdate{
-										CustomHooksTar: validCustomHooks(t),
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedHooks: testhelper.DirectoryState{
-						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal/hooks/1/pre-receive": {
-							Mode:    umask.Mask(fs.ModePerm),
-							Content: []byte("hook content"),
-						},
-						"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
-						"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
-					},
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID:     2,
 					CustomHooksUpdate: &CustomHooksUpdate{},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									CustomHooksUpdate: &gitalypb.LogEntry_CustomHooksUpdate{},
-								},
-							})
-						},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+				},
+				Hooks: testhelper.DirectoryState{
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
 					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedHooks: testhelper.DirectoryState{
-						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal/hooks/1/pre-receive": {
-							Mode:    umask.Mask(fs.ModePerm),
-							Content: []byte("hook content"),
-						},
-						"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
-						"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
-						"/wal/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					},
+					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					"/wal/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				},
 			},
 		},
 		{
 			desc: "reapplying custom hooks works",
 			steps: steps{
-				{
+				StartManager{
+					Hooks: testHooks{
+						BeforeStoreAppliedLogIndex: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					CustomHooksUpdate: &CustomHooksUpdate{
 						CustomHooksTAR: validCustomHooks(t),
 					},
-					Hooks: testHooks{
-						BeforeStoreAppliedLogIndex: func(hookContext) {
-							panic("crash")
-						},
-					},
-					ExpectedPanic: "crash",
-					ExpectedDatabase: DatabaseState{
-						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-							CustomHooksUpdate: &gitalypb.LogEntry_CustomHooksUpdate{
-								CustomHooksTar: validCustomHooks(t),
-							},
-						},
-					},
-					ExpectedRunError:    true,
-					ExpectedCommitError: ErrTransactionProcessingStopped,
-					ExpectedHooks: testhelper.DirectoryState{
-						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal/hooks/1/pre-receive": {
-							Mode:    umask.Mask(fs.ModePerm),
-							Content: []byte("hook content"),
-						},
-						"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
-						"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
-					},
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
-				{
-					// Empty transaction used here to just check the log entry is applied and the
-					// applied index incremented.
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+				},
+				Hooks: testhelper.DirectoryState{
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
 					},
-					ExpectedHooks: testhelper.DirectoryState{
-						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal/hooks/1/pre-receive": {
-							Mode:    umask.Mask(fs.ModePerm),
-							Content: []byte("hook content"),
-						},
-						"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
-						"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
-					},
+					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 				},
 			},
 		},
 		{
 			desc: "continues processing after reference verification failure",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
 					},
-					ExpectedDefaultBranch: "",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(secondCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "continues processing after a restart",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
-					StopManager:    true,
-					RestartManager: true,
+				StopManager{},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(secondCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "continues processing after restarting after a reference verification failure",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
 					},
-					ExpectedDefaultBranch: "",
 				},
-				{
-					StopManager:    true,
-					RestartManager: true,
+				StopManager{},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(secondCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "continues processing after failing to store log index",
 			steps: steps{
-				{
+				StartManager{
+					Hooks: testHooks{
+						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					Hooks: testHooks{
-						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
-							panic("node failure simulation")
-						},
-					},
-					ExpectedPanic:       "node failure simulation",
-					ExpectedCommitError: ErrTransactionProcessingStopped,
-					ExpectedRunError:    true,
-					ExpectedDatabase: DatabaseState{
-						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-								{
-									ReferenceName: []byte("refs/heads/main"),
-									NewOid:        []byte(rootCommitOID),
-								},
-							},
-						},
-					},
-					ExpectedReferences:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					ExpectedDefaultBranch: "refs/heads/main",
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
-				{
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "recovers from the write-ahead log on start up",
 			steps: steps{
-				{
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-					},
+				StartManager{
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedCommitError: ErrTransactionProcessingStopped,
-					ExpectedRunError:    true,
-					ExpectedDatabase: DatabaseState{
-						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-								{
-									ReferenceName: []byte("refs/heads/main"),
-									NewOid:        []byte(rootCommitOID),
-								},
-							},
-						},
-					},
-					ExpectedDefaultBranch: "",
+					ExpectedError: context.Canceled,
 				},
-				{
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+					},
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: context.Canceled,
+				},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
-					// Notice that here we can't check state of database before deletion because
-					// the `applyLogEntry` function is called twice in this step. Once for logEntry:1 and once
-					// for logEntry:2. Our current code only allows us to define one `BeforeDeleteLogEntry`
-					// which would be common for both.
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "reference verification fails after recovering logged writes",
 			steps: steps{
-				{
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-					},
+				StartManager{
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedCommitError: ErrTransactionProcessingStopped,
-					ExpectedRunError:    true,
-					ExpectedDatabase: DatabaseState{
-						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-								{
-									ReferenceName: []byte("refs/heads/main"),
-									NewOid:        []byte(rootCommitOID),
-								},
-							},
-						},
-					},
-					ExpectedDefaultBranch: "",
+					ExpectedError: context.Canceled,
 				},
-				{
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+					},
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: context.Canceled,
+				},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: secondCommitOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: ReferenceVerificationError{
+					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     rootCommitOID,
 					},
-					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "commit returns if context is canceled before admission",
 			steps: steps{
-				{
-					CommitContext: func() context.Context {
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					Context: func() context.Context {
 						ctx, cancel := context.WithCancel(ctx)
 						cancel()
 						return ctx
 					}(),
-					SkipStartManager: true,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-					},
-					ExpectedCommitError:   context.Canceled,
-					ExpectedDefaultBranch: "",
+					ExpectedError: context.Canceled,
 				},
 			},
 		},
 		{
 			desc: "commit returns if transaction processing stops before admission",
 			steps: steps{
-				{
-					StopManager: true,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-					},
-					ExpectedCommitError:   ErrTransactionProcessingStopped,
-					ExpectedDefaultBranch: "",
+				StartManager{},
+				Begin{},
+				StopManager{},
+				Commit{
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 			},
 		},
@@ -1515,36 +1204,28 @@ func TestTransactionManager(t *testing.T) {
 			return testCase{
 				desc: "commit returns if context is canceled after admission",
 				steps: steps{
-					{
-						CommitContext: ctx,
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					StartManager{
 						Hooks: testHooks{
 							BeforeApplyLogEntry: func(hookCtx hookContext) {
 								// Cancel the context used in Commit
 								cancel()
 							},
-							BeforeDeleteLogEntry: func(hookCtx hookContext) {
-								RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-									string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-									string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-										ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-											{
-												ReferenceName: []byte("refs/heads/main"),
-												NewOid:        []byte(rootCommitOID),
-											},
-										},
-									},
-								})
-							},
 						},
-						ExpectedCommitError: context.Canceled,
-						ExpectedReferences:  []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
-						ExpectedDatabase: DatabaseState{
-							string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					},
+					Begin{},
+					Commit{
+						Context: ctx,
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
-						ExpectedDefaultBranch: "refs/heads/main",
+						ExpectedError: context.Canceled,
+					},
+				},
+				expectedState: StateAssertion{
+					DefaultBranch: "refs/heads/main",
+					References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+					Database: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
 				},
 			}
@@ -1552,10 +1233,7 @@ func TestTransactionManager(t *testing.T) {
 		{
 			desc: "commit returns if transaction processing stops before transaction acceptance",
 			steps: steps{
-				{
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-					},
+				StartManager{
 					Hooks: testHooks{
 						BeforeAppendLogEntry: func(hookContext hookContext) { hookContext.stopManager() },
 						// This ensures we are testing the context cancellation errors being unwrapped properly
@@ -1563,31 +1241,41 @@ func TestTransactionManager(t *testing.T) {
 						// runDone is closed.
 						WaitForTransactionsWhenStopping: true,
 					},
-					ExpectedCommitError: ErrTransactionProcessingStopped,
+				},
+				Begin{},
+				StopManager{},
+				Commit{
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 			},
 		},
 		{
 			desc: "commit returns if transaction processing stops after transaction acceptance",
 			steps: steps{
-				{
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-					},
+				StartManager{
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedCommitError: ErrTransactionProcessingStopped,
-					ExpectedRunError:    true,
-					ExpectedDatabase: DatabaseState{
-						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-								{
-									ReferenceName: []byte("refs/heads/main"),
-									NewOid:        []byte(rootCommitOID),
-								},
+					ExpectedError: context.Canceled,
+				},
+				Begin{},
+				Commit{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+					},
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{ExpectedError: context.Canceled},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+						ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+							{
+								ReferenceName: []byte("refs/heads/main"),
+								NewOid:        []byte(rootCommitOID),
 							},
 						},
 					},
@@ -1597,97 +1285,56 @@ func TestTransactionManager(t *testing.T) {
 		{
 			desc: "update default branch with existing branch",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/branch2"),
-											NewOid:        []byte(rootCommitOID),
-										},
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									DefaultBranchUpdate: &gitalypb.LogEntry_DefaultBranchUpdate{
-										ReferenceName: []byte("refs/heads/branch2"),
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/branch2",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/branch2",
+				References: []git.Reference{
+					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+					{Name: "refs/heads/main", Target: rootCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "update default branch with new branch created in same transaction",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/main":    {OldOID: rootCommitOID, NewOID: secondCommitOID},
@@ -1695,43 +1342,25 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: secondCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/branch2"),
-											NewOid:        []byte(rootCommitOID),
-										},
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(secondCommitOID),
-										},
-									},
-									DefaultBranchUpdate: &gitalypb.LogEntry_DefaultBranchUpdate{
-										ReferenceName: []byte("refs/heads/branch2"),
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/branch2",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/branch2",
+				References: []git.Reference{
+					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+					{Name: "refs/heads/main", Target: secondCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "update default branch with invalid reference name",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
@@ -1741,15 +1370,16 @@ func TestTransactionManager(t *testing.T) {
 					// For branch updates, we don't really verify the refname schematics, we take a shortcut
 					// and rely on it being either a verified new reference name or a reference name which
 					// exists on the repo already.
-					ExpectedCommitError:   git.ErrReferenceNotFound,
-					ExpectedDefaultBranch: "",
+					ExpectedError: git.ErrReferenceNotFound,
 				},
 			},
 		},
 		{
 			desc: "update default branch to point to a non-existent reference name",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
@@ -1759,142 +1389,103 @@ func TestTransactionManager(t *testing.T) {
 					// For branch updates, we don't really verify the refname schematics, we take a shortcut
 					// and rely on it being either a verified new reference name or a reference name which
 					// exists on the repo already.
-					ExpectedCommitError:   git.ErrReferenceNotFound,
-					ExpectedDefaultBranch: "",
+					ExpectedError: git.ErrReferenceNotFound,
 				},
 			},
 		},
 		{
 			desc: "update default branch to point to reference being deleted in the same transaction",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/branch2"),
-											NewOid:        []byte(rootCommitOID),
-										},
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/branch2": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					ExpectedCommitError: ReferenceToBeDeletedError{ReferenceName: "refs/heads/branch2"},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
+					ExpectedError: ReferenceToBeDeletedError{ReferenceName: "refs/heads/branch2"},
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+					{Name: "refs/heads/main", Target: rootCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
 			},
 		},
 		{
 			desc: "update default branch with existing branch and other modifications",
 			steps: steps{
-				{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/branch2"),
-											NewOid:        []byte(rootCommitOID),
-										},
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(rootCommitOID),
-										},
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/main",
 				},
-				{
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: secondCommitOID.String()},
-					},
-					Hooks: testHooks{
-						BeforeDeleteLogEntry: func(hookCtx hookContext) {
-							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
-								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
-									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-										{
-											ReferenceName: []byte("refs/heads/main"),
-											NewOid:        []byte(secondCommitOID),
-										},
-									},
-									DefaultBranchUpdate: &gitalypb.LogEntry_DefaultBranchUpdate{
-										ReferenceName: []byte("refs/heads/branch2"),
-									},
-								},
-							})
-						},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/branch2",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/branch2",
+				References: []git.Reference{
+					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+					{Name: "refs/heads/main", Target: secondCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
 		{
 			desc: "update default branch fails before storing log index",
 			steps: steps{
-				{
+				StartManager{
+					Hooks: testHooks{
+						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
@@ -1902,50 +1493,30 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					Hooks: testHooks{
-						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
-							panic("node failure simulation")
-						},
-					},
-					ExpectedPanic:       "node failure simulation",
-					ExpectedCommitError: ErrTransactionProcessingStopped,
-					ExpectedRunError:    true,
-					ExpectedDatabase: DatabaseState{
-						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
-							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
-								{
-									ReferenceName: []byte("refs/heads/branch2"),
-									NewOid:        []byte(rootCommitOID),
-								},
-								{
-									ReferenceName: []byte("refs/heads/main"),
-									NewOid:        []byte(rootCommitOID),
-								},
-							},
-							DefaultBranchUpdate: &gitalypb.LogEntry_DefaultBranchUpdate{
-								ReferenceName: []byte("refs/heads/branch2"),
-							},
-						},
-					},
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					},
-					ExpectedDefaultBranch: "refs/heads/branch2",
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
-				{
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-
-					ExpectedReferences: []git.Reference{
-						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-						{Name: "refs/heads/main", Target: secondCommitOID.String()},
-					},
-					ExpectedDatabase: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
-					},
-					ExpectedDefaultBranch: "refs/heads/branch2",
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/branch2",
+				References: []git.Reference{
+					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+					{Name: "refs/heads/main", Target: secondCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1973,11 +1544,13 @@ func TestTransactionManager(t *testing.T) {
 		testCases = append(testCases, testCase{
 			desc: fmt.Sprintf("invalid reference %s", tc.desc),
 			steps: steps{
-				{
+				StartManager{},
+				Begin{},
+				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						tc.referenceName: {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: err,
+					ExpectedError: err,
 				},
 			},
 		})
@@ -2081,7 +1654,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager *TransactionManager
+				transactionManager = NewTransactionManager(database, repository)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -2100,43 +1673,9 @@ func TestTransactionManager(t *testing.T) {
 				require.False(t, managerRunning)
 			}
 
-			applyHooks := func(tb testing.TB, testHooks testHooks) {
-				installHooks(tb, transactionManager, database, repository, hooks{
-					beforeReadLogEntry:    testHooks.BeforeApplyLogEntry,
-					beforeResolveRevision: testHooks.BeforeAppendLogEntry,
-					beforeDeferredStop: func(hookContext) {
-						if testHooks.WaitForTransactionsWhenStopping {
-							inflightTransactions.Wait()
-						}
-					},
-					beforeDeleteLogEntry:       testHooks.BeforeDeleteLogEntry,
-					beforeStoreAppliedLogIndex: testHooks.BeforeStoreAppliedLogIndex,
-				})
-			}
-
-			// startManager starts fresh manager and applies hooks into it.
-			startManager := func(testHooks testHooks, expectedPanic any) {
-				t.Helper()
-
-				require.False(t, managerRunning, "manager started while it was already running")
-				managerRunning = true
-				managerErr = make(chan error)
-
-				transactionManager = NewTransactionManager(database, repository)
-				applyHooks(t, testHooks)
-
-				go func() {
-					defer func() {
-						r := recover()
-						assert.Equal(t, expectedPanic, r)
-						if r != nil {
-							managerErr <- fmt.Errorf("received panic: %s", r.(string))
-						}
-					}()
-
-					managerErr <- transactionManager.Run()
-				}()
-			}
+			// openTransactions holds references to all of the transactions that have been
+			// began in a test case.
+			openTransactions := map[int]*Transaction{}
 
 			// Stop the manager if it is running at the end of the test.
 			defer func() {
@@ -2145,36 +1684,61 @@ func TestTransactionManager(t *testing.T) {
 				}
 			}()
 			for _, step := range tc.steps {
-				switch {
-				case step.SkipStartManager:
+				switch step := step.(type) {
+				case StartManager:
+					require.False(t, managerRunning, "test error: manager started while it was already running")
+					managerRunning = true
+					managerErr = make(chan error)
+
 					transactionManager = NewTransactionManager(database, repository)
-				case !managerRunning:
-					// Unless explicitly skipped, ensure every step starts with
-					// the manager running.
-					startManager(step.Hooks, step.ExpectedPanic)
-				default:
-					// Apply the hooks for this step if the manager is running
-					// already to ensure the steps hooks are in place.
-					applyHooks(t, step.Hooks)
-				}
+					installHooks(t, transactionManager, database, repository, hooks{
+						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
+						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
+						beforeDeferredStop: func(hookContext) {
+							if step.Hooks.WaitForTransactionsWhenStopping {
+								inflightTransactions.Wait()
+							}
+						},
+						beforeDeleteLogEntry:       step.Hooks.BeforeDeleteLogEntry,
+						beforeStoreAppliedLogIndex: step.Hooks.BeforeStoreAppliedLogIndex,
+					})
 
-				if step.StopManager {
-					require.True(t, managerRunning, "manager stopped while it was already stopped")
+					go func() {
+						defer func() {
+							if r := recover(); r != nil {
+								err, ok := r.(error)
+								if !ok {
+									panic(r)
+								}
+								assert.ErrorIs(t, err, step.ExpectedError)
+								managerErr <- err
+							}
+						}()
+
+						managerErr <- transactionManager.Run()
+					}()
+				case StopManager:
+					require.True(t, managerRunning, "test error: manager stopped while it was already stopped")
 					stopManager()
-				}
+				case AssertManager:
+					require.True(t, managerRunning, "test error: manager must be running for syncing")
+					managerRunning, err = checkManagerError(t, managerErr, transactionManager)
+					require.ErrorIs(t, err, step.ExpectedError)
+				case Begin:
+					require.NotContains(t, openTransactions, step.TransactionID, "test error: transaction id reused in begin")
 
-				if step.RestartManager {
-					startManager(step.Hooks, step.ExpectedPanic)
-				}
+					beginCtx := ctx
+					if step.Context != nil {
+						beginCtx = step.Context
+					}
 
-				func() {
-					inflightTransactions.Add(1)
-					defer inflightTransactions.Done()
+					transaction, err := transactionManager.Begin(beginCtx)
+					require.Equal(t, step.ExpectedError, err)
+					openTransactions[step.TransactionID] = transaction
+				case Commit:
+					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction committed before beginning it")
 
-					transaction, err := transactionManager.Begin(ctx)
-					require.NoError(t, err)
-					defer transaction.Rollback()
-
+					transaction := openTransactions[step.TransactionID]
 					if step.SkipVerificationFailures {
 						transaction.SkipVerificationFailures()
 					}
@@ -2192,26 +1756,25 @@ func TestTransactionManager(t *testing.T) {
 					}
 
 					commitCtx := ctx
-					if step.CommitContext != nil {
-						commitCtx = step.CommitContext
+					if step.Context != nil {
+						commitCtx = step.Context
 					}
 
-					require.ErrorIs(t, transaction.Commit(commitCtx), step.ExpectedCommitError)
-				}()
-
-				if !step.SkipStartManager {
-					if managerRunning, err = checkManagerError(t, managerErr, transactionManager); step.ExpectedRunError {
-						require.Error(t, err)
-					} else {
-						require.NoError(t, err)
-					}
+					require.ErrorIs(t, transaction.Commit(commitCtx), step.ExpectedError)
+				default:
+					t.Fatalf("unhandled step type: %T", step)
 				}
-
-				RequireReferences(t, ctx, repository, step.ExpectedReferences)
-				RequireDefaultBranch(t, ctx, repository, step.ExpectedDefaultBranch)
-				RequireDatabase(t, ctx, database, step.ExpectedDatabase)
-				RequireHooks(t, repository, step.ExpectedHooks)
 			}
+
+			if managerRunning {
+				managerRunning, err = checkManagerError(t, managerErr, transactionManager)
+				require.NoError(t, err)
+			}
+
+			RequireReferences(t, ctx, repository, tc.expectedState.References)
+			RequireDefaultBranch(t, ctx, repository, tc.expectedState.DefaultBranch)
+			RequireDatabase(t, ctx, database, tc.expectedState.Database)
+			RequireHooks(t, repository, tc.expectedState.Hooks)
 		})
 	}
 }
