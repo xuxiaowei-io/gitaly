@@ -69,6 +69,7 @@ func WithPackObjectsHookEnv(repo *gitalypb.Repository, protocol string) CmdOpt {
 			Protocol: protocol,
 			UserID:   metadata.GetValue(ctx, "user_id"),
 			Username: metadata.GetValue(ctx, "username"),
+			RemoteIP: metadata.GetValue(ctx, "remote_ip"),
 		}
 
 		if err := cc.configureHooks(

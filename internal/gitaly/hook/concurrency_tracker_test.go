@@ -28,6 +28,8 @@ func TestConcurrencyTracker(t *testing.T) {
 				defer finish()
 				finish = c.LogConcurrency(ctx, "user_id", "user-123")
 				defer finish()
+				finish = c.LogConcurrency(ctx, "remote_ip", "1.2.3.4")
+				defer finish()
 			},
 			expectedLogData: []logrus.Fields{
 				{
@@ -38,6 +40,11 @@ func TestConcurrencyTracker(t *testing.T) {
 				{
 					"concurrency_type": "user_id",
 					"concurrency_key":  "user-123",
+					"concurrency":      1,
+				},
+				{
+					"concurrency_type": "remote_ip",
+					"concurrency_key":  "1.2.3.4",
 					"concurrency":      1,
 				},
 			},
@@ -57,6 +64,14 @@ func TestConcurrencyTracker(t *testing.T) {
 				defer finish()
 				finish = c.LogConcurrency(ctx, "user_id", "user-123")
 				defer finish()
+				finish = c.LogConcurrency(ctx, "remote_ip", "1.2.3.4")
+				defer finish()
+				finish = c.LogConcurrency(ctx, "remote_ip", "1.2.3.4")
+				defer finish()
+				finish = c.LogConcurrency(ctx, "remote_ip", "1.2.3.4")
+				defer finish()
+				finish = c.LogConcurrency(ctx, "remote_ip", "1.2.3.4")
+				defer finish()
 			},
 			expectedLogData: []logrus.Fields{
 				{
@@ -88,6 +103,26 @@ func TestConcurrencyTracker(t *testing.T) {
 					"concurrency_type": "user_id",
 					"concurrency_key":  "user-123",
 					"concurrency":      3,
+				},
+				{
+					"concurrency_type": "remote_ip",
+					"concurrency_key":  "1.2.3.4",
+					"concurrency":      1,
+				},
+				{
+					"concurrency_type": "remote_ip",
+					"concurrency_key":  "1.2.3.4",
+					"concurrency":      2,
+				},
+				{
+					"concurrency_type": "remote_ip",
+					"concurrency_key":  "1.2.3.4",
+					"concurrency":      3,
+				},
+				{
+					"concurrency_type": "remote_ip",
+					"concurrency_key":  "1.2.3.4",
+					"concurrency":      4,
 				},
 			},
 		},
@@ -106,6 +141,8 @@ func TestConcurrencyTracker(t *testing.T) {
 				finish()
 				finish = c.LogConcurrency(ctx, "user_id", "user-123")
 				finish()
+				finish = c.LogConcurrency(ctx, "remote_ip", "1.2.3.4")
+				finish()
 			},
 			expectedLogData: []logrus.Fields{
 				{
@@ -136,6 +173,11 @@ func TestConcurrencyTracker(t *testing.T) {
 				{
 					"concurrency_type": "user_id",
 					"concurrency_key":  "user-123",
+					"concurrency":      1,
+				},
+				{
+					"concurrency_type": "remote_ip",
+					"concurrency_key":  "1.2.3.4",
 					"concurrency":      1,
 				},
 			},
@@ -216,8 +258,36 @@ func TestConcurrencyTracker_metrics(t *testing.T) {
 	c.LogConcurrency(ctx, "user_id", "user-3")
 	c.LogConcurrency(ctx, "user_id", "user-4")
 
+	finish = c.LogConcurrency(ctx, "remote_ip", "1.2.3.4")
+	finish()
+	c.LogConcurrency(ctx, "remote_ip", "1.2.3.5")
+	c.LogConcurrency(ctx, "remote_ip", "1.2.3.6")
+
 	expectedMetrics := `# HELP gitaly_pack_objects_concurrent_processes Number of concurrent processes
 # TYPE gitaly_pack_objects_concurrent_processes histogram
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="0"} 0
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="5"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="10"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="15"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="20"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="25"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="30"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="35"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="40"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="45"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="50"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="55"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="60"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="65"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="70"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="75"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="80"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="85"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="90"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="95"} 3
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="+Inf"} 3
+gitaly_pack_objects_concurrent_processes_sum{segment="remote_ip"} 3
+gitaly_pack_objects_concurrent_processes_count{segment="remote_ip"} 3
 gitaly_pack_objects_concurrent_processes_bucket{segment="repository",le="0"} 0
 gitaly_pack_objects_concurrent_processes_bucket{segment="repository",le="5"} 4
 gitaly_pack_objects_concurrent_processes_bucket{segment="repository",le="10"} 4
@@ -266,10 +336,12 @@ gitaly_pack_objects_concurrent_processes_sum{segment="user_id"} 5
 gitaly_pack_objects_concurrent_processes_count{segment="user_id"} 5
 # HELP gitaly_pack_objects_process_active_callers Number of unique callers that have an active pack objects processes
 # TYPE gitaly_pack_objects_process_active_callers gauge
+gitaly_pack_objects_process_active_callers{segment="remote_ip"} 2
 gitaly_pack_objects_process_active_callers{segment="repository"} 3
 gitaly_pack_objects_process_active_callers{segment="user_id"} 4
 # HELP gitaly_pack_objects_process_active_callers_total Total unique callers that have initiated a pack objects processes
 # TYPE gitaly_pack_objects_process_active_callers_total counter
+gitaly_pack_objects_process_active_callers_total{segment="remote_ip"} 3
 gitaly_pack_objects_process_active_callers_total{segment="repository"} 4
 gitaly_pack_objects_process_active_callers_total{segment="user_id"} 5
 `
