@@ -51,7 +51,7 @@ func (c *Config) Validate() error {
 		return nil
 	}
 
-	errs := cfgerror.New().Append(cfgerror.IsPositive(c.ScrapeTimeout.Duration()), "scrape_timeout")
+	errs := cfgerror.New().Append(cfgerror.Comparable(c.ScrapeTimeout.Duration()).GreaterOrEqual(0), "scrape_timeout")
 	if !sort.IsSorted(sort.Float64Slice(c.GRPCLatencyBuckets)) {
 		err := fmt.Errorf("%w: expected asc: %v", cfgerror.ErrBadOrder, c.GRPCLatencyBuckets)
 		errs = errs.Append(err, "grpc_latency_buckets")

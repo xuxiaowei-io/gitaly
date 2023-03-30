@@ -95,9 +95,9 @@ func (f Failover) Validate() error {
 
 	errs := cfgerror.New().
 		Append(cfgerror.IsSupportedValue(f.ElectionStrategy, ElectionStrategyLocal, ElectionStrategySQL, ElectionStrategyPerRepository), "election_strategy").
-		Append(cfgerror.IsPositive(f.BootstrapInterval.Duration()), "bootstrap_interval").
-		Append(cfgerror.IsPositive(f.MonitorInterval.Duration()), "monitor_interval").
-		Append(cfgerror.IsPositive(f.ErrorThresholdWindow.Duration()), "error_threshold_window")
+		Append(cfgerror.Comparable(f.BootstrapInterval.Duration()).GreaterOrEqual(0), "bootstrap_interval").
+		Append(cfgerror.Comparable(f.MonitorInterval.Duration()).GreaterOrEqual(0), "monitor_interval").
+		Append(cfgerror.Comparable(f.ErrorThresholdWindow.Duration()).GreaterOrEqual(0), "error_threshold_window")
 
 	if f.ErrorThresholdWindow == 0 && f.WriteErrorThresholdCount == 0 && f.ReadErrorThresholdCount == 0 {
 		return errs.AsError()
@@ -131,7 +131,7 @@ type BackgroundVerification struct {
 // Validate runs validation on all fields and compose all found errors.
 func (bv BackgroundVerification) Validate() error {
 	return cfgerror.New().
-		Append(cfgerror.IsPositive(bv.VerificationInterval.Duration()), "verification_interval").
+		Append(cfgerror.Comparable(bv.VerificationInterval.Duration()).GreaterOrEqual(0), "verification_interval").
 		AsError()
 }
 
@@ -155,7 +155,7 @@ type Reconciliation struct {
 // Validate runs validation on all fields and compose all found errors.
 func (r Reconciliation) Validate() error {
 	errs := cfgerror.New().
-		Append(cfgerror.IsPositive(r.SchedulingInterval.Duration()), "scheduling_interval")
+		Append(cfgerror.Comparable(r.SchedulingInterval.Duration()).GreaterOrEqual(0), "scheduling_interval")
 
 	if r.SchedulingInterval != 0 {
 		if !sort.Float64sAreSorted(r.HistogramBuckets) {

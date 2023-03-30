@@ -1784,7 +1784,7 @@ func TestPackObjectsLimiting_Validate(t *testing.T) {
 		t,
 		cfgerror.ValidationErrors{
 			cfgerror.NewValidationError(
-				fmt.Errorf("%w: -1", cfgerror.ErrIsNegative),
+				fmt.Errorf("%w: -1 is not greater than or equal to 0", cfgerror.ErrNotInRange),
 				"max_concurrency",
 			),
 		},
@@ -1798,7 +1798,7 @@ func TestPackObjectsLimiting_Validate(t *testing.T) {
 		t,
 		cfgerror.ValidationErrors{
 			cfgerror.NewValidationError(
-				fmt.Errorf("%w: -1", cfgerror.ErrIsNegative),
+				fmt.Errorf("%w: -1 is not greater than or equal to 0", cfgerror.ErrNotInRange),
 				"max_queue_length",
 			),
 		},
@@ -1810,7 +1810,7 @@ func TestPackObjectsLimiting_Validate(t *testing.T) {
 		t,
 		cfgerror.ValidationErrors{
 			cfgerror.NewValidationError(
-				fmt.Errorf("%w: -1m0s", cfgerror.ErrIsNegative),
+				fmt.Errorf("%w: -1m0s is not greater than or equal to 0s", cfgerror.ErrNotInRange),
 				"max_queue_wait",
 			),
 		},
@@ -2195,7 +2195,7 @@ func TestStreamCacheConfig_Validate(t *testing.T) {
 					"dir",
 				),
 				cfgerror.NewValidationError(
-					fmt.Errorf("%w: %s", cfgerror.ErrIsNegative, time.Duration(-1)),
+					fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
 					"max_age",
 				),
 			},

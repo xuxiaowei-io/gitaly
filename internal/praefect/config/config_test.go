@@ -588,15 +588,15 @@ func TestFailover_Validate(t *testing.T) {
 				},
 				{
 					Key:   []string{"bootstrap_interval"},
-					Cause: fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+					Cause: fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
 				},
 				{
 					Key:   []string{"monitor_interval"},
-					Cause: fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+					Cause: fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
 				},
 				{
 					Key:   []string{"error_threshold_window"},
-					Cause: fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+					Cause: fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
 				},
 				{
 					Key:   []string{"write_error_threshold_count"},
@@ -671,7 +671,7 @@ func TestBackgroundVerification_Validate(t *testing.T) {
 			},
 			expectedErr: cfgerror.ValidationErrors{
 				cfgerror.NewValidationError(
-					fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+					fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
 					"verification_interval",
 				),
 			},
@@ -710,7 +710,7 @@ func TestReconciliation_Validate(t *testing.T) {
 			},
 			expectedErr: cfgerror.ValidationErrors{{
 				Key:   []string{"scheduling_interval"},
-				Cause: fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+				Cause: fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
 			}, {
 				Key:   []string{"histogram_buckets"},
 				Cause: cfgerror.ErrBadOrder,
@@ -886,11 +886,11 @@ func TestYamux_Validate(t *testing.T) {
 			},
 			expectedErr: cfgerror.ValidationErrors{
 				cfgerror.NewValidationError(
-					fmt.Errorf("%w: 1024 out of [262144, Inf)", cfgerror.ErrNotInRange),
+					fmt.Errorf("%w: 1024 is not greater than or equal to 262144", cfgerror.ErrNotInRange),
 					"maximum_stream_window_size_bytes",
 				),
 				cfgerror.NewValidationError(
-					fmt.Errorf("%w: 0 out of [1, Inf)", cfgerror.ErrNotInRange),
+					fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange),
 					"accept_backlog",
 				),
 			},

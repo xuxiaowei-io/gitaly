@@ -26,8 +26,6 @@ var (
 	ErrNotAbsolutePath = errors.New("not an absolute path")
 	// ErrNotUnique should be used when the value must be unique, but there are duplicates.
 	ErrNotUnique = errors.New("not unique")
-	// ErrIsNegative should be used when the positive value or 0 is expected.
-	ErrIsNegative = errors.New("is negative")
 	// ErrBadOrder should be used when the order of the elements is wrong.
 	ErrBadOrder = errors.New("bad order")
 	// ErrNotInRange should be used when the value is not in expected range of values.
@@ -180,14 +178,6 @@ func PathIsAbs(path string) error {
 		return nil
 	}
 	return NewValidationError(fmt.Errorf("%w: %q", ErrNotAbsolutePath, path))
-}
-
-// IsPositive returns an error if provided value less than a zero.
-func IsPositive[T constraints.Signed | constraints.Float](val T) error {
-	if val < 0 {
-		return NewValidationError(fmt.Errorf("%w: %v", ErrIsNegative, val))
-	}
-	return nil
 }
 
 // InRangeOpt represents configuration options for InRange function.

@@ -186,13 +186,6 @@ func TestPathIsAbs(t *testing.T) {
 	}
 }
 
-func TestIsPositive(t *testing.T) {
-	t.Parallel()
-	require.NoError(t, IsPositive(0))
-	require.NoError(t, IsPositive(100))
-	require.Equal(t, NewValidationError(fmt.Errorf("%w: -1.2", ErrIsNegative)), IsPositive(-1.2))
-}
-
 func TestComparable_InRange(t *testing.T) {
 	t.Parallel()
 
