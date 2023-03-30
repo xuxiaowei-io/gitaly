@@ -253,7 +253,7 @@ find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -path "${SO
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
     TEST_LOG_DIR='${TEST_LOG_DIR}' \
-    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} --jsonfile ${TEST_FULL_OUTPUT} -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS},gitaly_test_signing' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} --jsonfile ${TEST_FULL_OUTPUT} -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 ## Test options passed to `dlv test`.
 DEBUG_OPTIONS      ?= $(patsubst -%,-test.%,${TEST_OPTIONS})

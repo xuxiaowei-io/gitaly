@@ -40,8 +40,6 @@ const (
 	RepositoryAuthToken = "the-secret-token"
 	// DefaultStorageName is the default name of the Gitaly storage.
 	DefaultStorageName = "default"
-	// SigningKeyPath is the default path to test commit signing.
-	SigningKeyPath = "testdata/signingKey.gpg"
 )
 
 // IsPraefectEnabled returns whether this testing run is done with Praefect in front of the Gitaly.

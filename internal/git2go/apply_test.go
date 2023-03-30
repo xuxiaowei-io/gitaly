@@ -6,7 +6,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -38,8 +37,8 @@ func TestExecutor_Apply(t *testing.T) {
 	oidB, err := repo.WriteBlob(ctx, "file", strings.NewReader("b"))
 	require.NoError(t, err)
 
-	author := NewSignature("Test Author", "test.author@example.com", time.Now())
-	committer := NewSignature("Test Committer", "test.committer@example.com", time.Now())
+	author := defaultCommitAuthorSignature()
+	committer := defaultCommitAuthorSignature()
 
 	parentCommitSHA, err := executor.Commit(ctx, repo, CommitCommand{
 		Repository: repoPath,
@@ -209,12 +208,14 @@ func TestExecutor_Apply(t *testing.T) {
 				return
 			}
 
-			require.Equal(t, commit{
-				Parent:    tc.parentCommit,
-				Author:    author,
-				Committer: committer,
-				Message:   tc.patches[len(tc.patches)-1].Message,
-			}, getCommit(t, ctx, repo, commitID, false))
+			commit, err := repo.ReadCommit(ctx, commitID.Revision())
+			require.NoError(t, err)
+
+			require.Equal(t, []string{string(tc.parentCommit)}, commit.ParentIds)
+			require.Equal(t, gittest.DefaultCommitAuthor, commit.Author)
+			require.Equal(t, gittest.DefaultCommitAuthor, commit.Committer)
+			require.Equal(t, []byte(tc.patches[len(tc.patches)-1].Message), commit.Body)
+
 			gittest.RequireTree(t, cfg, repoPath, commitID.String(), tc.tree)
 		})
 	}
