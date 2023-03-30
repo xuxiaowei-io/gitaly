@@ -209,11 +209,11 @@ func TestOptimizeRepository_objectPoolMember(t *testing.T) {
 				return housekeeping.NewEagerOptimizationStrategy(repoInfo)
 			},
 			expectedLogEntries: map[string]string{
-				"packed_refs":               "success",
-				"pruned_objects":            "success",
-				"packed_objects_cruft":      "success",
-				"written_commit_graph_full": "success",
-				"written_multi_pack_index":  "success",
+				"packed_refs":                    "success",
+				"pruned_objects":                 "success",
+				"packed_objects_full_with_cruft": "success",
+				"written_commit_graph_full":      "success",
+				"written_multi_pack_index":       "success",
 			},
 		},
 		{

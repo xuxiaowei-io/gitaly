@@ -356,7 +356,7 @@ func TestOptimizeRepository(t *testing.T) {
 				{name: "total", status: "success", count: 1},
 			},
 			expectedMetricsForPool: []metric{
-				{name: "packed_objects_full", status: "success", count: 1},
+				{name: "packed_objects_full_with_loose_unreachable", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
 				{name: "written_commit_graph_incremental", status: "success", count: 1},
 				{name: "written_multi_pack_index", status: "success", count: 1},
