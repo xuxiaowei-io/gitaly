@@ -14,8 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type conflictFile struct {
@@ -357,6 +355,81 @@ func TestListConflictFiles(t *testing.T) {
 				}
 			},
 		},
+		{
+			"empty repo",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				_, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "apple"},
+				))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     nil,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:  client,
+					request: request,
+					expectedError: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
+				}
+			},
+		},
+		{
+			"empty OurCommitId field",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   "",
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:        client,
+					request:       request,
+					expectedError: structerr.NewInvalidArgument("empty OurCommitOid"),
+				}
+			},
+		},
+		{
+			"empty TheirCommitId field",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "apple"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: "",
+				}
+
+				return setupData{
+					client:        client,
+					request:       request,
+					expectedError: structerr.NewInvalidArgument("empty TheirCommitOid"),
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -373,59 +446,6 @@ func TestListConflictFiles(t *testing.T) {
 			if data.expectedError == nil {
 				testhelper.ProtoEqual(t, data.expectedFiles, getConflictFiles(t, c))
 			}
-		})
-	}
-}
-
-func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setupConflictsService(t, ctx, nil)
-
-	ourCommitOid := "0b4bc9a49b562e85de7cc9e834518ea6828729b9"
-	theirCommitOid := "bb5206fee213d983da88c47f9cf4cc6caf9c66dc"
-
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.ListConflictFilesRequest
-		expectedErr error
-	}{
-		{
-			desc: "empty repo",
-			request: &gitalypb.ListConflictFilesRequest{
-				Repository:     nil,
-				OurCommitOid:   ourCommitOid,
-				TheirCommitOid: theirCommitOid,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc: "empty OurCommitId field",
-			request: &gitalypb.ListConflictFilesRequest{
-				Repository:     repo,
-				OurCommitOid:   "",
-				TheirCommitOid: theirCommitOid,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty OurCommitOid"),
-		},
-		{
-			desc: "empty TheirCommitId field",
-			request: &gitalypb.ListConflictFilesRequest{
-				Repository:     repo,
-				OurCommitOid:   ourCommitOid,
-				TheirCommitOid: "",
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty TheirCommitOid"),
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			c, _ := client.ListConflictFiles(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, testCase.expectedErr, drainListConflictFilesResponse(c))
 		})
 	}
 }
