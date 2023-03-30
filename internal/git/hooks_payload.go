@@ -83,12 +83,6 @@ type HooksPayload struct {
 	// UserDetails contains information required when executing
 	// git-receive-pack or git-upload-pack
 	UserDetails *UserDetails `json:"user_details"`
-	// ReceiveHooksPayload should be identical to UserDetails.
-	// Since the git2go binary is replaced before the gitaly binary, there
-	// is a period of time during an upgrade when the gitaly binary is older
-	// than the corresponding git2go binary. So, we need to keep the
-	// receive_hooks_payload key for one release before we can remove it.
-	ReceiveHooksPayload *UserDetails `json:"receive_hooks_payload"`
 }
 
 // UserDetails contains all information which is required for hooks
@@ -102,6 +96,9 @@ type UserDetails struct {
 	// Protocol contains the protocol via which the hook was executed. This
 	// can be one of "web", "ssh" or "smarthttp".
 	Protocol string `json:"protocol"`
+	// RemoteIP contains the original IP of the client who initiated the flow leading to this
+	// target hook.
+	RemoteIP string `json:"remote_ip"`
 }
 
 // jsonHooksPayload wraps the HooksPayload such that we can manually encode the

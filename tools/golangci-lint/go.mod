@@ -2,7 +2,7 @@ module gitlab.com/gitlab-org/gitaly/tools/golangci-lint
 
 go 1.18
 
-require github.com/golangci/golangci-lint v1.52.0
+require github.com/golangci/golangci-lint v1.52.1
 
 require (
 	github.com/spf13/viper v1.12.0
