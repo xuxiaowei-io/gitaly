@@ -4,7 +4,6 @@ package operations
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -23,11 +21,7 @@ import (
 func TestUserUpdateSubmodule(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.SubmoduleInGit).
-		Run(t, testUserUpdateSubmodule)
-}
-
-func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	type setupData struct {
