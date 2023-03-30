@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.10.1 (2023-03-30)
+
+No changes.
+
 ## 15.10.0 (2023-03-21)
 
 ### Added (4 changes)
@@ -31,6 +35,10 @@
 ### Other (1 change)
 
 - [Simplify streamcache.Cache for efficient null implementation](gitlab-org/gitaly@de53fe2f5c773a059b599674ccaf459b5daf4b49) ([merge request](gitlab-org/gitaly!5444))
+
+## 15.9.4 (2023-03-30)
+
+No changes.
 
 ## 15.9.3 (2023-03-09)
 
@@ -111,6 +119,10 @@ No changes.
 - [git/stats: Don't stat(3P) all pack directory entries](gitlab-org/gitaly@a440158795b509632fea820ce12973022bba9604) ([merge request](gitlab-org/gitaly!5299))
 - [housekeeping: Enable writing of multi-pack-indices](gitlab-org/gitaly@ef10b419db050e8a43d2c345bce167bc0a1d15ce) ([merge request](gitlab-org/gitaly!5275))
 - [housekeeping: Enable writing bitmap lookup tables](gitlab-org/gitaly@73505638cebbbd47aa70b9f587f411559abc1f08) ([merge request](gitlab-org/gitaly!5278))
+
+## 15.8.5 (2023-03-30)
+
+No changes.
 
 ## 15.8.4 (2023-03-02)
 
