@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -1002,6 +1003,84 @@ func testTrace2TracingExporter(t *testing.T, testCtx context.Context) {
 	}
 }
 
+func TestTrace2PackObjectsMetrics(t *testing.T) {
+	featureSet := testhelper.NewFeatureSets(featureflag.ExportTrace2PackObjectsMetrics)
+	featureSet.Run(t, testTrace2PackObjectsMetrics)
+}
+
+func testTrace2PackObjectsMetrics(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc              string
+		performGitCommand func(t *testing.T, ctx context.Context, opts ...git.ExecCommandFactoryOption)
+		assert            func(*testing.T, context.Context, logrus.Fields)
+	}{
+		{
+			desc:              "git-pack-objects",
+			performGitCommand: performPackObjectGit,
+			assert: func(t *testing.T, ctx context.Context, statFields logrus.Fields) {
+				if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) {
+					require.Equal(t, "true", statFields["trace2.activated"])
+					require.Equal(t, "pack_objects_metrics", statFields["trace2.hooks"])
+					require.Contains(t, statFields, "pack_objects.enumerate_objects_ms")
+					require.Contains(t, statFields, "pack_objects.prepare_pack_ms")
+					require.Contains(t, statFields, "pack_objects.write_pack_file_ms")
+					require.Equal(t, 1, statFields["pack_objects.written_object_count"])
+				} else {
+					require.NotContains(t, statFields, "trace2.activated")
+					require.NotContains(t, statFields, "trace2.hooks")
+				}
+			},
+		},
+		{
+			desc: "other git command",
+			performGitCommand: func(t *testing.T, ctx context.Context, opts ...git.ExecCommandFactoryOption) {
+				cfg := testcfg.Build(t)
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg,
+					gittest.CreateRepositoryConfig{SkipCreationViaService: true},
+				)
+				gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, opts...)
+				require.NoError(t, err)
+				defer cleanup()
+
+				cmd, err := gitCmdFactory.New(ctx, repoProto, git.Command{
+					Name: "rev-list",
+					Flags: []git.Option{
+						git.Flag{Name: "--all"},
+						git.Flag{Name: "--max-count=1"},
+					},
+				})
+				require.NoError(t, err)
+
+				err = cmd.Wait()
+				require.NoError(t, err)
+			},
+			assert: func(t *testing.T, ctx context.Context, statFields logrus.Fields) {
+				require.NotContains(t, statFields, "trace2.activated")
+				require.NotContains(t, statFields, "trace2.hooks")
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			// Disable other hooks
+			ctx := featureflag.ContextWithFeatureFlag(ctx, featureflag.ExportTrace2PackObjectsMetrics, false)
+			ctx = command.InitContextStats(ctx)
+
+			tc.performGitCommand(t, ctx)
+
+			stats := command.StatsFromContext(ctx)
+			require.NotNil(t, stats)
+
+			statFields := stats.Fields()
+			tc.assert(t, ctx, statFields)
+		})
+	}
+}
+
 func TestDefaultTrace2HooksFor(t *testing.T) {
 	t.Parallel()
 
@@ -1021,18 +1100,39 @@ func testDefaultTrace2HooksFor(t *testing.T, ctx context.Context) {
 		tracerOptions []testhelper.StubTracingReporterOption
 	}{
 		{
-			desc: "there is no active span",
+			desc:   "there is no active span",
+			subCmd: "status",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				ctx := testhelper.Context(t)
+				return ctx, []trace2.Hook{}
+			},
+		},
+		{
+			desc:   "active span is sampled",
+			subCmd: "status",
+			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
+				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
 				var hooks []trace2.Hook
-				if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) {
-					hooks = append(hooks, trace2hooks.NewPackObjectsMetrics())
+
+				if featureflag.ExportTrace2Tracing.IsEnabled(ctx) {
+					hooks = append(hooks, &trace2hooks.TracingExporter{})
 				}
+
 				return ctx, hooks
 			},
 		},
 		{
-			desc: "active span is sampled",
+			desc:   "active span is not sampled",
+			subCmd: "status",
+			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
+				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
+				return ctx, []trace2.Hook{}
+			},
+			tracerOptions: []testhelper.StubTracingReporterOption{testhelper.NeverSampled()},
+		},
+		{
+			desc:   "subcmd is pack-objects",
+			subCmd: "pack-objects",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
 				var hooks []trace2.Hook
@@ -1047,19 +1147,6 @@ func testDefaultTrace2HooksFor(t *testing.T, ctx context.Context) {
 
 				return ctx, hooks
 			},
-		},
-		{
-			desc: "active span is not sampled",
-			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
-				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
-				var hooks []trace2.Hook
-				if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) {
-					hooks = append(hooks, trace2hooks.NewPackObjectsMetrics())
-				}
-
-				return ctx, hooks
-			},
-			tracerOptions: []testhelper.StubTracingReporterOption{testhelper.NeverSampled()},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
