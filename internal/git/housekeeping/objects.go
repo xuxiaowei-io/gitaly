@@ -25,25 +25,25 @@ const (
 )
 
 // RepackObjectsStrategy defines how objects shall be repacked.
-type RepackObjectsStrategy int
+type RepackObjectsStrategy string
 
 const (
 	// RepackObjectsStrategyIncremental performs an incremental repack by writing all loose
 	// objects that are currently reachable into a new packfile.
-	RepackObjectsStrategyIncremental = RepackObjectsStrategy(iota + 1)
+	RepackObjectsStrategyIncremental = RepackObjectsStrategy("incremental")
 	// RepackObjectsStrategyFullWithLooseUnreachable performs a full repack by writing all
 	// reachable objects into a new packfile. Unreachable objects will be exploded into loose
 	// objects.
-	RepackObjectsStrategyFullWithLooseUnreachable
+	RepackObjectsStrategyFullWithLooseUnreachable = RepackObjectsStrategy("full_with_loose_unreachable")
 	// RepackObjectsStrategyFullWithCruft performs a full repack by writing all reachable
 	// objects into a new packfile. Unreachable objects will be written into a separate cruft
 	// packfile.
-	RepackObjectsStrategyFullWithCruft
+	RepackObjectsStrategyFullWithCruft = RepackObjectsStrategy("full_with_cruft")
 	// RepackObjectsStrategyGeometric performs an geometric repack. This strategy will repack
 	// packfiles so that the resulting pack structure forms a geometric sequence in the number
 	// of objects. Loose objects will get soaked up as part of the repack regardless of their
 	// reachability.
-	RepackObjectsStrategyGeometric
+	RepackObjectsStrategyGeometric = RepackObjectsStrategy("geometric")
 )
 
 // RepackObjectsConfig is configuration for RepackObjects.
@@ -135,7 +135,7 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 			git.Flag{Name: "-l"},
 		}
 	default:
-		return structerr.NewInvalidArgument("invalid strategy %d", cfg.Strategy)
+		return structerr.NewInvalidArgument("invalid strategy: %q", cfg.Strategy)
 	}
 	if cfg.WriteMultiPackIndex {
 		options = append(options, git.Flag{Name: "--write-midx"})

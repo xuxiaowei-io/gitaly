@@ -293,7 +293,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 						if repackNeeded {
 							return RepackObjectsStrategyIncremental
 						}
-						return 0
+						return ""
 					}(),
 					WriteBitmap:         repackNeeded,
 					WriteMultiPackIndex: repackNeeded,
