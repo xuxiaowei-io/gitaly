@@ -92,6 +92,32 @@ func WithPackObjectsHookEnv(repo *gitalypb.Repository, protocol string) CmdOpt {
 	}
 }
 
+// ReceivePackRequest abstracts away the different requests that end up
+// spawning git-receive-pack.
+type ReceivePackRequest interface {
+	GetGlId() string
+	GetGlUsername() string
+	GetGlRepository() string
+	GetRepository() *gitalypb.Repository
+}
+
+// WithReceivePackHooks returns an option that populates the safe command with the environment
+// variables necessary to properly execute the pre-receive, update and post-receive hooks for
+// git-receive-pack(1).
+func WithReceivePackHooks(req ReceivePackRequest, protocol string) CmdOpt {
+	return func(ctx context.Context, cfg config.Cfg, gitCmdFactory CommandFactory, cc *cmdCfg) error {
+		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, gitCmdFactory, &UserDetails{
+			UserID:   req.GetGlId(),
+			Username: req.GetGlUsername(),
+			Protocol: protocol,
+		}, ReceivePackHooks); err != nil {
+			return err
+		}
+
+		return nil
+	}
+}
+
 // configureHooks updates the command configuration to include all environment
 // variables required by the reference transaction hook and any other needed
 // options to successfully execute hooks.
@@ -136,30 +162,4 @@ func (cc *cmdCfg) configureHooks(
 	cc.hooksConfigured = true
 
 	return nil
-}
-
-// ReceivePackRequest abstracts away the different requests that end up
-// spawning git-receive-pack.
-type ReceivePackRequest interface {
-	GetGlId() string
-	GetGlUsername() string
-	GetGlRepository() string
-	GetRepository() *gitalypb.Repository
-}
-
-// WithReceivePackHooks returns an option that populates the safe command with the environment
-// variables necessary to properly execute the pre-receive, update and post-receive hooks for
-// git-receive-pack(1).
-func WithReceivePackHooks(req ReceivePackRequest, protocol string) CmdOpt {
-	return func(ctx context.Context, cfg config.Cfg, gitCmdFactory CommandFactory, cc *cmdCfg) error {
-		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, gitCmdFactory, &UserDetails{
-			UserID:   req.GetGlId(),
-			Username: req.GetGlUsername(),
-			Protocol: protocol,
-		}, ReceivePackHooks); err != nil {
-			return err
-		}
-
-		return nil
-	}
 }
