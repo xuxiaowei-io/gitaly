@@ -21,7 +21,6 @@ import (
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -223,16 +222,10 @@ func TestPackRefsIfNeeded(t *testing.T) {
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testOptimizeRepository)
-}
 
-func testOptimizeRepository(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-
-	geometricOrIncrementalMetric := geometricOrIncremental(ctx, "packed_objects_geometric", "packed_objects_incremental")
 
 	type metric struct {
 		name, status string
@@ -270,7 +263,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return repo
 			},
 			expectedMetrics: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "written_commit_graph_full", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
 				{name: "written_multi_pack_index", status: "success", count: 1},
@@ -289,7 +282,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return repo
 			},
 			expectedMetrics: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
 				{name: "written_commit_graph_full", status: "success", count: 1},
 				{name: "written_multi_pack_index", status: "success", count: 1},
@@ -309,7 +302,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return repo
 			},
 			expectedMetrics: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
 				{name: "written_commit_graph_full", status: "success", count: 1},
 				{name: "written_multi_pack_index", status: "success", count: 1},
@@ -328,7 +321,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return repo
 			},
 			expectedMetrics: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
 				{name: "written_commit_graph_full", status: "success", count: 1},
 				{name: "written_multi_pack_index", status: "success", count: 1},
@@ -355,38 +348,20 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				return repo
 			},
-			expectedMetrics: geometricOrIncremental(ctx,
-				[]metric{
-					{name: "packed_objects_full_with_cruft", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: geometricOrIncrementalMetric, status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
-			expectedMetricsForPool: geometricOrIncremental(ctx,
-				[]metric{
-					{name: "packed_objects_full_with_unreachable", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "packed_objects_full_with_loose_unreachable", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
+			expectedMetricsForPool: []metric{
+				{name: "packed_objects_full_with_loose_unreachable", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "well-packed repository does not optimize",
@@ -401,7 +376,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return repo
 			},
 			expectedMetrics: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
 				{name: "written_commit_graph_incremental", status: "success", count: 1},
 				{name: "written_multi_pack_index", status: "success", count: 1},
@@ -453,7 +428,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return repo
 			},
 			expectedMetrics: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
 				{name: "written_commit_graph_incremental", status: "success", count: 1},
 				{name: "written_multi_pack_index", status: "success", count: 1},
@@ -486,7 +461,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return repo
 			},
 			expectedMetrics: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "pruned_objects", status: "success", count: 1},
 				{name: "written_commit_graph_full", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
@@ -495,7 +470,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 			},
 			// Object pools never prune objects.
 			expectedMetricsForPool: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
 				{name: "written_commit_graph_incremental", status: "success", count: 1},
 				{name: "written_multi_pack_index", status: "success", count: 1},
@@ -520,7 +495,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return repo
 			},
 			expectedMetrics: []metric{
-				{name: geometricOrIncrementalMetric, status: "success", count: 1},
+				{name: "packed_objects_incremental", status: "success", count: 1},
 				{name: "packed_refs", status: "success", count: 1},
 				{name: "written_commit_graph_incremental", status: "success", count: 1},
 				{name: "written_bitmap", status: "success", count: 1},
