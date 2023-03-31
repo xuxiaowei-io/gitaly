@@ -51,7 +51,7 @@ func (s *server) findRemoteRootRefCmd(ctx context.Context, request *gitalypb.Fin
 			Action: "show",
 			Args:   []string{"inmemory"},
 		},
-		git.WithRefTxHook(request.Repository),
+		git.WithDisabledHooks(),
 		git.WithConfigEnv(config...),
 	)
 }
