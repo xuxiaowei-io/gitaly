@@ -29,6 +29,8 @@ func TestUpdate_customHooks(t *testing.T) {
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
+	commitA := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("a"))
+	commitB := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("b"))
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
@@ -80,16 +82,13 @@ func TestUpdate_customHooks(t *testing.T) {
 	).Env()
 	require.NoError(t, err)
 
-	hash1 := strings.Repeat("1", 40)
-	hash2 := strings.Repeat("2", 40)
-
 	testCases := []struct {
 		desc           string
 		env            []string
 		hook           string
 		reference      string
-		oldHash        string
-		newHash        string
+		oldHash        git.ObjectID
+		newHash        git.ObjectID
 		expectedErr    string
 		expectedStdout string
 		expectedStderr string
@@ -98,8 +97,8 @@ func TestUpdate_customHooks(t *testing.T) {
 			desc:           "hook receives environment variables",
 			env:            []string{payload},
 			reference:      "refs/heads/master",
-			oldHash:        hash1,
-			newHash:        hash2,
+			oldHash:        commitA,
+			newHash:        commitB,
 			hook:           "#!/bin/sh\nenv | grep -v -e '^SHLVL=' -e '^_=' | sort\n",
 			expectedStdout: strings.Join(getExpectedEnv(t, ctx, locator, gitCmdFactory, repo), "\n") + "\n",
 		},
@@ -107,17 +106,17 @@ func TestUpdate_customHooks(t *testing.T) {
 			desc:           "hook receives arguments",
 			env:            []string{payload},
 			reference:      "refs/heads/master",
-			oldHash:        hash1,
-			newHash:        hash2,
+			oldHash:        commitA,
+			newHash:        commitB,
 			hook:           "#!/bin/sh\nprintf '%s\\n' \"$@\"\n",
-			expectedStdout: fmt.Sprintf("refs/heads/master\n%s\n%s\n", hash1, hash2),
+			expectedStdout: fmt.Sprintf("refs/heads/master\n%s\n%s\n", commitA, commitB),
 		},
 		{
 			desc:           "stdout and stderr are passed through",
 			env:            []string{payload},
 			reference:      "refs/heads/master",
-			oldHash:        hash1,
-			newHash:        hash2,
+			oldHash:        commitA,
+			newHash:        commitB,
 			hook:           "#!/bin/sh\necho foo >&1\necho bar >&2\n",
 			expectedStdout: "foo\n",
 			expectedStderr: "bar\n",
@@ -126,16 +125,16 @@ func TestUpdate_customHooks(t *testing.T) {
 			desc:      "standard input is empty",
 			env:       []string{payload},
 			reference: "refs/heads/master",
-			oldHash:   hash1,
-			newHash:   hash2,
+			oldHash:   commitA,
+			newHash:   commitB,
 			hook:      "#!/bin/sh\ncat\n",
 		},
 		{
 			desc:        "invalid script causes failure",
 			env:         []string{payload},
 			reference:   "refs/heads/master",
-			oldHash:     hash1,
-			newHash:     hash2,
+			oldHash:     commitA,
+			newHash:     commitB,
 			hook:        "",
 			expectedErr: "exec format error",
 		},
@@ -143,8 +142,8 @@ func TestUpdate_customHooks(t *testing.T) {
 			desc:        "errors are passed through",
 			env:         []string{payload},
 			reference:   "refs/heads/master",
-			oldHash:     hash1,
-			newHash:     hash2,
+			oldHash:     commitA,
+			newHash:     commitB,
 			hook:        "#!/bin/sh\nexit 123\n",
 			expectedErr: "exit status 123",
 		},
@@ -152,8 +151,8 @@ func TestUpdate_customHooks(t *testing.T) {
 			desc:           "errors are passed through with stderr and stdout",
 			env:            []string{payload},
 			reference:      "refs/heads/master",
-			oldHash:        hash1,
-			newHash:        hash2,
+			oldHash:        commitA,
+			newHash:        commitB,
 			hook:           "#!/bin/sh\necho foo >&1\necho bar >&2\nexit 123\n",
 			expectedStdout: "foo\n",
 			expectedStderr: "bar\n",
@@ -163,8 +162,8 @@ func TestUpdate_customHooks(t *testing.T) {
 			desc:           "hook is executed on primary",
 			env:            []string{primaryPayload},
 			reference:      "refs/heads/master",
-			oldHash:        hash1,
-			newHash:        hash2,
+			oldHash:        commitA,
+			newHash:        commitB,
 			hook:           "#!/bin/sh\necho foo\n",
 			expectedStdout: "foo\n",
 		},
@@ -172,29 +171,29 @@ func TestUpdate_customHooks(t *testing.T) {
 			desc:      "hook is not executed on secondary",
 			env:       []string{secondaryPayload},
 			reference: "refs/heads/master",
-			oldHash:   hash1,
-			newHash:   hash2,
+			oldHash:   commitA,
+			newHash:   commitB,
 			hook:      "#!/bin/sh\necho foo\n",
 		},
 		{
 			desc:        "hook fails with missing reference",
 			env:         []string{payload},
-			oldHash:     hash1,
-			newHash:     hash2,
+			oldHash:     commitA,
+			newHash:     commitB,
 			expectedErr: "hook got no reference",
 		},
 		{
 			desc:        "hook fails with missing old value",
 			env:         []string{payload},
 			reference:   "refs/heads/master",
-			newHash:     hash2,
+			newHash:     commitB,
 			expectedErr: "hook got invalid old value",
 		},
 		{
 			desc:        "hook fails with missing new value",
 			env:         []string{payload},
 			reference:   "refs/heads/master",
-			oldHash:     hash1,
+			oldHash:     commitA,
 			expectedErr: "hook got invalid new value",
 		},
 	}
@@ -204,7 +203,7 @@ func TestUpdate_customHooks(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, "update", []byte(tc.hook))
 
 			var stdout, stderr bytes.Buffer
-			err = hookManager.UpdateHook(ctx, repo, tc.reference, tc.oldHash, tc.newHash, tc.env, &stdout, &stderr)
+			err = hookManager.UpdateHook(ctx, repo, tc.reference, tc.oldHash.String(), tc.newHash.String(), tc.env, &stdout, &stderr)
 
 			if tc.expectedErr != "" {
 				require.Contains(t, err.Error(), tc.expectedErr)
@@ -265,7 +264,7 @@ func TestUpdate_quarantine(t *testing.T) {
 
 			var stdout, stderr bytes.Buffer
 			require.NoError(t, hookManager.UpdateHook(ctx, repo, "refs/heads/master",
-				git.ObjectHashSHA1.ZeroOID.String(), git.ObjectHashSHA1.ZeroOID.String(), []string{env}, &stdout, &stderr))
+				gittest.DefaultObjectHash.ZeroOID.String(), gittest.DefaultObjectHash.ZeroOID.String(), []string{env}, &stdout, &stderr))
 
 			if isQuarantined {
 				require.Equal(t, "allyourbasearebelongtous", stdout.String())

@@ -36,13 +36,18 @@ func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repos
 }
 
 func (m *GitLabHookManager) updateHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
+	objectHash, err := git.ObjectHashByFormat(payload.ObjectFormat)
+	if err != nil {
+		return fmt.Errorf("looking up object hash: %w", err)
+	}
+
 	if ref == "" {
 		return structerr.NewInternal("hook got no reference")
 	}
-	if err := git.ObjectHashSHA1.ValidateHex(oldValue); err != nil {
+	if err := objectHash.ValidateHex(oldValue); err != nil {
 		return structerr.NewInternal("hook got invalid old value: %w", err)
 	}
-	if err := git.ObjectHashSHA1.ValidateHex(newValue); err != nil {
+	if err := objectHash.ValidateHex(newValue); err != nil {
 		return structerr.NewInternal("hook got invalid new value: %w", err)
 	}
 	if payload.UserDetails == nil {
