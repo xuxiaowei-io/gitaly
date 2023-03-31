@@ -103,7 +103,7 @@ func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats
 	m.reportDataStructureCount("packfiles_cruft", info.Packfiles.CruftCount)
 	m.reportDataStructureCount("packfiles_keep", info.Packfiles.KeepCount)
 	m.reportDataStructureCount("packfiles_reverse_indices", info.Packfiles.ReverseIndexCount)
-	m.reportDataStructureCount("multi_pack_index_packfile_count", uint64(info.Packfiles.MultiPackIndex.PackfileCount))
+	m.reportDataStructureCount("multi_pack_index_packfile_count", info.Packfiles.MultiPackIndex.PackfileCount)
 	m.reportDataStructureCount("loose_references", info.References.LooseReferencesCount)
 
 	m.reportDataStructureSize("loose_objects_recent", info.LooseObjects.Size-info.LooseObjects.StaleSize)

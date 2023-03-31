@@ -522,7 +522,7 @@ type MultiPackIndexInfo struct {
 	// Version is the version of the multi-pack-index. Currently, Git only recognizes version 1.
 	Version uint8 `json:"version"`
 	// PackfileCount is the count of packfiles that the multi-pack-index tracks.
-	PackfileCount uint32 `json:"packfile_count"`
+	PackfileCount uint64 `json:"packfile_count"`
 }
 
 // MultiPackIndexInfoForPath reads the multi-pack-index at the given path and returns information on
@@ -567,6 +567,6 @@ func MultiPackIndexInfoForPath(path string) (MultiPackIndexInfo, error) {
 	return MultiPackIndexInfo{
 		Exists:        true,
 		Version:       version,
-		PackfileCount: packfileCount,
+		PackfileCount: uint64(packfileCount),
 	}, nil
 }

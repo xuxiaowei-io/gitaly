@@ -609,6 +609,53 @@ func TestRepackObjects(t *testing.T) {
 				packfiles: 2,
 			},
 		},
+		{
+			desc: "full with unreachable objects",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.WriteBlob(t, cfg, repoPath, []byte("unreachable"))
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyFullWithUnreachable,
+			},
+			stateBeforeRepack: objectsState{
+				looseObjects: 3,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 1,
+				// Ideally, the full repack would include this unreachable object
+				// into the packfile. It doesn't though, and git-repack(1) does not
+				// give us a way to make it do so. So we need to accept this
+				// behaviour for now.
+				looseObjects: 1,
+			},
+		},
+		{
+			desc: "full with unreachable objects includes packed unreachable objects",
+			setup: func(t *testing.T, repoPath string) {
+				// Write a first set of objects and pack them. We'll overwrite the
+				// branch with the second commit, so these objects will become
+				// unreachable.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a"},
+				))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-dn", "--no-write-bitmap-index")
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "b"},
+				))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-dn", "--no-write-bitmap-index")
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyFullWithUnreachable,
+			},
+			stateBeforeRepack: objectsState{
+				packfiles: 2,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 1,
+			},
+		},
 	} {
 		tc := tc
 
@@ -627,7 +674,7 @@ func TestRepackObjects(t *testing.T) {
 			requireObjectsState(t, repo, tc.stateAfterRepack)
 
 			switch tc.repackCfg.Strategy {
-			case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft:
+			case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
 				require.FileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
 			default:
 				require.NoFileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
