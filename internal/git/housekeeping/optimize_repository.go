@@ -174,14 +174,8 @@ func optimizeRepository(
 		return fmt.Errorf("could not repack: %w", err)
 	}
 	if didRepack {
-		switch repackCfg.Strategy {
-		case RepackObjectsStrategyIncremental:
-			optimizations["packed_objects_incremental"] = "success"
-		case RepackObjectsStrategyFullWithLooseUnreachable:
-			optimizations["packed_objects_full"] = "success"
-		case RepackObjectsStrategyFullWithCruft:
-			optimizations["packed_objects_cruft"] = "success"
-		}
+		optimizations["packed_objects_"+string(repackCfg.Strategy)] = "success"
+
 		if repackCfg.WriteBitmap {
 			optimizations["written_bitmap"] = "success"
 		}

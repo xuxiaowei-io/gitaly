@@ -47,9 +47,17 @@ func TestRepackObjects(t *testing.T) {
 			desc:  "default strategy fails",
 			setup: func(t *testing.T, repoPath string) {},
 			repackCfg: RepackObjectsConfig{
-				Strategy: 0,
+				Strategy: "",
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid strategy 0"),
+			expectedErr: structerr.NewInvalidArgument(`invalid strategy: ""`),
+		},
+		{
+			desc:  "garbage strategy fails",
+			setup: func(t *testing.T, repoPath string) {},
+			repackCfg: RepackObjectsConfig{
+				Strategy: "garbage",
+			},
+			expectedErr: structerr.NewInvalidArgument(`invalid strategy: "garbage"`),
 		},
 		{
 			desc: "incremental repack packs objects",
