@@ -150,6 +150,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		nil,
 		&git.UserDetails{
 			UserID:   glID,
@@ -272,6 +273,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
+				gittest.DefaultObjectHash,
 				nil,
 				&git.UserDetails{
 					UserID:   "key-123",
@@ -347,6 +349,7 @@ exit %d
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		nil,
 		&git.UserDetails{
 			UserID:   "key-123",
@@ -476,6 +479,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				testRepo,
+				gittest.DefaultObjectHash,
 				&txinfo.Transaction{
 					ID:      1234,
 					Node:    "node-1",

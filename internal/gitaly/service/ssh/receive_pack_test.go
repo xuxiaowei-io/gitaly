@@ -197,6 +197,7 @@ func TestReceivePack_success(t *testing.T) {
 	payload.FeatureFlagsWithValue = nil
 
 	require.Equal(t, git.HooksPayload{
+		ObjectFormat:        gittest.DefaultObjectHash.Format,
 		RuntimeDir:          cfg.RuntimeDir,
 		InternalSocket:      cfg.InternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,

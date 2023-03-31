@@ -43,12 +43,21 @@ func TestUpdate_customHooks(t *testing.T) {
 		Protocol: "web",
 	}
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.UpdateHook, featureflag.FromContext(ctx)).Env()
+	payload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		gittest.DefaultObjectHash,
+		nil,
+		receiveHooksPayload,
+		git.UpdateHook,
+		featureflag.FromContext(ctx),
+	).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
@@ -61,6 +70,7 @@ func TestUpdate_customHooks(t *testing.T) {
 	secondaryPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&txinfo.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
 		},
@@ -238,7 +248,11 @@ func TestUpdate_quarantine(t *testing.T) {
 		repoProto:                    false,
 	} {
 		t.Run(fmt.Sprintf("quarantined: %v", isQuarantined), func(t *testing.T) {
-			env, err := git.NewHooksPayload(cfg, repo, nil,
+			env, err := git.NewHooksPayload(
+				cfg,
+				repo,
+				gittest.DefaultObjectHash,
+				nil,
 				&git.UserDetails{
 					UserID:   "1234",
 					Username: "user",

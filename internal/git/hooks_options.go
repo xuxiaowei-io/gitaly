@@ -133,6 +133,11 @@ func (cc *cmdCfg) configureHooks(
 		return errors.New("hooks already configured")
 	}
 
+	objectHash, err := DetectObjectHash(ctx, gitCmdFactory, repo)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	var transaction *txinfo.Transaction
 	if tx, err := txinfo.TransactionFromContext(ctx); err == nil {
 		transaction = &tx
@@ -143,6 +148,7 @@ func (cc *cmdCfg) configureHooks(
 	payload, err := NewHooksPayload(
 		cfg,
 		repo,
+		objectHash,
 		transaction,
 		userDetails,
 		requestedHooks,

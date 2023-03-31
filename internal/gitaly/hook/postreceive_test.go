@@ -87,12 +87,21 @@ func TestPostReceive_customHook(t *testing.T) {
 		Protocol: "web",
 	}
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.PostReceiveHook, featureflag.FromContext(ctx)).Env()
+	payload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		gittest.DefaultObjectHash,
+		nil,
+		receiveHooksPayload,
+		git.PostReceiveHook,
+		featureflag.FromContext(ctx),
+	).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
@@ -105,6 +114,7 @@ func TestPostReceive_customHook(t *testing.T) {
 	secondaryPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&txinfo.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
 		},
@@ -249,11 +259,16 @@ func TestPostReceive_gitlab(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
-		UserID:   "1234",
-		Username: "user",
-		Protocol: "web",
-	}, git.PostReceiveHook, nil).Env()
+	payload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		gittest.DefaultObjectHash,
+		nil,
+		&git.UserDetails{
+			UserID:   "1234",
+			Username: "user",
+			Protocol: "web",
+		}, git.PostReceiveHook, nil).Env()
 	require.NoError(t, err)
 
 	standardEnv := []string{payload}
@@ -390,7 +405,11 @@ func TestPostReceive_quarantine(t *testing.T) {
 		repoProto:                    false,
 	} {
 		t.Run(fmt.Sprintf("quarantined: %v", isQuarantined), func(t *testing.T) {
-			env, err := git.NewHooksPayload(cfg, repo, nil,
+			env, err := git.NewHooksPayload(
+				cfg,
+				repo,
+				gittest.DefaultObjectHash,
+				nil,
 				&git.UserDetails{
 					UserID:   "1234",
 					Username: "user",

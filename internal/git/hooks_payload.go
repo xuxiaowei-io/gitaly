@@ -67,6 +67,9 @@ type HooksPayload struct {
 
 	// Repo is the repository in which the hook is running.
 	Repo *gitalypb.Repository `json:"-"`
+	// ObjectFormat is the object format used by the repository. Some hooks use it in order to
+	// verify object IDs part of their input.
+	ObjectFormat string `json:"object_format"`
 
 	// RuntimeDir is the path to Gitaly's runtime directory.
 	RuntimeDir string `json:"runtime_dir"`
@@ -113,6 +116,7 @@ type jsonHooksPayload struct {
 func NewHooksPayload(
 	cfg config.Cfg,
 	repo *gitalypb.Repository,
+	objectHash ObjectHash,
 	tx *txinfo.Transaction,
 	userDetails *UserDetails,
 	requestedHooks Hook,
@@ -128,6 +132,7 @@ func NewHooksPayload(
 
 	return HooksPayload{
 		Repo:                  repo,
+		ObjectFormat:          objectHash.Format,
 		RuntimeDir:            cfg.RuntimeDir,
 		InternalSocket:        cfg.InternalSocketPath(),
 		InternalSocketToken:   cfg.Auth.Token,

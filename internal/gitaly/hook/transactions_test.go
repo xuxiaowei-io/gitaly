@@ -41,6 +41,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&expectedTx,
 		&git.UserDetails{
 			UserID:   "1234",
@@ -144,6 +145,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
