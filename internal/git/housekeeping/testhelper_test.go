@@ -1,14 +1,12 @@
 package housekeeping
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -54,11 +52,4 @@ func requireObjectsState(tb testing.TB, repo *localrepo.Repo, expectedState obje
 		hasMultiPackIndex:       repoInfo.Packfiles.MultiPackIndex.Exists,
 		hasMultiPackIndexBitmap: repoInfo.Packfiles.MultiPackIndexBitmap.Exists,
 	})
-}
-
-func geometricOrIncremental[T any](ctx context.Context, geometric T, notGeometric T) T {
-	if featureflag.GeometricRepacking.IsEnabled(ctx) {
-		return geometric
-	}
-	return notGeometric
 }

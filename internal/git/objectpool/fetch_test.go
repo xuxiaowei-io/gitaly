@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -15,19 +14,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginDangling)
-}
 
-func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	poolPath := gittest.RepositoryPath(t, pool)
 	repoPath := gittest.RepositoryPath(t, repo)
@@ -86,12 +80,8 @@ func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_fsck(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginFsck)
-}
 
-func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -115,12 +105,8 @@ func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginDeltaIslands)
-}
 
-func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	poolPath := gittest.RepositoryPath(t, pool)
 	repoPath := gittest.RepositoryPath(t, repo)
@@ -145,12 +131,8 @@ func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginBitmapHashCache)
-}
 
-func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -175,12 +157,8 @@ func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginRefUpdates)
-}
 
-func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -226,12 +204,8 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginRefs)
-}
 
-func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -269,12 +243,8 @@ func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_missingPool(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginMissingPool)
-}
 
-func testFetchFromOriginMissingPool(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	_, pool, repo := setupObjectPool(t, ctx)
 
 	// Remove the object pool to assert that we raise an error when fetching into a non-existent
@@ -287,11 +257,8 @@ func testFetchFromOriginMissingPool(t *testing.T, ctx context.Context) {
 
 func TestObjectPool_logStats(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testObjectPoolLogStats)
-}
 
-func testObjectPoolLogStats(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc           string
