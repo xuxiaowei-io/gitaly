@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"hash"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -97,15 +98,20 @@ func ObjectHashByProto(format gitalypb.ObjectFormat) (ObjectHash, error) {
 }
 
 // DetectObjectHash detects the object-hash used by the given repository.
-func DetectObjectHash(ctx context.Context, repoExecutor RepositoryExecutor) (ObjectHash, error) {
+func DetectObjectHash(ctx context.Context, gitCmdFactory CommandFactory, repository repository.GitRepo) (ObjectHash, error) {
 	var stdout, stderr bytes.Buffer
 
-	if err := repoExecutor.ExecAndWait(ctx, Command{
+	revParseCmd, err := gitCmdFactory.New(ctx, repository, Command{
 		Name: "rev-parse",
 		Flags: []Option{
 			Flag{"--show-object-format"},
 		},
-	}, WithStdout(&stdout), WithStderr(&stderr)); err != nil {
+	}, WithStdout(&stdout), WithStderr(&stderr))
+	if err != nil {
+		return ObjectHash{}, fmt.Errorf("spawning rev-parse: %w", err)
+	}
+
+	if err := revParseCmd.Wait(); err != nil {
 		return ObjectHash{}, structerr.New("reading object format: %w", err).WithMetadata("stderr", stderr.String())
 	}
 

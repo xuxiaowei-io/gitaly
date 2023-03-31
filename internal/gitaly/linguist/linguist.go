@@ -101,7 +101,7 @@ func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerL
 		// Stats are cached for one commit, so get the git-diff-tree(1)
 		// between that commit and the one we're calculating stats for.
 
-		hash, err := git.DetectObjectHash(ctx, inst.repo)
+		hash, err := inst.repo.ObjectHash(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("linguist: detect object hash: %w", err)
 		}
