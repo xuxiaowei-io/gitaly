@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -438,30 +437,33 @@ func TestListConflictFiles(t *testing.T) {
 
 			data := tc.setup(t, ctx)
 			c, err := data.client.ListConflictFiles(ctx, data.request)
-			if data.expectedError != nil && err == nil {
-				err = drainListConflictFilesResponse(c)
+			if err != nil {
+				testhelper.RequireGrpcError(t, data.expectedError, err)
+				return
 			}
-			testhelper.RequireGrpcError(t, data.expectedError, err)
 
-			if data.expectedError == nil {
-				testhelper.ProtoEqual(t, data.expectedFiles, getConflictFiles(t, c))
-			}
+			files, err := getConflictFiles(t, c)
+			testhelper.RequireGrpcError(t, data.expectedError, err)
+			testhelper.ProtoEqual(t, data.expectedFiles, files)
 		})
 	}
 }
 
-func getConflictFiles(t *testing.T, c gitalypb.ConflictsService_ListConflictFilesClient) []*conflictFile {
+func getConflictFiles(t *testing.T, c gitalypb.ConflictsService_ListConflictFilesClient) ([]*conflictFile, error) {
 	t.Helper()
 
 	var files []*conflictFile
 	var currentFile *conflictFile
+	var err error
 
 	for {
-		r, err := c.Recv()
+		var r *gitalypb.ListConflictFilesResponse
+		r, err = c.Recv()
 		if err == io.EOF {
 			break
+		} else if err != nil {
+			return files, err
 		}
-		require.NoError(t, err)
 
 		for _, file := range r.GetFiles() {
 			// If there's a header this is the beginning of a new file
@@ -481,13 +483,5 @@ func getConflictFiles(t *testing.T, c gitalypb.ConflictsService_ListConflictFile
 	// Append leftover file
 	files = append(files, currentFile)
 
-	return files
-}
-
-func drainListConflictFilesResponse(c gitalypb.ConflictsService_ListConflictFilesClient) error {
-	var err error
-	for err == nil {
-		_, err = c.Recv()
-	}
-	return err
+	return files, nil
 }
