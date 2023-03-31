@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
@@ -28,13 +26,6 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-type commit struct {
-	Parent    git.ObjectID
-	Author    Signature
-	Committer Signature
-	Message   string
-}
-
 func TestExecutor_Commit(t *testing.T) {
 	const (
 		DefaultMode    = "100644"
@@ -45,6 +36,7 @@ func TestExecutor_Commit(t *testing.T) {
 		actions     []Action
 		error       error
 		treeEntries []gittest.TreeEntry
+		testCommit  func(testing.TB, git.ObjectID)
 	}
 	ctx := testhelper.Context(t)
 
@@ -66,9 +58,9 @@ func TestExecutor_Commit(t *testing.T) {
 	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
 	for _, tc := range []struct {
-		desc          string
-		steps         []step
-		signAndVerify bool
+		desc           string
+		steps          []step
+		signingKeyPath string
 	}{
 		{
 			desc: "create directory",
@@ -460,7 +452,7 @@ func TestExecutor_Commit(t *testing.T) {
 			},
 		},
 		{
-			desc: "update created file, sign commit and verify signature",
+			desc: "update created file, sign commit and verify signature using GPG signing key",
 			steps: []step{
 				{
 					actions: []Action{
@@ -470,20 +462,37 @@ func TestExecutor_Commit(t *testing.T) {
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "updated"},
 					},
+					testCommit: func(tb testing.TB, commitID git.ObjectID) {
+						gpgsig, dataWithoutGpgSig := extractSignature(t, ctx, repo, commitID)
+
+						file, err := os.Open("testdata/signing_gpg_key.pub")
+						require.NoError(tb, err)
+						defer testhelper.MustClose(tb, file)
+
+						keyring, err := openpgp.ReadKeyRing(file)
+						require.NoError(tb, err)
+
+						_, err = openpgp.CheckArmoredDetachedSignature(
+							keyring,
+							strings.NewReader(dataWithoutGpgSig),
+							strings.NewReader(gpgsig),
+							&packet.Config{},
+						)
+						require.NoError(tb, err)
+					},
 				},
 			},
-			signAndVerify: true,
+			signingKeyPath: "testdata/signing_gpg_key",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			author := NewSignature("Author Name", "author.email@example.com", time.Now())
-			committer := NewSignature("Committer Name", "committer.email@example.com", time.Now())
+			author := defaultCommitAuthorSignature()
+			committer := defaultCommitAuthorSignature()
 
-			if tc.signAndVerify {
-				executor.signingKey = testhelper.SigningKeyPath
-			}
+			executor.signingKey = tc.signingKeyPath
 
 			var parentCommit git.ObjectID
+			var parentIds []string
 			for i, step := range tc.steps {
 				message := fmt.Sprintf("commit %d", i+1)
 				commitID, err := executor.Commit(ctx, repo, CommitCommand{
@@ -502,109 +511,61 @@ func TestExecutor_Commit(t *testing.T) {
 					require.NoError(t, err)
 				}
 
-				require.Equal(t, commit{
-					Parent:    parentCommit,
-					Author:    author,
-					Committer: committer,
-					Message:   message,
-				}, getCommit(t, ctx, repo, commitID, tc.signAndVerify))
+				commit, err := repo.ReadCommit(ctx, commitID.Revision())
+				require.NoError(t, err)
+
+				require.Equal(t, parentIds, commit.ParentIds)
+				require.Equal(t, gittest.DefaultCommitAuthor, commit.Author)
+				require.Equal(t, gittest.DefaultCommitAuthor, commit.Committer)
+				require.Equal(t, []byte(message), commit.Body)
+
+				if step.testCommit != nil {
+					step.testCommit(t, commitID)
+				}
 
 				gittest.RequireTree(t, cfg, repoPath, commitID.String(), step.treeEntries)
 				parentCommit = commitID
+				parentIds = []string{string(commitID)}
 			}
 		})
 	}
 }
 
-func getCommit(tb testing.TB, ctx context.Context, repo *localrepo.Repo, oid git.ObjectID, verifySignature bool) commit {
-	tb.Helper()
-
+func extractSignature(tb testing.TB, ctx context.Context, repo *localrepo.Repo, oid git.ObjectID) (string, string) {
 	data, err := repo.ReadObject(ctx, oid)
 	require.NoError(tb, err)
 
+	const gpgSignaturePrefix = "gpgsig "
 	var (
 		gpgsig, dataWithoutGpgSig string
-		gpgsigStarted             bool
+		inSignature               bool
 	)
 
-	var commit commit
 	lines := strings.Split(string(data), "\n")
+
 	for i, line := range lines {
 		if line == "" {
-			commit.Message = strings.Join(lines[i+1:], "\n")
-			dataWithoutGpgSig += "\n" + commit.Message
+			dataWithoutGpgSig += "\n" + strings.Join(lines[i+1:], "\n")
 			break
 		}
 
-		if gpgsigStarted && strings.HasPrefix(line, " ") {
-			gpgsig += strings.TrimSpace(line) + "\n"
-			continue
-		}
-
-		split := strings.SplitN(line, " ", 2)
-		require.Len(tb, split, 2, "invalid commit: %q", data)
-
-		field, value := split[0], split[1]
-
-		if field != "gpgsig" {
+		if strings.HasPrefix(line, gpgSignaturePrefix) {
+			inSignature = true
+			gpgsig += strings.TrimPrefix(line, gpgSignaturePrefix)
+		} else if inSignature {
+			gpgsig += "\n" + strings.TrimPrefix(line, " ")
+		} else {
 			dataWithoutGpgSig += line + "\n"
 		}
-
-		switch field {
-		case "parent":
-			require.Empty(tb, commit.Parent, "multi parent parsing not implemented")
-			commit.Parent = git.ObjectID(value)
-		case "author":
-			require.Empty(tb, commit.Author, "commit contained multiple authors")
-			commit.Author = unmarshalSignature(tb, value)
-		case "committer":
-			require.Empty(tb, commit.Committer, "commit contained multiple committers")
-			commit.Committer = unmarshalSignature(tb, value)
-		case "gpgsig":
-			gpgsig = value + "\n"
-			gpgsigStarted = true
-		default:
-		}
 	}
 
-	if gpgsig != "" || verifySignature {
-		file, err := os.Open("testdata/publicKey.gpg")
-		require.NoError(tb, err)
-
-		keyring, err := openpgp.ReadKeyRing(file)
-		require.NoError(tb, err)
-
-		_, err = openpgp.CheckArmoredDetachedSignature(
-			keyring,
-			strings.NewReader(dataWithoutGpgSig),
-			strings.NewReader(gpgsig),
-			&packet.Config{},
-		)
-		require.NoError(tb, err)
-	}
-
-	return commit
+	return gpgsig, dataWithoutGpgSig
 }
 
-func unmarshalSignature(tb testing.TB, data string) Signature {
-	tb.Helper()
-
-	// Format: NAME <EMAIL> DATE_UNIX DATE_TIMEZONE
-	split1 := strings.Split(data, " <")
-	require.Len(tb, split1, 2, "invalid signature: %q", data)
-
-	split2 := strings.Split(split1[1], "> ")
-	require.Len(tb, split2, 2, "invalid signature: %q", data)
-
-	split3 := strings.Split(split2[1], " ")
-	require.Len(tb, split3, 2, "invalid signature: %q", data)
-
-	timestamp, err := strconv.ParseInt(split3[0], 10, 64)
-	require.NoError(tb, err)
-
-	return Signature{
-		Name:  split1[0],
-		Email: split2[0],
-		When:  time.Unix(timestamp, 0),
-	}
+func defaultCommitAuthorSignature() Signature {
+	return NewSignature(
+		gittest.DefaultCommitterName,
+		gittest.DefaultCommitterMail,
+		gittest.DefaultCommitTime,
+	)
 }

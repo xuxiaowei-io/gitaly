@@ -1,5 +1,3 @@
-//go:build !gitaly_test_signing
-
 package git2goutil
 
 import (
