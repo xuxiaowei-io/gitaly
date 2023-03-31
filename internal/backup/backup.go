@@ -184,7 +184,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	if err := mgr.writeBundle(ctx, step, req.Server, req.Repository, refs); err != nil {
 		return fmt.Errorf("manager: write bundle: %w", err)
 	}
-	if err := mgr.writeCustomHooks(ctx, step.CustomHooksPath, req.Server, req.Repository); err != nil {
+	if err := mgr.writeCustomHooks(ctx, repo, step.CustomHooksPath); err != nil {
 		return fmt.Errorf("manager: write custom hooks: %w", err)
 	}
 
@@ -434,19 +434,11 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 	return nil
 }
 
-func (mgr *Manager) writeCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := mgr.newRepoClient(ctx, server)
+func (mgr *Manager) writeCustomHooks(ctx context.Context, repo *remoteRepository, path string) error {
+	hooks, err := repo.GetCustomHooks(ctx)
 	if err != nil {
 		return err
 	}
-	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: repo})
-	if err != nil {
-		return err
-	}
-	hooks := streamio.NewReader(func() ([]byte, error) {
-		resp, err := stream.Recv()
-		return resp.GetData(), err
-	})
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, path)
 	})

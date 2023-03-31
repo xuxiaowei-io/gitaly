@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -64,6 +65,20 @@ func (repo *remoteRepository) ListRefs(ctx context.Context) ([]*gitalypb.ListRef
 	}
 
 	return refs, nil
+}
+
+// GetCustomHooks fetches the custom hooks archive.
+func (repo *remoteRepository) GetCustomHooks(ctx context.Context) (io.Reader, error) {
+	repoClient := repo.newRepoClient()
+	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: repo.repo})
+	if err != nil {
+		return nil, err
+	}
+
+	return streamio.NewReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		return resp.GetData(), err
+	}), nil
 }
 
 func (repo *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
