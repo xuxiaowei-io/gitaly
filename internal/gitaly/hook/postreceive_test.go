@@ -421,7 +421,7 @@ func TestPostReceive_quarantine(t *testing.T) {
 			require.NoError(t, err)
 
 			stdin := strings.NewReader(fmt.Sprintf("%s %s refs/heads/master",
-				git.ObjectHashSHA1.ZeroOID, git.ObjectHashSHA1.ZeroOID))
+				gittest.DefaultObjectHash.ZeroOID, gittest.DefaultObjectHash.ZeroOID))
 
 			var stdout, stderr bytes.Buffer
 			require.NoError(t, hookManager.PostReceiveHook(ctx, repo, nil,
