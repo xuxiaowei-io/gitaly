@@ -39,6 +39,15 @@ const (
 	// objects into a new packfile. Unreachable objects will be written into a separate cruft
 	// packfile.
 	RepackObjectsStrategyFullWithCruft = RepackObjectsStrategy("full_with_cruft")
+	// RepackObjectsStrategyFullWithUnreachable performs a full repack by writing all reachable
+	// objects into a new packfile. Packed unreachable objects will be appended to the packfile
+	// and redundant loose object files will be deleted.
+	//
+	// Note that this will not include unreachable loose objects, but only packed loose objects.
+	// git-repack(1) does not currently expose an option to make it include all objects.
+	// Combined with geometric repacks though this is acceptable as the geometric strategy will
+	// include all loose objects.
+	RepackObjectsStrategyFullWithUnreachable = RepackObjectsStrategy("full_with_unreachable")
 	// RepackObjectsStrategyGeometric performs an geometric repack. This strategy will repack
 	// packfiles so that the resulting pack structure forms a geometric sequence in the number
 	// of objects. Loose objects will get soaked up as part of the repack regardless of their
@@ -100,6 +109,18 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 				Value: cfg.CruftExpireBefore.Format(rfc2822DateFormat),
 			})
 		}
+	case RepackObjectsStrategyFullWithUnreachable:
+		options = []git.Option{
+			// Do a full repack.
+			git.Flag{Name: "-a"},
+			// Don't include objects part of alternate.
+			git.Flag{Name: "-l"},
+			// Delete loose objects made redundant by this repack.
+			git.Flag{Name: "-d"},
+			// Keep unreachable objects part of the old packs in the new pack.
+			git.Flag{Name: "--keep-unreachable"},
+		}
+		isFullRepack = true
 	case RepackObjectsStrategyGeometric:
 		options = []git.Option{
 			// We use a geometric factor `r`, which means that every successively larger
