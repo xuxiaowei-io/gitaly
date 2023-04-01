@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestConfigValidation(t *testing.T) {
@@ -901,4 +904,87 @@ func TestYamux_Validate(t *testing.T) {
 			require.Equal(t, tc.expectedErr, err)
 		})
 	}
+}
+
+func TestConfig_ValidateV2(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid", func(t *testing.T) {
+		cfg := Config{
+			Replication: Replication{
+				BatchSize:                        1,
+				ParallelStorageProcessingWorkers: 1,
+			},
+			ListenAddr: "localhost",
+			VirtualStorages: []*VirtualStorage{{
+				Name: "name",
+				Nodes: []*Node{{
+					Storage: "storage",
+					Address: "localhost",
+				}},
+			}},
+			Yamux: Yamux{
+				MaximumStreamWindowSizeBytes: 300000,
+				AcceptBacklog:                1,
+			},
+		}
+		require.NoError(t, cfg.ValidateV2())
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		tmpDir := testhelper.TempDir(t)
+		tmpFile := filepath.Join(tmpDir, "file")
+		require.NoError(t, os.WriteFile(tmpFile, nil, perm.PublicFile))
+		cfg := Config{
+			BackgroundVerification: BackgroundVerification{
+				VerificationInterval: duration.Duration(-1),
+			},
+			Reconciliation: Reconciliation{
+				SchedulingInterval: duration.Duration(-1),
+			},
+			Replication: Replication{
+				BatchSize:                        0,
+				ParallelStorageProcessingWorkers: 1,
+			},
+			Prometheus: prometheus.Config{
+				ScrapeTimeout:      duration.Duration(-1),
+				GRPCLatencyBuckets: []float64{1},
+			},
+			PrometheusExcludeDatabaseFromDefaultMetrics: false,
+			TLS: config.TLS{
+				CertPath: "/doesnt/exist",
+				KeyPath:  tmpFile,
+			},
+			Failover: Failover{
+				Enabled:          true,
+				ElectionStrategy: ElectionStrategy("invalid"),
+			},
+			GracefulStopTimeout: duration.Duration(-1),
+			RepositoriesCleanup: RepositoriesCleanup{
+				CheckInterval:       duration.Duration(time.Hour),
+				RunInterval:         duration.Duration(1),
+				RepositoriesInBatch: 1,
+			},
+			Yamux: Yamux{
+				MaximumStreamWindowSizeBytes: 0,
+				AcceptBacklog:                1,
+			},
+		}
+		err := cfg.ValidateV2()
+
+		negativeDurationErr := fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange)
+		require.Equal(t, cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(errors.New(`none of "socket_path", "listen_addr" or "tls_listen_addr" is set`)),
+			cfgerror.NewValidationError(negativeDurationErr, "background_verification", "verification_interval"),
+			cfgerror.NewValidationError(negativeDurationErr, "reconciliation", "scheduling_interval"),
+			cfgerror.NewValidationError(fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange), "replication", "batch_size"),
+			cfgerror.NewValidationError(negativeDurationErr, "prometheus", "scrape_timeout"),
+			cfgerror.NewValidationError(fmt.Errorf(`%w: "/doesnt/exist"`, cfgerror.ErrDoesntExist), "tls", "certificate_path"),
+			cfgerror.NewValidationError(fmt.Errorf(`%w: "invalid"`, cfgerror.ErrUnsupportedValue), "failover", "election_strategy"),
+			cfgerror.NewValidationError(negativeDurationErr, "graceful_stop_timeout"),
+			cfgerror.NewValidationError(fmt.Errorf("%w: 1ns is not greater than or equal to 1m0s", cfgerror.ErrNotInRange), "repositories_cleanup", "run_interval"),
+			cfgerror.NewValidationError(fmt.Errorf("%w: 0 is not greater than or equal to 262144", cfgerror.ErrNotInRange), "yamux", "maximum_stream_window_size_bytes"),
+			cfgerror.NewValidationError(cfgerror.ErrNotSet, "virtual_storage"),
+		}, err)
+	})
 }

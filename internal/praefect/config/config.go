@@ -414,7 +414,29 @@ func (c *Config) Validate() error {
 // It exists as a demonstration of the new validation implementation based on the usage
 // of the cfgerror package.
 func (c *Config) ValidateV2() error {
-	return nil
+	errs := cfgerror.New().
+		Append(func() error {
+			if c.SocketPath == "" && c.ListenAddr == "" && c.TLSListenAddr == "" {
+				return fmt.Errorf(`none of "socket_path", "listen_addr" or "tls_listen_addr" is set`)
+			}
+			return nil
+		}()).
+		Append(c.BackgroundVerification.Validate(), "background_verification").
+		Append(c.Reconciliation.Validate(), "reconciliation").
+		Append(c.Replication.Validate(), "replication").
+		Append(c.Prometheus.Validate(), "prometheus").
+		Append(c.TLS.Validate(), "tls").
+		Append(c.Failover.Validate(), "failover").
+		Append(cfgerror.Comparable(c.GracefulStopTimeout.Duration()).GreaterOrEqual(0), "graceful_stop_timeout").
+		Append(c.RepositoriesCleanup.Validate(), "repositories_cleanup").
+		Append(c.Yamux.Validate(), "yamux").
+		Append(cfgerror.NotEmptySlice(c.VirtualStorages), "virtual_storage")
+
+	for i, storage := range c.VirtualStorages {
+		errs = errs.Append(storage.Validate(), "virtual_storage", fmt.Sprintf("[%d]", i))
+	}
+
+	return errs.AsError()
 }
 
 // NeedsSQL returns true if the driver for SQL needs to be initialized
