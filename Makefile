@@ -30,13 +30,6 @@ PROTO_DEST_DIR   := ${SOURCE_DIR}/proto/go
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
-# This file is used as a dependency for running `bundle install`: when its
-# mtime is older than that of either `Gemfile` or `Gemfile.lock` we will
-# execute the command. There is not typically any need to change the location,
-# but we need this for our unprivileged CI so that it can be moved into the
-# `_build` directory. Just moving the file completely doesn't work, as both CNG
-# and Omnibus depend on it to inhibit re-bundling Ruby Gems.
-RUBY_BUNDLE_FILE ?= ${SOURCE_DIR}/.ruby-bundle
 
 # These variables may be overridden at runtime by top-level make
 ## The prefix where Gitaly binaries will be installed to. Binaries will end up
@@ -278,9 +271,6 @@ export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig:${PKG_C
 # Allow the linker flag -D_THREAD_SAFE as libgit2 is compiled with it on FreeBSD
 export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 
-# Disallow changes to the Gemfile
-export BUNDLE_FROZEN = true
-
 # By default, intermediate targets get deleted automatically after a successful
 # build. We do not want that though: there's some precious intermediate targets
 # like our `*.version` targets which are required in order to determine whether
@@ -318,8 +308,8 @@ help:
 		 { desc = "" }' $(MAKEFILE_LIST) | sort | column -s: -t
 
 .PHONY: build
-## Build Go binaries and install required Ruby Gems.
-build: ${RUBY_BUNDLE_FILE} ${GITALY_INSTALLED_EXECUTABLES}
+## Build Go binaries.
+build: ${GITALY_INSTALLED_EXECUTABLES}
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
@@ -353,7 +343,7 @@ export GITALY_TESTING_GIT_BINARY ?= ${DEPENDENCY_DIR}/git-distribution/bin-wrapp
 endif
 
 .PHONY: prepare-tests
-prepare-tests: libgit2 prepare-test-repos ${RUBY_BUNDLE_FILE} ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
+prepare-tests: libgit2 prepare-test-repos ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
 	${Q}mkdir -p "$(dir ${TEST_REPORT})"
 
 .PHONY: prepare-debug
@@ -546,11 +536,11 @@ install-git: build-git
 ## Build libgit2.
 libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 
-# This file is used by Omnibus and CNG to skip the "bundle install"
-# step. Both Omnibus and CNG assume it is in the Gitaly root, not in
-# _build. Hence the '../' in front.
-${RUBY_BUNDLE_FILE}: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
-	${Q}cd ${GITALY_RUBY_DIR} && bundle install
+# This target is a stub to keep compatibility with downstream dependents that
+# still use it:
+#
+# - https://gitlab.com/gitlab-org/gitlab/blob/a7b33f5ae5a4da0c1b368172da604cce2e0d2636/spec/support/helpers/gitaly_setup.rb#L129
+${SOURCE_DIR}/.ruby-bundle:
 	${Q}touch $@
 
 ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
