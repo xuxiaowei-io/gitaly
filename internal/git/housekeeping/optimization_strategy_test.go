@@ -695,7 +695,7 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 					if !tc.strategy.info.IsObjectPool {
 						return RepackObjectsStrategyFullWithCruft
 					}
-					return RepackObjectsStrategyFullWithLooseUnreachable
+					return RepackObjectsStrategyFullWithUnreachable
 				}(),
 				WriteBitmap:         tc.expectWriteBitmap,
 				WriteMultiPackIndex: true,

@@ -267,19 +267,27 @@ func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationSt
 
 // ShouldRepackObjects always instructs the caller to repack objects. The strategy will always be to
 // repack all objects into a single packfile. The bitmap will be written in case the repository does
-// not have any alterantes.
+// not have any alternates.
 func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (bool, RepackObjectsConfig) {
 	cfg := RepackObjectsConfig{
-		Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 		WriteBitmap:         len(s.info.Alternates) == 0,
 		WriteMultiPackIndex: true,
 	}
 
-	// Object pools should neither have unreachable objects, nor should we ever try to delete
-	// any if there are some. So we disable cruft packs and expiration of them for them.
+	// Object pools should generally never contain unreachable objects. However, if an object
+	// pool does contain unreachable objects, they should never be deleted or we could end up
+	// corrupting object pool members that depend on them. To ensure this, we disable cruft
+	// packs and expiration times in this context.
+	//
+	// However, by disabling cruft packs Git would by default explode unreachable objects into
+	// loose objects. This is inefficient as these objects cannot be deltified and thus take up
+	// more space. Instead, we ask git-repack(1) to append unreachable objects to the newly
+	// created packfile.
 	if !s.info.IsObjectPool {
 		cfg.Strategy = RepackObjectsStrategyFullWithCruft
 		cfg.CruftExpireBefore = s.expireBefore
+	} else {
+		cfg.Strategy = RepackObjectsStrategyFullWithUnreachable
 	}
 
 	return true, cfg
