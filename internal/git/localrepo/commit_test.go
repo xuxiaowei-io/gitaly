@@ -32,12 +32,24 @@ func TestWriteCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	treeEntryA := TreeEntry{Path: "file", Mode: "100644", OID: blobID}
-	treeA, err := repo.WriteTree(ctx, []*TreeEntry{&treeEntryA})
+	treeA, err := repo.WriteTree(
+		ctx,
+		&TreeEntry{
+			Type:    Tree,
+			Mode:    "040000",
+			Entries: []*TreeEntry{&treeEntryA},
+		})
 	require.NoError(t, err)
 
-	treeB, err := repo.WriteTree(ctx, []*TreeEntry{
-		{Path: "file", Mode: "100644", OID: changedBlobID},
-	})
+	treeB, err := repo.WriteTree(
+		ctx,
+		&TreeEntry{
+			Type: Tree,
+			Mode: "040000",
+			Entries: []*TreeEntry{
+				{Path: "file", Mode: "100644", OID: changedBlobID},
+			},
+		})
 	require.NoError(t, err)
 	commitA, err := repo.WriteCommit(
 		ctx,
@@ -203,11 +215,15 @@ func TestWriteCommit_validation(t *testing.T) {
 
 	blobID, err := repo.WriteBlob(ctx, "", strings.NewReader("foo"))
 	require.NoError(t, err)
-	treeID, err := repo.WriteTree(ctx, []*TreeEntry{
-		{
-			OID:  blobID,
-			Mode: "100644",
-			Path: "file1",
+	treeID, err := repo.WriteTree(ctx, &TreeEntry{
+		Type: Tree,
+		Mode: "040000",
+		Entries: []*TreeEntry{
+			{
+				OID:  blobID,
+				Mode: "100644",
+				Path: "file1",
+			},
 		},
 	})
 	require.NoError(t, err)
