@@ -957,3 +957,1047 @@ func TestReadTree_WithRecursive(t *testing.T) {
 		})
 	}
 }
+
+func TestTreeEntry_Modify(t *testing.T) {
+	testCases := []struct {
+		desc            string
+		tree            *TreeEntry
+		pathToModify    string
+		modifyEntryFunc func(*TreeEntry) error
+		expectedTree    TreeEntry
+		expectedErr     error
+	}{
+		{
+			desc: "flat tree",
+			tree: &TreeEntry{
+				OID:  "abcd",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			pathToModify: "file2",
+			modifyEntryFunc: func(t *TreeEntry) error {
+				t.OID = "deadbeef"
+				t.Mode = "100755"
+				t.Path = "new-file-name"
+				return nil
+			},
+			expectedTree: TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "deadbeef",
+						Type: Blob,
+						Mode: "100755",
+						Path: "new-file-name",
+					},
+				},
+			},
+		},
+		{
+			desc: "nested tree",
+			tree: &TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "def",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file1",
+									},
+								},
+							},
+							{
+								OID:  "aa123",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirC",
+								Entries: []*TreeEntry{
+									{
+										OID:  "abcd",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			pathToModify: "dirA/dirB/file1",
+			modifyEntryFunc: func(t *TreeEntry) error {
+				t.OID = "deadbeef"
+				t.Mode = "100755"
+				t.Path = "new-file-name"
+				return nil
+			},
+			expectedTree: TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "deadbeef",
+										Type: Blob,
+										Mode: "100755",
+										Path: "new-file-name",
+									},
+								},
+							},
+							{
+								OID:  "aa123",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirC",
+								Entries: []*TreeEntry{
+									{
+										OID:  "abcd",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "nested tree with duplicate file",
+			tree: &TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "def",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file1",
+									},
+								},
+							},
+							{
+								OID:  "aa123",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirC",
+								Entries: []*TreeEntry{
+									{
+										OID:  "abcd",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file2",
+									},
+								},
+							},
+							{
+								OID:  "feedface",
+								Type: Blob,
+								Mode: "100644",
+								Path: "file1",
+							},
+						},
+					},
+				},
+			},
+			pathToModify: "dirA/dirB/file1",
+			modifyEntryFunc: func(t *TreeEntry) error {
+				t.OID = "deadbeef"
+				t.Mode = "100755"
+				t.Path = "new-file-name"
+				return nil
+			},
+			expectedTree: TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "deadbeef",
+										Type: Blob,
+										Mode: "100755",
+										Path: "new-file-name",
+									},
+								},
+							},
+							{
+								OID:  "aa123",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirC",
+								Entries: []*TreeEntry{
+									{
+										OID:  "abcd",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file2",
+									},
+								},
+							},
+							{
+								OID:  "feedface",
+								Type: Blob,
+								Mode: "100644",
+								Path: "file1",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "entry does not exist",
+			tree: &TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			pathToModify: "file3",
+			modifyEntryFunc: func(t *TreeEntry) error {
+				t.OID = "deadbeef"
+				t.Mode = "100755"
+				t.Path = "new-file-name"
+				return nil
+			},
+			expectedErr: ErrEntryNotFound,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := tc.tree.Modify(
+				tc.pathToModify,
+				tc.modifyEntryFunc,
+			)
+			require.Equal(t, tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				return
+			}
+
+			require.Equal(t, tc.expectedTree, *tc.tree)
+		})
+	}
+}
+
+func TestTreeEntry_Delete(t *testing.T) {
+	testCases := []struct {
+		desc         string
+		tree         *TreeEntry
+		pathToDelete string
+		expectedTree TreeEntry
+		expectedErr  error
+	}{
+		{
+			desc: "flat tree",
+			tree: &TreeEntry{
+				OID:  "def",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			pathToDelete: "file2",
+			expectedTree: TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+				},
+			},
+		},
+		{
+			desc: "nested tree",
+			tree: &TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "defg",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file1",
+									},
+								},
+							},
+							{
+								OID:  "aa123",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirC",
+								Entries: []*TreeEntry{
+									{
+										OID:  "abcd",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			pathToDelete: "dirA/dirB/file1",
+			expectedTree: TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:     "",
+								Type:    Tree,
+								Mode:    "040000",
+								Path:    "dirB",
+								Entries: []*TreeEntry{},
+							},
+							{
+								OID:  "aa123",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirC",
+								Entries: []*TreeEntry{
+									{
+										OID:  "abcd",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "entry does not exist",
+			tree: &TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			pathToDelete: "file3",
+			expectedErr:  ErrEntryNotFound,
+		},
+		{
+			desc: "path contains traversal",
+			tree: &TreeEntry{
+				OID:  "def",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			pathToDelete: "a/../../something",
+			expectedErr:  ErrPathTraversal,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := tc.tree.Delete(
+				tc.pathToDelete,
+			)
+
+			require.Equal(t, tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				return
+			}
+			require.Equal(t, tc.expectedTree, *tc.tree)
+		})
+	}
+}
+
+func TestTreeEntry_Add(t *testing.T) {
+	testCases := []struct {
+		desc           string
+		tree           TreeEntry
+		pathToAdd      string
+		entryToAdd     TreeEntry
+		expectedTree   TreeEntry
+		addTreeOptions []AddTreeEntryOption
+		expectedErr    error
+	}{
+		{
+			desc: "empty tree",
+			tree: TreeEntry{
+				OID:  "abc",
+				Type: Tree,
+				Mode: "040000",
+			},
+			pathToAdd: "dirA/dirB/file1",
+			entryToAdd: TreeEntry{
+				OID:  "d1",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file1",
+			},
+			expectedTree: TreeEntry{
+				OID:  "",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "",
+								Mode: "040000",
+								Type: Tree,
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "d1",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "cannot add entry into existing tree",
+			tree: TreeEntry{
+				OID:  "abc",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "def",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "gab",
+								Mode: "040000",
+								Type: Tree,
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "d1",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			pathToAdd: "dirA/dirB/file1",
+			entryToAdd: TreeEntry{
+				OID:  "e1",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file2",
+			},
+			expectedErr: ErrEntryExists,
+		},
+		{
+			desc: "add entry into existing tree",
+			tree: TreeEntry{
+				OID:  "abc",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "def",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "gab",
+								Mode: "040000",
+								Type: Tree,
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "d1",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			pathToAdd: "dirA/dirB/file2",
+			entryToAdd: TreeEntry{
+				OID:  "e1",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file2",
+			},
+			expectedTree: TreeEntry{
+				OID:  "",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "",
+								Mode: "040000",
+								Type: Tree,
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "d1",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file1",
+									},
+									{
+										OID:  "e1",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "overwrite file",
+			tree: TreeEntry{
+				OID:  "abc",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "def",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+				},
+			},
+			pathToAdd: "file1",
+			entryToAdd: TreeEntry{
+				OID:  "e1",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file2",
+			},
+			expectedTree: TreeEntry{
+				OID:  "",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "e1",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			addTreeOptions: []AddTreeEntryOption{
+				WithOverwriteFile(),
+			},
+		},
+		{
+			desc: "cannot overwrite file",
+			tree: TreeEntry{
+				OID:  "abc",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "def",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+				},
+			},
+			pathToAdd: "file1",
+			entryToAdd: TreeEntry{
+				OID:  "e1",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file2",
+			},
+			expectedErr: ErrEntryExists,
+		},
+		{
+			desc: "overwrite directory",
+			tree: TreeEntry{
+				OID:  "abc",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "def",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+					},
+				},
+			},
+			pathToAdd: "dirA",
+			entryToAdd: TreeEntry{
+				OID:  "e1",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file2",
+			},
+			expectedTree: TreeEntry{
+				OID:  "",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "e1",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			addTreeOptions: []AddTreeEntryOption{
+				WithOverwriteDirectory(),
+			},
+		},
+		{
+			desc: "cannot overwrite directory",
+			tree: TreeEntry{
+				OID:  "abc",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "def",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+					},
+				},
+			},
+			pathToAdd: "dirA",
+			entryToAdd: TreeEntry{
+				OID:  "e1",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file2",
+			},
+			expectedErr: ErrEntryExists,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := tc.tree.Add(
+				tc.pathToAdd,
+				tc.entryToAdd,
+				tc.addTreeOptions...,
+			)
+
+			require.Equal(t, tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				return
+			}
+			require.Equal(t, tc.expectedTree, tc.tree)
+		})
+	}
+}
+
+func TestTreeEntry_Get(t *testing.T) {
+	testCases := []struct {
+		desc          string
+		tree          *TreeEntry
+		path          string
+		expectedEntry TreeEntry
+		expectedErr   error
+	}{
+		{
+			desc: "flat tree",
+			tree: &TreeEntry{
+				OID:  "def",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			path: "file2",
+			expectedEntry: TreeEntry{
+				OID:  "cba",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file2",
+			},
+		},
+		{
+			desc: "get root",
+			tree: &TreeEntry{
+				OID:  "def",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			path: "",
+			expectedEntry: TreeEntry{
+				OID:  "def",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+		},
+		{
+			desc: "nested tree",
+			tree: &TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "defg",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file1",
+									},
+								},
+							},
+							{
+								OID:  "aa123",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirC",
+								Entries: []*TreeEntry{
+									{
+										OID:  "abcd",
+										Type: Blob,
+										Mode: "100644",
+										Path: "file2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			path: "dirA/dirB/file1",
+			expectedEntry: TreeEntry{
+				OID:  "defg",
+				Type: Blob,
+				Mode: "100644",
+				Path: "file1",
+			},
+		},
+		{
+			desc: "entry does not exist",
+			tree: &TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  "cba",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file2",
+					},
+				},
+			},
+			path:        "file3",
+			expectedErr: ErrEntryNotFound,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			entry, err := tc.tree.Get(
+				tc.path,
+			)
+
+			require.Equal(t, tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				return
+			}
+			require.Equal(t, tc.expectedEntry, *entry)
+		})
+	}
+}
+
+func TestValidatePath(t *testing.T) {
+	testCases := []struct {
+		desc         string
+		path         string
+		expectedPath string
+		expectedErr  error
+	}{
+		{
+			desc:         "normal path",
+			path:         "a/b/c/d/e/f/g",
+			expectedPath: "a/b/c/d/e/f/g",
+			expectedErr:  nil,
+		},
+		{
+			desc:         "weird path",
+			path:         "a/b..c/d..e/f/g",
+			expectedPath: "a/b..c/d..e/f/g",
+			expectedErr:  nil,
+		},
+		{
+			desc:        "starts with traversal",
+			path:        "../../a",
+			expectedErr: ErrPathTraversal,
+		},
+		{
+			desc:        "contains traversal",
+			path:        "a/../../../b",
+			expectedErr: ErrPathTraversal,
+		},
+		{
+			desc:         "does not contain traversal",
+			path:         "a/b/../c",
+			expectedPath: "a/c",
+			expectedErr:  nil,
+		},
+		{
+			desc:        "absolute path",
+			path:        "/a/b/c",
+			expectedErr: ErrAbsolutePath,
+		},
+		{
+			desc:        "empty path",
+			path:        "",
+			expectedErr: ErrEmptyPath,
+		},
+		{
+			desc:        "empty path",
+			path:        ".",
+			expectedErr: ErrEmptyPath,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			path, err := validateFileCreationPath(tc.path)
+			require.Equal(
+				t,
+				tc.expectedPath,
+				path,
+			)
+			require.Equal(
+				t,
+				tc.expectedErr,
+				err,
+			)
+		})
+	}
+}

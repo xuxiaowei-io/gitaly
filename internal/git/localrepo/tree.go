@@ -111,7 +111,279 @@ var (
 	// ErrNotTreeish indicates that the requested revision or path does not resolve to a tree
 	// object.
 	ErrNotTreeish = errors.New("not treeish")
+	// ErrEntryNotFound indicates an entry could not be found.
+	ErrEntryNotFound = errors.New("entry not found")
+	// ErrEntryExists indicates an entry already exists.
+	ErrEntryExists = errors.New("entry already exists")
+	// ErrPathTraversal indicates a path contains a traversal.
+	ErrPathTraversal = errors.New("path contains traversal")
+	// ErrAbsolutePath indicates the path is an absolute path
+	ErrAbsolutePath = errors.New("path is absolute")
+	// ErrEmptyPath indicates the path is an absolute path
+	ErrEmptyPath = errors.New("path is empty")
 )
+
+func validateFileCreationPath(path string) (string, error) {
+	path = filepath.Clean(path)
+
+	if filepath.IsAbs(path) {
+		return "", ErrAbsolutePath
+	}
+
+	if strings.HasPrefix(path, "..") {
+		return "", ErrPathTraversal
+	}
+
+	if path == "." {
+		return "", ErrEmptyPath
+	}
+
+	return path, nil
+}
+
+type addTreeEntryConfig struct {
+	overwriteFile bool
+	overwriteDir  bool
+}
+
+// AddTreeEntryOption is a function that sets options on the addTreeEntryConfig
+// struct.
+type AddTreeEntryOption func(*addTreeEntryConfig)
+
+// WithOverwriteFile allows Add to overwrite a file
+func WithOverwriteFile() AddTreeEntryOption {
+	return func(a *addTreeEntryConfig) {
+		a.overwriteFile = true
+	}
+}
+
+// WithOverwriteDirectory allows Add to overwrite a directory
+func WithOverwriteDirectory() AddTreeEntryOption {
+	return func(a *addTreeEntryConfig) {
+		a.overwriteDir = true
+	}
+}
+
+// Add takes an entry and adds it to an existing TreeEntry
+// based on path.
+// It works by walking down the TreeEntry's Entries, layer by layer, based on
+// path. If it reaches the limit when walking down the tree, that means the
+// rest of the directories path will need to be created.
+// If we're able to walk all the way down the tree based on path, then we
+// either add the new entry to the last subtree's entries if it doesn't yet
+// exist, or optionally overwrite the entry if it already exists.
+func (t *TreeEntry) Add(
+	path string,
+	newEntry TreeEntry,
+	options ...AddTreeEntryOption,
+) error {
+	path, err := validateFileCreationPath(path)
+	if err != nil {
+		return err
+	}
+
+	var cfg addTreeEntryConfig
+
+	for _, option := range options {
+		option(&cfg)
+	}
+
+	var firstComponent string
+	var parentDirs string
+
+	secondComponent := path
+
+	// currentTree keeps track of the current tree we are examining.
+	currentTree := t
+
+Loop:
+	for {
+		// loop through each layer of the tree based on the directory
+		// structure specified by path.
+		// firstComponent is the current directory name, and secondComponent is the rest
+		// of the sub directories we have yet to walk down into.
+		firstComponent, secondComponent, _ = strings.Cut(secondComponent, "/")
+
+		// look through the current tree's entries.
+		for i, entry := range currentTree.Entries {
+			// If the entry's Path does not match firstComponent, we don't
+			// want to do anything with it.
+			if entry.Path != firstComponent {
+				continue
+			}
+
+			// If the entry's Path does match firstComponent, then either
+			// we found the next directory to walk into, or we've
+			// found the entry we want to replace.
+
+			// We found an entry in the tree that matches the entry
+			// we want to add. Replace the entry or throw an error,
+			// depending on the options passed in via options
+			if filepath.Join(parentDirs, entry.Path) == path {
+				if (entry.Type == Tree && !cfg.overwriteDir) ||
+					(entry.Type == Blob && !cfg.overwriteFile) {
+					return ErrEntryExists
+				}
+
+				currentTree.OID = ""
+				currentTree.Entries[i] = &newEntry
+
+				return nil
+			}
+
+			// We found the next directory to walk into.
+			currentTree.OID = ""
+			currentTree = entry
+			parentDirs = filepath.Join(parentDirs, entry.Path)
+			continue Loop
+		}
+
+		// If we get here, that means we didn't find any directories to
+		// recurse into, which means we need to create a brand new
+		// tree
+		if firstComponent == filepath.Base(path) {
+			currentTree.OID = ""
+			currentTree.Entries = append(
+				currentTree.Entries,
+				&newEntry,
+			)
+
+			return nil
+		}
+
+		currentTree.Entries = append(currentTree.Entries, &TreeEntry{
+			Mode: "040000",
+			Type: Tree,
+			Path: firstComponent,
+		})
+
+		currentTree.OID = ""
+		currentTree = currentTree.Entries[len(currentTree.Entries)-1]
+
+		if secondComponent == "" {
+			return nil
+		}
+	}
+}
+
+// recurse is a common function to recurse down into a TreeEntry based on path,
+// and take some action once we've found the entry in question.
+// entryFn is called on the entry specified by path.
+// treeFn is called on each tree visited during the walk.
+func (t *TreeEntry) recurse(
+	path string,
+	entryFn func(currentTree, entry *TreeEntry, i int) error,
+	treeFn func(entry *TreeEntry) error,
+) error {
+	var firstComponent string
+	var parentDirs string
+	secondComponent := path
+
+	currentTree := t
+	for {
+		// Loop through each layer of the tree based on the directory
+		// structure specified by path.
+		// firstComponent is the current directory name, and secondComponent is the rest
+		// of the sub directories we have yet to walk down into.
+		firstComponent, secondComponent, _ = strings.Cut(secondComponent, "/")
+
+		// Look through the current tree's entries.
+		for i, entry := range currentTree.Entries {
+			if firstComponent != entry.Path {
+				continue
+			}
+
+			if filepath.Join(parentDirs, entry.Path) == path {
+				currentTree.OID = ""
+
+				// Once we find the entry in question, apply the
+				// function to modify the current tree and/or
+				// entry.
+				return entryFn(currentTree, entry, i)
+			}
+
+			if err := treeFn(currentTree); err != nil {
+				return err
+			}
+			currentTree = entry
+			parentDirs = filepath.Join(parentDirs, entry.Path)
+		}
+
+		if secondComponent == "" {
+			return ErrEntryNotFound
+		}
+	}
+}
+
+// Delete deletes the entry of a current tree based on the path.
+func (t *TreeEntry) Delete(
+	path string,
+) error {
+	path, err := validateFileCreationPath(path)
+	if err != nil {
+		return err
+	}
+
+	return t.recurse(
+		path,
+		func(currentTree, entry *TreeEntry, i int) error {
+			currentTree.Entries = append(
+				currentTree.Entries[:i],
+				currentTree.Entries[i+1:]...)
+
+			return nil
+		},
+		func(entry *TreeEntry) error {
+			entry.OID = ""
+			return nil
+		},
+	)
+}
+
+// Get gets an entry of a current tree based on the path.
+func (t *TreeEntry) Get(
+	path string,
+) (*TreeEntry, error) {
+	if path == "" || path == "." {
+		return t, nil
+	}
+
+	var result *TreeEntry
+
+	if err := t.recurse(path, func(currentTree, entry *TreeEntry, i int) error {
+		result = entry
+		return nil
+	},
+		func(entry *TreeEntry) error {
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// Modify modifies an existing TreeEntry based on a path and a function to
+// modify an entry.
+func (t *TreeEntry) Modify(
+	path string,
+	modifyEntry func(*TreeEntry) error,
+) error {
+	path, err := validateFileCreationPath(path)
+	if err != nil {
+		return err
+	}
+
+	return t.recurse(path, func(currentTree, entry *TreeEntry, _ int) error {
+		return modifyEntry(entry)
+	},
+		func(entry *TreeEntry) error {
+			entry.OID = ""
+			return nil
+		},
+	)
+}
 
 // listEntries lists tree entries for the given treeish.
 func (repo *Repo) listEntries(
