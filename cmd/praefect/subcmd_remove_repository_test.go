@@ -76,8 +76,8 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
 
-	g1Addr := testserver.RunGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	g1Addr := testserver.RunGitalyServer(t, g1Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
+	g2Srv := testserver.StartGitalyServer(t, g2Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	db := testdb.New(t)
 

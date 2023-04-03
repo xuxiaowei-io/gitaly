@@ -481,7 +481,6 @@ func TestVerifier(t *testing.T) {
 					registerFunc = func(srv *grpc.Server, deps *service.Dependencies) {
 						gitalypb.RegisterRepositoryServiceServer(srv, erroringRepositoryService{repository.NewServer(
 							deps.GetCfg(),
-							deps.GetRubyServer(),
 							deps.GetLocator(),
 							deps.GetTxManager(),
 							deps.GetGitCmdFactory(),
@@ -494,7 +493,7 @@ func TestVerifier(t *testing.T) {
 				}
 
 				cfg := testcfg.Build(t, testcfg.WithStorages(storageName))
-				cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, registerFunc, testserver.WithDisablePraefect())
+				cfg.SocketPath = testserver.RunGitalyServer(t, cfg, registerFunc, testserver.WithDisablePraefect())
 				conf.VirtualStorages[0].Nodes = append(conf.VirtualStorages[0].Nodes, &config.Node{
 					Storage: storageName,
 					Address: cfg.SocketPath,

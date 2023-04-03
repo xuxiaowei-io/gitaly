@@ -27,7 +27,7 @@ func TestRestoreSubcommand(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	existingRepo, existRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed:         gittest.SeedGitLabTest,

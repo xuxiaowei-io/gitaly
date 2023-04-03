@@ -45,7 +45,7 @@ func setupConflictsService(tb testing.TB, ctx context.Context, hookManager hook.
 }
 
 func runConflictsServer(tb testing.TB, cfg config.Cfg, hookManager hook.Manager) string {
-	return testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterConflictsServiceServer(srv, NewServer(
 			deps.GetHookManager(),
 			deps.GetLocator(),
@@ -57,7 +57,6 @@ func runConflictsServer(tb testing.TB, cfg config.Cfg, hookManager hook.Manager)
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

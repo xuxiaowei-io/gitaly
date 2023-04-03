@@ -227,7 +227,6 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 
 	server := NewServer(
 		cfg,
-		nil,
 		locator,
 		txManager,
 		gitCommandFactory,
@@ -577,7 +576,6 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 
 	server := NewServer(
 		cfg,
-		nil,
 		locator,
 		txManager,
 		gitCommandFactory,

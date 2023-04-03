@@ -95,7 +95,7 @@ func TestSetCustomHooksRequest_success(t *testing.T) {
 			testcfg.BuildGitalyHooks(t, cfg)
 			txManager := transaction.NewTrackingManager()
 
-			client, addr := runRepositoryService(t, cfg, nil, testserver.WithTransactionManager(txManager))
+			client, addr := runRepositoryService(t, cfg, testserver.WithTransactionManager(txManager))
 			cfg.SocketPath = addr
 
 			ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)

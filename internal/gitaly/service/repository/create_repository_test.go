@@ -32,7 +32,7 @@ func TestCreateRepository_missingAuth(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
-	_, serverSocketPath := runRepositoryService(t, cfg, nil)
+	_, serverSocketPath := runRepositoryService(t, cfg)
 	client := newRepositoryClient(t, config.Cfg{Auth: auth.Config{Token: ""}}, serverSocketPath)
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{

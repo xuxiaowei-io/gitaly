@@ -32,7 +32,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	address := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	address := testserver.RunGitalyServer(t, cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	// Create a keep-around ref
 	commitID := gittest.WriteCommit(t, cfg, repoPath)

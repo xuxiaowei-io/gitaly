@@ -57,9 +57,9 @@ func TestCreateFork_successful(t *testing.T) {
 				}
 				cfg.TLSListenAddr = "localhost:0"
 
-				client, cfg.TLSListenAddr = runRepositoryService(t, cfg, nil)
+				client, cfg.TLSListenAddr = runRepositoryService(t, cfg)
 			} else {
-				client, cfg.SocketPath = runRepositoryService(t, cfg, nil)
+				client, cfg.SocketPath = runRepositoryService(t, cfg)
 			}
 
 			ctx := testhelper.Context(t)

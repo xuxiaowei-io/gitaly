@@ -47,7 +47,7 @@ func TestGetArchive(t *testing.T) {
 	}))
 	testcfg.BuildGitalyLFSSmudge(t, cfg)
 
-	client, socketPath := runRepositoryService(t, cfg, nil)
+	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -518,7 +518,7 @@ func TestGetArchive_environment(t *testing.T) {
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+	client, serverSocketPath := runRepositoryService(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 	cfg.SocketPath = serverSocketPath
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)

@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 func setup(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobServiceClient) {
 	cfg := testcfg.Build(tb)
 
-	addr := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterBlobServiceServer(srv, NewServer(
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
@@ -31,7 +31,6 @@ func setup(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobService
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

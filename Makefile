@@ -30,13 +30,6 @@ PROTO_DEST_DIR   := ${SOURCE_DIR}/proto/go
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
-# This file is used as a dependency for running `bundle install`: when its
-# mtime is older than that of either `Gemfile` or `Gemfile.lock` we will
-# execute the command. There is not typically any need to change the location,
-# but we need this for our unprivileged CI so that it can be moved into the
-# `_build` directory. Just moving the file completely doesn't work, as both CNG
-# and Omnibus depend on it to inhibit re-bundling Ruby Gems.
-RUBY_BUNDLE_FILE ?= ${SOURCE_DIR}/.ruby-bundle
 
 # These variables may be overridden at runtime by top-level make
 ## The prefix where Gitaly binaries will be installed to. Binaries will end up
@@ -278,9 +271,6 @@ export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig:${PKG_C
 # Allow the linker flag -D_THREAD_SAFE as libgit2 is compiled with it on FreeBSD
 export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 
-# Disallow changes to the Gemfile
-export BUNDLE_FROZEN = true
-
 # By default, intermediate targets get deleted automatically after a successful
 # build. We do not want that though: there's some precious intermediate targets
 # like our `*.version` targets which are required in order to determine whether
@@ -318,8 +308,8 @@ help:
 		 { desc = "" }' $(MAKEFILE_LIST) | sort | column -s: -t
 
 .PHONY: build
-## Build Go binaries and install required Ruby Gems.
-build: ${RUBY_BUNDLE_FILE} ${GITALY_INSTALLED_EXECUTABLES}
+## Build Go binaries.
+build: ${GITALY_INSTALLED_EXECUTABLES}
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
@@ -353,7 +343,7 @@ export GITALY_TESTING_GIT_BINARY ?= ${DEPENDENCY_DIR}/git-distribution/bin-wrapp
 endif
 
 .PHONY: prepare-tests
-prepare-tests: libgit2 prepare-test-repos ${RUBY_BUNDLE_FILE} ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
+prepare-tests: libgit2 prepare-test-repos ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
 	${Q}mkdir -p "$(dir ${TEST_REPORT})"
 
 .PHONY: prepare-debug
@@ -363,11 +353,8 @@ prepare-debug: ${DELVE}
 prepare-test-repos: ${TEST_REPO}
 
 .PHONY: test
-## Run Go and Ruby tests.
-test: test-go test-ruby test-gitaly-linters
-
-.PHONY: test-ruby
-test-ruby: rspec
+## Run Go tests.
+test: test-go test-gitaly-linters
 
 .PHONY: test-gitaly-linters
 ## Test Go tests in tools/golangci-lint/gitaly folder
@@ -393,12 +380,6 @@ bench: override TEST_OPTIONS := ${TEST_OPTIONS} -bench=. -run=^$
 bench: ${BENCHMARK_REPO} prepare-tests
 	${Q}$(call run_go_tests)
 
-.PHONY: test-with-proxies
-test-with-proxies: override TEST_OPTIONS  := ${TEST_OPTIONS} -exec ${SOURCE_DIR}/_support/bad-proxies
-test-with-proxies: TEST_PACKAGES := ${GITALY_PACKAGE}/internal/gitaly/rubyserver
-test-with-proxies: prepare-tests
-	${Q}$(call run_go_tests)
-
 .PHONY: test-with-praefect
 ## Run Go tests with Praefect.
 test-with-praefect: prepare-tests
@@ -409,14 +390,9 @@ test-with-praefect: prepare-tests
 race-go: override TEST_OPTIONS := ${TEST_OPTIONS} -race
 race-go: test-go
 
-.PHONY: rspec
-## Run Ruby tests.
-rspec: build prepare-tests
-	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle exec rspec
-
 .PHONY: verify
 ## Verify that various files conform to our expectations.
-verify: check-mod-tidy notice-up-to-date check-proto rubocop lint
+verify: check-mod-tidy notice-up-to-date check-proto lint
 
 .PHONY: check-mod-tidy
 check-mod-tidy:
@@ -464,23 +440,9 @@ notice-up-to-date: ${BUILD_DIR}/NOTICE
 notice: ${SOURCE_DIR}/NOTICE
 
 .PHONY: clean
-## Clean up the Go and Ruby build artifacts.
+## Clean up the build artifacts.
 clean:
-	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
-
-.PHONY: clean-build
-## Clean up the build artifacts except for Ruby dependencies.
-clean-build:
 	rm -rf ${BUILD_DIR}
-
-.PHONY: clean-ruby-vendor-go
-clean-ruby-vendor-go:
-	mkdir -p ${SOURCE_DIR}/ruby/vendor && find ${SOURCE_DIR}/ruby/vendor -type f -name '*.go' -delete
-
-.PHONY: rubocop
-## Run Rubocop.
-rubocop: ${RUBY_BUNDLE_FILE}
-	${Q}cd ${GITALY_RUBY_DIR} && bundle exec rubocop --parallel --config ${GITALY_RUBY_DIR}/.rubocop.yml ${GITALY_RUBY_DIR} ${SOURCE_DIR}/_support/test-boot
 
 .PHONY: cover
 ## Generate coverage report via Go tests.
@@ -559,17 +521,17 @@ install-git: build-git
 ## Build libgit2.
 libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 
-# This file is used by Omnibus and CNG to skip the "bundle install"
-# step. Both Omnibus and CNG assume it is in the Gitaly root, not in
-# _build. Hence the '../' in front.
-${RUBY_BUNDLE_FILE}: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
-	${Q}cd ${GITALY_RUBY_DIR} && bundle install
+# This target is a stub to keep compatibility with downstream dependents that
+# still use it:
+#
+# - https://gitlab.com/gitlab-org/gitlab/blob/a7b33f5ae5a4da0c1b368172da604cce2e0d2636/spec/support/helpers/gitaly_setup.rb#L129
+${SOURCE_DIR}/.ruby-bundle:
 	${Q}touch $@
 
 ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 	${Q}mv $< $@
 
-${BUILD_DIR}/NOTICE: ${GO_LICENSES} clean-ruby-vendor-go ${GITALY_PACKED_EXECUTABLES}
+${BUILD_DIR}/NOTICE: ${GO_LICENSES} ${GITALY_PACKED_EXECUTABLES}
 	${Q}rm -rf ${BUILD_DIR}/licenses
 	${Q}GOOS=linux GOFLAGS="-tags=${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" ${GO_LICENSES} save ${SOURCE_DIR}/... --save_path=${BUILD_DIR}/licenses
 	${Q}go run ${SOURCE_DIR}/tools/noticegen/noticegen.go -source ${BUILD_DIR}/licenses -template ${SOURCE_DIR}/tools/noticegen/notice.template > ${BUILD_DIR}/NOTICE

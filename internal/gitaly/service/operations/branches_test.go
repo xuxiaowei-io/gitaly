@@ -135,7 +135,7 @@ func TestUserCreateBranch_Transactions(t *testing.T) {
 	transactionServer := &testTransactionServer{}
 
 	cfg.ListenAddr = "127.0.0.1:0" // runs gitaly on the TCP address
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterOperationServiceServer(srv, NewServer(
 			deps.GetHookManager(),
 			deps.GetTxManager(),
@@ -811,7 +811,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 
 	transactionServer := &testTransactionServer{}
 
-	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterOperationServiceServer(srv, NewServer(
 			deps.GetHookManager(),
 			deps.GetTxManager(),

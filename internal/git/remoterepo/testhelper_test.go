@@ -22,10 +22,9 @@ func TestMain(m *testing.M) {
 func setupGitalyServer(t *testing.T) config.Cfg {
 	cfg := testcfg.Build(t)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

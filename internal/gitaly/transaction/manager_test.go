@@ -229,7 +229,7 @@ func TestPoolManager_Stop(t *testing.T) {
 func runTransactionServer(t *testing.T, cfg config.Cfg) (*testTransactionServer, string) {
 	transactionServer := &testTransactionServer{}
 	cfg.ListenAddr = "localhost:0" // pushes gRPC to listen on the TCP address
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRefTransactionServer(srv, transactionServer)
 	}, testserver.WithDisablePraefect())
 	return transactionServer, addr

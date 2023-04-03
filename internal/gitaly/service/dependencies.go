@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
@@ -22,7 +21,6 @@ import (
 // Dependencies assembles set of components required by different kinds of services.
 type Dependencies struct {
 	Cfg                           config.Cfg
-	RubyServer                    *rubyserver.Server
 	GitalyHookManager             gitalyhook.Manager
 	TransactionManager            transaction.Manager
 	StorageLocator                storage.Locator
@@ -44,11 +42,6 @@ type Dependencies struct {
 // GetCfg returns service configuration.
 func (dc *Dependencies) GetCfg() config.Cfg {
 	return dc.Cfg
-}
-
-// GetRubyServer returns client for the ruby processes.
-func (dc *Dependencies) GetRubyServer() *rubyserver.Server {
-	return dc.RubyServer
 }
 
 // GetHookManager returns hook manager.

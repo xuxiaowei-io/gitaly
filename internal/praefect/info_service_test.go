@@ -37,10 +37,9 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	for i, storage := range storages {
 		cfg := testcfg.Build(t, testcfg.WithStorages(storage))
 		cfgs = append(cfgs, cfg)
-		cfgs[i].SocketPath = testserver.RunGitalyServer(t, cfgs[i], nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		cfgs[i].SocketPath = testserver.RunGitalyServer(t, cfgs[i], func(srv *grpc.Server, deps *service.Dependencies) {
 			gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 				deps.GetCfg(),
-				deps.GetRubyServer(),
 				deps.GetLocator(),
 				deps.GetTxManager(),
 				deps.GetGitCmdFactory(),

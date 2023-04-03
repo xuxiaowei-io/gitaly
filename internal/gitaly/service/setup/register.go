@@ -92,7 +92,6 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	))
 	gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 		deps.GetCfg(),
-		deps.GetRubyServer(),
 		deps.GetLocator(),
 		deps.GetTxManager(),
 		deps.GetGitCmdFactory(),

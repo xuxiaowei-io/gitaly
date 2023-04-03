@@ -58,12 +58,12 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	})
 
 	testRepo := localrepo.NewTestRepo(t, primaryCfg, testRepoProto)
-	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	testcfg.BuildGitalySSH(t, primaryCfg)
 	testcfg.BuildGitalyHooks(t, primaryCfg)
 
 	backupCfg := testcfg.Build(t, testcfg.WithStorages("backup"))
-	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	testcfg.BuildGitalySSH(t, backupCfg)
 	testcfg.BuildGitalyHooks(t, backupCfg)
 
@@ -293,7 +293,7 @@ func TestConfirmReplication(t *testing.T) {
 		Seed:                   gittest.SeedGitLabTest,
 	})
 
-	srvSocketPath := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	srvSocketPath := testserver.RunGitalyServer(t, cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	testRepoB, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -362,10 +362,10 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	primaryAddr := testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	primaryAddr := testserver.RunGitalyServer(t, primaryCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	backupCfg := testcfg.Build(t, testcfg.WithStorages("backup"))
-	backupAddr := testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	backupAddr := testserver.RunGitalyServer(t, backupCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	testcfg.BuildGitalySSH(t, backupCfg)
 	testcfg.BuildGitalyHooks(t, backupCfg)
 
@@ -468,7 +468,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	primaryCfg := testcfg.Build(t, testcfg.WithStorages("primary"))
-	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	testcfg.BuildGitalySSH(t, primaryCfg)
 	testcfg.BuildGitalyHooks(t, primaryCfg)
 
@@ -478,7 +478,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	})
 
 	backupCfg := testcfg.Build(t, testcfg.WithStorages("backup"))
-	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	testcfg.BuildGitalySSH(t, backupCfg)
 	testcfg.BuildGitalyHooks(t, backupCfg)
 

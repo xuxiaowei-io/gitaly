@@ -47,7 +47,7 @@ func TestServerFactory(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	gitalyAddr := testserver.RunGitalyServer(t, cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,

@@ -978,7 +978,7 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 		`, execEnv.BinaryPath, outputPath)
 	})
 
-	client, addr := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+	client, addr := runRepositoryService(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 	cfg.SocketPath = addr
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -1037,7 +1037,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewTrackingManager()
-	client, addr := runRepositoryService(t, cfg, nil, testserver.WithTransactionManager(txManager))
+	client, addr := runRepositoryService(t, cfg, testserver.WithTransactionManager(txManager))
 	cfg.SocketPath = addr
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -1107,7 +1107,7 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 			cfg := testcfg.Build(t, testcfg.WithBase(tc.cfg))
 			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-			client, swocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+			client, swocketPath := runRepositoryService(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 			cfg.SocketPath = swocketPath
 
 			// Create a repository that emulates an object pool. This object contains a

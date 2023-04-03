@@ -34,7 +34,7 @@ func setupDiffService(tb testing.TB, ctx context.Context, opt ...testserver.Gita
 func setupDiffServiceWithoutRepo(tb testing.TB, opt ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.DiffServiceClient) {
 	cfg := testcfg.Build(tb)
 
-	addr := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterDiffServiceServer(srv, NewServer(
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
@@ -42,7 +42,6 @@ func setupDiffServiceWithoutRepo(tb testing.TB, opt ...testserver.GitalyServerOp
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

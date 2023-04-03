@@ -35,7 +35,7 @@ func TestServer_ReadinessCheck(t *testing.T) {
 
 	const gitalyStorageName = "praefect-internal-0"
 	gitalyCfg := testcfg.Build(t, testcfg.WithStorages(gitalyStorageName))
-	gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	praefectConf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),

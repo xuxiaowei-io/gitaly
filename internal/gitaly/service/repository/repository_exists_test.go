@@ -25,7 +25,7 @@ func TestRepositoryExists(t *testing.T) {
 
 	require.NoError(t, os.RemoveAll(cfg.Storages[2].Path), "third storage needs to be invalid")
 
-	client, socketPath := runRepositoryService(t, cfg, nil)
+	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{})

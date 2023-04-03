@@ -42,8 +42,8 @@ func TestAddRepositories_Exec_invalidInput(t *testing.T) {
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
 
-	g1Srv := testserver.StartGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	g1Srv := testserver.StartGitalyServer(t, g1Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
+	g2Srv := testserver.StartGitalyServer(t, g2Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	defer g2Srv.Shutdown()
 	defer g1Srv.Shutdown()
 	g1Addr := g1Srv.Address()
@@ -202,8 +202,8 @@ func TestAddRepositories_Exec(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, g2Cfg)
 	testcfg.BuildGitalySSH(t, g2Cfg)
 
-	g1Srv := testserver.StartGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	g1Srv := testserver.StartGitalyServer(t, g1Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
+	g2Srv := testserver.StartGitalyServer(t, g2Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	defer g2Srv.Shutdown()
 	defer g1Srv.Shutdown()
 

@@ -29,7 +29,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 
 	const storageName = "exists"
 	cfg := testcfg.Build(t, testcfg.WithStorages(storageName, "removed"))
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 	locator := config.NewLocator(cfg)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -121,7 +121,7 @@ func TestConfigLocator_GetPath(t *testing.T) {
 	const storageName = "exists"
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, testcfg.WithStorages(storageName, "removed"))
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	// The storage name still present in the storages list, but not on the disk.
