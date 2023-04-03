@@ -416,7 +416,7 @@ rspec: build prepare-tests
 
 .PHONY: verify
 ## Verify that various files conform to our expectations.
-verify: check-mod-tidy notice-up-to-date check-proto rubocop lint
+verify: check-mod-tidy notice-up-to-date check-proto lint
 
 .PHONY: check-mod-tidy
 check-mod-tidy:
@@ -476,11 +476,6 @@ clean-build:
 .PHONY: clean-ruby-vendor-go
 clean-ruby-vendor-go:
 	mkdir -p ${SOURCE_DIR}/ruby/vendor && find ${SOURCE_DIR}/ruby/vendor -type f -name '*.go' -delete
-
-.PHONY: rubocop
-## Run Rubocop.
-rubocop: ${RUBY_BUNDLE_FILE}
-	${Q}cd ${GITALY_RUBY_DIR} && bundle exec rubocop --parallel --config ${GITALY_RUBY_DIR}/.rubocop.yml ${GITALY_RUBY_DIR} ${SOURCE_DIR}/_support/test-boot
 
 .PHONY: cover
 ## Generate coverage report via Go tests.
