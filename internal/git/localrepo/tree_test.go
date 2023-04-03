@@ -2,6 +2,7 @@ package localrepo
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -178,6 +179,204 @@ func TestWriteTree(t *testing.T) {
 
 			require.Nil(t, tc.expectedEntries)
 		})
+	}
+}
+
+func TestWriteTreeRecursively(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	testCases := []struct {
+		desc      string
+		setupTree func(*testing.T, string) *TreeEntry
+	}{
+		{
+			desc: "every level has a new tree",
+			setupTree: func(t *testing.T, repoPath string) *TreeEntry {
+				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
+
+				return &TreeEntry{
+					OID:  "",
+					Type: Tree,
+					Mode: "040000",
+					Entries: []*TreeEntry{
+						{
+							OID:  "",
+							Type: Tree,
+							Mode: "040000",
+							Path: "dirA",
+							Entries: []*TreeEntry{
+								{
+									OID:  "",
+									Mode: "040000",
+									Type: Tree,
+									Path: "dirB",
+									Entries: []*TreeEntry{
+										{
+											OID:  blobA,
+											Type: Blob,
+											Mode: "100644",
+											Path: "file1",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "only some new trees",
+			setupTree: func(t *testing.T, repoPath string) *TreeEntry {
+				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
+				blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("c"))
+				blobD := gittest.WriteBlob(t, cfg, repoPath, []byte("d"))
+				dirDTree := gittest.WriteTree(
+					t,
+					cfg,
+					repoPath,
+					[]gittest.TreeEntry{
+						{
+							OID:  blobC,
+							Mode: "100644",
+							Path: "file3",
+						},
+						{
+							OID:  blobD,
+							Mode: "100644",
+							Path: "file4",
+						},
+					})
+				dirCTree := gittest.WriteTree(
+					t,
+					cfg,
+					repoPath,
+					[]gittest.TreeEntry{
+						{
+							OID:  dirDTree,
+							Mode: "040000",
+							Path: "dirD",
+						},
+					},
+				)
+
+				return &TreeEntry{
+					OID:  "",
+					Type: Tree,
+					Mode: "040000",
+					Entries: []*TreeEntry{
+						{
+							OID:  "",
+							Type: Tree,
+							Mode: "040000",
+							Path: "dirA",
+							Entries: []*TreeEntry{
+								{
+									OID:  "",
+									Mode: "040000",
+									Type: Tree,
+									Path: "dirB",
+									Entries: []*TreeEntry{
+										{
+											OID:  blobA,
+											Type: Blob,
+											Mode: "100644",
+											Path: "file1",
+										},
+										{
+											OID:  blobB,
+											Type: Blob,
+											Mode: "100644",
+											Path: "file2",
+										},
+									},
+								},
+							},
+						},
+						{
+							OID:  dirCTree,
+							Type: Tree,
+							Mode: "040000",
+							Path: "dirC",
+							Entries: []*TreeEntry{
+								{
+									OID:  dirDTree,
+									Mode: "040000",
+									Type: Tree,
+									Path: "dirD",
+									Entries: []*TreeEntry{
+										{
+											OID:  blobC,
+											Type: Blob,
+											Mode: "100644",
+											Path: "file3",
+										},
+										{
+											OID:  blobD,
+											Type: Blob,
+											Mode: "100644",
+											Path: "file4",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+			repo := NewTestRepo(t, cfg, repoProto)
+
+			treeEntry := tc.setupTree(t, repoPath)
+			treeOID, err := repo.WriteTreeRecursively(
+				ctx,
+				treeEntry,
+			)
+			require.NoError(t, err)
+
+			requireTreeEquals(t, ctx, repo, treeOID, treeEntry)
+		})
+	}
+}
+
+func requireTreeEquals(
+	t *testing.T,
+	ctx context.Context,
+	repo *Repo,
+	treeOID git.ObjectID,
+	tree *TreeEntry,
+) {
+	entries, err := repo.ListEntries(ctx, git.Revision(treeOID), &ListEntriesConfig{})
+	require.NoError(t, err)
+
+	for i, entry := range entries {
+		if tree.Entries[i].OID != "" {
+			require.Equal(t, tree.Entries[i].Mode, entry.Mode)
+			require.Equal(t, tree.Entries[i].Type, entry.Type)
+			require.Equal(t, tree.Entries[i].OID, entry.OID)
+			require.Equal(t, tree.Entries[i].Path, entry.Path)
+		} else {
+			objectInfo, err := repo.ReadObjectInfo(
+				ctx,
+				git.Revision(entry.OID),
+			)
+			require.NoError(t, err)
+
+			require.Equal(t, tree.Entries[i].Type, ToEnum(objectInfo.Type))
+		}
+
+		if entry.Type == Tree {
+			requireTreeEquals(t, ctx, repo, entry.OID, tree.Entries[i])
+		}
 	}
 }
 
