@@ -3,6 +3,7 @@ package localrepo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -89,6 +90,230 @@ func (t *TreeEntry) IsBlob() bool {
 	return t.Type == Blob
 }
 
+var (
+	// ErrEntryNotFound indicates an entry could not be found.
+	ErrEntryNotFound = errors.New("entry not found")
+	// ErrEntryExists indicates an entry already exists.
+	ErrEntryExists = errors.New("entry already exists")
+	// ErrPathTraversal indicates a path contains a traversal.
+	ErrPathTraversal = errors.New("path contains traversal")
+)
+
+func validateFileCreationPath(path string) error {
+	if filepath.Clean(path) != path {
+		return ErrPathTraversal
+	}
+
+	return nil
+}
+
+type addTreeEntryConfig struct {
+	overwriteFile bool
+	overwriteDir  bool
+}
+
+// AddTreeEntryOption is a function that sets options on the addTreeEntryConfig
+// struct.
+type AddTreeEntryOption func(*addTreeEntryConfig)
+
+// WithOverwriteFile allows Add to overwrite a file
+func WithOverwriteFile() AddTreeEntryOption {
+	return func(a *addTreeEntryConfig) {
+		a.overwriteFile = true
+	}
+}
+
+// WithOverwriteDirectory allows Add to overwrite a directory
+func WithOverwriteDirectory() AddTreeEntryOption {
+	return func(a *addTreeEntryConfig) {
+		a.overwriteDir = true
+	}
+}
+
+// Add takes an entry and adds it to an existing TreeEntry
+// based on path.
+// It works by walking down the TreeEntry's Entries, layer by layer, based on
+// path. If it reaches the limit when walking down the tree, that means the
+// rest of the directories path will need to be created.
+// If we're able to walk all the way down the tree based on path, then we
+// either add the new entry to the last subtree's entries if it doesn't yet
+// exist, or optionally overwrite the entry if it already exists.
+func (t *TreeEntry) Add(
+	path string,
+	newEntry TreeEntry,
+	options ...AddTreeEntryOption,
+) error {
+	if err := validateFileCreationPath(path); err != nil {
+		return err
+	}
+
+	var cfg addTreeEntryConfig
+
+	for _, option := range options {
+		option(&cfg)
+	}
+
+	var subPath string
+	var ok bool
+
+	tail := path
+
+	// currentTree keeps track of the current tree we are examining.
+	currentTree := t
+	for {
+		// loop through each layer of the tree based on the directory
+		// structure specified by path.
+		// subPath is the current directory name, and tail is the rest
+		// of the sub directories we have yet to walk down into.
+		subPath, tail, ok = strings.Cut(tail, "/")
+		if !ok {
+			if subPath == "" {
+				break
+			}
+		}
+
+		var recurse bool
+
+		// look through the current tree's entries.
+		for i, entry := range currentTree.Entries {
+			// if the entry's Path does not match subPath, we don't
+			// want to do anything with it.
+			if entry.Path != subPath {
+				continue
+			}
+
+			// if the entry's Path does match subPath, then either
+			// we found the next directory to walk into, or we've
+			// found the entry we want to replace.
+
+			// we found an entry in the tree that matches the entry
+			// we want to add. Replace the entry or throw an error,
+			// depending on the options passed in via options
+			if entry.Path == filepath.Base(path) {
+				if (entry.Type == Tree && !cfg.overwriteDir) ||
+					(entry.Type == Blob && !cfg.overwriteFile) {
+					return ErrEntryExists
+				}
+
+				currentTree.OID = ""
+				currentTree.Entries[i] = &newEntry
+
+				return nil
+			}
+
+			// we found the next directory to walk into.
+			recurse = true
+			currentTree.OID = ""
+			currentTree = entry
+		}
+
+		if recurse {
+			continue
+		}
+
+		// if we get here, that means we didn't find any directories to
+		// recurse into, which means we need to to create a brand new
+		// tree
+		if subPath == filepath.Base(path) {
+			currentTree.OID = ""
+			currentTree.Entries = append(
+				currentTree.Entries,
+				&newEntry,
+			)
+
+			return nil
+		}
+
+		currentTree.Entries = append(currentTree.Entries, &TreeEntry{
+			Mode: "040000",
+			Type: Tree,
+			Path: subPath,
+		})
+
+		currentTree.OID = ""
+		currentTree = currentTree.Entries[len(currentTree.Entries)-1]
+	}
+
+	return nil
+}
+
+// recurse is a common function to recurse down into a TreeEntry based on path,
+// and take some action once we've found the entry in question.
+func (t *TreeEntry) recurse(
+	path string,
+	fn func(currentTree, entry *TreeEntry, i int) error,
+) error {
+	var subPath string
+	var ok bool
+	tail := path
+
+	currentTree := t
+	for {
+		// loop through each layer of the tree based on the directory
+		// structure specified by path.
+		// subPath is the current directory name, and tail is the rest
+		// of the sub directories we have yet to walk down into.
+		subPath, tail, ok = strings.Cut(tail, "/")
+		if !ok {
+			if subPath == "" {
+				break
+			}
+		}
+		// look through the current tree's entries.
+		for i, entry := range currentTree.Entries {
+			if subPath != entry.Path {
+				continue
+			}
+
+			if filepath.Base(path) == entry.Path {
+				currentTree.OID = ""
+
+				// once we find the entry in question, apply the
+				// function to modify the current tree and/or
+				// entry.
+				return fn(currentTree, entry, i)
+			}
+
+			currentTree.OID = ""
+			currentTree = entry
+		}
+	}
+
+	return ErrEntryNotFound
+}
+
+// Delete deletes the entry of a current tree based on the path.
+func (t *TreeEntry) Delete(
+	path string,
+) error {
+	if err := validateFileCreationPath(path); err != nil {
+		return err
+	}
+
+	return t.recurse(path, func(currentTree, entry *TreeEntry, i int) error {
+		currentTree.Entries = append(
+			currentTree.Entries[:i],
+			currentTree.Entries[i+1:]...)
+
+		return nil
+	})
+}
+
+// Modify modifies an existing TreeEntry based on a path and a function to
+// modify an entry.
+func (t *TreeEntry) Modify(
+	path string,
+	modifyEntry func(*TreeEntry) error,
+) error {
+	if err := validateFileCreationPath(path); err != nil {
+		return err
+	}
+
+	return t.recurse(path, func(currentTree, entry *TreeEntry, _ int) error {
+		return modifyEntry(entry)
+	})
+}
+
 // WriteTreeRecursively takes a TreeEntry, and does a depth first walk, writing
 // new trees when needed.
 func (repo *Repo) WriteTreeRecursively(
@@ -108,6 +333,10 @@ func (repo *Repo) WriteTreeRecursively(
 				return "", err
 			}
 		}
+	}
+
+	if len(entry.Entries) == 0 {
+		return "", errors.New("cannot write empty tree")
 	}
 
 	treeOID, err := repo.WriteTree(ctx, entry.Entries)
