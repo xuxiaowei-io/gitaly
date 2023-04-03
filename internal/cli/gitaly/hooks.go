@@ -39,7 +39,6 @@ func newHooksCommand() *cli.Command {
 					&cli.StringFlag{
 						Name:  flagStorage,
 						Usage: "storage containing the repository",
-						Value: "default",
 					},
 					&cli.StringFlag{
 						Name:     flagRepository,
@@ -68,6 +67,15 @@ func setHooksAction(ctx *cli.Context) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	storage := ctx.String(flagStorage)
+	if storage == "" {
+		if len(cfg.Storages) != 1 {
+			return fmt.Errorf("multiple storages configured: use --storage to target storage explicitly")
+		}
+
+		storage = cfg.Storages[0].Name
+	}
+
 	address, err := getAddressWithScheme(cfg)
 	if err != nil {
 		return fmt.Errorf("get Gitaly address: %w", err)
@@ -81,7 +89,7 @@ func setHooksAction(ctx *cli.Context) error {
 
 	if err := setRepoHooks(ctx.Context, conn,
 		ctx.App.Reader,
-		ctx.String(flagStorage),
+		storage,
 		ctx.String(flagRepository),
 	); err != nil {
 		return err

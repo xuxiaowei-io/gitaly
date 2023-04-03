@@ -30,7 +30,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 	ctx := testhelper.Context(t)
 	umask := perm.GetUmask()
 
-	cfg := testcfg.Build(t)
+	cfg := testcfg.Build(t, testcfg.WithStorages("default", "another-storage"))
 	testcfg.BuildGitaly(t, cfg)
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
@@ -77,7 +77,19 @@ func TestSetHooksSubcommand(t *testing.T) {
 			expectedErr: "Required flag \"c\" not set\n",
 		},
 		{
-			desc: "virtual storage not found",
+			desc: "missing storage flag and config has multiple storages",
+			setup: func() ([]string, *gitalypb.Repository) {
+				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
+				return []string{
+					"--repository=" + repo.RelativePath,
+					"--config=" + configPath,
+				}, repo
+			},
+			hooks:       &bytes.Buffer{},
+			expectedErr: "multiple storages configured: use --storage to target storage explicitly",
+		},
+		{
+			desc: "storage not found",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
 				return []string{
@@ -131,6 +143,30 @@ func TestSetHooksSubcommand(t *testing.T) {
 					"--storage=" + repo.StorageName,
 					"--repository=" + repo.RelativePath,
 					"--config=" + configPath,
+				}, repo
+			},
+			hooks: testhelper.MustCreateCustomHooksTar(t),
+			expectedState: testhelper.DirectoryState{
+				"custom_hooks/":            {Mode: umask.Mask(fs.ModePerm)},
+				"custom_hooks/pre-commit":  {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-commit content")},
+				"custom_hooks/pre-push":    {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-push content")},
+				"custom_hooks/pre-receive": {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-receive content")},
+			},
+		},
+		{
+			desc: "successfully set with hooks using default storage",
+			setup: func() ([]string, *gitalypb.Repository) {
+				// The default storage can only be determined if there is a single storage in the
+				// config. This test creates a config with only a single storage to verify a default
+				// storage value is being used.
+				singleStorageCfg := cfg
+				singleStorageCfg.Storages = singleStorageCfg.Storages[:1]
+				singleStorageCfgPath := testcfg.WriteTemporaryGitalyConfigFile(t, singleStorageCfg)
+
+				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
+				return []string{
+					"--repository=" + repo.RelativePath,
+					"--config=" + singleStorageCfgPath,
 				}, repo
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
