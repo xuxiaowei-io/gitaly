@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
@@ -46,13 +45,13 @@ import (
 // It accepts addition Registrar to register all required service instead of
 // calling service.RegisterAll explicitly because it creates a circular dependency
 // when the function is used in on of internal/gitaly/service/... packages.
-func RunGitalyServer(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) string {
-	return StartGitalyServer(tb, cfg, rubyServer, registrar, opts...).Address()
+func RunGitalyServer(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) string {
+	return StartGitalyServer(tb, cfg, registrar, opts...).Address()
 }
 
 // StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
-func StartGitalyServer(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
-	gitalySrv, gitalyAddr, disablePraefect := runGitaly(tb, cfg, rubyServer, registrar, opts...)
+func StartGitalyServer(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
+	gitalySrv, gitalyAddr, disablePraefect := runGitaly(tb, cfg, registrar, opts...)
 
 	if !testhelper.IsPraefectEnabled() || disablePraefect {
 		return GitalyServer{
@@ -155,7 +154,7 @@ func waitHealthy(tb testing.TB, ctx context.Context, addr string, authToken stri
 	require.Equal(tb, healthpb.HealthCheckResponse_SERVING, resp.Status, "server not yet ready to serve")
 }
 
-func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
+func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
 	tb.Helper()
 
 	var gsd gitalyServerDeps
@@ -170,7 +169,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, reg
 		server.WithStreamInterceptor(structerr.StreamInterceptor),
 	}
 
-	deps := gsd.createDependencies(tb, cfg, rubyServer)
+	deps := gsd.createDependencies(tb, cfg)
 	tb.Cleanup(func() { gsd.conns.Close() })
 
 	serverFactory := server.NewGitalyServerFactory(
@@ -270,7 +269,7 @@ type gitalyServerDeps struct {
 	housekeepingManager           housekeeping.Manager
 }
 
-func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
+func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
 	if gsd.logger == nil {
 		gsd.logger = testhelper.NewGitalyServerLogger(tb)
 	}
@@ -351,7 +350,6 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg, r
 
 	return &service.Dependencies{
 		Cfg:                           cfg,
-		RubyServer:                    rubyServer,
 		ClientPool:                    gsd.conns,
 		StorageLocator:                gsd.locator,
 		TransactionManager:            gsd.txMgr,

@@ -91,7 +91,7 @@ func setupOperationsServiceWithoutRepo(
 func runOperationServiceServer(tb testing.TB, cfg config.Cfg, options ...testserver.GitalyServerOpt) string {
 	tb.Helper()
 
-	return testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		operationServer := NewServer(
 			deps.GetHookManager(),
 			deps.GetTxManager(),

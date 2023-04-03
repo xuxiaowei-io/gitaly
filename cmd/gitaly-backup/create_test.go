@@ -23,7 +23,7 @@ import (
 func TestCreateSubcommand(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	ctx := testhelper.Context(t)
 	path := testhelper.TempDir(t)

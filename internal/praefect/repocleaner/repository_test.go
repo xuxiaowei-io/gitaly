@@ -47,9 +47,9 @@ func TestRunner_Run(t *testing.T) {
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages(storage2))
 	g3Cfg := testcfg.Build(t, testcfg.WithStorages(storage3))
 
-	g1Addr := testserver.RunGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	g2Addr := testserver.RunGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	g3Addr := testserver.RunGitalyServer(t, g3Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	g1Addr := testserver.RunGitalyServer(t, g1Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
+	g2Addr := testserver.RunGitalyServer(t, g2Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
+	g3Addr := testserver.RunGitalyServer(t, g3Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	db := testdb.New(t)
 	dbConf := testdb.GetConfig(t, db.Name)
@@ -230,7 +230,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 	)
 
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages(storage1))
-	g1Addr := testserver.RunGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	g1Addr := testserver.RunGitalyServer(t, g1Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	db := testdb.New(t)
 	dbConf := testdb.GetConfig(t, db.Name)

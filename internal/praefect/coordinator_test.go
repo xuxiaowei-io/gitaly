@@ -968,7 +968,7 @@ func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceSe
 		requestCh: make(chan proto.Message, 1),
 	}
 
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, server)
 		gitalypb.RegisterRefServiceServer(srv, server)
 	}, testserver.WithDisablePraefect())
@@ -2117,7 +2117,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 					wg: &wg,
 				}
 
-				addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+				addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 					gitalypb.RegisterOperationServiceServer(srv, operationServer)
 				}, testserver.WithDiskCache(&mockDiskCache{}), testserver.WithDisablePraefect())
 

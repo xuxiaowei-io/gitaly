@@ -32,7 +32,7 @@ func TestManager_RemoveAllRepositories(t *testing.T) {
 	const backupID = "abc123"
 
 	cfg := testcfg.Build(t)
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	ctx := testhelper.Context(t)
 
@@ -63,7 +63,7 @@ func TestManager_Create(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	ctx := testhelper.Context(t)
 
@@ -185,7 +185,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
@@ -301,7 +301,7 @@ func TestManager_Restore(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	cc, err := client.Dial(cfg.SocketPath, nil)
 	require.NoError(t, err)
@@ -535,7 +535,7 @@ func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	ctx := testhelper.Context(t)
 

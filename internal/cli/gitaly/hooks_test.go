@@ -33,7 +33,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitaly(t, cfg)
 
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	repoCfg := cfg
 	repoCfg.SocketPath = serverSocketPath

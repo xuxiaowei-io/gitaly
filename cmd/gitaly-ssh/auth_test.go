@@ -45,7 +45,7 @@ func TestConnectivity(t *testing.T) {
 
 	runGitaly := func(tb testing.TB, cfg config.Cfg) string {
 		tb.Helper()
-		return testserver.RunGitalyServer(tb, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+		return testserver.RunGitalyServer(tb, cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	}
 
 	testCases := []struct {

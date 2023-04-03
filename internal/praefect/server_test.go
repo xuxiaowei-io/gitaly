@@ -123,10 +123,10 @@ func TestGitalyServerInfo(t *testing.T) {
 
 	t.Run("gitaly responds with ok", func(t *testing.T) {
 		firstCfg := testcfg.Build(t, testcfg.WithStorages("praefect-internal-1"))
-		firstCfg.SocketPath = testserver.RunGitalyServer(t, firstCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+		firstCfg.SocketPath = testserver.RunGitalyServer(t, firstCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		secondCfg := testcfg.Build(t, testcfg.WithStorages("praefect-internal-2"))
-		secondCfg.SocketPath = testserver.RunGitalyServer(t, secondCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+		secondCfg.SocketPath = testserver.RunGitalyServer(t, secondCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		require.NoError(t, storage.WriteMetadataFile(firstCfg.Storages[0].Path))
 		firstMetadata, err := storage.ReadMetadataFile(firstCfg.Storages[0].Path)
@@ -284,7 +284,7 @@ func TestDiskStatistics(t *testing.T) {
 	for _, name := range []string{"gitaly-1", "gitaly-2"} {
 		gitalyCfg := testcfg.Build(t)
 
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
 			Storage: name,
@@ -509,7 +509,7 @@ func TestRemoveRepository(t *testing.T) {
 			RelativePath:           t.Name(),
 		})
 
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll, testserver.WithDisablePraefect())
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], setup.RegisterAll, testserver.WithDisablePraefect())
 		gitalyCfgs[i].SocketPath = gitalyAddr
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
@@ -589,7 +589,7 @@ func TestRenameRepository(t *testing.T) {
 	for _, storageName := range gitalyStorages {
 		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(storageName))
 		gitalyCfg := cfgBuilder.Build(t)
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
 			Storage: storageName,
@@ -768,7 +768,7 @@ func (m *mockSmartHTTP) Called(method string) int {
 }
 
 func newSmartHTTPGrpcServer(t *testing.T, cfg gconfig.Cfg, smartHTTPService gitalypb.SmartHTTPServiceServer) string {
-	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, smartHTTPService)
 	}, testserver.WithDisablePraefect())
 }

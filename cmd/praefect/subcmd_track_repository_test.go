@@ -79,8 +79,8 @@ func TestAddRepository_Exec(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, g2Cfg)
 	testcfg.BuildGitalySSH(t, g2Cfg)
 
-	g1Srv := testserver.StartGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	g1Srv := testserver.StartGitalyServer(t, g1Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
+	g2Srv := testserver.StartGitalyServer(t, g2Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	defer g2Srv.Shutdown()
 	defer g1Srv.Shutdown()
 

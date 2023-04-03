@@ -578,7 +578,7 @@ func (svc baggageAsserter) PackObjectsHookWithSidechannel(ctx context.Context, r
 }
 
 func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, assertUserDetails bool, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
-	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, baggageAsserter{
 			t:                 t,
 			assertUserDetails: assertUserDetails,

@@ -66,12 +66,12 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 			const gitaly1Storage = "gitaly-1"
 			gitaly1Cfg := testcfg.Build(t, testcfg.WithStorages(gitaly1Storage))
 			gitaly1RepoPath := filepath.Join(gitaly1Cfg.Storages[0].Path, relativePath)
-			gitaly1Addr := testserver.RunGitalyServer(t, gitaly1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+			gitaly1Addr := testserver.RunGitalyServer(t, gitaly1Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 			const gitaly2Storage = "gitaly-2"
 			gitaly2Cfg := testcfg.Build(t, testcfg.WithStorages(gitaly2Storage))
 			gitaly2RepoPath := filepath.Join(gitaly2Cfg.Storages[0].Path, relativePath)
-			gitaly2Addr := testserver.RunGitalyServer(t, gitaly2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+			gitaly2Addr := testserver.RunGitalyServer(t, gitaly2Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 			cfg := config.Config{VirtualStorages: []*config.VirtualStorage{
 				{

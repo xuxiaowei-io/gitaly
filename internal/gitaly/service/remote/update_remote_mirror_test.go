@@ -565,7 +565,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
 
-			addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+			addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 				cmdFactory := deps.GetGitCmdFactory()
 				if tc.wrapCommandFactory != nil {
 					cmdFactory = tc.wrapCommandFactory(t, deps.GetGitCmdFactory())
