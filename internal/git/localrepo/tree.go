@@ -3,7 +3,10 @@ package localrepo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -82,6 +85,205 @@ type TreeEntry struct {
 // IsBlob returns whether or not the TreeEntry is a blob.
 func (t *TreeEntry) IsBlob() bool {
 	return t.Type == Blob
+}
+
+var (
+	// ErrTreeNotFound indicates the tree in question was not found.
+	ErrTreeNotFound = errors.New("tree not found")
+	// ErrEntryNotFound indicates an entry could not be found.
+	ErrEntryNotFound = errors.New("entry not found")
+	// ErrEntryExists indicates an entry already exists.
+	ErrEntryExists = errors.New("entry already exists")
+	// ErrDirExists indicates a directory already exists.
+	ErrDirExists = errors.New("directory already exists")
+	// ErrPathTraversal indicates a path contains a traversal.
+	ErrPathTraversal = errors.New("path contains traversal")
+	// ErrInvalidPath indicates a path is invalid.
+	ErrInvalidPath = errors.New("invalid path")
+)
+
+func validateFileCreationPath(path string) error {
+	if filepath.Clean(path) != path {
+		return ErrPathTraversal
+	}
+
+	if strings.HasPrefix(path, ".git") {
+		return ErrInvalidPath
+	}
+
+	return nil
+}
+
+// Add takes an entry and adds it to an existing TreeEntry
+// based on the path. Call WriteTreeRecursively to write it
+// to the Git object database.
+func (t *TreeEntry) Add(
+	ctx context.Context,
+	path string,
+	newEntry TreeEntry,
+	overwriteFile, overwriteDir bool,
+) error {
+	if err := validateFileCreationPath(path); err != nil {
+		return err
+	}
+
+	paths := strings.Split(path, "/")
+
+	currentEntry := t
+
+	for _, subPath := range paths {
+		if len(currentEntry.Entries) == 0 {
+			if subPath == filepath.Base(path) {
+				currentEntry.Entries = []*TreeEntry{
+					&newEntry,
+				}
+			} else {
+				currentEntry.Entries = []*TreeEntry{
+					{
+						Mode: "040000",
+						Type: Tree,
+						Path: subPath,
+					},
+				}
+			}
+
+			currentEntry.OID = ""
+			currentEntry = currentEntry.Entries[0]
+			continue
+		}
+
+		for i, entry := range currentEntry.Entries {
+			if entry.Path != subPath {
+				continue
+			}
+
+			if entry.Path == filepath.Base(path) {
+				if entry.Type == Tree && !overwriteDir ||
+					entry.Type == Blob && !overwriteFile {
+					return errors.New("cannot overwrite entry")
+				}
+
+				currentEntry.Entries[i] = &newEntry
+				currentEntry.OID = ""
+
+				t.markTreesForWrite(path)
+
+				return nil
+			}
+
+			currentEntry.OID = ""
+			currentEntry = entry
+			break
+		}
+
+		if subPath == filepath.Base(path) {
+			currentEntry.Entries = append(
+				currentEntry.Entries,
+				&newEntry,
+			)
+			currentEntry.OID = ""
+
+			t.markTreesForWrite(path)
+
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func (t *TreeEntry) markTreesForWrite(
+	path string,
+) {
+	paths := strings.Split(path, "/")
+
+	currentEntry := t
+
+	for _, subPath := range paths {
+		for _, entry := range currentEntry.Entries {
+			if subPath != entry.Path {
+				continue
+			}
+
+			currentEntry.OID = ""
+
+			if filepath.Base(path) == entry.Path {
+				return
+			}
+
+			currentEntry = entry
+		}
+	}
+}
+
+// Delete deletes the entry of a current tree based on the path.
+func (t *TreeEntry) Delete(
+	ctx context.Context,
+	path string,
+) error {
+	if err := validateFileCreationPath(path); err != nil {
+		return err
+	}
+
+	paths := strings.Split(path, "/")
+
+	currentEntry := t
+
+	for _, subPath := range paths {
+		for i, entry := range currentEntry.Entries {
+			if subPath != entry.Path {
+				continue
+			}
+
+			if filepath.Base(path) == entry.Path {
+				t.markTreesForWrite(path)
+
+				currentEntry.Entries = append(
+					currentEntry.Entries[:i],
+					currentEntry.Entries[i+1:]...)
+
+				return nil
+			}
+
+			currentEntry = entry
+		}
+	}
+
+	return ErrEntryNotFound
+}
+
+// Modify modifies an existing TreeEntry based on a path and a function to
+// modify an entry.
+func (t *TreeEntry) Modify(
+	ctx context.Context,
+	path string,
+	modifyEntry func(*TreeEntry) error,
+) error {
+	if err := validateFileCreationPath(path); err != nil {
+		return err
+	}
+
+	paths := strings.Split(path, "/")
+
+	currentEntry := t
+
+	for _, subPath := range paths {
+		for _, entry := range currentEntry.Entries {
+			if subPath != entry.Path {
+				continue
+			}
+
+			if filepath.Base(path) == entry.Path {
+				t.markTreesForWrite(path)
+
+				return modifyEntry(entry)
+			}
+
+			currentEntry = entry
+		}
+	}
+
+	return ErrEntryNotFound
 }
 
 // WriteTreeRecursively takes a TreeEntry, and does a depth first walk, writing
