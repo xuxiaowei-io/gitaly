@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -176,6 +177,150 @@ func TestWriteTree(t *testing.T) {
 			}
 
 			require.Nil(t, tc.expectedEntries)
+		})
+	}
+}
+
+func TestGetFullTree(t *testing.T) {
+	cfg := testcfg.Build(t)
+	ctx := testhelper.Context(t)
+
+	testCases := []struct {
+		desc        string
+		setupTree   func(t *testing.T, repoPath string) (git.ObjectID, TreeEntry)
+		expectedErr error
+	}{
+		{
+			desc: "flat tree",
+			setupTree: func(t *testing.T, repoPath string) (git.ObjectID, TreeEntry) {
+				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode: "100644",
+						Path: "fileA",
+						OID:  blobA,
+					},
+					{
+						Mode: "100644",
+						Path: "fileB",
+						OID:  blobB,
+					},
+				})
+				return gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+						gittest.WithTree(treeID)),
+					TreeEntry{
+						OID:  treeID,
+						Mode: "040000",
+						Type: Tree,
+						Entries: []*TreeEntry{
+							{
+								Mode: "100644",
+								Path: "fileA",
+								OID:  blobA,
+								Type: Blob,
+							},
+							{
+								Mode: "100644",
+								Path: "fileB",
+								OID:  blobB,
+								Type: Blob,
+							},
+						},
+					}
+			},
+		},
+		{
+			desc: "nested tree",
+			setupTree: func(t *testing.T, repoPath string) (git.ObjectID, TreeEntry) {
+				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
+				blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("c"))
+				dirATree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode: "100644",
+						Path: "file1InDirA",
+						OID:  blobA,
+					},
+				})
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode: "100644",
+						Path: "fileB",
+						OID:  blobB,
+					},
+					{
+						Mode: "100644",
+						Path: "fileC",
+						OID:  blobC,
+					},
+					{
+						Mode: "040000",
+						Path: "dirA",
+						OID:  dirATree,
+					},
+				})
+
+				return gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+						gittest.WithTree(treeID)),
+					TreeEntry{
+						OID:  treeID,
+						Mode: "040000",
+						Type: Tree,
+						Entries: []*TreeEntry{
+							{
+								Mode: "040000",
+								Path: "dirA",
+								Type: Tree,
+								OID:  dirATree,
+								Entries: []*TreeEntry{
+									{
+										Mode: "100644",
+										Path: "file1InDirA",
+										OID:  blobA,
+										Type: Blob,
+									},
+								},
+							},
+							{
+								Mode: "100644",
+								Path: "fileB",
+								OID:  blobB,
+								Type: Blob,
+							},
+							{
+								Mode: "100644",
+								Path: "fileC",
+								OID:  blobC,
+								Type: Blob,
+							},
+						},
+					}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto, repoPath := gittest.CreateRepository(
+				t,
+				ctx,
+				cfg,
+				gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+			repo := NewTestRepo(t, cfg, repoProto)
+
+			commitID, expectedTree := tc.setupTree(t, repoPath)
+
+			fullTree, err := repo.GetFullTree(
+				ctx,
+				git.Revision(commitID),
+			)
+			require.NoError(t, err)
+			require.Equal(t, expectedTree, fullTree)
 		})
 	}
 }

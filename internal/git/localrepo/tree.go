@@ -75,6 +75,8 @@ type TreeEntry struct {
 	Path string
 	// Type is the type of the tree entry.
 	Type ObjectType
+
+	Entries []*TreeEntry
 }
 
 // IsBlob returns whether or not the TreeEntry is a blob.
@@ -141,4 +143,48 @@ func (repo *Repo) WriteTree(ctx context.Context, entries []*TreeEntry) (git.Obje
 	}
 
 	return treeOID, nil
+}
+
+func (repo *Repo) walkTree(ctx context.Context, root *TreeEntry) error {
+	entries, err := repo.ListEntries(
+		ctx,
+		git.Revision(root.OID),
+		&ListEntriesConfig{},
+	)
+	if err != nil {
+		return err
+	}
+
+	for i := range entries {
+		if entries[i].Type == Tree {
+			if err := repo.walkTree(ctx, entries[i]); err != nil {
+				return err
+			}
+		}
+	}
+
+	root.Entries = entries
+
+	return nil
+}
+
+// GetFullTree gets a tree object with all of the entries filled out for every
+// level.
+func (repo *Repo) GetFullTree(ctx context.Context, treeish git.Revision) (TreeEntry, error) {
+	treeOID, err := repo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{tree}", treeish)))
+	if err != nil {
+		return TreeEntry{}, err
+	}
+
+	rootEntry := TreeEntry{
+		OID:  treeOID,
+		Type: Tree,
+		Mode: "040000",
+	}
+
+	if err := repo.walkTree(ctx, &rootEntry); err != nil {
+		return TreeEntry{}, err
+	}
+
+	return rootEntry, nil
 }
