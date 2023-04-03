@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -60,88 +61,134 @@ func validateUserUpdateSubmoduleRequest(req *gitalypb.UserUpdateSubmoduleRequest
 }
 
 func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.Repo, req *gitalypb.UserUpdateSubmoduleRequest) (string, error) {
-	path := filepath.Dir(string(req.GetSubmodule()))
-	base := filepath.Base(string(req.GetSubmodule()))
-	replaceWith := git.ObjectID(req.GetCommitSha())
+	var treeID git.ObjectID
 
-	var submoduleFound bool
-
-	// First find the tree containing the submodule to be updated.
-	// Write a new tree object abc with the updated submodule. Then, write a new
-	// tree with the new tree abcabc. Continue iterating up the tree,
-	// writing a new tree object each time.
-	for {
-		entries, err := quarantineRepo.ListEntries(
-			ctx,
-
-			git.Revision("refs/heads/"+string(req.GetBranch())),
-			&localrepo.ListEntriesConfig{
-				RelativePath: path,
-			})
+	if featureflag.SubmoduleWithTreeAPI.IsEnabled(ctx) {
+		fullTree, err := quarantineRepo.GetFullTree(ctx, git.NewReferenceNameFromBranchName(string(req.GetBranch())).Revision())
 		if err != nil {
-			if strings.Contains(err.Error(), "invalid object name") {
+			return "", fmt.Errorf("getting tree: %w", err)
+		}
+
+		if err := fullTree.Modify(
+			string(req.GetSubmodule()),
+			func(t *localrepo.TreeEntry) error {
+				replaceWith := git.ObjectID(req.GetCommitSha())
+
+				if t.Type != localrepo.Submodule {
+					return fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
+				}
+
+				if replaceWith == t.OID {
+					//nolint:stylecheck
+					return fmt.Errorf(
+						"The submodule %s is already at %s",
+						req.GetSubmodule(),
+						replaceWith,
+					)
+				}
+
+				t.OID = replaceWith
+
+				return nil
+			},
+		); err != nil {
+			if err == localrepo.ErrEntryNotFound {
 				return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
 			}
 
-			return "", fmt.Errorf("error reading tree: %w", err)
+			return "", err
 		}
 
-		var newEntries []*localrepo.TreeEntry
-		var newTreeID git.ObjectID
+		treeID, err = quarantineRepo.WriteTreeRecursively(
+			ctx,
+			fullTree,
+		)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		path := filepath.Dir(string(req.GetSubmodule()))
+		base := filepath.Base(string(req.GetSubmodule()))
+		replaceWith := git.ObjectID(req.GetCommitSha())
 
-		for _, entry := range entries {
-			// If the entry's path does not match, then we simply
-			// want to retain this tree entry.
-			if entry.Path != base {
-				newEntries = append(newEntries, entry)
-				continue
-			}
+		var submoduleFound bool
 
-			// If we are at the submodule we want to replace, check
-			// if it's already at the value we want to replace, or
-			// if it's not a submodule.
-			if filepath.Join(path, entry.Path) == string(req.GetSubmodule()) {
-				if string(entry.OID) == req.GetCommitSha() {
-					return "",
-						//nolint:stylecheck
-						fmt.Errorf(
-							"The submodule %s is already at %s",
-							req.GetSubmodule(),
-							replaceWith,
-						)
-				}
+		// First find the tree containing the submodule to be updated.
+		// Write a new tree object abc with the updated submodule. Then, write a new
+		// tree with the new tree abcabc. Continue iterating up the tree,
+		// writing a new tree object each time.
+		for {
+			entries, err := quarantineRepo.ListEntries(
+				ctx,
 
-				if entry.Type != localrepo.Submodule {
+				git.Revision("refs/heads/"+string(req.GetBranch())),
+				&localrepo.ListEntriesConfig{
+					RelativePath: path,
+				})
+			if err != nil {
+				if strings.Contains(err.Error(), "invalid object name") {
 					return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
 				}
+
+				return "", fmt.Errorf("error reading tree: %w", err)
 			}
 
-			// Otherwise, create a new tree entry
-			submoduleFound = true
+			var newEntries []*localrepo.TreeEntry
 
-			newEntries = append(newEntries, &localrepo.TreeEntry{
-				Mode: entry.Mode,
-				Path: entry.Path,
-				OID:  replaceWith,
-			})
+			for _, entry := range entries {
+				// If the entry's path does not match, then we simply
+				// want to retain this tree entry.
+				if entry.Path != base {
+					newEntries = append(newEntries, entry)
+					continue
+				}
+
+				// If we are at the submodule we want to replace, check
+				// if it's already at the value we want to replace, or
+				// if it's not a submodule.
+				if filepath.Join(path, entry.Path) == string(req.GetSubmodule()) {
+					if string(entry.OID) == req.GetCommitSha() {
+						return "",
+							//nolint:stylecheck
+							fmt.Errorf(
+								"The submodule %s is already at %s",
+								req.GetSubmodule(),
+								replaceWith,
+							)
+					}
+
+					if entry.Type != localrepo.Submodule {
+						return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
+					}
+				}
+
+				// Otherwise, create a new tree entry
+				submoduleFound = true
+
+				newEntries = append(newEntries, &localrepo.TreeEntry{
+					Mode: entry.Mode,
+					Path: entry.Path,
+					OID:  replaceWith,
+				})
+			}
+
+			treeID, err = quarantineRepo.WriteTree(ctx, newEntries)
+			if err != nil {
+				return "", fmt.Errorf("write tree: %w", err)
+			}
+			replaceWith = treeID
+
+			if path == "." {
+				break
+			}
+
+			base = filepath.Base(path)
+			path = filepath.Dir(path)
 		}
 
-		newTreeID, err = quarantineRepo.WriteTree(ctx, newEntries)
-		if err != nil {
-			return "", fmt.Errorf("write tree: %w", err)
+		if !submoduleFound {
+			return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
 		}
-		replaceWith = newTreeID
-
-		if path == "." {
-			break
-		}
-
-		base = filepath.Base(path)
-		path = filepath.Dir(path)
-	}
-
-	if !submoduleFound {
-		return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
 	}
 
 	currentBranchCommit, err := quarantineRepo.ResolveRevision(ctx, git.Revision(req.GetBranch()))
@@ -163,7 +210,7 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 		CommitterEmail: string(req.GetUser().GetEmail()),
 		CommitterDate:  authorDate,
 		Message:        string(req.GetCommitMessage()),
-		TreeID:         replaceWith,
+		TreeID:         treeID,
 	})
 	if err != nil {
 		return "", fmt.Errorf("creating commit %w", err)
