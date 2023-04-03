@@ -219,7 +219,7 @@ test:
       # using bundled Git binaries.
       - GO_VERSION: [ "1.18", "1.19" ]
         TEST_TARGET: test
-      - TEST_TARGET: [ test-with-proxies, test-with-praefect, race-go ]
+      - TEST_TARGET: [ test-with-praefect, race-go ]
       # We also verify that things work as expected with a non-bundled Git
       # version matching our minimum required Git version.
       - TEST_TARGET: test
@@ -279,7 +279,7 @@ test:nightly:
   parallel:
     matrix:
       - GIT_VERSION: [ "master", "next" ]
-        TEST_TARGET: [ test, test-with-proxies, test-with-praefect ]
+        TEST_TARGET: [ test, test-with-praefect ]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - when: manual

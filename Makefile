@@ -380,12 +380,6 @@ bench: override TEST_OPTIONS := ${TEST_OPTIONS} -bench=. -run=^$
 bench: ${BENCHMARK_REPO} prepare-tests
 	${Q}$(call run_go_tests)
 
-.PHONY: test-with-proxies
-test-with-proxies: override TEST_OPTIONS  := ${TEST_OPTIONS} -exec ${SOURCE_DIR}/_support/bad-proxies
-test-with-proxies: TEST_PACKAGES := ${GITALY_PACKAGE}/internal/gitaly/rubyserver
-test-with-proxies: prepare-tests
-	${Q}$(call run_go_tests)
-
 .PHONY: test-with-praefect
 ## Run Go tests with Praefect.
 test-with-praefect: prepare-tests
