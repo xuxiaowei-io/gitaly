@@ -4,11 +4,13 @@ package operations
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -21,7 +23,11 @@ import (
 func TestUserUpdateSubmodule(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.SubmoduleWithTreeAPI).
+		Run(t, testUserUpdateSubmodule)
+}
+
+func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	type setupData struct {
