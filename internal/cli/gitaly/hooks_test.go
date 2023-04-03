@@ -49,35 +49,45 @@ func TestSetHooksSubcommand(t *testing.T) {
 		desc          string
 		setup         func() ([]string, *gitalypb.Repository)
 		hooks         io.Reader
-		error         string
+		expectedErr   string
 		expectedState testhelper.DirectoryState
 	}{
 		{
 			desc: "missing repository flag",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--config=" + configPath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--config=" + configPath,
+				}, repo
 			},
-			hooks: &bytes.Buffer{},
-			error: "Required flag \"repository\" not set\n",
+			hooks:       &bytes.Buffer{},
+			expectedErr: "Required flag \"repository\" not set\n",
 		},
 		{
 			desc: "missing config flag",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--repository=" + repo.RelativePath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--repository=" + repo.RelativePath,
+				}, repo
 			},
-			hooks: &bytes.Buffer{},
-			error: "Required flag \"c\" not set\n",
+			hooks:       &bytes.Buffer{},
+			expectedErr: "Required flag \"c\" not set\n",
 		},
 		{
 			desc: "virtual storage not found",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=non-existent", "--repository=" + repo.RelativePath, "--config=" + configPath}, repo
+				return []string{
+					"--storage=non-existent",
+					"--repository=" + repo.RelativePath,
+					"--config=" + configPath,
+				}, repo
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
-			error: testhelper.GitalyOrPraefect(
+			expectedErr: testhelper.GitalyOrPraefect(
 				"getting repo path: GetStorageByName: no such storage: \"non-existent\"\n",
 				"rpc error: code = InvalidArgument desc = repo scoped: invalid Repository\n",
 			),
@@ -86,10 +96,14 @@ func TestSetHooksSubcommand(t *testing.T) {
 			desc: "repository not found",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--repository=non-existent", "--config=" + configPath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--repository=non-existent",
+					"--config=" + configPath,
+				}, repo
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
-			error: testhelper.GitalyOrPraefect(
+			expectedErr: testhelper.GitalyOrPraefect(
 				"getting repo path: GetRepoPath: not a git repository:",
 				"rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: repository \"default\"/\"non-existent\" not found\n",
 			),
@@ -98,7 +112,11 @@ func TestSetHooksSubcommand(t *testing.T) {
 			desc: "successfully set with empty hooks",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--repository=" + repo.RelativePath, "--config=" + configPath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--repository=" + repo.RelativePath,
+					"--config=" + configPath,
+				}, repo
 			},
 			hooks: &bytes.Buffer{},
 			expectedState: testhelper.DirectoryState{
@@ -109,7 +127,11 @@ func TestSetHooksSubcommand(t *testing.T) {
 			desc: "successfully set with hooks",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--repository=" + repo.RelativePath, "--config=" + configPath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--repository=" + repo.RelativePath,
+					"--config=" + configPath,
+				}, repo
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedState: testhelper.DirectoryState{
@@ -136,9 +158,9 @@ func TestSetHooksSubcommand(t *testing.T) {
 
 			err := cmd.Run()
 
-			if tc.error != "" {
+			if tc.expectedErr != "" {
 				require.Error(t, err)
-				require.Contains(t, stderr.String(), tc.error)
+				require.Contains(t, stderr.String(), tc.expectedErr)
 				require.False(t, cmd.ProcessState.Success())
 			} else {
 				require.Empty(t, stderr.String())
