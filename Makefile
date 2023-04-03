@@ -363,11 +363,8 @@ prepare-debug: ${DELVE}
 prepare-test-repos: ${TEST_REPO}
 
 .PHONY: test
-## Run Go and Ruby tests.
-test: test-go test-ruby test-gitaly-linters
-
-.PHONY: test-ruby
-test-ruby: rspec
+## Run Go tests.
+test: test-go test-gitaly-linters
 
 .PHONY: test-gitaly-linters
 ## Test Go tests in tools/golangci-lint/gitaly folder
@@ -408,11 +405,6 @@ test-with-praefect: prepare-tests
 ## Run Go tests with race detection enabled.
 race-go: override TEST_OPTIONS := ${TEST_OPTIONS} -race
 race-go: test-go
-
-.PHONY: rspec
-## Run Ruby tests.
-rspec: build prepare-tests
-	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle exec rspec
 
 .PHONY: verify
 ## Verify that various files conform to our expectations.

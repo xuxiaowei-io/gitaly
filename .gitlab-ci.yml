@@ -134,7 +134,6 @@ workflow:
       fi
   artifacts: &test_artifacts
     paths:
-      - ${CI_PROJECT_DIR}/ruby/tmp/gitaly-rspec-test.log
       - ${TEST_LOG_DIR}
     reports:
       junit: ${TEST_REPORT}
