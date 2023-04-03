@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,8 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
@@ -181,7 +180,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	if err := mgr.writeRefs(ctx, step.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.writeBundle(ctx, step, req.Server, req.Repository, refs); err != nil {
+	if err := mgr.writeBundle(ctx, repo, step, refs); err != nil {
 		return fmt.Errorf("manager: write bundle: %w", err)
 	}
 	if err := mgr.writeCustomHooks(ctx, repo, step.CustomHooksPath); err != nil {
@@ -285,43 +284,27 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.ServerInfo, repo *gitalypb.Repository, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
-	repoClient, err := mgr.newRepoClient(ctx, server)
+func (mgr *Manager) writeBundle(ctx context.Context, repo *remoteRepository, step *Step, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
+	negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 	if err != nil {
 		return err
 	}
-	stream, err := repoClient.CreateBundleFromRefList(ctx)
-	if err != nil {
-		return err
-	}
-	c := chunk.New(&createBundleFromRefListSender{
-		stream: stream,
-	})
-	if err := mgr.sendKnownRefs(ctx, step, repo, c); err != nil {
-		return err
-	}
-	for _, ref := range refs {
-		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
-			Repository: repo,
-			Patterns:   [][]byte{ref.GetName()},
-		}); err != nil {
-			return err
-		}
-	}
-	if err := c.Flush(); err != nil {
-		return err
-	}
-	if err := stream.CloseSend(); err != nil {
-		return err
-	}
+	defer negatedRefs.Close()
 
-	bundle := streamio.NewReader(func() ([]byte, error) {
-		resp, err := stream.Recv()
-		if structerr.GRPCCode(err) == codes.FailedPrecondition {
-			err = errEmptyBundle
+	patternReader, patternWriter := io.Pipe()
+	defer patternReader.Close()
+	go func() {
+		defer patternWriter.Close()
+
+		for _, ref := range refs {
+			_, err := fmt.Fprintln(patternWriter, ref.GetName())
+			if err != nil {
+				_ = patternWriter.CloseWithError(err)
+				return
+			}
 		}
-		return resp.GetData(), err
-	})
+	}()
+
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, step.BundlePath)
 	})
@@ -331,7 +314,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 		}
 	}()
 
-	if _, err := io.Copy(w, bundle); err != nil {
+	if err := repo.CreateBundle(ctx, w, io.MultiReader(negatedRefs, patternReader)); err != nil {
 		if errors.Is(err, errEmptyBundle) {
 			return fmt.Errorf("%T write: %w: no changes to bundle", mgr.sink, ErrSkipped)
 		}
@@ -341,39 +324,42 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 	return nil
 }
 
-// sendKnownRefs sends the negated targets of each ref that had previously been
-// backed up. This ensures that git-bundle stops traversing commits once it
-// finds the commits that were previously backed up.
-func (mgr *Manager) sendKnownRefs(ctx context.Context, step *Step, repo *gitalypb.Repository, c *chunk.Chunker) error {
+func (mgr *Manager) negatedKnownRefs(ctx context.Context, step *Step) (io.ReadCloser, error) {
 	if len(step.PreviousRefPath) == 0 {
-		return nil
+		return io.NopCloser(new(bytes.Reader)), nil
 	}
 
-	reader, err := mgr.sink.GetReader(ctx, step.PreviousRefPath)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
+	r, w := io.Pipe()
 
-	d := git.NewShowRefDecoder(reader)
-	for {
-		var ref git.Reference
+	go func() {
+		defer w.Close()
 
-		if err := d.Decode(&ref); err == io.EOF {
-			break
-		} else if err != nil {
-			return err
+		reader, err := mgr.sink.GetReader(ctx, step.PreviousRefPath)
+		if err != nil {
+			_ = w.CloseWithError(err)
+			return
 		}
+		defer reader.Close()
 
-		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
-			Repository: repo,
-			Patterns:   [][]byte{[]byte("^" + ref.Target)},
-		}); err != nil {
-			return err
+		d := git.NewShowRefDecoder(reader)
+		for {
+			var ref git.Reference
+
+			if err := d.Decode(&ref); err == io.EOF {
+				break
+			} else if err != nil {
+				_ = w.CloseWithError(err)
+				return
+			}
+
+			if _, err := fmt.Fprintf(w, "^%s\n", ref.Target); err != nil {
+				_ = w.CloseWithError(err)
+				return
+			}
 		}
-	}
+	}()
 
-	return nil
+	return r, nil
 }
 
 type createBundleFromRefListSender struct {
@@ -518,15 +504,6 @@ func (mgr *Manager) newRepoClient(ctx context.Context, server storage.ServerInfo
 	}
 
 	return gitalypb.NewRepositoryServiceClient(conn), nil
-}
-
-func (mgr *Manager) newRefClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RefServiceClient, error) {
-	conn, err := mgr.conns.Dial(ctx, server.Address, server.Token)
-	if err != nil {
-		return nil, err
-	}
-
-	return gitalypb.NewRefServiceClient(conn), nil
 }
 
 func (mgr *Manager) newRemoteRepo(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (*remoteRepository, error) {

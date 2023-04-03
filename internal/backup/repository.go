@@ -1,10 +1,15 @@
 package backup
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc"
@@ -79,6 +84,57 @@ func (repo *remoteRepository) GetCustomHooks(ctx context.Context) (io.Reader, er
 		resp, err := stream.Recv()
 		return resp.GetData(), err
 	}), nil
+}
+
+// CreateBundle fetches a bundle that contains refs matching patterns.
+func (repo *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error {
+	repoClient := repo.newRepoClient()
+	stream, err := repoClient.CreateBundleFromRefList(ctx)
+	if err != nil {
+		return err
+	}
+	c := chunk.New(&createBundleFromRefListSender{
+		stream: stream,
+	})
+
+	buf := bufio.NewReader(patterns)
+	for {
+		line, err := buf.ReadBytes('\n')
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		line = bytes.TrimSuffix(line, []byte("\n"))
+
+		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
+			Repository: repo.repo,
+			Patterns:   [][]byte{line},
+		}); err != nil {
+			return err
+		}
+	}
+	if err := c.Flush(); err != nil {
+		return err
+	}
+	if err := stream.CloseSend(); err != nil {
+		return err
+	}
+
+	bundle := streamio.NewReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		if structerr.GRPCCode(err) == codes.FailedPrecondition {
+			err = errEmptyBundle
+		}
+		return resp.GetData(), err
+	})
+
+	if _, err := io.Copy(out, bundle); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (repo *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
