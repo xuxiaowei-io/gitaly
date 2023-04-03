@@ -446,18 +446,9 @@ notice-up-to-date: ${BUILD_DIR}/NOTICE
 notice: ${SOURCE_DIR}/NOTICE
 
 .PHONY: clean
-## Clean up the Go and Ruby build artifacts.
+## Clean up the build artifacts.
 clean:
-	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
-
-.PHONY: clean-build
-## Clean up the build artifacts except for Ruby dependencies.
-clean-build:
 	rm -rf ${BUILD_DIR}
-
-.PHONY: clean-ruby-vendor-go
-clean-ruby-vendor-go:
-	mkdir -p ${SOURCE_DIR}/ruby/vendor && find ${SOURCE_DIR}/ruby/vendor -type f -name '*.go' -delete
 
 .PHONY: cover
 ## Generate coverage report via Go tests.
@@ -546,7 +537,7 @@ ${SOURCE_DIR}/.ruby-bundle:
 ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 	${Q}mv $< $@
 
-${BUILD_DIR}/NOTICE: ${GO_LICENSES} clean-ruby-vendor-go ${GITALY_PACKED_EXECUTABLES}
+${BUILD_DIR}/NOTICE: ${GO_LICENSES} ${GITALY_PACKED_EXECUTABLES}
 	${Q}rm -rf ${BUILD_DIR}/licenses
 	${Q}GOOS=linux GOFLAGS="-tags=${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" ${GO_LICENSES} save ${SOURCE_DIR}/... --save_path=${BUILD_DIR}/licenses
 	${Q}go run ${SOURCE_DIR}/tools/noticegen/noticegen.go -source ${BUILD_DIR}/licenses -template ${SOURCE_DIR}/tools/noticegen/notice.template > ${BUILD_DIR}/NOTICE
