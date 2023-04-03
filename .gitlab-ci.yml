@@ -23,7 +23,6 @@ variables:
   RUST_VERSION: "1.65.0"
   POSTGRES_VERSION: "12-alpine"
   PGBOUNCER_VERSION: "1.17.0"
-  BUNDLE_PATH: "${CI_PROJECT_DIR}/_build/cache/ruby"
   GOCACHE: "${CI_PROJECT_DIR}/_build/cache/go-build"
   GOMODCACHE: "${CI_PROJECT_DIR}/_build/cache/go-mod"
   # We run the build as an untrusted user in a source directory owned by
@@ -68,17 +67,6 @@ workflow:
       - _build/tools
     policy: pull
 
-.cache_gems:
-  cache: &cache_gems_configuration
-    key:
-      files:
-        - .gitlab-ci.yml
-        - ruby/Gemfile.lock
-      prefix: ${CACHE_PREFIX}-ruby-${RUBY_VERSION}
-    paths:
-      - ${BUNDLE_PATH}
-    policy: pull
-
 .cache_go:
   cache: &cache_go_configuration
     key:
@@ -96,7 +84,6 @@ workflow:
   stage: test
   cache:
     - *cache_deps_configuration
-    - *cache_gems_configuration
     - *cache_go_configuration
   services:
     - name: postgres:${POSTGRES_VERSION}
@@ -170,8 +157,6 @@ build:
   stage: build
   cache:
     - <<: *cache_deps_configuration
-      policy: pull-push
-    - <<: *cache_gems_configuration
       policy: pull-push
     - <<: *cache_go_configuration
       policy: pull-push
@@ -308,8 +293,6 @@ test:fips:
   cache:
     - <<: *cache_deps_configuration
       policy: pull-push
-    - <<: *cache_gems_configuration
-      policy: pull-push
     - <<: *cache_go_configuration
       policy: pull-push
   variables:
@@ -338,8 +321,6 @@ test:macos:
   stage: test
   cache:
     - <<: *cache_deps_configuration
-      policy: pull-push
-    - <<: *cache_gems_configuration
       policy: pull-push
     - <<: *cache_go_configuration
       policy: pull-push
@@ -385,7 +366,6 @@ verify:
   stage: analyze
   cache:
     - *cache_deps_configuration
-    - *cache_gems_configuration
     - *cache_go_configuration
   script:
     # Download the dependencies in case there was no cache hit, otherwise
@@ -404,7 +384,6 @@ dbschema:
   stage: analyze
   cache:
     - *cache_deps_configuration
-    - *cache_gems_configuration
     - *cache_go_configuration
   services:
     # The database version we use must match the version of `pg_dump` we have
