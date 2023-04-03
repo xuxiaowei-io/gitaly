@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -79,6 +80,8 @@ type TreeEntry struct {
 	Path string
 	// Type is the type of the tree entry.
 	Type ObjectType
+
+	Entries []*TreeEntry
 }
 
 // IsBlob returns whether or not the TreeEntry is a blob.
@@ -141,4 +144,77 @@ func (repo *Repo) WriteTree(ctx context.Context, entries []*TreeEntry) (git.Obje
 	}
 
 	return treeOID, nil
+}
+
+func depthByPath(path string) int {
+	return len(strings.Split(path, "/"))
+}
+
+type treeQueue []*TreeEntry
+
+func (t treeQueue) first() *TreeEntry {
+	return t[len(t)-1]
+}
+
+func (t *treeQueue) push(e *TreeEntry) {
+	*t = append(*t, e)
+}
+
+func (t *treeQueue) pop() *TreeEntry {
+	e := t.first()
+
+	*t = (*t)[:len(*t)-1]
+
+	return e
+}
+
+// GetFullTree gets a tree object with all of the Entries populated for every
+// level of the tree.
+func (repo *Repo) GetFullTree(ctx context.Context, treeish git.Revision) (*TreeEntry, error) {
+	treeOID, err := repo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{tree}", treeish)))
+	if err != nil {
+		return nil, fmt.Errorf("getting revision %w", err)
+	}
+
+	rootEntry := &TreeEntry{
+		OID:  treeOID,
+		Type: Tree,
+		Mode: "040000",
+	}
+
+	entries, err := repo.ListEntries(
+		ctx,
+		git.Revision(treeOID),
+		&ListEntriesConfig{
+			Recursive: true,
+		},
+	)
+
+	queue := treeQueue{rootEntry}
+
+	for _, entry := range entries {
+		if depthByPath(entry.Path) < len(queue) {
+			levelsToPop := len(queue) - depthByPath(entry.Path)
+
+			for i := 0; i < levelsToPop; i++ {
+				queue.pop()
+			}
+		}
+
+		entry.Path = filepath.Base(entry.Path)
+		queue.first().Entries = append(
+			queue.first().Entries,
+			entry,
+		)
+
+		if entry.Type == Tree {
+			queue.push(entry)
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("listing entries: %w", err)
+	}
+
+	return rootEntry, nil
 }
