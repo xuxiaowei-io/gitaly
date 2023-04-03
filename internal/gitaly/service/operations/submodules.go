@@ -129,11 +129,15 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 			return "", err
 		}
 
-		newTreeID, err := quarantineRepo.WriteTree(ctx, newEntries)
-		if err != nil {
+		newTree := &localrepo.TreeEntry{
+			Type:    localrepo.Tree,
+			Mode:    "040000",
+			Entries: newEntries,
+		}
+		if err := newTree.Write(ctx, quarantineRepo); err != nil {
 			return "", fmt.Errorf("write tree: %w", err)
 		}
-		replaceWith = newTreeID
+		replaceWith = newTree.OID
 
 		if path == "." {
 			break

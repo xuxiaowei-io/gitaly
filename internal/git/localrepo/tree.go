@@ -295,9 +295,38 @@ func (t *TreeEntry) Walk(callback func(path string, entry *TreeEntry) error) err
 	return nil
 }
 
-// WriteTree writes a new tree object from a slice of entries. This function does not verify whether OIDs
+// Write does a depth first walk, writing new trees when the OID of the
+// TreeEntry is empty.
+func (t *TreeEntry) Write(
+	ctx context.Context,
+	repo *Repo,
+) error {
+	var err error
+
+	if t.OID != "" {
+		return nil
+	}
+
+	for _, e := range t.Entries {
+		if e.Type == Tree && e.OID == "" {
+			if err := e.Write(ctx, repo); err != nil {
+				return err
+			}
+		}
+	}
+
+	treeOID, err := repo.writeEntries(ctx, t.Entries)
+	if err != nil {
+		return fmt.Errorf("writing tree: %w", err)
+	}
+
+	t.OID = treeOID
+	return nil
+}
+
+// writeTreeEntries writes a new tree object from a slice of entries. This function does not verify whether OIDs
 // referred to by tree entries actually exist in the repository.
-func (repo *Repo) WriteTree(ctx context.Context, entries []*TreeEntry) (git.ObjectID, error) {
+func (repo *Repo) writeEntries(ctx context.Context, entries []*TreeEntry) (git.ObjectID, error) {
 	var tree bytes.Buffer
 
 	sort.Stable(TreeEntriesByPath(entries))
