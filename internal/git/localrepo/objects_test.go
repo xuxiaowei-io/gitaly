@@ -538,6 +538,79 @@ func TestRepo_IsAncestor(t *testing.T) {
 	}
 }
 
+func TestWalkUnreachableObjects(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, repo, repoPath := setupRepo(t)
+
+	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("commit-1"))
+	unreachableCommit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commit1))
+	unreachableCommit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(unreachableCommit1))
+	prunedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(unreachableCommit2))
+	brokenParent1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(prunedCommit))
+
+	// Pack brokenParent so we can unpack it into the repository as an object with broken links after
+	// pruning.
+	var packedBrokenParent bytes.Buffer
+	require.NoError(t, repo.PackObjects(ctx, strings.NewReader(brokenParent1.String()), &packedBrokenParent))
+
+	// Prune to remove the prunedCommit.
+	gittest.Exec(t, cfg, "-C", repoPath, "prune", unreachableCommit1.String(), unreachableCommit2.String())
+
+	// Unpack brokenParent now that the parent has been pruned.
+	require.NoError(t, repo.UnpackObjects(ctx, &packedBrokenParent))
+	// gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: &packedBrokenParent}, "-C", repoPath, "unpack-objects")
+
+	gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{
+		commit1, unreachableCommit1, unreachableCommit2, brokenParent1,
+	})
+
+	for _, tc := range []struct {
+		desc           string
+		heads          []git.ObjectID
+		expectedOutput string
+		expectedError  error
+	}{
+		{
+			desc: "no heads",
+		},
+		{
+			desc:  "reachable commit not reported",
+			heads: []git.ObjectID{commit1},
+		},
+		{
+			desc:           "unreachable commits reported",
+			heads:          []git.ObjectID{unreachableCommit2},
+			expectedOutput: "1afc2cf83cf04db11fc16bfdc403ca6f968cbd79\n0395680c5bb13cb1e67f018583985f42c8700250\n",
+		},
+		{
+			desc:          "non-existent head",
+			heads:         []git.ObjectID{prunedCommit},
+			expectedError: BadObjectError{ObjectID: prunedCommit},
+		},
+		{
+			desc:          "traversal fails due to missing parent commit",
+			heads:         []git.ObjectID{brokenParent1},
+			expectedError: ObjectReadError{prunedCommit},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			var heads []string
+			for _, head := range tc.heads {
+				heads = append(heads, head.String())
+			}
+
+			var output bytes.Buffer
+			require.Equal(t,
+				tc.expectedError,
+				repo.WalkUnreachableObjects(ctx, strings.NewReader(strings.Join(heads, "\n")), &output))
+			require.Equal(t, tc.expectedOutput, output.String())
+		})
+	}
+}
+
 func TestPackAndUnpackObjects(t *testing.T) {
 	t.Parallel()
 
