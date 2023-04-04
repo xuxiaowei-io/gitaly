@@ -227,6 +227,26 @@ func TestOptimizeRepository(t *testing.T) {
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
+	linkRepoToPool := func(t *testing.T, repoPath, poolPath string) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(
+			filepath.Join(repoPath, "objects", "info", "alternates"),
+			[]byte(filepath.Join(poolPath, "objects")),
+			perm.PrivateFile,
+		))
+	}
+
+	readPackfiles := func(t *testing.T, repoPath string) []string {
+		packPaths, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.pack"))
+		require.NoError(t, err)
+
+		packs := make([]string, 0, len(packPaths))
+		for _, packPath := range packPaths {
+			packs = append(packs, filepath.Base(packPath))
+		}
+		return packs
+	}
+
 	type metric struct {
 		name, status string
 		count        int
@@ -235,6 +255,7 @@ func TestOptimizeRepository(t *testing.T) {
 	for _, tc := range []struct {
 		desc                   string
 		setup                  func(t *testing.T, relativePath string) *gitalypb.Repository
+		options                []OptimizeRepositoryOption
 		expectedErr            error
 		expectedMetrics        []metric
 		expectedMetricsForPool []metric
@@ -503,6 +524,153 @@ func TestOptimizeRepository(t *testing.T) {
 				{name: "total", status: "success", count: 1},
 			},
 		},
+		{
+			desc: "repository connected to empty object pool",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("some-branch"))
+
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+
+				linkRepoToPool(t, repoPath, poolPath)
+
+				return repo
+			},
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
+		},
+		{
+			desc: "repository with all objects deduplicated via pool",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+				commitID := gittest.WriteCommit(t, cfg, poolPath)
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				linkRepoToPool(t, repoPath, poolPath)
+				gittest.WriteRef(t, cfg, repoPath, "refs/heads/some-branch", commitID)
+
+				return repo
+			},
+			expectedMetrics: []metric{
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
+		},
+		{
+			desc: "repository with some deduplicated objects",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+				commitID := gittest.WriteCommit(t, cfg, poolPath)
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				linkRepoToPool(t, repoPath, poolPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
+
+				return repo
+			},
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
+		},
+		{
+			desc: "repository with some deduplicated objects and eager strategy",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+				commitID := gittest.WriteCommit(t, cfg, poolPath)
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				linkRepoToPool(t, repoPath, poolPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
+
+				return repo
+			},
+			options: []OptimizeRepositoryOption{
+				WithOptimizationStrategyConstructor(func(repoInfo stats.RepositoryInfo) OptimizationStrategy {
+					return NewEagerOptimizationStrategy(repoInfo)
+				}),
+			},
+			expectedMetrics: []metric{
+				{name: "packed_refs", status: "success", count: 1},
+				{name: "pruned_objects", status: "success", count: 1},
+				{name: "packed_objects_full_with_cruft", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
+			expectedMetricsForPool: []metric{
+				{name: "packed_refs", status: "success", count: 1},
+				{name: "packed_objects_full_with_unreachable", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
+		},
+		{
+			desc: "repository with same packfile in pool",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+				gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch("some-branch"))
+				gittest.Exec(t, cfg, "-C", poolPath, "repack", "-Ad")
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("some-branch"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+
+				// Assert that the packfiles in both the repository and the object
+				// pool are actually the same. This is likely to happen e.g. when
+				// the object pool has just been created and the repository was
+				// linked to it and has caused bugs with geometric repacking in the
+				// past.
+				require.Equal(t, readPackfiles(t, repoPath), readPackfiles(t, poolPath))
+
+				linkRepoToPool(t, repoPath, poolPath)
+
+				return repo
+			},
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
+		},
 	} {
 		tc := tc
 
@@ -514,7 +682,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 			manager := NewManager(cfg.Prometheus, txManager)
 
-			err := manager.OptimizeRepository(ctx, repo)
+			err := manager.OptimizeRepository(ctx, repo, tc.options...)
 			require.Equal(t, tc.expectedErr, err)
 
 			expectedMetrics := tc.expectedMetrics
