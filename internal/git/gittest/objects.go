@@ -20,6 +20,34 @@ func ObjectHashIsSHA256() bool {
 	return DefaultObjectHash.EmptyTreeOID == git.ObjectHashSHA256.EmptyTreeOID
 }
 
+// RequireObjects asserts that the object database contains the expected objects. It filters the empty tree
+// oid of the default object hash from the actual elements. Empty tree oid should not be included in the
+// expectedObjects.
+func RequireObjects(tb testing.TB, cfg config.Cfg, repoPath string, expectedObjects []git.ObjectID) {
+	tb.Helper()
+
+	rawOutput := bytes.Split(
+		bytes.TrimSpace(
+			Exec(tb, cfg, "-C", repoPath, "cat-file", "--batch-check=%(objectname)", "--batch-all-objects"),
+		),
+		[]byte{'\n'},
+	)
+
+	actualObjects := []git.ObjectID{}
+	if len(rawOutput[0]) > 0 {
+		for _, oid := range rawOutput {
+			oid := git.ObjectID(oid)
+			if oid == DefaultObjectHash.EmptyTreeOID {
+				continue
+			}
+
+			actualObjects = append(actualObjects, git.ObjectID(oid))
+		}
+	}
+
+	require.ElementsMatch(tb, expectedObjects, actualObjects)
+}
+
 // RequireObjectExists asserts that the given repository does contain an object with the specified
 // object ID.
 func RequireObjectExists(tb testing.TB, cfg config.Cfg, repoPath string, objectID git.ObjectID) {
