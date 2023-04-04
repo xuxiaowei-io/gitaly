@@ -916,13 +916,13 @@ func (*CleanupResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{13}
 }
 
-// This comment is left unintentionally blank.
+// RepositorySizeRequest is a request for the RepositorySize RPC.
 type RepositorySizeRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository for which to determine the repository size.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -965,13 +965,14 @@ func (x *RepositorySizeRequest) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// RepositorySizeResponse is a response for the RepositorySize RPC.
 type RepositorySizeResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository size in kilobytes
+	// Size is the complete size of the on-disk repository in kilobytes. This will include all data
+	// structures and is similar to `du --summarize --bytes $REPO_PATH`.
 	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
 }
 

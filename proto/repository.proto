@@ -57,7 +57,9 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // RepositorySize returns information on the complete on-disk repository size. If you need more
+  // detailed information about the size of various sub-structures you should instead use the
+  // RepositoryInfo RPC.
   rpc RepositorySize(RepositorySizeRequest) returns (RepositorySizeResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -477,15 +479,16 @@ message CleanupRequest {
 message CleanupResponse {
 }
 
-// This comment is left unintentionally blank.
+// RepositorySizeRequest is a request for the RepositorySize RPC.
 message RepositorySizeRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository for which to determine the repository size.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// RepositorySizeResponse is a response for the RepositorySize RPC.
 message RepositorySizeResponse {
-  // Repository size in kilobytes
+  // Size is the complete size of the on-disk repository in kilobytes. This will include all data
+  // structures and is similar to `du --summarize --bytes $REPO_PATH`.
   int64 size = 1;
 }
 
