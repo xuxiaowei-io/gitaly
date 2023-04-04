@@ -1,6 +1,7 @@
 package localrepo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -30,6 +31,78 @@ func TestRepo(t *testing.T) {
 		tb.Cleanup(catfileCache.Stop)
 		return New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto), repoPath
 	})
+}
+
+func TestRepo_Quarantine(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
+
+	ctx := testhelper.Context(t)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	unquarantinedRepo := New(
+		config.NewLocator(cfg),
+		gittest.NewCommandFactory(t, cfg),
+		catfileCache,
+		repoProto,
+	)
+
+	quarantineDir := testhelper.TempDir(t)
+
+	quarantinedRepo, err := unquarantinedRepo.Quarantine(quarantineDir)
+	require.NoError(t, err)
+
+	quarantinedBlob := []byte("quarantined blob")
+	quarantinedBlobOID, err := quarantinedRepo.WriteBlob(ctx, "", bytes.NewReader(quarantinedBlob))
+	require.NoError(t, err)
+
+	unquarantinedBlob := []byte("unquarantined blob")
+	unquarantinedBlobOID, err := unquarantinedRepo.WriteBlob(ctx, "", bytes.NewReader(unquarantinedBlob))
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		desc            string
+		repo            *Repo
+		oid             git.ObjectID
+		expectedContent []byte
+		expectedError   error
+	}{
+		{
+			desc:            "unquarantined repo reads unquarantined blob",
+			repo:            unquarantinedRepo,
+			oid:             unquarantinedBlobOID,
+			expectedContent: unquarantinedBlob,
+		},
+		{
+			desc:          "unquarantined repo reads quarantined blob",
+			repo:          unquarantinedRepo,
+			oid:           quarantinedBlobOID,
+			expectedError: InvalidObjectError(quarantinedBlobOID),
+		},
+		{
+			desc:            "quarantined repo reads unquarantined blob",
+			repo:            quarantinedRepo,
+			oid:             unquarantinedBlobOID,
+			expectedContent: unquarantinedBlob,
+		},
+		{
+			desc:            "quarantined repo reads quarantined blob",
+			repo:            quarantinedRepo,
+			oid:             quarantinedBlobOID,
+			expectedContent: quarantinedBlob,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			content, err := tc.repo.ReadObject(ctx, tc.oid)
+			require.Equal(t, tc.expectedError, err)
+			require.Equal(t, tc.expectedContent, content)
+		})
+	}
 }
 
 func TestRepo_StorageTempDir(t *testing.T) {
