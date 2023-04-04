@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -320,4 +321,45 @@ func (repo *Repo) IsAncestor(ctx context.Context, parent, child git.Revision) (b
 	}
 
 	return true, nil
+}
+
+// PackObjects takes in object IDs separated by newlines. It packs the objects into a pack file and
+// writes it into the output.
+func (repo *Repo) PackObjects(ctx context.Context, objectIDs io.Reader, output io.Writer) error {
+	var stderr bytes.Buffer
+	if err := repo.ExecAndWait(ctx,
+		git.Command{
+			Name: "pack-objects",
+			Flags: []git.Option{
+				git.Flag{Name: "-q"},
+				git.Flag{Name: "--stdout"},
+			},
+		},
+		git.WithStdin(objectIDs),
+		git.WithStderr(&stderr),
+		git.WithStdout(output),
+	); err != nil {
+		return structerr.New("pack objects: %w", err).WithMetadata("stderr", stderr.String())
+	}
+
+	return nil
+}
+
+// UnpackObjects unpacks the objects from the pack file to the repository's object database.
+func (repo *Repo) UnpackObjects(ctx context.Context, packFile io.Reader) error {
+	stderr := &bytes.Buffer{}
+	if err := repo.ExecAndWait(ctx,
+		git.Command{
+			Name: "unpack-objects",
+			Flags: []git.Option{
+				git.Flag{Name: "-q"},
+			},
+		},
+		git.WithStdin(packFile),
+		git.WithStderr(stderr),
+	); err != nil {
+		return structerr.New("unpack objects: %w", err).WithMetadata("stderr", stderr.String())
+	}
+
+	return nil
 }

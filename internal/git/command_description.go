@@ -297,6 +297,9 @@ var commandDescriptions = map[string]commandDescription{
 	"tag": {
 		flags: 0,
 	},
+	"unpack-objects": {
+		flags: scNoRefUpdates | scNoEndOfOptions,
+	},
 	"update-ref": {
 		flags: 0,
 	},
