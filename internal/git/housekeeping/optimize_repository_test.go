@@ -22,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -596,7 +595,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return setupData{
 					repo: repo,
 					expectedMetrics: []metric{
-						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "packed_objects_incremental", status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
@@ -648,7 +647,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return setupData{
 					repo: repo,
 					expectedMetrics: []metric{
-						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "packed_objects_incremental", status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
@@ -728,28 +727,12 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				return setupData{
 					repo: repo,
-					expectedErr: geometricOrIncremental(ctx,
-						fmt.Errorf("could not repack: %w", structerr.New("repack failed with error code 128").WithMetadata(
-							//nolint:gitaly-linters
-							"stderr", fmt.Sprintf("fatal: could not find pack '%s'\n", repoPackfiles[0]),
-						)),
-						nil,
-					),
-					expectedMetrics: geometricOrIncremental(ctx,
-						[]metric{
-							{name: "packed_objects_full", status: "failure", count: 1},
-							{name: "packed_objects_incremental", status: "failure", count: 1},
-							{name: "written_bitmap", status: "failure", count: 1},
-							{name: "written_multi_pack_index", status: "failure", count: 1},
-							{name: "total", status: "failure", count: 1},
-						},
-						[]metric{
-							{name: "packed_objects_incremental", status: "success", count: 1},
-							{name: "written_commit_graph_full", status: "success", count: 1},
-							{name: "written_multi_pack_index", status: "success", count: 1},
-							{name: "total", status: "success", count: 1},
-						},
-					),
+					expectedMetrics: []metric{
+						{name: "packed_objects_incremental", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
 				}
 			},
 		},

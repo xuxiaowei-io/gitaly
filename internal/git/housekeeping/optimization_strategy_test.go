@@ -74,10 +74,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			// exist in pooled repositories.
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
-				Strategy: geometricOrIncremental(ctx,
-					RepackObjectsStrategyGeometric,
-					RepackObjectsStrategyIncremental,
-				),
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteMultiPackIndex: true,
 			},
 		},
