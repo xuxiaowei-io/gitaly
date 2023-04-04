@@ -33,18 +33,34 @@ type Dir struct {
 // New creates a new quarantine directory and returns the directory. The repository is cleaned
 // up when the user invokes the Migrate() functionality on the Dir.
 func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator) (*Dir, error) {
-	repoPath, err := locator.GetPath(repo)
-	if err != nil {
-		return nil, structerr.NewInternal("getting repo path: %w", err)
-	}
-
 	quarantineDir, err := tempdir.NewWithPrefix(ctx, repo.GetStorageName(),
 		storage.QuarantineDirectoryPrefix(repo), locator)
 	if err != nil {
 		return nil, fmt.Errorf("creating quarantine: %w", err)
 	}
 
-	relativePath, err := filepath.Rel(repoPath, quarantineDir.Path())
+	quarantinedRepo, err := Apply(locator, repo, quarantineDir.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	return &Dir{
+		repo:            repo,
+		quarantinedRepo: quarantinedRepo,
+		locator:         locator,
+		dir:             quarantineDir,
+	}, nil
+}
+
+// Apply applies the quarantine on the repository. This is done by setting the quarantineDirectory
+// as the repository's object directory, and configuring the original object directory as an alternate.
+func Apply(locator storage.Locator, repo *gitalypb.Repository, quarantineDir string) (*gitalypb.Repository, error) {
+	repoPath, err := locator.GetPath(repo)
+	if err != nil {
+		return nil, structerr.NewInternal("getting repo path: %w", err)
+	}
+
+	relativePath, err := filepath.Rel(repoPath, quarantineDir)
 	if err != nil {
 		return nil, fmt.Errorf("creating quarantine: %w", err)
 	}
@@ -60,12 +76,7 @@ func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator
 	quarantinedRepo.GitObjectDirectory = relativePath
 	quarantinedRepo.GitAlternateObjectDirectories = alternateObjectDirs
 
-	return &Dir{
-		repo:            repo,
-		quarantinedRepo: quarantinedRepo,
-		locator:         locator,
-		dir:             quarantineDir,
-	}, nil
+	return quarantinedRepo, nil
 }
 
 // QuarantinedRepo returns a Repository protobuf message with adjusted main and alternate object

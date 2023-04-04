@@ -4,18 +4,16 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/protobuf/proto"
 )
 
 // entry represents a filesystem entry. An entry represents a dir if children is a non-nil map.
@@ -134,55 +132,86 @@ func TestQuarantine_Migrate(t *testing.T) {
 	})
 }
 
-func TestQuarantine_localrepo(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
+func TestApply(t *testing.T) {
 	cfg := testcfg.Build(t)
-
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-	})
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
 	locator := config.NewLocator(cfg)
 
-	quarantine, err := New(ctx, repoProto, locator)
+	ctx := testhelper.Context(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	quarantineDir := t.TempDir()
+	relPath, err := filepath.Rel(repoPath, quarantineDir)
 	require.NoError(t, err)
 
-	quarantined := localrepo.NewTestRepo(t, cfg, quarantine.QuarantinedRepo())
+	for _, tc := range []struct {
+		desc                          string
+		gitObjectDirectory            string
+		gitAlternateObjectDirectories []string
+		expectedRepo                  *gitalypb.Repository
+	}{
+		{
+			desc:                          "default objects directory",
+			gitAlternateObjectDirectories: []string{"alternate_directory"},
+			expectedRepo: &gitalypb.Repository{
+				StorageName:                   repo.StorageName,
+				GitObjectDirectory:            relPath,
+				GitAlternateObjectDirectories: []string{"objects", "alternate_directory"},
+				RelativePath:                  repo.RelativePath,
+				GlProjectPath:                 repo.GlProjectPath,
+				GlRepository:                  repo.GlRepository,
+			},
+		},
+		{
+			desc: "default objects directory with alternates",
+			expectedRepo: &gitalypb.Repository{
+				StorageName:                   repo.StorageName,
+				GitObjectDirectory:            relPath,
+				GitAlternateObjectDirectories: []string{"objects"},
+				RelativePath:                  repo.RelativePath,
+				GlProjectPath:                 repo.GlProjectPath,
+				GlRepository:                  repo.GlRepository,
+			},
+		},
+		{
+			desc:               "custom objects directory",
+			gitObjectDirectory: "custom_directory",
+			expectedRepo: &gitalypb.Repository{
+				StorageName:                   repo.StorageName,
+				GitObjectDirectory:            relPath,
+				GitAlternateObjectDirectories: []string{"objects", "custom_directory"},
+				RelativePath:                  repo.RelativePath,
+				GlProjectPath:                 repo.GlProjectPath,
+				GlRepository:                  repo.GlRepository,
+			},
+		},
+		{
+			desc:                          "custom objects directory with alternates",
+			gitObjectDirectory:            "custom_directory",
+			gitAlternateObjectDirectories: []string{"alternate_directory"},
+			expectedRepo: &gitalypb.Repository{
+				StorageName:                   repo.StorageName,
+				GitObjectDirectory:            relPath,
+				GitAlternateObjectDirectories: []string{"objects", "custom_directory", "alternate_directory"},
+				RelativePath:                  repo.RelativePath,
+				GlProjectPath:                 repo.GlProjectPath,
+				GlRepository:                  repo.GlRepository,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			originalRepo := proto.Clone(repo).(*gitalypb.Repository)
+			originalRepo.GitObjectDirectory = tc.gitObjectDirectory
+			originalRepo.GitAlternateObjectDirectories = tc.gitAlternateObjectDirectories
 
-	t.Run("reading unquarantined objects succeeds", func(t *testing.T) {
-		_, err := quarantined.ReadObject(ctx, "HEAD^{commit}")
-		require.NoError(t, err)
-	})
+			quarantinedRepo, err := Apply(locator, originalRepo, quarantineDir)
+			require.NoError(t, err)
 
-	t.Run("writes are not visible in parent repo", func(t *testing.T) {
-		blobID, err := quarantined.WriteBlob(ctx, "", strings.NewReader("contents"))
-		require.NoError(t, err)
-
-		_, err = repo.ReadObject(ctx, blobID)
-		require.Error(t, err)
-
-		blobContents, err := quarantined.ReadObject(ctx, blobID)
-		require.NoError(t, err)
-		require.Equal(t, "contents", string(blobContents))
-	})
-
-	t.Run("writes are visible after migrating", func(t *testing.T) {
-		blobID, err := quarantined.WriteBlob(ctx, "", strings.NewReader("contents"))
-		require.NoError(t, err)
-
-		_, err = repo.ReadObject(ctx, blobID)
-		require.Error(t, err)
-
-		require.NoError(t, quarantine.Migrate())
-
-		blobContents, err := repo.ReadObject(ctx, blobID)
-		require.NoError(t, err)
-		require.Equal(t, "contents", string(blobContents))
-	})
+			testhelper.ProtoEqual(t, tc.expectedRepo, quarantinedRepo)
+		})
+	}
 }
 
 func TestMigrate(t *testing.T) {
