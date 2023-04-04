@@ -1,6 +1,7 @@
 package objectpool
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -14,14 +15,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginDangling)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	poolPath := gittest.RepositoryPath(t, pool)
 	repoPath := gittest.RepositoryPath(t, repo)
@@ -80,8 +86,12 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 
 func TestFetchFromOrigin_fsck(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginFsck)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -105,8 +115,12 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginDeltaIslands)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	poolPath := gittest.RepositoryPath(t, pool)
 	repoPath := gittest.RepositoryPath(t, repo)
@@ -131,8 +145,12 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginBitmapHashCache)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -157,8 +175,12 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginRefUpdates)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -204,8 +226,12 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginRefs)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -243,8 +269,12 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 
 func TestFetchFromOrigin_missingPool(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testFetchFromOriginMissingPool)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginMissingPool(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	_, pool, repo := setupObjectPool(t, ctx)
 
 	// Remove the object pool to assert that we raise an error when fetching into a non-existent
@@ -257,8 +287,11 @@ func TestFetchFromOrigin_missingPool(t *testing.T) {
 
 func TestObjectPool_logStats(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testObjectPoolLogStats)
+}
 
-	ctx := testhelper.Context(t)
+func testObjectPoolLogStats(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	for _, tc := range []struct {
 		desc           string
