@@ -1,6 +1,7 @@
 package localrepo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -35,6 +36,55 @@ func TestRepo(t *testing.T) {
 		tb.Cleanup(catfileCache.Stop)
 		return New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto), repoPath
 	})
+}
+
+func TestRepo_Quarantine(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
+
+	ctx := testhelper.Context(t)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	repo := New(
+		config.NewLocator(cfg),
+		gittest.NewCommandFactory(t, cfg),
+		catfileCache,
+		repoProto,
+	)
+
+	quarantineDir := testhelper.TempDir(t)
+
+	quarantinedRepo, err := repo.Quarantine(quarantineDir)
+	require.NoError(t, err)
+
+	quarantinedBlob := []byte("quarantined blob")
+	quarantinedBlobOID, err := quarantinedRepo.WriteBlob(ctx, "", bytes.NewReader(quarantinedBlob))
+	require.NoError(t, err)
+
+	unquarantinedBlob := []byte("unquarantined blob")
+	unquarantinedBlobOID, err := repo.WriteBlob(ctx, "", bytes.NewReader(unquarantinedBlob))
+	require.NoError(t, err)
+
+	content, err := quarantinedRepo.ReadObject(ctx, unquarantinedBlobOID)
+	require.NoError(t, err)
+	require.Equal(t, content, unquarantinedBlob)
+
+	content, err = quarantinedRepo.ReadObject(ctx, quarantinedBlobOID)
+	require.NoError(t, err)
+	require.Equal(t, content, quarantinedBlob)
+
+	content, err = repo.ReadObject(ctx, unquarantinedBlobOID)
+	require.NoError(t, err)
+	require.Equal(t, content, unquarantinedBlob)
+
+	content, err = repo.ReadObject(ctx, quarantinedBlobOID)
+	require.Equal(t, InvalidObjectError(quarantinedBlobOID), err)
+	require.Nil(t, content)
 }
 
 func TestSize(t *testing.T) {
