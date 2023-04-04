@@ -86,25 +86,6 @@ func (s *StorageServiceSink) GetWriter(ctx context.Context, relativePath string)
 	return writer, nil
 }
 
-// Write stores data from the r into a relativePath path on the configured bucket.
-func (s *StorageServiceSink) Write(ctx context.Context, relativePath string, r io.Reader) error {
-	writer, err := s.GetWriter(ctx, relativePath)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = writer.Close() }()
-
-	if _, err := io.Copy(writer, r); err != nil {
-		return fmt.Errorf("storage service sink: coping data for %q: %w", relativePath, err)
-	}
-
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("storage service sink: finalise creation for %q: %w", relativePath, err)
-	}
-
-	return nil
-}
-
 // GetReader returns a reader to consume the data from the configured bucket.
 // It is the caller's responsibility to Close the reader after usage.
 func (s *StorageServiceSink) GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error) {

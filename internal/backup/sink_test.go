@@ -124,7 +124,13 @@ func TestStorageServiceSink(t *testing.T) {
 
 		data := []byte("test")
 
-		require.NoError(t, sss.Write(ctx, relativePath, bytes.NewReader(data)))
+		w, err := sss.GetWriter(ctx, relativePath)
+		require.NoError(t, err)
+
+		_, err = io.Copy(w, bytes.NewReader(data))
+		require.NoError(t, err)
+
+		require.NoError(t, w.Close())
 
 		reader, err := sss.GetReader(ctx, relativePath)
 		require.NoError(t, err)
