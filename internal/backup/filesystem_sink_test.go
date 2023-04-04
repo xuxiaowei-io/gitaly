@@ -51,6 +51,71 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 	})
 }
 
+func TestFilesystemSink_GetWriter(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
+		ctx := testhelper.Context(t)
+
+		dir := testhelper.TempDir(t)
+		const relativePath = "nested/dir/test.dat"
+
+		fsSink := NewFilesystemSink(dir)
+		w, err := fsSink.GetWriter(ctx, relativePath)
+		require.NoError(t, err)
+
+		_, err = io.Copy(w, strings.NewReader("test"))
+		require.NoError(t, err)
+
+		require.NoError(t, w.Close())
+
+		require.FileExists(t, filepath.Join(dir, relativePath))
+		data, err := os.ReadFile(filepath.Join(dir, relativePath))
+		require.NoError(t, err)
+		require.Equal(t, []byte("test"), data)
+	})
+
+	t.Run("overrides existing data", func(t *testing.T) {
+		t.Parallel()
+		ctx := testhelper.Context(t)
+
+		dir := testhelper.TempDir(t)
+		const relativePath = "nested/dir/test.dat"
+		fullPath := filepath.Join(dir, relativePath)
+
+		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), perm.SharedDir))
+		require.NoError(t, os.WriteFile(fullPath, []byte("initial"), perm.SharedFile))
+
+		fsSink := NewFilesystemSink(dir)
+		w, err := fsSink.GetWriter(ctx, relativePath)
+		require.NoError(t, err)
+
+		_, err = io.Copy(w, strings.NewReader("test"))
+		require.NoError(t, err)
+
+		require.NoError(t, w.Close())
+
+		require.FileExists(t, fullPath)
+		data, err := os.ReadFile(fullPath)
+		require.NoError(t, err)
+		require.Equal(t, []byte("test"), data)
+	})
+
+	t.Run("dir creation error", func(t *testing.T) {
+		t.Parallel()
+		ctx := testhelper.Context(t)
+
+		dir := testhelper.TempDir(t)
+		const relativePath = "nested/test.dat"
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "nested"), []byte("lock"), perm.PublicFile))
+
+		fsSink := NewFilesystemSink(dir)
+		_, err := fsSink.GetWriter(ctx, relativePath)
+		require.EqualError(t, err, fmt.Sprintf(`create directory structure %[1]q: mkdir %[1]s: not a directory`, filepath.Join(dir, "nested")))
+	})
+}
+
 func TestFilesystemSink_Write(t *testing.T) {
 	t.Parallel()
 
