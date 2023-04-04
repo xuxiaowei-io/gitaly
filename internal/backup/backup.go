@@ -459,7 +459,10 @@ func (mgr *Manager) writeCustomHooks(ctx context.Context, path string, server st
 		resp, err := stream.Recv()
 		return resp.GetData(), err
 	})
-	if err := LazyWrite(ctx, mgr.sink, path, hooks); err != nil {
+	w := NewLazyWriter(func() (io.WriteCloser, error) {
+		return mgr.sink.GetWriter(ctx, path)
+	})
+	if _, err := io.Copy(w, hooks); err != nil {
 		return fmt.Errorf("%T write: %w", mgr.sink, err)
 	}
 	return nil
