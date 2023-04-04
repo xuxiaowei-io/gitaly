@@ -40,23 +40,6 @@ func (fs *FilesystemSink) GetWriter(ctx context.Context, relativePath string) (i
 	return f, nil
 }
 
-// Write creates required file structure and stored data from r into relativePath location.
-func (fs *FilesystemSink) Write(ctx context.Context, relativePath string, r io.Reader) (returnErr error) {
-	f, err := fs.GetWriter(ctx, relativePath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := f.Close(); err != nil && returnErr == nil {
-			returnErr = fmt.Errorf("write file: %w", err)
-		}
-	}()
-	if _, err := io.Copy(f, r); err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-	return nil
-}
-
 // GetReader returns a reader of the requested file path.
 // It's the caller's responsibility to Close returned reader once it is not needed anymore.
 // If relativePath doesn't exist the ErrDoesntExist is returned.
