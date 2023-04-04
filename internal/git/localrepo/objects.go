@@ -321,3 +321,44 @@ func (repo *Repo) IsAncestor(ctx context.Context, parent, child git.Revision) (b
 
 	return true, nil
 }
+
+// PackObjects takes in object IDs separated by newlines. It packs the objects into a pack file and
+// writes it into the output.
+func (repo *Repo) PackObjects(ctx context.Context, objectIDs io.Reader, output io.Writer) error {
+	var stderr bytes.Buffer
+	if err := repo.ExecAndWait(ctx,
+		git.Command{
+			Name: "pack-objects",
+			Flags: []git.Option{
+				git.Flag{Name: "-q"},
+				git.Flag{Name: "--stdout"},
+			},
+		},
+		git.WithStdin(objectIDs),
+		git.WithStderr(&stderr),
+		git.WithStdout(output),
+	); err != nil {
+		return fmt.Errorf("unpack objects: %w, stderr: %q", err, stderr)
+	}
+
+	return nil
+}
+
+// UnpackObjects unpacks the objects from the pack file to the repository's object database.
+func (repo *Repo) UnpackObjects(ctx context.Context, packFile io.Reader) error {
+	stderr := &bytes.Buffer{}
+	if err := repo.ExecAndWait(ctx,
+		git.Command{
+			Name: "unpack-objects",
+			Flags: []git.Option{
+				git.Flag{Name: "-q"},
+			},
+		},
+		git.WithStdin(packFile),
+		git.WithStderr(stderr),
+	); err != nil {
+		return fmt.Errorf("unpack objects: %w, stderr: %q", err, stderr)
+	}
+
+	return nil
+}

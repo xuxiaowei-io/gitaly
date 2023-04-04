@@ -1,6 +1,7 @@
 package localrepo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -533,6 +534,94 @@ func TestRepo_IsAncestor(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tc.isAncestor, isAncestor)
+		})
+	}
+}
+
+func TestPackAndUnpackObjects(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, repo, repoPath := setupRepo(t)
+
+	commit1 := gittest.WriteCommit(t, cfg, repoPath)
+	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commit1))
+	commit3 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commit2))
+
+	gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{commit1, commit2, commit3})
+
+	var emptyPack bytes.Buffer
+	require.NoError(t,
+		repo.PackObjects(ctx, strings.NewReader(""),
+			&emptyPack,
+		),
+	)
+
+	var oneCommitPack bytes.Buffer
+	require.NoError(t,
+		repo.PackObjects(ctx, strings.NewReader(
+			strings.Join([]string{commit1.String()}, "\n"),
+		),
+			&oneCommitPack,
+		),
+	)
+
+	var twoCommitPack bytes.Buffer
+	require.NoError(t,
+		repo.PackObjects(ctx, strings.NewReader(
+			strings.Join([]string{commit1.String(), commit2.String()}, "\n"),
+		),
+			&twoCommitPack,
+		),
+	)
+
+	var incompletePack bytes.Buffer
+	require.NoError(t,
+		repo.PackObjects(ctx, strings.NewReader(
+			strings.Join([]string{commit1.String(), commit3.String()}, "\n"),
+		),
+			&incompletePack,
+		),
+	)
+
+	for _, tc := range []struct {
+		desc            string
+		pack            []byte
+		expectedObjects []git.ObjectID
+	}{
+		{
+			desc: "empty pack",
+			pack: emptyPack.Bytes(),
+		},
+		{
+			desc: "one commit",
+			pack: oneCommitPack.Bytes(),
+			expectedObjects: []git.ObjectID{
+				commit1,
+			},
+		},
+		{
+			desc: "two commits",
+			pack: twoCommitPack.Bytes(),
+			expectedObjects: []git.ObjectID{
+				commit1, commit2,
+			},
+		},
+		{
+			desc: "incomplete pack",
+			pack: incompletePack.Bytes(),
+			expectedObjects: []git.ObjectID{
+				commit1, commit3,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			gittest.Exec(t, cfg, "-C", repoPath, "prune")
+			gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{})
+
+			require.NoError(t, repo.UnpackObjects(ctx, bytes.NewReader(tc.pack)))
+			gittest.RequireObjects(t, cfg, repoPath, tc.expectedObjects)
 		})
 	}
 }
