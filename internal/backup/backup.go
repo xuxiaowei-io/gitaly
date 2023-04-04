@@ -297,7 +297,7 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.ServerInfo, repo *gitalypb.Repository, refs []*gitalypb.ListRefsResponse_Reference) error {
+func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.ServerInfo, repo *gitalypb.Repository, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
 	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return err
@@ -326,6 +326,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
+
 	bundle := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		if structerr.GRPCCode(err) == codes.FailedPrecondition {
@@ -333,13 +334,22 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 		}
 		return resp.GetData(), err
 	})
+	w := NewLazyWriter(func() (io.WriteCloser, error) {
+		return mgr.sink.GetWriter(ctx, step.BundlePath)
+	})
+	defer func() {
+		if err := w.Close(); err != nil && returnErr == nil {
+			returnErr = err
+		}
+	}()
 
-	if err := LazyWrite(ctx, mgr.sink, step.BundlePath, bundle); err != nil {
+	if _, err := io.Copy(w, bundle); err != nil {
 		if errors.Is(err, errEmptyBundle) {
 			return fmt.Errorf("%T write: %w: no changes to bundle", mgr.sink, ErrSkipped)
 		}
 		return fmt.Errorf("%T write: %w", mgr.sink, err)
 	}
+
 	return nil
 }
 
