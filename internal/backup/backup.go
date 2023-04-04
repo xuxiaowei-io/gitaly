@@ -527,24 +527,22 @@ func (mgr *Manager) listRefs(ctx context.Context, server storage.ServerInfo, rep
 
 // writeRefs writes the previously fetched list of refs in the same output
 // format as `git-show-ref(1)`
-func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb.ListRefsResponse_Reference) error {
-	r, w := io.Pipe()
-	go func() {
-		var err error
-		defer func() {
-			_ = w.CloseWithError(err) // io.PipeWriter.Close* does not return an error
-		}()
-		for _, ref := range refs {
-			_, err = fmt.Fprintf(w, "%s %s\n", ref.GetTarget(), ref.GetName())
-			if err != nil {
-				return
-			}
+func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
+	w, err := mgr.sink.GetWriter(ctx, path)
+	if err != nil {
+		return fmt.Errorf("write refs: %w", err)
+	}
+	defer func() {
+		if err := w.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("write refs: %w", err)
 		}
 	}()
 
-	err := mgr.sink.Write(ctx, path, r)
-	if err != nil {
-		return fmt.Errorf("write refs: %w", err)
+	for _, ref := range refs {
+		_, err = fmt.Fprintf(w, "%s %s\n", ref.GetTarget(), ref.GetName())
+		if err != nil {
+			return fmt.Errorf("write refs: %w", err)
+		}
 	}
 
 	return nil
