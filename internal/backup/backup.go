@@ -30,6 +30,9 @@ var errEmptyBundle = errors.New("empty bundle")
 
 // Sink is an abstraction over the real storage used for storing/restoring backups.
 type Sink interface {
+	// GetWriter saves the written data to relativePath. It is the callers
+	// responsibility to call Close and check any subsequent errors.
+	GetWriter(ctx context.Context, relativePath string) (io.WriteCloser, error)
 	// Write saves all the data from the r by relativePath.
 	Write(ctx context.Context, relativePath string, r io.Reader) error
 	// GetReader returns a reader that servers the data stored by relativePath.

@@ -54,7 +54,15 @@ func TestLazyWrite_data(t *testing.T) {
 
 type MockSink struct {
 	GetReaderFn func(ctx context.Context, relativePath string) (io.ReadCloser, error)
+	GetWriterFn func(ctx context.Context, relativePath string) (io.WriteCloser, error)
 	WriteFn     func(ctx context.Context, relativePath string, r io.Reader) error
+}
+
+func (s MockSink) GetWriter(ctx context.Context, relativePath string) (io.WriteCloser, error) {
+	if s.GetWriterFn != nil {
+		return s.GetWriterFn(ctx, relativePath)
+	}
+	return nopWriteCloser{}, nil
 }
 
 func (s MockSink) Write(ctx context.Context, relativePath string, r io.Reader) error {
@@ -69,4 +77,14 @@ func (s MockSink) GetReader(ctx context.Context, relativePath string) (io.ReadCl
 		return s.GetReaderFn(ctx, relativePath)
 	}
 	return io.NopCloser(strings.NewReader("")), nil
+}
+
+type nopWriteCloser struct{}
+
+func (nopWriteCloser) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func (nopWriteCloser) Close() error {
+	return nil
 }
