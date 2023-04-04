@@ -12,7 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping/housekeepingutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 )
@@ -96,7 +96,8 @@ func clean(locator storage.Locator, storage config.Storage) error {
 		}
 
 		fullPath := filepath.Join(dir, info.Name())
-		if err := housekeeping.FixDirectoryPermissions(ctx, fullPath); err != nil {
+
+		if err := housekeepingutil.FixDirectoryPermissions(ctx, fullPath); err != nil {
 			return err
 		}
 

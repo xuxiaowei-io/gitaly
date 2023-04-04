@@ -11,11 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping/housekeepingutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
@@ -26,7 +24,6 @@ const (
 	emptyRefsGracePeriod             = 24 * time.Hour
 	deleteTempFilesOlderThanDuration = 7 * 24 * time.Hour
 	brokenRefsGracePeriod            = 24 * time.Hour
-	minimumDirPerm                   = perm.PrivateDir
 	lockfileGracePeriod              = 15 * time.Minute
 	referenceLockfileGracePeriod     = 1 * time.Hour
 	packedRefsLockGracePeriod        = 1 * time.Hour
@@ -51,7 +48,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 
 	repoPath, err := repo.Path()
 	if err != nil {
-		myLogger(ctx).WithError(err).Warn("housekeeping failed to get repo path")
+		housekeepingutil.Logger(ctx).WithError(err).Warn("housekeeping failed to get repo path")
 		if structerr.GRPCCode(err) == codes.NotFound {
 			return nil
 		}
@@ -64,7 +61,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 			return
 		}
 
-		logEntry := myLogger(ctx)
+		logEntry := housekeepingutil.Logger(ctx)
 		for staleDataType, count := range staleDataByType {
 			logEntry = logEntry.WithField(fmt.Sprintf("stale_data.%s", staleDataType), count)
 			m.prunedFilesTotal.WithLabelValues(staleDataType).Add(float64(count))
@@ -98,7 +95,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 				continue
 			}
 			staleDataByType["failures"]++
-			myLogger(ctx).WithError(err).WithField("path", path).Warn("unable to remove stale file")
+			housekeepingutil.Logger(ctx).WithError(err).WithField("path", path).Warn("unable to remove stale file")
 		}
 	}
 
@@ -518,42 +515,6 @@ func findServerInfo(ctx context.Context, repoPath string) ([]string, error) {
 	return serverInfoFiles, nil
 }
 
-// FixDirectoryPermissions does a recursive directory walk to look for
-// directories that cannot be accessed by the current user, and tries to
-// fix those with chmod. The motivating problem is that directories with mode
-// 0 break os.RemoveAll.
-func FixDirectoryPermissions(ctx context.Context, path string) error {
-	return fixDirectoryPermissions(ctx, path, make(map[string]struct{}))
-}
-
-func fixDirectoryPermissions(ctx context.Context, path string, retriedPaths map[string]struct{}) error {
-	logger := myLogger(ctx)
-	return filepath.Walk(path, func(path string, info os.FileInfo, errIncoming error) error {
-		if info == nil {
-			logger.WithFields(log.Fields{
-				"path": path,
-			}).WithError(errIncoming).Error("nil FileInfo in housekeeping.fixDirectoryPermissions")
-
-			return nil
-		}
-
-		if !info.IsDir() || info.Mode()&minimumDirPerm == minimumDirPerm {
-			return nil
-		}
-
-		if err := os.Chmod(path, info.Mode()|minimumDirPerm); err != nil {
-			return err
-		}
-
-		if _, retried := retriedPaths[path]; !retried && os.IsPermission(errIncoming) {
-			retriedPaths[path] = struct{}{}
-			return fixDirectoryPermissions(ctx, path, retriedPaths)
-		}
-
-		return nil
-	})
-}
-
 func removeRefEmptyDirs(ctx context.Context, repository *localrepo.Repo) (int, error) {
 	rPath, err := repository.Path()
 	if err != nil {
@@ -644,8 +605,4 @@ func removeEmptyDirs(ctx context.Context, target string) (int, error) {
 	}
 
 	return prunedDirsTotal + 1, nil
-}
-
-func myLogger(ctx context.Context) *log.Entry {
-	return ctxlogrus.Extract(ctx).WithField("system", "housekeeping")
 }

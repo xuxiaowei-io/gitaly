@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping/housekeepingutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
@@ -162,7 +162,7 @@ func (fs *filestore) Stop() {
 func (fs *filestore) cleanWalk(cutoff time.Time) error {
 	// If a server reset has left some directories in a bad state, this will
 	// fix it.
-	if err := housekeeping.FixDirectoryPermissions(context.Background(), fs.dir); err != nil {
+	if err := housekeepingutil.FixDirectoryPermissions(context.Background(), fs.dir); err != nil {
 		return err
 	}
 

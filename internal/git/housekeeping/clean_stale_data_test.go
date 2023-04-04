@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping/housekeepingutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -372,7 +373,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			// We need to fix permissions so we don't fail to
 			// remove the temporary directory after the test.
 			defer func() {
-				require.NoError(t, FixDirectoryPermissions(ctx, repoPath))
+				require.NoError(t, housekeepingutil.FixDirectoryPermissions(ctx, repoPath))
 			}()
 
 			for _, e := range tc.entries {
