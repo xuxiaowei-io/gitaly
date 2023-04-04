@@ -1,14 +1,9 @@
 package localrepo
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"testing"
 
@@ -101,115 +96,6 @@ func errorWithStderr(err error, stderr []byte) error {
 		return err
 	}
 	return fmt.Errorf("%w, stderr: %q", err, stderr)
-}
-
-// repoSizeConfig can be used to pass in different options to
-// git rev-list in determining the size of a repository.
-type repoSizeConfig struct {
-	// ExcludeRefs is a list of ref glob patterns to exclude from the size
-	// calculation.
-	ExcludeRefs []string
-	// ExcludeAlternates will exclude objects in the alternates directory
-	// from being counted towards the total size of the repository.
-	ExcludeAlternates bool
-}
-
-// RepoSizeOption is an option which can be passed to Size
-type RepoSizeOption func(*repoSizeConfig)
-
-// WithExcludeRefs is an option for Size that excludes certain refs from the size
-// calculation. The format must be a glob pattern.
-// see https://git-scm.com/docs/git-rev-list#Documentation/git-rev-list.txt---excludeltglob-patterngt
-func WithExcludeRefs(excludeRefs ...string) RepoSizeOption {
-	return func(cfg *repoSizeConfig) {
-		cfg.ExcludeRefs = excludeRefs
-	}
-}
-
-// WithoutAlternates will exclude any objects in the alternate objects directory
-func WithoutAlternates() RepoSizeOption {
-	return func(cfg *repoSizeConfig) {
-		cfg.ExcludeAlternates = true
-	}
-}
-
-// Size calculates the size of all reachable objects in bytes
-func (repo *Repo) Size(ctx context.Context, opts ...RepoSizeOption) (int64, error) {
-	var stdout bytes.Buffer
-
-	var cfg repoSizeConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-
-	var options []git.Option
-	for _, refToExclude := range cfg.ExcludeRefs {
-		options = append(
-			options,
-			git.Flag{Name: fmt.Sprintf("--exclude=%s", refToExclude)},
-		)
-	}
-
-	if cfg.ExcludeAlternates {
-		alternatesPath, err := repo.InfoAlternatesPath()
-		if err != nil {
-			return 0, fmt.Errorf("getting alternates path: %w", err)
-		}
-
-		// when excluding alternatives we need to be careful with using the bitmap index. If
-		// the repository is indeed linked to an alternative object directory, then we know
-		// that only the linked-to object directory will have bitmaps. Consequentially, this
-		// bitmap will only ever cover objects that are part of the alternate repository and
-		// can thus by definition not contain any objects that are only part of the repo
-		// that is linking to it. Unfortunately, this case causes us to run into an edge
-		// case in Git where the command takes significantly longer to compute the disk size
-		// when using bitmaps compared to when not using bitmaps.
-		//
-		// To work around this case we thus don't use a bitmap index in case we find that
-		// the repository has an alternates file.
-		if _, err := os.Stat(alternatesPath); err != nil && errors.Is(err, fs.ErrNotExist) {
-			// The alternates file does not exist. We can thus use the bitmap index and
-			// don't have to specify `--not --alternate-refs` given that there aren't
-			// any anyway.
-			options = append(options, git.Flag{Name: "--use-bitmap-index"})
-		} else {
-			// We either have a bitmap index or we have run into any error that is not
-			// `fs.ErrNotExist`. In that case we don't use a bitmap index, but will
-			// exclude objects reachable from alternate refs.
-			options = append(options,
-				git.Flag{Name: "--not"},
-				git.Flag{Name: "--alternate-refs"},
-				git.Flag{Name: "--not"},
-			)
-		}
-	} else {
-		// If we don't exclude objects reachable from alternate refs we can always enable
-		// use of the bitmap index.
-		options = append(options, git.Flag{Name: "--use-bitmap-index"})
-	}
-
-	options = append(options,
-		git.Flag{Name: "--all"},
-		git.Flag{Name: "--objects"},
-		git.Flag{Name: "--disk-usage"},
-	)
-
-	if err := repo.ExecAndWait(ctx,
-		git.Command{
-			Name:  "rev-list",
-			Flags: options,
-		},
-		git.WithStdout(&stdout),
-	); err != nil {
-		return -1, err
-	}
-
-	size, err := strconv.ParseInt(strings.TrimSuffix(stdout.String(), "\n"), 10, 64)
-	if err != nil {
-		return -1, err
-	}
-
-	return size, nil
 }
 
 // StorageTempDir returns the temporary dir for the storage where the repo is on.
