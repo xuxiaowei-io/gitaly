@@ -158,6 +158,8 @@ func TestTransactionManager(t *testing.T) {
 		TransactionID int
 		// Context is the context to use for the Begin call.
 		Context context.Context
+		// ExpectedSnapshot is the expected snapshot of the transaction.
+		ExpectedSnapshot Snapshot
 		// ExpectedError is the error expected to be returned from the Begin call.
 		ExpectedError error
 	}
@@ -179,6 +181,12 @@ func TestTransactionManager(t *testing.T) {
 		DefaultBranchUpdate *DefaultBranchUpdate
 		// CustomHooksUpdate is the custom hooks update to commit.
 		CustomHooksUpdate *CustomHooksUpdate
+	}
+
+	// Rollback calls Rollback on a transaction.
+	type Rollback struct {
+		// TransactionID identifies the transaction to rollback.
+		TransactionID int
 	}
 
 	// StateAssertions models an assertion of the entire state managed by the TransactionManager.
@@ -285,6 +293,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -356,6 +367,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -461,6 +475,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID:            2,
@@ -497,6 +514,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -534,6 +554,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -570,6 +593,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -602,6 +628,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID:            2,
@@ -639,6 +668,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -696,6 +728,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -727,6 +762,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -757,6 +795,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID:            2,
@@ -791,6 +832,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -865,6 +909,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID:     2,
@@ -907,7 +954,6 @@ func TestTransactionManager(t *testing.T) {
 					CustomHooksUpdate: &CustomHooksUpdate{
 						CustomHooksTAR: validCustomHooks(t),
 					},
-					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,
@@ -983,6 +1029,9 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1056,7 +1105,6 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,
@@ -1064,6 +1112,9 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1089,7 +1140,6 @@ func TestTransactionManager(t *testing.T) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedError: context.Canceled,
 				},
 				Begin{
 					TransactionID: 1,
@@ -1099,14 +1149,14 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedError: ErrTransactionProcessingStopped,
 				},
-				AssertManager{
-					ExpectedError: context.Canceled,
-				},
+				AssertManager{},
 				StartManager{},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1132,7 +1182,6 @@ func TestTransactionManager(t *testing.T) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedError: context.Canceled,
 				},
 				Begin{
 					TransactionID: 1,
@@ -1142,14 +1191,14 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedError: ErrTransactionProcessingStopped,
 				},
-				AssertManager{
-					ExpectedError: context.Canceled,
-				},
+				AssertManager{},
 				StartManager{},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1172,13 +1221,9 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "commit returns if context is canceled before admission",
+			desc: "begin returns if context is canceled before initialization",
 			steps: steps{
 				Begin{
-					TransactionID: 1,
-				},
-				Commit{
-					TransactionID: 1,
 					Context: func() context.Context {
 						ctx, cancel := context.WithCancel(ctx)
 						cancel()
@@ -1206,7 +1251,7 @@ func TestTransactionManager(t *testing.T) {
 				steps: steps{
 					StartManager{
 						Hooks: testHooks{
-							BeforeApplyLogEntry: func(hookCtx hookContext) {
+							BeforeAppendLogEntry: func(hookCtx hookContext) {
 								// Cancel the context used in Commit
 								cancel()
 							},
@@ -1258,16 +1303,13 @@ func TestTransactionManager(t *testing.T) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedError: context.Canceled,
 				},
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedError: ErrTransactionProcessingStopped,
 				},
-				AssertManager{ExpectedError: context.Canceled},
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
@@ -1298,6 +1340,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1332,6 +1377,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1409,6 +1457,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1448,6 +1499,9 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1493,7 +1547,6 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,
@@ -1501,6 +1554,9 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
 				},
 				Commit{
 					TransactionID: 2,
@@ -1517,6 +1573,66 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+				},
+			},
+		},
+		{
+			desc: "read snapshots include committed data",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+					},
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+					},
+				},
+				Begin{
+					TransactionID: 4,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 2,
+					},
+				},
+				Rollback{
+					TransactionID: 3,
+				},
+				Begin{
+					TransactionID: 5,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 2,
+					},
+				},
+				Commit{
+					TransactionID: 4,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: secondCommitOID, NewOID: thirdCommitOID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: thirdCommitOID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(3).toProto(),
 				},
 			},
 		},
@@ -1734,6 +1850,9 @@ func TestTransactionManager(t *testing.T) {
 
 					transaction, err := transactionManager.Begin(beginCtx)
 					require.Equal(t, step.ExpectedError, err)
+					if err == nil {
+						require.Equal(t, step.ExpectedSnapshot, transaction.Snapshot())
+					}
 					openTransactions[step.TransactionID] = transaction
 				case Commit:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction committed before beginning it")
@@ -1761,6 +1880,9 @@ func TestTransactionManager(t *testing.T) {
 					}
 
 					require.ErrorIs(t, transaction.Commit(commitCtx), step.ExpectedError)
+				case Rollback:
+					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction rollbacked before beginning it")
+					openTransactions[step.TransactionID].Rollback()
 				default:
 					t.Fatalf("unhandled step type: %T", step)
 				}
