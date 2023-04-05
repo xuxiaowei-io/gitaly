@@ -3,6 +3,8 @@ package gitaly
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"sync"
 
 	"github.com/dgraph-io/badger/v3"
@@ -33,6 +35,9 @@ type PartitionManager struct {
 	stopped bool
 	// partitionsWG keeps track of running partitions.
 	partitionsWG sync.WaitGroup
+	// stagingDirectory is the directory where all of the TransactionManager staging directories
+	// should be created.
+	stagingDirectory string
 }
 
 // partition contains the transaction manager and tracks the number of in-flight transactions for the partition.
@@ -50,12 +55,13 @@ type partition struct {
 }
 
 // NewPartitionManager returns a new PartitionManager.
-func NewPartitionManager(db *badger.DB, localRepoFactory func(repo.GitRepo) *localrepo.Repo, logger logrus.FieldLogger) *PartitionManager {
+func NewPartitionManager(db *badger.DB, localRepoFactory func(repo.GitRepo) *localrepo.Repo, logger logrus.FieldLogger, stagingDir string) *PartitionManager {
 	return &PartitionManager{
 		db:               db,
 		partitions:       make(map[string]*partition),
 		localRepoFactory: localRepoFactory,
 		logger:           logger,
+		stagingDirectory: stagingDir,
 	}
 }
 
@@ -79,7 +85,13 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				shutdown: make(chan struct{}),
 			}
 
-			mgr := NewTransactionManager(pm.db, localRepo, pm.transactionFinalizerFactory(ptn))
+			stagingDir, err := os.MkdirTemp(pm.stagingDirectory, "")
+			if err != nil {
+				pm.mu.Unlock()
+				return nil, fmt.Errorf("create staging directory: %w", err)
+			}
+
+			mgr := NewTransactionManager(pm.db, localRepo, stagingDir, pm.transactionFinalizerFactory(ptn))
 			ptn.transactionManager = mgr
 
 			pm.partitions[partitionKey] = ptn
@@ -99,6 +111,11 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				pm.mu.Unlock()
 
 				close(ptn.shutdown)
+
+				if err := os.RemoveAll(stagingDir); err != nil {
+					pm.logger.WithError(err).Error("failed removing partition's staging directory")
+				}
+
 				pm.partitionsWG.Done()
 			}()
 		}
