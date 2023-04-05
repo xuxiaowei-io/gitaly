@@ -80,11 +80,11 @@ func RequireDefaultBranch(tb testing.TB, ctx context.Context, repo *localrepo.Re
 	require.Equal(tb, expectedDefaultBranch, actualDefaultBranch)
 }
 
-func RequireHooks(tb testing.TB, repo *localrepo.Repo, expected testhelper.DirectoryState) {
+func RequireDirectoryState(tb testing.TB, repo *localrepo.Repo, expected testhelper.DirectoryState) {
 	tb.Helper()
 
 	repoPath, err := repo.Path()
 	require.NoError(tb, err)
 
-	testhelper.RequireDirectoryState(tb, repoPath, filepath.Join("wal", "hooks"), expected)
+	testhelper.RequireDirectoryState(tb, repoPath, filepath.Join("wal"), expected)
 }
