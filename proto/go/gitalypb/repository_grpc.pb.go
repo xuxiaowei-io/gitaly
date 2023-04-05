@@ -39,7 +39,9 @@ type RepositoryServiceClient interface {
 	// Deprecated: Do not use.
 	// WriteCommitGraph is deprecated in favor of OptimizeRepository.
 	WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error)
-	// This comment is left unintentionally blank.
+	// RepositorySize returns information on the complete on-disk repository size. If you need more
+	// detailed information about the size of various sub-structures you should instead use the
+	// RepositoryInfo RPC.
 	RepositorySize(ctx context.Context, in *RepositorySizeRequest, opts ...grpc.CallOption) (*RepositorySizeResponse, error)
 	// RepositoryInfo returns detailed information about a repository and its data structures.
 	RepositoryInfo(ctx context.Context, in *RepositoryInfoRequest, opts ...grpc.CallOption) (*RepositoryInfoResponse, error)
@@ -979,7 +981,9 @@ type RepositoryServiceServer interface {
 	// Deprecated: Do not use.
 	// WriteCommitGraph is deprecated in favor of OptimizeRepository.
 	WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error)
-	// This comment is left unintentionally blank.
+	// RepositorySize returns information on the complete on-disk repository size. If you need more
+	// detailed information about the size of various sub-structures you should instead use the
+	// RepositoryInfo RPC.
 	RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error)
 	// RepositoryInfo returns detailed information about a repository and its data structures.
 	RepositoryInfo(context.Context, *RepositoryInfoRequest) (*RepositoryInfoResponse, error)
