@@ -70,7 +70,7 @@ func TestTransactionManager(t *testing.T) {
 	// get deterministic commit IDs, relative path and object hash we can use to build the declarative
 	// test cases.
 	relativePath := gittest.NewRepositoryName(t)
-	setupRepository := func(t *testing.T) (*localrepo.Repo, git.ObjectID, git.ObjectID, git.ObjectID) {
+	setupRepository := func(t *testing.T) (config.Cfg, *localrepo.Repo, git.ObjectID, git.ObjectID, git.ObjectID) {
 		t.Helper()
 
 		cfg := testcfg.Build(t)
@@ -98,11 +98,11 @@ func TestTransactionManager(t *testing.T) {
 			repo,
 		)
 
-		return localRepo, rootCommitOID, secondCommitOID, thirdCommitOID
+		return cfg, localRepo, rootCommitOID, secondCommitOID, thirdCommitOID
 	}
 
 	// Collect commit OIDs and the object has so we can define the test cases with them.
-	repo, rootCommitOID, secondCommitOID, thirdCommitOID := setupRepository(t)
+	_, repo, rootCommitOID, secondCommitOID, thirdCommitOID := setupRepository(t)
 	objectHash, err := repo.ObjectHash(ctx)
 	require.NoError(t, err)
 
@@ -199,6 +199,8 @@ func TestTransactionManager(t *testing.T) {
 		Database DatabaseState
 		// Directory is the expected state of the manager's state directory in the repository.
 		Directory testhelper.DirectoryState
+		// Objects are the objects that are expected to exist in the repository.
+		Objects []git.ObjectID
 	}
 
 	// steps defines execution steps in a test. Each test case can define multiple steps to exercise
@@ -1863,7 +1865,7 @@ func TestTransactionManager(t *testing.T) {
 			t.Parallel()
 
 			// Setup the repository with the exact same state as what was used to build the test cases.
-			repository, _, _, _ := setupRepository(t)
+			cfg, repository, _, _, _ := setupRepository(t)
 
 			repoPath, err := repository.Path()
 			require.NoError(t, err)
@@ -2014,6 +2016,18 @@ func TestTransactionManager(t *testing.T) {
 			}
 
 			testhelper.RequireDirectoryState(t, repoPath, "wal", expectedDirectory)
+
+			expectedObjects := tc.expectedState.Objects
+			if expectedObjects == nil {
+				expectedObjects = []git.ObjectID{
+					objectHash.EmptyTreeOID,
+					rootCommitOID,
+					secondCommitOID,
+					thirdCommitOID,
+				}
+			}
+
+			require.ElementsMatch(t, expectedObjects, gittest.ListObjects(t, cfg, repoPath))
 		})
 	}
 }
