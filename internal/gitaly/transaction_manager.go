@@ -428,6 +428,10 @@ func (mgr *TransactionManager) Stop() { mgr.stop() }
 func (mgr *TransactionManager) initialize() error {
 	defer close(mgr.initialized)
 
+	if err := mgr.createDirectories(); err != nil {
+		return fmt.Errorf("create directories: %w", err)
+	}
+
 	var appliedLogIndex gitalypb.LogIndex
 	if err := mgr.readKey(keyAppliedLogIndex(getRepositoryID(mgr.repository)), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
 		return fmt.Errorf("read applied log index: %w", err)
@@ -489,20 +493,17 @@ func (mgr *TransactionManager) initialize() error {
 
 		hookDirs, err := os.ReadDir(filepath.Join(repoPath, "wal/hooks"))
 		if err != nil {
-			// If the directory doesn't exist, then there are no hooks yet.
-			if !errors.Is(err, fs.ErrNotExist) {
-				return fmt.Errorf("read hook directories: %w", err)
-			}
-		} else {
-			for _, dir := range hookDirs {
-				hookIndex, err := strconv.ParseInt(dir.Name(), 10, 64)
-				if err != nil {
-					return fmt.Errorf("parse hook index: %w", err)
-				}
+			return fmt.Errorf("read hook directories: %w", err)
+		}
 
-				if mgr.hookIndex < LogIndex(hookIndex) {
-					mgr.hookIndex = LogIndex(hookIndex)
-				}
+		for _, dir := range hookDirs {
+			hookIndex, err := strconv.ParseInt(dir.Name(), 10, 64)
+			if err != nil {
+				return fmt.Errorf("parse hook index: %w", err)
+			}
+
+			if mgr.hookIndex < LogIndex(hookIndex) {
+				mgr.hookIndex = LogIndex(hookIndex)
 			}
 		}
 	}
@@ -511,6 +512,37 @@ func (mgr *TransactionManager) initialize() error {
 	// Create these channels here for the log entries.
 	for i := mgr.appliedLogIndex + 1; i <= mgr.appendedLogIndex; i++ {
 		mgr.applyNotifications[i] = make(chan struct{})
+	}
+
+	return nil
+}
+
+// createDirectories creates the directories that are expected to exist
+// in the repository for storing the state. Initializing them simplifies
+// rest of the code as it doesn't need handling for when they don't.
+func (mgr *TransactionManager) createDirectories() error {
+	repoPath, err := mgr.repository.Path()
+	if err != nil {
+		return fmt.Errorf("repo path: %w", err)
+	}
+
+	for _, relativePath := range []string{
+		"wal/hooks",
+	} {
+		directory := filepath.Join(repoPath, relativePath)
+		if _, err := os.Stat(directory); err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("stat directory: %w", err)
+			}
+
+			if err := os.MkdirAll(directory, fs.ModePerm); err != nil {
+				return fmt.Errorf("mkdir: %w", err)
+			}
+
+			if err := safe.NewSyncer().SyncHierarchy(repoPath, relativePath); err != nil {
+				return fmt.Errorf("sync: %w", err)
+			}
+		}
 	}
 
 	return nil
@@ -754,28 +786,12 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 	syncer := safe.NewSyncer()
 
 	hooksPath := filepath.Join("wal", "hooks")
-	relativePath := filepath.Join(hooksPath, logIndex.String())
-	targetDirectory := filepath.Join(repoPath, relativePath)
+	targetDirectory := filepath.Join(repoPath, hooksPath, logIndex.String())
 	if err := os.Mkdir(targetDirectory, fs.ModePerm); err != nil {
-		switch {
-		case errors.Is(err, fs.ErrExist):
-			// The target directory may exist if we previously tried to extract the
-			// hooks there. TAR overwrites existing files and the hooks files are
-			// guaranteed to be the same as this is the same log entry.
-		case errors.Is(err, fs.ErrNotExist):
-			// One of the parent directories doesn't exist. Create the expected
-			// hierarchy. This happens only when the hooks are being set for the
-			// first time in the repository.
-			if err := os.MkdirAll(targetDirectory, fs.ModePerm); err != nil {
-				return fmt.Errorf("create directories: %w", err)
-			}
-
-			// Sync the hierarchy separately as the common path doesn't sync anything
-			// but the hooks themselves.
-			if err := syncer.SyncHierarchy(repoPath, relativePath); err != nil {
-				return fmt.Errorf("sync hierarchy: %w", err)
-			}
-		default:
+		// The target directory may exist if we previously tried to extract the
+		// hooks there. TAR overwrites existing files and the hooks files are
+		// guaranteed to be the same as this is the same log entry.
+		if !errors.Is(err, fs.ErrExist) {
 			return fmt.Errorf("create directory: %w", err)
 		}
 	}

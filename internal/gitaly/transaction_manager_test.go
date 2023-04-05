@@ -1233,6 +1233,10 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedError: context.Canceled,
 				},
 			},
+			expectedState: StateAssertion{
+				// Manager is not started up so no state is initialized.
+				Hooks: testhelper.DirectoryState{},
+			},
 		},
 		{
 			desc: "commit returns if transaction processing stops before admission",
@@ -1922,7 +1926,17 @@ func TestTransactionManager(t *testing.T) {
 			RequireReferences(t, ctx, repository, tc.expectedState.References)
 			RequireDefaultBranch(t, ctx, repository, tc.expectedState.DefaultBranch)
 			RequireDatabase(t, ctx, database, tc.expectedState.Database)
-			RequireHooks(t, repository, tc.expectedState.Hooks)
+
+			expectedHooks := tc.expectedState.Hooks
+			if expectedHooks == nil {
+				// Set the base state as the default so we don't have to repeat it in every test case but it
+				// gets asserted.
+				expectedHooks = testhelper.DirectoryState{
+					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				}
+			}
+
+			RequireHooks(t, repository, expectedHooks)
 		})
 	}
 }
