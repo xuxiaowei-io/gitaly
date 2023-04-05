@@ -66,11 +66,25 @@ func TestTransactionManager(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	// A clean repository is setup for each test. We build a repository ahead of the tests here once to
-	// get deterministic commit IDs, relative path and object hash we can use to build the declarative
-	// test cases.
-	relativePath := gittest.NewRepositoryName(t)
-	setupRepository := func(t *testing.T) (config.Cfg, *localrepo.Repo, git.ObjectID, git.ObjectID, git.ObjectID) {
+	type testCommit struct {
+		OID git.ObjectID
+	}
+
+	type testCommits struct {
+		First  testCommit
+		Second testCommit
+		Third  testCommit
+	}
+
+	type testSetup struct {
+		Config         config.Cfg
+		Repository     *localrepo.Repo
+		ObjectHash     git.ObjectHash
+		NonExistentOID git.ObjectID
+		Commits        testCommits
+	}
+
+	setupTest := func(t *testing.T, relativePath string) testSetup {
 		t.Helper()
 
 		cfg := testcfg.Build(t)
@@ -80,8 +94,8 @@ func TestTransactionManager(t *testing.T) {
 			RelativePath:           relativePath,
 		})
 
-		rootCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
-		secondCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitOID))
+		firstCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+		secondCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitOID))
 		thirdCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(secondCommitOID))
 
 		cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
@@ -98,19 +112,33 @@ func TestTransactionManager(t *testing.T) {
 			repo,
 		)
 
-		return cfg, localRepo, rootCommitOID, secondCommitOID, thirdCommitOID
+		objectHash, err := localRepo.ObjectHash(ctx)
+		require.NoError(t, err)
+
+		hasher := objectHash.Hash()
+		_, err = hasher.Write([]byte("content does not matter"))
+		require.NoError(t, err)
+		nonExistentOID, err := objectHash.FromHex(hex.EncodeToString(hasher.Sum(nil)))
+		require.NoError(t, err)
+
+		return testSetup{
+			Config:         cfg,
+			ObjectHash:     objectHash,
+			Repository:     localRepo,
+			NonExistentOID: nonExistentOID,
+			Commits: testCommits{
+				First:  testCommit{OID: firstCommitOID},
+				Second: testCommit{OID: secondCommitOID},
+				Third:  testCommit{OID: thirdCommitOID},
+			},
+		}
 	}
 
-	// Collect commit OIDs and the object has so we can define the test cases with them.
-	_, repo, rootCommitOID, secondCommitOID, thirdCommitOID := setupRepository(t)
-	objectHash, err := repo.ObjectHash(ctx)
-	require.NoError(t, err)
-
-	hasher := objectHash.Hash()
-	_, err = hasher.Write([]byte("content does not matter"))
-	require.NoError(t, err)
-	nonExistentOID, err := objectHash.FromHex(hex.EncodeToString(hasher.Sum(nil)))
-	require.NoError(t, err)
+	// A clean repository is setup for each test. We build a setup ahead of the tests here once to
+	// get deterministic commit IDs, relative path and object hash we can use to build the declarative
+	// test cases.
+	relativePath := gittest.NewRepositoryName(t)
+	setup := setupTest(t, relativePath)
 
 	// errSimulatedCrash is used in the tests to simulate a crash at a certain point during
 	// TransactionManager.Run execution.
@@ -222,8 +250,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":    {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/../main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: updateref.InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
 				},
@@ -239,7 +267,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/../main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: updateref.InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
 				},
@@ -249,15 +277,15 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -268,15 +296,15 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -290,7 +318,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/parent": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -302,7 +330,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/parent/child": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: updateref.FileDirectoryConflictError{
 						ExistingReferenceName:    "refs/heads/parent",
@@ -312,9 +340,9 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/parent",
-				References:    []git.Reference{{Name: "refs/heads/parent", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/parent", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -325,8 +353,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/parent":       {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/parent/child": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
@@ -343,9 +371,9 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":         {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":         {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/parent":       {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/parent/child": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
@@ -364,7 +392,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/parent/child": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -376,7 +404,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/parent": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.ZeroOID},
 					},
 					ExpectedError: updateref.FileDirectoryConflictError{
 						ExistingReferenceName:    "refs/heads/parent/child",
@@ -386,9 +414,9 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/parent/child",
-				References:    []git.Reference{{Name: "refs/heads/parent/child", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -399,8 +427,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/parent/child": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/parent":       {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.ZeroOID},
 					},
 					ExpectedError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
@@ -418,12 +446,12 @@ func TestTransactionManager(t *testing.T) {
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
 						// The error should abort the entire transaction.
-						"refs/heads/branch-1": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/branch-2": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
+						"refs/heads/branch-1": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/branch-2": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.EmptyTreeOID},
 					},
 					ExpectedError: updateref.NonCommitObjectError{
 						ReferenceName: "refs/heads/branch-2",
-						ObjectID:      objectHash.EmptyTreeOID.String(),
+						ObjectID:      setup.ObjectHash.EmptyTreeOID.String(),
 					},
 				},
 			},
@@ -435,14 +463,14 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/tags/v1.0.0": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
+						"refs/tags/v1.0.0": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.EmptyTreeOID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
-				References: []git.Reference{{Name: "refs/tags/v1.0.0", Target: objectHash.EmptyTreeOID.String()}},
+				References: []git.Reference{{Name: "refs/tags/v1.0.0", Target: setup.ObjectHash.EmptyTreeOID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -453,11 +481,11 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: nonExistentOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.NonExistentOID},
 					},
 					ExpectedError: updateref.NonExistentObjectError{
 						ReferenceName: "refs/heads/main",
-						ObjectID:      nonExistentOID.String(),
+						ObjectID:      setup.NonExistentOID.String(),
 					},
 				},
 			},
@@ -472,7 +500,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -485,19 +513,19 @@ func TestTransactionManager(t *testing.T) {
 					TransactionID:            2,
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
-						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
+						"refs/heads/main":            {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+						"refs/heads/non-conflicting": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
 				References: []git.Reference{
-					{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					{Name: "refs/heads/non-conflicting", Target: secondCommitOID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/non-conflicting", Target: setup.Commits.Second.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -511,7 +539,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -523,21 +551,21 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
-						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
+						"refs/heads/main":            {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+						"refs/heads/non-conflicting": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   objectHash.ZeroOID,
-						ActualOID:     rootCommitOID,
+						ExpectedOID:   setup.ObjectHash.ZeroOID,
+						ActualOID:     setup.Commits.First.OID,
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -551,7 +579,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -563,20 +591,20 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   objectHash.ZeroOID,
-						ActualOID:     rootCommitOID,
+						ExpectedOID:   setup.ObjectHash.ZeroOID,
+						ActualOID:     setup.Commits.First.OID,
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -590,7 +618,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -602,15 +630,15 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -624,8 +652,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":            {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/non-conflicting": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -638,19 +666,19 @@ func TestTransactionManager(t *testing.T) {
 					TransactionID:            2,
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
-						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
+						"refs/heads/main":            {OldOID: setup.Commits.Second.OID, NewOID: setup.Commits.Third.OID},
+						"refs/heads/non-conflicting": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Third.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
 				References: []git.Reference{
-					{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					{Name: "refs/heads/non-conflicting", Target: thirdCommitOID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/non-conflicting", Target: setup.Commits.Third.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -664,8 +692,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":            {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/non-conflicting": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -677,24 +705,24 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
-						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
+						"refs/heads/main":            {OldOID: setup.Commits.Second.OID, NewOID: setup.Commits.Third.OID},
+						"refs/heads/non-conflicting": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Third.OID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   secondCommitOID,
-						ActualOID:     rootCommitOID,
+						ExpectedOID:   setup.Commits.Second.OID,
+						ActualOID:     setup.Commits.First.OID,
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
 				References: []git.Reference{
-					{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/non-conflicting", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -705,12 +733,12 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: secondCommitOID, NewOID: thirdCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.Second.OID, NewOID: setup.Commits.Third.OID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   secondCommitOID,
-						ActualOID:     objectHash.ZeroOID,
+						ExpectedOID:   setup.Commits.Second.OID,
+						ActualOID:     setup.ObjectHash.ZeroOID,
 					},
 				},
 			},
@@ -725,7 +753,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -737,15 +765,15 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.First.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -759,7 +787,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -771,13 +799,13 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -791,8 +819,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":            {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/non-conflicting": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -805,16 +833,16 @@ func TestTransactionManager(t *testing.T) {
 					TransactionID:            2,
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
-						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/main":            {OldOID: setup.Commits.Second.OID, NewOID: setup.ObjectHash.ZeroOID},
+						"refs/heads/non-conflicting": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -828,8 +856,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":            {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/non-conflicting": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -841,24 +869,24 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
-						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/main":            {OldOID: setup.Commits.Second.OID, NewOID: setup.ObjectHash.ZeroOID},
+						"refs/heads/non-conflicting": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   secondCommitOID,
-						ActualOID:     rootCommitOID,
+						ExpectedOID:   setup.Commits.Second.OID,
+						ActualOID:     setup.Commits.First.OID,
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
 				References: []git.Reference{
-					{Name: "refs/heads/main", Target: rootCommitOID.String()},
-					{Name: "refs/heads/non-conflicting", Target: rootCommitOID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/non-conflicting", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -869,12 +897,12 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   rootCommitOID,
-						ActualOID:     objectHash.ZeroOID,
+						ExpectedOID:   setup.Commits.First.OID,
+						ActualOID:     setup.ObjectHash.ZeroOID,
 					},
 				},
 			},
@@ -886,13 +914,13 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.ZeroOID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -923,7 +951,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -966,7 +994,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -991,12 +1019,12 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   rootCommitOID,
-						ActualOID:     objectHash.ZeroOID,
+						ExpectedOID:   setup.Commits.First.OID,
+						ActualOID:     setup.ObjectHash.ZeroOID,
 					},
 				},
 				Begin{
@@ -1005,15 +1033,15 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1027,7 +1055,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				StopManager{},
@@ -1041,15 +1069,15 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1063,12 +1091,12 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   rootCommitOID,
-						ActualOID:     objectHash.ZeroOID,
+						ExpectedOID:   setup.Commits.First.OID,
+						ActualOID:     setup.ObjectHash.ZeroOID,
 					},
 				},
 				StopManager{},
@@ -1079,15 +1107,15 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1108,7 +1136,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				AssertManager{
@@ -1124,15 +1152,15 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1152,7 +1180,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				AssertManager{},
@@ -1166,15 +1194,15 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1194,7 +1222,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				AssertManager{},
@@ -1208,20 +1236,20 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: secondCommitOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.Second.OID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
-						ExpectedOID:   secondCommitOID,
-						ActualOID:     rootCommitOID,
+						ExpectedOID:   setup.Commits.Second.OID,
+						ActualOID:     setup.Commits.First.OID,
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
-				References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1270,19 +1298,19 @@ func TestTransactionManager(t *testing.T) {
 					Commit{
 						Context: ctx,
 						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+							"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 						},
 						ExpectedError: context.Canceled,
 					},
 				},
 				expectedState: StateAssertion{
 					DefaultBranch: "refs/heads/main",
-					References:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+					References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 					Database: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+						string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 					},
 					Objects: []git.ObjectID{
-						rootCommitOID, secondCommitOID, thirdCommitOID,
+						setup.Commits.First.OID, setup.Commits.Second.OID, setup.Commits.Third.OID,
 					},
 				},
 			}
@@ -1319,17 +1347,17 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+					string(keyLogEntry(getRepositoryID(setup.Repository), 1)): &gitalypb.LogEntry{
 						ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
 							{
 								ReferenceName: []byte("refs/heads/main"),
-								NewOid:        []byte(rootCommitOID),
+								NewOid:        []byte(setup.Commits.First.OID),
 							},
 						},
 					},
@@ -1346,8 +1374,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/branch2": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/main":    {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -1366,11 +1394,11 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/branch2",
 				References: []git.Reference{
-					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-					{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					{Name: "refs/heads/branch2", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1384,7 +1412,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -1396,8 +1424,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/main":    {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/branch2": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/main":    {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
@@ -1407,11 +1435,11 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/branch2",
 				References: []git.Reference{
-					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-					{Name: "refs/heads/main", Target: secondCommitOID.String()},
+					{Name: "refs/heads/branch2", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1422,7 +1450,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/../main",
@@ -1441,7 +1469,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/yoda",
@@ -1463,8 +1491,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":    {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/branch2": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -1476,7 +1504,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/branch2": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/branch2": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
@@ -1487,11 +1515,11 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
 				References: []git.Reference{
-					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-					{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					{Name: "refs/heads/branch2", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1505,8 +1533,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/branch2": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/main":    {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
 				Begin{
@@ -1518,7 +1546,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
@@ -1528,11 +1556,11 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/branch2",
 				References: []git.Reference{
-					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-					{Name: "refs/heads/main", Target: secondCommitOID.String()},
+					{Name: "refs/heads/branch2", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1553,8 +1581,8 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":    {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/branch2": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
@@ -1573,18 +1601,18 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/branch2",
 				References: []git.Reference{
-					{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
-					{Name: "refs/heads/main", Target: secondCommitOID.String()},
+					{Name: "refs/heads/branch2", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1601,7 +1629,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					CustomHooksUpdate: &CustomHooksUpdate{
 						CustomHooksTAR: validCustomHooks(t),
@@ -1617,7 +1645,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 2,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
 					},
 				},
 				Begin{
@@ -1640,7 +1668,7 @@ func TestTransactionManager(t *testing.T) {
 				Commit{
 					TransactionID: 4,
 					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: secondCommitOID, NewOID: thirdCommitOID},
+						"refs/heads/main": {OldOID: setup.Commits.Second.OID, NewOID: setup.Commits.Third.OID},
 					},
 					CustomHooksUpdate: &CustomHooksUpdate{},
 				},
@@ -1655,10 +1683,10 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
 				References: []git.Reference{
-					{Name: "refs/heads/main", Target: thirdCommitOID.String()},
+					{Name: "refs/heads/main", Target: setup.Commits.Third.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(3).toProto(),
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -1702,7 +1730,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						tc.referenceName: {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						tc.referenceName: {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: err,
 				},
@@ -1798,9 +1826,9 @@ func TestTransactionManager(t *testing.T) {
 			t.Parallel()
 
 			// Setup the repository with the exact same state as what was used to build the test cases.
-			cfg, repository, _, _, _ := setupRepository(t)
+			setup := setupTest(t, relativePath)
 
-			repoPath, err := repository.Path()
+			repoPath, err := setup.Repository.Path()
 			require.NoError(t, err)
 
 			database, err := OpenDatabase(t.TempDir())
@@ -1811,7 +1839,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, repository)
+				transactionManager = NewTransactionManager(database, setup.Repository)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -1847,8 +1875,8 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, repository)
-					installHooks(t, transactionManager, database, repository, hooks{
+					transactionManager = NewTransactionManager(database, setup.Repository)
+					installHooks(t, transactionManager, database, setup.Repository, hooks{
 						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
 						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
 						beforeDeferredStop: func(hookContext) {
@@ -1934,8 +1962,8 @@ func TestTransactionManager(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			RequireReferences(t, ctx, repository, tc.expectedState.References)
-			RequireDefaultBranch(t, ctx, repository, tc.expectedState.DefaultBranch)
+			RequireReferences(t, ctx, setup.Repository, tc.expectedState.References)
+			RequireDefaultBranch(t, ctx, setup.Repository, tc.expectedState.DefaultBranch)
 			RequireDatabase(t, ctx, database, tc.expectedState.Database)
 
 			expectedDirectory := tc.expectedState.Directory
@@ -1948,16 +1976,16 @@ func TestTransactionManager(t *testing.T) {
 				}
 			}
 
-			RequireDirectoryState(t, repository, expectedDirectory)
+			RequireDirectoryState(t, setup.Repository, expectedDirectory)
 
 			expectedObjects := tc.expectedState.Objects
 			if expectedObjects == nil {
 				expectedObjects = []git.ObjectID{
-					rootCommitOID, secondCommitOID, thirdCommitOID,
+					setup.Commits.First.OID, setup.Commits.Second.OID, setup.Commits.Third.OID,
 				}
 			}
 
-			gittest.RequireObjects(t, cfg, repoPath, expectedObjects)
+			gittest.RequireObjects(t, setup.Config, repoPath, expectedObjects)
 		})
 	}
 }
