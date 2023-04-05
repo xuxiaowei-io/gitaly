@@ -197,8 +197,8 @@ func TestTransactionManager(t *testing.T) {
 		References []git.Reference
 		// Database is the expected state of the database.
 		Database DatabaseState
-		// Hooks is the expected state of the hooks.
-		Hooks testhelper.DirectoryState
+		// Directory is the expected state of the manager's state directory in the repository.
+		Directory testhelper.DirectoryState
 	}
 
 	// steps defines execution steps in a test. Each test case can define multiple steps to exercise
@@ -923,7 +923,8 @@ func TestTransactionManager(t *testing.T) {
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
-				Hooks: testhelper.DirectoryState{
+				Directory: testhelper.DirectoryState{
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1/pre-receive": {
@@ -965,7 +966,8 @@ func TestTransactionManager(t *testing.T) {
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 				},
-				Hooks: testhelper.DirectoryState{
+				Directory: testhelper.DirectoryState{
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1/pre-receive": {
@@ -1033,7 +1035,8 @@ func TestTransactionManager(t *testing.T) {
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 				},
-				Hooks: testhelper.DirectoryState{
+				Directory: testhelper.DirectoryState{
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1/pre-receive": {
@@ -1304,7 +1307,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				// Manager is not started up so no state is initialized.
-				Hooks: testhelper.DirectoryState{},
+				Directory: testhelper.DirectoryState{},
 			},
 		},
 		{
@@ -1722,7 +1725,8 @@ func TestTransactionManager(t *testing.T) {
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(3).toProto(),
 				},
-				Hooks: testhelper.DirectoryState{
+				Directory: testhelper.DirectoryState{
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1/pre-receive": {
@@ -1861,6 +1865,9 @@ func TestTransactionManager(t *testing.T) {
 			// Setup the repository with the exact same state as what was used to build the test cases.
 			repository, _, _, _ := setupRepository(t)
 
+			repoPath, err := repository.Path()
+			require.NoError(t, err)
+
 			database, err := OpenDatabase(t.TempDir())
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
@@ -1996,16 +2003,17 @@ func TestTransactionManager(t *testing.T) {
 			RequireDefaultBranch(t, ctx, repository, tc.expectedState.DefaultBranch)
 			RequireDatabase(t, ctx, database, tc.expectedState.Database)
 
-			expectedHooks := tc.expectedState.Hooks
-			if expectedHooks == nil {
+			expectedDirectory := tc.expectedState.Directory
+			if expectedDirectory == nil {
 				// Set the base state as the default so we don't have to repeat it in every test case but it
 				// gets asserted.
-				expectedHooks = testhelper.DirectoryState{
+				expectedDirectory = testhelper.DirectoryState{
+					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				}
 			}
 
-			RequireHooks(t, repository, expectedHooks)
+			testhelper.RequireDirectoryState(t, repoPath, "wal", expectedDirectory)
 		})
 	}
 }
