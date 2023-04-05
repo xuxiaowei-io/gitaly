@@ -137,7 +137,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		return 0, err
 	}
 
-	timeoutTicker := helper.NewTimerTicker(s.uploadPackRequestTimeout)
+	timeoutTicker := s.uploadPackRequestTimeoutTickerFactory()
 
 	// upload-pack negotiation is terminated by either a flush, or the "done"
 	// packet: https://github.com/git/git/blob/v2.20.0/Documentation/technical/pack-protocol.txt#L335

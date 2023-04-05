@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -100,7 +101,11 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, opts...)
 
-	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(1)})
+	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{
+		WithUploadPackRequestTimeoutTickerFactory(func() helper.Ticker {
+			return helper.NewTimerTicker(1)
+		}),
+	})
 
 	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))

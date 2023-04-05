@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -17,12 +18,12 @@ var (
 
 type server struct {
 	gitalypb.UnimplementedSSHServiceServer
-	locator                     storage.Locator
-	gitCmdFactory               git.CommandFactory
-	txManager                   transaction.Manager
-	uploadPackRequestTimeout    time.Duration
-	uploadArchiveRequestTimeout time.Duration
-	packfileNegotiationMetrics  *prometheus.CounterVec
+	locator                               storage.Locator
+	gitCmdFactory                         git.CommandFactory
+	txManager                             transaction.Manager
+	uploadPackRequestTimeoutTickerFactory func() helper.Ticker
+	uploadArchiveRequestTimeout           time.Duration
+	packfileNegotiationMetrics            *prometheus.CounterVec
 }
 
 // NewServer creates a new instance of a grpc SSHServer
@@ -33,10 +34,12 @@ func NewServer(
 	serverOpts ...ServerOpt,
 ) gitalypb.SSHServiceServer {
 	s := &server{
-		locator:                     locator,
-		gitCmdFactory:               gitCmdFactory,
-		txManager:                   txManager,
-		uploadPackRequestTimeout:    defaultUploadPackRequestTimeout,
+		locator:       locator,
+		gitCmdFactory: gitCmdFactory,
+		txManager:     txManager,
+		uploadPackRequestTimeoutTickerFactory: func() helper.Ticker {
+			return helper.NewTimerTicker(defaultUploadPackRequestTimeout)
+		},
 		uploadArchiveRequestTimeout: defaultUploadArchiveRequestTimeout,
 		packfileNegotiationMetrics: prometheus.NewCounterVec(
 			prometheus.CounterOpts{},
@@ -54,10 +57,10 @@ func NewServer(
 // ServerOpt is a self referential option for server
 type ServerOpt func(s *server)
 
-// WithUploadPackRequestTimeout sets the upload pack request timeout
-func WithUploadPackRequestTimeout(d time.Duration) ServerOpt {
+// WithUploadPackRequestTimeoutTickerFactory sets the upload pack request timeout ticker factory.
+func WithUploadPackRequestTimeoutTickerFactory(factory func() helper.Ticker) ServerOpt {
 	return func(s *server) {
-		s.uploadPackRequestTimeout = d
+		s.uploadPackRequestTimeoutTickerFactory = factory
 	}
 }
 
