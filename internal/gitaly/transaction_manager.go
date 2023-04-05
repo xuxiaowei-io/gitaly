@@ -391,33 +391,43 @@ func (mgr *TransactionManager) Run() (returnedErr error) {
 			continue
 		}
 
-		var transaction *Transaction
-		select {
-		case transaction = <-mgr.admissionQueue:
-		case <-mgr.ctx.Done():
+		if err := mgr.processTransaction(); err != nil {
+			return fmt.Errorf("process transaction: %w", err)
 		}
-
-		// Return if the manager was stopped. The select is indeterministic so this guarantees
-		// the manager stops the processing even if there are transactions in the queue.
-		if err := mgr.ctx.Err(); err != nil {
-			return err
-		}
-
-		transaction.result <- func() error {
-			logEntry, err := mgr.verifyReferences(mgr.ctx, transaction)
-			if err != nil {
-				return fmt.Errorf("verify references: %w", err)
-			}
-
-			if transaction.customHooksUpdate != nil {
-				logEntry.CustomHooksUpdate = &gitalypb.LogEntry_CustomHooksUpdate{
-					CustomHooksTar: transaction.customHooksUpdate.CustomHooksTAR,
-				}
-			}
-
-			return mgr.appendLogEntry(logEntry)
-		}()
 	}
+}
+
+// processTransaction waits for a transaction and processes it by verifying and
+// logging it.
+func (mgr *TransactionManager) processTransaction() error {
+	var transaction *Transaction
+	select {
+	case transaction = <-mgr.admissionQueue:
+	case <-mgr.ctx.Done():
+	}
+
+	// Return if the manager was stopped. The select is indeterministic so this guarantees
+	// the manager stops the processing even if there are transactions in the queue.
+	if err := mgr.ctx.Err(); err != nil {
+		return err
+	}
+
+	transaction.result <- func() error {
+		logEntry, err := mgr.verifyReferences(mgr.ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("verify references: %w", err)
+		}
+
+		if transaction.customHooksUpdate != nil {
+			logEntry.CustomHooksUpdate = &gitalypb.LogEntry_CustomHooksUpdate{
+				CustomHooksTar: transaction.customHooksUpdate.CustomHooksTAR,
+			}
+		}
+
+		return mgr.appendLogEntry(logEntry)
+	}()
+
+	return nil
 }
 
 // Stop stops the transaction processing causing Run to return.
