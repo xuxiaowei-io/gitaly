@@ -18,12 +18,12 @@ var (
 
 type server struct {
 	gitalypb.UnimplementedSSHServiceServer
-	locator                               storage.Locator
-	gitCmdFactory                         git.CommandFactory
-	txManager                             transaction.Manager
-	uploadPackRequestTimeoutTickerFactory func() helper.Ticker
-	uploadArchiveRequestTimeout           time.Duration
-	packfileNegotiationMetrics            *prometheus.CounterVec
+	locator                                  storage.Locator
+	gitCmdFactory                            git.CommandFactory
+	txManager                                transaction.Manager
+	uploadPackRequestTimeoutTickerFactory    func() helper.Ticker
+	uploadArchiveRequestTimeoutTickerFactory func() helper.Ticker
+	packfileNegotiationMetrics               *prometheus.CounterVec
 }
 
 // NewServer creates a new instance of a grpc SSHServer
@@ -40,7 +40,9 @@ func NewServer(
 		uploadPackRequestTimeoutTickerFactory: func() helper.Ticker {
 			return helper.NewTimerTicker(defaultUploadPackRequestTimeout)
 		},
-		uploadArchiveRequestTimeout: defaultUploadArchiveRequestTimeout,
+		uploadArchiveRequestTimeoutTickerFactory: func() helper.Ticker {
+			return helper.NewTimerTicker(defaultUploadArchiveRequestTimeout)
+		},
 		packfileNegotiationMetrics: prometheus.NewCounterVec(
 			prometheus.CounterOpts{},
 			[]string{"git_negotiation_feature"},
@@ -64,10 +66,10 @@ func WithUploadPackRequestTimeoutTickerFactory(factory func() helper.Ticker) Ser
 	}
 }
 
-// WithArchiveRequestTimeout sets the upload pack request timeout
-func WithArchiveRequestTimeout(d time.Duration) ServerOpt {
+// WithArchiveRequestTimeoutTickerFactory sets the upload pack request timeout ticker factory.
+func WithArchiveRequestTimeoutTickerFactory(factory func() helper.Ticker) ServerOpt {
 	return func(s *server) {
-		s.uploadArchiveRequestTimeout = d
+		s.uploadArchiveRequestTimeoutTickerFactory = factory
 	}
 }
 

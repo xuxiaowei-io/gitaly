@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -23,7 +24,11 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithArchiveRequestTimeout(100 * time.Microsecond)})
+	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{
+		WithArchiveRequestTimeoutTickerFactory(func() helper.Ticker {
+			return helper.NewTimerTicker(100 * time.Microsecond)
+		}),
+	})
 
 	ctx := testhelper.Context(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
