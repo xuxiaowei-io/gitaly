@@ -74,8 +74,8 @@ func RequireDirectoryState(tb testing.TB, rootDirectory, relativeDirectory strin
 		return nil
 	}))
 
-	// Create a copy of the expected and set the ParseContent to nil as functions always fail
-	// equality checks. We use a copy so we don't unexpectedly modify the original.
+	// Create a copy of the expected state and set the ParseContent to nil as functions always
+	// fail equality checks. We use a copy so we don't unexpectedly modify the original.
 	expectedCopy := make(DirectoryState, len(expected))
 	for key, value := range expected {
 		value.ParseContent = nil

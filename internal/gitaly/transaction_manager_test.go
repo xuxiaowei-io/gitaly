@@ -8,6 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -59,6 +63,78 @@ func validCustomHooks(tb testing.TB) []byte {
 	return hooks.Bytes()
 }
 
+// writePack writes a pack file and its index into the destination.
+func writePack(tb testing.TB, cfg config.Cfg, packFile []byte, destinationPack string) {
+	tb.Helper()
+
+	gittest.ExecOpts(tb,
+		cfg,
+		gittest.ExecConfig{Stdin: bytes.NewReader(packFile)},
+		"index-pack", "--stdin", destinationPack,
+	)
+}
+
+// buildObjectDirectory builds an object directory that contains the given pack files
+// and returns the path of the directory.
+func buildObjectDirectory(tb testing.TB, cfg config.Cfg, packFiles ...[]byte) string {
+	tb.Helper()
+
+	objectsDirectory := tb.TempDir()
+	packDirectory := filepath.Join(objectsDirectory, "pack")
+
+	require.NoError(tb, os.MkdirAll(packDirectory, fs.ModePerm))
+
+	for i, packFile := range packFiles {
+		writePack(tb, cfg, packFile, filepath.Join(packDirectory, fmt.Sprintf("pack-%d.pack", i)))
+	}
+
+	return objectsDirectory
+}
+
+// packFileDirectoryEntry returns a DirectoryEntry that parses content as a pack file and assert the
+// set of objects in the pack file matches the expected objects.
+func packFileDirectoryEntry(cfg config.Cfg, mode fs.FileMode, expectedObjects []git.ObjectID) testhelper.DirectoryEntry {
+	sortObjects := func(objects []git.ObjectID) {
+		sort.Slice(objects, func(i, j int) bool {
+			return objects[i] < objects[j]
+		})
+	}
+
+	sortObjects(expectedObjects)
+
+	return testhelper.DirectoryEntry{
+		Mode:    mode,
+		Content: expectedObjects,
+		ParseContent: func(tb testing.TB, content []byte) any {
+			tb.Helper()
+
+			tempDir := tb.TempDir()
+			packPath := filepath.Join(tempDir, "asserted-pack.pack")
+			writePack(tb, cfg, content, packPath)
+
+			actualObjects := []git.ObjectID{}
+			for _, line := range strings.Split(
+				string(gittest.Exec(tb, testcfg.Build(tb), "verify-pack", "-v", packPath)), "\n",
+			) {
+				components := strings.Split(line, " ")
+				if len(components) < 2 {
+					continue
+				}
+
+				if strings.HasPrefix(components[1], "commit") ||
+					strings.HasPrefix(components[1], "blob") ||
+					strings.HasPrefix(components[1], "tree") {
+					actualObjects = append(actualObjects, git.ObjectID(components[0]))
+				}
+			}
+
+			sortObjects(actualObjects)
+
+			return actualObjects
+		},
+	}
+}
+
 func TestTransactionManager(t *testing.T) {
 	umask := perm.GetUmask()
 
@@ -67,7 +143,8 @@ func TestTransactionManager(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	type testCommit struct {
-		OID git.ObjectID
+		OID  git.ObjectID
+		Pack []byte
 	}
 
 	type testCommits struct {
@@ -121,15 +198,35 @@ func TestTransactionManager(t *testing.T) {
 		nonExistentOID, err := objectHash.FromHex(hex.EncodeToString(hasher.Sum(nil)))
 		require.NoError(t, err)
 
+		packCommit := func(oid git.ObjectID) []byte {
+			t.Helper()
+
+			var pack bytes.Buffer
+			require.NoError(t,
+				localRepo.PackObjects(ctx, strings.NewReader(oid.String()), &pack),
+			)
+
+			return pack.Bytes()
+		}
+
 		return testSetup{
 			Config:         cfg,
 			ObjectHash:     objectHash,
 			Repository:     localRepo,
 			NonExistentOID: nonExistentOID,
 			Commits: testCommits{
-				First:  testCommit{OID: firstCommitOID},
-				Second: testCommit{OID: secondCommitOID},
-				Third:  testCommit{OID: thirdCommitOID},
+				First: testCommit{
+					OID:  firstCommitOID,
+					Pack: packCommit(firstCommitOID),
+				},
+				Second: testCommit{
+					OID:  secondCommitOID,
+					Pack: packCommit(secondCommitOID),
+				},
+				Third: testCommit{
+					OID:  thirdCommitOID,
+					Pack: packCommit(thirdCommitOID),
+				},
 			},
 		}
 	}
@@ -205,6 +302,8 @@ func TestTransactionManager(t *testing.T) {
 		SkipVerificationFailures bool
 		// ReferenceUpdates are the reference updates to commit.
 		ReferenceUpdates ReferenceUpdates
+		// IncludeObjects is the path to object directory with the objects to include.
+		IncludeObjects string
 		// DefaultBranchUpdate is the default branch update to commit.
 		DefaultBranchUpdate *DefaultBranchUpdate
 		// CustomHooksUpdate is the custom hooks update to commit.
@@ -215,6 +314,12 @@ func TestTransactionManager(t *testing.T) {
 	type Rollback struct {
 		// TransactionID identifies the transaction to rollback.
 		TransactionID int
+	}
+
+	// Prune prunes all unreferenced objects from the repository.
+	type Prune struct {
+		// ExpectedObjects are the object expected to exist in the repository after pruning.
+		ExpectedObjects []git.ObjectID
 	}
 
 	// StateAssertions models an assertion of the entire state managed by the TransactionManager.
@@ -955,6 +1060,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1/pre-receive": {
@@ -998,6 +1104,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1/pre-receive": {
@@ -1690,6 +1797,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks/1/pre-receive": {
@@ -1700,6 +1808,435 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 					"/wal/hooks/3":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				},
+			},
+		},
+		{
+			desc: "pack file includes referenced commit",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					ExpectedError: updateref.NonExistentObjectError{
+						ReferenceName: "refs/heads/main",
+						ObjectID:      setup.Commits.First.OID.String(),
+					},
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.First.Pack),
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1.pack": packFileDirectoryEntry(
+						setup.Config,
+						umask.Mask(perm.PrivateFile),
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+				},
+				Objects: []git.ObjectID{setup.Commits.First.OID},
+			},
+		},
+		{
+			desc: "pack file includes unreachable objects depended upon",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config,
+						setup.Commits.First.Pack,
+						setup.Commits.Second.Pack,
+					),
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				// Point main to the first commit so the second one is unreachable.
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.Second.OID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				AssertManager{},
+				StopManager{},
+				StartManager{
+					// Crash the manager before the third transaction is applied. This allows us to
+					// prune before it is applied to ensure the pack file contains all necessary commits.
+					Hooks: testHooks{
+						BeforeApplyLogEntry: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 2,
+					},
+				},
+				Commit{
+					TransactionID: 3,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Third.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.Third.Pack),
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				// Prune so the unreachable commits have been removed prior to the third log entry being
+				// applied.
+				Prune{
+					ExpectedObjects: []git.ObjectID{setup.Commits.First.OID},
+				},
+				StartManager{},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: setup.Commits.Third.OID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(3).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1.pack": packFileDirectoryEntry(
+						setup.Config,
+						umask.Mask(perm.PrivateFile),
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					),
+					"/wal/packs/3.pack": packFileDirectoryEntry(
+						setup.Config,
+						umask.Mask(perm.PrivateFile),
+						[]git.ObjectID{
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+						},
+					),
+				},
+				Objects: []git.ObjectID{
+					setup.Commits.First.OID,
+					setup.Commits.Second.OID,
+					setup.Commits.Third.OID,
+				},
+			},
+		},
+		{
+			desc: "pack file reapplying works",
+			steps: steps{
+				Prune{},
+				StartManager{
+					Hooks: testHooks{
+						BeforeStoreAppliedLogIndex: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.First.Pack),
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1.pack": packFileDirectoryEntry(
+						setup.Config,
+						umask.Mask(perm.PrivateFile),
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+				},
+				Objects: []git.ObjectID{setup.Commits.First.OID},
+			},
+		},
+		{
+			desc: "pack file missing referenced commit",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.First.Pack),
+					ExpectedError:  localrepo.BadObjectError{ObjectID: setup.Commits.Second.OID},
+				},
+			},
+			expectedState: StateAssertion{
+				Objects: []git.ObjectID{},
+			},
+		},
+		{
+			desc: "pack file missing intermediate commit",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.First.Pack),
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Third.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.Third.Pack),
+					ExpectedError:  localrepo.ObjectReadError{ObjectID: setup.Commits.Second.OID},
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1.pack": packFileDirectoryEntry(
+						setup.Config,
+						umask.Mask(perm.PrivateFile),
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+				},
+				Objects: []git.ObjectID{setup.Commits.First.OID},
+			},
+		},
+		{
+			desc: "pack file only",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID:  1,
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.First.Pack),
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":              {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":        {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":        {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1.pack": packFileDirectoryEntry(setup.Config, perm.PrivateFile, []git.ObjectID{}),
+				},
+				Objects: []git.ObjectID{},
+			},
+		},
+		{
+			desc: "pack file with deletions",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.First.Pack),
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.Second.Pack),
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1.pack": packFileDirectoryEntry(
+						setup.Config,
+						umask.Mask(perm.PrivateFile),
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/packs/2.pack": packFileDirectoryEntry(setup.Config, perm.PrivateFile, []git.ObjectID{}),
+				},
+				Objects: []git.ObjectID{setup.Commits.First.OID},
+			},
+		},
+		{
+			desc: "pack file applies with dependency concurrently deleted",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.First.Pack),
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
+					},
+				},
+				AssertManager{},
+				Prune{},
+				Commit{
+					TransactionID: 3,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/dependant": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+					},
+					IncludeObjects: buildObjectDirectory(t, setup.Config, setup.Commits.Second.Pack),
+					// The transaction fails to apply as we are not yet maintaining internal references
+					// to the old tips of concurrently deleted references. This causes the prune step to
+					// remove the object this the pack file depends on.
+					//
+					// For now, keep the test case to assert the behavior. We'll fix this in a later MR.
+					ExpectedError: localrepo.ObjectReadError{
+						ObjectID: setup.Commits.First.OID,
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1.pack": packFileDirectoryEntry(
+						setup.Config,
+						umask.Mask(perm.PrivateFile),
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+				},
+				Objects: []git.ObjectID{},
 			},
 		},
 	}
@@ -1861,6 +2398,7 @@ func TestTransactionManager(t *testing.T) {
 			// openTransactions holds references to all of the transactions that have been
 			// began in a test case.
 			openTransactions := map[int]*Transaction{}
+			var objectDirectories []string
 
 			// Stop the manager if it is running at the end of the test.
 			defer func() {
@@ -1943,6 +2481,11 @@ func TestTransactionManager(t *testing.T) {
 						transaction.SetCustomHooks(step.CustomHooksUpdate.CustomHooksTAR)
 					}
 
+					if step.IncludeObjects != "" {
+						objectDirectories = append(objectDirectories, step.IncludeObjects)
+						transaction.IncludeObjects(step.IncludeObjects)
+					}
+
 					commitCtx := ctx
 					if step.Context != nil {
 						commitCtx = step.Context
@@ -1952,6 +2495,9 @@ func TestTransactionManager(t *testing.T) {
 				case Rollback:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction rollbacked before beginning it")
 					require.NoError(t, openTransactions[step.TransactionID].Rollback())
+				case Prune:
+					gittest.Exec(t, setup.Config, "-C", repoPath, "prune")
+					gittest.RequireObjects(t, setup.Config, repoPath, step.ExpectedObjects)
 				default:
 					t.Fatalf("unhandled step type: %T", step)
 				}
@@ -1972,6 +2518,7 @@ func TestTransactionManager(t *testing.T) {
 				// gets asserted.
 				expectedDirectory = testhelper.DirectoryState{
 					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				}
 			}
@@ -1986,6 +2533,9 @@ func TestTransactionManager(t *testing.T) {
 			}
 
 			gittest.RequireObjects(t, setup.Config, repoPath, expectedObjects)
+			for _, dir := range objectDirectories {
+				require.NoDirExists(t, dir, "object directory was not cleaned up")
+			}
 		})
 	}
 }
