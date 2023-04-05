@@ -62,14 +62,22 @@ election_strategy = invalid`)
 			exitCode: 1,
 			args:     []string{"arg1", "arg2"},
 			stdin:    func(t *testing.T) io.Reader { return nil },
-			stderr: `Usage of praefect:
-  -config string
-    	Location for the config.toml
-  -version
-    	Print version and exit
-  subcommand (optional)
-	One of accept-dataloss, check, configuration, dataloss, dial-nodes, list-storages, list-untracked-repositories, metadata, remove-repository, set-replication-factor, sql-migrate, sql-migrate-down, sql-migrate-status, sql-ping, track-repositories, track-repository, verify
+			stdout: `NAME:
+   praefect configuration validate - validates configuration
+
+USAGE:
+   praefect configuration validate command [command options] [arguments...]
+
+DESCRIPTION:
+   The command accepts configuration in toml format on STDIN. It applies validation rules to the received configuration and returns all the found validation errors in JSON format back on STDOUT.
+
+COMMANDS:
+   help, h  Shows a list of commands or help for one command
+
+OPTIONS:
+   --help, -h  show help
 `,
+			stderr: "invalid argument(s)\n",
 		},
 		{
 			name:     "validation failures",
