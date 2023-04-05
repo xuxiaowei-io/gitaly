@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -24,9 +23,21 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
+	// Use a ticker channel so that we can observe that the ticker is being created. The channel
+	// is unbuffered on purpose so that we can assert that it is getting created exactly at the
+	// time we expect it to be.
+	tickerCh := make(chan *helper.ManualTicker)
+
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{
 		WithArchiveRequestTimeoutTickerFactory(func() helper.Ticker {
-			return helper.NewTimerTicker(100 * time.Microsecond)
+			// Create a ticker that will immediately tick when getting reset so that the
+			// server-side can observe this as an emulated timeout.
+			ticker := helper.NewManualTicker()
+			ticker.ResetFunc = func() {
+				ticker.Tick()
+			}
+			tickerCh <- ticker
+			return ticker
 		}),
 	})
 
@@ -40,6 +51,11 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 
 	// The first request is not limited by timeout, but also not under attacker control
 	require.NoError(t, stream.Send(&gitalypb.SSHUploadArchiveRequest{Repository: repo}))
+
+	// We should now see that the ticker limiting the request is being created. We don't need to
+	// use the ticker, but this statement is only there in order to verify that the ticker is
+	// indeed getting created at the expected point in time.
+	<-tickerCh
 
 	// Because the client says nothing, the server would block. Because of
 	// the timeout, it won't block forever, and return with a non-zero exit
