@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -69,7 +70,14 @@ func validateListFilesRequest(in *gitalypb.ListFilesRequest) error {
 }
 
 func (s *server) listFiles(repo git.RepositoryExecutor, revision string, stream gitalypb.CommitService_ListFilesServer) error {
-	cmd, err := repo.Exec(stream.Context(), git.Command{
+	ctx := stream.Context()
+
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name: "ls-tree",
 		Flags: []git.Option{
 			git.Flag{Name: "-z"},
@@ -85,7 +93,7 @@ func (s *server) listFiles(repo git.RepositoryExecutor, revision string, stream 
 
 	sender := chunk.New(&listFilesSender{stream: stream})
 
-	for parser := localrepo.NewParser(cmd, git.ObjectHashSHA1); ; {
+	for parser := localrepo.NewParser(cmd, objectHash); ; {
 		entry, err := parser.NextEntry()
 		if err == io.EOF {
 			break
