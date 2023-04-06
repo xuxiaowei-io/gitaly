@@ -133,32 +133,15 @@ If proto is updated, run `make`. This should compile successfully.
 
 ## Testing
 
-Gitaly's tests are mostly written in Go but it is possible to write RSpec tests too.
-
-Generally, you should always write new tests in Go even when testing Ruby code,
-since we're planning to gradually rewrite everything in Go and want to avoid
-having to rewrite the tests as well.
-
-Because Praefect lives in the same repository we need to provide database connection
-information in order to run tests for it successfully. To get more info check out
-[glsql](../internal/praefect/datastore/glsql/doc.go) package documentation.
-
-The easiest way to set up a Postgres database instance is to run it as a Docker container:
-
-```bash
-docker rm -f $(docker ps -q --all -f name=praefect-pg) > /dev/null 2>1; \
-docker run --name praefect-pg -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust -d postgres:12.6
-```
-
-To run the full test suite, use `make test`.
-You'll need some [test repositories](test_repos.md), you can set these up with `make prepare-tests`.
-
-### Go tests
+Gitaly's tests are mostly in Go and we apply the following guidelines:
 
 - each RPC must have end-to-end tests at the service level
 - optionally, you can add unit tests for functions that need more coverage
 
-#### Integration Tests
+To run the full test suite, use `make test`.
+You'll need some [test repositories](test_repos.md), you can set these up with `make prepare-tests`.
+
+### Integration Tests
 
 A typical set of Go tests for an RPC consists of two or three test
 functions:
@@ -171,7 +154,7 @@ Our Go RPC tests use in-process test servers that only implement the service the
 
 For example, if you are working on an RPC in the 'RepositoryService', your tests would go in `internal/gitaly/service/repository/your_rpc_test.go`.
 
-#### Running a specific test
+### Running a specific test
 
 When you are trying to fix a specific test failure it is inefficient
 to run `make test` all the time. To run just one test you need to know
@@ -193,7 +176,7 @@ called on `testing.T`.
 [require]: https://github.com/stretchr/testify/tree/master/require
 [assert]: https://github.com/stretchr/testify/tree/master/assert
 
-#### Using Delve to debug a test
+### Using Delve to debug a test
 
 The process to debug a test in your terminal using
 [Delve](https://github.com/go-delve/delve) is almost the same as
@@ -204,9 +187,22 @@ target to `debug-test-go`:
 TEST_PACKAGES=./internal/gitaly/service/repository TEST_OPTIONS="-count=1 -run=TestRepositoryExists" make debug-test-go
 ```
 
-#### Useful snippets for creating a test
+### Praefect tests
 
-##### testhelper package
+Because Praefect lives in the same repository we need to provide database connection
+information in order to run tests for it successfully. To get more info check out
+[glsql](../internal/praefect/datastore/glsql/doc.go) package documentation.
+
+The easiest way to set up a Postgres database instance is to run it as a Docker container:
+
+```bash
+docker rm -f $(docker ps -q --all -f name=praefect-pg) > /dev/null 2>1; \
+docker run --name praefect-pg -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust -d postgres:12.6
+```
+
+### Useful snippets for creating a test
+
+#### testhelper package
 
 The `testhelper` package provides functions to create configurations to run Gitaly and helpers to run a Gitaly gRPC server:
 
