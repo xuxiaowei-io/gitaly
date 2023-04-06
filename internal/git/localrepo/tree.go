@@ -84,7 +84,7 @@ func (t *TreeEntry) IsBlob() bool {
 
 // WriteTree writes a new tree object to the given path. This function does not verify whether OIDs
 // referred to by tree entries actually exist in the repository.
-func (repo *Repo) WriteTree(ctx context.Context, entries []TreeEntry) (git.ObjectID, error) {
+func (repo *Repo) WriteTree(ctx context.Context, entries []*TreeEntry) (git.ObjectID, error) {
 	var tree bytes.Buffer
 	for _, entry := range entries {
 		entryType := entry.Type

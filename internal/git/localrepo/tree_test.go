@@ -28,7 +28,7 @@ func TestWriteTree(t *testing.T) {
 	blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("foobar\n"))
 	require.NoError(t, err)
 
-	treeID, err := repo.WriteTree(ctx, []TreeEntry{
+	treeID, err := repo.WriteTree(ctx, []*TreeEntry{
 		{
 			OID:  blobID,
 			Mode: "100644",
@@ -45,12 +45,12 @@ func TestWriteTree(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc            string
-		entries         []TreeEntry
+		entries         []*TreeEntry
 		expectedEntries []TreeEntry
 	}{
 		{
 			desc: "entry with blob OID",
-			entries: []TreeEntry{
+			entries: []*TreeEntry{
 				{
 					OID:  blobID,
 					Mode: "100644",
@@ -67,7 +67,7 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "entry with tree OID",
-			entries: []TreeEntry{
+			entries: []*TreeEntry{
 				{
 					OID:  treeID,
 					Mode: "040000",
@@ -84,7 +84,7 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "mixed tree and blob entries",
-			entries: []TreeEntry{
+			entries: []*TreeEntry{
 				{
 					OID:  treeID,
 					Mode: "040000",
@@ -121,7 +121,7 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "entry with nonexistent object",
-			entries: []TreeEntry{
+			entries: []*TreeEntry{
 				{
 					OID:  nonExistentBlobID,
 					Mode: "100644",
