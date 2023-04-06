@@ -86,14 +86,14 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 			return "", fmt.Errorf("error reading tree: %w", err)
 		}
 
-		var newEntries []localrepo.TreeEntry
+		var newEntries []*localrepo.TreeEntry
 		var newTreeID git.ObjectID
 
 		for _, entry := range entries {
 			// If the entry's path does not match, then we simply
 			// want to retain this tree entry.
 			if entry.Path != base {
-				newEntries = append(newEntries, *entry)
+				newEntries = append(newEntries, entry)
 				continue
 			}
 
@@ -119,7 +119,7 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 			// Otherwise, create a new tree entry
 			submoduleFound = true
 
-			newEntries = append(newEntries, localrepo.TreeEntry{
+			newEntries = append(newEntries, &localrepo.TreeEntry{
 				Mode: entry.Mode,
 				Path: entry.Path,
 				OID:  replaceWith,
