@@ -87,6 +87,13 @@ ifdef FIPS_MODE
     # instead use SHA1DC to protect users against the SHAttered attack.
     GIT_FIPS_BUILD_OPTIONS := OPENSSL_SHA256=YesPlease
 
+    # Go 1.19+ now requires GOEXPERIMENT=boringcrypto for FIPS compilation.
+    # See https://github.com/golang/go/issues/51940 for more details.
+    BORINGCRYPTO_SUPPORT := $(shell GOEXPERIMENT=boringcrypto go version > /dev/null 2>&1; echo $$?)
+    ifeq ($(BORINGCRYPTO_SUPPORT), 0)
+        export GOEXPERIMENT=boringcrypto
+    endif
+
     export GITALY_TESTING_ENABLE_FIPS := YesPlease
 endif
 
