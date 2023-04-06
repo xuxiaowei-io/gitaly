@@ -2018,7 +2018,7 @@ func TestTransactionManager(t *testing.T) {
 					require.ErrorIs(t, transaction.Commit(commitCtx), step.ExpectedError)
 				case Rollback:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction rollbacked before beginning it")
-					openTransactions[step.TransactionID].Rollback()
+					require.NoError(t, openTransactions[step.TransactionID].Rollback())
 				default:
 					t.Fatalf("unhandled step type: %T", step)
 				}

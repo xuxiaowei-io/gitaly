@@ -179,7 +179,9 @@ func (txn *Transaction) Commit(ctx context.Context) error {
 }
 
 // Rollback releases resources associated with the transaction without performing any changes.
-func (txn *Transaction) Rollback() {}
+func (txn *Transaction) Rollback() error {
+	return nil
+}
 
 // Snapshot returns the details of the Transaction's read snapshot.
 func (txn *Transaction) Snapshot() Snapshot {
