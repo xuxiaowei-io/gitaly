@@ -41,6 +41,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&expectedTx,
 		&git.UserDetails{
 			UserID:   "1234",
@@ -61,7 +62,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 		return hookManager.PreReceiveHook(ctx, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), io.Discard, io.Discard)
 	}
 	updateFunc := func(t *testing.T) error {
-		return hookManager.UpdateHook(ctx, repo, "ref", git.ObjectHashSHA1.ZeroOID.String(), git.ObjectHashSHA1.ZeroOID.String(), []string{hooksPayload}, io.Discard, io.Discard)
+		return hookManager.UpdateHook(ctx, repo, "ref", gittest.DefaultObjectHash.ZeroOID.String(), gittest.DefaultObjectHash.ZeroOID.String(), []string{hooksPayload}, io.Discard, io.Discard)
 	}
 	postReceiveFunc := func(t *testing.T) error {
 		return hookManager.PostReceiveHook(ctx, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), io.Discard, io.Discard)
@@ -126,9 +127,10 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 	cfg := testcfg.Build(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	mockTxMgr := transaction.MockManager{
 		VoteFn: func(ctx context.Context, _ txinfo.Transaction, _ voting.Vote, _ voting.Phase) error {
@@ -144,6 +146,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
@@ -153,7 +156,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	).Env()
 	require.NoError(t, err)
 
-	changes := fmt.Sprintf("%s %s refs/heads/master", strings.Repeat("1", 40), git.ObjectHashSHA1.ZeroOID)
+	changes := fmt.Sprintf("%s %s refs/heads/master", commitID, gittest.DefaultObjectHash.ZeroOID)
 
 	cancel()
 
@@ -162,8 +165,8 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 }
 
 func TestIsForceDeletionsOnly(t *testing.T) {
-	anyOID := strings.Repeat("1", 40)
-	zeroOID := git.ObjectHashSHA1.ZeroOID.String()
+	anyOID := strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen())
+	zeroOID := gittest.DefaultObjectHash.ZeroOID.String()
 
 	forceDeletion := fmt.Sprintf("%s %s refs/heads/force-delete", zeroOID, zeroOID)
 	forceUpdate := fmt.Sprintf("%s %s refs/heads/force-update", zeroOID, anyOID)
@@ -206,7 +209,7 @@ func TestIsForceDeletionsOnly(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			actual := isForceDeletionsOnly(strings.NewReader(tc.changes))
+			actual := isForceDeletionsOnly(gittest.DefaultObjectHash, strings.NewReader(tc.changes))
 			require.Equal(t, tc.expected, actual)
 		})
 	}

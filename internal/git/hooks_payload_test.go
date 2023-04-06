@@ -30,15 +30,30 @@ func TestHooksPayload(t *testing.T) {
 	}
 
 	t.Run("envvar has proper name", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, git.AllHooks, nil).Env()
+		env, err := git.NewHooksPayload(
+			cfg,
+			repo,
+			gittest.DefaultObjectHash,
+			nil,
+			nil,
+			git.AllHooks,
+			nil,
+		).Env()
 		require.NoError(t, err)
 		require.True(t, strings.HasPrefix(env, git.EnvHooksPayload+"="))
 	})
 
 	t.Run("roundtrip succeeds", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, git.PreReceiveHook, map[featureflag.FeatureFlag]bool{
-			{Name: "flag_key"}: true,
-		}).Env()
+		env, err := git.NewHooksPayload(
+			cfg,
+			repo,
+			gittest.DefaultObjectHash,
+			nil,
+			nil,
+			git.PreReceiveHook,
+			map[featureflag.FeatureFlag]bool{
+				{Name: "flag_key"}: true,
+			}).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{
@@ -51,6 +66,7 @@ func TestHooksPayload(t *testing.T) {
 
 		require.Equal(t, git.HooksPayload{
 			Repo:           repo,
+			ObjectFormat:   gittest.DefaultObjectHash.Format,
 			RuntimeDir:     cfg.RuntimeDir,
 			InternalSocket: cfg.InternalSocketPath(),
 			RequestedHooks: git.PreReceiveHook,
@@ -64,7 +80,15 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("roundtrip with transaction succeeds", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, &tx, nil, git.UpdateHook, nil).Env()
+		env, err := git.NewHooksPayload(
+			cfg,
+			repo,
+			gittest.DefaultObjectHash,
+			&tx,
+			nil,
+			git.UpdateHook,
+			nil,
+		).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{env})
@@ -72,6 +96,7 @@ func TestHooksPayload(t *testing.T) {
 
 		require.Equal(t, git.HooksPayload{
 			Repo:           repo,
+			ObjectFormat:   gittest.DefaultObjectHash.Format,
 			RuntimeDir:     cfg.RuntimeDir,
 			InternalSocket: cfg.InternalSocketPath(),
 			Transaction:    &tx,
@@ -91,11 +116,16 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("receive hooks payload", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
-			UserID:   "1234",
-			Username: "user",
-			Protocol: "ssh",
-		}, git.PostReceiveHook, nil).Env()
+		env, err := git.NewHooksPayload(
+			cfg,
+			repo,
+			gittest.DefaultObjectHash,
+			nil,
+			&git.UserDetails{
+				UserID:   "1234",
+				Username: "user",
+				Protocol: "ssh",
+			}, git.PostReceiveHook, nil).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{
@@ -108,6 +138,7 @@ func TestHooksPayload(t *testing.T) {
 
 		require.Equal(t, git.HooksPayload{
 			Repo:                repo,
+			ObjectFormat:        gittest.DefaultObjectHash.Format,
 			RuntimeDir:          cfg.RuntimeDir,
 			InternalSocket:      cfg.InternalSocketPath(),
 			InternalSocketToken: cfg.Auth.Token,

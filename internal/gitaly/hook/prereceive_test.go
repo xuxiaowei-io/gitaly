@@ -46,12 +46,21 @@ func TestPrereceive_customHooks(t *testing.T) {
 		Protocol: "web",
 	}
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.PreReceiveHook, featureflag.FromContext(ctx)).Env()
+	payload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		gittest.DefaultObjectHash,
+		nil,
+		receiveHooksPayload,
+		git.PreReceiveHook,
+		featureflag.FromContext(ctx),
+	).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
@@ -64,6 +73,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 	secondaryPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		&txinfo.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
 		},
@@ -207,7 +217,11 @@ func TestPrereceive_quarantine(t *testing.T) {
 		repoProto:                    false,
 	} {
 		t.Run(fmt.Sprintf("quarantined: %v", isQuarantined), func(t *testing.T) {
-			env, err := git.NewHooksPayload(cfg, repo, nil,
+			env, err := git.NewHooksPayload(
+				cfg,
+				repo,
+				gittest.DefaultObjectHash,
+				nil,
 				&git.UserDetails{
 					UserID:   "1234",
 					Username: "user",
@@ -219,7 +233,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 			require.NoError(t, err)
 
 			stdin := strings.NewReader(fmt.Sprintf("%s %s refs/heads/master",
-				git.ObjectHashSHA1.ZeroOID, git.ObjectHashSHA1.ZeroOID))
+				gittest.DefaultObjectHash.ZeroOID, gittest.DefaultObjectHash.ZeroOID))
 
 			var stdout, stderr bytes.Buffer
 			require.NoError(t, hookManager.PreReceiveHook(ctx, repo, nil,
@@ -265,11 +279,16 @@ func TestPrereceive_gitlab(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
-		UserID:   "1234",
-		Username: "user",
-		Protocol: "web",
-	}, git.PreReceiveHook, nil).Env()
+	payload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		gittest.DefaultObjectHash,
+		nil,
+		&git.UserDetails{
+			UserID:   "1234",
+			Username: "user",
+			Protocol: "web",
+		}, git.PreReceiveHook, nil).Env()
 	require.NoError(t, err)
 
 	standardEnv := []string{payload}

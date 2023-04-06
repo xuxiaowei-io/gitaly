@@ -12,15 +12,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 )
 
-// forceDeletionPrefix is the prefix of a queued reference transaction which deletes a
-// reference without checking its current value.
-var forceDeletionPrefix = fmt.Sprintf("%[1]s %[1]s ", git.ObjectHashSHA1.ZeroOID.String())
-
 //nolint:revive // This is unintentionally missing documentation.
 func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state ReferenceTransactionState, env []string, stdin io.Reader) error {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {
 		return fmt.Errorf("extracting hooks payload: %w", err)
+	}
+
+	objectHash, err := git.ObjectHashByFormat(payload.ObjectFormat)
+	if err != nil {
+		return fmt.Errorf("looking up object hash: %w", err)
 	}
 
 	changes, err := io.ReadAll(stdin)
@@ -62,7 +63,7 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 	// The workaround is thus clear: we simply do not cast a vote on any reference transaction
 	// which consists only of force-deletions -- the vote will instead only happen on the loose
 	// backend transaction, which contains the full record of all refs which are to be updated.
-	if isForceDeletionsOnly(bytes.NewReader(changes)) {
+	if isForceDeletionsOnly(objectHash, bytes.NewReader(changes)) {
 		return nil
 	}
 
@@ -76,7 +77,11 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 }
 
 // isForceDeletionsOnly determines whether the given changes only consist of force-deletions.
-func isForceDeletionsOnly(changes io.Reader) bool {
+func isForceDeletionsOnly(objectHash git.ObjectHash, changes io.Reader) bool {
+	// forceDeletionPrefix is the prefix of a queued reference transaction which deletes a
+	// reference without checking its current value.
+	forceDeletionPrefix := fmt.Sprintf("%[1]s %[1]s ", objectHash.ZeroOID)
+
 	scanner := bufio.NewScanner(changes)
 
 	for scanner.Scan() {

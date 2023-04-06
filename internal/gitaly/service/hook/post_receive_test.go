@@ -107,6 +107,7 @@ func TestHooksMissingStdin(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
+				gittest.DefaultObjectHash,
 				&txinfo.Transaction{
 					ID:      1234,
 					Node:    "node-1",
@@ -244,6 +245,7 @@ To create a merge request for okay, visit:
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
+				gittest.DefaultObjectHash,
 				nil,
 				&git.UserDetails{
 					UserID:   "key_id",

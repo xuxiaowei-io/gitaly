@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package ssh
 
 import (
@@ -197,6 +195,7 @@ func TestReceivePack_success(t *testing.T) {
 	payload.FeatureFlagsWithValue = nil
 
 	require.Equal(t, git.HooksPayload{
+		ObjectFormat:        gittest.DefaultObjectHash.Format,
 		RuntimeDir:          cfg.RuntimeDir,
 		InternalSocket:      cfg.InternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
@@ -626,9 +625,9 @@ func TestReceivePack_transactional(t *testing.T) {
 			for i, command := range tc.commands {
 				// Only the first pktline contains capabilities.
 				if i == 0 {
-					gittest.WritePktlineString(t, &request, fmt.Sprintf("%s %s %s\000 %s",
-						command.oldOID, command.newOID, command.ref,
-						"report-status side-band-64k agent=git/2.12.0"))
+					gittest.WritePktlinef(t, &request, "%s %s %s\000 report-status side-band-64k object-format=%s agent=git/2.12.0",
+						command.oldOID, command.newOID, command.ref, gittest.DefaultObjectHash.Format,
+					)
 				} else {
 					gittest.WritePktlineString(t, &request, fmt.Sprintf("%s %s %s",
 						command.oldOID, command.newOID, command.ref))

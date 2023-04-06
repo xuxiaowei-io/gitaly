@@ -168,6 +168,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
+				gittest.DefaultObjectHash,
 				&txinfo.Transaction{
 					BackchannelID: backchannelID,
 					ID:            1234,

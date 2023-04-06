@@ -42,7 +42,14 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 	})
 
 	ctx := stream.Context()
+
 	repo := s.localrepo(firstRequest.GetRepository())
+
+	// Verify that the repository actually exists.
+	if _, err := repo.Path(); err != nil {
+		return err
+	}
+
 	updateHead := firstRequest.GetUpdateHead()
 
 	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)

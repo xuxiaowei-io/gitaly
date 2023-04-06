@@ -43,6 +43,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
+		gittest.DefaultObjectHash,
 		nil,
 		&git.UserDetails{
 			UserID:   "key-123",

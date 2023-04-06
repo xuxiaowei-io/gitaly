@@ -92,52 +92,6 @@ func WithPackObjectsHookEnv(repo *gitalypb.Repository, protocol string) CmdOpt {
 	}
 }
 
-// configureHooks updates the command configuration to include all environment
-// variables required by the reference transaction hook and any other needed
-// options to successfully execute hooks.
-func (cc *cmdCfg) configureHooks(
-	ctx context.Context,
-	repo *gitalypb.Repository,
-	cfg config.Cfg,
-	gitCmdFactory CommandFactory,
-	userDetails *UserDetails,
-	requestedHooks Hook,
-) error {
-	if cc.hooksConfigured {
-		return errors.New("hooks already configured")
-	}
-
-	var transaction *txinfo.Transaction
-	if tx, err := txinfo.TransactionFromContext(ctx); err == nil {
-		transaction = &tx
-	} else if !errors.Is(err, txinfo.ErrTransactionNotFound) {
-		return err
-	}
-
-	payload, err := NewHooksPayload(
-		cfg,
-		repo,
-		transaction,
-		userDetails,
-		requestedHooks,
-		featureflag.FromContext(ctx)).Env()
-	if err != nil {
-		return err
-	}
-
-	cc.env = append(
-		cc.env,
-		payload,
-		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
-	)
-	cc.env = envInjector(ctx, cc.env)
-
-	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: gitCmdFactory.HooksPath(ctx)})
-	cc.hooksConfigured = true
-
-	return nil
-}
-
 // ReceivePackRequest abstracts away the different requests that end up
 // spawning git-receive-pack.
 type ReceivePackRequest interface {
@@ -162,4 +116,56 @@ func WithReceivePackHooks(req ReceivePackRequest, protocol string) CmdOpt {
 
 		return nil
 	}
+}
+
+// configureHooks updates the command configuration to include all environment
+// variables required by the reference transaction hook and any other needed
+// options to successfully execute hooks.
+func (cc *cmdCfg) configureHooks(
+	ctx context.Context,
+	repo *gitalypb.Repository,
+	cfg config.Cfg,
+	gitCmdFactory CommandFactory,
+	userDetails *UserDetails,
+	requestedHooks Hook,
+) error {
+	if cc.hooksConfigured {
+		return errors.New("hooks already configured")
+	}
+
+	objectHash, err := DetectObjectHash(ctx, gitCmdFactory, repo)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	var transaction *txinfo.Transaction
+	if tx, err := txinfo.TransactionFromContext(ctx); err == nil {
+		transaction = &tx
+	} else if !errors.Is(err, txinfo.ErrTransactionNotFound) {
+		return err
+	}
+
+	payload, err := NewHooksPayload(
+		cfg,
+		repo,
+		objectHash,
+		transaction,
+		userDetails,
+		requestedHooks,
+		featureflag.FromContext(ctx)).Env()
+	if err != nil {
+		return err
+	}
+
+	cc.env = append(
+		cc.env,
+		payload,
+		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
+	)
+	cc.env = envInjector(ctx, cc.env)
+
+	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: gitCmdFactory.HooksPath(ctx)})
+	cc.hooksConfigured = true
+
+	return nil
 }

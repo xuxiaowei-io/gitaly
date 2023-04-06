@@ -27,24 +27,28 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 	worktreePath := filepath.Join(testhelper.TempDir(t), "worktree")
 
-	failingGitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
-		return `#!/usr/bin/env bash
-		exit 15
-		`
-	})
+	countingGitCmdFactory := gittest.NewCountingCommandFactory(t, cfg)
 
-	repo := localrepo.New(config.NewLocator(cfg), failingGitCmdFactory, nil, repoProto)
+	repo := localrepo.New(config.NewLocator(cfg), countingGitCmdFactory, nil, repoProto)
 
 	// If this command did spawn git-worktree(1) we'd see an error. It doesn't though because it
 	// detects that there aren't any worktrees at all.
 	require.NoError(t, cleanDisconnectedWorktrees(ctx, repo))
+	require.EqualValues(t, 0, countingGitCmdFactory.CommandCount("worktree"))
 
+	// Create a worktree, but remove the actual worktree path so that it will be disconnected.
 	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
+	require.NoError(t, os.RemoveAll(worktreePath))
 
 	// We have now added a worktree now, so it should detect that there are worktrees and thus
-	// spawn the Git command. We thus expect the error code we inject via the failing Git
-	// command factory.
-	require.EqualError(t, cleanDisconnectedWorktrees(ctx, repo), "exit status 15")
+	// spawn the Git command.
+	require.NoError(t, cleanDisconnectedWorktrees(ctx, repo))
+	require.EqualValues(t, 1, countingGitCmdFactory.CommandCount("worktree"))
+
+	// Trigger the cleanup again. As we have just deleted the worktree, we should not see
+	// another execution of git-worktree(1).
+	require.NoError(t, cleanDisconnectedWorktrees(ctx, repo))
+	require.EqualValues(t, 1, countingGitCmdFactory.CommandCount("worktree"))
 }
 
 func TestRemoveWorktree(t *testing.T) {

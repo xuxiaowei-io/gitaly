@@ -116,7 +116,7 @@ func (repo *Repo) StorageTempDir() (string, error) {
 // ObjectHash detects the object hash used by this particular repository.
 func (repo *Repo) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
 	repo.detectObjectHashOnce.Do(func() {
-		repo.objectHash, repo.objectHashErr = git.DetectObjectHash(ctx, repo)
+		repo.objectHash, repo.objectHashErr = git.DetectObjectHash(ctx, repo.gitCmdFactory, repo)
 	})
 	return repo.objectHash, repo.objectHashErr
 }

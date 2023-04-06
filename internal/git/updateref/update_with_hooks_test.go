@@ -109,11 +109,16 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 	requirePayload := func(t *testing.T, env []string) {
 		require.Len(t, env, 1)
 
-		expectedPayload := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
-			UserID:   gittest.TestUser.GlId,
-			Username: gittest.TestUser.GlUsername,
-			Protocol: "web",
-		}, git.ReceivePackHooks, featureflag.FromContext(ctx))
+		expectedPayload := git.NewHooksPayload(
+			cfg,
+			repo,
+			gittest.DefaultObjectHash,
+			nil,
+			&git.UserDetails{
+				UserID:   gittest.TestUser.GlId,
+				Username: gittest.TestUser.GlUsername,
+				Protocol: "web",
+			}, git.ReceivePackHooks, featureflag.FromContext(ctx))
 
 		actualPayload, err := git.HooksPayloadFromEnv(env)
 		require.NoError(t, err)

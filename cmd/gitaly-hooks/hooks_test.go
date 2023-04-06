@@ -68,12 +68,17 @@ func featureFlags(ctx context.Context) map[featureflag.FeatureFlag]bool {
 
 // envForHooks generates a set of environment variables for gitaly hooks
 func envForHooks(tb testing.TB, ctx context.Context, cfg config.Cfg, repo *gitalypb.Repository, glHookValues glHookValues, proxyValues proxyValues, gitPushOptions ...string) []string {
-	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
-		UserID:   glHookValues.GLID,
-		Username: glHookValues.GLUsername,
-		Protocol: glHookValues.GLProtocol,
-		RemoteIP: glHookValues.RemoteIP,
-	}, git.AllHooks, featureFlags(ctx)).Env()
+	payload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		gittest.DefaultObjectHash,
+		nil,
+		&git.UserDetails{
+			UserID:   glHookValues.GLID,
+			Username: glHookValues.GLUsername,
+			Protocol: glHookValues.GLProtocol,
+			RemoteIP: glHookValues.RemoteIP,
+		}, git.AllHooks, featureFlags(ctx)).Env()
 	require.NoError(tb, err)
 
 	env := append(command.AllowedEnvironment(os.Environ()), []string{
@@ -427,6 +432,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
+				gittest.DefaultObjectHash,
 				&txinfo.Transaction{
 					ID:      1,
 					Node:    "node",
@@ -660,7 +666,15 @@ func TestRequestedHooks(t *testing.T) {
 				testcfg.BuildGitalyHooks(t, cfg)
 				testcfg.BuildGitalySSH(t, cfg)
 
-				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, git.AllHooks&^hook, nil).Env()
+				payload, err := git.NewHooksPayload(
+					cfg,
+					&gitalypb.Repository{},
+					gittest.DefaultObjectHash,
+					nil,
+					nil,
+					git.AllHooks&^hook,
+					nil,
+				).Env()
 				require.NoError(t, err)
 
 				cmd := exec.Command(cfg.BinaryPath("gitaly-hooks"))
@@ -674,7 +688,15 @@ func TestRequestedHooks(t *testing.T) {
 				testcfg.BuildGitalyHooks(t, cfg)
 				testcfg.BuildGitalySSH(t, cfg)
 
-				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, hook, nil).Env()
+				payload, err := git.NewHooksPayload(
+					cfg,
+					&gitalypb.Repository{},
+					gittest.DefaultObjectHash,
+					nil,
+					nil,
+					hook,
+					nil,
+				).Env()
 				require.NoError(t, err)
 
 				cmd := exec.Command(cfg.BinaryPath("gitaly-hooks"))

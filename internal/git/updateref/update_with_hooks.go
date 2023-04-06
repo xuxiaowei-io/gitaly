@@ -195,7 +195,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 		quarantinedRepo = quarantineDir.QuarantinedRepo()
 	}
 
-	hooksPayload, err := git.NewHooksPayload(u.cfg, quarantinedRepo, transaction, &receiveHooksPayload, git.ReceivePackHooks, featureflag.FromContext(ctx)).Env()
+	hooksPayload, err := git.NewHooksPayload(u.cfg, quarantinedRepo, objectHash, transaction, &receiveHooksPayload, git.ReceivePackHooks, featureflag.FromContext(ctx)).Env()
 	if err != nil {
 		return fmt.Errorf("constructing hooks payload: %w", err)
 	}
@@ -217,7 +217,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 		// We only need to update the hooks payload to the unquarantined repo in case we
 		// had a quarantine environment. Otherwise, the initial hooks payload is for the
 		// real repository anyway.
-		hooksPayload, err = git.NewHooksPayload(u.cfg, repoProto, transaction, &receiveHooksPayload, git.ReceivePackHooks, featureflag.FromContext(ctx)).Env()
+		hooksPayload, err = git.NewHooksPayload(u.cfg, repoProto, objectHash, transaction, &receiveHooksPayload, git.ReceivePackHooks, featureflag.FromContext(ctx)).Env()
 		if err != nil {
 			return fmt.Errorf("constructing quarantined hooks payload: %w", err)
 		}
