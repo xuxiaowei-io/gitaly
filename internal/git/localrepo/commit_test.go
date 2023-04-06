@@ -32,10 +32,10 @@ func TestWriteCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	treeEntryA := TreeEntry{Path: "file", Mode: "100644", OID: blobID}
-	treeA, err := repo.WriteTree(ctx, []TreeEntry{treeEntryA})
+	treeA, err := repo.WriteTree(ctx, []*TreeEntry{&treeEntryA})
 	require.NoError(t, err)
 
-	treeB, err := repo.WriteTree(ctx, []TreeEntry{
+	treeB, err := repo.WriteTree(ctx, []*TreeEntry{
 		{Path: "file", Mode: "100644", OID: changedBlobID},
 	})
 	require.NoError(t, err)
@@ -203,7 +203,7 @@ func TestWriteCommit_validation(t *testing.T) {
 
 	blobID, err := repo.WriteBlob(ctx, "", strings.NewReader("foo"))
 	require.NoError(t, err)
-	treeID, err := repo.WriteTree(ctx, []TreeEntry{
+	treeID, err := repo.WriteTree(ctx, []*TreeEntry{
 		{
 			OID:  blobID,
 			Mode: "100644",
