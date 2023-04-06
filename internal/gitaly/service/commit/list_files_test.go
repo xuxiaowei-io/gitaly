@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -14,104 +15,120 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var defaultFiles = [][]byte{
-	[]byte(".gitattributes"), []byte(".gitignore"), []byte(".gitmodules"),
-	[]byte("CHANGELOG"), []byte("CONTRIBUTING.md"), []byte("Gemfile.zip"),
-	[]byte("LICENSE"), []byte("MAINTENANCE.md"), []byte("PROCESS.md"),
-	[]byte("README"), []byte("README.md"), []byte("VERSION"),
-	[]byte("bar/branch-test.txt"), []byte("custom-highlighting/test.gitlab-custom"),
-	[]byte("encoding/feature-1.txt"), []byte("encoding/feature-2.txt"),
-	[]byte("encoding/hotfix-1.txt"), []byte("encoding/hotfix-2.txt"),
-	[]byte("encoding/iso8859.txt"), []byte("encoding/russian.rb"),
-	[]byte("encoding/test.txt"), []byte("encoding/テスト.txt"), []byte("encoding/テスト.xls"),
-	[]byte("files/html/500.html"), []byte("files/images/6049019_460s.jpg"),
-	[]byte("files/images/logo-black.png"), []byte("files/images/logo-white.png"),
-	[]byte("files/images/wm.svg"), []byte("files/js/application.js"),
-	[]byte("files/js/commit.coffee"), []byte("files/lfs/lfs_object.iso"),
-	[]byte("files/markdown/ruby-style-guide.md"), []byte("files/ruby/popen.rb"),
-	[]byte("files/ruby/regex.rb"), []byte("files/ruby/version_info.rb"),
-	[]byte("files/whitespace"), []byte("foo/bar/.gitkeep"),
-	[]byte("gitaly/file-with-multiple-chunks"), []byte("gitaly/logo-white.png"),
-	[]byte("gitaly/mode-file"), []byte("gitaly/mode-file-with-mods"),
-	[]byte("gitaly/no-newline-at-the-end"), []byte("gitaly/renamed-file"),
-	[]byte("gitaly/renamed-file-with-mods"), []byte("gitaly/symlink-to-be-regular"),
-	[]byte("gitaly/tab\tnewline\n file"), []byte("gitaly/テスト.txt"),
-	[]byte("with space/README.md"),
-}
-
 func TestListFiles_success(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/test-do-not-touch")
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	tests := []struct {
-		desc     string
-		revision string
-		files    [][]byte
-	}{
-		{
-			desc:     "valid object ID",
-			revision: "54fcc214b94e78d7a41a9a8fe6d87a5e59500e51",
-			files: [][]byte{
-				[]byte(".gitignore"), []byte(".gitmodules"), []byte("CHANGELOG"),
-				[]byte("CONTRIBUTING.md"), []byte("Gemfile.zip"), []byte("LICENSE"),
-				[]byte("MAINTENANCE.md"), []byte("PROCESS.md"), []byte("README"),
-				[]byte("README.md"), []byte("VERSION"), []byte("encoding/feature-1.txt"),
-				[]byte("encoding/feature-2.txt"), []byte("encoding/hotfix-1.txt"), []byte("encoding/hotfix-2.txt"),
-				[]byte("encoding/iso8859.txt"), []byte("encoding/russian.rb"), []byte("encoding/test.txt"),
-				[]byte("encoding/テスト.txt"), []byte("encoding/テスト.xls"), []byte("files/html/500.html"),
-				[]byte("files/images/6049019_460s.jpg"), []byte("files/images/logo-black.png"), []byte("files/images/logo-white.png"),
-				[]byte("files/images/wm.svg"), []byte("files/js/application.js"), []byte("files/js/commit.js.coffee"),
-				[]byte("files/lfs/lfs_object.iso"), []byte("files/markdown/ruby-style-guide.md"), []byte("files/ruby/popen.rb"),
-				[]byte("files/ruby/regex.rb"), []byte("files/ruby/version_info.rb"), []byte("files/whitespace"),
-				[]byte("foo/bar/.gitkeep"),
-			},
-		},
-		{
-			desc:     "valid branch",
-			revision: "test-do-not-touch",
-			files:    defaultFiles,
-		},
-		{
-			desc:     "valid fully qualified branch",
-			revision: "refs/heads/test-do-not-touch",
-			files:    defaultFiles,
-		},
-		{
-			desc:     "missing object ID uses default branch",
-			revision: "",
-			files:    defaultFiles,
-		},
-		{
-			desc:     "invalid object ID",
-			revision: "1234123412341234",
-			files:    [][]byte{},
-		},
-		{
-			desc:     "invalid branch",
-			revision: "non/existing",
-			files:    [][]byte{},
-		},
-		{
-			desc:     "nonexisting fully qualified branch",
-			revision: "refs/heads/foobar",
-			files:    [][]byte{},
-		},
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Mode: "100644", Content: "content"},
+		gittest.TreeEntry{Path: "binary", Mode: "100644", Content: "\000something"},
+		gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{Path: "subfile", Mode: "100644", Content: "subcontent"},
+		})},
+	))
+	defaultPaths := [][]byte{
+		[]byte("file"),
+		[]byte("binary"),
+		[]byte("subdir/subfile"),
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			rpcRequest := gitalypb.ListFilesRequest{
-				Repository: repo, Revision: []byte(tc.revision),
-			}
+	differentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "different", Mode: "100644", Content: "different"},
+	))
 
-			c, err := client.ListFiles(ctx, &rpcRequest)
+	for _, tc := range []struct {
+		desc          string
+		request       *gitalypb.ListFilesRequest
+		expectedPaths [][]byte
+	}{
+		{
+			desc: "valid object ID",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte(commitID),
+			},
+			expectedPaths: defaultPaths,
+		},
+		{
+			desc: "HEAD",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte("HEAD"),
+			},
+			expectedPaths: defaultPaths,
+		},
+		{
+			desc: "valid branch",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte(git.DefaultBranch),
+			},
+			expectedPaths: defaultPaths,
+		},
+		{
+			desc: "valid fully qualified branch",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte(git.DefaultRef),
+			},
+			expectedPaths: defaultPaths,
+		},
+		{
+			desc: "non-default branch",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte(differentCommitID),
+			},
+			expectedPaths: [][]byte{[]byte("different")},
+		},
+		{
+			desc: "missing object ID uses default branch",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte{},
+			},
+			expectedPaths: defaultPaths,
+		},
+		{
+			desc: "invalid object ID",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte("1234123412341234"),
+			},
+			expectedPaths: [][]byte{},
+		},
+		{
+			desc: "invalid branch",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte("non/existing"),
+			},
+			expectedPaths: [][]byte{},
+		},
+		{
+			desc: "nonexisting fully qualified branch",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte("refs/heads/foobar"),
+			},
+			expectedPaths: [][]byte{},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			stream, err := client.ListFiles(ctx, tc.request)
 			require.NoError(t, err)
 
 			var files [][]byte
 			for {
-				resp, err := c.Recv()
+				resp, err := stream.Recv()
 				if err == io.EOF {
 					break
 				}
@@ -119,7 +136,7 @@ func TestListFiles_success(t *testing.T) {
 				files = append(files, resp.GetPaths()...)
 			}
 
-			require.ElementsMatch(t, files, tc.files)
+			require.ElementsMatch(t, files, tc.expectedPaths)
 		})
 	}
 }
