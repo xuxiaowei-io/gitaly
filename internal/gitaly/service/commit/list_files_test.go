@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
 func TestListFiles(t *testing.T) {
@@ -40,6 +39,8 @@ func TestListFiles(t *testing.T) {
 	differentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "different", Mode: "100644", Content: "different"},
 	))
+
+	emptyRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc          string
@@ -157,6 +158,21 @@ func TestListFiles(t *testing.T) {
 			},
 			expectedPaths: [][]byte{},
 		},
+		{
+			desc: "empty repository with unborn branch",
+			request: &gitalypb.ListFilesRequest{
+				Repository: emptyRepoProto,
+				Revision:   []byte(git.DefaultRef),
+			},
+		},
+		{
+			desc: "empty repository with missing revision",
+			request: &gitalypb.ListFilesRequest{
+				Repository: emptyRepoProto,
+				Revision:   []byte{},
+			},
+			expectedErr: structerr.NewFailedPrecondition("repository does not have a default branch"),
+		},
 	} {
 		tc := tc
 
@@ -182,80 +198,6 @@ func TestListFiles(t *testing.T) {
 			}
 
 			require.ElementsMatch(t, files, tc.expectedPaths)
-		})
-	}
-}
-
-func TestListFiles_unbornBranch(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, _, _, client := setupCommitServiceWithRepo(t, ctx)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
-
-	tests := []struct {
-		desc     string
-		revision string
-		code     codes.Code
-	}{
-		{
-			desc:     "HEAD",
-			revision: "HEAD",
-		},
-		{
-			desc:     "unborn branch",
-			revision: "refs/heads/master",
-		},
-		{
-			desc:     "nonexisting branch",
-			revision: "i-dont-exist",
-		},
-		{
-			desc:     "nonexisting fully qualified branch",
-			revision: "refs/heads/i-dont-exist",
-		},
-		{
-			desc:     "missing revision without default branch",
-			revision: "",
-			code:     codes.FailedPrecondition,
-		},
-		{
-			desc:     "valid object ID",
-			revision: "54fcc214b94e78d7a41a9a8fe6d87a5e59500e51",
-		},
-		{
-			desc:     "invalid object ID",
-			revision: "1234123412341234",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			rpcRequest := gitalypb.ListFilesRequest{
-				Repository: repo, Revision: []byte(tc.revision),
-			}
-
-			c, err := client.ListFiles(ctx, &rpcRequest)
-			require.NoError(t, err)
-
-			var files [][]byte
-			for {
-				var resp *gitalypb.ListFilesResponse
-				resp, err = c.Recv()
-				if err != nil {
-					break
-				}
-
-				require.NoError(t, err)
-				files = append(files, resp.GetPaths()...)
-			}
-
-			if tc.code != codes.OK {
-				testhelper.RequireGrpcCode(t, err, tc.code)
-			} else {
-				require.Equal(t, err, io.EOF)
-			}
-			require.Empty(t, files)
 		})
 	}
 }
