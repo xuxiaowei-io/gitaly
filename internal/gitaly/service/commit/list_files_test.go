@@ -3,19 +3,20 @@
 package commit
 
 import (
+	"errors"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestListFiles_success(t *testing.T) {
+func TestListFiles(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -44,7 +45,46 @@ func TestListFiles_success(t *testing.T) {
 		desc          string
 		request       *gitalypb.ListFilesRequest
 		expectedPaths [][]byte
+		expectedErr   error
 	}{
+		{
+			desc: "nil repo",
+			request: &gitalypb.ListFilesRequest{
+				Repository: nil,
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "empty repo object",
+			request: &gitalypb.ListFilesRequest{
+				Repository: &gitalypb.Repository{},
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+				"empty StorageName",
+				"repo scoped: invalid Repository",
+			)),
+		},
+		{
+			desc: "non-existing repo",
+			request: &gitalypb.ListFilesRequest{
+				Repository: &gitalypb.Repository{StorageName: "foo", RelativePath: "bar"},
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "foo"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+		{
+			desc: "invalid revision",
+			request: &gitalypb.ListFilesRequest{
+				Repository: repoProto,
+				Revision:   []byte("--output=/meow"),
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
+		},
 		{
 			desc: "valid object ID",
 			request: &gitalypb.ListFilesRequest{
@@ -129,10 +169,15 @@ func TestListFiles_success(t *testing.T) {
 			var files [][]byte
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if err != nil {
+					if !errors.Is(err, io.EOF) {
+						testhelper.RequireGrpcError(t, tc.expectedErr, err)
+					}
+
 					break
 				}
 				require.NoError(t, err)
+
 				files = append(files, resp.GetPaths()...)
 			}
 
@@ -213,83 +258,4 @@ func TestListFiles_unbornBranch(t *testing.T) {
 			require.Empty(t, files)
 		})
 	}
-}
-
-func TestListFiles_failure(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, client := setupCommitService(t, ctx)
-
-	tests := []struct {
-		desc        string
-		repo        *gitalypb.Repository
-		expectedErr error
-	}{
-		{
-			desc: "nil repo",
-			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc: "empty repo object",
-			repo: &gitalypb.Repository{},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty StorageName",
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc: "non-existing repo",
-			repo: &gitalypb.Repository{StorageName: "foo", RelativePath: "bar"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "foo"`,
-				"repo scoped: invalid Repository",
-			)),
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			rpcRequest := gitalypb.ListFilesRequest{
-				Repository: tc.repo, Revision: []byte("master"),
-			}
-
-			c, err := client.ListFiles(ctx, &rpcRequest)
-			require.NoError(t, err)
-
-			err = drainListFilesResponse(c)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-		})
-	}
-}
-
-func drainListFilesResponse(c gitalypb.CommitService_ListFilesClient) error {
-	var err error
-	for err == nil {
-		_, err = c.Recv()
-	}
-	if err == io.EOF {
-		return nil
-	}
-	return err
-}
-
-func TestListFiles_invalidRevision(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	stream, err := client.ListFiles(ctx, &gitalypb.ListFilesRequest{
-		Repository: repo,
-		Revision:   []byte("--output=/meow"),
-	})
-	require.NoError(t, err)
-
-	_, err = stream.Recv()
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
