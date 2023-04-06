@@ -17,6 +17,9 @@ func TestWriteTree(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
+	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
+	require.NoError(t, err)
+
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
@@ -44,9 +47,10 @@ func TestWriteTree(t *testing.T) {
 	require.NoError(t, os.Remove(nonExistentBlobPath))
 
 	for _, tc := range []struct {
-		desc            string
-		entries         []*TreeEntry
-		expectedEntries []TreeEntry
+		desc              string
+		entries           []*TreeEntry
+		expectedEntries   []TreeEntry
+		expectedErrString string
 	}{
 		{
 			desc: "entry with blob OID",
@@ -136,12 +140,57 @@ func TestWriteTree(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "entry with duplicate file",
+			entries: []*TreeEntry{
+				{
+					OID:  blobID,
+					Mode: "100644",
+					Path: "file",
+				},
+				{
+					OID:  nonExistentBlobID,
+					Mode: "100644",
+					Path: "file",
+				},
+			},
+			expectedErrString: "duplicateEntries: contains duplicate file entries",
+		},
+		{
+			desc: "entry with malformed mode",
+			entries: []*TreeEntry{
+				{
+					OID:  blobID,
+					Mode: "1006442",
+					Path: "file",
+				},
+			},
+			expectedErrString: "badFilemode: contains bad file modes",
+		},
+		{
+			desc: "tries to write .git file",
+			entries: []*TreeEntry{
+				{
+					OID:  blobID,
+					Mode: "040000",
+					Path: ".git",
+				},
+			},
+			expectedErrString: "hasDotgit: contains '.git'",
+		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
 			oid, err := repo.WriteTree(ctx, tc.entries)
+			if tc.expectedErrString != "" {
+				if gitVersion.HashObjectFsck() {
+					require.Contains(t, err.Error(), tc.expectedErrString)
+				}
+				return
+			}
+
 			require.NoError(t, err)
 
 			output := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-r", string(oid)))
