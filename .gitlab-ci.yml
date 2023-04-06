@@ -20,7 +20,7 @@ variables:
   GIT_VERSION: "default"
   GO_VERSION: "1.19"
   RUBY_VERSION: "3.0"
-  RUST_VERSION: "1.65.0"
+  RUST_VERSION: "1.65"
   POSTGRES_VERSION: "12-alpine"
   PGBOUNCER_VERSION: "1.17.0"
   GOCACHE: "${CI_PROJECT_DIR}/_build/cache/go-build"
