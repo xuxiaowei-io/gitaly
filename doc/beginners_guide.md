@@ -193,9 +193,16 @@ Because Praefect lives in the same repository we need to provide database connec
 information in order to run tests for it successfully. To get more info check out
 [glsql](../internal/praefect/datastore/glsql/doc.go) package documentation.
 
-The easiest way to set up a Postgres database instance is to run it as a Docker container:
+When you are using [GDK](https://gitlab.com/gitlab-org/gitlab-development-kit/)
+the easiest way to run a Postgres database is by running:
 
-```bash
+```shell
+gdk start db
+```
+
+Otherwise you can set up a Postgres database instance as a Docker container:
+
+```shell
 docker rm -f $(docker ps -q --all -f name=praefect-pg) > /dev/null 2>1; \
 docker run --name praefect-pg -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust -d postgres:12.6
 ```
