@@ -62,7 +62,7 @@ On completion a tarball of the benchmark output will be written to
 have a directory for each repository tested against each RPC containing:
 
 - `ghz.json` - Output in JSON format from [ghz](https://ghz.sh) for the run.
-- `gitaly.log` - The main Gitaly log file. Gitaly-Ruby logs are not included.
+- `gitaly.log` - The main Gitaly log file.
 
 To retrieve the 99th percentile duration in milliseconds from `ghz.json` use:
 

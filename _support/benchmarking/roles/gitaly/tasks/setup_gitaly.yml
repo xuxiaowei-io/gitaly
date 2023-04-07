@@ -31,14 +31,6 @@
     owner: git
     group: git
 
-- name: Create gitaly-ruby directory
-  file:
-    path: /opt/gitaly-ruby
-    state: directory
-    mode: '0755'
-    owner: git
-    group: git
-
 - name: Install Gitaly build dependencies
   apt:
     name:
@@ -80,7 +72,6 @@
     chdir: /src/gitaly
   environment:
     PATH: '/usr/local/go/bin:{{ ansible_env.PATH }}'
-    BUNDLE_PATH: '/src/gitaly/.ruby'
   become_user: git
 
 - name: Install Gitaly to /opt/gitaly
@@ -93,17 +84,7 @@
     chdir: /src/gitaly
   environment:
     PATH: '/usr/local/go/bin:{{ ansible_env.PATH }}'
-    BUNDLE_PATH: '/src/gitaly/.ruby'
   become_user: git
-
-- name:  Copy Gitaly-Ruby to ruby directory
-  copy:
-    src: /src/gitaly/ruby/
-    dest: /opt/gitaly-ruby/
-    owner: git
-    group: git
-    mode: '0755'
-    remote_src: true
 
 - name: Install Gitaly config
   template:

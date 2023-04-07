@@ -3,7 +3,6 @@ package testcfg
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
@@ -80,12 +79,6 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 	if cfg.BinDir == "" {
 		cfg.BinDir = filepath.Join(root, "bin.d")
 		require.NoError(tb, os.Mkdir(cfg.BinDir, perm.SharedDir))
-	}
-
-	if cfg.Ruby.Dir == "" {
-		_, currentFile, _, ok := runtime.Caller(0)
-		require.True(tb, ok, "could not get caller info")
-		cfg.Ruby.Dir = filepath.Join(filepath.Dir(currentFile), "../../../ruby")
 	}
 
 	if cfg.Logging.Dir == "" {

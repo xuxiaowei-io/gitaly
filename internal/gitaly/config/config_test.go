@@ -133,8 +133,7 @@ path="/tmp/repos2/"`)
 func TestLoadSentry(t *testing.T) {
 	tmpFile := strings.NewReader(`[logging]
 sentry_environment = "production"
-sentry_dsn = "abc123"
-ruby_sentry_dsn = "xyz456"`)
+sentry_dsn = "abc123"`)
 
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
@@ -144,7 +143,6 @@ ruby_sentry_dsn = "xyz456"`)
 			Environment: "production",
 			DSN:         "abc123",
 		}),
-		RubySentryDSN: "xyz456",
 	}, cfg.Logging)
 }
 
@@ -818,79 +816,6 @@ func TestValidateShellPath(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-		})
-	}
-}
-
-func TestConfigureRuby(t *testing.T) {
-	tmpDir := testhelper.TempDir(t)
-
-	tmpFile := filepath.Join(tmpDir, "file")
-	require.NoError(t, os.WriteFile(tmpFile, nil, perm.SharedFile))
-
-	testCases := []struct {
-		desc      string
-		dir       string
-		expErrMsg string
-	}{
-		{
-			desc: "relative path",
-			dir:  ".",
-		},
-		{
-			desc: "ok",
-			dir:  tmpDir,
-		},
-		{
-			desc:      "empty",
-			dir:       "",
-			expErrMsg: "gitaly-ruby.dir: is not set",
-		},
-		{
-			desc:      "does not exist",
-			dir:       "/does/not/exist",
-			expErrMsg: `gitaly-ruby.dir: path doesn't exist: "/does/not/exist"`,
-		},
-		{
-			desc:      "exists but is not a directory",
-			dir:       tmpFile,
-			expErrMsg: fmt.Sprintf(`gitaly-ruby.dir: not a directory: %q`, tmpFile),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{Ruby: Ruby{Dir: tc.dir}}
-
-			err := cfg.ConfigureRuby()
-			if tc.expErrMsg != "" {
-				require.EqualError(t, err, tc.expErrMsg)
-				return
-			}
-
-			require.NoError(t, err)
-
-			dir := cfg.Ruby.Dir
-			require.True(t, filepath.IsAbs(dir), "expected %q to be absolute path", dir)
-		})
-	}
-}
-
-func TestConfigureRubyNumWorkers(t *testing.T) {
-	testCases := []struct {
-		in, out uint
-	}{
-		{in: 0, out: 2},
-		{in: 1, out: 2},
-		{in: 2, out: 2},
-		{in: 3, out: 3},
-	}
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("%+v", tc), func(t *testing.T) {
-			cfg := Cfg{Ruby: Ruby{Dir: "/", NumWorkers: tc.in}}
-			require.NoError(t, cfg.ConfigureRuby())
-			require.Equal(t, tc.out, cfg.Ruby.NumWorkers)
 		})
 	}
 }
