@@ -30,7 +30,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 	ctx := testhelper.Context(t)
 	umask := perm.GetUmask()
 
-	cfg := testcfg.Build(t)
+	cfg := testcfg.Build(t, testcfg.WithStorages("default", "another-storage"))
 	testcfg.BuildGitaly(t, cfg)
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
@@ -49,35 +49,57 @@ func TestSetHooksSubcommand(t *testing.T) {
 		desc          string
 		setup         func() ([]string, *gitalypb.Repository)
 		hooks         io.Reader
-		error         string
+		expectedErr   string
 		expectedState testhelper.DirectoryState
 	}{
 		{
 			desc: "missing repository flag",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--config=" + configPath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--config=" + configPath,
+				}, repo
 			},
-			hooks: &bytes.Buffer{},
-			error: "Required flag \"repository\" not set\n",
+			hooks:       &bytes.Buffer{},
+			expectedErr: "Required flag \"repository\" not set\n",
 		},
 		{
 			desc: "missing config flag",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--repository=" + repo.RelativePath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--repository=" + repo.RelativePath,
+				}, repo
 			},
-			hooks: &bytes.Buffer{},
-			error: "Required flag \"c\" not set\n",
+			hooks:       &bytes.Buffer{},
+			expectedErr: "Required flag \"c\" not set\n",
 		},
 		{
-			desc: "virtual storage not found",
+			desc: "missing storage flag and config has multiple storages",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=non-existent", "--repository=" + repo.RelativePath, "--config=" + configPath}, repo
+				return []string{
+					"--repository=" + repo.RelativePath,
+					"--config=" + configPath,
+				}, repo
+			},
+			hooks:       &bytes.Buffer{},
+			expectedErr: "multiple storages configured: use --storage to target storage explicitly",
+		},
+		{
+			desc: "storage not found",
+			setup: func() ([]string, *gitalypb.Repository) {
+				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
+				return []string{
+					"--storage=non-existent",
+					"--repository=" + repo.RelativePath,
+					"--config=" + configPath,
+				}, repo
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
-			error: testhelper.GitalyOrPraefect(
+			expectedErr: testhelper.GitalyOrPraefect(
 				"getting repo path: GetStorageByName: no such storage: \"non-existent\"\n",
 				"rpc error: code = InvalidArgument desc = repo scoped: invalid Repository\n",
 			),
@@ -86,10 +108,14 @@ func TestSetHooksSubcommand(t *testing.T) {
 			desc: "repository not found",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--repository=non-existent", "--config=" + configPath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--repository=non-existent",
+					"--config=" + configPath,
+				}, repo
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
-			error: testhelper.GitalyOrPraefect(
+			expectedErr: testhelper.GitalyOrPraefect(
 				"getting repo path: GetRepoPath: not a git repository:",
 				"rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: repository \"default\"/\"non-existent\" not found\n",
 			),
@@ -98,7 +124,11 @@ func TestSetHooksSubcommand(t *testing.T) {
 			desc: "successfully set with empty hooks",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--repository=" + repo.RelativePath, "--config=" + configPath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--repository=" + repo.RelativePath,
+					"--config=" + configPath,
+				}, repo
 			},
 			hooks: &bytes.Buffer{},
 			expectedState: testhelper.DirectoryState{
@@ -109,7 +139,35 @@ func TestSetHooksSubcommand(t *testing.T) {
 			desc: "successfully set with hooks",
 			setup: func() ([]string, *gitalypb.Repository) {
 				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
-				return []string{"--storage=" + repo.StorageName, "--repository=" + repo.RelativePath, "--config=" + configPath}, repo
+				return []string{
+					"--storage=" + repo.StorageName,
+					"--repository=" + repo.RelativePath,
+					"--config=" + configPath,
+				}, repo
+			},
+			hooks: testhelper.MustCreateCustomHooksTar(t),
+			expectedState: testhelper.DirectoryState{
+				"custom_hooks/":            {Mode: umask.Mask(fs.ModePerm)},
+				"custom_hooks/pre-commit":  {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-commit content")},
+				"custom_hooks/pre-push":    {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-push content")},
+				"custom_hooks/pre-receive": {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-receive content")},
+			},
+		},
+		{
+			desc: "successfully set with hooks using default storage",
+			setup: func() ([]string, *gitalypb.Repository) {
+				// The default storage can only be determined if there is a single storage in the
+				// config. This test creates a config with only a single storage to verify a default
+				// storage value is being used.
+				singleStorageCfg := cfg
+				singleStorageCfg.Storages = singleStorageCfg.Storages[:1]
+				singleStorageCfgPath := testcfg.WriteTemporaryGitalyConfigFile(t, singleStorageCfg)
+
+				repo, _ := gittest.CreateRepository(t, ctx, repoCfg)
+				return []string{
+					"--repository=" + repo.RelativePath,
+					"--config=" + singleStorageCfgPath,
+				}, repo
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedState: testhelper.DirectoryState{
@@ -136,9 +194,9 @@ func TestSetHooksSubcommand(t *testing.T) {
 
 			err := cmd.Run()
 
-			if tc.error != "" {
+			if tc.expectedErr != "" {
 				require.Error(t, err)
-				require.Contains(t, stderr.String(), tc.error)
+				require.Contains(t, stderr.String(), tc.expectedErr)
 				require.False(t, cmd.ProcessState.Success())
 			} else {
 				require.Empty(t, stderr.String())
