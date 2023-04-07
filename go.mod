@@ -11,7 +11,7 @@ require (
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups v1.1.0
 	github.com/dgraph-io/badger/v3 v3.2103.5
-	github.com/getsentry/sentry-go v0.19.0
+	github.com/getsentry/sentry-go v0.20.0
 	github.com/git-lfs/git-lfs/v3 v3.3.0
 	github.com/go-enry/go-enry/v2 v2.8.4
 	github.com/go-enry/go-license-detector/v4 v4.3.0
@@ -148,7 +148,7 @@ require (
 	github.com/jdkato/prose v1.2.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.15.11 // indirect
+	github.com/klauspost/compress v1.16.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leonelquinteros/gotext v1.5.0 // indirect
 	github.com/lightstep/lightstep-tracer-common/golang/gogo v0.0.0-20210210170715-a8dfcb80d3a7 // indirect
