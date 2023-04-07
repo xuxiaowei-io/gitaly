@@ -372,7 +372,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			// We need to fix permissions so we don't fail to
 			// remove the temporary directory after the test.
 			defer func() {
-				require.NoError(t, FixDirectoryPermissions(ctx, repoPath))
+				require.NoError(t, perm.FixDirectoryPermissions(ctx, repoPath))
 			}()
 
 			for _, e := range tc.entries {

@@ -15,7 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
@@ -26,7 +25,6 @@ const (
 	emptyRefsGracePeriod             = 24 * time.Hour
 	deleteTempFilesOlderThanDuration = 7 * 24 * time.Hour
 	brokenRefsGracePeriod            = 24 * time.Hour
-	minimumDirPerm                   = perm.PrivateDir
 	lockfileGracePeriod              = 15 * time.Minute
 	referenceLockfileGracePeriod     = 1 * time.Hour
 	packedRefsLockGracePeriod        = 1 * time.Hour
@@ -516,42 +514,6 @@ func findServerInfo(ctx context.Context, repoPath string) ([]string, error) {
 	}
 
 	return serverInfoFiles, nil
-}
-
-// FixDirectoryPermissions does a recursive directory walk to look for
-// directories that cannot be accessed by the current user, and tries to
-// fix those with chmod. The motivating problem is that directories with mode
-// 0 break os.RemoveAll.
-func FixDirectoryPermissions(ctx context.Context, path string) error {
-	return fixDirectoryPermissions(ctx, path, make(map[string]struct{}))
-}
-
-func fixDirectoryPermissions(ctx context.Context, path string, retriedPaths map[string]struct{}) error {
-	logger := myLogger(ctx)
-	return filepath.Walk(path, func(path string, info os.FileInfo, errIncoming error) error {
-		if info == nil {
-			logger.WithFields(log.Fields{
-				"path": path,
-			}).WithError(errIncoming).Error("nil FileInfo in housekeeping.fixDirectoryPermissions")
-
-			return nil
-		}
-
-		if !info.IsDir() || info.Mode()&minimumDirPerm == minimumDirPerm {
-			return nil
-		}
-
-		if err := os.Chmod(path, info.Mode()|minimumDirPerm); err != nil {
-			return err
-		}
-
-		if _, retried := retriedPaths[path]; !retried && os.IsPermission(errIncoming) {
-			retriedPaths[path] = struct{}{}
-			return fixDirectoryPermissions(ctx, path, retriedPaths)
-		}
-
-		return nil
-	})
 }
 
 func removeRefEmptyDirs(ctx context.Context, repository *localrepo.Repo) (int, error) {

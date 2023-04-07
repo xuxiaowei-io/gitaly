@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
@@ -41,6 +42,32 @@ func New(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
 	}
+}
+
+// Quarantine return the repository quarantined. The quarantine directory becomes the repository's
+// main object directory and the original object directory is configured as an alternate.
+func (repo *Repo) Quarantine(quarantineDirectory string) (*Repo, error) {
+	pbRepo, ok := repo.GitRepo.(*gitalypb.Repository)
+	if !ok {
+		return nil, fmt.Errorf("unexpected repository type %t", repo.GitRepo)
+	}
+
+	repoPath, err := repo.Path()
+	if err != nil {
+		return nil, fmt.Errorf("repo path: %w", err)
+	}
+
+	quarantinedRepo, err := quarantine.Apply(repoPath, pbRepo, quarantineDirectory)
+	if err != nil {
+		return nil, fmt.Errorf("apply quarantine: %w", err)
+	}
+
+	return New(
+		repo.locator,
+		repo.gitCmdFactory,
+		repo.catfileCache,
+		quarantinedRepo,
+	), nil
 }
 
 // NewTestRepo constructs a Repo. It is intended as a helper function for tests which assembles
