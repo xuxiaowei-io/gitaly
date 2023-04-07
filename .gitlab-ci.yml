@@ -5,7 +5,7 @@ stages:
   - qa
 
 default:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images/debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-rust-${RUST_VERSION}:git-2.36
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images/debian-${DEBIAN_VERSION}-golang-${GO_VERSION}-rust-${RUST_VERSION}:git-2.36
   tags:
     - gitlab-org
   interruptible: true
@@ -281,7 +281,7 @@ test:sha256:
 
 test:fips:
   <<: *test_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images/ubi-${UBI_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-rust-${RUST_VERSION}:git-2.36
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images/ubi-${UBI_VERSION}-golang-${GO_VERSION}-rust-${RUST_VERSION}:git-2.36
   tags:
     - fips
   cache:
