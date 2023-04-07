@@ -10,7 +10,7 @@ As we collaborate on resolution of this issue, the Gitaly team will attempt to u
 
 _The goal is to keep these requests public. However, if customer information is required to the support request, please be sure to mark this issue as confidential._
 
-This request template is part of [Gitaly Team's intake process](https://about.gitlab.com/handbook/engineering/development/dev/gitaly/#how-to-contact-the-team).
+This request template is part of [Gitaly Team's intake process](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/#how-to-contact-the-team).
 
 ## Customer Information
 
@@ -35,7 +35,7 @@ This request template is part of [Gitaly Team's intake process](https://about.gi
 
 For a good rule of thumb, please refer to the bug prioritization framework located in the handbook here: https://about.gitlab.com/handbook/engineering/quality/issue-triage/#severity
 
-For S1 or S2 issues, please follow https://about.gitlab.com/handbook/engineering/development/dev/gitaly/#urgent-issues-and-outages .
+For S1 or S2 issues, please follow https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/#urgent-issues-and-outages .
 -->
 
 ### Problem Description
