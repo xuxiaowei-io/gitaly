@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupConflictsService(tb testing.TB, ctx context.Context, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
+func setupConflictsServiceWithoutRepo(tb testing.TB, hookManager hook.Manager) (config.Cfg, gitalypb.ConflictsServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	testcfg.BuildGitalyGit2Go(tb, cfg)
@@ -36,6 +36,12 @@ func setupConflictsService(tb testing.TB, ctx context.Context, hookManager hook.
 
 	client, conn := NewConflictsClient(tb, serverSocketPath)
 	tb.Cleanup(func() { conn.Close() })
+
+	return cfg, client
+}
+
+func setupConflictsService(tb testing.TB, ctx context.Context, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
+	cfg, client := setupConflictsServiceWithoutRepo(tb, hookManager)
 
 	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
