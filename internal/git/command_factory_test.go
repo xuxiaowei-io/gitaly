@@ -889,11 +889,6 @@ func TestWithTrace2Hooks(t *testing.T) {
 }
 
 func TestTrace2TracingExporter(t *testing.T) {
-	featureSet := testhelper.NewFeatureSets(featureflag.ExportTrace2Tracing)
-	featureSet.Run(t, testTrace2TracingExporter)
-}
-
-func testTrace2TracingExporter(t *testing.T, testCtx context.Context) {
 	for _, tc := range []struct {
 		desc          string
 		tracerOptions []testhelper.StubTracingReporterOption
@@ -953,7 +948,7 @@ func testTrace2TracingExporter(t *testing.T, testCtx context.Context) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Disable other hooks
-			testCtx := featureflag.ContextWithFeatureFlag(testCtx, featureflag.ExportTrace2PackObjectsMetrics, false)
+			testCtx := featureflag.ContextWithFeatureFlag(testhelper.Context(t), featureflag.ExportTrace2PackObjectsMetrics, false)
 
 			reporter, cleanup := testhelper.StubTracingReporter(t, tc.tracerOptions...)
 			defer cleanup()
@@ -964,12 +959,6 @@ func testTrace2TracingExporter(t *testing.T, testCtx context.Context) {
 			stats := command.StatsFromContext(ctx)
 			require.NotNil(t, stats)
 			statFields := stats.Fields()
-
-			if !featureflag.ExportTrace2Tracing.IsEnabled(ctx) {
-				require.NotContains(t, statFields, "trace2.activated")
-				require.NotContains(t, statFields, "trace2.hooks")
-				return
-			}
 
 			var spans []string
 			for _, span := range testhelper.ReportedSpans(t, reporter) {
@@ -1063,7 +1052,6 @@ func TestDefaultTrace2HooksFor(t *testing.T) {
 	t.Parallel()
 
 	featureSet := testhelper.NewFeatureSets(
-		featureflag.ExportTrace2Tracing,
 		featureflag.ExportTrace2PackObjectsMetrics,
 	)
 	featureSet.Run(t, testDefaultTrace2HooksFor)
@@ -1090,13 +1078,9 @@ func testDefaultTrace2HooksFor(t *testing.T, ctx context.Context) {
 			subCmd: "status",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
-				var hooks []trace2.Hook
-
-				if featureflag.ExportTrace2Tracing.IsEnabled(ctx) {
-					hooks = append(hooks, &trace2hooks.TracingExporter{})
+				return ctx, []trace2.Hook{
+					&trace2hooks.TracingExporter{},
 				}
-
-				return ctx, hooks
 			},
 		},
 		{
@@ -1113,10 +1097,8 @@ func testDefaultTrace2HooksFor(t *testing.T, ctx context.Context) {
 			subCmd: "pack-objects",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
-				var hooks []trace2.Hook
-
-				if featureflag.ExportTrace2Tracing.IsEnabled(ctx) {
-					hooks = append(hooks, &trace2hooks.TracingExporter{})
+				hooks := []trace2.Hook{
+					&trace2hooks.TracingExporter{},
 				}
 
 				if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) {

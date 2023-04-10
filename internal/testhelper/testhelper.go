@@ -203,7 +203,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LocalrepoReadObjectCached, rnd.Int()%2 == 0)
 
 	// Randomly enable the use of trace2 flags
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ExportTrace2Tracing, rnd.Int()%2 == 0)
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ExportTrace2PackObjectsMetrics, rnd.Int()%2 == 0)
 
 	// Randomly enable either Git v2.39 or Git v2.40.

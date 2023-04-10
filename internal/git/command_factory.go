@@ -90,7 +90,7 @@ func WithTrace2Hooks(hooks []trace2.Hook) ExecCommandFactoryOption {
 // Each hook's activation status will be evaluated before the command starts.
 func DefaultTrace2HooksFor(ctx context.Context, subCmd string) []trace2.Hook {
 	var hooks []trace2.Hook
-	if featureflag.ExportTrace2Tracing.IsEnabled(ctx) && tracing.IsSampled(ctx) {
+	if tracing.IsSampled(ctx) {
 		hooks = append(hooks, trace2hooks.NewTracingExporter())
 	}
 	if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) && subCmd == "pack-objects" {
