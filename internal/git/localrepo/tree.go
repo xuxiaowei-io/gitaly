@@ -97,6 +97,8 @@ var (
 	ErrEntryExists = errors.New("entry already exists")
 	// ErrPathTraversal indicates a path contains a traversal.
 	ErrPathTraversal = errors.New("path contains traversal")
+	ErrDirExists     = errors.New("directory already exists")
+	ErrInvalidPath   = errors.New("invalid path")
 )
 
 func validateFileCreationPath(path string) error {
@@ -297,6 +299,26 @@ func (t *TreeEntry) Delete(
 
 		return nil
 	})
+}
+
+// Exists deletes the entry of a current tree based on the path.
+func (t *TreeEntry) Get(
+	path string,
+) (*TreeEntry, error) {
+	if err := validateFileCreationPath(path); err != nil {
+		return nil, err
+	}
+
+	var result *TreeEntry
+
+	if err := t.recurse(path, func(currentTree, entry *TreeEntry, i int) error {
+		result = entry
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // Modify modifies an existing TreeEntry based on a path and a function to

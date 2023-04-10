@@ -130,17 +130,19 @@ func validatePath(rootPath, relPath string) (string, error) {
 // ErrNotFile indicates an error when a file was expected.
 var ErrNotFile = errors.New("not a file")
 
-func applyAction(ctx context.Context, action git2go.Action, treeish git.ObjectID, repo *localrepo.Repo) (git.ObjectID, error) {
-	var treeID git.ObjectID
+func applyAction(
+	ctx context.Context,
+	action git2go.Action,
+	root *localrepo.TreeEntry,
+	repo *localrepo.Repo,
+) error {
 	var err error
 	var path string
 
 	switch action := action.(type) {
 	case git2go.ChangeFileMode:
 		path = action.Path
-		treeID, err = repo.ModifyTreeEntry(
-			ctx,
-			git.Revision(treeish),
+		err = root.Modify(
 			action.Path,
 			func(entry *localrepo.TreeEntry) error {
 				if action.ExecutableMode {
@@ -157,9 +159,7 @@ func applyAction(ctx context.Context, action git2go.Action, treeish git.ObjectID
 			})
 	case git2go.UpdateFile:
 		path = action.Path
-		treeID, err = repo.ModifyTreeEntry(
-			ctx,
-			git.Revision(treeish),
+		err = root.Modify(
 			action.Path,
 			func(entry *localrepo.TreeEntry) error {
 				entry.OID = git.ObjectID(action.OID)
@@ -167,63 +167,85 @@ func applyAction(ctx context.Context, action git2go.Action, treeish git.ObjectID
 			})
 	case git2go.MoveFile:
 		path = action.NewPath
-		treeID, err = repo.DeleteTreeEntry(
-			ctx,
-			git.Revision(treeish),
+		err = root.Delete(
 			action.Path,
 		)
 		if err != nil {
-			return "", translateToGit2GoError(err, action.Path)
+			return translateToGit2GoError(err, action.Path)
 		}
 
-		if action.OID == "" {
-			info, err := repo.ReadObjectInfo(
-				ctx,
-				git.Revision(
-					fmt.Sprintf(
-						"%s:%s",
-						treeish,
-						action.Path,
+		/*
+			if action.OID == "" {
+				info, err := repo.ReadObjectInfo(
+					ctx,
+					git.Revision(
+						fmt.Sprintf(
+							"%s:%s",
+							treeish,
+							action.Path,
+						),
 					),
-				),
-			)
-			if err != nil {
-				return "", err
-			}
+				)
+				if err != nil {
+					return err
+				}
 
-			if !info.IsBlob() {
-				return "", translateToGit2GoError(ErrNotFile, action.Path)
+				if !info.IsBlob() {
+					return translateToGit2GoError(ErrNotFile, action.Path)
+				}
+				action.OID = string(info.ObjectID())
 			}
-			action.OID = string(info.ObjectID())
-		}
+		*/
 
-		treeID, err = repo.AddTreeEntry(
-			ctx,
-			git.Revision(treeID),
+		err = root.Add(
 			action.NewPath,
-			&localrepo.TreeEntry{
+			localrepo.TreeEntry{
 				OID:  git.ObjectID(action.OID),
 				Mode: "100644",
 				Path: filepath.Base(action.NewPath),
 			},
-			false,
-			true,
+			localrepo.WithOverwriteDirectory(),
 		)
 	case git2go.CreateDirectory:
 		path = action.Path
 
-		treeID, err = repo.AddTreeEntry(
-			ctx,
-			git.Revision(treeish),
-			path,
-			&localrepo.TreeEntry{
-				Mode: "040000",
-				Path: filepath.Base(path),
-				Type: localrepo.Tree,
+		if entry, err := root.Get(path); err != nil && !errors.Is(err, localrepo.ErrEntryNotFound) {
+			return err
+		} else if entry != nil {
+			switch entry.Type {
+			case localrepo.Blob:
+				return git2go.IndexError{
+					Path: path,
+					Type: git2go.ErrFileExists,
+				}
+			case localrepo.Tree:
+				return git2go.IndexError{
+					Path: path,
+					Type: git2go.ErrDirectoryExists,
+				}
+			}
+		}
+
+		blobID, err := repo.WriteBlob(ctx, filepath.Join(path, ".gitkeep"), strings.NewReader(""))
+		if err != nil {
+			return err
+		}
+
+		err = root.Add(
+			filepath.Join(path, ".gitkeep"),
+			localrepo.TreeEntry{
+				Mode: "100644",
+				Path: ".gitkeep",
+				Type: localrepo.Blob,
+				OID:  blobID,
 			},
-			false,
-			false,
 		)
+		if errors.Is(err, localrepo.ErrEntryExists) {
+			return git2go.IndexError{
+				Path: path,
+				Type: git2go.ErrDirectoryExists,
+			}
+		}
 	case git2go.CreateFile:
 		path = action.Path
 		mode := "100644"
@@ -231,30 +253,25 @@ func applyAction(ctx context.Context, action git2go.Action, treeish git.ObjectID
 			mode = "100755"
 		}
 
-		treeID, err = repo.AddTreeEntry(
-			ctx,
-			git.Revision(treeish),
+		err = root.Add(
 			action.Path,
-			&localrepo.TreeEntry{
+			localrepo.TreeEntry{
 				OID:  git.ObjectID(action.OID),
 				Path: filepath.Base(action.Path),
 				Mode: mode,
 			},
-			false,
-			true,
+			localrepo.WithOverwriteDirectory(),
 		)
 	case git2go.DeleteFile:
 		path = action.Path
-		treeID, err = repo.DeleteTreeEntry(
-			ctx,
-			git.Revision(treeish),
+		err = root.Delete(
 			action.Path,
 		)
 	default:
-		return "", errors.New("unsupported action")
+		return errors.New("unsupported action")
 	}
 
-	return treeID, translateToGit2GoError(err, path)
+	return translateToGit2GoError(err, path)
 }
 
 func translateToGit2GoError(err error, path string) error {
@@ -324,12 +341,44 @@ func (s *Server) userCommitFilesGit(
 		}
 	}
 
+	treeEntry := &localrepo.TreeEntry{
+		Mode: "040000",
+		Type: localrepo.Tree,
+	}
+
+	if treeish != "" {
+		treeEntry, err = quarantineRepo.GetFullTree(ctx, git.Revision(treeish))
+		if err != nil {
+			fmt.Printf("Err %s\n", err)
+			return "", err
+		}
+	}
+
+	fmt.Printf("actions %d\n", len(actions))
+
 	for _, action := range actions {
-		if treeish, err = applyAction(
+		if err = applyAction(
 			ctx,
 			action,
-			treeish,
-			quarantineRepo); err != nil {
+			treeEntry,
+			quarantineRepo,
+		); err != nil {
+			fmt.Printf("error: %s\n", err)
+			return "", err
+		}
+	}
+
+	fmt.Printf("Tree: %+v %d\n", treeEntry, len(treeEntry.Entries))
+	if len(actions) > 0 {
+		fmt.Println("writing actions")
+		treeish, err = quarantineRepo.WriteTreeRecursively(
+			ctx,
+			treeEntry,
+		)
+
+		fmt.Printf("treeish %s\n", treeish)
+		if err != nil {
+			fmt.Printf("ERRRRRR %s\n", err)
 			return "", err
 		}
 	}
