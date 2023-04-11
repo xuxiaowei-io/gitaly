@@ -23,28 +23,21 @@ func NewFilesystemSink(path string) *FilesystemSink {
 	}
 }
 
-// Write creates required file structure and stored data from r into relativePath location.
-// If created file is empty it will be removed.
-func (fs *FilesystemSink) Write(ctx context.Context, relativePath string, r io.Reader) (returnErr error) {
+// GetWriter opens a io.WriteCloser that can be used to write data into a
+// relativePath path on the filesystem. It is the callers responsibility to
+// Close the writer after usage.
+func (fs *FilesystemSink) GetWriter(ctx context.Context, relativePath string) (io.WriteCloser, error) {
 	path := filepath.Join(fs.path, relativePath)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, perm.PrivateDir); err != nil {
-		return fmt.Errorf("create directory structure %q: %w", dir, err)
+		return nil, fmt.Errorf("create directory structure %q: %w", dir, err)
 	}
 
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perm.PrivateFile)
 	if err != nil {
-		return fmt.Errorf("write file %q: %w", path, err)
+		return nil, fmt.Errorf("write file %q: %w", path, err)
 	}
-	defer func() {
-		if err := f.Close(); err != nil && returnErr == nil {
-			returnErr = fmt.Errorf("write file %q: %w", path, err)
-		}
-	}()
-	if _, err := io.Copy(f, r); err != nil {
-		return fmt.Errorf("write file %q: %w", path, err)
-	}
-	return nil
+	return f, nil
 }
 
 // GetReader returns a reader of the requested file path.

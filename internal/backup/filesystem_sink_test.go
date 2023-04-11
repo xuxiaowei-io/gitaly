@@ -51,7 +51,7 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 	})
 }
 
-func TestFilesystemSink_Write(t *testing.T) {
+func TestFilesystemSink_GetWriter(t *testing.T) {
 	t.Parallel()
 
 	t.Run("ok", func(t *testing.T) {
@@ -62,7 +62,13 @@ func TestFilesystemSink_Write(t *testing.T) {
 		const relativePath = "nested/dir/test.dat"
 
 		fsSink := NewFilesystemSink(dir)
-		require.NoError(t, fsSink.Write(ctx, relativePath, strings.NewReader("test")))
+		w, err := fsSink.GetWriter(ctx, relativePath)
+		require.NoError(t, err)
+
+		_, err = io.Copy(w, strings.NewReader("test"))
+		require.NoError(t, err)
+
+		require.NoError(t, w.Close())
 
 		require.FileExists(t, filepath.Join(dir, relativePath))
 		data, err := os.ReadFile(filepath.Join(dir, relativePath))
@@ -82,7 +88,13 @@ func TestFilesystemSink_Write(t *testing.T) {
 		require.NoError(t, os.WriteFile(fullPath, []byte("initial"), perm.SharedFile))
 
 		fsSink := NewFilesystemSink(dir)
-		require.NoError(t, fsSink.Write(ctx, relativePath, strings.NewReader("test")))
+		w, err := fsSink.GetWriter(ctx, relativePath)
+		require.NoError(t, err)
+
+		_, err = io.Copy(w, strings.NewReader("test"))
+		require.NoError(t, err)
+
+		require.NoError(t, w.Close())
 
 		require.FileExists(t, fullPath)
 		data, err := os.ReadFile(fullPath)
@@ -99,7 +111,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "nested"), []byte("lock"), perm.PublicFile))
 
 		fsSink := NewFilesystemSink(dir)
-		err := fsSink.Write(ctx, relativePath, strings.NewReader("test"))
+		_, err := fsSink.GetWriter(ctx, relativePath)
 		require.EqualError(t, err, fmt.Sprintf(`create directory structure %[1]q: mkdir %[1]s: not a directory`, filepath.Join(dir, "nested")))
 	})
 }

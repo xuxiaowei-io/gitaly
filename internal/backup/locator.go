@@ -214,10 +214,20 @@ func (l PointerLocator) findLatestID(ctx context.Context, backupPath string) (st
 	return text.ChompBytes(latest), nil
 }
 
-func (l PointerLocator) writeLatest(ctx context.Context, path, target string) error {
-	latest := strings.NewReader(target)
-	if err := l.Sink.Write(ctx, filepath.Join(path, "LATEST"), latest); err != nil {
+func (l PointerLocator) writeLatest(ctx context.Context, path, target string) (returnErr error) {
+	latest, err := l.Sink.GetWriter(ctx, filepath.Join(path, "LATEST"))
+	if err != nil {
 		return fmt.Errorf("write latest: %w", err)
 	}
+	defer func() {
+		if err := latest.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("write latest: %w", err)
+		}
+	}()
+
+	if _, err := latest.Write([]byte(target)); err != nil {
+		return fmt.Errorf("write latest: %w", err)
+	}
+
 	return nil
 }

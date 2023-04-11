@@ -68,8 +68,9 @@ func (s *StorageServiceSink) Close() error {
 	return nil
 }
 
-// Write stores data from the r into a relativePath path on the configured bucket.
-func (s *StorageServiceSink) Write(ctx context.Context, relativePath string, r io.Reader) error {
+// GetWriter stores the written data into a relativePath path on the configured
+// bucket. It is the callers responsibility to Close the reader after usage.
+func (s *StorageServiceSink) GetWriter(ctx context.Context, relativePath string) (io.WriteCloser, error) {
 	writer, err := s.bucket.NewWriter(ctx, relativePath, &blob.WriterOptions{
 		// 'no-store' - we don't want the backup to be cached as the content could be changed,
 		// so we always want a fresh and up to date data
@@ -80,19 +81,9 @@ func (s *StorageServiceSink) Write(ctx context.Context, relativePath string, r i
 		ContentType:  "application/octet-stream",
 	})
 	if err != nil {
-		return fmt.Errorf("storage service sink: new writer for %q: %w", relativePath, err)
+		return nil, fmt.Errorf("storage service sink: new writer for %q: %w", relativePath, err)
 	}
-	defer func() { _ = writer.Close() }()
-
-	if _, err := io.Copy(writer, r); err != nil {
-		return fmt.Errorf("storage service sink: coping data for %q: %w", relativePath, err)
-	}
-
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("storage service sink: finalise creation for %q: %w", relativePath, err)
-	}
-
-	return nil
+	return writer, nil
 }
 
 // GetReader returns a reader to consume the data from the configured bucket.

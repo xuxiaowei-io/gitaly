@@ -30,8 +30,9 @@ var errEmptyBundle = errors.New("empty bundle")
 
 // Sink is an abstraction over the real storage used for storing/restoring backups.
 type Sink interface {
-	// Write saves all the data from the r by relativePath.
-	Write(ctx context.Context, relativePath string, r io.Reader) error
+	// GetWriter saves the written data to relativePath. It is the callers
+	// responsibility to call Close and check any subsequent errors.
+	GetWriter(ctx context.Context, relativePath string) (io.WriteCloser, error)
 	// GetReader returns a reader that servers the data stored by relativePath.
 	// If relativePath doesn't exists the ErrDoesntExist will be returned.
 	GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error)
@@ -294,7 +295,7 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.ServerInfo, repo *gitalypb.Repository, refs []*gitalypb.ListRefsResponse_Reference) error {
+func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.ServerInfo, repo *gitalypb.Repository, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
 	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return err
@@ -323,6 +324,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
+
 	bundle := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		if structerr.GRPCCode(err) == codes.FailedPrecondition {
@@ -330,13 +332,22 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 		}
 		return resp.GetData(), err
 	})
+	w := NewLazyWriter(func() (io.WriteCloser, error) {
+		return mgr.sink.GetWriter(ctx, step.BundlePath)
+	})
+	defer func() {
+		if err := w.Close(); err != nil && returnErr == nil {
+			returnErr = err
+		}
+	}()
 
-	if err := LazyWrite(ctx, mgr.sink, step.BundlePath, bundle); err != nil {
+	if _, err := io.Copy(w, bundle); err != nil {
 		if errors.Is(err, errEmptyBundle) {
 			return fmt.Errorf("%T write: %w: no changes to bundle", mgr.sink, ErrSkipped)
 		}
 		return fmt.Errorf("%T write: %w", mgr.sink, err)
 	}
+
 	return nil
 }
 
@@ -446,7 +457,10 @@ func (mgr *Manager) writeCustomHooks(ctx context.Context, path string, server st
 		resp, err := stream.Recv()
 		return resp.GetData(), err
 	})
-	if err := LazyWrite(ctx, mgr.sink, path, hooks); err != nil {
+	w := NewLazyWriter(func() (io.WriteCloser, error) {
+		return mgr.sink.GetWriter(ctx, path)
+	})
+	if _, err := io.Copy(w, hooks); err != nil {
 		return fmt.Errorf("%T write: %w", mgr.sink, err)
 	}
 	return nil
@@ -524,24 +538,22 @@ func (mgr *Manager) listRefs(ctx context.Context, server storage.ServerInfo, rep
 
 // writeRefs writes the previously fetched list of refs in the same output
 // format as `git-show-ref(1)`
-func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb.ListRefsResponse_Reference) error {
-	r, w := io.Pipe()
-	go func() {
-		var err error
-		defer func() {
-			_ = w.CloseWithError(err) // io.PipeWriter.Close* does not return an error
-		}()
-		for _, ref := range refs {
-			_, err = fmt.Fprintf(w, "%s %s\n", ref.GetTarget(), ref.GetName())
-			if err != nil {
-				return
-			}
+func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
+	w, err := mgr.sink.GetWriter(ctx, path)
+	if err != nil {
+		return fmt.Errorf("write refs: %w", err)
+	}
+	defer func() {
+		if err := w.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("write refs: %w", err)
 		}
 	}()
 
-	err := mgr.sink.Write(ctx, path, r)
-	if err != nil {
-		return fmt.Errorf("write refs: %w", err)
+	for _, ref := range refs {
+		_, err = fmt.Fprintf(w, "%s %s\n", ref.GetTarget(), ref.GetName())
+		if err != nil {
+			return fmt.Errorf("write refs: %w", err)
+		}
 	}
 
 	return nil

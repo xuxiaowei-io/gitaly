@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -116,7 +115,7 @@ func TestPointerLocator(t *testing.T) {
 
 		for _, tc := range []struct {
 			desc             string
-			setup            func(tb testing.TB, ctx context.Context, sink Sink)
+			setup            func(tb testing.TB, ctx context.Context, backupPath string)
 			expectedBackupID string
 			expectedOffset   int
 		}{
@@ -128,9 +127,10 @@ func TestPointerLocator(t *testing.T) {
 				desc:             "with previous backup",
 				expectedBackupID: "abc123",
 				expectedOffset:   1,
-				setup: func(tb testing.TB, ctx context.Context, sink Sink) {
-					require.NoError(tb, sink.Write(ctx, filepath.Join(repo.RelativePath, "LATEST"), strings.NewReader("abc123")))
-					require.NoError(tb, sink.Write(ctx, filepath.Join(repo.RelativePath, "abc123", "LATEST"), strings.NewReader("001")))
+				setup: func(tb testing.TB, ctx context.Context, backupPath string) {
+					require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, "abc123"), perm.SharedDir))
+					require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte("abc123"), perm.SharedFile))
+					require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "abc123", "LATEST"), []byte("001"), perm.SharedFile))
 				},
 			},
 		} {
@@ -144,7 +144,7 @@ func TestPointerLocator(t *testing.T) {
 				var l Locator = PointerLocator{Sink: sink}
 
 				if tc.setup != nil {
-					tc.setup(t, ctx, sink)
+					tc.setup(t, ctx, backupPath)
 				}
 
 				var expected *Step
