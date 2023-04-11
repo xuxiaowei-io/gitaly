@@ -74,6 +74,18 @@ type Locator interface {
 	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
 }
 
+// Repository abstracts git access required to make a repository backup
+type Repository interface {
+	// IsEmpty returns true if the repository has no branches.
+	IsEmpty(ctx context.Context) (bool, error)
+	// ListRefs fetches the full set of refs and targets for the repository.
+	ListRefs(ctx context.Context) ([]git.Reference, error)
+	// GetCustomHooks fetches the custom hooks archive.
+	GetCustomHooks(ctx context.Context) (io.Reader, error)
+	// CreateBundle fetches a bundle that contains refs matching patterns.
+	CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error
+}
+
 // ResolveLocator returns a locator implementation based on a locator identifier.
 func ResolveLocator(layout string, sink Sink) (Locator, error) {
 	legacy := LegacyLocator{}
@@ -284,7 +296,7 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, repo *remoteRepository, step *Step, refs []git.Reference) (returnErr error) {
+func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step, refs []git.Reference) (returnErr error) {
 	negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 	if err != nil {
 		return err
@@ -420,7 +432,7 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 	return nil
 }
 
-func (mgr *Manager) writeCustomHooks(ctx context.Context, repo *remoteRepository, path string) error {
+func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) error {
 	hooks, err := repo.GetCustomHooks(ctx)
 	if err != nil {
 		return err
