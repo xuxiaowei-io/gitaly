@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -29,12 +30,13 @@ func (s *server) ListLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 }
 
 func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
-	cmd, parser, err := s.newLSTreeParser(in, stream)
+	ctx := stream.Context()
+
+	cmd, parser, err := s.newLSTreeParser(ctx, in)
 	if err != nil {
 		return err
 	}
 
-	ctx := stream.Context()
 	repo := s.localrepo(in.GetRepository())
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
@@ -108,14 +110,14 @@ func getLSTreeEntries(parser *localrepo.Parser) (localrepo.Entries, error) {
 	return entries, nil
 }
 
-func (s *server) newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) (*command.Command, *localrepo.Parser, error) {
+func (s *server) newLSTreeParser(ctx context.Context, in *gitalypb.ListLastCommitsForTreeRequest) (*command.Command, *localrepo.Parser, error) {
 	path := string(in.GetPath())
 	if path == "" || path == "/" {
 		path = "."
 	}
 
 	opts := git.ConvertGlobalOptions(in.GetGlobalOptions())
-	cmd, err := s.gitCmdFactory.New(stream.Context(), in.GetRepository(), git.Command{
+	cmd, err := s.gitCmdFactory.New(ctx, in.GetRepository(), git.Command{
 		Name:        "ls-tree",
 		Flags:       []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--full-name"}},
 		Args:        []string{in.GetRevision()},
