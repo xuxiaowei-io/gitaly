@@ -447,6 +447,13 @@ trigger-qa:
     GITALY_SERVER_ALTERNATIVE_REPO: $CI_PROJECT_URL
     ee: "true"
   rules:
+    - if: $CI_MERGE_REQUEST_IID
+      changes:
+        - go.sum
+      variables:
+        BUILD_ON_ALL_OS: "true"
+        MANUAL_QA_TEST: "true"
+      allow_failure: false
     - when: manual
       allow_failure: true
 
