@@ -124,6 +124,11 @@ func newLSTreeParser(
 		path = "."
 	}
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	opts := git.ConvertGlobalOptions(in.GetGlobalOptions())
 	cmd, err := repo.Exec(ctx, git.Command{
 		Name:        "ls-tree",
@@ -135,7 +140,7 @@ func newLSTreeParser(
 		return nil, nil, err
 	}
 
-	return cmd, localrepo.NewParser(cmd, git.ObjectHashSHA1), nil
+	return cmd, localrepo.NewParser(cmd, objectHash), nil
 }
 
 func sendCommitsForTree(batch []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
