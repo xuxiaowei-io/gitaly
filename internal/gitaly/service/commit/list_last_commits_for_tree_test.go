@@ -8,7 +8,6 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -326,6 +325,31 @@ func TestListLastCommitsForTree(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "non-utf8 filename",
+			setup: func(t *testing.T) setupData {
+				path := "hello\x80world"
+				require.False(t, utf8.ValidString(path))
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Mode: "100644", Path: path, Content: "something"},
+				))
+
+				commit, err := repo.ReadCommit(ctx, commitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   commitID.String(),
+						Limit:      25,
+					},
+					expectedCommits: []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
+						commitResponse(path, commit),
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -356,66 +380,4 @@ func TestListLastCommitsForTree(t *testing.T) {
 			testhelper.ProtoEqual(t, setup.expectedCommits, commits)
 		})
 	}
-}
-
-func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
-
-	// This is an arbitrary blob known to exist in the test repository
-	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
-
-	nonUTF8Filename := "hello\x80world"
-	require.False(t, utf8.ValidString(nonUTF8Filename))
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
-			Mode: "100644", Path: nonUTF8Filename, OID: blobID,
-		}),
-	)
-
-	request := &gitalypb.ListLastCommitsForTreeRequest{
-		Repository: repo,
-		Revision:   commitID.String(),
-		Limit:      100,
-		Offset:     0,
-	}
-
-	stream, err := client.ListLastCommitsForTree(ctx, request)
-	require.NoError(t, err)
-
-	assert.True(t, fileExistsInCommits(t, stream, nonUTF8Filename))
-}
-
-func fileExistsInCommits(t *testing.T, stream gitalypb.CommitService_ListLastCommitsForTreeClient, path string) bool {
-	t.Helper()
-
-	for _, commitPath := range fetchCommitPaths(t, stream) {
-		if commitPath == path {
-			return true
-		}
-	}
-
-	return false
-}
-
-func fetchCommitPaths(t *testing.T, stream gitalypb.CommitService_ListLastCommitsForTreeClient) []string {
-	t.Helper()
-
-	var files []string
-	for {
-		response, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		for _, commit := range response.GetCommits() {
-			files = append(files, string(commit.PathBytes))
-		}
-	}
-
-	return files
 }
