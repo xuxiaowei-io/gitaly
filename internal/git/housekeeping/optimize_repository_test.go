@@ -784,6 +784,34 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				}
 			},
 		},
+		{
+			desc: "failing repack",
+			setup: func(t *testing.T, relativePath string) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+
+				gitCmdFactory := errorInjectingCommandFactory{
+					CommandFactory: gittest.NewCommandFactory(t, cfg),
+					injectedErrors: map[string]error{
+						"repack": assert.AnError,
+					},
+				}
+
+				return setupData{
+					repo: localrepo.New(config.NewLocator(cfg), gitCmdFactory, nil, repo),
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "failure", count: 1},
+						{name: "written_bitmap", status: "failure", count: 1},
+						{name: "written_multi_pack_index", status: "failure", count: 1},
+						{name: "total", status: "failure", count: 1},
+					},
+					expectedErr: fmt.Errorf("could not repack: %w", fmt.Errorf("repack failed: %w", assert.AnError)),
+				}
+			},
+		},
 	} {
 		tc := tc
 
