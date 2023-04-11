@@ -2,10 +2,13 @@ package housekeeping
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -185,11 +188,24 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		}
 	}
 
-	if err := repo.ExecAndWait(ctx, git.Command{
-		Name:  "repack",
-		Flags: options,
-	}, git.WithConfig(GetRepackGitConfig(ctx, repo, cfg.WriteBitmap)...)); err != nil {
-		return err
+	var stderr strings.Builder
+	if err := repo.ExecAndWait(ctx,
+		git.Command{
+			Name:  "repack",
+			Flags: options,
+		},
+		git.WithConfig(GetRepackGitConfig(ctx, repo, cfg.WriteBitmap)...),
+		git.WithStderr(&stderr),
+	); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// We do not embed the `exec.ExitError` directly as it wouldn't typically
+			// contain any useful information anyway except for its error code. So we
+			// instead only expose what matters and attach stderr to the error metadata.
+			return structerr.New("repack failed with error code %d", exitErr.ExitCode()).WithMetadata("stderr", stderr.String())
+		}
+
+		return fmt.Errorf("repack failed: %w", err)
 	}
 
 	return nil

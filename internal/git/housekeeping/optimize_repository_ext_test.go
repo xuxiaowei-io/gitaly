@@ -1,6 +1,7 @@
 package housekeeping_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,27 +12,26 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestPruneIfNeeded(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testPruneIfNeeded)
+}
 
-	ctx := testhelper.Context(t)
+func testPruneIfNeeded(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
@@ -53,9 +53,9 @@ func TestPruneIfNeeded(t *testing.T) {
 				filepath.Join("ab/12345"),
 			},
 			expectedLogEntries: map[string]string{
-				"packed_objects_incremental": "success",
-				"written_bitmap":             "success",
-				"written_multi_pack_index":   "success",
+				geometricOrIncrementalLog(ctx): "success",
+				"written_bitmap":               "success",
+				"written_multi_pack_index":     "success",
 			},
 		},
 		{
@@ -64,9 +64,9 @@ func TestPruneIfNeeded(t *testing.T) {
 				filepath.Join("17/12345"),
 			},
 			expectedLogEntries: map[string]string{
-				"packed_objects_incremental": "success",
-				"written_bitmap":             "success",
-				"written_multi_pack_index":   "success",
+				geometricOrIncrementalLog(ctx): "success",
+				"written_bitmap":               "success",
+				"written_multi_pack_index":     "success",
 			},
 		},
 		{
@@ -78,9 +78,9 @@ func TestPruneIfNeeded(t *testing.T) {
 				filepath.Join("17/12345"),
 			},
 			expectedLogEntries: map[string]string{
-				"packed_objects_incremental": "success",
-				"written_bitmap":             "success",
-				"written_multi_pack_index":   "success",
+				geometricOrIncrementalLog(ctx): "success",
+				"written_bitmap":               "success",
+				"written_multi_pack_index":     "success",
 			},
 		},
 		{
@@ -98,9 +98,9 @@ func TestPruneIfNeeded(t *testing.T) {
 				return looseObjects
 			}(),
 			expectedLogEntries: map[string]string{
-				"packed_objects_incremental": "success",
-				"written_bitmap":             "success",
-				"written_multi_pack_index":   "success",
+				geometricOrIncrementalLog(ctx): "success",
+				"written_bitmap":               "success",
+				"written_multi_pack_index":     "success",
 			},
 		},
 		{
@@ -121,9 +121,9 @@ func TestPruneIfNeeded(t *testing.T) {
 				return &t
 			}(),
 			expectedLogEntries: map[string]string{
-				"packed_objects_incremental": "success",
-				"written_bitmap":             "success",
-				"written_multi_pack_index":   "success",
+				geometricOrIncrementalLog(ctx): "success",
+				"written_bitmap":               "success",
+				"written_multi_pack_index":     "success",
 			},
 		},
 		{
@@ -144,10 +144,10 @@ func TestPruneIfNeeded(t *testing.T) {
 				return &t
 			}(),
 			expectedLogEntries: map[string]string{
-				"packed_objects_incremental": "success",
-				"pruned_objects":             "success",
-				"written_bitmap":             "success",
-				"written_multi_pack_index":   "success",
+				geometricOrIncrementalLog(ctx): "success",
+				"pruned_objects":               "success",
+				"written_bitmap":               "success",
+				"written_multi_pack_index":     "success",
 			},
 		},
 	} {
@@ -187,91 +187,9 @@ func TestPruneIfNeeded(t *testing.T) {
 	}
 }
 
-func TestOptimizeRepository_objectPoolMember(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-	manager := housekeeping.NewManager(cfg.Prometheus, txManager)
-	catfileCache := catfile.NewCache(cfg)
-	defer catfileCache.Stop()
-
-	for _, tc := range []struct {
-		desc                string
-		strategyConstructor housekeeping.OptimizationStrategyConstructor
-		expectedLogEntries  map[string]string
-	}{
-		{
-			desc: "eager",
-			strategyConstructor: func(repoInfo stats.RepositoryInfo) housekeeping.OptimizationStrategy {
-				return housekeeping.NewEagerOptimizationStrategy(repoInfo)
-			},
-			expectedLogEntries: map[string]string{
-				"packed_refs":                    "success",
-				"pruned_objects":                 "success",
-				"packed_objects_full_with_cruft": "success",
-				"written_commit_graph_full":      "success",
-				"written_multi_pack_index":       "success",
-			},
-		},
-		{
-			desc: "heuristical",
-			strategyConstructor: func(repoInfo stats.RepositoryInfo) housekeeping.OptimizationStrategy {
-				return housekeeping.NewHeuristicalOptimizationStrategy(repoInfo)
-			},
-			expectedLogEntries: map[string]string{
-				"packed_objects_incremental": "success",
-				"written_commit_graph_full":  "success",
-				"written_multi_pack_index":   "success",
-			},
-		},
-	} {
-		tc := tc
-
-		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
-
-			// Create the pool member with a commit that is going to be pulled into the
-			// object pool.
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				SkipCreationViaService: true,
-			})
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-			sharedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-			// Create the object pool and link the member to it.
-			pool, err := objectpool.Create(
-				ctx,
-				config.NewLocator(cfg),
-				gittest.NewCommandFactory(t, cfg),
-				catfileCache,
-				txManager,
-				manager,
-				&gitalypb.ObjectPool{
-					Repository: &gitalypb.Repository{
-						StorageName:  cfg.Storages[0].Name,
-						RelativePath: gittest.NewObjectPoolName(t),
-					},
-				},
-				repo,
-			)
-			require.NoError(t, err)
-			require.NoError(t, pool.Link(ctx, repo))
-
-			// Write another commit in the pool member. This commit is not shared
-			// between the pool and its member.
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(sharedCommit), gittest.WithBranch("main"))
-
-			logger, hook := test.NewNullLogger()
-			ctx := ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
-
-			require.NoError(t, manager.OptimizeRepository(ctx, repo,
-				housekeeping.WithOptimizationStrategyConstructor(tc.strategyConstructor),
-			))
-
-			require.Equal(t, tc.expectedLogEntries, hook.Entries[len(hook.Entries)-1].Data["optimizations"])
-		})
+func geometricOrIncrementalLog(ctx context.Context) string {
+	if featureflag.GeometricRepacking.IsEnabled(ctx) {
+		return "packed_objects_geometric"
 	}
+	return "packed_objects_incremental"
 }

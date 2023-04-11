@@ -21,6 +21,7 @@ import (
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -222,76 +223,114 @@ func TestPackRefsIfNeeded(t *testing.T) {
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testOptimizeRepository)
+}
 
-	ctx := testhelper.Context(t)
+func testOptimizeRepository(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+
+	linkRepoToPool := func(t *testing.T, repoPath, poolPath string) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(
+			filepath.Join(repoPath, "objects", "info", "alternates"),
+			[]byte(filepath.Join(poolPath, "objects")),
+			perm.PrivateFile,
+		))
+	}
+
+	readPackfiles := func(t *testing.T, repoPath string) []string {
+		packPaths, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.pack"))
+		require.NoError(t, err)
+
+		packs := make([]string, 0, len(packPaths))
+		for _, packPath := range packPaths {
+			packs = append(packs, filepath.Base(packPath))
+		}
+		return packs
+	}
+
+	geometricOrIncrementalMetric := geometricOrIncremental(ctx, "packed_objects_geometric", "packed_objects_incremental")
 
 	type metric struct {
 		name, status string
 		count        int
 	}
 
-	for _, tc := range []struct {
-		desc                   string
-		setup                  func(t *testing.T, relativePath string) *gitalypb.Repository
+	type setupData struct {
+		repo                   *gitalypb.Repository
+		options                []OptimizeRepositoryOption
 		expectedErr            error
 		expectedMetrics        []metric
 		expectedMetricsForPool []metric
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T, relativePath string) setupData
 	}{
 		{
 			desc: "empty repository does nothing",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "total", status: "success", count: 1},
+
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "repository without bitmap repacks objects",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "written_commit_graph_full", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "repository without commit-graph writes commit-graph",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_commit_graph_full", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "repository with commit-graph without generation data writes commit-graph",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
@@ -299,38 +338,42 @@ func TestOptimizeRepository(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=1", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_commit_graph_full", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "repository without multi-pack-index performs incremental repack",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "-b")
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_commit_graph_full", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "repository with multiple packfiles packs only for object pool",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
@@ -346,26 +389,46 @@ func TestOptimizeRepository(t *testing.T) {
 
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_commit_graph_incremental", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
-			},
-			expectedMetricsForPool: []metric{
-				{name: "packed_objects_full_with_loose_unreachable", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_commit_graph_incremental", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: geometricOrIncremental(ctx,
+						[]metric{
+							{name: "packed_objects_full_with_cruft", status: "success", count: 1},
+							{name: "written_bitmap", status: "success", count: 1},
+							{name: "written_commit_graph_full", status: "success", count: 1},
+							{name: "written_multi_pack_index", status: "success", count: 1},
+							{name: "total", status: "success", count: 1},
+						},
+						[]metric{
+							{name: geometricOrIncrementalMetric, status: "success", count: 1},
+							{name: "written_bitmap", status: "success", count: 1},
+							{name: "written_commit_graph_incremental", status: "success", count: 1},
+							{name: "written_multi_pack_index", status: "success", count: 1},
+							{name: "total", status: "success", count: 1},
+						},
+					),
+					expectedMetricsForPool: geometricOrIncremental(ctx,
+						[]metric{
+							{name: "packed_objects_full_with_unreachable", status: "success", count: 1},
+							{name: "written_bitmap", status: "success", count: 1},
+							{name: "written_commit_graph_incremental", status: "success", count: 1},
+							{name: "written_multi_pack_index", status: "success", count: 1},
+							{name: "total", status: "success", count: 1},
+						},
+						[]metric{
+							{name: "packed_objects_full_with_loose_unreachable", status: "success", count: 1},
+							{name: "written_bitmap", status: "success", count: 1},
+							{name: "written_commit_graph_incremental", status: "success", count: 1},
+							{name: "written_multi_pack_index", status: "success", count: 1},
+							{name: "total", status: "success", count: 1},
+						},
+					),
+				}
 			},
 		},
 		{
 			desc: "well-packed repository does not optimize",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
@@ -373,19 +436,21 @@ func TestOptimizeRepository(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_commit_graph_incremental", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_commit_graph_incremental", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "well-packed repository with multi-pack-index does not optimize",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
@@ -393,15 +458,17 @@ func TestOptimizeRepository(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index", "--write-midx")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "recent loose objects don't get pruned",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
@@ -425,19 +492,21 @@ func TestOptimizeRepository(t *testing.T) {
 					require.NoError(t, os.Chtimes(blobPath, almostTwoWeeksAgo, almostTwoWeeksAgo))
 				}
 
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_commit_graph_incremental", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_commit_graph_incremental", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "old loose objects get pruned",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
@@ -458,28 +527,30 @@ func TestOptimizeRepository(t *testing.T) {
 					require.NoError(t, os.Chtimes(blobPath, moreThanTwoWeeksAgo, moreThanTwoWeeksAgo))
 				}
 
-				return repo
-			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "pruned_objects", status: "success", count: 1},
-				{name: "written_commit_graph_full", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
-			},
-			// Object pools never prune objects.
-			expectedMetricsForPool: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_commit_graph_incremental", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "pruned_objects", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+					// Object pools never prune objects.
+					expectedMetricsForPool: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_commit_graph_incremental", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 		{
 			desc: "loose refs get packed",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+			setup: func(t *testing.T, relativePath string) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
@@ -492,15 +563,177 @@ func TestOptimizeRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
-				return repo
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
+						{name: "packed_refs", status: "success", count: 1},
+						{name: "written_commit_graph_incremental", status: "success", count: 1},
+						{name: "written_bitmap", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
-			expectedMetrics: []metric{
-				{name: "packed_objects_incremental", status: "success", count: 1},
-				{name: "packed_refs", status: "success", count: 1},
-				{name: "written_commit_graph_incremental", status: "success", count: 1},
-				{name: "written_bitmap", status: "success", count: 1},
-				{name: "written_multi_pack_index", status: "success", count: 1},
-				{name: "total", status: "success", count: 1},
+		},
+		{
+			desc: "repository connected to empty object pool",
+			setup: func(t *testing.T, relativePath string) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("some-branch"))
+
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+
+				linkRepoToPool(t, repoPath, poolPath)
+
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: "packed_objects_incremental", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
+			},
+		},
+		{
+			desc: "repository with all objects deduplicated via pool",
+			setup: func(t *testing.T, relativePath string) setupData {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+				commitID := gittest.WriteCommit(t, cfg, poolPath)
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				linkRepoToPool(t, repoPath, poolPath)
+				gittest.WriteRef(t, cfg, repoPath, "refs/heads/some-branch", commitID)
+
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
+			},
+		},
+		{
+			desc: "repository with some deduplicated objects",
+			setup: func(t *testing.T, relativePath string) setupData {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+				commitID := gittest.WriteCommit(t, cfg, poolPath)
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				linkRepoToPool(t, repoPath, poolPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
+
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: "packed_objects_incremental", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
+			},
+		},
+		{
+			desc: "repository with some deduplicated objects and eager strategy",
+			setup: func(t *testing.T, relativePath string) setupData {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+				commitID := gittest.WriteCommit(t, cfg, poolPath)
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				linkRepoToPool(t, repoPath, poolPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
+
+				return setupData{
+					repo: repo,
+					options: []OptimizeRepositoryOption{
+						WithOptimizationStrategyConstructor(func(repoInfo stats.RepositoryInfo) OptimizationStrategy {
+							return NewEagerOptimizationStrategy(repoInfo)
+						}),
+					},
+					expectedMetrics: []metric{
+						{name: "packed_refs", status: "success", count: 1},
+						{name: "pruned_objects", status: "success", count: 1},
+						{name: "packed_objects_full_with_cruft", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+					expectedMetricsForPool: []metric{
+						{name: "packed_refs", status: "success", count: 1},
+						{name: "packed_objects_full_with_unreachable", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
+			},
+		},
+		{
+			desc: "repository with same packfile in pool",
+			setup: func(t *testing.T, relativePath string) setupData {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+				gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch("some-branch"))
+				gittest.Exec(t, cfg, "-C", poolPath, "repack", "-Ad")
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("some-branch"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+
+				repoPackfiles := readPackfiles(t, repoPath)
+				require.Len(t, repoPackfiles, 1)
+
+				// Assert that the packfiles in both the repository and the object
+				// pool are actually the same. This is likely to happen e.g. when
+				// the object pool has just been created and the repository was
+				// linked to it and has caused bugs with geometric repacking in the
+				// past.
+				require.Equal(t, repoPackfiles, readPackfiles(t, poolPath))
+
+				linkRepoToPool(t, repoPath, poolPath)
+
+				return setupData{
+					repo: repo,
+					expectedMetrics: []metric{
+						{name: "packed_objects_incremental", status: "success", count: 1},
+						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
 			},
 		},
 	} {
@@ -509,17 +742,17 @@ func TestOptimizeRepository(t *testing.T) {
 		testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
 			t.Parallel()
 
-			repoProto := tc.setup(t, relativePath)
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			setup := tc.setup(t, relativePath)
+			repo := localrepo.NewTestRepo(t, cfg, setup.repo)
 
 			manager := NewManager(cfg.Prometheus, txManager)
 
-			err := manager.OptimizeRepository(ctx, repo)
-			require.Equal(t, tc.expectedErr, err)
+			err := manager.OptimizeRepository(ctx, repo, setup.options...)
+			require.Equal(t, setup.expectedErr, err)
 
-			expectedMetrics := tc.expectedMetrics
-			if stats.IsPoolRepository(repoProto) && tc.expectedMetricsForPool != nil {
-				expectedMetrics = tc.expectedMetricsForPool
+			expectedMetrics := setup.expectedMetrics
+			if stats.IsPoolRepository(setup.repo) && setup.expectedMetricsForPool != nil {
+				expectedMetrics = setup.expectedMetricsForPool
 			}
 
 			var buf bytes.Buffer
