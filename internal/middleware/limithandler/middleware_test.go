@@ -252,7 +252,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			expectedResponseCount: 4,
 			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
-					ErrorMessage: "maximum queue size reached",
+					ErrorMessage: "maximum global concurrency queue size reached",
 					RetryAfter:   durationpb.New(0),
 				},
 			),
@@ -282,7 +282,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			expectedResponseCount: 4,
 			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
-					ErrorMessage: "maximum queue size reached",
+					ErrorMessage: "maximum global concurrency queue size reached",
 					RetryAfter:   durationpb.New(0),
 				},
 			),
@@ -314,7 +314,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			expectedResponseCount: 4,
 			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
-					ErrorMessage: "maximum queue size reached",
+					ErrorMessage: "maximum global concurrency queue size reached",
 					RetryAfter:   durationpb.New(0),
 				},
 			),
@@ -368,7 +368,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			expectedResponseCount: 4,
 			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
-					ErrorMessage: "maximum queue size reached",
+					ErrorMessage: "maximum global concurrency queue size reached",
 					RetryAfter:   durationpb.New(0),
 				},
 			),
@@ -518,7 +518,7 @@ func TestStreamLimitHandler_error(t *testing.T) {
 	require.True(t, ok)
 
 	testhelper.ProtoEqual(t, []interface{}{&gitalypb.LimitError{
-		ErrorMessage: "maximum queue size reached",
+		ErrorMessage: "maximum global concurrency queue size reached",
 		RetryAfter:   &durationpb.Duration{},
 	}}, st.Details())
 
