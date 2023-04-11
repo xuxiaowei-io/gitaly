@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestRepackIfNeeded(t *testing.T) {
@@ -260,7 +259,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 	}
 
 	type setupData struct {
-		repo                   *gitalypb.Repository
+		repo                   *localrepo.Repo
 		options                []OptimizeRepositoryOption
 		expectedErr            error
 		expectedMetrics        []metric
@@ -280,7 +279,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				})
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "total", status: "success", count: 1},
 					},
@@ -296,7 +295,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
@@ -317,7 +316,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -339,7 +338,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=1", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -360,7 +359,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "-b")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -390,7 +389,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: geometricOrIncremental(ctx,
 						[]metric{
 							{name: "packed_objects_full_with_cruft", status: "success", count: 1},
@@ -437,7 +436,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -459,7 +458,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index", "--write-midx")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "total", status: "success", count: 1},
 					},
@@ -493,7 +492,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				}
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -528,7 +527,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				}
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "pruned_objects", status: "success", count: 1},
@@ -564,7 +563,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "packed_refs", status: "success", count: 1},
@@ -593,7 +592,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				linkRepoToPool(t, repoPath, poolPath)
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "packed_objects_incremental", status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
@@ -620,7 +619,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteRef(t, cfg, repoPath, "refs/heads/some-branch", commitID)
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
@@ -645,7 +644,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "packed_objects_incremental", status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
@@ -672,7 +671,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					options: []OptimizeRepositoryOption{
 						WithOptimizationStrategyConstructor(func(repoInfo stats.RepositoryInfo) OptimizationStrategy {
 							return NewEagerOptimizationStrategy(repoInfo)
@@ -726,7 +725,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				linkRepoToPool(t, repoPath, poolPath)
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "packed_objects_incremental", status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
@@ -743,11 +742,10 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 			t.Parallel()
 
 			setup := tc.setup(t, relativePath)
-			repo := localrepo.NewTestRepo(t, cfg, setup.repo)
 
 			manager := NewManager(cfg.Prometheus, txManager)
 
-			err := manager.OptimizeRepository(ctx, repo, setup.options...)
+			err := manager.OptimizeRepository(ctx, setup.repo, setup.options...)
 			require.Equal(t, setup.expectedErr, err)
 
 			expectedMetrics := setup.expectedMetrics
