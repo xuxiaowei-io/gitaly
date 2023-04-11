@@ -275,6 +275,57 @@ func TestListLastCommitsForTree(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "glob with literal pathspec",
+			setup: func(t *testing.T) setupData {
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: ":wq", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "something"},
+					}),
+				}))
+
+				commit, err := repo.ReadCommit(ctx, commitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   commitID.String(),
+						Path:       []byte(":wq"),
+						Limit:      25,
+						GlobalOptions: &gitalypb.GlobalOptions{
+							LiteralPathspecs: true,
+						},
+					},
+					expectedCommits: []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
+						commitResponse(":wq", commit),
+					},
+				}
+			},
+		},
+		{
+			desc: "glob without literal pathspec",
+			setup: func(t *testing.T) setupData {
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: ":wq", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "something"},
+					}),
+				}))
+
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   commitID.String(),
+						Path:       []byte(":wq"),
+						Limit:      25,
+						GlobalOptions: &gitalypb.GlobalOptions{
+							LiteralPathspecs: false,
+						},
+					},
+					expectedCommits: nil,
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -336,43 +387,6 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, fileExistsInCommits(t, stream, nonUTF8Filename))
-}
-
-func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
-		Path: ":wq", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-			{Path: "README.md", Mode: "100644", Content: "something"},
-		}),
-	}))
-
-	t.Run("with literal pathspecs", func(t *testing.T) {
-		stream, err := client.ListLastCommitsForTree(ctx, &gitalypb.ListLastCommitsForTreeRequest{
-			Repository:    repo,
-			Revision:      commitID.String(),
-			Path:          []byte(":wq"),
-			GlobalOptions: &gitalypb.GlobalOptions{LiteralPathspecs: true},
-			Limit:         100,
-		})
-		require.NoError(t, err)
-		require.Equal(t, []string{":wq"}, fetchCommitPaths(t, stream))
-	})
-
-	t.Run("without literal pathspecs", func(t *testing.T) {
-		stream, err := client.ListLastCommitsForTree(ctx, &gitalypb.ListLastCommitsForTreeRequest{
-			Repository:    repo,
-			Revision:      commitID.String(),
-			Path:          []byte(":wq"),
-			GlobalOptions: &gitalypb.GlobalOptions{LiteralPathspecs: false},
-			Limit:         100,
-		})
-		require.NoError(t, err)
-		require.Nil(t, fetchCommitPaths(t, stream))
-	})
 }
 
 func fileExistsInCommits(t *testing.T, stream gitalypb.CommitService_ListLastCommitsForTreeClient, path string) bool {
