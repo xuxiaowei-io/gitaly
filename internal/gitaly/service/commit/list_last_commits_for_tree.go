@@ -33,6 +33,10 @@ func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 	ctx := stream.Context()
 	repo := s.localrepo(in.GetRepository())
 
+	if _, err := repo.Path(); err != nil {
+		return err
+	}
+
 	cmd, parser, err := newLSTreeParser(ctx, repo, in)
 	if err != nil {
 		return err
