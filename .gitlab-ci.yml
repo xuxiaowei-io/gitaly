@@ -20,7 +20,7 @@ variables:
   GIT_VERSION: "default"
   GO_VERSION: "1.19"
   RUBY_VERSION: "3.0"
-  RUST_VERSION: "1.65.0"
+  RUST_VERSION: "1.65"
   POSTGRES_VERSION: "12-alpine"
   PGBOUNCER_VERSION: "1.17.0"
   GOCACHE: "${CI_PROJECT_DIR}/_build/cache/go-build"
@@ -306,8 +306,7 @@ test:fips:
     matrix:
       - TEST_TARGET: [ test, test-with-praefect ]
         FIPS_MODE: "YesPlease"
-        # There is no Go 1.19 release yet for the FIPS-based images.
-        GO_VERSION: "1.18"
+        GO_VERSION: ["1.18", "1.19"]
   rules:
     # Automatically run the job when the FIPS label is set.
     - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
