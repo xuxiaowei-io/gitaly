@@ -250,6 +250,31 @@ func TestListLastCommitsForTree(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "path with leading dash",
+			setup: func(t *testing.T) setupData {
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: "-test", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "something"},
+					}),
+				}))
+
+				commit, err := repo.ReadCommit(ctx, commitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   commitID.String(),
+						Path:       []byte("-test/"),
+						Limit:      25,
+					},
+					expectedCommits: []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
+						commitResponse("-test/file", commit),
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -348,28 +373,6 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 		require.NoError(t, err)
 		require.Nil(t, fetchCommitPaths(t, stream))
 	})
-}
-
-func TestSuccessfulListLastCommitsForTreeRequestWithDashAtTheBeginning(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
-		Path: "-test", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-			{Path: "README.md", Mode: "100644", Content: "something"},
-		}),
-	}))
-
-	stream, err := client.ListLastCommitsForTree(ctx, &gitalypb.ListLastCommitsForTreeRequest{
-		Repository: repo,
-		Revision:   commitID.String(),
-		Path:       []byte("-test"),
-		Limit:      100,
-	})
-	require.NoError(t, err)
-	require.Equal(t, []string{"-test"}, fetchCommitPaths(t, stream))
 }
 
 func fileExistsInCommits(t *testing.T, stream gitalypb.CommitService_ListLastCommitsForTreeClient, path string) bool {
