@@ -232,7 +232,7 @@ func repackIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimiza
 	}
 
 	if err := RepackObjects(ctx, repo, cfg); err != nil {
-		return false, RepackObjectsConfig{}, err
+		return false, cfg, err
 	}
 
 	return true, cfg, nil

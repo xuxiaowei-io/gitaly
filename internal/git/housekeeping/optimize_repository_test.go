@@ -14,10 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -25,6 +28,24 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
+
+type errorInjectingCommandFactory struct {
+	git.CommandFactory
+	injectedErrors map[string]error
+}
+
+func (f errorInjectingCommandFactory) New(
+	ctx context.Context,
+	repo repository.GitRepo,
+	cmd git.Command,
+	opts ...git.CmdOpt,
+) (*command.Command, error) {
+	if injectedErr, ok := f.injectedErrors[cmd.Name]; ok {
+		return nil, injectedErr
+	}
+
+	return f.CommandFactory.New(ctx, repo, cmd, opts...)
+}
 
 func TestRepackIfNeeded(t *testing.T) {
 	t.Parallel()
@@ -179,6 +200,34 @@ func TestRepackIfNeeded(t *testing.T) {
 			packfiles:  1,
 			cruftPacks: 0,
 		})
+	})
+
+	t.Run("failed repack returns configuration", func(t *testing.T) {
+		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+
+		gitCmdFactory := errorInjectingCommandFactory{
+			CommandFactory: gittest.NewCommandFactory(t, cfg),
+			injectedErrors: map[string]error{
+				"repack": assert.AnError,
+			},
+		}
+
+		repo := localrepo.New(config.NewLocator(cfg), gitCmdFactory, nil, repoProto)
+
+		expectedCfg := RepackObjectsConfig{
+			Strategy:          RepackObjectsStrategyFullWithCruft,
+			CruftExpireBefore: time.Now(),
+		}
+
+		didRepack, actualCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldRepackObjects: true,
+			repackObjectsCfg:    expectedCfg,
+		})
+		require.Equal(t, fmt.Errorf("repack failed: %w", assert.AnError), err)
+		require.False(t, didRepack)
+		require.Equal(t, expectedCfg, actualCfg)
 	})
 }
 
