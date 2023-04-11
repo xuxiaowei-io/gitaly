@@ -66,6 +66,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"time"
 
@@ -111,10 +112,11 @@ const progname = "praefect"
 func Main() {
 	logger := log.Default()
 	flag.Usage = func() {
-		cmds := []string{}
+		cmds := []string{configurationCmdName}
 		for k := range subcommands(logger) {
 			cmds = append(cmds, k)
 		}
+		sort.Strings(cmds)
 
 		printfErr("Usage of %s:\n", progname)
 		flag.PrintDefaults()
@@ -129,6 +131,18 @@ func Main() {
 		os.Exit(0)
 	}
 
+	args := flag.Args()
+	// The configuration sub-command differs from all other sub-commands because it doesn't
+	// require a valid configuration to run. It expects configuration to be provided
+	// on STDIN instead of file.
+	if len(args) > 0 && args[0] == configurationCmdName {
+		if len(args) == 2 && args[1] == validateCmdName {
+			os.Exit(validateConfiguration(os.Stdin, os.Stdout, os.Stderr))
+		}
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	conf, err := initConfig(logger)
 	if err != nil {
 		printfErr("%s: configuration error: %v\n", progname, err)
@@ -137,7 +151,7 @@ func Main() {
 
 	conf.ConfigureLogger()
 
-	if args := flag.Args(); len(args) > 0 {
+	if len(args) > 0 {
 		os.Exit(subCommand(conf, logger, args[0], args[1:]))
 	}
 
