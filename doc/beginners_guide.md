@@ -135,8 +135,8 @@ If proto is updated, run `make`. This should compile successfully.
 
 Gitaly's tests are mostly in Go and we apply the following guidelines:
 
-- each RPC must have end-to-end tests at the service level
-- optionally, you can add unit tests for functions that need more coverage
+- Each RPC must have end-to-end tests at the service level.
+- (Optional) Add unit tests for functions that need more coverage.
 
 To run the full test suite, use `make test`.
 You'll need some [test repositories](test_repos.md), you can set these up with `make prepare-tests`.
@@ -189,18 +189,18 @@ TEST_PACKAGES=./internal/gitaly/service/repository TEST_OPTIONS="-count=1 -run=T
 
 ### Praefect tests
 
-Because Praefect lives in the same repository we need to provide database connection
-information in order to run tests for it successfully. To get more info check out
+Because Praefect lives in the same repository, we need to provide database connection
+information to run tests for it successfully. For more information, see
 [glsql](../internal/praefect/datastore/glsql/doc.go) package documentation.
 
-When you are using [GDK](https://gitlab.com/gitlab-org/gitlab-development-kit/)
-the easiest way to run a Postgres database is by running:
+When using [GDK](https://gitlab.com/gitlab-org/gitlab-development-kit/),
+the easiest way to run a PostgreSQL database is by running:
 
 ```shell
 gdk start db
 ```
 
-Otherwise you can set up a Postgres database instance as a Docker container:
+Otherwise, you can set up a PostgreSQL database instance as a Docker container:
 
 ```shell
 docker rm -f $(docker ps -q --all -f name=praefect-pg) > /dev/null 2>1; \
