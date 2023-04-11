@@ -2,6 +2,7 @@ package gitaly
 
 import (
 	"bytes"
+	"container/list"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -133,6 +134,13 @@ type Transaction struct {
 	// from the client goroutine to the TransactionManager.Run() goroutine, and the client goroutine must
 	// not do any modifications to the state of the transcation anymore to avoid races.
 	admitted bool
+	// finish cleans up the transaction releasing the resources associated with it. It must be called
+	// once the transaction is done with.
+	finish func() error
+	// finished is closed when the transaction has been finished. This enables waiting on transactions
+	// to finish where needed.
+	finished chan struct{}
+
 	// initStagingDirectory is called to lazily initialize the staging directory when it is
 	// needed.
 	initStagingDirectory func() error
@@ -163,7 +171,7 @@ type Transaction struct {
 //
 // The returned Transaction's read snapshot includes all writes that were committed prior to the
 // Begin call. Begin blocks until the committed writes have been applied to the repository.
-func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) {
+func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
 	// and the log indexes are loaded.
 	select {
@@ -172,7 +180,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 	case <-mgr.initialized:
 	}
 
-	mgr.mutex.RLock()
+	mgr.mutex.Lock()
 	txn := &Transaction{
 		commit:   mgr.commit,
 		finalize: mgr.transactionFinalizer,
@@ -180,10 +188,13 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 			ReadIndex: mgr.appendedLogIndex,
 			HookIndex: mgr.hookIndex,
 		},
+		finished: make(chan struct{}),
 	}
 
+	openTransactionElement := mgr.openTransactions.PushBack(txn)
+
 	readReady := mgr.applyNotifications[txn.snapshot.ReadIndex]
-	mgr.mutex.RUnlock()
+	mgr.mutex.Unlock()
 	if readReady == nil {
 		// The snapshot log entry is already applied if there is no notification channel for it.
 		// If so, the transaction is ready to begin immediately.
@@ -201,6 +212,30 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 		return nil
 	}
 
+	txn.finish = func() error {
+		defer close(txn.finished)
+
+		mgr.mutex.Lock()
+		mgr.openTransactions.Remove(openTransactionElement)
+		mgr.mutex.Unlock()
+
+		if txn.stagingDirectory != "" {
+			if err := os.RemoveAll(txn.stagingDirectory); err != nil {
+				return fmt.Errorf("remove staging directory: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	defer func() {
+		if returnedErr != nil {
+			// finish can't return an error as the staging directory isn't yet created, and won't
+			// be attempted to be deleted.
+			_ = txn.finish()
+		}
+	}()
+
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -217,7 +252,7 @@ func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
 	defer func() {
 		txn.finalize()
 
-		if err := txn.cleanUnadmitted(); err != nil && returnedErr == nil {
+		if err := txn.finishUnadmitted(); err != nil && returnedErr == nil {
 			returnedErr = err
 		}
 	}()
@@ -228,29 +263,18 @@ func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
 // Rollback releases resources associated with the transaction without performing any changes.
 func (txn *Transaction) Rollback() error {
 	defer txn.finalize()
-	return txn.cleanUnadmitted()
+	return txn.finishUnadmitted()
 }
 
-// cleanUnadmitted cleans up after the transaction if it wasn't yet admitted. If the transaction was admitted,
+// finishUnadmitted cleans up after the transaction if it wasn't yet admitted. If the transaction was admitted,
 // the Transaction is being processed by TransactionManager. The clean up responsibility moves there as well
 // to avoid races.
-func (txn *Transaction) cleanUnadmitted() error {
+func (txn *Transaction) finishUnadmitted() error {
 	if txn.admitted {
 		return nil
 	}
 
-	return txn.clean()
-}
-
-// clean cleans up the resources associated with the transaction.
-func (txn *Transaction) clean() error {
-	if txn.stagingDirectory != "" {
-		if err := os.RemoveAll(txn.stagingDirectory); err != nil {
-			return fmt.Errorf("remove staging directory: %w", err)
-		}
-	}
-
-	return nil
+	return txn.finish()
 }
 
 // Snapshot returns the details of the Transaction's read snapshot.
@@ -381,13 +405,16 @@ type TransactionManager struct {
 	// admissionQueue is where the incoming writes are waiting to be admitted to the transaction
 	// manager.
 	admissionQueue chan *Transaction
+	// openTransactions contains all transactions that have been begun but not yet committed or rolled back.
+	// The transactions are ordered from the oldest to the newest.
+	openTransactions *list.List
 
 	// initialized is closed when the manager has been initialized. It's used to block new transactions
 	// from beginning prior to the manager having initialized its runtime state on start up.
 	initialized chan struct{}
 	// mutex guards access to applyNotifications and appendedLogIndex. These fields are accessed by both
 	// Run and Begin which are ran in different goroutines.
-	mutex sync.RWMutex
+	mutex sync.Mutex
 	// applyNotifications stores channels that are closed when a log entry is applied. These
 	// are used to block transactions from beginning before their snapshot is ready.
 	applyNotifications map[LogIndex]chan struct{}
@@ -426,6 +453,7 @@ func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir 
 		relativePath:         relativePath,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
+		openTransactions:     list.New(),
 		initialized:          make(chan struct{}),
 		applyNotifications:   make(map[LogIndex]chan struct{}),
 		stagingDirectory:     stagingDir,
@@ -630,10 +658,10 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	var transaction *Transaction
 	select {
 	case transaction = <-mgr.admissionQueue:
-		// The Transaction does not clean up itself anymore once it has been admitted for
+		// The Transaction does not finish itself anymore once it has been admitted for
 		// processing. This avoids the Transaction concurrently removing the staged state
-		// while the manager is still operating on it. We thus need to defer its clean up.
-		cleanUps = append(cleanUps, transaction.clean)
+		// while the manager is still operating on it. We thus need to defer its finishing.
+		cleanUps = append(cleanUps, transaction.finish)
 	case <-mgr.ctx.Done():
 	}
 
