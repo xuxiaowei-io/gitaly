@@ -112,6 +112,10 @@ type Manager struct {
 	// once. We may use this to make it easier to specify a backup to restore
 	// from, rather than always selecting the latest.
 	backupID string
+
+	// repositoryFactory returns an abstraction over git repositories in order
+	// to create and restore backups.
+	repositoryFactory func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error)
 }
 
 // NewManager creates and returns initialized *Manager instance.
@@ -121,6 +125,14 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 		conns:    pool,
 		locator:  locator,
 		backupID: backupID,
+		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
+			conn, err := pool.Dial(ctx, server.Address, server.Token)
+			if err != nil {
+				return nil, err
+			}
+
+			return newRemoteRepository(repo, conn), nil
+		},
 	}
 }
 
@@ -163,7 +175,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	repo, err := mgr.newRemoteRepo(ctx, req.Repository, req.Server)
+	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
@@ -516,13 +528,4 @@ func (mgr *Manager) newRepoClient(ctx context.Context, server storage.ServerInfo
 	}
 
 	return gitalypb.NewRepositoryServiceClient(conn), nil
-}
-
-func (mgr *Manager) newRemoteRepo(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (*remoteRepository, error) {
-	conn, err := mgr.conns.Dial(ctx, server.Address, server.Token)
-	if err != nil {
-		return nil, err
-	}
-
-	return newRemoteRepository(repo, conn), nil
 }
