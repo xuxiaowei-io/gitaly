@@ -12,13 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
+func TestListLastCommitsForTree(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -71,6 +70,104 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 		desc  string
 		setup func(t *testing.T) setupData
 	}{
+		{
+			desc: "missing revision",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Path:       []byte("/"),
+						Revision:   "",
+					},
+					expectedErr: structerr.NewInvalidArgument("empty revision"),
+				}
+			},
+		},
+		{
+			desc: "invalid repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "broken",
+							RelativePath: "does-not-exist",
+						},
+						Revision: parentCommitID.String(),
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						`GetStorageByName: no such storage: "broken"`,
+						"repo scoped: invalid Repository",
+					)),
+				}
+			},
+		},
+		{
+			desc: "unset repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: nil,
+						Path:       []byte("/"),
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
+				}
+			},
+		},
+		{
+			desc: "ambiguous revision",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   "a",
+					},
+					expectedErr: structerr.NewInternal("exit status 128"),
+				}
+			},
+		},
+		{
+			desc: "invalid revision",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   "--output=/meow",
+					},
+					expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
+				}
+			},
+		},
+		{
+			desc: "negative offset",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   parentCommitID.String(),
+						Offset:     -1,
+						Limit:      25,
+					},
+					expectedErr: structerr.NewInvalidArgument("offset negative"),
+				}
+			},
+		},
+		{
+			desc: "negative limit",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   parentCommitID.String(),
+						Offset:     0,
+						Limit:      -1,
+					},
+					expectedErr: structerr.NewInvalidArgument("limit negative"),
+				}
+			},
+		},
 		{
 			desc: "root directory",
 			setup: func(t *testing.T) setupData {
@@ -181,110 +278,6 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 
 			testhelper.RequireGrpcError(t, setup.expectedErr, err)
 			testhelper.ProtoEqual(t, setup.expectedCommits, commits)
-		})
-	}
-}
-
-func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	invalidRepo := &gitalypb.Repository{StorageName: "broken", RelativePath: "path"}
-
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.ListLastCommitsForTreeRequest
-		expectedErr error
-	}{
-		{
-			desc: "Revision is missing",
-			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: repo,
-				Path:       []byte("/"),
-				Revision:   "",
-				Offset:     0,
-				Limit:      25,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty revision"),
-		},
-		{
-			desc: "Invalid repository",
-			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: invalidRepo,
-				Path:       []byte("/"),
-				Revision:   "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-				Offset:     0,
-				Limit:      25,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "broken"`,
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc: "Repository is nil",
-			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Path:     []byte("/"),
-				Revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-				Offset:   0,
-				Limit:    25,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc: "Ambiguous revision",
-			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: repo,
-				Revision:   "a",
-				Offset:     0,
-				Limit:      25,
-			},
-			expectedErr: status.Error(codes.Internal, "exit status 128"),
-		},
-		{
-			desc: "Invalid revision",
-			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: repo,
-				Revision:   "--output=/meow",
-				Offset:     0,
-				Limit:      25,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
-		},
-		{
-			desc: "Negative offset",
-			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: repo,
-				Revision:   "--output=/meow",
-				Offset:     -1,
-				Limit:      25,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
-		},
-		{
-			desc: "Negative limit",
-			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: repo,
-				Revision:   "--output=/meow",
-				Offset:     0,
-				Limit:      -1,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			stream, err := client.ListLastCommitsForTree(ctx, testCase.request)
-			require.NoError(t, err)
-
-			_, err = stream.Recv()
-			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }
