@@ -2674,6 +2674,7 @@ func checkManagerError(t *testing.T, managerErrChannel chan error, mgr *Transact
 		referenceUpdates: ReferenceUpdates{"sentinel": {}},
 		result:           make(chan error, 1),
 		finalize:         func() {},
+		finish:           func() error { return nil },
 	}
 
 	var (
