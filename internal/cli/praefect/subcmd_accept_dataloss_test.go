@@ -4,9 +4,14 @@ package praefect
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service/info"
@@ -16,7 +21,9 @@ import (
 )
 
 func TestAcceptDatalossSubcommand(t *testing.T) {
-	t.Parallel()
+	defer func(old func(code int)) { cli.OsExiter = old }(cli.OsExiter)
+	cli.OsExiter = func(code int) {}
+
 	const (
 		vs   = "test-virtual-storage-1"
 		repo = "test-repository-1"
@@ -28,8 +35,12 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
-				Name:  vs,
-				Nodes: []*config.Node{{Storage: st1}, {Storage: st2}, {Storage: st3}},
+				Name: vs,
+				Nodes: []*config.Node{
+					{Address: "stub", Storage: st1},
+					{Address: "stub", Storage: st2},
+					{Address: "stub", Storage: st3},
+				},
 			},
 		},
 	}
@@ -57,22 +68,13 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 	defer clean()
 
 	conf.SocketPath = ln.Addr().String()
+	tmpDir := testhelper.TempDir(t)
+	confData, err := toml.Marshal(conf)
+	require.NoError(t, err)
+	confPath := filepath.Join(tmpDir, "config.toml")
+	require.NoError(t, os.WriteFile(confPath, confData, perm.PublicFile))
 
 	type errorMatcher func(t *testing.T, err error)
-
-	matchEqual := func(expected error) errorMatcher {
-		return func(t *testing.T, actual error) {
-			t.Helper()
-			require.Equal(t, expected, actual)
-		}
-	}
-
-	matchNoError := func() errorMatcher {
-		return func(t *testing.T, actual error) {
-			t.Helper()
-			require.NoError(t, actual)
-		}
-	}
 
 	matchErrorMsg := func(expected string) errorMatcher {
 		return func(t *testing.T, actual error) {
@@ -92,58 +94,75 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 	}{
 		{
 			desc:                "missing virtual storage",
-			args:                []string{},
-			matchError:          matchEqual(requiredParameterError(paramVirtualStorage)),
+			args:                []string{"-repository", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
+			matchError:          matchErrorMsg(`Required flag "virtual-storage" not set`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "missing repository",
-			args:                []string{"-virtual-storage=test-virtual-storage-1"},
-			matchError:          matchEqual(requiredParameterError(paramRelativePath)),
+			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-authoritative-storage", "test-physical-storage-2"},
+			matchError:          matchErrorMsg(`Required flag "repository" not set`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "missing authoritative storage",
-			args:                []string{"-virtual-storage=test-virtual-storage-1", "-repository=test-repository-1"},
-			matchError:          matchEqual(requiredParameterError(paramAuthoritativeStorage)),
+			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "test-repository-1"},
+			matchError:          matchErrorMsg(`Required flag "authoritative-storage" not set`),
 			expectedGenerations: startingGenerations,
 		},
 		{
-			desc:                "positional arguments",
-			args:                []string{"-virtual-storage=test-virtual-storage-1", "-repository=test-repository-1", "-authoritative-storage=test-physical-storage-2", "positional-arg"},
-			matchError:          matchEqual(unexpectedPositionalArgsError{Command: "accept-dataloss"}),
+			desc: "positional arguments",
+			args: []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "test-repository-1", "-authoritative-storage", "test-physical-storage-2", "positional-arg"},
+			matchError: func(t *testing.T, actual error) {
+				t.Helper()
+				require.Equal(t, unexpectedPositionalArgsError{Command: "accept-dataloss"}, actual)
+			},
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "non-existent virtual storage",
-			args:                []string{"-virtual-storage=non-existent", "-repository=test-repository-1", "-authoritative-storage=test-physical-storage-2"},
+			args:                []string{"-virtual-storage", "non-existent", "-repository", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
 			matchError:          matchErrorMsg(`set authoritative storage: rpc error: code = InvalidArgument desc = unknown virtual storage: "non-existent"`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "non-existent authoritative storage",
-			args:                []string{"-virtual-storage=test-virtual-storage-1", "-repository=test-repository-1", "-authoritative-storage=non-existent"},
+			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "test-repository-1", "-authoritative-storage", "non-existent"},
 			matchError:          matchErrorMsg(`set authoritative storage: rpc error: code = InvalidArgument desc = unknown authoritative storage: "non-existent"`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "non-existent repository",
-			args:                []string{"-virtual-storage=test-virtual-storage-1", "-repository=non-existent", "-authoritative-storage=test-physical-storage-2"},
+			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "non-existent", "-authoritative-storage", "test-physical-storage-2"},
 			matchError:          matchErrorMsg(`set authoritative storage: rpc error: code = InvalidArgument desc = repository "non-existent" does not exist on virtual storage "test-virtual-storage-1"`),
 			expectedGenerations: startingGenerations,
 		},
 		{
-			desc:                "success",
-			args:                []string{"-virtual-storage=test-virtual-storage-1", "-repository=test-repository-1", "-authoritative-storage=test-physical-storage-2"},
-			matchError:          matchNoError(),
+			desc: "success",
+			args: []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
+			matchError: func(t *testing.T, actual error) {
+				t.Helper()
+				require.NoError(t, actual)
+			},
 			expectedGenerations: map[string]int{st1: 1, st2: 2, st3: datastore.GenerationUnknown},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cmd := &acceptDatalossSubcommand{}
-			fs := cmd.FlagSet()
-			require.NoError(t, fs.Parse(tc.args))
-			tc.matchError(t, cmd.Exec(fs, conf))
+			app := cli.App{
+				Commands: []*cli.Command{
+					newAcceptDatalossCommand(),
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Value: confPath,
+					},
+				},
+			}
+
+			err := app.Run(append([]string{progname, "accept-dataloss"}, tc.args...))
+			tc.matchError(t, err)
+
 			for storage, expected := range tc.expectedGenerations {
 				actual, err := rs.GetGeneration(ctx, 1, storage)
 				require.NoError(t, err)
