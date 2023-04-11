@@ -284,7 +284,7 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, repo *remoteRepository, step *Step, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
+func (mgr *Manager) writeBundle(ctx context.Context, repo *remoteRepository, step *Step, refs []git.Reference) (returnErr error) {
 	negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 	if err != nil {
 		return err
@@ -297,7 +297,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo *remoteRepository, ste
 		defer patternWriter.Close()
 
 		for _, ref := range refs {
-			_, err := fmt.Fprintln(patternWriter, ref.GetName())
+			_, err := fmt.Fprintln(patternWriter, ref.Name)
 			if err != nil {
 				_ = patternWriter.CloseWithError(err)
 				return
@@ -476,7 +476,7 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server 
 
 // writeRefs writes the previously fetched list of refs in the same output
 // format as `git-show-ref(1)`
-func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
+func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []git.Reference) (returnErr error) {
 	w, err := mgr.sink.GetWriter(ctx, path)
 	if err != nil {
 		return fmt.Errorf("write refs: %w", err)
@@ -488,7 +488,7 @@ func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb
 	}()
 
 	for _, ref := range refs {
-		_, err = fmt.Fprintf(w, "%s %s\n", ref.GetTarget(), ref.GetName())
+		_, err = fmt.Fprintf(w, "%s %s\n", ref.Target, ref.Name)
 		if err != nil {
 			return fmt.Errorf("write refs: %w", err)
 		}

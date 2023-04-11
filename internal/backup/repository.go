@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -46,7 +47,7 @@ func (repo *remoteRepository) IsEmpty(ctx context.Context) (bool, error) {
 }
 
 // ListRefs fetches the full set of refs and targets for the repository
-func (repo *remoteRepository) ListRefs(ctx context.Context) ([]*gitalypb.ListRefsResponse_Reference, error) {
+func (repo *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, error) {
 	refClient := repo.newRefClient()
 	stream, err := refClient.ListRefs(ctx, &gitalypb.ListRefsRequest{
 		Repository: repo.repo,
@@ -57,7 +58,7 @@ func (repo *remoteRepository) ListRefs(ctx context.Context) ([]*gitalypb.ListRef
 		return nil, fmt.Errorf("list refs: %w", err)
 	}
 
-	var refs []*gitalypb.ListRefsResponse_Reference
+	var refs []git.Reference
 
 	for {
 		resp, err := stream.Recv()
@@ -66,7 +67,9 @@ func (repo *remoteRepository) ListRefs(ctx context.Context) ([]*gitalypb.ListRef
 		} else if err != nil {
 			return nil, fmt.Errorf("list refs: %w", err)
 		}
-		refs = append(refs, resp.GetReferences()...)
+		for _, ref := range resp.GetReferences() {
+			refs = append(refs, git.NewReference(git.ReferenceName(ref.GetName()), ref.GetTarget()))
+		}
 	}
 
 	return refs, nil
