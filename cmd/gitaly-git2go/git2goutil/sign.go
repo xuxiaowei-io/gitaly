@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
@@ -12,30 +11,34 @@ import (
 
 // CreateCommitSignature reads the given signing key and produces PKCS#7 detached signature.
 // When the path to the signing key is not present, an empty signature is returned.
-func CreateCommitSignature(signingKeyPath, contentToSign string) (string, error) {
+func CreateCommitSignature(signingKeyPath string, contentToSign []byte) ([]byte, error) {
 	if signingKeyPath == "" {
-		return "", nil
+		return nil, nil
 	}
 
-	file, err := os.Open(signingKeyPath)
+	key, err := os.ReadFile(signingKeyPath)
 	if err != nil {
-		return "", fmt.Errorf("open file: %w", err)
+		return nil, fmt.Errorf("open file: %w", err)
 	}
 
-	entity, err := openpgp.ReadEntity(packet.NewReader(file))
+	return createGPGSignature(key, contentToSign)
+}
+
+func createGPGSignature(key []byte, contentToSign []byte) ([]byte, error) {
+	entity, err := openpgp.ReadEntity(packet.NewReader(bytes.NewReader(key)))
 	if err != nil {
-		return "", fmt.Errorf("read entity: %w", err)
+		return nil, fmt.Errorf("read entity: %w", err)
 	}
 
 	sigBuf := new(bytes.Buffer)
 	if err := openpgp.ArmoredDetachSignText(
 		sigBuf,
 		entity,
-		strings.NewReader(contentToSign),
+		bytes.NewReader(contentToSign),
 		&packet.Config{},
 	); err != nil {
-		return "", fmt.Errorf("sign commit: %w", err)
+		return nil, fmt.Errorf("sign commit: %w", err)
 	}
 
-	return sigBuf.String(), nil
+	return sigBuf.Bytes(), nil
 }
