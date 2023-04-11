@@ -3,6 +3,7 @@
 package commit
 
 import (
+	"errors"
 	"io"
 	"testing"
 	"unicode/utf8"
@@ -10,202 +11,176 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type commitInfo struct {
-	path []byte
-	id   string
-}
-
 func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	testCases := []struct {
-		desc     string
-		revision string
-		path     []byte
-		info     []commitInfo
-		limit    int32
-		offset   int32
-	}{
-		{
-			desc:     "path is '/'",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			path:     []byte("/"),
-			info: []commitInfo{
-				{
-					path: []byte("encoding"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-				{
-					path: []byte("files"),
-					id:   "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-				},
-				{
-					path: []byte(".gitignore"),
-					id:   "c1acaa58bbcbc3eafe538cb8274ba387047b69f8",
-				},
-				{
-					path: []byte(".gitmodules"),
-					id:   "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
-				},
-				{
-					path: []byte("CHANGELOG"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-				{
-					path: []byte("CONTRIBUTING.md"),
-					id:   "6d394385cf567f80a8fd85055db1ab4c5295806f",
-				},
-				{
-					path: []byte("Gemfile.zip"),
-					id:   "ae73cb07c9eeaf35924a10f713b364d32b2dd34f",
-				},
-				{
-					path: []byte("LICENSE"),
-					id:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-				},
-				{
-					path: []byte("MAINTENANCE.md"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-				{
-					path: []byte("PROCESS.md"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-				{
-					path: []byte("README.md"),
-					id:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-				},
-				{
-					path: []byte("VERSION"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-				{
-					path: []byte("gitlab-shell"),
-					id:   "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
-				},
-				{
-					path: []byte("six"),
-					id:   "cfe32cf61b73a0d5e9f13e774abde7ff789b1660",
-				},
-				{
-					path: []byte("*"),
-					id:   "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-				},
-			},
-			limit:  25,
-			offset: 0,
-		},
-		{
-			desc:     "path is 'files/'",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			path:     []byte("files/"),
-			info: []commitInfo{
-				{
-					path: []byte("files/html"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-				{
-					path: []byte("files/images"),
-					id:   "2f63565e7aac07bcdadb654e253078b727143ec4",
-				},
-				{
-					path: []byte("files/js"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-				{
-					path: []byte("files/markdown"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-				{
-					path: []byte("files/ruby"),
-					id:   "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-				},
-				{
-					path: []byte("files/*"),
-					id:   "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-				},
-			},
-			limit:  25,
-			offset: 0,
-		},
-		{
-			desc:     "with offset higher than number of paths",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			path:     []byte("/"),
-			info:     []commitInfo{},
-			limit:    25,
-			offset:   14,
-		},
-		{
-			desc:     "with limit 1",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			path:     []byte("/"),
-			info: []commitInfo{
-				{
-					path: []byte("encoding"),
-					id:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-				},
-			},
-			limit:  1,
-			offset: 0,
-		},
-		{
-			desc:     "with offset 13",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			path:     []byte("/"),
-			info: []commitInfo{
-				{
-					path: []byte("six"),
-					id:   "cfe32cf61b73a0d5e9f13e774abde7ff789b1660",
-				},
-			},
-			limit:  25,
-			offset: 13,
-		},
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	childCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("unchanged"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "changed", Mode: "100644", Content: "not-yet-changed"},
+			gittest.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged"},
+			gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				{Path: "subdir-changed", Mode: "100644", Content: "not-yet-changed"},
+				{Path: "subdir-unchanged", Mode: "100644", Content: "unchanged"},
+			})},
+		),
+	)
+	parentCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("changed"),
+		gittest.WithParents(childCommitID), gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "changed", Mode: "100644", Content: "changed"},
+			gittest.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged"},
+			gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				{Path: "subdir-changed", Mode: "100644", Content: "changed"},
+				{Path: "subdir-unchanged", Mode: "100644", Content: "unchanged"},
+			})},
+		),
+	)
+
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	childCommit, err := repo.ReadCommit(ctx, childCommitID.Revision())
+	require.NoError(t, err)
+	parentCommit, err := repo.ReadCommit(ctx, parentCommitID.Revision())
+	require.NoError(t, err)
+
+	commitResponse := func(path string, commit *gitalypb.GitCommit) *gitalypb.ListLastCommitsForTreeResponse_CommitForTree {
+		return &gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
+			PathBytes: []byte(path),
+			Commit:    commit,
+		}
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			request := &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: repo,
-				Revision:   testCase.revision,
-				Path:       testCase.path,
-				Limit:      testCase.limit,
-				Offset:     testCase.offset,
-			}
+	type setupData struct {
+		request         *gitalypb.ListLastCommitsForTreeRequest
+		expectedErr     error
+		expectedCommits []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree
+	}
 
-			stream, err := client.ListLastCommitsForTree(ctx, request)
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "root directory",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   parentCommitID.String(),
+						Path:       []byte("/"),
+						Limit:      5,
+					},
+					expectedCommits: []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
+						commitResponse("subdir", parentCommit),
+						commitResponse("changed", parentCommit),
+						commitResponse("unchanged", childCommit),
+					},
+				}
+			},
+		},
+		{
+			desc: "subdirectory",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   parentCommitID.String(),
+						Path:       []byte("subdir/"),
+						Limit:      5,
+					},
+					expectedCommits: []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
+						commitResponse("subdir/subdir-changed", parentCommit),
+						commitResponse("subdir/subdir-unchanged", childCommit),
+					},
+				}
+			},
+		},
+		{
+			desc: "offset higher than number of paths",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   parentCommitID.String(),
+						Path:       []byte("/"),
+						Offset:     14,
+					},
+					expectedCommits: nil,
+				}
+			},
+		},
+		{
+			desc: "limit restricts returned commits",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   parentCommitID.String(),
+						Path:       []byte("/"),
+						Limit:      1,
+					},
+					expectedCommits: []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
+						commitResponse("subdir", parentCommit),
+					},
+				}
+			},
+		},
+		{
+			desc: "offset allows printing tail",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListLastCommitsForTreeRequest{
+						Repository: repoProto,
+						Revision:   parentCommitID.String(),
+						Path:       []byte("/"),
+						Limit:      25,
+						Offset:     2,
+					},
+					expectedCommits: []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
+						commitResponse("unchanged", childCommit),
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			stream, err := client.ListLastCommitsForTree(ctx, setup.request)
 			require.NoError(t, err)
 
-			counter := 0
+			var commits []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree
 			for {
-				fetchedCommits, err := stream.Recv()
-				if err == io.EOF {
+				var response *gitalypb.ListLastCommitsForTreeResponse
+
+				response, err = stream.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						err = nil
+					}
 					break
 				}
 
-				require.NoError(t, err)
-
-				commits := fetchedCommits.GetCommits()
-
-				for _, fetchedCommit := range commits {
-					expectedInfo := testCase.info[counter]
-
-					require.Equal(t, expectedInfo.path, fetchedCommit.PathBytes)
-					require.Equal(t, expectedInfo.id, fetchedCommit.Commit.Id)
-
-					counter++
-				}
+				commits = append(commits, response.Commits...)
 			}
+
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.ProtoEqual(t, setup.expectedCommits, commits)
 		})
 	}
 }
