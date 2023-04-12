@@ -135,6 +135,47 @@ func TestUserUpdateSubmodule(t *testing.T) {
 			},
 		},
 		{
+			desc:    "successful with nested folder with duplicate",
+			subPath: "sub",
+			branch:  "master",
+			setup: func(repoPath, subRepoPath string, repoProto, subRepoProto *gitalypb.Repository) setupData {
+				subCommitID := gittest.WriteCommit(t, cfg, subRepoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    ".gitmodules",
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+					},
+					gittest.TreeEntry{
+						Mode: "160000",
+						Path: "sub",
+						OID:  subCommitID,
+					},
+					gittest.TreeEntry{
+						Mode: "040000",
+						Path: "foo",
+						OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{OID: subCommitID, Mode: "160000", Path: "sub"},
+						}),
+					},
+				))
+				commitID := gittest.WriteCommit(t, cfg, subRepoPath, gittest.WithParents(subCommitID))
+
+				return setupData{
+					request: &gitalypb.UserUpdateSubmoduleRequest{
+						Repository:    repoProto,
+						User:          gittest.TestUser,
+						CommitSha:     commitID.String(),
+						Branch:        []byte("master"),
+						Submodule:     []byte("sub"),
+						CommitMessage: []byte("Updating Submodule: sub"),
+					},
+					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
+					commitID:         commitID.String(),
+				}
+			},
+		},
+		{
 			desc:    "uses a quarantined repo",
 			subPath: "sub",
 			branch:  "master",
