@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -365,6 +366,383 @@ func TestTreeEntryByPath(t *testing.T) {
 				tc.expected,
 				tc.input,
 			)
+		})
+	}
+}
+
+func TestReadTree(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	ctx := testhelper.Context(t)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	repo := NewTestRepo(t, cfg, repoProto)
+
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("blob contents"))
+	emptyTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{})
+	treeWithBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{OID: blobID, Mode: "100644", Path: "nonexecutable"},
+		{OID: blobID, Mode: "100755", Path: "executable"},
+	})
+	treeWithSubtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{OID: emptyTreeID, Mode: "040000", Path: "subdir"},
+	})
+	treeWithNestedSubtrees := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{OID: treeWithSubtree, Mode: "040000", Path: "nested-subdir"},
+	})
+	treeWithSubtreeAndBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{OID: treeWithSubtree, Mode: "040000", Path: "subdir"},
+		{OID: blobID, Mode: "100644", Path: "blob"},
+	})
+	treeWithSubtreeContainingBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{OID: treeWithSubtreeAndBlob, Mode: "040000", Path: "subdir"},
+	})
+
+	for _, tc := range []struct {
+		desc         string
+		treeish      git.Revision
+		options      []ReadTreeOption
+		cfg          *readTreeConfig
+		expectedTree TreeEntry
+		expectedErr  error
+	}{
+		{
+			desc:    "empty tree",
+			treeish: emptyTreeID.Revision(),
+			expectedTree: TreeEntry{
+				OID:  emptyTreeID,
+				Type: Tree,
+				Mode: "040000",
+			},
+		},
+		{
+			desc:    "tree with blob",
+			treeish: treeWithBlob.Revision(),
+			expectedTree: TreeEntry{
+				OID:  treeWithBlob,
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{Mode: "100755", Type: Blob, OID: blobID, Path: "executable"},
+					{Mode: "100644", Type: Blob, OID: blobID, Path: "nonexecutable"},
+				},
+			},
+		},
+		{
+			desc:    "tree with subtree",
+			treeish: treeWithSubtree.Revision(),
+			expectedTree: TreeEntry{
+				OID:  treeWithSubtree,
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir"},
+				},
+			},
+		},
+		{
+			desc:    "nested trees",
+			treeish: treeWithNestedSubtrees.Revision(),
+			expectedTree: TreeEntry{
+				OID:  treeWithNestedSubtrees,
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "nested-subdir"},
+				},
+			},
+		},
+		{
+			desc:    "recursive nested trees",
+			treeish: treeWithNestedSubtrees.Revision(),
+			options: []ReadTreeOption{WithRecursive()},
+			expectedTree: TreeEntry{
+				OID:  treeWithNestedSubtrees,
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						Mode: "040000",
+						Type: Tree,
+						OID:  treeWithSubtree,
+						Path: "nested-subdir",
+						Entries: []*TreeEntry{
+							{
+								Mode: "040000",
+								Type: Tree,
+								OID:  emptyTreeID,
+								Path: "subdir",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc:    "nested subtree",
+			treeish: treeWithNestedSubtrees.Revision(),
+			options: []ReadTreeOption{WithRelativePath("nested-subdir")},
+			expectedTree: TreeEntry{
+				OID:  treeWithSubtree,
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir"},
+				},
+			},
+		},
+		{
+			desc:    "nested recursive subtree",
+			treeish: treeWithSubtreeContainingBlob.Revision(),
+			options: []ReadTreeOption{
+				WithRelativePath("subdir"),
+				WithRecursive(),
+			},
+			expectedTree: TreeEntry{
+				OID:  treeWithSubtreeAndBlob,
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{Mode: "100644", Type: Blob, OID: blobID, Path: "blob"},
+					{
+						Mode: "040000",
+						Type: Tree,
+						OID:  treeWithSubtree,
+						Path: "subdir",
+						Entries: []*TreeEntry{
+							{
+								Mode: "040000",
+								Type: Tree,
+								OID:  emptyTreeID,
+								Path: "subdir",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc:    "recursive nested trees and blobs",
+			treeish: treeWithSubtreeAndBlob.Revision(),
+			options: []ReadTreeOption{
+				WithRecursive(),
+			},
+			expectedTree: TreeEntry{
+				OID:  treeWithSubtreeAndBlob,
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{Mode: "100644", Type: Blob, OID: blobID, Path: "blob"},
+					{
+						Mode: "040000",
+						Type: Tree,
+						OID:  treeWithSubtree,
+						Path: "subdir",
+						Entries: []*TreeEntry{
+							{
+								Mode: "040000",
+								Type: Tree,
+								OID:  emptyTreeID,
+								Path: "subdir",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc:    "listing blob fails",
+			treeish: blobID.Revision(),
+			// We get a NotExist error here because it's invalid to suffix an object ID
+			// which resolves to a blob with a colon (":") given that it's not possible
+			// to resolve a subpath.
+			expectedErr: git.ErrReferenceNotFound,
+		},
+		{
+			desc:    "valid revision with invalid path",
+			treeish: treeWithSubtree.Revision(),
+			options: []ReadTreeOption{
+				WithRelativePath("does-not-exist"),
+			},
+			expectedErr: git.ErrReferenceNotFound,
+		},
+		{
+			desc:    "valid revision with path pointing to blob",
+			treeish: treeWithSubtreeAndBlob.Revision(),
+			options: []ReadTreeOption{
+				WithRelativePath("blob"),
+			},
+			expectedErr: ErrNotTreeish,
+		},
+		{
+			desc:        "listing nonexistent object fails",
+			treeish:     "does-not-exist",
+			expectedErr: git.ErrReferenceNotFound,
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			tree, err := repo.ReadTree(ctx, tc.treeish, tc.options...)
+			if tc.expectedErr != nil {
+				require.ErrorIs(t, err, tc.expectedErr)
+				return
+			}
+			require.Equal(t, tc.expectedTree, *tree)
+		})
+	}
+}
+
+func TestReadTree_WithRecursive(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	ctx := testhelper.Context(t)
+
+	testCases := []struct {
+		desc        string
+		setupTree   func(t *testing.T, repoPath string) (git.ObjectID, TreeEntry)
+		expectedErr error
+	}{
+		{
+			desc: "flat tree",
+			setupTree: func(t *testing.T, repoPath string) (git.ObjectID, TreeEntry) {
+				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode: "100644",
+						Path: "fileA",
+						OID:  blobA,
+					},
+					{
+						Mode: "100644",
+						Path: "fileB",
+						OID:  blobB,
+					},
+				})
+				return gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+						gittest.WithTree(treeID)),
+					TreeEntry{
+						OID:  treeID,
+						Mode: "040000",
+						Type: Tree,
+						Entries: []*TreeEntry{
+							{
+								Mode: "100644",
+								Path: "fileA",
+								OID:  blobA,
+								Type: Blob,
+							},
+							{
+								Mode: "100644",
+								Path: "fileB",
+								OID:  blobB,
+								Type: Blob,
+							},
+						},
+					}
+			},
+		},
+		{
+			desc: "nested tree",
+			setupTree: func(t *testing.T, repoPath string) (git.ObjectID, TreeEntry) {
+				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
+				blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("c"))
+				dirATree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode: "100644",
+						Path: "file1InDirA",
+						OID:  blobA,
+					},
+				})
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode: "100644",
+						Path: "fileB",
+						OID:  blobB,
+					},
+					{
+						Mode: "100644",
+						Path: "fileC",
+						OID:  blobC,
+					},
+					{
+						Mode: "040000",
+						Path: "dirA",
+						OID:  dirATree,
+					},
+				})
+
+				return gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+						gittest.WithTree(treeID)),
+					TreeEntry{
+						OID:  treeID,
+						Mode: "040000",
+						Type: Tree,
+						Entries: []*TreeEntry{
+							{
+								Mode: "040000",
+								Path: "dirA",
+								Type: Tree,
+								OID:  dirATree,
+								Entries: []*TreeEntry{
+									{
+										Mode: "100644",
+										Path: "file1InDirA",
+										OID:  blobA,
+										Type: Blob,
+									},
+								},
+							},
+							{
+								Mode: "100644",
+								Path: "fileB",
+								OID:  blobB,
+								Type: Blob,
+							},
+							{
+								Mode: "100644",
+								Path: "fileC",
+								OID:  blobC,
+								Type: Blob,
+							},
+						},
+					}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			repoProto, repoPath := gittest.CreateRepository(
+				t,
+				ctx,
+				cfg,
+				gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+			repo := NewTestRepo(t, cfg, repoProto)
+
+			commitID, expectedTree := tc.setupTree(t, repoPath)
+
+			tree, err := repo.ReadTree(
+				ctx,
+				git.Revision(commitID),
+				WithRecursive(),
+			)
+			require.NoError(t, err)
+			require.Equal(t, expectedTree, *tree)
 		})
 	}
 }
