@@ -261,12 +261,6 @@ func run(cfg config.Cfg) error {
 		limithandler.WithConcurrencyLimiters,
 	)
 
-	rateLimitHandler := limithandler.New(
-		cfg,
-		limithandler.LimitConcurrencyByRepo,
-		limithandler.WithRateLimiters(ctx),
-	)
-
 	packObjectsMonitor := limithandler.NewPackObjectsConcurrencyMonitor(
 		string(cfg.PackObjectsLimiting.Key),
 		cfg.Prometheus.GRPCLatencyBuckets,
@@ -280,7 +274,7 @@ func run(cfg config.Cfg) error {
 		packObjectsMonitor,
 	)
 
-	prometheus.MustRegister(concurrencyLimitHandler, rateLimitHandler)
+	prometheus.MustRegister(concurrencyLimitHandler)
 	prometheus.MustRegister(packObjectsMonitor)
 
 	gitalyServerFactory := server.NewGitalyServerFactory(
@@ -288,7 +282,7 @@ func run(cfg config.Cfg) error {
 		glog.Default(),
 		registry,
 		diskCache,
-		[]*limithandler.LimiterMiddleware{concurrencyLimitHandler, rateLimitHandler},
+		[]*limithandler.LimiterMiddleware{concurrencyLimitHandler},
 	)
 	defer gitalyServerFactory.Stop()
 
