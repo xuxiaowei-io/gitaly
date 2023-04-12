@@ -167,10 +167,14 @@ func optimizeRepository(
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("repack"))
 	didRepack, repackCfg, err := repackIfNeeded(ctx, repo, strategy)
 	if err != nil {
-		optimizations["packed_objects_full"] = "failure"
-		optimizations["packed_objects_incremental"] = "failure"
-		optimizations["written_bitmap"] = "failure"
-		optimizations["written_multi_pack_index"] = "failure"
+		optimizations["packed_objects_"+string(repackCfg.Strategy)] = "failure"
+		if repackCfg.WriteBitmap {
+			optimizations["written_bitmap"] = "failure"
+		}
+		if repackCfg.WriteMultiPackIndex {
+			optimizations["written_multi_pack_index"] = "failure"
+		}
+
 		return fmt.Errorf("could not repack: %w", err)
 	}
 	if didRepack {
@@ -232,7 +236,7 @@ func repackIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimiza
 	}
 
 	if err := RepackObjects(ctx, repo, cfg); err != nil {
-		return false, RepackObjectsConfig{}, err
+		return false, cfg, err
 	}
 
 	return true, cfg, nil

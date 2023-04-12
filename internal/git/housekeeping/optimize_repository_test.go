@@ -14,18 +14,38 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
+
+type errorInjectingCommandFactory struct {
+	git.CommandFactory
+	injectedErrors map[string]error
+}
+
+func (f errorInjectingCommandFactory) New(
+	ctx context.Context,
+	repo repository.GitRepo,
+	cmd git.Command,
+	opts ...git.CmdOpt,
+) (*command.Command, error) {
+	if injectedErr, ok := f.injectedErrors[cmd.Name]; ok {
+		return nil, injectedErr
+	}
+
+	return f.CommandFactory.New(ctx, repo, cmd, opts...)
+}
 
 func TestRepackIfNeeded(t *testing.T) {
 	t.Parallel()
@@ -181,6 +201,34 @@ func TestRepackIfNeeded(t *testing.T) {
 			cruftPacks: 0,
 		})
 	})
+
+	t.Run("failed repack returns configuration", func(t *testing.T) {
+		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+
+		gitCmdFactory := errorInjectingCommandFactory{
+			CommandFactory: gittest.NewCommandFactory(t, cfg),
+			injectedErrors: map[string]error{
+				"repack": assert.AnError,
+			},
+		}
+
+		repo := localrepo.New(config.NewLocator(cfg), gitCmdFactory, nil, repoProto)
+
+		expectedCfg := RepackObjectsConfig{
+			Strategy:          RepackObjectsStrategyFullWithCruft,
+			CruftExpireBefore: time.Now(),
+		}
+
+		didRepack, actualCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldRepackObjects: true,
+			repackObjectsCfg:    expectedCfg,
+		})
+		require.Equal(t, fmt.Errorf("repack failed: %w", assert.AnError), err)
+		require.False(t, didRepack)
+		require.Equal(t, expectedCfg, actualCfg)
+	})
 }
 
 func TestPackRefsIfNeeded(t *testing.T) {
@@ -260,7 +308,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 	}
 
 	type setupData struct {
-		repo                   *gitalypb.Repository
+		repo                   *localrepo.Repo
 		options                []OptimizeRepositoryOption
 		expectedErr            error
 		expectedMetrics        []metric
@@ -280,7 +328,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				})
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "total", status: "success", count: 1},
 					},
@@ -296,7 +344,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
@@ -317,7 +365,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -339,7 +387,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=1", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -360,7 +408,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "-b")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -390,7 +438,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: geometricOrIncremental(ctx,
 						[]metric{
 							{name: "packed_objects_full_with_cruft", status: "success", count: 1},
@@ -437,7 +485,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -459,7 +507,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index", "--write-midx")
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "total", status: "success", count: 1},
 					},
@@ -493,7 +541,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				}
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_bitmap", status: "success", count: 1},
@@ -528,7 +576,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				}
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "pruned_objects", status: "success", count: 1},
@@ -564,7 +612,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "packed_refs", status: "success", count: 1},
@@ -593,7 +641,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				linkRepoToPool(t, repoPath, poolPath)
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "packed_objects_incremental", status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
@@ -620,7 +668,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteRef(t, cfg, repoPath, "refs/heads/some-branch", commitID)
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
@@ -645,7 +693,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "packed_objects_incremental", status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
@@ -672,7 +720,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					options: []OptimizeRepositoryOption{
 						WithOptimizationStrategyConstructor(func(repoInfo stats.RepositoryInfo) OptimizationStrategy {
 							return NewEagerOptimizationStrategy(repoInfo)
@@ -726,13 +774,41 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				linkRepoToPool(t, repoPath, poolPath)
 
 				return setupData{
-					repo: repo,
+					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
 						{name: "packed_objects_incremental", status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
 					},
+				}
+			},
+		},
+		{
+			desc: "failing repack",
+			setup: func(t *testing.T, relativePath string) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+
+				gitCmdFactory := errorInjectingCommandFactory{
+					CommandFactory: gittest.NewCommandFactory(t, cfg),
+					injectedErrors: map[string]error{
+						"repack": assert.AnError,
+					},
+				}
+
+				return setupData{
+					repo: localrepo.New(config.NewLocator(cfg), gitCmdFactory, nil, repo),
+					expectedMetrics: []metric{
+						{name: geometricOrIncrementalMetric, status: "failure", count: 1},
+						{name: "written_bitmap", status: "failure", count: 1},
+						{name: "written_multi_pack_index", status: "failure", count: 1},
+						{name: "total", status: "failure", count: 1},
+					},
+					expectedErr: fmt.Errorf("could not repack: %w", fmt.Errorf("repack failed: %w", assert.AnError)),
 				}
 			},
 		},
@@ -743,11 +819,10 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 			t.Parallel()
 
 			setup := tc.setup(t, relativePath)
-			repo := localrepo.NewTestRepo(t, cfg, setup.repo)
 
 			manager := NewManager(cfg.Prometheus, txManager)
 
-			err := manager.OptimizeRepository(ctx, repo, setup.options...)
+			err := manager.OptimizeRepository(ctx, setup.repo, setup.options...)
 			require.Equal(t, setup.expectedErr, err)
 
 			expectedMetrics := setup.expectedMetrics
