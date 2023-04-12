@@ -17,6 +17,7 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	repo "gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -904,7 +905,7 @@ func (mgr *TransactionManager) deleteKey(key []byte) error {
 // getRepositoryID returns a repository's ID. The ID should never change as it is used in the database
 // keys. Gitaly does not have a permanent ID to use yet so the repository's storage name and relative
 // path are used as a composite key.
-func getRepositoryID(repository repository) string {
+func getRepositoryID(repository repo.GitRepo) string {
 	return repository.GetStorageName() + ":" + repository.GetRelativePath()
 }
 
