@@ -10,7 +10,7 @@ listen_addr = "127.0.0.1:2305"
 
 [database]
   # The following variables are defined in .gitlab-ci.yml.
-  host = '<%= ENV['PGHOST'] %>'
-  dbname = '<%= ENV['POSTGRES_DB'] %>'
-  user = '<%= ENV['PGUSER'] %>'
+  host = '${PGHOST}'
+  dbname = '${POSTGRES_DB}'
+  user = '${PGUSER}'
   sslmode = 'disable'

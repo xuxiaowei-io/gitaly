@@ -274,7 +274,7 @@ test:praefect_smoke:
   <<: *test_definition
   script:
     - make -j$(nproc)
-    - ruby -rerb -e 'ERB.new(ARGF.read).run' _support/config.praefect.toml.ci-sql-test.erb > config.praefect.toml
+    - envsubst < _support/config.praefect.toml.ci-sql-test > config.praefect.toml
     - ./_build/bin/praefect -config config.praefect.toml sql-ping
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
