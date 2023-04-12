@@ -22,7 +22,7 @@ import (
 var ErrMaxQueueTime = errors.New("maximum time in concurrency queue reached")
 
 // ErrMaxQueueSize indicates the concurrency queue has reached its maximum size
-var ErrMaxQueueSize = errors.New("maximum global concurrency queue size reached")
+var ErrMaxQueueSize = errors.New("maximum queue size reached")
 
 // QueueTickerCreator is a function that provides a ticker
 type QueueTickerCreator func() helper.Ticker
