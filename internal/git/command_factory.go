@@ -38,11 +38,6 @@ type CommandFactory interface {
 	HooksPath(context.Context) string
 	// GitVersion returns the Git version used by the command factory.
 	GitVersion(context.Context) (Version, error)
-
-	// SidecarGitConfiguration returns the Git configuration is it should be used by the Ruby
-	// sidecar. This is a design wart and shouldn't ever be used outside of the context of the
-	// sidecar.
-	SidecarGitConfiguration(context.Context) ([]ConfigPair, error)
 }
 
 type execCommandFactoryConfig struct {
@@ -609,53 +604,6 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 	}
 
 	return config, nil
-}
-
-// SidecarGitConfiguration assembles the Git configuration as required by the Ruby sidecar. This
-// includes global configuration, command-specific configuration for all commands executed in the
-// sidecar, as well as configuration that was configured by the administrator in Gitaly's config.
-//
-// This function should not be used for anything else but the Ruby sidecar.
-func (cf *ExecCommandFactory) SidecarGitConfiguration(ctx context.Context) ([]ConfigPair, error) {
-	// Collect the global configuration that is specific to the current Git version...
-	globalConfig, err := cf.GlobalConfiguration(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("getting global config: %w", err)
-	}
-
-	var options []GlobalOption
-	for _, configPair := range globalConfig {
-		options = append(options, configPair)
-	}
-
-	// ... as well as all configuration that exists for specific Git subcommands. The sidecar
-	// only executes git-update-ref(1) nowadays, and this set of commands is not expected to
-	// grow anymore. So while really intimate with how the sidecar does this, it is good enough
-	// until we finally remove it.
-	options = append(options, commandDescriptions["update-ref"].opts...)
-
-	// Convert the `GlobalOption`s into `ConfigPair`s.
-	configPairs := make([]ConfigPair, 0, len(options)+len(cf.cfg.Git.Config))
-	for _, option := range options {
-		configPair, ok := option.(ConfigPair)
-		if !ok {
-			continue
-		}
-
-		configPairs = append(configPairs, configPair)
-	}
-
-	// Lastly, we also apply the Git configuration as set by the administrator in Gitaly's
-	// config. Note that we do not check for conflicts here: administrators should be able to
-	// override whatever is configured by Gitaly.
-	for _, configEntry := range cf.cfg.Git.Config {
-		configPairs = append(configPairs, ConfigPair{
-			Key:   configEntry.Key,
-			Value: configEntry.Value,
-		})
-	}
-
-	return configPairs, nil
 }
 
 func (cf *ExecCommandFactory) trace2Finalizer(manager *trace2.Manager) func(context.Context, *command.Command) {

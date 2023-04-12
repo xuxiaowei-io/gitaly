@@ -654,28 +654,6 @@ func TestExecCommandFactory_config(t *testing.T) {
 	require.Equal(t, expectedEnv, strings.Split(strings.TrimSpace(stdout.String()), "\n"))
 }
 
-func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-
-	cfg.Git.Config = []config.GitConfig{
-		{Key: "custom.key", Value: "injected"},
-	}
-
-	configPairs, err := gittest.NewCommandFactory(t, cfg).SidecarGitConfiguration(ctx)
-	require.NoError(t, err)
-	require.Equal(t, []git.ConfigPair{
-		{Key: "gc.auto", Value: "0"},
-		{Key: "core.autocrlf", Value: "input"},
-		{Key: "core.useReplaceRefs", Value: "false"},
-		{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
-		{Key: "core.fsyncMethod", Value: "fsync"},
-		{Key: "custom.key", Value: "injected"},
-	}, configPairs)
-}
-
 // TestFsckConfiguration tests the hardcoded configuration of the
 // git fsck subcommand generated through the command factory.
 func TestFsckConfiguration(t *testing.T) {
