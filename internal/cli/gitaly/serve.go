@@ -271,16 +271,9 @@ func run(cfg config.Cfg) error {
 		string(cfg.PackObjectsLimiting.Key),
 		cfg.Prometheus.GRPCLatencyBuckets,
 	)
-	packObjectsConcurrencyLimit := cfg.PackObjectsLimiting.MaxConcurrency
-	if packObjectsConcurrencyLimit == 0 {
-		// TODO: remove this default setting when we remove the feature
-		// flags PackObjectsLimitingRepo and PackObjectsLimitingUser
-		// feature flag issue:  https://gitlab.com/gitlab-org/gitaly/-/issues/4413
-		packObjectsConcurrencyLimit = 200
-	}
 	packObjectsLimiter := limithandler.NewConcurrencyLimiter(
-		int(packObjectsConcurrencyLimit),
-		0,
+		cfg.PackObjectsLimiting.MaxConcurrency,
+		cfg.PackObjectsLimiting.MaxQueueLength,
 		func() helper.Ticker {
 			return helper.NewTimerTicker(cfg.PackObjectsLimiting.MaxQueueWait.Duration())
 		},

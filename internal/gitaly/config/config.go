@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
@@ -407,6 +408,9 @@ const (
 	// PackObjectsLimitingKeyRepository will limit the pack objects concurrency
 	// by repository
 	PackObjectsLimitingKeyRepository = PackObjectsLimitingKey("repository")
+	// PackObjectsLimitingKeyRemoteIP will limit the pack objects concurrency
+	// by RemoteIP
+	PackObjectsLimitingKeyRemoteIP = PackObjectsLimitingKey("remote_ip")
 )
 
 // ParsePackObjectsLimitingKey checks if the key is a valid
@@ -417,6 +421,8 @@ func ParsePackObjectsLimitingKey(k string) (PackObjectsLimitingKey, error) {
 		return PackObjectsLimitingKeyUser, nil
 	case PackObjectsLimitingKeyRepository:
 		return PackObjectsLimitingKeyRepository, nil
+	case PackObjectsLimitingKeyRemoteIP:
+		return PackObjectsLimitingKeyRemoteIP, nil
 	default:
 		return "", fmt.Errorf("unsupported pack objects limiting key: %q", k)
 	}
@@ -441,15 +447,19 @@ type PackObjectsLimiting struct {
 	Key PackObjectsLimitingKey `toml:"key,omitempty" json:"key,omitempty"`
 	// MaxConcurrency is the maximum number of concurrent pack objects processes
 	// for a given key.
-	MaxConcurrency uint `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
+	MaxConcurrency int `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
 	// MaxQueueWait is the maximum time a request can remain in the concurrency queue
 	// waiting to be picked up by Gitaly.
 	MaxQueueWait duration.Duration `toml:"max_queue_wait,omitempty" json:"max_queue_wait,omitempty"`
+	// MaxQueueLength is the maximum length of the request queue
+	MaxQueueLength int `toml:"max_queue_length,omitempty" json:"max_queue_length,omitempty"`
 }
 
 // Validate runs validation on all fields and compose all found errors.
 func (pol PackObjectsLimiting) Validate() error {
 	return cfgerror.New().
+		Append(cfgerror.IsPositive(pol.MaxConcurrency), "max_concurrency").
+		Append(cfgerror.IsPositive(pol.MaxQueueLength), "max_queue_length").
 		Append(cfgerror.IsPositive(pol.MaxQueueWait.Duration()), "max_queue_wait").
 		AsError()
 }
@@ -486,12 +496,40 @@ func defaultPackObjectsCacheConfig() StreamCacheConfig {
 	}
 }
 
+func defaultPackObjectsLimiting() PackObjectsLimiting {
+	var maxConcurrency, maxQueueLength int
+
+	// TODO: Injecting environment variables here boosts the time to try out new concurrency
+	// limiting. When this new limiter is in-place, they should go through official
+	// configure methods (Omnibus, K8s helm chart, etc.) instead.
+	if maxConcurrencyFromEnv, err := env.GetInt("GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY", 200); err == nil {
+		maxConcurrency = maxConcurrencyFromEnv
+	}
+	if maxConcurrency == 0 {
+		// TODO: remove this default setting when we remove the feature
+		// flags PackObjectsLimitingRepo, PackObjectsLimitingUser, and PackObjectsLimitingRemoteIP
+		// feature flag issue:  https://gitlab.com/gitlab-org/gitaly/-/issues/4413
+		maxConcurrency = 200
+	}
+	if maxQueueLengthFromEnv, err := env.GetInt("GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH", 0); err == nil {
+		maxQueueLength = maxQueueLengthFromEnv
+	}
+
+	return PackObjectsLimiting{
+		Key:            "",
+		MaxConcurrency: maxConcurrency,
+		MaxQueueLength: maxQueueLength,
+		MaxQueueWait:   0, // Do not enforce queue wait at this point
+	}
+}
+
 // Load initializes the Config variable from file and the environment.
 // Environment variables take precedence over the file.
 func Load(file io.Reader) (Cfg, error) {
 	cfg := Cfg{
-		Prometheus:       prometheus.DefaultConfig(),
-		PackObjectsCache: defaultPackObjectsCacheConfig(),
+		Prometheus:          prometheus.DefaultConfig(),
+		PackObjectsCache:    defaultPackObjectsCacheConfig(),
+		PackObjectsLimiting: defaultPackObjectsLimiting(),
 	}
 
 	if err := toml.NewDecoder(file).Decode(&cfg); err != nil {

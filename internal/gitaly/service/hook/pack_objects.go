@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"syscall"
@@ -76,6 +77,11 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 	key := hex.EncodeToString(h.Sum(nil))
 
 	servedBytes, created, err := s.packObjectsCache.Fetch(ctx, key, output, func(w io.Writer) error {
+		// TODO: We now have three different concurrency strategies for pack-objects. All of
+		// them are guarded behind feature flags. This situation is because we wanted to verify
+		// and pick the most effective strategy. `PackObjectsLimiting.Key` config is ignored
+		// at this point. We will either checking it properly, or remove it when there is
+		// a conclusion on production.
 		if featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) {
 			return s.runPackObjectsLimited(
 				ctx,
@@ -98,6 +104,22 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 				stdin,
 				key,
 			)
+		}
+
+		if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) && req.GetRemoteIp() != "" {
+			ipAddr := net.ParseIP(req.GetRemoteIp())
+			// Ignore loop-back IPs
+			if ipAddr != nil && !ipAddr.IsLoopback() {
+				return s.runPackObjectsLimited(
+					ctx,
+					w,
+					req.GetRemoteIp(),
+					req,
+					args,
+					stdin,
+					key,
+				)
+			}
 		}
 
 		return s.runPackObjects(ctx, w, req, args, stdin, key)

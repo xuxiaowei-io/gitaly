@@ -91,6 +91,7 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	testhelper.NewFeatureSets(
 		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
+		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
 		testServerPackObjectsHookSeparateContextWithRuntimeDir,
@@ -223,6 +224,7 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 	testhelper.NewFeatureSets(
 		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
+		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
 		testServerPackObjectsHookUsesCache,
@@ -311,6 +313,7 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 	testhelper.NewFeatureSets(
 		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
+		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
 		testServerPackObjectsHookWithSidechannelWithRuntimeDir,
@@ -583,6 +586,7 @@ func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 	testhelper.NewFeatureSets(
 		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
+		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
 		testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir,
@@ -662,6 +666,7 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 	testhelper.NewFeatureSets(
 		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
+		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, testPackObjectsConcurrency)
 }
 
@@ -676,124 +681,216 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 		keyType = "repo"
 	} else if featureflag.PackObjectsLimitingUser.IsEnabled(ctx) {
 		keyType = "user"
+	} else if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) {
+		keyType = "remote_ip"
 	}
 
-	ticker := helper.NewManualTicker()
-	monitor := limithandler.NewPackObjectsConcurrencyMonitor(
-		keyType,
-		cfg.Prometheus.GRPCLatencyBuckets,
-	)
-	limiter := limithandler.NewConcurrencyLimiter(
-		1,
-		0,
-		func() helper.Ticker { return ticker },
-		monitor,
-	)
+	args := []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"}
 
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(monitor)
-
-	receivedCh, blockCh := make(chan struct{}), make(chan struct{})
-	cfg.SocketPath = runHooksServer(t, cfg, []serverOption{
-		withRunPackObjectsFn(func(
-			context.Context,
-			git.CommandFactory,
-			io.Writer,
-			*gitalypb.PackObjectsHookWithSidechannelRequest,
-			*packObjectsArgs,
-			io.Reader,
-			string,
-			*hookPkg.ConcurrencyTracker,
-		) error {
-			receivedCh <- struct{}{}
-			<-blockCh
-			return nil
-		}),
-	},
-		testserver.WithPackObjectsLimiter(limiter),
-	)
-
-	ctx1, wt1, err := setupSidechannel(t, ctx, "1dd08961455abf80ef9115f4afdc1c6f968b503c")
-	require.NoError(t, err)
-
-	ctx2, wt2, err := setupSidechannel(t, ctx, "2dd08961455abf80ef9115f4afdc1c6f968b503")
-	require.NoError(t, err)
-
-	userID := "user-123"
-	req1 := &gitalypb.PackObjectsHookWithSidechannelRequest{
-		GlId: userID,
-		Repository: &gitalypb.Repository{
-			StorageName:  "storage-0",
-			RelativePath: "a/b/c",
+	for _, tc := range []struct {
+		desc        string
+		requests    [2]*gitalypb.PackObjectsHookWithSidechannelRequest
+		shouldLimit bool
+	}{
+		{
+			desc: "never reach limit",
+			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+				{
+					GlId:     "user-123",
+					RemoteIp: "1.2.3.4",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+				{
+					GlId:     "user-456",
+					RemoteIp: "1.2.3.5",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "d/e/f",
+					},
+					Args: args,
+				},
+			},
+			shouldLimit: false,
 		},
-		Args: []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"},
-	}
-
-	req2 := &gitalypb.PackObjectsHookWithSidechannelRequest{
-		GlId: userID,
-		Repository: &gitalypb.Repository{
-			StorageName:  "storage-0",
-			RelativePath: "a/b/c",
+		{
+			desc: "normal IP address",
+			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+				{
+					GlId:     "user-123",
+					RemoteIp: "1.2.3.4",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+				{
+					GlId:     "user-123",
+					RemoteIp: "1.2.3.4",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+			},
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
+				featureflag.PackObjectsLimitingUser.IsEnabled(ctx) ||
+				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
 		},
-		Args: []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"},
-	}
-
-	client, conn := newHooksClient(t, cfg.SocketPath)
-	defer testhelper.MustClose(t, conn)
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	errChan := make(chan error)
-
-	// We fire off two requests. Since the concurrency limit is set at 1,
-	// the first request will make it through the concurrency limiter and
-	// get blocked in the function provide to withRunPackObjectsFn() above.
-	// The second request will get concurrency limited and will be waiting
-	// in the queue.
-	// When we call Tick() on the max queue wait ticker, the second request
-	// will return with an error.
-
-	type call struct {
-		ctx context.Context
-		req *gitalypb.PackObjectsHookWithSidechannelRequest
-	}
-
-	for _, c := range []call{
-		{ctx: ctx1, req: req1},
-		{ctx: ctx2, req: req2},
+		{
+			desc: "IPv4 loopback addresses",
+			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+				{
+					GlId:     "user-123",
+					RemoteIp: "127.0.0.1",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+				{
+					GlId:     "user-123",
+					RemoteIp: "127.0.0.1",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+			},
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
+				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+		},
+		{
+			desc: "IPv6 loopback addresses",
+			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+				{
+					GlId:     "user-123",
+					RemoteIp: net.IPv6loopback.String(),
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+				{
+					GlId:     "user-123",
+					RemoteIp: net.IPv6loopback.String(),
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+			},
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
+				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+		},
 	} {
-		go func(c call) {
-			defer wg.Done()
-			_, err := client.PackObjectsHookWithSidechannel(c.ctx, c.req)
-			if err != nil {
-				errChan <- err
+		t.Run(tc.desc, func(t *testing.T) {
+			ticker := helper.NewManualTicker()
+			monitor := limithandler.NewPackObjectsConcurrencyMonitor(
+				keyType,
+				cfg.Prometheus.GRPCLatencyBuckets,
+			)
+			limiter := limithandler.NewConcurrencyLimiter(
+				1,
+				0,
+				func() helper.Ticker { return ticker },
+				monitor,
+			)
+
+			registry := prometheus.NewRegistry()
+			registry.MustRegister(monitor)
+
+			receivedCh, blockCh := make(chan struct{}), make(chan struct{})
+			cfg.SocketPath = runHooksServer(t, cfg, []serverOption{
+				withRunPackObjectsFn(func(
+					context.Context,
+					git.CommandFactory,
+					io.Writer,
+					*gitalypb.PackObjectsHookWithSidechannelRequest,
+					*packObjectsArgs,
+					io.Reader,
+					string,
+					*hookPkg.ConcurrencyTracker,
+				) error {
+					receivedCh <- struct{}{}
+					<-blockCh
+					return nil
+				}),
+			},
+				testserver.WithPackObjectsLimiter(limiter),
+			)
+
+			ctx1, wt1, err := setupSidechannel(t, ctx, "1dd08961455abf80ef9115f4afdc1c6f968b503c")
+			require.NoError(t, err)
+
+			ctx2, wt2, err := setupSidechannel(t, ctx, "2dd08961455abf80ef9115f4afdc1c6f968b503")
+			require.NoError(t, err)
+
+			client, conn := newHooksClient(t, cfg.SocketPath)
+			defer testhelper.MustClose(t, conn)
+
+			var wg sync.WaitGroup
+			wg.Add(2)
+
+			errChan := make(chan error)
+
+			// We fire off two requests. Since the concurrency limit is set at 1,
+			// the first request will make it through the concurrency limiter and
+			// get blocked in the function provide to withRunPackObjectsFn() above.
+			// The second request will get concurrency limited and will be waiting
+			// in the queue.
+			// When we call Tick() on the max queue wait ticker, the second request
+			// will return with an error.
+
+			type call struct {
+				ctx context.Context
+				req *gitalypb.PackObjectsHookWithSidechannelRequest
 			}
-		}(c)
-	}
 
-	if featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) || featureflag.PackObjectsLimitingUser.IsEnabled(ctx) {
-		<-receivedCh
+			for _, c := range []call{
+				{ctx: ctx1, req: tc.requests[0]},
+				{ctx: ctx2, req: tc.requests[1]},
+			} {
+				go func(c call) {
+					defer wg.Done()
+					_, err := client.PackObjectsHookWithSidechannel(c.ctx, c.req)
+					if err != nil {
+						errChan <- err
+					}
+				}(c)
+			}
 
-		require.NoError(t,
-			testutil.GatherAndCompare(registry,
-				bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_pack_objects_in_progress Gauge of number of concurrent in-progress calls
+			if tc.shouldLimit {
+				<-receivedCh
+
+				require.NoError(t,
+					testutil.GatherAndCompare(registry,
+						bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_pack_objects_in_progress Gauge of number of concurrent in-progress calls
 # TYPE gitaly_pack_objects_in_progress gauge
 gitaly_pack_objects_in_progress{type=%q} 1
 `, keyType)), "gitaly_pack_objects_in_progress"))
 
-		ticker.Tick()
+				ticker.Tick()
 
-		err := <-errChan
-		testhelper.RequireGrpcCode(
-			t,
-			err,
-			codes.ResourceExhausted,
-		)
+				err := <-errChan
+				testhelper.RequireGrpcCode(
+					t,
+					err,
+					codes.ResourceExhausted,
+				)
 
-		close(blockCh)
+				close(blockCh)
 
-		expectedMetrics := bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_pack_objects_dropped_total Number of requests dropped from the queue
+				expectedMetrics := bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_pack_objects_dropped_total Number of requests dropped from the queue
 # TYPE gitaly_pack_objects_dropped_total counter
 gitaly_pack_objects_dropped_total{reason="max_time", type=%q} 1
 # HELP gitaly_pack_objects_queued Gauge of number of queued calls
@@ -801,24 +898,26 @@ gitaly_pack_objects_dropped_total{reason="max_time", type=%q} 1
 gitaly_pack_objects_queued{type=%q} 0
 `, keyType, keyType))
 
-		require.NoError(t,
-			testutil.GatherAndCompare(registry, expectedMetrics,
-				"gitaly_pack_objects_dropped_total",
-				"gitaly_pack_objects_queued",
-			))
+				require.NoError(t,
+					testutil.GatherAndCompare(registry, expectedMetrics,
+						"gitaly_pack_objects_dropped_total",
+						"gitaly_pack_objects_queued",
+					))
 
-		acquiringSecondsCount, err := testutil.GatherAndCount(registry,
-			"gitaly_pack_objects_acquiring_seconds")
-		require.NoError(t, err)
+				acquiringSecondsCount, err := testutil.GatherAndCount(registry,
+					"gitaly_pack_objects_acquiring_seconds")
+				require.NoError(t, err)
 
-		require.Equal(t, 1, acquiringSecondsCount)
-	} else {
-		close(blockCh)
-		<-receivedCh
-		<-receivedCh
+				require.Equal(t, 1, acquiringSecondsCount)
+			} else {
+				close(blockCh)
+				<-receivedCh
+				<-receivedCh
+			}
+
+			wg.Wait()
+			require.NoError(t, wt1.Wait())
+			require.NoError(t, wt2.Wait())
+		})
 	}
-
-	wg.Wait()
-	require.NoError(t, wt1.Wait())
-	require.NoError(t, wt2.Wait())
 }
