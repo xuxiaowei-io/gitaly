@@ -911,6 +911,7 @@ func TestTransactionManager(t *testing.T) {
 					TransactionID: 2,
 					ExpectedSnapshot: Snapshot{
 						ReadIndex: 1,
+						HookIndex: 1,
 					},
 				},
 				Commit{
@@ -973,6 +974,75 @@ func TestTransactionManager(t *testing.T) {
 					},
 					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+				},
+			},
+		},
+		{
+			desc: "hook index is correctly determined from log and disk",
+			steps: steps{
+				StartManager{
+					Hooks: testHooks{
+						BeforeApplyLogEntry: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+						HookIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID:     2,
+					CustomHooksUpdate: &CustomHooksUpdate{},
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 2,
+						HookIndex: 2,
+					},
+				},
+				StopManager{},
+				StartManager{},
+				Begin{
+					TransactionID: 4,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 2,
+						HookIndex: 2,
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+				},
+				Hooks: testhelper.DirectoryState{
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
+					},
+					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					"/wal/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				},
 			},
 		},
@@ -1591,11 +1661,15 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
 				},
 				Begin{
 					TransactionID: 3,
 					ExpectedSnapshot: Snapshot{
 						ReadIndex: 1,
+						HookIndex: 1,
 					},
 				},
 				Commit{
@@ -1608,6 +1682,7 @@ func TestTransactionManager(t *testing.T) {
 					TransactionID: 4,
 					ExpectedSnapshot: Snapshot{
 						ReadIndex: 2,
+						HookIndex: 1,
 					},
 				},
 				Rollback{
@@ -1617,12 +1692,21 @@ func TestTransactionManager(t *testing.T) {
 					TransactionID: 5,
 					ExpectedSnapshot: Snapshot{
 						ReadIndex: 2,
+						HookIndex: 1,
 					},
 				},
 				Commit{
 					TransactionID: 4,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: secondCommitOID, NewOID: thirdCommitOID},
+					},
+					CustomHooksUpdate: &CustomHooksUpdate{},
+				},
+				Begin{
+					TransactionID: 6,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 3,
+						HookIndex: 3,
 					},
 				},
 			},
@@ -1633,6 +1717,17 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(3).toProto(),
+				},
+				Hooks: testhelper.DirectoryState{
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
+					},
+					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					"/wal/hooks/3":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				},
 			},
 		},
