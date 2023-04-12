@@ -3,7 +3,10 @@ package localrepo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -92,11 +95,180 @@ type TreeEntry struct {
 	Path string
 	// Type is the type of the tree entry.
 	Type ObjectType
+	// Entries is a slice of this tree's entries.
+	Entries []*TreeEntry
 }
 
 // IsBlob returns whether or not the TreeEntry is a blob.
 func (t *TreeEntry) IsBlob() bool {
 	return t.Type == Blob
+}
+
+var (
+	// ErrNotExist indicates that the requested tree does not exist, either because the revision
+	// is invalid or because the path is not valid.
+	ErrNotExist = errors.New("invalid object name")
+	// ErrNotTreeish indicates that the requested revision or path does not resolve to a tree
+	// object.
+	ErrNotTreeish = errors.New("not treeish")
+)
+
+// listEntries lists tree entries for the given treeish. By default, this will do a non-recursive
+// listing starting from the root of the given treeish. This behaviour can be changed by passing a
+// config.
+func (repo *Repo) listEntries(
+	ctx context.Context,
+	treeish git.Revision,
+	relativePath string,
+	recursive bool,
+) ([]*TreeEntry, error) {
+	flags := []git.Option{git.Flag{Name: "-z"}}
+	if recursive {
+		flags = append(flags,
+			git.Flag{Name: "-r"},
+			git.Flag{Name: "-t"},
+		)
+	}
+
+	if relativePath == "." {
+		relativePath = ""
+	}
+
+	var stderr bytes.Buffer
+	cmd, err := repo.Exec(ctx, git.Command{
+		Name:  "ls-tree",
+		Args:  []string{fmt.Sprintf("%s:%s", treeish, relativePath)},
+		Flags: flags,
+	}, git.WithStderr(&stderr))
+	if err != nil {
+		return nil, fmt.Errorf("spawning git-ls-tree: %w", err)
+	}
+
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	parser := NewParser(cmd, objectHash)
+	var entries []*TreeEntry
+	for {
+		entry, err := parser.NextEntry()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			return nil, fmt.Errorf("parsing tree entry: %w", err)
+		}
+
+		entries = append(entries, entry)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		errorMessage := stderr.String()
+		if strings.HasPrefix(errorMessage, "fatal: not a tree object") {
+			return nil, ErrNotTreeish
+		} else if strings.HasPrefix(errorMessage, "fatal: Not a valid object name") {
+			return nil, ErrNotExist
+		}
+
+		return nil, fmt.Errorf("waiting for git-ls-tree: %w, stderr: %q", err, errorMessage)
+	}
+
+	return entries, nil
+}
+
+func depthByPath(path string) int {
+	return len(strings.Split(path, "/"))
+}
+
+// treeQueue is a queue data structure used by walk() to do a breadth-first walk
+// of the outputof ls-tree -r.
+type treeQueue []*TreeEntry
+
+func (t treeQueue) peek() *TreeEntry {
+	if len(t) == 0 {
+		return nil
+	}
+
+	return t[len(t)-1]
+}
+
+func (t *treeQueue) push(e *TreeEntry) {
+	*t = append(*t, e)
+}
+
+func (t *treeQueue) pop() *TreeEntry {
+	e := t.peek()
+	if e == nil {
+		return nil
+	}
+
+	*t = (*t)[:len(*t)-1]
+
+	return e
+}
+
+// walk scans through the output of ls-tree -r, and constructs a TreeEntry
+// object.
+func (t *TreeEntry) walk(
+	ctx context.Context,
+	repo *Repo,
+) error {
+	if t.OID == "" {
+		return errors.New("oid is empty")
+	}
+
+	t.Entries = nil
+
+	entries, err := repo.listEntries(
+		ctx,
+		git.Revision(t.OID),
+		"",
+		true,
+	)
+	if err != nil {
+		return err
+	}
+
+	queue := treeQueue{t}
+
+	// The outpout of ls-tree -r is the following:
+	// a1
+	// dir1/file2
+	// dir2/file3
+	// f2
+	// f3
+	// Whenever we see a tree, push it onto the stack since we will need to
+	// start adding to that tree's entries.
+	// When we encounter an entry that has a lower depth than the previous
+	// entry, we know that we need to pop the tree entry off to get back to the
+	// parent tree.
+	for _, entry := range entries {
+		if depthByPath(entry.Path) < len(queue) {
+			levelsToPop := len(queue) - depthByPath(entry.Path)
+
+			for i := 0; i < levelsToPop; i++ {
+				queue.pop()
+			}
+		}
+
+		entry.Path = filepath.Base(entry.Path)
+		queue.peek().Entries = append(
+			queue.peek().Entries,
+			entry,
+		)
+
+		if entry.Type == Tree {
+			queue.push(entry)
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("listing entries: %w", err)
+	}
+
+	return nil
 }
 
 // WriteTree writes a new tree object to the given path. This function does not verify whether OIDs
@@ -154,4 +326,90 @@ func (repo *Repo) WriteTree(ctx context.Context, entries []*TreeEntry) (git.Obje
 	}
 
 	return treeOID, nil
+}
+
+// getTreeConfig is configuration that can be passed to GetTree.
+type getTreeConfig struct {
+	recursive bool
+	// relativePath is the relative path at which listing of entries should be started.
+	relativePath string
+	walk         bool
+}
+
+// GetTreeOption is an option that modifies the behavior of GetTree()
+type GetTreeOption func(c *getTreeConfig)
+
+// WithRecursive returns all entries recursively, but "flattened" in the sense
+// that all subtrees and their entries get returned as Entries, each entry with
+// its full path.
+func WithRecursive() GetTreeOption {
+	return func(c *getTreeConfig) {
+		c.recursive = true
+	}
+}
+
+// WithRelativePath will cause GetTree to return a tree at the relative path.
+func WithRelativePath(relativePath string) GetTreeOption {
+	return func(c *getTreeConfig) {
+		c.relativePath = relativePath
+	}
+}
+
+// WithWalk will walk the rest of the tree, filling in each level's Entries.
+func WithWalk() GetTreeOption {
+	return func(c *getTreeConfig) {
+		c.walk = true
+	}
+}
+
+// GetTree gets a tree object with all of the direct children populated.
+// Walk can be called to populate every level of the tree.
+func (repo *Repo) GetTree(ctx context.Context, treeish git.Revision, options ...GetTreeOption) (*TreeEntry, error) {
+	var c getTreeConfig
+
+	for _, opt := range options {
+		opt(&c)
+	}
+
+	if c.walk && c.recursive {
+		return nil, errors.New("cannot walk and return recursive listings at the same time")
+	}
+
+	var treeOID git.ObjectID
+	var err error
+
+	if c.relativePath != "" && c.relativePath != "." {
+		if treeOID, err = repo.ResolveRevision(ctx, git.Revision(string(treeish)+":"+c.relativePath)); err != nil {
+			return nil, fmt.Errorf("getting revision: %w", err)
+		}
+	} else {
+		if treeOID, err = repo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{tree}", treeish))); err != nil {
+			return nil, fmt.Errorf("getting revision: %w", err)
+		}
+	}
+
+	rootEntry := &TreeEntry{
+		OID:  treeOID,
+		Type: Tree,
+		Mode: "040000",
+	}
+
+	if c.walk {
+		if err := rootEntry.walk(ctx, repo); err != nil {
+			return nil, err
+		}
+
+		return rootEntry, nil
+	}
+
+	if rootEntry.Entries, err = repo.listEntries(
+		ctx,
+		treeish,
+		c.relativePath,
+		c.recursive,
+	); err != nil {
+		return nil, fmt.Errorf("listEntries: %w", err)
+	}
+
+	return rootEntry, nil
 }

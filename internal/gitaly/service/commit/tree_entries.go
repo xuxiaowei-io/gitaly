@@ -106,10 +106,11 @@ func (s *server) sendTreeEntries(
 			return err
 		}
 
-		treeEntries, err := repo.ListEntries(ctx, git.Revision(revision), &localrepo.ListEntriesConfig{
-			Recursive:    recursive,
-			RelativePath: path,
-		})
+		tree, err := repo.GetTree(
+			ctx, git.Revision(revision),
+			localrepo.WithRecursive(),
+			localrepo.WithRelativePath(path),
+		)
 		if err != nil {
 			// Design wart: we do not return an error if the request does not
 			// point to a tree object, but just return nothing.
@@ -118,12 +119,14 @@ func (s *server) sendTreeEntries(
 			}
 
 			// Same if we try to list tree entries of a revision which doesn't exist.
-			if errors.Is(err, localrepo.ErrNotExist) {
+			if errors.Is(err, localrepo.ErrNotExist) || errors.Is(err, git.ErrReferenceNotFound) {
 				return nil
 			}
 
 			return fmt.Errorf("listing tree entries: %w", err)
 		}
+
+		treeEntries := tree.Entries
 
 		entries = make([]*gitalypb.TreeEntry, 0, len(treeEntries))
 		for _, entry := range treeEntries {

@@ -71,20 +71,20 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 	// tree with the new tree abcabc. Continue iterating up the tree,
 	// writing a new tree object each time.
 	for {
-		entries, err := quarantineRepo.ListEntries(
+		tree, err := quarantineRepo.GetTree(
 			ctx,
-
 			git.Revision("refs/heads/"+string(req.GetBranch())),
-			&localrepo.ListEntriesConfig{
-				RelativePath: path,
-			})
+			localrepo.WithRelativePath(path),
+		)
 		if err != nil {
-			if strings.Contains(err.Error(), "invalid object name") {
+			if errors.Is(err, git.ErrReferenceNotFound) {
 				return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
 			}
 
 			return "", fmt.Errorf("error reading tree: %w", err)
 		}
+
+		entries := tree.Entries
 
 		var newEntries []*localrepo.TreeEntry
 		var newTreeID git.ObjectID
