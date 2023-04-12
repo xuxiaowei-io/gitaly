@@ -326,7 +326,9 @@ message FindChangedPathsRequest {
 
 // Returns a list of files that have been changed in the commits given
 message FindChangedPathsResponse {
-  // This comment is left unintentionally blank.
+  // paths contains the attributes for one changed file. In case of merge
+  // commits, or when comparing three or more commits, a file might be included
+  // more than once if it was changed between multiple commits.
   repeated ChangedPaths paths = 1;
 }
 

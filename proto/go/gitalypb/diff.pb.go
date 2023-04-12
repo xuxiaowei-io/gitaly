@@ -1328,7 +1328,9 @@ type FindChangedPathsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// paths contains the attributes for one changed file. In case of merge
+	// commits, or when comparing three or more commits, a file might be included
+	// more than once if it was changed between multiple commits.
 	Paths []*ChangedPaths `protobuf:"bytes,1,rep,name=paths,proto3" json:"paths,omitempty"`
 }
 
