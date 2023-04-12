@@ -1,6 +1,7 @@
 package localrepo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -533,6 +534,195 @@ func TestRepo_IsAncestor(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tc.isAncestor, isAncestor)
+		})
+	}
+}
+
+func TestWalkUnreachableObjects(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, repo, repoPath := setupRepo(t)
+
+	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("commit-1"))
+	unreachableCommit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commit1))
+	unreachableCommit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(unreachableCommit1))
+	prunedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(unreachableCommit2))
+	brokenParent1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(prunedCommit))
+
+	// Pack brokenParent so we can unpack it into the repository as an object with broken links after
+	// pruning.
+	var packedBrokenParent bytes.Buffer
+	require.NoError(t, repo.PackObjects(ctx, strings.NewReader(brokenParent1.String()), &packedBrokenParent))
+
+	// Prune to remove the prunedCommit.
+	gittest.Exec(t, cfg, "-C", repoPath, "prune", unreachableCommit1.String(), unreachableCommit2.String())
+
+	// Unpack brokenParent now that the parent has been pruned.
+	require.NoError(t, repo.UnpackObjects(ctx, &packedBrokenParent))
+
+	gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{
+		commit1, unreachableCommit1, unreachableCommit2, brokenParent1,
+	})
+
+	for _, tc := range []struct {
+		desc           string
+		heads          []git.ObjectID
+		expectedOutput []string
+		expectedError  error
+	}{
+		{
+			desc: "no heads",
+		},
+		{
+			desc:  "reachable commit not reported",
+			heads: []git.ObjectID{commit1},
+		},
+		{
+			desc:  "unreachable commits reported",
+			heads: []git.ObjectID{unreachableCommit2},
+			expectedOutput: []string{
+				unreachableCommit1.String(),
+				unreachableCommit2.String(),
+			},
+		},
+		{
+			desc:          "non-existent head",
+			heads:         []git.ObjectID{prunedCommit},
+			expectedError: BadObjectError{ObjectID: prunedCommit},
+		},
+		{
+			desc:          "traversal fails due to missing parent commit",
+			heads:         []git.ObjectID{brokenParent1},
+			expectedError: ObjectReadError{prunedCommit},
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			var heads []string
+			for _, head := range tc.heads {
+				heads = append(heads, head.String())
+			}
+
+			var output bytes.Buffer
+			require.Equal(t,
+				tc.expectedError,
+				repo.WalkUnreachableObjects(ctx, strings.NewReader(strings.Join(heads, "\n")), &output))
+
+			var actualOutput []string
+			if output.Len() > 0 {
+				actualOutput = strings.Split(strings.TrimSpace(output.String()), "\n")
+			}
+			require.ElementsMatch(t, tc.expectedOutput, actualOutput)
+		})
+	}
+}
+
+func TestPackAndUnpackObjects(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, repo, repoPath := setupRepo(t)
+
+	commit1 := gittest.WriteCommit(t, cfg, repoPath)
+	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commit1))
+	commit3 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commit2))
+
+	gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{commit1, commit2, commit3})
+
+	var emptyPack bytes.Buffer
+	require.NoError(t,
+		repo.PackObjects(ctx, strings.NewReader(""),
+			&emptyPack,
+		),
+	)
+
+	var oneCommitPack bytes.Buffer
+	require.NoError(t,
+		repo.PackObjects(ctx, strings.NewReader(
+			strings.Join([]string{commit1.String()}, "\n"),
+		),
+			&oneCommitPack,
+		),
+	)
+
+	var twoCommitPack bytes.Buffer
+	require.NoError(t,
+		repo.PackObjects(ctx, strings.NewReader(
+			strings.Join([]string{commit1.String(), commit2.String()}, "\n"),
+		),
+			&twoCommitPack,
+		),
+	)
+
+	var incompletePack bytes.Buffer
+	require.NoError(t,
+		repo.PackObjects(ctx, strings.NewReader(
+			strings.Join([]string{commit1.String(), commit3.String()}, "\n"),
+		),
+			&incompletePack,
+		),
+	)
+
+	for _, tc := range []struct {
+		desc                 string
+		pack                 []byte
+		expectedObjects      []git.ObjectID
+		expectedErrorMessage string
+	}{
+		{
+			desc: "empty pack",
+			pack: emptyPack.Bytes(),
+		},
+		{
+			desc: "one commit",
+			pack: oneCommitPack.Bytes(),
+			expectedObjects: []git.ObjectID{
+				commit1,
+			},
+		},
+		{
+			desc: "two commits",
+			pack: twoCommitPack.Bytes(),
+			expectedObjects: []git.ObjectID{
+				commit1, commit2,
+			},
+		},
+		{
+			desc: "incomplete pack",
+			pack: incompletePack.Bytes(),
+			expectedObjects: []git.ObjectID{
+				commit1, commit3,
+			},
+		},
+		{
+			desc:                 "no pack",
+			expectedErrorMessage: "unpack objects: exit status 128",
+		},
+		{
+			desc:                 "broken pack",
+			pack:                 []byte("invalid pack"),
+			expectedErrorMessage: "unpack objects: exit status 128",
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, repo, repoPath := setupRepo(t)
+			gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{})
+
+			err := repo.UnpackObjects(ctx, bytes.NewReader(tc.pack))
+			if tc.expectedErrorMessage != "" {
+				require.EqualError(t, err, tc.expectedErrorMessage)
+			} else {
+				require.NoError(t, err)
+			}
+			gittest.RequireObjects(t, cfg, repoPath, tc.expectedObjects)
 		})
 	}
 }
