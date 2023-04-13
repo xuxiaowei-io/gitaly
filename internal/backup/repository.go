@@ -32,10 +32,10 @@ func newRemoteRepository(repo *gitalypb.Repository, conn *grpc.ClientConn) *remo
 }
 
 // IsEmpty returns true if the repository has no branches.
-func (repo *remoteRepository) IsEmpty(ctx context.Context) (bool, error) {
-	client := repo.newRepoClient()
+func (rr *remoteRepository) IsEmpty(ctx context.Context) (bool, error) {
+	client := rr.newRepoClient()
 	hasLocalBranches, err := client.HasLocalBranches(ctx, &gitalypb.HasLocalBranchesRequest{
-		Repository: repo.repo,
+		Repository: rr.repo,
 	})
 	switch {
 	case status.Code(err) == codes.NotFound:
@@ -47,10 +47,10 @@ func (repo *remoteRepository) IsEmpty(ctx context.Context) (bool, error) {
 }
 
 // ListRefs fetches the full set of refs and targets for the repository
-func (repo *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, error) {
-	refClient := repo.newRefClient()
+func (rr *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, error) {
+	refClient := rr.newRefClient()
 	stream, err := refClient.ListRefs(ctx, &gitalypb.ListRefsRequest{
-		Repository: repo.repo,
+		Repository: rr.repo,
 		Head:       true,
 		Patterns:   [][]byte{[]byte("refs/")},
 	})
@@ -76,9 +76,9 @@ func (repo *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, er
 }
 
 // GetCustomHooks fetches the custom hooks archive.
-func (repo *remoteRepository) GetCustomHooks(ctx context.Context) (io.Reader, error) {
-	repoClient := repo.newRepoClient()
-	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: repo.repo})
+func (rr *remoteRepository) GetCustomHooks(ctx context.Context) (io.Reader, error) {
+	repoClient := rr.newRepoClient()
+	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: rr.repo})
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +90,8 @@ func (repo *remoteRepository) GetCustomHooks(ctx context.Context) (io.Reader, er
 }
 
 // CreateBundle fetches a bundle that contains refs matching patterns.
-func (repo *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error {
-	repoClient := repo.newRepoClient()
+func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error {
+	repoClient := rr.newRepoClient()
 	stream, err := repoClient.CreateBundleFromRefList(ctx)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func (repo *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, p
 		line = bytes.TrimSuffix(line, []byte("\n"))
 
 		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
-			Repository: repo.repo,
+			Repository: rr.repo,
 			Patterns:   [][]byte{line},
 		}); err != nil {
 			return err
@@ -140,10 +140,10 @@ func (repo *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, p
 	return nil
 }
 
-func (repo *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
-	return gitalypb.NewRepositoryServiceClient(repo.conn)
+func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
+	return gitalypb.NewRepositoryServiceClient(rr.conn)
 }
 
-func (repo *remoteRepository) newRefClient() gitalypb.RefServiceClient {
-	return gitalypb.NewRefServiceClient(repo.conn)
+func (rr *remoteRepository) newRefClient() gitalypb.RefServiceClient {
+	return gitalypb.NewRefServiceClient(rr.conn)
 }
