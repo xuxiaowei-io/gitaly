@@ -5,7 +5,9 @@ package praefect
 import (
 	"bytes"
 	"flag"
+	"net"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -64,9 +66,17 @@ func TestAddRepository_Exec_invalidArgs(t *testing.T) {
 	})
 
 	t.Run("db connection error", func(t *testing.T) {
+		listener, addr := testhelper.GetLocalhostListener(t)
+		require.NoError(t, listener.Close())
+
+		host, portStr, err := net.SplitHostPort(addr)
+		require.NoError(t, err)
+		port, err := strconv.ParseUint(portStr, 10, 16)
+		require.NoError(t, err)
+
 		cmd := trackRepository{virtualStorage: "stub", relativePath: "stub", authoritativeStorage: "storage-0", logger: testhelper.NewDiscardingLogger(t)}
-		cfg := config.Config{DB: config.DB{Host: "stub", SSLMode: "disable"}}
-		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg)
+		cfg := config.Config{DB: config.DB{Host: host, Port: int(port), SSLMode: "disable"}}
+		err = cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "connect to database: send ping: failed to connect to")
 	})
