@@ -48,7 +48,7 @@ func (fs *FilesystemSink) GetReader(ctx context.Context, relativePath string) (i
 	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			err = fmt.Errorf("%q: %w", path, ErrDoesntExist)
+			return nil, ErrDoesntExist
 		}
 		return nil, fmt.Errorf("filesystem sink: %w", err)
 	}

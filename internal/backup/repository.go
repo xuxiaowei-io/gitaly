@@ -41,7 +41,7 @@ func (rr *remoteRepository) IsEmpty(ctx context.Context) (bool, error) {
 	case status.Code(err) == codes.NotFound:
 		return true, nil
 	case err != nil:
-		return false, fmt.Errorf("IsEmpty: %w", err)
+		return false, fmt.Errorf("remote repository: is empty: %w", err)
 	}
 	return !hasLocalBranches.GetValue(), nil
 }
@@ -55,17 +55,17 @@ func (rr *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, erro
 		Patterns:   [][]byte{[]byte("refs/")},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list refs: %w", err)
+		return nil, fmt.Errorf("remote repository: list refs: %w", err)
 	}
 
 	var refs []git.Reference
 
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return nil, fmt.Errorf("list refs: %w", err)
+			return nil, fmt.Errorf("remote repository: list refs: %w", err)
 		}
 		for _, ref := range resp.GetReferences() {
 			refs = append(refs, git.NewReference(git.ReferenceName(ref.GetName()), ref.GetTarget()))
@@ -80,7 +80,7 @@ func (rr *remoteRepository) GetCustomHooks(ctx context.Context) (io.Reader, erro
 	repoClient := rr.newRepoClient()
 	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: rr.repo})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("remote repository: get custom hooks: %w", err)
 	}
 
 	return streamio.NewReader(func() ([]byte, error) {
@@ -94,7 +94,7 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 	repoClient := rr.newRepoClient()
 	stream, err := repoClient.CreateBundleFromRefList(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("remote repository: create bundle: %w", err)
 	}
 	c := chunk.New(&createBundleFromRefListSender{
 		stream: stream,
@@ -106,7 +106,7 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return err
+			return fmt.Errorf("remote repository: create bundle: %w", err)
 		}
 
 		line = bytes.TrimSuffix(line, []byte("\n"))
@@ -115,14 +115,14 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 			Repository: rr.repo,
 			Patterns:   [][]byte{line},
 		}); err != nil {
-			return err
+			return fmt.Errorf("remote repository: create bundle: %w", err)
 		}
 	}
 	if err := c.Flush(); err != nil {
-		return err
+		return fmt.Errorf("remote repository: create bundle: %w", err)
 	}
 	if err := stream.CloseSend(); err != nil {
-		return err
+		return fmt.Errorf("remote repository: create bundle: %w", err)
 	}
 
 	bundle := streamio.NewReader(func() ([]byte, error) {
@@ -134,7 +134,7 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 	})
 
 	if _, err := io.Copy(out, bundle); err != nil {
-		return err
+		return fmt.Errorf("remote repository: create bundle: %w", err)
 	}
 
 	return nil
