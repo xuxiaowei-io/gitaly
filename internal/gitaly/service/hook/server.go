@@ -17,7 +17,7 @@ type server struct {
 	gitCmdFactory      git.CommandFactory
 	packObjectsCache   streamcache.Cache
 	concurrencyTracker *gitalyhook.ConcurrencyTracker
-	packObjectsLimiter limithandler.Limiter
+	packObjectsLimiter *limithandler.ConcurrencyLimiter
 	runPackObjectsFn   func(
 		context.Context,
 		git.CommandFactory,
@@ -36,7 +36,7 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	packObjectsCache streamcache.Cache,
 	concurrencyTracker *gitalyhook.ConcurrencyTracker,
-	packObjectsLimiter limithandler.Limiter,
+	packObjectsLimiter *limithandler.ConcurrencyLimiter,
 ) gitalypb.HookServiceServer {
 	srv := &server{
 		manager:            manager,

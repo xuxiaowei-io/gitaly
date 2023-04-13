@@ -295,7 +295,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 		queuedMetric.Collect(metrics)
 	}
 
-	result := make(map[string]Limiter)
+	result := make(map[string]*ConcurrencyLimiter)
 	for _, limit := range cfg.Concurrency {
 		limit := limit
 

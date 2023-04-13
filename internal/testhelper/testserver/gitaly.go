@@ -262,7 +262,7 @@ type gitalyServerDeps struct {
 	diskCache                     cache.Cache
 	packObjectsCache              streamcache.Cache
 	packObjectsConcurrencyTracker *hook.ConcurrencyTracker
-	packObjectsLimiter            limithandler.Limiter
+	packObjectsLimiter            *limithandler.ConcurrencyLimiter
 	limitHandler                  *limithandler.LimiterMiddleware
 	git2goExecutor                *git2go.Executor
 	updaterWithHooks              *updateref.UpdaterWithHooks

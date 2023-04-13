@@ -32,7 +32,7 @@ type Dependencies struct {
 	DiskCache                     cache.Cache
 	PackObjectsCache              streamcache.Cache
 	PackObjectsConcurrencyTracker *gitalyhook.ConcurrencyTracker
-	PackObjectsLimiter            limithandler.Limiter
+	PackObjectsLimiter            *limithandler.ConcurrencyLimiter
 	LimitHandler                  *limithandler.LimiterMiddleware
 	Git2goExecutor                *git2go.Executor
 	UpdaterWithHooks              *updateref.UpdaterWithHooks
@@ -120,6 +120,6 @@ func (dc *Dependencies) GetHousekeepingManager() housekeeping.Manager {
 }
 
 // GetPackObjectsLimiter returns the pack-objects limiter.
-func (dc *Dependencies) GetPackObjectsLimiter() limithandler.Limiter {
+func (dc *Dependencies) GetPackObjectsLimiter() *limithandler.ConcurrencyLimiter {
 	return dc.PackObjectsLimiter
 }
