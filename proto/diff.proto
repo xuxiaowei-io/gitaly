@@ -265,6 +265,20 @@ message DiffStatsResponse {
 // to its parent. Merge commits will show files which are different to all of
 // its parents.
 message FindChangedPathsRequest {
+  // MergeCommitDiffMode controls which mode to use to produce diff output for merge commits
+  enum MergeCommitDiffMode {
+    // MERGE_COMMIT_DIFF_MODE_UNSPECIFIED is the default value.
+    // It is equivalent to DIFF_MODE_INCLUDE_MERGES.
+    MERGE_COMMIT_DIFF_MODE_UNSPECIFIED = 0;
+    // MERGE_COMMIT_DIFF_MODE_INCLUDE_MERGES tells git to also show differences for merge commits.
+    // Please refer to the documentation of the `-m` flag of git-diff-tree(1).
+    MERGE_COMMIT_DIFF_MODE_INCLUDE_MERGES = 1;
+    // MERGE_COMMIT_DIFF_MODE_ALL_PARENTS tells git to only show differences for
+    // files which were modified from all parents.
+    // Please refer to the documentation of the `-c` flag of git-diff-tree(1).
+    MERGE_COMMIT_DIFF_MODE_ALL_PARENTS = 2;
+  }
+
   // Request is a single request to pass to git diff-tree.
   message Request {
     // TreeRequest compares two trees.
@@ -305,11 +319,16 @@ message FindChangedPathsRequest {
   repeated string commits = 2 [deprecated=true];
   // requests specifies the requests of what to compare.
   repeated Request requests = 3;
+
+  // MergeCommitDiffMode controls how merge commits are treated.
+  MergeCommitDiffMode merge_commit_diff_mode = 4;
 }
 
 // Returns a list of files that have been changed in the commits given
 message FindChangedPathsResponse {
-  // This comment is left unintentionally blank.
+  // paths contains the attributes for one changed file. In case of merge
+  // commits, or when comparing three or more commits, a file might be included
+  // more than once if it was changed between multiple commits.
   repeated ChangedPaths paths = 1;
 }
 
