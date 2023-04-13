@@ -20,8 +20,8 @@ import (
 
 const (
 	// StaleObjectsGracePeriod is time delta that is used to indicate cutoff wherein an object
-	// would be considered old. Currently this is set to being 2 weeks (2 * 7days * 24hours).
-	StaleObjectsGracePeriod = -14 * 24 * time.Hour
+	// would be considered old. Currently this is set to being 10 days.
+	StaleObjectsGracePeriod = -10 * 24 * time.Hour
 
 	// FullRepackTimestampFilename is the name of the file that is used as a timestamp for the
 	// last repack that happened in the repository. Whenever a full repack happens, Gitaly will

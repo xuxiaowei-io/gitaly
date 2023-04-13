@@ -193,7 +193,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 						// normal repositories, but have a longer grace
 						// period for the next repack.
 						Count:          2,
-						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriodForPools + time.Hour),
+						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriod + time.Hour),
 						MultiPackIndex: stats.MultiPackIndexInfo{
 							Exists:        true,
 							PackfileCount: 2,
@@ -221,7 +221,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 						// repositories should get a full repack in case
 						// they have more than a single packfile.
 						Count:          2,
-						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriodForPools),
+						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriod),
 						MultiPackIndex: stats.MultiPackIndexInfo{
 							Exists:        true,
 							PackfileCount: 2,
