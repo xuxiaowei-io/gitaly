@@ -124,7 +124,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 						// yet cross the 24 hour boundary. So we don't
 						// expect a repack.
 						Count:          2,
-						LastFullRepack: time.Now().Add(-23 * time.Hour),
+						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriod + time.Hour),
 						MultiPackIndex: stats.MultiPackIndexInfo{
 							Exists:        true,
 							PackfileCount: 2,
@@ -144,7 +144,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 						// crossed the 24 hour boundary, so we should
 						// perform a full repack.
 						Count:          2,
-						LastFullRepack: time.Now().Add(-24 * time.Hour),
+						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriod),
 						MultiPackIndex: stats.MultiPackIndexInfo{
 							Exists:        true,
 							PackfileCount: 2,
@@ -172,7 +172,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 						// perform a full repack.
 						Count:          2,
 						CruftCount:     1,
-						LastFullRepack: time.Now().Add(-24 * time.Hour),
+						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriod),
 						MultiPackIndex: stats.MultiPackIndexInfo{
 							Exists:        true,
 							PackfileCount: 2,
@@ -193,7 +193,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 						// normal repositories, but have a longer grace
 						// period for the next repack.
 						Count:          2,
-						LastFullRepack: time.Now().Add(-6 * 24 * time.Hour),
+						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriodForPools + time.Hour),
 						MultiPackIndex: stats.MultiPackIndexInfo{
 							Exists:        true,
 							PackfileCount: 2,
@@ -221,7 +221,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 						// repositories should get a full repack in case
 						// they have more than a single packfile.
 						Count:          2,
-						LastFullRepack: time.Now().Add(-7 * 24 * time.Hour),
+						LastFullRepack: time.Now().Add(-FullRepackCooldownPeriodForPools),
 						MultiPackIndex: stats.MultiPackIndexInfo{
 							Exists:        true,
 							PackfileCount: 2,
