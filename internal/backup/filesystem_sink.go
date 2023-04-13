@@ -28,14 +28,14 @@ func NewFilesystemSink(path string) *FilesystemSink {
 // Close the writer after usage.
 func (fs *FilesystemSink) GetWriter(ctx context.Context, relativePath string) (io.WriteCloser, error) {
 	path := filepath.Join(fs.path, relativePath)
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, perm.PrivateDir); err != nil {
-		return nil, fmt.Errorf("create directory structure %q: %w", dir, err)
+
+	if err := os.MkdirAll(filepath.Dir(path), perm.PrivateDir); err != nil {
+		return nil, fmt.Errorf("filesystem sink: %w", err)
 	}
 
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perm.PrivateFile)
 	if err != nil {
-		return nil, fmt.Errorf("write file %q: %w", path, err)
+		return nil, fmt.Errorf("filesystem sink: %w", err)
 	}
 	return f, nil
 }
@@ -48,9 +48,9 @@ func (fs *FilesystemSink) GetReader(ctx context.Context, relativePath string) (i
 	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			err = ErrDoesntExist
+			err = fmt.Errorf("%q: %w", path, ErrDoesntExist)
 		}
-		return nil, fmt.Errorf("filesystem sink: get reader for %q: %w", relativePath, err)
+		return nil, fmt.Errorf("filesystem sink: %w", err)
 	}
 	return f, nil
 }

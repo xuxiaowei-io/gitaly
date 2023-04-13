@@ -46,7 +46,7 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 
 		fsSink := NewFilesystemSink(dir)
 		reader, err := fsSink.GetReader(ctx, "not-existing")
-		require.Equal(t, fmt.Errorf(`filesystem sink: get reader for "not-existing": %w`, ErrDoesntExist), err)
+		require.Equal(t, ErrDoesntExist, err)
 		require.Nil(t, reader)
 	})
 }
@@ -112,6 +112,6 @@ func TestFilesystemSink_GetWriter(t *testing.T) {
 
 		fsSink := NewFilesystemSink(dir)
 		_, err := fsSink.GetWriter(ctx, relativePath)
-		require.EqualError(t, err, fmt.Sprintf(`create directory structure %[1]q: mkdir %[1]s: not a directory`, filepath.Join(dir, "nested")))
+		require.EqualError(t, err, fmt.Sprintf(`filesystem sink: mkdir %s: not a directory`, filepath.Join(dir, "nested")))
 	})
 }
