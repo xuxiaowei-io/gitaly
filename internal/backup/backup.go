@@ -205,10 +205,10 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 	if err := mgr.writeBundle(ctx, repo, step, refs); err != nil {
-		return fmt.Errorf("manager: write bundle: %w", err)
+		return fmt.Errorf("manager: %w", err)
 	}
 	if err := mgr.writeCustomHooks(ctx, repo, step.CustomHooksPath); err != nil {
-		return fmt.Errorf("manager: write custom hooks: %w", err)
+		return fmt.Errorf("manager: %w", err)
 	}
 
 	if err := mgr.locator.Commit(ctx, step); err != nil {
@@ -279,7 +279,11 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 
 	var err error
 	*server, err = storage.ExtractGitalyServer(ctx, storageName)
-	return err
+	if err != nil {
+		return fmt.Errorf("set context server info: %w", err)
+	}
+
+	return nil
 }
 
 func (mgr *Manager) removeRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
@@ -311,12 +315,20 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step, refs []git.Reference) (returnErr error) {
 	negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 	if err != nil {
-		return err
+		return fmt.Errorf("write bundle: %w", err)
 	}
-	defer negatedRefs.Close()
+	defer func() {
+		if err := negatedRefs.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("write bundle: %w", err)
+		}
+	}()
 
 	patternReader, patternWriter := io.Pipe()
-	defer patternReader.Close()
+	defer func() {
+		if err := patternReader.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("write bundle: %w", err)
+		}
+	}()
 	go func() {
 		defer patternWriter.Close()
 
@@ -334,15 +346,15 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 	})
 	defer func() {
 		if err := w.Close(); err != nil && returnErr == nil {
-			returnErr = err
+			returnErr = fmt.Errorf("write bundle: %w", err)
 		}
 	}()
 
 	if err := repo.CreateBundle(ctx, w, io.MultiReader(negatedRefs, patternReader)); err != nil {
 		if errors.Is(err, errEmptyBundle) {
-			return fmt.Errorf("%T write: %w: no changes to bundle", mgr.sink, ErrSkipped)
+			return fmt.Errorf("write bundle: %w: no changes to bundle", ErrSkipped)
 		}
-		return fmt.Errorf("%T write: %w", mgr.sink, err)
+		return fmt.Errorf("write bundle: %w", err)
 	}
 
 	return nil
@@ -447,13 +459,13 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) error {
 	hooks, err := repo.GetCustomHooks(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("write custom hooks: %w", err)
 	}
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, path)
 	})
 	if _, err := io.Copy(w, hooks); err != nil {
-		return fmt.Errorf("%T write: %w", mgr.sink, err)
+		return fmt.Errorf("write custom hooks: %w", err)
 	}
 	return nil
 }

@@ -227,7 +227,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 				return repo, repoPath
 			},
-			expectedErr: fmt.Errorf("manager: write bundle: %w", fmt.Errorf("*backup.FilesystemSink write: %w: no changes to bundle", backup.ErrSkipped)),
+			expectedErr: fmt.Errorf("manager: %w", fmt.Errorf("write bundle: %w: no changes to bundle", backup.ErrSkipped)),
 		},
 		{
 			desc: "previous backup, updates",
