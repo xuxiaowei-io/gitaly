@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -29,13 +30,18 @@ func (s *server) ListLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 }
 
 func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
-	cmd, parser, err := s.newLSTreeParser(in, stream)
+	ctx := stream.Context()
+	repo := s.localrepo(in.GetRepository())
+
+	if _, err := repo.Path(); err != nil {
+		return err
+	}
+
+	cmd, parser, err := newLSTreeParser(ctx, repo, in)
 	if err != nil {
 		return err
 	}
 
-	ctx := stream.Context()
-	repo := s.localrepo(in.GetRepository())
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
@@ -108,14 +114,23 @@ func getLSTreeEntries(parser *localrepo.Parser) (localrepo.Entries, error) {
 	return entries, nil
 }
 
-func (s *server) newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) (*command.Command, *localrepo.Parser, error) {
+func newLSTreeParser(
+	ctx context.Context,
+	repo git.RepositoryExecutor,
+	in *gitalypb.ListLastCommitsForTreeRequest,
+) (*command.Command, *localrepo.Parser, error) {
 	path := string(in.GetPath())
 	if path == "" || path == "/" {
 		path = "."
 	}
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	opts := git.ConvertGlobalOptions(in.GetGlobalOptions())
-	cmd, err := s.gitCmdFactory.New(stream.Context(), in.GetRepository(), git.Command{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:        "ls-tree",
 		Flags:       []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--full-name"}},
 		Args:        []string{in.GetRevision()},
@@ -125,7 +140,7 @@ func (s *server) newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, str
 		return nil, nil, err
 	}
 
-	return cmd, localrepo.NewParser(cmd, git.ObjectHashSHA1), nil
+	return cmd, localrepo.NewParser(cmd, objectHash), nil
 }
 
 func sendCommitsForTree(batch []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
