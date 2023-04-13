@@ -326,7 +326,7 @@ func run(
 	sidechannelRegistry := sidechannel.NewRegistry()
 
 	backchannelCfg := backchannel.DefaultConfiguration()
-	backchannelCfg.AcceptBacklog = conf.Yamux.AcceptBacklog
+	backchannelCfg.AcceptBacklog = int(conf.Yamux.AcceptBacklog)
 	backchannelCfg.MaximumStreamWindowSizeBytes = conf.Yamux.MaximumStreamWindowSizeBytes
 	clientHandshaker := backchannel.NewClientHandshaker(
 		logger,
@@ -587,7 +587,7 @@ func run(
 				cfg := repocleaner.Cfg{
 					RunInterval:         conf.RepositoriesCleanup.RunInterval.Duration(),
 					LivenessInterval:    30 * time.Second,
-					RepositoriesInBatch: conf.RepositoriesCleanup.RepositoriesInBatch,
+					RepositoriesInBatch: int(conf.RepositoriesCleanup.RepositoriesInBatch),
 				}
 				repoCleaner := repocleaner.NewRunner(cfg, logger, healthChecker, nodeSet.Connections(), storageSync, storageSync, repocleaner.NewLogWarnAction(logger))
 				if err := repoCleaner.Run(ctx, helper.NewTimerTicker(conf.RepositoriesCleanup.CheckInterval.Duration())); err != nil && !errors.Is(context.Canceled, err) {

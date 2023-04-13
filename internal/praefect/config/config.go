@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/hashicorp/yamux"
 	"github.com/pelletier/go-toml/v2"
 	promclient "github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
@@ -44,8 +46,9 @@ const (
 	minimalSyncRunInterval   = time.Minute
 )
 
-//nolint:revive // This is unintentionally missing documentation.
+// Failover contains configuration for the mechanism that tracks healthiness of the cluster nodes.
 type Failover struct {
+	// Enabled is a trigger used to check if failover is enabled or not.
 	Enabled bool `toml:"enabled,omitempty"`
 	// ElectionStrategy is the strategy to use for electing primaries nodes.
 	ElectionStrategy         ElectionStrategy  `toml:"election_strategy,omitempty"`
@@ -82,6 +85,39 @@ func (f Failover) ErrorThresholdsConfigured() (bool, error) {
 	return true, nil
 }
 
+// Validate returns a list of failed checks.
+func (f Failover) Validate() error {
+	if !f.Enabled {
+		// If it is not enabled we shouldn't care about provided values
+		// as they won't be used.
+		return nil
+	}
+
+	errs := cfgerror.New().
+		Append(cfgerror.IsSupportedValue(f.ElectionStrategy, ElectionStrategyLocal, ElectionStrategySQL, ElectionStrategyPerRepository), "election_strategy").
+		Append(cfgerror.Comparable(f.BootstrapInterval.Duration()).GreaterOrEqual(0), "bootstrap_interval").
+		Append(cfgerror.Comparable(f.MonitorInterval.Duration()).GreaterOrEqual(0), "monitor_interval").
+		Append(cfgerror.Comparable(f.ErrorThresholdWindow.Duration()).GreaterOrEqual(0), "error_threshold_window")
+
+	if f.ErrorThresholdWindow == 0 && f.WriteErrorThresholdCount == 0 && f.ReadErrorThresholdCount == 0 {
+		return errs.AsError()
+	}
+
+	if f.ErrorThresholdWindow == 0 {
+		errs = errs.Append(cfgerror.ErrNotSet, "error_threshold_window")
+	}
+
+	if f.WriteErrorThresholdCount == 0 {
+		errs = errs.Append(cfgerror.ErrNotSet, "write_error_threshold_count")
+	}
+
+	if f.ReadErrorThresholdCount == 0 {
+		errs = errs.Append(cfgerror.ErrNotSet, "read_error_threshold_count")
+	}
+
+	return errs.AsError()
+}
+
 // BackgroundVerification contains configuration options for the repository background verification.
 type BackgroundVerification struct {
 	// VerificationInterval determines the duration after a replica due for reverification.
@@ -90,6 +126,13 @@ type BackgroundVerification struct {
 	// DeleteInvalidRecords controls whether the background verifier will actually delete the metadata
 	// records that point to non-existent replicas.
 	DeleteInvalidRecords bool `toml:"delete_invalid_records"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (bv BackgroundVerification) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.Comparable(bv.VerificationInterval.Duration()).GreaterOrEqual(0), "verification_interval").
+		AsError()
 }
 
 // DefaultBackgroundVerificationConfig returns the default background verification configuration.
@@ -109,6 +152,20 @@ type Reconciliation struct {
 	HistogramBuckets []float64 `toml:"histogram_buckets,omitempty"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (r Reconciliation) Validate() error {
+	errs := cfgerror.New().
+		Append(cfgerror.Comparable(r.SchedulingInterval.Duration()).GreaterOrEqual(0), "scheduling_interval")
+
+	if r.SchedulingInterval != 0 {
+		if !sort.Float64sAreSorted(r.HistogramBuckets) {
+			errs = errs.Append(cfgerror.ErrBadOrder, "histogram_buckets")
+		}
+	}
+
+	return errs.AsError()
+}
+
 // DefaultReconciliationConfig returns the default values for reconciliation configuration.
 func DefaultReconciliationConfig() Reconciliation {
 	return Reconciliation{
@@ -125,6 +182,14 @@ type Replication struct {
 	// ParallelStorageProcessingWorkers is a number of workers used to process replication
 	// events per virtual storage (how many storages would be processed in parallel).
 	ParallelStorageProcessingWorkers uint `toml:"parallel_storage_processing_workers,omitempty"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (r Replication) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.Comparable(r.BatchSize).GreaterOrEqual(1), "batch_size").
+		Append(cfgerror.Comparable(r.ParallelStorageProcessingWorkers).GreaterOrEqual(1), "parallel_storage_processing_workers").
+		AsError()
 }
 
 // DefaultReplicationConfig returns the default values for replication configuration.
@@ -155,13 +220,11 @@ type Config struct {
 	Auth                                        auth.Config `toml:"auth,omitempty"`
 	TLS                                         config.TLS  `toml:"tls,omitempty"`
 	DB                                          `toml:"database,omitempty"`
-	Failover                                    Failover `toml:"failover,omitempty"`
-	// Keep for legacy reasons: remove after Omnibus has switched
-	FailoverEnabled     bool                `toml:"failover_enabled,omitempty"`
-	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled,omitempty"`
-	GracefulStopTimeout duration.Duration   `toml:"graceful_stop_timeout,omitempty"`
-	RepositoriesCleanup RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
-	Yamux               Yamux               `toml:"yamux,omitempty"`
+	Failover                                    Failover            `toml:"failover,omitempty"`
+	MemoryQueueEnabled                          bool                `toml:"memory_queue_enabled,omitempty"`
+	GracefulStopTimeout                         duration.Duration   `toml:"graceful_stop_timeout,omitempty"`
+	RepositoriesCleanup                         RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
+	Yamux                                       Yamux               `toml:"yamux,omitempty"`
 }
 
 // Yamux contains Yamux related configuration values.
@@ -171,7 +234,7 @@ type Yamux struct {
 	MaximumStreamWindowSizeBytes uint32 `toml:"maximum_stream_window_size_bytes,omitempty"`
 	// AcceptBacklog sets the maximum number of stream openings in-flight before further openings
 	// block.
-	AcceptBacklog int `toml:"accept_backlog,omitempty"`
+	AcceptBacklog uint `toml:"accept_backlog,omitempty"`
 }
 
 func (cfg Yamux) validate() error {
@@ -188,12 +251,20 @@ func (cfg Yamux) validate() error {
 	return nil
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (cfg Yamux) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.Comparable(cfg.MaximumStreamWindowSizeBytes).GreaterOrEqual(262144), "maximum_stream_window_size_bytes").
+		Append(cfgerror.Comparable(cfg.AcceptBacklog).GreaterOrEqual(1), "accept_backlog").
+		AsError()
+}
+
 // DefaultYamuxConfig returns the default Yamux configuration values.
 func DefaultYamuxConfig() Yamux {
 	defaultCfg := yamux.DefaultConfig()
 	return Yamux{
 		MaximumStreamWindowSizeBytes: defaultCfg.MaxStreamWindowSize,
-		AcceptBacklog:                defaultCfg.AcceptBacklog,
+		AcceptBacklog:                uint(defaultCfg.AcceptBacklog),
 	}
 }
 
@@ -207,6 +278,19 @@ type VirtualStorage struct {
 	// host assignments, falling back to the behavior of replicating to every configured
 	// storage
 	DefaultReplicationFactor int `toml:"default_replication_factor,omitempty"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (vs VirtualStorage) Validate() error {
+	errs := cfgerror.New().
+		Append(cfgerror.NotBlank(vs.Name), "name").
+		Append(cfgerror.NotEmptySlice(vs.Nodes), "node")
+
+	for i, node := range vs.Nodes {
+		errs = errs.Append(node.Validate(), "node", fmt.Sprintf("[%d]", i))
+	}
+
+	return errs.AsError()
 }
 
 // FromFile loads the config for the passed file path
@@ -234,12 +318,6 @@ func FromReader(reader io.Reader) (Config, error) {
 	}
 	if err := toml.NewDecoder(reader).Decode(conf); err != nil {
 		return Config{}, err
-	}
-
-	// TODO: Remove this after failover_enabled has moved under a separate failover section. This is for
-	// backwards compatibility only
-	if conf.FailoverEnabled {
-		conf.Failover.Enabled = true
 	}
 
 	conf.setDefaults()
@@ -336,7 +414,29 @@ func (c *Config) Validate() error {
 // It exists as a demonstration of the new validation implementation based on the usage
 // of the cfgerror package.
 func (c *Config) ValidateV2() error {
-	return nil
+	errs := cfgerror.New().
+		Append(func() error {
+			if c.SocketPath == "" && c.ListenAddr == "" && c.TLSListenAddr == "" {
+				return fmt.Errorf(`none of "socket_path", "listen_addr" or "tls_listen_addr" is set`)
+			}
+			return nil
+		}()).
+		Append(c.BackgroundVerification.Validate(), "background_verification").
+		Append(c.Reconciliation.Validate(), "reconciliation").
+		Append(c.Replication.Validate(), "replication").
+		Append(c.Prometheus.Validate(), "prometheus").
+		Append(c.TLS.Validate(), "tls").
+		Append(c.Failover.Validate(), "failover").
+		Append(cfgerror.Comparable(c.GracefulStopTimeout.Duration()).GreaterOrEqual(0), "graceful_stop_timeout").
+		Append(c.RepositoriesCleanup.Validate(), "repositories_cleanup").
+		Append(c.Yamux.Validate(), "yamux").
+		Append(cfgerror.NotEmptySlice(c.VirtualStorages), "virtual_storage")
+
+	for i, storage := range c.VirtualStorages {
+		errs = errs.Append(storage.Validate(), "virtual_storage", fmt.Sprintf("[%d]", i))
+	}
+
+	return errs.AsError()
 }
 
 // NeedsSQL returns true if the driver for SQL needs to be initialized
@@ -438,7 +538,22 @@ type RepositoriesCleanup struct {
 	// RunInterval: the check runs if the previous operation was done at least RunInterval before.
 	RunInterval duration.Duration `toml:"run_interval,omitempty"`
 	// RepositoriesInBatch is the number of repositories to pass as a batch for processing.
-	RepositoriesInBatch int `toml:"repositories_in_batch,omitempty"`
+	RepositoriesInBatch uint `toml:"repositories_in_batch,omitempty"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (rc RepositoriesCleanup) Validate() error {
+	if rc.RunInterval == 0 {
+		// If RunInterval is set to 0 it means it is disabled. The validation doesn't make
+		// sense then as it won't be used.
+		return nil
+	}
+
+	return cfgerror.New().
+		Append(cfgerror.Comparable(rc.CheckInterval.Duration()).GreaterOrEqual(minimalSyncCheckInterval), "check_interval").
+		Append(cfgerror.Comparable(rc.RunInterval.Duration()).GreaterOrEqual(minimalSyncRunInterval), "run_interval").
+		Append(cfgerror.Comparable(rc.RepositoriesInBatch).GreaterOrEqual(1), "repositories_in_batch").
+		AsError()
 }
 
 // DefaultRepositoriesCleanup contains default configuration values for the RepositoriesCleanup.

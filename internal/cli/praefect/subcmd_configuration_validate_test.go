@@ -71,6 +71,27 @@ election_strategy = invalid`)
 	One of accept-dataloss, check, configuration, dataloss, dial-nodes, list-storages, list-untracked-repositories, metadata, remove-repository, set-replication-factor, sql-migrate, sql-migrate-down, sql-migrate-status, sql-ping, track-repositories, track-repository, verify
 `,
 		},
+		{
+			name:     "validation failures",
+			exitCode: 2,
+			stdin: func(t *testing.T) io.Reader {
+				return strings.NewReader("")
+			},
+			stdout: `{
+  "errors": [
+    {
+      "message": "none of \"socket_path\", \"listen_addr\" or \"tls_listen_addr\" is set"
+    },
+    {
+      "key": [
+        "virtual_storage"
+      ],
+      "message": "not set"
+    }
+  ]
+}
+`,
+		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {

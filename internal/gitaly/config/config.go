@@ -458,9 +458,9 @@ type PackObjectsLimiting struct {
 // Validate runs validation on all fields and compose all found errors.
 func (pol PackObjectsLimiting) Validate() error {
 	return cfgerror.New().
-		Append(cfgerror.IsPositive(pol.MaxConcurrency), "max_concurrency").
-		Append(cfgerror.IsPositive(pol.MaxQueueLength), "max_queue_length").
-		Append(cfgerror.IsPositive(pol.MaxQueueWait.Duration()), "max_queue_wait").
+		Append(cfgerror.Comparable(pol.MaxConcurrency).GreaterOrEqual(0), "max_concurrency").
+		Append(cfgerror.Comparable(pol.MaxQueueLength).GreaterOrEqual(0), "max_queue_length").
+		Append(cfgerror.Comparable(pol.MaxQueueWait.Duration()).GreaterOrEqual(0), "max_queue_wait").
 		AsError()
 }
 
@@ -480,7 +480,7 @@ func (scc StreamCacheConfig) Validate() error {
 
 	return cfgerror.New().
 		Append(cfgerror.PathIsAbs(scc.Dir), "dir").
-		Append(cfgerror.IsPositive(scc.MaxAge.Duration()), "max_age").
+		Append(cfgerror.Comparable(scc.MaxAge.Duration()).GreaterOrEqual(0), "max_age").
 		AsError()
 }
 
@@ -622,7 +622,7 @@ func (cfg *Cfg) ValidateV2() error {
 		{field: "gitlab", validate: cfg.Gitlab.Validate},
 		{field: "gitlab-shell", validate: cfg.GitlabShell.Validate},
 		{field: "graceful_restart_timeout", validate: func() error {
-			return cfgerror.IsPositive(cfg.GracefulRestartTimeout.Duration())
+			return cfgerror.Comparable(cfg.GracefulRestartTimeout.Duration()).GreaterOrEqual(0)
 		}},
 		{field: "daily_maintenance", validate: func() error {
 			storages := make([]string, len(cfg.Storages))

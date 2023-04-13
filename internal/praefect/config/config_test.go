@@ -5,17 +5,22 @@ package config
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestConfigValidation(t *testing.T) {
@@ -534,5 +539,452 @@ func TestSerialization(t *testing.T) {
 		out.Reset()
 		require.NoError(t, encoder.Encode(Config{ListenAddr: "localhost:5640"}))
 		require.Equal(t, "listen_addr = 'localhost:5640'\n", out.String())
+	})
+}
+
+func TestFailover_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		failover    Failover
+		expectedErr error
+	}{
+		{
+			name:     "empty disabled config",
+			failover: Failover{},
+		},
+		{
+			name: "all set valid",
+			failover: Failover{
+				Enabled:                  true,
+				ElectionStrategy:         ElectionStrategySQL,
+				ErrorThresholdWindow:     duration.Duration(1),
+				WriteErrorThresholdCount: 1,
+				ReadErrorThresholdCount:  1,
+				BootstrapInterval:        duration.Duration(1),
+				MonitorInterval:          duration.Duration(1),
+			},
+		},
+		{
+			name: "all valid with disabled error threshold",
+			failover: Failover{
+				ElectionStrategy:  ElectionStrategySQL,
+				BootstrapInterval: duration.Duration(1),
+				MonitorInterval:   duration.Duration(1),
+			},
+		},
+		{
+			name: "all set invalid except ErrorThresholdWindow",
+			failover: Failover{
+				Enabled:                  true,
+				ElectionStrategy:         ElectionStrategy("bad"),
+				ErrorThresholdWindow:     duration.Duration(-1),
+				WriteErrorThresholdCount: 0,
+				ReadErrorThresholdCount:  0,
+				BootstrapInterval:        duration.Duration(-1),
+				MonitorInterval:          duration.Duration(-1),
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				{
+					Key:   []string{"election_strategy"},
+					Cause: fmt.Errorf(`%w: "bad"`, cfgerror.ErrUnsupportedValue),
+				},
+				{
+					Key:   []string{"bootstrap_interval"},
+					Cause: fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
+				},
+				{
+					Key:   []string{"monitor_interval"},
+					Cause: fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
+				},
+				{
+					Key:   []string{"error_threshold_window"},
+					Cause: fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
+				},
+				{
+					Key:   []string{"write_error_threshold_count"},
+					Cause: cfgerror.ErrNotSet,
+				},
+				{
+					Key:   []string{"read_error_threshold_count"},
+					Cause: cfgerror.ErrNotSet,
+				},
+			},
+		},
+		{
+			name: "invalid error threshold",
+			failover: Failover{
+				Enabled:                  true,
+				ElectionStrategy:         ElectionStrategySQL,
+				ErrorThresholdWindow:     duration.Duration(0),
+				WriteErrorThresholdCount: 1,
+				ReadErrorThresholdCount:  1,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				{
+					Key:   []string{"error_threshold_window"},
+					Cause: cfgerror.ErrNotSet,
+				},
+			},
+		},
+		{
+			name: "set invalid but disabled",
+			failover: Failover{
+				Enabled:          false,
+				ElectionStrategy: ElectionStrategy("bad"),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := tc.failover.Validate()
+			require.Equal(t, tc.expectedErr, errs)
+		})
+	}
+}
+
+func TestBackgroundVerification_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name         string
+		verification BackgroundVerification
+		expectedErr  error
+	}{
+		{
+			name:         "empty is valid",
+			verification: BackgroundVerification{},
+		},
+		{
+			name: "valid",
+			verification: BackgroundVerification{
+				DeleteInvalidRecords: true,
+				VerificationInterval: duration.Duration(1),
+			},
+		},
+		{
+			name: "zero",
+			verification: BackgroundVerification{
+				DeleteInvalidRecords: true,
+				VerificationInterval: duration.Duration(0),
+			},
+		},
+		{
+			name: "invalid",
+			verification: BackgroundVerification{
+				VerificationInterval: duration.Duration(-1),
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
+					"verification_interval",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.verification.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestReconciliation_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name           string
+		reconciliation Reconciliation
+		expectedErr    error
+	}{
+		{
+			name:           "empty is valid",
+			reconciliation: Reconciliation{},
+		},
+		{
+			name: "valid",
+			reconciliation: Reconciliation{
+				SchedulingInterval: duration.Duration(1),
+				HistogramBuckets:   []float64{-1, 0, 1},
+			},
+		},
+		{
+			name: "invalid",
+			reconciliation: Reconciliation{
+				SchedulingInterval: duration.Duration(-1),
+				HistogramBuckets:   []float64{-1, 1, 0},
+			},
+			expectedErr: cfgerror.ValidationErrors{{
+				Key:   []string{"scheduling_interval"},
+				Cause: fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange),
+			}, {
+				Key:   []string{"histogram_buckets"},
+				Cause: cfgerror.ErrBadOrder,
+			}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.reconciliation.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestReplication_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		replication Replication
+		expectedErr error
+	}{
+		{
+			name: "valid",
+			replication: Replication{
+				BatchSize:                        1,
+				ParallelStorageProcessingWorkers: 1,
+			},
+		},
+		{
+			name: "invalid",
+			replication: Replication{
+				BatchSize:                        0,
+				ParallelStorageProcessingWorkers: 0,
+			},
+			expectedErr: cfgerror.ValidationErrors{{
+				Key:   []string{"batch_size"},
+				Cause: fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange),
+			}, {
+				Key:   []string{"parallel_storage_processing_workers"},
+				Cause: fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange),
+			}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.replication.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestVirtualStorage_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		vs          VirtualStorage
+		expectedErr error
+	}{
+		{
+			name: "ok",
+			vs: VirtualStorage{
+				Name:  "vs",
+				Nodes: []*Node{{Storage: "st", Address: "addr"}},
+			},
+		},
+		{
+			name: "invalid node",
+			vs: VirtualStorage{
+				Name:  "vs",
+				Nodes: []*Node{{Storage: "", Address: "addr"}},
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				{
+					Key:   []string{"node", "[0]", "storage"},
+					Cause: cfgerror.ErrBlankOrEmpty,
+				},
+			},
+		},
+		{
+			name: "invalid",
+			vs:   VirtualStorage{},
+			expectedErr: cfgerror.ValidationErrors{
+				{
+					Key:   []string{"name"},
+					Cause: cfgerror.ErrBlankOrEmpty,
+				},
+				{
+					Key:   []string{"node"},
+					Cause: cfgerror.ErrNotSet,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.vs.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestRepositoriesCleanup_Validate(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name        string
+		cleanup     RepositoriesCleanup
+		expectedErr error
+	}{
+		{
+			name: "valid",
+			cleanup: RepositoriesCleanup{
+				CheckInterval:       duration.Duration(10 * time.Minute),
+				RunInterval:         duration.Duration(1 * time.Minute),
+				RepositoriesInBatch: 10,
+			},
+		},
+		{
+			name: "noop because run interval is 0",
+			cleanup: RepositoriesCleanup{
+				CheckInterval:       -duration.Duration(10 * time.Minute),
+				RunInterval:         0,
+				RepositoriesInBatch: 10,
+			},
+		},
+		{
+			name: "invalid",
+			cleanup: RepositoriesCleanup{
+				CheckInterval:       duration.Duration(1),
+				RunInterval:         duration.Duration(50 * time.Second),
+				RepositoriesInBatch: 0,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 1ns is not greater than or equal to 1m0s", cfgerror.ErrNotInRange),
+					"check_interval",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 50s is not greater than or equal to 1m0s", cfgerror.ErrNotInRange),
+					"run_interval",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange),
+					"repositories_in_batch",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.cleanup.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestYamux_Validate(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name        string
+		yamux       Yamux
+		expectedErr error
+	}{
+		{
+			name: "valid",
+			yamux: Yamux{
+				MaximumStreamWindowSizeBytes: 1024 * 1024,
+				AcceptBacklog:                5,
+			},
+		},
+		{
+			name: "invalid",
+			yamux: Yamux{
+				MaximumStreamWindowSizeBytes: 1024,
+				AcceptBacklog:                0,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 1024 is not greater than or equal to 262144", cfgerror.ErrNotInRange),
+					"maximum_stream_window_size_bytes",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange),
+					"accept_backlog",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.yamux.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestConfig_ValidateV2(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid", func(t *testing.T) {
+		cfg := Config{
+			Replication: Replication{
+				BatchSize:                        1,
+				ParallelStorageProcessingWorkers: 1,
+			},
+			ListenAddr: "localhost",
+			VirtualStorages: []*VirtualStorage{{
+				Name: "name",
+				Nodes: []*Node{{
+					Storage: "storage",
+					Address: "localhost",
+				}},
+			}},
+			Yamux: Yamux{
+				MaximumStreamWindowSizeBytes: 300000,
+				AcceptBacklog:                1,
+			},
+		}
+		require.NoError(t, cfg.ValidateV2())
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		tmpDir := testhelper.TempDir(t)
+		tmpFile := filepath.Join(tmpDir, "file")
+		require.NoError(t, os.WriteFile(tmpFile, nil, perm.PublicFile))
+		cfg := Config{
+			BackgroundVerification: BackgroundVerification{
+				VerificationInterval: duration.Duration(-1),
+			},
+			Reconciliation: Reconciliation{
+				SchedulingInterval: duration.Duration(-1),
+			},
+			Replication: Replication{
+				BatchSize:                        0,
+				ParallelStorageProcessingWorkers: 1,
+			},
+			Prometheus: prometheus.Config{
+				ScrapeTimeout:      duration.Duration(-1),
+				GRPCLatencyBuckets: []float64{1},
+			},
+			PrometheusExcludeDatabaseFromDefaultMetrics: false,
+			TLS: config.TLS{
+				CertPath: "/doesnt/exist",
+				KeyPath:  tmpFile,
+			},
+			Failover: Failover{
+				Enabled:          true,
+				ElectionStrategy: ElectionStrategy("invalid"),
+			},
+			GracefulStopTimeout: duration.Duration(-1),
+			RepositoriesCleanup: RepositoriesCleanup{
+				CheckInterval:       duration.Duration(time.Hour),
+				RunInterval:         duration.Duration(1),
+				RepositoriesInBatch: 1,
+			},
+			Yamux: Yamux{
+				MaximumStreamWindowSizeBytes: 0,
+				AcceptBacklog:                1,
+			},
+		}
+		err := cfg.ValidateV2()
+
+		negativeDurationErr := fmt.Errorf("%w: -1ns is not greater than or equal to 0s", cfgerror.ErrNotInRange)
+		require.Equal(t, cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(errors.New(`none of "socket_path", "listen_addr" or "tls_listen_addr" is set`)),
+			cfgerror.NewValidationError(negativeDurationErr, "background_verification", "verification_interval"),
+			cfgerror.NewValidationError(negativeDurationErr, "reconciliation", "scheduling_interval"),
+			cfgerror.NewValidationError(fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange), "replication", "batch_size"),
+			cfgerror.NewValidationError(negativeDurationErr, "prometheus", "scrape_timeout"),
+			cfgerror.NewValidationError(fmt.Errorf(`%w: "/doesnt/exist"`, cfgerror.ErrDoesntExist), "tls", "certificate_path"),
+			cfgerror.NewValidationError(fmt.Errorf(`%w: "invalid"`, cfgerror.ErrUnsupportedValue), "failover", "election_strategy"),
+			cfgerror.NewValidationError(negativeDurationErr, "graceful_stop_timeout"),
+			cfgerror.NewValidationError(fmt.Errorf("%w: 1ns is not greater than or equal to 1m0s", cfgerror.ErrNotInRange), "repositories_cleanup", "run_interval"),
+			cfgerror.NewValidationError(fmt.Errorf("%w: 0 is not greater than or equal to 262144", cfgerror.ErrNotInRange), "yamux", "maximum_stream_window_size_bytes"),
+			cfgerror.NewValidationError(cfgerror.ErrNotSet, "virtual_storage"),
+		}, err)
 	})
 }

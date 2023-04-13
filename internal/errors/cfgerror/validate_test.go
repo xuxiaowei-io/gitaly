@@ -186,14 +186,7 @@ func TestPathIsAbs(t *testing.T) {
 	}
 }
 
-func TestIsPositive(t *testing.T) {
-	t.Parallel()
-	require.NoError(t, IsPositive(0))
-	require.NoError(t, IsPositive(100))
-	require.Equal(t, NewValidationError(fmt.Errorf("%w: -1.2", ErrIsNegative)), IsPositive(-1.2))
-}
-
-func TestInRange(t *testing.T) {
+func TestComparable_InRange(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -232,8 +225,118 @@ func TestInRange(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := InRange(tc.min, tc.max, tc.val, tc.opts...)
+			err := Comparable(tc.val).InRange(tc.min, tc.max, tc.opts...)
 			require.Equal(t, tc.expectedErr, err)
 		})
 	}
+}
+
+func TestComparable_LessThan(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		val, other  int
+		expectedErr error
+	}{
+		{
+			name:  "value is less",
+			val:   10,
+			other: 11,
+		},
+		{
+			name:        "value is equal",
+			val:         10,
+			other:       10,
+			expectedErr: NewValidationError(fmt.Errorf("%w: 10 is not less than 10", ErrNotInRange)),
+		},
+		{
+			name:        "value is bigger",
+			val:         10,
+			other:       9,
+			expectedErr: NewValidationError(fmt.Errorf("%w: 10 is not less than 9", ErrNotInRange)),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := Comparable(tc.val).LessThan(tc.other)
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestComparable_GreaterThan(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		val, other  int
+		expectedErr error
+	}{
+		{
+			name:  "value is greater",
+			val:   11,
+			other: 10,
+		},
+		{
+			name:        "value is equal",
+			val:         10,
+			other:       10,
+			expectedErr: NewValidationError(fmt.Errorf("%w: 10 is not greater than 10", ErrNotInRange)),
+		},
+		{
+			name:        "value is lesser",
+			val:         10,
+			other:       11,
+			expectedErr: NewValidationError(fmt.Errorf("%w: 10 is not greater than 11", ErrNotInRange)),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := Comparable(tc.val).GreaterThan(tc.other)
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestComparable_GreaterOrEqual(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		val, other  int
+		expectedErr error
+	}{
+		{
+			name:  "value is greater",
+			val:   11,
+			other: 10,
+		},
+		{
+			name:  "value is equal",
+			val:   10,
+			other: 10,
+		},
+		{
+			name:        "value is lesser",
+			val:         10,
+			other:       11,
+			expectedErr: NewValidationError(fmt.Errorf("%w: 10 is not greater than or equal to 11", ErrNotInRange)),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := Comparable(tc.val).GreaterOrEqual(tc.other)
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestIsSupportedValue(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, IsSupportedValue(1, 1, 2, 3))
+	require.Equal(t, NewValidationError(fmt.Errorf("%w: 0", ErrUnsupportedValue)), IsSupportedValue(0))
+	require.Equal(t, NewValidationError(fmt.Errorf("%w: 1", ErrUnsupportedValue)), IsSupportedValue(1, 0, 10))
+	require.Equal(t, NewValidationError(fmt.Errorf(`%w: "c"`, ErrUnsupportedValue)), IsSupportedValue("c", "a", "b"))
+}
+
+func TestNotEmptySlice(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, NotEmptySlice([]int{1}))
+	require.Equal(t, NewValidationError(ErrNotSet), NotEmptySlice([]string{}))
+	require.Equal(t, NewValidationError(ErrNotSet), NotEmptySlice[any](nil))
 }
