@@ -562,9 +562,16 @@ func TestWalkUnreachableObjects(t *testing.T) {
 	// Unpack brokenParent now that the parent has been pruned.
 	require.NoError(t, repo.UnpackObjects(ctx, &packedBrokenParent))
 
-	gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{
-		commit1, unreachableCommit1, unreachableCommit2, brokenParent1,
-	})
+	require.ElementsMatch(t,
+		[]git.ObjectID{
+			gittest.DefaultObjectHash.EmptyTreeOID,
+			commit1,
+			unreachableCommit1,
+			unreachableCommit2,
+			brokenParent1,
+		},
+		gittest.ListObjects(t, cfg, repoPath),
+	)
 
 	for _, tc := range []struct {
 		desc           string
@@ -632,7 +639,15 @@ func TestPackAndUnpackObjects(t *testing.T) {
 	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commit1))
 	commit3 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commit2))
 
-	gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{commit1, commit2, commit3})
+	require.ElementsMatch(t,
+		[]git.ObjectID{
+			gittest.DefaultObjectHash.EmptyTreeOID,
+			commit1,
+			commit2,
+			commit3,
+		},
+		gittest.ListObjects(t, cfg, repoPath),
+	)
 
 	var emptyPack bytes.Buffer
 	require.NoError(t,
@@ -714,7 +729,7 @@ func TestPackAndUnpackObjects(t *testing.T) {
 			t.Parallel()
 
 			cfg, repo, repoPath := setupRepo(t)
-			gittest.RequireObjects(t, cfg, repoPath, []git.ObjectID{})
+			require.Empty(t, gittest.ListObjects(t, cfg, repoPath))
 
 			err := repo.UnpackObjects(ctx, bytes.NewReader(tc.pack))
 			if tc.expectedErrorMessage != "" {
@@ -722,7 +737,7 @@ func TestPackAndUnpackObjects(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-			gittest.RequireObjects(t, cfg, repoPath, tc.expectedObjects)
+			require.ElementsMatch(t, tc.expectedObjects, gittest.ListObjects(t, cfg, repoPath))
 		})
 	}
 }
