@@ -9,6 +9,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
+const (
+	// FullRepackCooldownPeriod is the cooldown period that needs to pass since the last full
+	// repack before we consider doing another full repack.
+	FullRepackCooldownPeriod = 5 * 24 * time.Hour
+)
+
 // OptimizationStrategy is an interface to determine which parts of a repository should be
 // optimized.
 type OptimizationStrategy interface {
@@ -73,6 +79,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// anyway. We should eventually remove this condition though once the fix has landed.
 	if len(s.info.Alternates) == 0 && featureflag.GeometricRepacking.IsEnabled(ctx) {
 		nonCruftPackfilesCount := s.info.Packfiles.Count - s.info.Packfiles.CruftCount
+		timeSinceLastFullRepack := time.Since(s.info.Packfiles.LastFullRepack)
 
 		// It is mandatory for us that we perform regular full repacks in repositories so
 		// that we can evict objects which are unreachable into a separate cruft pack. So in
@@ -82,14 +89,8 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		// This heuristic is simple on purpose: customers care about when objects will be
 		// declared as unreachable and when the pruning grace period starts as it impacts
 		// usage quotas. So with this simple policy we can tell customers that we evict and
-		// expire unreachable objects once per day.
-		timeSinceLastFullRepack := time.Since(s.info.Packfiles.LastFullRepack)
-		if !s.info.IsObjectPool && nonCruftPackfilesCount > 1 && timeSinceLastFullRepack > 24*time.Hour {
-			cfg.Strategy = RepackObjectsStrategyFullWithCruft
-			cfg.CruftExpireBefore = s.expireBefore
-			return true, cfg
-		}
-
+		// expire unreachable objects on a regular schedule.
+		//
 		// On the other hand, for object pools, we also need to perform regular full
 		// repacks. The reason is different though, as we don't ever delete objects from
 		// pool repositories anyway.
@@ -103,21 +104,25 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		// regress over time as new objects are pulled into the pool repository.
 		//
 		// So we perform regular full repacks in the repository to ensure that the delta
-		// islands will be "freshened" again. As this is nothing that would be visible to
-		// the end user (except for performance), it should be fine to perform the repack a
-		// lot less frequent than we perform the full repacks in non-object-pools.
-		//
-		// If geometric repacks ever learn to take delta islands into account we can get rid
-		// of this condition and only do geometric repacks.
-		if s.info.IsObjectPool && nonCruftPackfilesCount > 1 && timeSinceLastFullRepack > 7*24*time.Hour {
-			// Using cruft packs would be pointless here as we don't ever want to expire
-			// unreachable objects. And we don't want to explode unreachable objects
-			// into loose objects either: for one that'd be inefficient, and second
-			// they'd only get soaked up by the next geometric repack anyway.
-			//
-			// So instead, we do a full repack that appends unreachable objects to the
-			// end of the new packfile.
-			cfg.Strategy = RepackObjectsStrategyFullWithUnreachable
+		// islands will be "freshened" again. If geometric repacks ever learn to take delta
+		// islands into account we can get rid of this condition and only do geometric
+		// repacks.
+		if nonCruftPackfilesCount > 1 && timeSinceLastFullRepack > FullRepackCooldownPeriod {
+			if s.info.IsObjectPool {
+				// Using cruft packs would be pointless here as we don't ever want
+				// to expire unreachable objects. And we don't want to explode
+				// unreachable objects into loose objects either: for one that'd be
+				// inefficient, and second they'd only get soaked up by the next
+				// geometric repack anyway.
+				//
+				// So instead, we do a full repack that appends unreachable objects
+				// to the end of the new packfile.
+				cfg.Strategy = RepackObjectsStrategyFullWithUnreachable
+			} else {
+				cfg.Strategy = RepackObjectsStrategyFullWithCruft
+				cfg.CruftExpireBefore = s.expireBefore
+			}
+
 			return true, cfg
 		}
 
