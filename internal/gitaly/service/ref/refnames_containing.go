@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -13,19 +12,25 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-// ListBranchNamesContainingCommit returns a maximum of in.GetLimit() Branch names
-// which contain the SHA1 passed as argument
+// ListBranchNamesContainingCommit returns a maximum of in.GetLimit() Branch names which contain the
+// commit ID passed as argument.
 func (s *server) ListBranchNamesContainingCommit(in *gitalypb.ListBranchNamesContainingCommitRequest, stream gitalypb.RefService_ListBranchNamesContainingCommitServer) error {
 	ctx := stream.Context()
 
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
-	if err := git.ObjectHashSHA1.ValidateHex(in.GetCommitId()); err != nil {
+
+	repo := s.localrepo(in.GetRepository())
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	if err := objectHash.ValidateHex(in.GetCommitId()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	repo := s.localrepo(in.GetRepository())
 	chunker := chunk.New(&branchNamesContainingCommitSender{stream: stream})
 
 	if err := listRefNames(ctx, repo, chunker, "refs/heads", containingArgs(in)); err != nil {
@@ -62,19 +67,25 @@ func (bs *branchNamesContainingCommitSender) Send() error {
 	return bs.stream.Send(&gitalypb.ListBranchNamesContainingCommitResponse{BranchNames: bs.branchNames})
 }
 
-// ListTagNamesContainingCommit returns a maximum of in.GetLimit() Tag names
-// which contain the SHA1 passed as argument
+// ListTagNamesContainingCommit returns a maximum of in.GetLimit() Tag names which contain the
+// commit ID passed as argument.
 func (s *server) ListTagNamesContainingCommit(in *gitalypb.ListTagNamesContainingCommitRequest, stream gitalypb.RefService_ListTagNamesContainingCommitServer) error {
 	ctx := stream.Context()
 
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
-	if err := git.ObjectHashSHA1.ValidateHex(in.GetCommitId()); err != nil {
+
+	repo := s.localrepo(in.GetRepository())
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	if err := objectHash.ValidateHex(in.GetCommitId()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	repo := s.localrepo(in.GetRepository())
 	chunker := chunk.New(&tagNamesContainingCommitSender{stream: stream})
 
 	if err := listRefNames(ctx, repo, chunker, "refs/tags", containingArgs(in)); err != nil {
