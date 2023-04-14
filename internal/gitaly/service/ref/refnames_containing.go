@@ -16,6 +16,8 @@ import (
 // ListBranchNamesContainingCommit returns a maximum of in.GetLimit() Branch names
 // which contain the SHA1 passed as argument
 func (s *server) ListBranchNamesContainingCommit(in *gitalypb.ListBranchNamesContainingCommitRequest, stream gitalypb.RefService_ListBranchNamesContainingCommitServer) error {
+	ctx := stream.Context()
+
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
@@ -23,9 +25,10 @@ func (s *server) ListBranchNamesContainingCommit(in *gitalypb.ListBranchNamesCon
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
+	repo := s.localrepo(in.GetRepository())
 	chunker := chunk.New(&branchNamesContainingCommitSender{stream: stream})
-	ctx := stream.Context()
-	if err := s.listRefNames(ctx, chunker, "refs/heads", in.Repository, containingArgs(in)); err != nil {
+
+	if err := listRefNames(ctx, repo, chunker, "refs/heads", containingArgs(in)); err != nil {
 		return structerr.NewInternal("%w", err)
 	}
 
@@ -62,6 +65,8 @@ func (bs *branchNamesContainingCommitSender) Send() error {
 // ListTagNamesContainingCommit returns a maximum of in.GetLimit() Tag names
 // which contain the SHA1 passed as argument
 func (s *server) ListTagNamesContainingCommit(in *gitalypb.ListTagNamesContainingCommitRequest, stream gitalypb.RefService_ListTagNamesContainingCommitServer) error {
+	ctx := stream.Context()
+
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
@@ -69,9 +74,10 @@ func (s *server) ListTagNamesContainingCommit(in *gitalypb.ListTagNamesContainin
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
+	repo := s.localrepo(in.GetRepository())
 	chunker := chunk.New(&tagNamesContainingCommitSender{stream: stream})
-	ctx := stream.Context()
-	if err := s.listRefNames(ctx, chunker, "refs/tags", in.Repository, containingArgs(in)); err != nil {
+
+	if err := listRefNames(ctx, repo, chunker, "refs/tags", containingArgs(in)); err != nil {
 		return structerr.NewInternal("%w", err)
 	}
 
