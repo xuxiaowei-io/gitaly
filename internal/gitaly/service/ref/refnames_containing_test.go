@@ -3,12 +3,15 @@
 package ref
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -19,101 +22,116 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repoProto, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
 
-	testCases := []struct {
-		description string
-		commitID    string
-		code        codes.Code
-		limit       uint32
-		tags        []string
-	}{
-		{
-			description: "no commit ID",
-			commitID:    "",
-			code:        codes.InvalidArgument,
-		},
-		{
-			description: "current master HEAD",
-			commitID:    "e63f41fe459e62e1228fcef60d7189127aeba95a",
-			code:        codes.OK,
-			tags:        []string{},
-		},
-		{
-			description: "init commit",
-			commitID:    "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-			code:        codes.OK,
-			tags:        []string{"v1.0.0", "v1.1.0"},
-		},
-		{
-			description: "limited response size",
-			commitID:    "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-			code:        codes.OK,
-			limit:       1,
-			tags:        []string{"v1.0.0"},
-		},
-	}
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			request := &gitalypb.ListTagNamesContainingCommitRequest{Repository: repoProto, CommitId: tc.commitID}
+	commitA := gittest.WriteCommit(t, cfg, repoPath)
+	commitB := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitA))
+	commitC := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitB), gittest.WithBranch(git.DefaultBranch))
 
-			c, err := client.ListTagNamesContainingCommit(ctx, request)
-			require.NoError(t, err)
-
-			var names []string
-			for {
-				r, err := c.Recv()
-				if err == io.EOF {
-					break
-				} else if tc.code != codes.OK {
-					testhelper.RequireGrpcCode(t, err, tc.code)
-
-					return
-				}
-				require.NoError(t, err)
-
-				for _, name := range r.GetTagNames() {
-					names = append(names, string(name))
-				}
-			}
-
-			// Test for inclusion instead of equality because new refs
-			// will get added to the gitlab-test repo over time.
-			require.Subset(t, names, tc.tags)
-		})
-	}
-}
-
-func TestListTagNamesContainingCommit_validate(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-	_, repoProto, _, client := setupRefService(t, ctx)
+	gittest.WriteTag(t, cfg, repoPath, "annotated", commitA.Revision(), gittest.WriteTagConfig{
+		Message: "annotated",
+	})
+	gittest.WriteTag(t, cfg, repoPath, "lightweight", commitB.Revision())
 
 	for _, tc := range []struct {
-		desc        string
-		req         *gitalypb.ListTagNamesContainingCommitRequest
-		expectedErr error
+		desc         string
+		request      *gitalypb.ListTagNamesContainingCommitRequest
+		expectedErr  error
+		expectedTags []string
 	}{
 		{
 			desc: "repository not provided",
-			req:  &gitalypb.ListTagNamesContainingCommitRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			request: &gitalypb.ListTagNamesContainingCommitRequest{
+				Repository: nil,
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
-			desc:        "bad commit provided",
-			req:         &gitalypb.ListTagNamesContainingCommitRequest{Repository: repoProto, CommitId: "invalid"},
-			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "invalid", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen())),
+			desc: "invalid commit ID",
+			request: &gitalypb.ListTagNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   "invalid",
+			},
+			expectedErr: structerr.NewInvalidArgument(
+				fmt.Sprintf(`invalid object ID: "invalid", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen()),
+			),
+		},
+		{
+			desc: "no commit ID",
+			request: &gitalypb.ListTagNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   "",
+			},
+			expectedErr: structerr.NewInvalidArgument(
+				`invalid object ID: "", expected length %d, got 0`, gittest.DefaultObjectHash.EncodedLen(),
+			),
+		},
+		{
+			desc: "commit not contained in any tag",
+			request: &gitalypb.ListTagNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   commitC.String(),
+			},
+			expectedTags: nil,
+		},
+		{
+			desc: "root commit",
+			request: &gitalypb.ListTagNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   commitA.String(),
+			},
+			expectedTags: []string{"annotated", "lightweight"},
+		},
+		{
+			desc: "root commit with limit",
+			request: &gitalypb.ListTagNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   commitA.String(),
+				Limit:      1,
+			},
+			expectedTags: []string{"annotated"},
+		},
+		{
+			desc: "commit with single tag",
+			request: &gitalypb.ListTagNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   commitB.String(),
+			},
+			expectedTags: []string{"lightweight"},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.ListTagNamesContainingCommit(ctx, tc.req)
+			t.Parallel()
+
+			stream, err := client.ListTagNamesContainingCommit(ctx, tc.request)
 			require.NoError(t, err)
-			_, err = stream.Recv()
+
+			var tagNames []string
+			for {
+				var response *gitalypb.ListTagNamesContainingCommitResponse
+				response, err = stream.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						err = nil
+					}
+
+					break
+				}
+
+				for _, tagName := range response.GetTagNames() {
+					tagNames = append(tagNames, string(tagName))
+				}
+			}
+
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			require.ElementsMatch(t, tc.expectedTags, tagNames)
 		})
 	}
 }
