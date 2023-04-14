@@ -14,8 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestListTagNamesContainingCommit(t *testing.T) {
@@ -140,118 +138,119 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	testCases := []struct {
-		description string
-		commitID    string
-		code        codes.Code
-		limit       uint32
-		branches    []string
-	}{
-		{
-			description: "no commit ID",
-			commitID:    "",
-			code:        codes.InvalidArgument,
-		},
-		{
-			description: "current master HEAD",
-			commitID:    "e63f41fe459e62e1228fcef60d7189127aeba95a",
-			code:        codes.OK,
-			branches:    []string{"master"},
-		},
-		{
-			// gitlab-test contains a branch refs/heads/1942eed5cc108b19c7405106e81fa96125d0be22
-			// which is in conflict with a commit with the same ID
-			description: "branch name is also commit id",
-			commitID:    "1942eed5cc108b19c7405106e81fa96125d0be22",
-			code:        codes.OK,
-			branches:    []string{"1942eed5cc108b19c7405106e81fa96125d0be22"},
-		},
-		{
-			description: "init commit",
-			commitID:    "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-			code:        codes.OK,
-			branches: []string{
-				"deleted-image-test",
-				"ends-with.json",
-				"master",
-				"conflict-non-utf8",
-				"'test'",
-				"ʕ•ᴥ•ʔ",
-				"'test'",
-				"100%branch",
-			},
-		},
-		{
-			description: "init commit",
-			commitID:    "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-			code:        codes.OK,
-			limit:       1,
-			branches:    []string{"'test'"},
-		},
-	}
+	rootCommitID := gittest.WriteCommit(t, cfg, repoPath)
+	intermediateCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID))
+	headCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(intermediateCommitID), gittest.WithBranch(git.DefaultBranch))
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(intermediateCommitID), gittest.WithBranch("branch"))
 
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			request := &gitalypb.ListBranchNamesContainingCommitRequest{Repository: repo, CommitId: tc.commitID}
+	ambiguousCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ambiguous"), gittest.WithParents(intermediateCommitID))
+	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/heads/"+ambiguousCommitID.String()), ambiguousCommitID)
 
-			c, err := client.ListBranchNamesContainingCommit(ctx, request)
-			require.NoError(t, err)
-
-			var names []string
-			for {
-				r, err := c.Recv()
-				if err == io.EOF {
-					break
-				} else if tc.code != codes.OK {
-					testhelper.RequireGrpcCode(t, err, tc.code)
-
-					return
-				}
-				require.NoError(t, err)
-
-				for _, name := range r.GetBranchNames() {
-					names = append(names, string(name))
-				}
-			}
-
-			// Test for inclusion instead of equality because new refs
-			// will get added to the gitlab-test repo over time.
-			require.Subset(t, names, tc.branches)
-		})
-	}
-}
-
-func TestListBranchNamesContainingCommit_validate(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-	_, repoProto, _, client := setupRefService(t, ctx)
+	unreferencedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreferenced"))
 
 	for _, tc := range []struct {
-		desc        string
-		req         *gitalypb.ListBranchNamesContainingCommitRequest
-		expectedErr error
+		desc             string
+		request          *gitalypb.ListBranchNamesContainingCommitRequest
+		expectedErr      error
+		expectedBranches []string
 	}{
 		{
 			desc: "repository not provided",
-			req:  &gitalypb.ListBranchNamesContainingCommitRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			request: &gitalypb.ListBranchNamesContainingCommitRequest{
+				Repository: nil,
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
-			desc:        "bad commit provided",
-			req:         &gitalypb.ListBranchNamesContainingCommitRequest{Repository: repoProto, CommitId: "invalid"},
-			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "invalid", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen())),
+			desc: "invalid commit",
+			request: &gitalypb.ListBranchNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   "invalid",
+			},
+			expectedErr: structerr.NewInvalidArgument(
+				fmt.Sprintf(`invalid object ID: "invalid", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen()),
+			),
+		},
+		{
+			desc: "no commit ID",
+			request: &gitalypb.ListBranchNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   "",
+			},
+			expectedErr: structerr.NewInvalidArgument(
+				fmt.Sprintf(`invalid object ID: "", expected length %v, got 0`, gittest.DefaultObjectHash.EncodedLen()),
+			),
+		},
+		{
+			desc: "current HEAD",
+			request: &gitalypb.ListBranchNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   headCommitID.String(),
+			},
+			expectedBranches: []string{git.DefaultBranch, "branch"},
+		},
+		{
+			desc: "branch name is also commit id",
+			request: &gitalypb.ListBranchNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   ambiguousCommitID.String(),
+			},
+			expectedBranches: []string{ambiguousCommitID.String()},
+		},
+		{
+			desc: "initial commit",
+			request: &gitalypb.ListBranchNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   rootCommitID.String(),
+			},
+			expectedBranches: []string{
+				git.DefaultBranch,
+				"branch",
+				ambiguousCommitID.String(),
+			},
+		},
+		{
+			desc: "commit without references",
+			request: &gitalypb.ListBranchNamesContainingCommitRequest{
+				Repository: repo,
+				CommitId:   unreferencedCommitID.String(),
+			},
+			expectedBranches: nil,
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.ListBranchNamesContainingCommit(ctx, tc.req)
+			t.Parallel()
+
+			stream, err := client.ListBranchNamesContainingCommit(ctx, tc.request)
 			require.NoError(t, err)
-			_, err = stream.Recv()
+
+			var branchNames []string
+			for {
+				var response *gitalypb.ListBranchNamesContainingCommitResponse
+				response, err = stream.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						err = nil
+					}
+
+					break
+				}
+
+				for _, branchName := range response.GetBranchNames() {
+					branchNames = append(branchNames, string(branchName))
+				}
+			}
+
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			require.ElementsMatch(t, tc.expectedBranches, branchNames)
 		})
 	}
 }
