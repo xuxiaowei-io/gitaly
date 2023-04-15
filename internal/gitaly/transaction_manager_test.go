@@ -293,6 +293,8 @@ func TestTransactionManager(t *testing.T) {
 		DefaultBranchUpdate *DefaultBranchUpdate
 		// CustomHooksUpdate is the custom hooks update to commit.
 		CustomHooksUpdate *CustomHooksUpdate
+		// DeleteRepository deletes the repository on commit.
+		DeleteRepository bool
 	}
 
 	// Rollback calls Rollback on a transaction.
@@ -307,8 +309,15 @@ func TestTransactionManager(t *testing.T) {
 		ExpectedObjects []git.ObjectID
 	}
 
+	// RemoveRepository removes the repository from the disk. It must be run with the TransactionManager
+	// stopped.
+	type RemoveRepository struct{}
+
 	// StateAssertions models an assertion of the entire state managed by the TransactionManager.
 	type StateAssertion struct {
+		// RepositoryDoesntExist indicates the repository should not exist. If so, we just check that's
+		// the case and don't assert the other state.
+		RepositoryDoesntExist bool
 		// DefaultBranch is the expected refname that HEAD points to.
 		DefaultBranch git.ReferenceName
 		// References is the expected state of references.
@@ -2327,6 +2336,257 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "begin fails after repository deletion",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
+				},
+				Begin{
+					ExpectedError: ErrRepositoryNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "repository deletion fails if repository is deleted",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
+				},
+				Commit{
+					TransactionID:    2,
+					DeleteRepository: true,
+					ExpectedError:    ErrRepositoryNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "custom hooks update fails if repository is deleted",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
+				},
+				Commit{
+					TransactionID:     2,
+					CustomHooksUpdate: &CustomHooksUpdate{validCustomHooks(t)},
+					ExpectedError:     ErrRepositoryNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "reference updates fail if repository is deleted",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					ExpectedError: ErrRepositoryNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "default branch update fails if repository is deleted",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
+				},
+				Commit{
+					TransactionID: 2,
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/new-default",
+					},
+					ExpectedError: ErrRepositoryNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "logged repository deletions are considered after restart",
+			steps: steps{
+				StartManager{
+					Hooks: testHooks{
+						BeforeApplyLogEntry: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+					ExpectedError: ErrRepositoryNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "reapplying repository deletion works",
+			steps: steps{
+				StartManager{
+					Hooks: testHooks{
+						BeforeStoreAppliedLogIndex: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+					ExpectedError: ErrRepositoryNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "non-existent repository is correctly handled",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					ExpectedError: ErrRepositoryNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+			},
+		},
+		{
+			// This is a serialization violation as the outcome would be different
+			// if the transactions were applied in different order.
+			desc: "deletion succeeds with concurrent writes to repository",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 1,
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/branch",
+					},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/branch": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				Commit{
+					TransactionID:    2,
+					DeleteRepository: true,
+				},
+			},
+			expectedState: StateAssertion{
+				RepositoryDoesntExist: true,
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -2599,6 +2859,10 @@ func TestTransactionManager(t *testing.T) {
 
 					}
 
+					if step.DeleteRepository {
+						transaction.DeleteRepository()
+					}
+
 					commitCtx := ctx
 					if step.Context != nil {
 						commitCtx = step.Context
@@ -2611,6 +2875,8 @@ func TestTransactionManager(t *testing.T) {
 				case Prune:
 					gittest.Exec(t, setup.Config, "-C", repoPath, "prune")
 					require.ElementsMatch(t, step.ExpectedObjects, gittest.ListObjects(t, setup.Config, repoPath))
+				case RemoveRepository:
+					require.NoError(t, os.RemoveAll(repoPath))
 				default:
 					t.Fatalf("unhandled step type: %T", step)
 				}
@@ -2621,34 +2887,40 @@ func TestTransactionManager(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			RequireReferences(t, ctx, repo, tc.expectedState.References)
-			RequireDefaultBranch(t, ctx, repo, tc.expectedState.DefaultBranch)
 			RequireDatabase(t, ctx, database, tc.expectedState.Database)
 
-			expectedDirectory := tc.expectedState.Directory
-			if expectedDirectory == nil {
-				// Set the base state as the default so we don't have to repeat it in every test case but it
-				// gets asserted.
-				expectedDirectory = testhelper.DirectoryState{
-					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+			if !tc.expectedState.RepositoryDoesntExist {
+				require.DirExists(t, repoPath)
+				RequireReferences(t, ctx, repo, tc.expectedState.References)
+				RequireDefaultBranch(t, ctx, repo, tc.expectedState.DefaultBranch)
+
+				expectedDirectory := tc.expectedState.Directory
+				if expectedDirectory == nil {
+					// Set the base state as the default so we don't have to repeat it in every test case but it
+					// gets asserted.
+					expectedDirectory = testhelper.DirectoryState{
+						"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					}
 				}
-			}
 
-			testhelper.RequireDirectoryState(t, repoPath, "wal", expectedDirectory)
+				testhelper.RequireDirectoryState(t, repoPath, "wal", expectedDirectory)
 
-			expectedObjects := tc.expectedState.Objects
-			if expectedObjects == nil {
-				expectedObjects = []git.ObjectID{
-					setup.ObjectHash.EmptyTreeOID,
-					setup.Commits.First.OID,
-					setup.Commits.Second.OID,
-					setup.Commits.Third.OID,
+				expectedObjects := tc.expectedState.Objects
+				if expectedObjects == nil {
+					expectedObjects = []git.ObjectID{
+						setup.ObjectHash.EmptyTreeOID,
+						setup.Commits.First.OID,
+						setup.Commits.Second.OID,
+						setup.Commits.Third.OID,
+					}
 				}
-			}
 
-			require.ElementsMatch(t, expectedObjects, gittest.ListObjects(t, setup.Config, repoPath))
+				require.ElementsMatch(t, expectedObjects, gittest.ListObjects(t, setup.Config, repoPath))
+			} else {
+				require.NoDirExists(t, repoPath)
+			}
 
 			entries, err := os.ReadDir(stagingDir)
 			require.NoError(t, err)
