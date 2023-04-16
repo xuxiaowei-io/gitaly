@@ -2604,6 +2604,30 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "failing initialization prevents transaction beginning",
+			steps: steps{
+				StartManager{
+					ModifyRepository: func(tb testing.TB, repoPath string) {
+						// Remove the repository's directory and create a file in its place
+						// to fail the initialization.
+						require.NoError(t, os.RemoveAll(repoPath))
+						require.NoError(t, os.WriteFile(repoPath, nil, fs.ModePerm))
+					},
+					ExpectedError: errNotDirectory,
+				},
+				Begin{
+					ExpectedError: errInitializationFailed,
+				},
+				AssertManager{
+					ExpectedError: errNotDirectory,
+				},
+			},
+			expectedState: StateAssertion{
+				// The file still exists on the disk but this skips the repository assertions.
+				RepositoryDoesntExist: true,
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
