@@ -2455,12 +2455,13 @@ func TestTransactionManager(t *testing.T) {
 			defer testhelper.MustClose(t, database)
 
 			stagingDir := t.TempDir()
+			storagePath := setup.Config.Storages[0].Path
 
 			var (
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, setup.Repository, stagingDir, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, setup.Repository, stagingDir, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -2501,7 +2502,7 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, setup.Repository, stagingDir, noopTransactionFinalizer)
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, setup.Repository, stagingDir, noopTransactionFinalizer)
 					installHooks(t, transactionManager, database, setup.Repository, hooks{
 						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
 						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
@@ -2798,7 +2799,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, localRepo, b.TempDir(), noopTransactionFinalizer)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, localRepo, b.TempDir(), noopTransactionFinalizer)
 				managers = append(managers, manager)
 
 				managerWG.Add(1)

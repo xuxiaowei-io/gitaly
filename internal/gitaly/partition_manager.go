@@ -11,6 +11,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // ErrPartitionManagerStopped is returned when the PartitionManager stops processing transactions.
@@ -38,6 +41,9 @@ type PartitionManager struct {
 	// stagingDirectory is the directory where all of the TransactionManager staging directories
 	// should be created.
 	stagingDirectory string
+	// storages are the storages configured in this Gitaly server. They are keyed by the name and the
+	// value is the storage's path.
+	storages map[string]string
 }
 
 // partition contains the transaction manager and tracks the number of in-flight transactions for the partition.
@@ -55,13 +61,19 @@ type partition struct {
 }
 
 // NewPartitionManager returns a new PartitionManager.
-func NewPartitionManager(db *badger.DB, localRepoFactory func(repo.GitRepo) *localrepo.Repo, logger logrus.FieldLogger, stagingDir string) *PartitionManager {
+func NewPartitionManager(db *badger.DB, storages []config.Storage, localRepoFactory func(repo.GitRepo) *localrepo.Repo, logger logrus.FieldLogger, stagingDir string) *PartitionManager {
+	storagesMap := make(map[string]string, len(storages))
+	for _, storage := range storages {
+		storagesMap[storage.Name] = storage.Path
+	}
+
 	return &PartitionManager{
 		db:               db,
 		partitions:       make(map[string]*partition),
 		localRepoFactory: localRepoFactory,
 		logger:           logger,
 		stagingDirectory: stagingDir,
+		storages:         storagesMap,
 	}
 }
 
@@ -70,6 +82,17 @@ func NewPartitionManager(db *badger.DB, localRepoFactory func(repo.GitRepo) *loc
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
 func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Transaction, error) {
 	localRepo := pm.localRepoFactory(repo)
+
+	storagePath, ok := pm.storages[repo.GetStorageName()]
+	if !ok {
+		return nil, structerr.NewNotFound("unknown storage: %q", repo.GetStorageName())
+	}
+
+	relativePath, err := storage.ValidateRelativePath(storagePath, repo.GetRelativePath())
+	if err != nil {
+		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
+	}
+
 	partitionKey := getRepositoryID(localRepo)
 
 	for {
@@ -91,7 +114,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := NewTransactionManager(pm.db, localRepo, stagingDir, pm.transactionFinalizerFactory(ptn))
+			mgr := NewTransactionManager(pm.db, storagePath, relativePath, localRepo, stagingDir, pm.transactionFinalizerFactory(ptn))
 			ptn.transactionManager = mgr
 
 			pm.partitions[partitionKey] = ptn
