@@ -30,11 +30,16 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ErrRepositoryNotFound is returned when the repository doesn't exist.
-var ErrRepositoryNotFound = structerr.NewNotFound("repository not found")
-
-// ErrTransactionProcessingStopped is returned when the TransactionManager stops processing transactions.
-var ErrTransactionProcessingStopped = errors.New("transaction processing stopped")
+var (
+	// ErrRepositoryNotFound is returned when the repository doesn't exist.
+	ErrRepositoryNotFound = structerr.NewNotFound("repository not found")
+	// ErrTransactionProcessingStopped is returned when the TransactionManager stops processing transactions.
+	ErrTransactionProcessingStopped = errors.New("transaction processing stopped")
+	// errInitializationFailed is returned when the TransactionManager failed to initialize successfully.
+	errInitializationFailed = errors.New("initializing transaction processing failed")
+	// errNotDirectory is returned when the repository's path doesn't point to a directory
+	errNotDirectory = errors.New("repository's path didn't point to a directory")
+)
 
 // InvalidReferenceFormatError is returned when a reference name was invalid.
 type InvalidReferenceFormatError struct {
@@ -183,6 +188,9 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-mgr.initialized:
+		if !mgr.initializationSuccessful {
+			return nil, errInitializationFailed
+		}
 	}
 
 	mgr.mutex.Lock()
@@ -430,6 +438,9 @@ type TransactionManager struct {
 	// initialized is closed when the manager has been initialized. It's used to block new transactions
 	// from beginning prior to the manager having initialized its runtime state on start up.
 	initialized chan struct{}
+	// initializationSuccessful is set if the TransactionManager initialized successfully. If it didn't,
+	// transactions will fail to begin.
+	initializationSuccessful bool
 	// mutex guards access to applyNotifications and appendedLogIndex. These fields are accessed by both
 	// Run and Begin which are ran in different goroutines.
 	mutex sync.Mutex
@@ -812,6 +823,8 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		return fmt.Errorf("remove stale packs: %w", err)
 	}
 
+	mgr.initializationSuccessful = true
+
 	return nil
 }
 
@@ -827,7 +840,7 @@ func (mgr *TransactionManager) determineRepositoryExistence() error {
 
 	if stat != nil {
 		if !stat.IsDir() {
-			return fmt.Errorf("repository's path didn't point to a directory")
+			return errNotDirectory
 		}
 
 		if err := mgr.createDirectories(); err != nil {
