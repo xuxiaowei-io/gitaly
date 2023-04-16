@@ -9,6 +9,7 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -31,6 +32,8 @@ type PartitionManager struct {
 	partitions map[string]*partition
 	// localRepoFactory is used by PartitionManager to construct `localrepo.Repo`.
 	localRepoFactory localrepo.Factory
+	// commandFactory is passed as a dependency to the constructed TransactionManagers.
+	commandFactory git.CommandFactory
 	// logger handles all logging for PartitionManager.
 	logger logrus.FieldLogger
 	// stopped tracks whether the PartitionManager has been stopped. If the manager is stopped,
@@ -61,7 +64,7 @@ type partition struct {
 }
 
 // NewPartitionManager returns a new PartitionManager.
-func NewPartitionManager(db *badger.DB, storages []config.Storage, localRepoFactory localrepo.Factory, logger logrus.FieldLogger, stagingDir string) *PartitionManager {
+func NewPartitionManager(db *badger.DB, storages []config.Storage, localRepoFactory localrepo.Factory, cmdFactory git.CommandFactory, logger logrus.FieldLogger, stagingDir string) *PartitionManager {
 	storagesMap := make(map[string]string, len(storages))
 	for _, storage := range storages {
 		storagesMap[storage.Name] = storage.Path
@@ -71,6 +74,7 @@ func NewPartitionManager(db *badger.DB, storages []config.Storage, localRepoFact
 		db:               db,
 		partitions:       make(map[string]*partition),
 		localRepoFactory: localRepoFactory,
+		commandFactory:   cmdFactory,
 		logger:           logger,
 		stagingDirectory: stagingDir,
 		storages:         storagesMap,
@@ -123,7 +127,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				return nil, fmt.Errorf("scope by storage: %w", err)
 			}
 
-			mgr := NewTransactionManager(pm.db, storagePath, relativePath, stagingDir, storageScopedFactory, pm.transactionFinalizerFactory(ptn))
+			mgr := NewTransactionManager(pm.db, storagePath, relativePath, stagingDir, storageScopedFactory, pm.commandFactory, pm.transactionFinalizerFactory(ptn))
 			ptn.transactionManager = mgr
 
 			pm.partitions[partitionKey] = ptn

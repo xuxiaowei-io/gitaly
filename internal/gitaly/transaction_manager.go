@@ -33,6 +33,8 @@ import (
 var (
 	// ErrRepositoryNotFound is returned when the repository doesn't exist.
 	ErrRepositoryNotFound = structerr.NewNotFound("repository not found")
+	// ErrRepositoryAlreadyExists is returned when the repository already exists.
+	ErrRepositoryAlreadyExists = structerr.NewAlreadyExists("repository already exists")
 	// ErrTransactionProcessingStopped is returned when the TransactionManager stops processing transactions.
 	ErrTransactionProcessingStopped = errors.New("transaction processing stopped")
 	// errInitializationFailed is returned when the TransactionManager failed to initialize successfully.
@@ -164,6 +166,9 @@ type Transaction struct {
 	includesPack bool
 	// stagingRepository is a repository that is used to stage the transaction. If there are quarantined
 	// objects, it has the quarantine applied so the objects are available for verification and packing.
+	// Generally the staging repository is the actual repository instance. If the repository doesn't exist
+	// yet, the staging repository is a temporary repository that is deleted once the transaction has been
+	// finished.
 	stagingRepository repository
 
 	// Snapshot contains the details of the Transaction's read snapshot.
@@ -173,6 +178,7 @@ type Transaction struct {
 	referenceUpdates         ReferenceUpdates
 	defaultBranchUpdate      *DefaultBranchUpdate
 	customHooksUpdate        *CustomHooksUpdate
+	repositoryCreation       *gitalypb.LogEntry_RepositoryCreation
 	deleteRepository         bool
 }
 
@@ -181,7 +187,17 @@ type Transaction struct {
 //
 // The returned Transaction's read snapshot includes all writes that were committed prior to the
 // Begin call. Begin blocks until the committed writes have been applied to the repository.
-func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, returnedErr error) {
+func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) {
+	return mgr.begin(ctx, true)
+}
+
+// BeginCreation starts a new transaction. It allowas the transaction to start even if the repository
+// doesn't exist. See the documentation for Begin for details on the use.
+func (mgr *TransactionManager) BeginCreation(ctx context.Context) (*Transaction, error) {
+	return mgr.begin(ctx, false)
+}
+
+func (mgr *TransactionManager) begin(ctx context.Context, repositoryShouldExist bool) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
 	// and the log indexes are loaded.
 	select {
@@ -194,9 +210,9 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	}
 
 	mgr.mutex.Lock()
-	if !mgr.repositoryExists {
+	if err := mgr.verifyRepositoryExistence(repositoryShouldExist); err != nil {
 		mgr.mutex.Unlock()
-		return nil, ErrRepositoryNotFound
+		return nil, err
 	}
 
 	txn := &Transaction{
@@ -221,6 +237,10 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	}
 
 	txn.initStagingDirectory = func() error {
+		if txn.stagingDirectory != "" {
+			return nil
+		}
+
 		stagingDirectory, err := os.MkdirTemp(mgr.stagingDirectory, "")
 		if err != nil {
 			return fmt.Errorf("mkdir temp: %w", err)
@@ -262,6 +282,16 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	case <-readReady:
 		return txn, nil
 	}
+}
+
+func (mgr *TransactionManager) verifyRepositoryExistence(shouldExist bool) error {
+	if shouldExist && !mgr.repositoryExists {
+		return ErrRepositoryNotFound
+	} else if !shouldExist && mgr.repositoryExists {
+		return ErrRepositoryAlreadyExists
+	}
+
+	return nil
 }
 
 // Commit performs the changes. If no error is returned, the transaction was successful and the changes
@@ -315,6 +345,13 @@ func (txn *Transaction) SkipVerificationFailures() {
 // multiple times, only the changes from the latest invocation take place.
 func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
 	txn.referenceUpdates = updates
+}
+
+// CreateRepository creates the repository with the specified object format when the transaction commits.
+func (txn *Transaction) CreateRepository(objectFormat git.ObjectHash) {
+	txn.repositoryCreation = &gitalypb.LogEntry_RepositoryCreation{
+		ObjectFormat: objectFormat.ProtoFormat,
+	}
 }
 
 // DeleteRepository deletes the repository when the transaction is committed.
@@ -416,7 +453,10 @@ type TransactionManager struct {
 	// left around after crashes. The files are temporary and any leftover files are expected to be cleaned up when
 	// Gitaly starts.
 	stagingDirectory string
-
+	// commandFactory is used to spawn git commands without a repository.
+	commandFactory git.CommandFactory
+	// repositoryFactory is used to build a localrepo.Repo for operations that need it.
+	repositoryFactory localrepo.StorageScopedFactory
 	// repositoryExists marks whether the repository exists or not. The repository may not exist if it has
 	// never been created, or if it has been deleted.
 	repositoryExists bool
@@ -424,6 +464,8 @@ type TransactionManager struct {
 	repository repository
 	// repositoryPath is the path to the repository this TransactionManager is acting on.
 	repositoryPath string
+	// storagePath is the absolute path to this storage this TransactionManager is operating on.
+	storagePath string
 	// relativePath is the repository's relative path inside the storage.
 	relativePath string
 	// db is the handle to the key-value store used for storing the write-ahead log related state.
@@ -470,7 +512,7 @@ type repository interface {
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
-func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, transactionFinalizer func()) *TransactionManager {
+func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, cmdFactory git.CommandFactory, transactionFinalizer func()) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
 		ctx:                  ctx,
@@ -479,6 +521,7 @@ func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir 
 		stop:                 cancel,
 		repository:           repositoryFactory.Build(relativePath),
 		repositoryPath:       filepath.Join(storagePath, relativePath),
+		storagePath:          storagePath,
 		relativePath:         relativePath,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
@@ -486,6 +529,8 @@ func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir 
 		initialized:          make(chan struct{}),
 		applyNotifications:   make(map[LogIndex]chan struct{}),
 		stagingDirectory:     stagingDir,
+		commandFactory:       cmdFactory,
+		repositoryFactory:    repositoryFactory,
 		transactionFinalizer: transactionFinalizer,
 	}
 }
@@ -530,6 +575,25 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, transaction *Transaction) error {
 	// If the repository exists, we use it for staging the transaction.
 	transaction.stagingRepository = mgr.repository
+
+	if transaction.repositoryCreation != nil {
+		// Git requires that certain commands like 'pack-objects' and 'rev-list' are ran in a repository.
+		// Providing just an object directory does not suffice. If the repository doesn't exist yet, we create
+		// a temporary repository that we use to stage the transaction. The staging repository is used to run the
+		// commands that require a repository. The reference updates in the transaction will also be verified
+		// against temporary staging repository. After the transaction is logged, the staging repository
+		// is removed, and the actual repository will be created when the log entry is applied.
+		if err := transaction.initStagingDirectory(); err != nil {
+			return fmt.Errorf("init staging directory: %w", err)
+		}
+
+		stagingRepositoryRelativePath := filepath.Join(strings.TrimPrefix(transaction.stagingDirectory, mgr.storagePath+"/"), "repository")
+		if err := mgr.createRepository(ctx, filepath.Join(transaction.stagingDirectory, "repository"), transaction.repositoryCreation.ObjectFormat); err != nil {
+			return fmt.Errorf("create staging repository: %w", err)
+		}
+
+		transaction.stagingRepository = mgr.repositoryFactory.Build(stagingRepositoryRelativePath)
+	}
 
 	// If the transaction has a quarantine directory, we must use it when staging the pack
 	// file and verifying the references so the objects are available.
@@ -701,11 +765,21 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	}
 
 	transaction.result <- func() (commitErr error) {
-		if !mgr.repositoryExists {
+		logEntry := &gitalypb.LogEntry{}
+
+		if transaction.repositoryCreation != nil {
+			if mgr.repositoryExists {
+				return ErrRepositoryAlreadyExists
+			}
+
+			if err := os.MkdirAll(filepath.Join(mgr.repositoryPath, "wal", "packs"), fs.ModePerm); err != nil {
+				return fmt.Errorf("create repository directory: %w", err)
+			}
+
+			logEntry.RepositoryCreation = transaction.repositoryCreation
+		} else if !mgr.repositoryExists {
 			return ErrRepositoryNotFound
 		}
-
-		logEntry := &gitalypb.LogEntry{}
 
 		var err error
 		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
@@ -1156,6 +1230,10 @@ func (mgr *TransactionManager) appendLogEntry(nextLogIndex LogIndex, logEntry *g
 		mgr.hookIndex = nextLogIndex
 	}
 	mgr.applyNotifications[nextLogIndex] = make(chan struct{})
+	if logEntry.RepositoryCreation != nil {
+		mgr.repositoryExists = true
+	}
+
 	if logEntry.RepositoryDeletion != nil {
 		mgr.repositoryExists = false
 		mgr.hookIndex = 0
@@ -1180,6 +1258,10 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 			return fmt.Errorf("apply repository deletion: %w", err)
 		}
 	} else {
+		if err := mgr.applyRepositoryCreation(ctx, logEntry.RepositoryCreation); err != nil {
+			return fmt.Errorf("apply repository deletion: %w", err)
+		}
+
 		if logEntry.IncludesPack {
 			if err := mgr.applyPackFile(ctx, logIndex); err != nil {
 				return fmt.Errorf("apply pack file: %w", err)
@@ -1225,6 +1307,55 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 	}
 	delete(mgr.applyNotifications, logIndex)
 	close(notificationCh)
+
+	return nil
+}
+
+// applyRepositoryCreation applies a repository creation by creating a repository.
+func (mgr *TransactionManager) applyRepositoryCreation(ctx context.Context, entry *gitalypb.LogEntry_RepositoryCreation) error {
+	if entry == nil {
+		return nil
+	}
+
+	if err := mgr.createRepository(ctx, mgr.repositoryPath, entry.ObjectFormat); err != nil {
+		return fmt.Errorf("create repository: %w", err)
+	}
+
+	if err := mgr.createDirectories(); err != nil {
+		return fmt.Errorf("create directories: %w", err)
+	}
+
+	// Sync the parent directory. We expect that git syncs its own writes.
+	if err := safe.NewSyncer().Sync(filepath.Dir(mgr.repositoryPath)); err != nil {
+		return fmt.Errorf("sync: %w", err)
+	}
+
+	return nil
+}
+
+func (mgr *TransactionManager) createRepository(ctx context.Context, repositoryPath string, objectFormat gitalypb.ObjectFormat) error {
+	objectHash, err := git.ObjectHashByProto(objectFormat)
+	if err != nil {
+		return fmt.Errorf("object hash by proto: %w", err)
+	}
+
+	stderr := &bytes.Buffer{}
+	cmd, err := mgr.commandFactory.NewWithoutRepo(ctx, git.Command{
+		Name: "init",
+		Flags: []git.Option{
+			git.Flag{Name: "--bare"},
+			git.Flag{Name: "--quiet"},
+			git.Flag{Name: "--object-format=" + objectHash.Format},
+		},
+		Args: []string{repositoryPath},
+	}, git.WithStderr(stderr))
+	if err != nil {
+		return fmt.Errorf("spawn git init: %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return structerr.New("wait git init: %w", err).WithMetadata("stderr", stderr.String())
+	}
 
 	return nil
 }

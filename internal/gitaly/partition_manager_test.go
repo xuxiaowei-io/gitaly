@@ -433,7 +433,7 @@ func TestPartitionManager(t *testing.T) {
 			stagingDir := filepath.Join(t.TempDir(), "staging")
 			require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
-			partitionManager := NewPartitionManager(database, cfg.Storages, localRepoFactory, logrus.StandardLogger(), stagingDir)
+			partitionManager := NewPartitionManager(database, cfg.Storages, localRepoFactory, cmdFactory, logrus.StandardLogger(), stagingDir)
 			defer func() {
 				partitionManager.Stop()
 				// Assert all staging directories have been removed.

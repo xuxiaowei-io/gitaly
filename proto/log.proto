@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package gitaly;
 
+import "shared.proto";
+
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
 // LogEntry is a single entry in a repository's write-ahead log.
@@ -39,6 +41,12 @@ message LogEntry {
   message RepositoryDeletion {
   }
 
+  // RepositoryCreation models a log entry that creates a repository.
+  message RepositoryCreation {
+    // object_format defines the object format to use for the repository.
+    ObjectFormat object_format = 1;
+  }
+
   // reference_updates contains the reference updates this log
   // entry records. The logged reference updates have already passed
   // through verification and are applied without any further checks.
@@ -53,6 +61,8 @@ message LogEntry {
   bool includes_pack = 4;
   // RepositoryDeletion, when set, indicates this log entry deletes the repository.
   RepositoryDeletion repository_deletion = 5;
+  // repository_creation is set if this log entry creates a repository.
+  RepositoryCreation repository_creation = 6;
 }
 
 // LogIndex serializes a log index. It's used for storing a repository's

@@ -131,6 +131,7 @@ func TestTransactionManager(t *testing.T) {
 	type testSetup struct {
 		Config            config.Cfg
 		RepositoryFactory localrepo.StorageScopedFactory
+		CommandFactory    git.CommandFactory
 		ObjectHash        git.ObjectHash
 		NonExistentOID    git.ObjectID
 		Commits           testCommits
@@ -194,6 +195,7 @@ func TestTransactionManager(t *testing.T) {
 			Config:            cfg,
 			ObjectHash:        objectHash,
 			RepositoryFactory: repositoryFactory,
+			CommandFactory:    cmdFactory,
 			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
 				First: testCommit{
@@ -266,6 +268,8 @@ func TestTransactionManager(t *testing.T) {
 		// TransactionID is the identifier given to the transaction created. This is used to identify
 		// the transaction in later steps.
 		TransactionID int
+
+		AllowNonExistent bool
 		// Context is the context to use for the Begin call.
 		Context context.Context
 		// ExpectedSnapshot is the expected snapshot of the transaction.
@@ -295,6 +299,8 @@ func TestTransactionManager(t *testing.T) {
 		CustomHooksUpdate *CustomHooksUpdate
 		// DeleteRepository deletes the repository on commit.
 		DeleteRepository bool
+		// CreateRepository creates the repository on commit.
+		CreateRepository bool
 	}
 
 	// Rollback calls Rollback on a transaction.
@@ -2611,6 +2617,209 @@ func TestTransactionManager(t *testing.T) {
 				RepositoryDoesntExist: true,
 			},
 		},
+		{
+			desc: "create repository when it doesn't exist",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					AllowNonExistent: true,
+				},
+				Commit{
+					CreateRepository: true,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Objects: []git.ObjectID{},
+			},
+		},
+		{
+			desc: "create repository when it already exists",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID:    1,
+					AllowNonExistent: true,
+				},
+				Commit{
+					TransactionID:    1,
+					CreateRepository: true,
+				},
+				Begin{
+					TransactionID:    2,
+					AllowNonExistent: true,
+					ExpectedError:    ErrRepositoryAlreadyExists,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Objects: []git.ObjectID{},
+			},
+		},
+		{
+			desc: "create repository with interleaved creations",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID:    1,
+					AllowNonExistent: true,
+				},
+				Begin{
+					TransactionID:    2,
+					AllowNonExistent: true,
+				},
+				Commit{
+					TransactionID:    1,
+					CreateRepository: true,
+				},
+				Commit{
+					TransactionID:    2,
+					CreateRepository: true,
+					ExpectedError:    ErrRepositoryAlreadyExists,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Objects: []git.ObjectID{},
+			},
+		},
+		{
+			desc: "create repository again after deletion",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID:    1,
+					AllowNonExistent: true,
+				},
+				Commit{
+					TransactionID:    1,
+					CreateRepository: true,
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					QuarantinedPacks: [][]byte{setup.Commits.First.Pack},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 2,
+						HookIndex: 2,
+					},
+				},
+				Commit{
+					TransactionID:    3,
+					DeleteRepository: true,
+				},
+				Begin{
+					TransactionID:    4,
+					AllowNonExistent: true,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 3,
+					},
+				},
+				Commit{
+					TransactionID:    4,
+					CreateRepository: true,
+				},
+				Begin{
+					TransactionID: 5,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 4,
+					},
+				},
+				Rollback{
+					TransactionID: 5,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(4).toProto(),
+				},
+				Objects: []git.ObjectID{},
+			},
+		},
+		{
+			desc: "create repository with full state",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					AllowNonExistent: true,
+				},
+				Commit{
+					CreateRepository: true,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":   {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						"refs/heads/branch": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+					},
+					QuarantinedPacks: [][]byte{setup.Commits.First.Pack, setup.Commits.Second.Pack},
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/branch",
+					},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/branch",
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+					{Name: "refs/heads/branch", Target: setup.Commits.Second.OID.String()},
+				},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1.pack": packFileDirectoryEntry(
+						setup.Config,
+						umask.Mask(perm.PrivateFile),
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					),
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks/1/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
+					},
+					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+				},
+				Objects: []git.ObjectID{
+					setup.ObjectHash.EmptyTreeOID,
+					setup.Commits.First.OID,
+					setup.Commits.Second.OID,
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -2745,14 +2954,15 @@ func TestTransactionManager(t *testing.T) {
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
 
-			stagingDir := t.TempDir()
+			stagingDir := filepath.Join(setup.Config.Storages[0].Path, "staging")
+			require.NoError(t, os.MkdirAll(stagingDir, perm.PrivateDir))
 			storagePath := setup.Config.Storages[0].Path
 
 			var (
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -2793,7 +3003,7 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
 						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
@@ -2835,7 +3045,15 @@ func TestTransactionManager(t *testing.T) {
 						beginCtx = step.Context
 					}
 
-					transaction, err := transactionManager.Begin(beginCtx)
+					var transaction *Transaction
+					var err error
+
+					if step.AllowNonExistent {
+						transaction, err = transactionManager.BeginCreation(beginCtx)
+					} else {
+						transaction, err = transactionManager.Begin(beginCtx)
+					}
+
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
 						require.Equal(t, step.ExpectedSnapshot, transaction.Snapshot())
@@ -2885,6 +3103,10 @@ func TestTransactionManager(t *testing.T) {
 
 					if step.DeleteRepository {
 						transaction.DeleteRepository()
+					}
+
+					if step.CreateRepository {
+						transaction.CreateRepository(setup.ObjectHash)
 					}
 
 					commitCtx := ctx
@@ -3101,7 +3323,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, noopTransactionFinalizer)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, cmdFactory, noopTransactionFinalizer)
 				managers = append(managers, manager)
 
 				managerWG.Add(1)
