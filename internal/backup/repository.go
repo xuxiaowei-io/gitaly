@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -95,8 +96,9 @@ func (rr *remoteRepository) GetCustomHooks(ctx context.Context) (io.Reader, erro
 	}), nil
 }
 
-// CreateBundle fetches a bundle that contains refs matching patterns.
-func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error {
+// CreateBundle creates a bundle that contains all refs.
+// When the bundle would be empty localrepo.ErrEmptyBundle is returned.
+func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, opts *localrepo.CreateBundleOpts) error {
 	repoClient := rr.newRepoClient()
 	stream, err := repoClient.CreateBundleFromRefList(ctx)
 	if err != nil {
@@ -106,7 +108,7 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 		stream: stream,
 	})
 
-	buf := bufio.NewReader(patterns)
+	buf := bufio.NewReader(opts.Patterns)
 	for {
 		line, err := buf.ReadBytes('\n')
 		if errors.Is(err, io.EOF) {
@@ -134,7 +136,7 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 	bundle := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		if structerr.GRPCCode(err) == codes.FailedPrecondition {
-			err = errEmptyBundle
+			err = localrepo.ErrEmptyBundle
 		}
 		return resp.GetData(), err
 	})

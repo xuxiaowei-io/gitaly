@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -23,9 +24,6 @@ var (
 	// ErrDoesntExist means that the data was not found.
 	ErrDoesntExist = errors.New("doesn't exist")
 )
-
-// errEmptyBundle means that the requested bundle contained nothing
-var errEmptyBundle = errors.New("empty bundle")
 
 // Sink is an abstraction over the real storage used for storing/restoring backups.
 type Sink interface {
@@ -83,8 +81,9 @@ type Repository interface {
 	GetReferences(ctx context.Context, patterns ...string) ([]git.Reference, error)
 	// GetCustomHooks fetches the custom hooks archive.
 	GetCustomHooks(ctx context.Context) (io.Reader, error)
-	// CreateBundle fetches a bundle that contains refs matching patterns.
-	CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error
+	// CreateBundle creates a bundle that contains all refs.
+	// When the bundle would be empty localrepo.ErrEmptyBundle is returned.
+	CreateBundle(ctx context.Context, out io.Writer, opts *localrepo.CreateBundleOpts) error
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -360,8 +359,10 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 		}
 	}()
 
-	if err := repo.CreateBundle(ctx, w, io.MultiReader(negatedRefs, patternReader)); err != nil {
-		if errors.Is(err, errEmptyBundle) {
+	if err := repo.CreateBundle(ctx, w, &localrepo.CreateBundleOpts{
+		Patterns: io.MultiReader(negatedRefs, patternReader),
+	}); err != nil {
+		if errors.Is(err, localrepo.ErrEmptyBundle) {
 			return fmt.Errorf("write bundle: %w: no changes to bundle", ErrSkipped)
 		}
 		return fmt.Errorf("write bundle: %w", err)
