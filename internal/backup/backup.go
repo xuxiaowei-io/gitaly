@@ -79,8 +79,8 @@ type Repository interface {
 	// HasBranches determines whether there is at least one branch in the
 	// repository.
 	HasBranches(ctx context.Context) (bool, error)
-	// ListRefs fetches the full set of refs and targets for the repository.
-	ListRefs(ctx context.Context) ([]git.Reference, error)
+	// GetReferences returns references matching any of the given patterns.
+	GetReferences(ctx context.Context, patterns ...string) ([]git.Reference, error)
 	// GetCustomHooks fetches the custom hooks archive.
 	GetCustomHooks(ctx context.Context) (io.Reader, error)
 	// CreateBundle fetches a bundle that contains refs matching patterns.
@@ -198,7 +198,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		step = mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
 	}
 
-	refs, err := repo.ListRefs(ctx)
+	refs, err := repo.GetReferences(ctx, "refs/")
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}

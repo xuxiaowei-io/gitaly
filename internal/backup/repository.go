@@ -47,16 +47,21 @@ func (rr *remoteRepository) HasBranches(ctx context.Context) (bool, error) {
 	return hasLocalBranches.GetValue(), nil
 }
 
-// ListRefs fetches the full set of refs and targets for the repository
-func (rr *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, error) {
+// GetReferences returns references matching any of the given patterns.
+func (rr *remoteRepository) GetReferences(ctx context.Context, patterns ...string) ([]git.Reference, error) {
+	bytePatterns := make([][]byte, len(patterns))
+	for i := range patterns {
+		bytePatterns[i] = []byte(patterns[i])
+	}
+
 	refClient := rr.newRefClient()
 	stream, err := refClient.ListRefs(ctx, &gitalypb.ListRefsRequest{
 		Repository: rr.repo,
 		Head:       true,
-		Patterns:   [][]byte{[]byte("refs/")},
+		Patterns:   bytePatterns,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("remote repository: list refs: %w", err)
+		return nil, fmt.Errorf("remote repository: get references: %w", err)
 	}
 
 	var refs []git.Reference
@@ -66,7 +71,7 @@ func (rr *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, erro
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return nil, fmt.Errorf("remote repository: list refs: %w", err)
+			return nil, fmt.Errorf("remote repository: get references: %w", err)
 		}
 		for _, ref := range resp.GetReferences() {
 			refs = append(refs, git.NewReference(git.ReferenceName(ref.GetName()), ref.GetTarget()))
