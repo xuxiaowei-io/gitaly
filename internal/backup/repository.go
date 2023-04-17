@@ -31,19 +31,20 @@ func newRemoteRepository(repo *gitalypb.Repository, conn *grpc.ClientConn) *remo
 	}
 }
 
-// IsEmpty returns true if the repository has no branches.
-func (rr *remoteRepository) IsEmpty(ctx context.Context) (bool, error) {
+// HasBranches determines whether there is at least one branch in the
+// repository.
+func (rr *remoteRepository) HasBranches(ctx context.Context) (bool, error) {
 	client := rr.newRepoClient()
 	hasLocalBranches, err := client.HasLocalBranches(ctx, &gitalypb.HasLocalBranchesRequest{
 		Repository: rr.repo,
 	})
 	switch {
 	case status.Code(err) == codes.NotFound:
-		return true, nil
+		return false, nil
 	case err != nil:
-		return false, fmt.Errorf("remote repository: is empty: %w", err)
+		return false, fmt.Errorf("remote repository: has branches: %w", err)
 	}
-	return !hasLocalBranches.GetValue(), nil
+	return hasLocalBranches.GetValue(), nil
 }
 
 // ListRefs fetches the full set of refs and targets for the repository

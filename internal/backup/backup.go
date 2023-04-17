@@ -76,8 +76,9 @@ type Locator interface {
 
 // Repository abstracts git access required to make a repository backup
 type Repository interface {
-	// IsEmpty returns true if the repository has no branches.
-	IsEmpty(ctx context.Context) (bool, error)
+	// HasBranches determines whether there is at least one branch in the
+	// repository.
+	HasBranches(ctx context.Context) (bool, error)
 	// ListRefs fetches the full set of refs and targets for the repository.
 	ListRefs(ctx context.Context) ([]git.Reference, error)
 	// GetCustomHooks fetches the custom hooks archive.
@@ -180,7 +181,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if isEmpty, err := repo.IsEmpty(ctx); err != nil {
+	if isEmpty, err := mgr.isEmpty(ctx, repo); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	} else if isEmpty {
 		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
@@ -216,6 +217,15 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	}
 
 	return nil
+}
+
+// isEmpty returns true if the repository has no branches.
+func (mgr *Manager) isEmpty(ctx context.Context, repo Repository) (bool, error) {
+	hasBranches, err := repo.HasBranches(ctx)
+	if err != nil {
+		return false, fmt.Errorf("is empty: %w", err)
+	}
+	return !hasBranches, nil
 }
 
 // RestoreRequest is the request to restore from a backup
