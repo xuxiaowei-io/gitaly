@@ -126,20 +126,6 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 			return true, cfg
 		}
 
-		// If there are loose objects then we want to roll them up into a new packfile.
-		// Loose objects naturally accumulate during day-to-day operations, e.g. when
-		// executing RPCs part of the OperationsService which write objects into the repo
-		// directly.
-		//
-		// So in case we exceed a certain threshold of loose objects then we'll want to do a
-		// geometric repack. As geometric repacks unconditionally include all loose objects
-		// regardless of whether they are reachable or not we know that we will end up with
-		// no loose objects after this step.
-		if s.info.LooseObjects.Count > looseObjectLimit {
-			cfg.Strategy = RepackObjectsStrategyGeometric
-			return true, cfg
-		}
-
 		// In case both packfiles and loose objects are in a good state, but we don't yet
 		// have a multi-pack-index we perform an incremental repack to generate one. We need
 		// to have multi-pack-indices for the next heuristic, so it's bad if it was missing.
@@ -202,6 +188,20 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		untrackedPackfiles := s.info.Packfiles.Count - s.info.Packfiles.MultiPackIndex.PackfileCount
 
 		if untrackedPackfiles > uint64(actualLimit) {
+			cfg.Strategy = RepackObjectsStrategyGeometric
+			return true, cfg
+		}
+
+		// If there are loose objects then we want to roll them up into a new packfile.
+		// Loose objects naturally accumulate during day-to-day operations, e.g. when
+		// executing RPCs part of the OperationsService which write objects into the repo
+		// directly.
+		//
+		// So in case we exceed a certain threshold of loose objects then we'll want to do a
+		// geometric repack. As geometric repacks unconditionally include all loose objects
+		// regardless of whether they are reachable or not we know that we will end up with
+		// no loose objects after this step.
+		if s.info.LooseObjects.Count > looseObjectLimit {
 			cfg.Strategy = RepackObjectsStrategyGeometric
 			return true, cfg
 		}
