@@ -23,12 +23,76 @@ const (
 	// would be considered old. Currently this is set to being 10 days.
 	StaleObjectsGracePeriod = -10 * 24 * time.Hour
 
-	// FullRepackTimestampFilename is the name of the file that is used as a timestamp for the
+	// fullRepackTimestampFilename is the name of the file that is used as a timestamp for the
 	// last repack that happened in the repository. Whenever a full repack happens, Gitaly will
 	// touch this file so that its last-modified date can be used to tell how long ago the last
 	// full repack happened.
-	FullRepackTimestampFilename = ".gitaly-full-repack-timestamp"
+	fullRepackTimestampFilename = ".gitaly-full-repack-timestamp"
 )
+
+// UpdateFullRepackTimestamp updates the timestamp that indicates when a repository has last been
+// fully repacked to the current time.
+func UpdateFullRepackTimestamp(repoPath string, timestamp time.Time) (returnedErr error) {
+	timestampPath := filepath.Join(repoPath, fullRepackTimestampFilename)
+
+	// We first try to update an existing file so that we don't rewrite the file in case it
+	// already exists, but only update its atime and mtime.
+	if err := os.Chtimes(timestampPath, timestamp, timestamp); err == nil {
+		// The file exists and we have successfully updated its timestamp. We can thus exit
+		// early.
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		// Updating the timestamp failed, but not because the file doesn't exist. This
+		// indicates an unexpected error and thus we return it to the caller.
+		return err
+	}
+
+	// When the file does not yet exist we create it anew. Note that we do this via a temporary
+	// file as it wouldn't otherwise be possible to atomically set the expected timestamp on it
+	// because there is no API to create a file with a specific mtime.
+	f, err := os.CreateTemp(repoPath, fullRepackTimestampFilename+"-*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		// If the file still exists we try to remove it. We don't care for the error though:
+		// when we have renamed the file into place it will fail, and that is expected. On
+		// the other hand, if we didn't yet rename the file we know that we would already
+		// return an error anyway. So in both cases, the error would be irrelevant.
+		_ = os.Remove(f.Name())
+	}()
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	if err := os.Chtimes(f.Name(), timestamp, timestamp); err != nil {
+		return err
+	}
+
+	if err := os.Rename(f.Name(), timestampPath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// FullRepackTimestamp reads the timestamp that indicates when a repository has last been fully
+// repacked. If no such timestamp exists, the zero timestamp is returned without an error.
+func FullRepackTimestamp(repoPath string) (time.Time, error) {
+	stat, err := os.Stat(filepath.Join(repoPath, fullRepackTimestampFilename))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// It's fine if the file doesn't exist. We just leave the timestamp at the
+			// zero date in that case.
+			return time.Time{}, nil
+		}
+
+		return time.Time{}, err
+	}
+
+	return stat.ModTime(), nil
+}
 
 // PackfilesCount returns the number of packfiles a repository has.
 func PackfilesCount(repo *localrepo.Repo) (uint64, error) {
@@ -366,16 +430,11 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 		}
 	}
 
-	if stat, err := os.Stat(filepath.Join(repoPath, FullRepackTimestampFilename)); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return PackfilesInfo{}, fmt.Errorf("reading full repack timestamp: %w", err)
-		}
-
-		// It's fine if the file doesn't exist. We just leave the timestamp at the zero date
-		// in that case.
-	} else {
-		info.LastFullRepack = stat.ModTime()
+	lastFullRepack, err := FullRepackTimestamp(repoPath)
+	if err != nil {
+		return PackfilesInfo{}, fmt.Errorf("reading full-repack timestamp: %w", err)
 	}
+	info.LastFullRepack = lastFullRepack
 
 	return info, nil
 }

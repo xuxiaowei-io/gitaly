@@ -669,15 +669,22 @@ func TestRepackObjects(t *testing.T) {
 
 			tc.setup(t, repoPath)
 
+			timestampBeforeRepack := time.Now()
+
 			requireObjectsState(t, repo, tc.stateBeforeRepack)
 			require.Equal(t, tc.expectedErr, RepackObjects(ctx, repo, tc.repackCfg))
 			requireObjectsState(t, repo, tc.stateAfterRepack)
 
+			timestampAfterRepack := time.Now()
+
+			fullRepackTimestamp, err := stats.FullRepackTimestamp(repoPath)
+			require.NoError(t, err)
 			switch tc.repackCfg.Strategy {
 			case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
-				require.FileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
+				require.GreaterOrEqual(t, fullRepackTimestamp, timestampBeforeRepack)
+				require.LessOrEqual(t, fullRepackTimestamp, timestampAfterRepack)
 			default:
-				require.NoFileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
+				require.Zero(t, fullRepackTimestamp)
 			}
 
 			// There should not be any server info data in the repository.

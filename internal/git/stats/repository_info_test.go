@@ -354,7 +354,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "last full repack timestamp",
 			setup: func(t *testing.T, repoPath string) {
-				timestampPath := filepath.Join(repoPath, FullRepackTimestampFilename)
+				timestampPath := filepath.Join(repoPath, fullRepackTimestampFilename)
 				require.NoError(t, os.WriteFile(timestampPath, nil, perm.PrivateFile))
 
 				date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
@@ -1392,6 +1392,85 @@ func TestMultiPackIndexInfoForPath(t *testing.T) {
 			require.Equal(t, tc.expectedInfo, info)
 		})
 	}
+}
+
+func TestFullRepackTimestamp(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	requireTimestamp := func(t *testing.T, repoPath string, expected time.Time) {
+		t.Helper()
+
+		actual, err := FullRepackTimestamp(repoPath)
+		require.NoError(t, err)
+		require.Equal(t, expected, actual)
+	}
+
+	updateAndRequireTimestamp := func(t *testing.T, repoPath string, newTimestamp time.Time) {
+		t.Helper()
+
+		require.NoError(t, UpdateFullRepackTimestamp(repoPath, newTimestamp))
+		requireTimestamp(t, repoPath, newTimestamp)
+	}
+
+	t.Run("nonexistent repository", func(t *testing.T) {
+		t.Parallel()
+
+		expectedErr := fmt.Errorf("GetRepoPath: not a git repository: %q", "/does/not/exist")
+
+		// Writing should fail.
+		require.Error(t, expectedErr, UpdateFullRepackTimestamp("/does/not/exist", time.Now()))
+		// And reading should fail, too.
+		timestamp, err := FullRepackTimestamp("/does/not/exist")
+		require.Error(t, expectedErr, err)
+		require.Equal(t, time.Time{}, timestamp)
+	})
+
+	t.Run("nonexistent timestamp", func(t *testing.T) {
+		t.Parallel()
+
+		_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+
+		// When we don't yet have a timestamp we expect the returned time to be the zero
+		// time.
+		requireTimestamp(t, repoPath, time.Time{})
+		// Updating the timestamp should create a new one.
+		updateAndRequireTimestamp(t, repoPath, time.Date(2000, 1, 1, 12, 30, 0, 0, time.Local))
+	})
+
+	t.Run("timestamp can be updated", func(t *testing.T) {
+		t.Parallel()
+
+		_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+
+		updateAndRequireTimestamp(t, repoPath, time.Date(2000, 1, 1, 1, 1, 0, 0, time.Local))
+		// We can move into the past.
+		updateAndRequireTimestamp(t, repoPath, time.Date(1990, 1, 1, 1, 1, 0, 0, time.Local))
+		// But we can also move into the future.
+		updateAndRequireTimestamp(t, repoPath, time.Date(2020, 1, 1, 1, 1, 0, 0, time.Local))
+	})
+
+	t.Run("timestamp does not change between reads", func(t *testing.T) {
+		t.Parallel()
+
+		_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+
+		timestamp := time.Date(2000, 1, 1, 1, 1, 0, 0, time.Local)
+
+		// Reading the timestamp multiple times should not modify it. This would be the case
+		// if we for example used the file's access time.
+		updateAndRequireTimestamp(t, repoPath, timestamp)
+		requireTimestamp(t, repoPath, timestamp)
+		requireTimestamp(t, repoPath, timestamp)
+	})
 }
 
 func hashDependentSize(sha1, sha256 uint64) uint64 {
