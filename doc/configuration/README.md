@@ -144,7 +144,6 @@ level = "warn"
 | `level`              | string | no       | Log level: `debug`, `info`, `warn`, `error`, `fatal`, or `panic`. Default: `info` |
 | `sentry_dsn`         | string | no       | Sentry DSN for exception monitoring                                               |
 | `sentry_environment` | string | no       | Sentry Environment for exception monitoring                                       |
-| `ruby_sentry_dsn`    | string | no       | Sentry DSN for `gitaly-ruby` exception monitoring                                 |
 
 #### Environment variables
 

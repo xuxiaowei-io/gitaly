@@ -155,10 +155,11 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 			}
 
 			if err := os.Symlink(bundledGitBinary, filepath.Join(cfg.BinDir, binary)); err != nil {
-				// While Gitaly's Go tests use a temporary binary directory, Ruby
-				// rspecs set up the binary directory to point to our build
-				// directory. They thus already contain the Git binaries and don't
-				// need symlinking.
+				// Multiple Git command factories might be created for the same configuration.
+				// Each of them will create the execution environment every time,
+				// therefore these symlinks might already exist.
+				// It would be nice if we could fix this, but gracefully handling the error is a
+				// more boring solution.
 				if errors.Is(err, os.ErrExist) {
 					continue
 				}
