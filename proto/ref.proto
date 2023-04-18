@@ -129,14 +129,6 @@ service RefService {
     };
   }
 
-  // PackRefs is deprecated in favor of OptimizeRepository.
-  rpc PackRefs(PackRefsRequest) returns (PackRefsResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
   // ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
   // will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
   // pointing at.
@@ -543,20 +535,6 @@ message FindAllRemoteBranchesRequest {
 message FindAllRemoteBranchesResponse {
   // This comment is left unintentionally blank.
   repeated Branch branches = 1;
-}
-
-// This comment is left unintentionally blank.
-message PackRefsRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-
-  // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/-/issues/3997
-  reserved 2;
-  reserved "all_refs";
-}
-
-// This comment is left unintentionally blank.
-message PackRefsResponse{
 }
 
 // ListRefsRequest is a request for the ListRefs RPC.

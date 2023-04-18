@@ -782,7 +782,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 	}
 
 	repositoryClient := gitalypb.NewRepositoryServiceClient(cc)
-	refClient := gitalypb.NewRefServiceClient(cc)
 
 	for _, tc := range []struct {
 		desc                     string
@@ -820,22 +819,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 				Repository: secondaryRepository,
 			},
 		},
-		{
-			desc: "PackRefs",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
-					Repository: repository,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.PackRefsRequest{
-				Repository: primaryRepository,
-			},
-			expectedSecondaryRequest: &gitalypb.PackRefsRequest{
-				Repository: secondaryRepository,
-			},
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			tc.maintenanceFunc(t)
@@ -848,7 +831,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 type mockMaintenanceServer struct {
 	requestCh chan proto.Message
 	gitalypb.UnimplementedRepositoryServiceServer
-	gitalypb.UnimplementedRefServiceServer
 }
 
 func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceServer, string) {
@@ -858,7 +840,6 @@ func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceSe
 
 	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, server)
-		gitalypb.RegisterRefServiceServer(srv, server)
 	}, testserver.WithDisablePraefect())
 
 	return server, addr
@@ -872,11 +853,6 @@ func (m *mockMaintenanceServer) OptimizeRepository(ctx context.Context, in *gita
 func (m *mockMaintenanceServer) PruneUnreachableObjects(ctx context.Context, in *gitalypb.PruneUnreachableObjectsRequest) (*gitalypb.PruneUnreachableObjectsResponse, error) {
 	m.requestCh <- in
 	return &gitalypb.PruneUnreachableObjectsResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*gitalypb.PackRefsResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.PackRefsResponse{}, nil
 }
 
 type mockRouter struct {

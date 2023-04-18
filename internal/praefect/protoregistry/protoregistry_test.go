@@ -94,7 +94,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"GetTagMessages":                  protoregistry.OpAccessor,
 			"ListBranchNamesContainingCommit": protoregistry.OpAccessor,
 			"ListTagNamesContainingCommit":    protoregistry.OpAccessor,
-			"PackRefs":                        protoregistry.OpMaintenance,
 			"RefExists":                       protoregistry.OpAccessor,
 		},
 		"RemoteService": {

@@ -64,9 +64,6 @@ type RefServiceClient interface {
 	GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error)
 	// This comment is left unintentionally blank.
 	GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error)
-	// Deprecated: Do not use.
-	// PackRefs is deprecated in favor of OptimizeRepository.
-	PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
 	// pointing at.
@@ -452,16 +449,6 @@ func (x *refServiceGetTagMessagesClient) Recv() (*GetTagMessagesResponse, error)
 	return m, nil
 }
 
-// Deprecated: Do not use.
-func (c *refServiceClient) PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error) {
-	out := new(PackRefsResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RefService/PackRefs", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *refServiceClient) ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[10], "/gitaly.RefService/ListRefs", opts...)
 	if err != nil {
@@ -549,9 +536,6 @@ type RefServiceServer interface {
 	GetTagSignatures(*GetTagSignaturesRequest, RefService_GetTagSignaturesServer) error
 	// This comment is left unintentionally blank.
 	GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error
-	// Deprecated: Do not use.
-	// PackRefs is deprecated in favor of OptimizeRepository.
-	PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
 	// pointing at.
@@ -611,9 +595,6 @@ func (UnimplementedRefServiceServer) GetTagSignatures(*GetTagSignaturesRequest, 
 }
 func (UnimplementedRefServiceServer) GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetTagMessages not implemented")
-}
-func (UnimplementedRefServiceServer) PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PackRefs not implemented")
 }
 func (UnimplementedRefServiceServer) ListRefs(*ListRefsRequest, RefService_ListRefsServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListRefs not implemented")
@@ -934,24 +915,6 @@ func (x *refServiceGetTagMessagesServer) Send(m *GetTagMessagesResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _RefService_PackRefs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PackRefsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RefServiceServer).PackRefs(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RefService/PackRefs",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RefServiceServer).PackRefs(ctx, req.(*PackRefsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RefService_ListRefs_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ListRefsRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1017,10 +980,6 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteRefs",
 			Handler:    _RefService_DeleteRefs_Handler,
-		},
-		{
-			MethodName: "PackRefs",
-			Handler:    _RefService_PackRefs_Handler,
 		},
 		{
 			MethodName: "FindRefsByOID",
