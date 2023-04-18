@@ -24,9 +24,6 @@ const _ = grpc.SupportPackageIsVersion7
 type RepositoryServiceClient interface {
 	// This comment is left unintentionally blank.
 	RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error)
-	// Deprecated: Do not use.
-	// WriteCommitGraph is deprecated in favor of OptimizeRepository.
-	WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error)
 	// RepositorySize returns information on the complete on-disk repository size. If you need more
 	// detailed information about the size of various sub-structures you should instead use the
 	// RepositoryInfo RPC.
@@ -163,16 +160,6 @@ func NewRepositoryServiceClient(cc grpc.ClientConnInterface) RepositoryServiceCl
 func (c *repositoryServiceClient) RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error) {
 	out := new(RepositoryExistsResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepositoryExists", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error) {
-	out := new(WriteCommitGraphResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/WriteCommitGraph", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -901,9 +888,6 @@ func (c *repositoryServiceClient) RemoveAll(ctx context.Context, in *RemoveAllRe
 type RepositoryServiceServer interface {
 	// This comment is left unintentionally blank.
 	RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error)
-	// Deprecated: Do not use.
-	// WriteCommitGraph is deprecated in favor of OptimizeRepository.
-	WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error)
 	// RepositorySize returns information on the complete on-disk repository size. If you need more
 	// detailed information about the size of various sub-structures you should instead use the
 	// RepositoryInfo RPC.
@@ -1036,9 +1020,6 @@ type UnimplementedRepositoryServiceServer struct {
 
 func (UnimplementedRepositoryServiceServer) RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositoryExists not implemented")
-}
-func (UnimplementedRepositoryServiceServer) WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method WriteCommitGraph not implemented")
 }
 func (UnimplementedRepositoryServiceServer) RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositorySize not implemented")
@@ -1187,24 +1168,6 @@ func _RepositoryService_RepositoryExists_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RepositoryServiceServer).RepositoryExists(ctx, req.(*RepositoryExistsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_WriteCommitGraph_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(WriteCommitGraphRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).WriteCommitGraph(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/WriteCommitGraph",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).WriteCommitGraph(ctx, req.(*WriteCommitGraphRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2009,10 +1972,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RepositoryExists",
 			Handler:    _RepositoryService_RepositoryExists_Handler,
-		},
-		{
-			MethodName: "WriteCommitGraph",
-			Handler:    _RepositoryService_WriteCommitGraph_Handler,
 		},
 		{
 			MethodName: "RepositorySize",

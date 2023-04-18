@@ -17,14 +17,6 @@ service RepositoryService {
     };
   }
 
-  // WriteCommitGraph is deprecated in favor of OptimizeRepository.
-  rpc WriteCommitGraph(WriteCommitGraphRequest) returns (WriteCommitGraphResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
   // RepositorySize returns information on the complete on-disk repository size. If you need more
   // detailed information about the size of various sub-structures you should instead use the
   // RepositoryInfo RPC.
@@ -357,26 +349,6 @@ message RepositoryExistsRequest {
 message RepositoryExistsResponse {
   // This comment is left unintentionally blank.
   bool exists = 1;
-}
-
-// This comment is left unintentionally blank.
-message WriteCommitGraphRequest {
-  // This comment is left unintentionally blank.
-  enum SplitStrategy {
-    // SizeMultiple requires to use '--split --size-multiple=4' strategy to create/update commit graph.
-    // https://git-scm.com/docs/git-commit-graph#Documentation/git-commit-graph.txt-emwriteem
-    // It is a default, there is no need to explicitly set it in the request.
-    SizeMultiple = 0; // protolint:disable:this ENUM_FIELD_NAMES_UPPER_SNAKE_CASE ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-  }
-
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-  // SplitStrategy is a strategy used to create/update commit graph.
-  SplitStrategy splitStrategy = 2; // protolint:disable:this FIELD_NAMES_LOWER_SNAKE_CASE
-}
-
-// This comment is left unintentionally blank.
-message WriteCommitGraphResponse {
 }
 
 // RepositorySizeRequest is a request for the RepositorySize RPC.

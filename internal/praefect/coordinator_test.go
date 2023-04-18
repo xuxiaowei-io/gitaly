@@ -791,29 +791,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 		expectedSecondaryRequest proto.Message
 	}{
 		{
-			desc: "WriteCommitGraph",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
-					Repository: repository,
-					// This is not a valid split strategy, but we currently only support a
-					// single default split strategy with value 0. So we just test with an
-					// invalid split strategy to check that a non-default value gets properly
-					// replicated.
-					SplitStrategy: 1,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.WriteCommitGraphRequest{
-				Repository:    primaryRepository,
-				SplitStrategy: 1,
-			},
-			expectedSecondaryRequest: &gitalypb.WriteCommitGraphRequest{
-				Repository:    secondaryRepository,
-				SplitStrategy: 1,
-			},
-		},
-		{
 			desc: "OptimizeRepository",
 			maintenanceFunc: func(t *testing.T) {
 				_, err := repositoryClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
@@ -885,11 +862,6 @@ func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceSe
 	}, testserver.WithDisablePraefect())
 
 	return server, addr
-}
-
-func (m *mockMaintenanceServer) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.WriteCommitGraphResponse{}, nil
 }
 
 func (m *mockMaintenanceServer) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {
