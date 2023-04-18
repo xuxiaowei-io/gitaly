@@ -128,6 +128,10 @@ No changes.
 - [housekeeping: Enable writing of multi-pack-indices](gitlab-org/gitaly@ef10b419db050e8a43d2c345bce167bc0a1d15ce) ([merge request](gitlab-org/gitaly!5275))
 - [housekeeping: Enable writing bitmap lookup tables](gitlab-org/gitaly@73505638cebbbd47aa70b9f587f411559abc1f08) ([merge request](gitlab-org/gitaly!5278))
 
+## 15.8.6 (2023-04-18)
+
+No changes.
+
 ## 15.8.5 (2023-03-30)
 
 No changes.
