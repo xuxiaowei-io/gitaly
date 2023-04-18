@@ -852,22 +852,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 			},
 		},
 		{
-			desc: "MidxRepack",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.MidxRepack(ctx, &gitalypb.MidxRepackRequest{
-					Repository: repository,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.MidxRepackRequest{
-				Repository: primaryRepository,
-			},
-			expectedSecondaryRequest: &gitalypb.MidxRepackRequest{
-				Repository: secondaryRepository,
-			},
-		},
-		{
 			desc: "OptimizeRepository",
 			maintenanceFunc: func(t *testing.T) {
 				_, err := repositoryClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
@@ -954,11 +938,6 @@ func (m *mockMaintenanceServer) Cleanup(ctx context.Context, in *gitalypb.Cleanu
 func (m *mockMaintenanceServer) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {
 	m.requestCh <- in
 	return &gitalypb.WriteCommitGraphResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.MidxRepackResponse{}, nil
 }
 
 func (m *mockMaintenanceServer) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {

@@ -17,14 +17,6 @@ service RepositoryService {
     };
   }
 
-  // MidxRepack is deprecated in favor of OptimizeRepository.
-  rpc MidxRepack(MidxRepackRequest) returns (MidxRepackResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
   // GarbageCollect is deprecated in favor of OptimizeRepository.
   rpc GarbageCollect(GarbageCollectRequest) returns (GarbageCollectResponse) {
     option deprecated = true;
@@ -381,16 +373,6 @@ message RepositoryExistsRequest {
 message RepositoryExistsResponse {
   // This comment is left unintentionally blank.
   bool exists = 1;
-}
-
-// This comment is left unintentionally blank.
-message MidxRepackRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// This comment is left unintentionally blank.
-message MidxRepackResponse {
 }
 
 // This comment is left unintentionally blank.
