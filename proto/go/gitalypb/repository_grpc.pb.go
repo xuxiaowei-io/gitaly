@@ -25,9 +25,6 @@ type RepositoryServiceClient interface {
 	// This comment is left unintentionally blank.
 	RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error)
 	// Deprecated: Do not use.
-	// RepackFull is deprecated in favor of OptimizeRepository.
-	RepackFull(ctx context.Context, in *RepackFullRequest, opts ...grpc.CallOption) (*RepackFullResponse, error)
-	// Deprecated: Do not use.
 	// MidxRepack is deprecated in favor of OptimizeRepository.
 	MidxRepack(ctx context.Context, in *MidxRepackRequest, opts ...grpc.CallOption) (*MidxRepackResponse, error)
 	// Deprecated: Do not use.
@@ -175,16 +172,6 @@ func NewRepositoryServiceClient(cc grpc.ClientConnInterface) RepositoryServiceCl
 func (c *repositoryServiceClient) RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error) {
 	out := new(RepositoryExistsResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepositoryExists", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) RepackFull(ctx context.Context, in *RepackFullRequest, opts ...grpc.CallOption) (*RepackFullResponse, error) {
-	out := new(RepackFullResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepackFull", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -954,9 +941,6 @@ type RepositoryServiceServer interface {
 	// This comment is left unintentionally blank.
 	RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error)
 	// Deprecated: Do not use.
-	// RepackFull is deprecated in favor of OptimizeRepository.
-	RepackFull(context.Context, *RepackFullRequest) (*RepackFullResponse, error)
-	// Deprecated: Do not use.
 	// MidxRepack is deprecated in favor of OptimizeRepository.
 	MidxRepack(context.Context, *MidxRepackRequest) (*MidxRepackResponse, error)
 	// Deprecated: Do not use.
@@ -1100,9 +1084,6 @@ type UnimplementedRepositoryServiceServer struct {
 
 func (UnimplementedRepositoryServiceServer) RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositoryExists not implemented")
-}
-func (UnimplementedRepositoryServiceServer) RepackFull(context.Context, *RepackFullRequest) (*RepackFullResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RepackFull not implemented")
 }
 func (UnimplementedRepositoryServiceServer) MidxRepack(context.Context, *MidxRepackRequest) (*MidxRepackResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MidxRepack not implemented")
@@ -1263,24 +1244,6 @@ func _RepositoryService_RepositoryExists_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RepositoryServiceServer).RepositoryExists(ctx, req.(*RepositoryExistsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_RepackFull_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RepackFullRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).RepackFull(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/RepackFull",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).RepackFull(ctx, req.(*RepackFullRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2157,10 +2120,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RepositoryExists",
 			Handler:    _RepositoryService_RepositoryExists_Handler,
-		},
-		{
-			MethodName: "RepackFull",
-			Handler:    _RepositoryService_RepackFull_Handler,
 		},
 		{
 			MethodName: "MidxRepack",

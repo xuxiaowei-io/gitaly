@@ -17,14 +17,6 @@ service RepositoryService {
     };
   }
 
-  // RepackFull is deprecated in favor of OptimizeRepository.
-  rpc RepackFull(RepackFullRequest) returns (RepackFullResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
   // MidxRepack is deprecated in favor of OptimizeRepository.
   rpc MidxRepack(MidxRepackRequest) returns (MidxRepackResponse) {
     option deprecated = true;
@@ -389,18 +381,6 @@ message RepositoryExistsRequest {
 message RepositoryExistsResponse {
   // This comment is left unintentionally blank.
   bool exists = 1;
-}
-
-// This comment is left unintentionally blank.
-message RepackFullRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
-  bool create_bitmap = 2;
-}
-
-// This comment is left unintentionally blank.
-message RepackFullResponse {
 }
 
 // This comment is left unintentionally blank.

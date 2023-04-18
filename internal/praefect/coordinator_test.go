@@ -813,25 +813,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 			},
 		},
 		{
-			desc: "RepackFull",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.RepackFull(ctx, &gitalypb.RepackFullRequest{
-					Repository:   repository,
-					CreateBitmap: true,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.RepackFullRequest{
-				Repository:   primaryRepository,
-				CreateBitmap: true,
-			},
-			expectedSecondaryRequest: &gitalypb.RepackFullRequest{
-				Repository:   secondaryRepository,
-				CreateBitmap: true,
-			},
-		},
-		{
 			desc: "Cleanup",
 			maintenanceFunc: func(t *testing.T) {
 				//nolint:staticcheck
@@ -963,11 +944,6 @@ func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceSe
 func (m *mockMaintenanceServer) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
 	m.requestCh <- in
 	return &gitalypb.GarbageCollectResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.RepackFullResponse{}, nil
 }
 
 func (m *mockMaintenanceServer) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {

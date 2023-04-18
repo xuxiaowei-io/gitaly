@@ -59,7 +59,7 @@ repository for each RPC:
 
 ```toml
 [[rate_limiting]]
-rpc =  "/gitaly.RepositoryService/RepackFull"
+rpc =  "/gitaly.RepositoryService/OptimizeRepository"
 interval = "1m"
 burst = 1
 ```
@@ -72,7 +72,7 @@ RPC for a repository until the `token bucket` is refilled again. There is a `tok
 each RPC for each repository.
 
 In the above configuration, the `token bucket` has a capacity of 1 and gets
-refilled every minute. This means that Gitaly only accepts 1 `RepackFull`
+refilled every minute. This means that Gitaly only accepts 1 `OptimizeRepository`
 request per repository each minute.
 
 Requests that come in after the `token bucket` is full (and before it is

@@ -127,7 +127,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"HasLocalBranches":             protoregistry.OpAccessor,
 			"OptimizeRepository":           protoregistry.OpMaintenance,
 			"PruneUnreachableObjects":      protoregistry.OpMaintenance,
-			"RepackFull":                   protoregistry.OpMaintenance,
 			"RepositoryExists":             protoregistry.OpAccessor,
 			"RepositorySize":               protoregistry.OpAccessor,
 			"RestoreCustomHooks":           protoregistry.OpMutator,
