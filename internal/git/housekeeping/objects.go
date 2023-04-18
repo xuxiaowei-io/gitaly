@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,10 @@ const (
 	// RepackObjectsStrategyIncremental performs an incremental repack by writing all loose
 	// objects that are currently reachable into a new packfile.
 	RepackObjectsStrategyIncremental = RepackObjectsStrategy("incremental")
+	// RepackObjectsStrategyIncrementalWithUnreachable performs an incremental repack by writing
+	// all loose objects into a new packfile, regardless of their reachability. The loose
+	// objects will be deleted.
+	RepackObjectsStrategyIncrementalWithUnreachable = RepackObjectsStrategy("incremental_with_unreachable")
 	// RepackObjectsStrategyFullWithLooseUnreachable performs a full repack by writing all
 	// reachable objects into a new packfile. Unreachable objects will be exploded into loose
 	// objects.
@@ -80,7 +85,7 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 
 	var isFullRepack bool
 	switch cfg.Strategy {
-	case RepackObjectsStrategyIncremental, RepackObjectsStrategyGeometric:
+	case RepackObjectsStrategyIncremental, RepackObjectsStrategyIncrementalWithUnreachable, RepackObjectsStrategyGeometric:
 		isFullRepack = false
 	case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
 		isFullRepack = true
@@ -112,6 +117,87 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 	}
 
 	switch cfg.Strategy {
+	case RepackObjectsStrategyIncrementalWithUnreachable:
+		if cfg.WriteBitmap {
+			return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
+		}
+		if cfg.WriteMultiPackIndex {
+			return structerr.NewInvalidArgument("cannot write multi-pack index for an incremental repack")
+		}
+
+		var stderr strings.Builder
+
+		// Pack all loose objects into a new packfile, regardless of their reachability.
+		// There is no git-repack(1) mode that would allow us to do this, so we have to
+		// instead do it ourselves.
+		if err := repo.ExecAndWait(ctx,
+			git.Command{
+				Name: "pack-objects",
+				Flags: []git.Option{
+					// We ask git-pack-objects(1) to pack loose unreachable
+					// objects. This implies `--revs`, but as we don't supply
+					// any revisions via stdin all objects will be considered
+					// unreachable. The effect is that we simply pack all loose
+					// objects into a new packfile, regardless of whether they
+					// are reachable or not.
+					git.Flag{Name: "--pack-loose-unreachable"},
+					// Skip any objects which are part of an alternative object
+					// directory.
+					git.Flag{Name: "--local"},
+					// Only pack objects which are not yet part of a different,
+					// local pack.
+					git.Flag{Name: "--incremental"},
+					// Only create the packfile if it would contain at least one
+					// object.
+					git.Flag{Name: "--non-empty"},
+					// We don't care about any kind of progress meter.
+					git.Flag{Name: "--quiet"},
+				},
+				Args: []string{
+					// We need to tell git-pack-objects(1) where to write the
+					// new packfile and what prefix it should have. We of course
+					// want to write it into the main object directory and have
+					// the same "pack-" prefix like normal packfiles would.
+					filepath.Join(repoPath, "objects", "pack", "pack"),
+				},
+			},
+			// Note: we explicitly do not pass `GetRepackGitConfig()` here as none of
+			// its opitons apply to this kind of repack: we have no delta islands given
+			// that we do not walk the revision graph, and we won't ever write bitmaps.
+			git.WithStderr(&stderr),
+		); err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				return structerr.New("pack-objects failed with error code %d", exitErr.ExitCode()).WithMetadata("stderr", stderr.String())
+			}
+
+			return fmt.Errorf("pack-objects failed: %w", err)
+		}
+
+		stderr.Reset()
+
+		// The `-d` switch of git-repack(1) handles deletion of objects that have just been
+		// packed into a new packfile. As we pack objects ourselves, we have to manually
+		// ensure that packed loose objects are deleted.
+		if err := repo.ExecAndWait(ctx,
+			git.Command{
+				Name: "prune-packed",
+				Flags: []git.Option{
+					// We don't care about any kind of progress meter.
+					git.Flag{Name: "--quiet"},
+				},
+			},
+			git.WithStderr(&stderr),
+		); err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				return structerr.New("prune-packed failed with error code %d", exitErr.ExitCode()).WithMetadata("stderr", stderr.String())
+			}
+
+			return fmt.Errorf("prune-packed failed: %w", err)
+		}
+
+		return nil
 	case RepackObjectsStrategyIncremental:
 		return performRepack(ctx, repo, cfg,
 			git.Flag{Name: "-d"},
