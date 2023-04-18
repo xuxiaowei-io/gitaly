@@ -832,22 +832,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 			},
 		},
 		{
-			desc: "RepackIncremental",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{
-					Repository: repository,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.RepackIncrementalRequest{
-				Repository: primaryRepository,
-			},
-			expectedSecondaryRequest: &gitalypb.RepackIncrementalRequest{
-				Repository: secondaryRepository,
-			},
-		},
-		{
 			desc: "Cleanup",
 			maintenanceFunc: func(t *testing.T) {
 				//nolint:staticcheck
@@ -984,11 +968,6 @@ func (m *mockMaintenanceServer) GarbageCollect(ctx context.Context, in *gitalypb
 func (m *mockMaintenanceServer) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
 	m.requestCh <- in
 	return &gitalypb.RepackFullResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.RepackIncrementalResponse{}, nil
 }
 
 func (m *mockMaintenanceServer) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {

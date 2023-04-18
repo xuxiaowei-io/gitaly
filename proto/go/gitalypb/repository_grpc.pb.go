@@ -25,9 +25,6 @@ type RepositoryServiceClient interface {
 	// This comment is left unintentionally blank.
 	RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error)
 	// Deprecated: Do not use.
-	// RepackIncremental is deprecated in favor of OptimizeRepository.
-	RepackIncremental(ctx context.Context, in *RepackIncrementalRequest, opts ...grpc.CallOption) (*RepackIncrementalResponse, error)
-	// Deprecated: Do not use.
 	// RepackFull is deprecated in favor of OptimizeRepository.
 	RepackFull(ctx context.Context, in *RepackFullRequest, opts ...grpc.CallOption) (*RepackFullResponse, error)
 	// Deprecated: Do not use.
@@ -178,16 +175,6 @@ func NewRepositoryServiceClient(cc grpc.ClientConnInterface) RepositoryServiceCl
 func (c *repositoryServiceClient) RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error) {
 	out := new(RepositoryExistsResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepositoryExists", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) RepackIncremental(ctx context.Context, in *RepackIncrementalRequest, opts ...grpc.CallOption) (*RepackIncrementalResponse, error) {
-	out := new(RepackIncrementalResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepackIncremental", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -967,9 +954,6 @@ type RepositoryServiceServer interface {
 	// This comment is left unintentionally blank.
 	RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error)
 	// Deprecated: Do not use.
-	// RepackIncremental is deprecated in favor of OptimizeRepository.
-	RepackIncremental(context.Context, *RepackIncrementalRequest) (*RepackIncrementalResponse, error)
-	// Deprecated: Do not use.
 	// RepackFull is deprecated in favor of OptimizeRepository.
 	RepackFull(context.Context, *RepackFullRequest) (*RepackFullResponse, error)
 	// Deprecated: Do not use.
@@ -1116,9 +1100,6 @@ type UnimplementedRepositoryServiceServer struct {
 
 func (UnimplementedRepositoryServiceServer) RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositoryExists not implemented")
-}
-func (UnimplementedRepositoryServiceServer) RepackIncremental(context.Context, *RepackIncrementalRequest) (*RepackIncrementalResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RepackIncremental not implemented")
 }
 func (UnimplementedRepositoryServiceServer) RepackFull(context.Context, *RepackFullRequest) (*RepackFullResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepackFull not implemented")
@@ -1282,24 +1263,6 @@ func _RepositoryService_RepositoryExists_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RepositoryServiceServer).RepositoryExists(ctx, req.(*RepositoryExistsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_RepackIncremental_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RepackIncrementalRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).RepackIncremental(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/RepackIncremental",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).RepackIncremental(ctx, req.(*RepackIncrementalRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2194,10 +2157,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RepositoryExists",
 			Handler:    _RepositoryService_RepositoryExists_Handler,
-		},
-		{
-			MethodName: "RepackIncremental",
-			Handler:    _RepositoryService_RepackIncremental_Handler,
 		},
 		{
 			MethodName: "RepackFull",

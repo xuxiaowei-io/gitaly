@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus/hooks/test"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -19,58 +18,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-func TestRepackIncrementalSuccess(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	// Bring the repository into a known-good state with a single packfile, only.
-	initialCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
-	oldPackfileCount, err := stats.PackfilesCount(repo)
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), oldPackfileCount)
-
-	// Write a second commit into the repository so that we have something to repack.
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(initialCommit), gittest.WithBranch("main"))
-
-	//nolint:staticcheck
-	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{
-		Repository: repoProto,
-	})
-	assert.NoError(t, err)
-	assert.NotNil(t, c)
-
-	// As we have done an incremental repack we expect to see one more packfile than before now.
-	newPackfileCount, err := stats.PackfilesCount(repo)
-	require.NoError(t, err)
-	require.Equal(t, oldPackfileCount+1, newPackfileCount)
-
-	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
-		Exists:                 true,
-		HasBloomFilters:        true,
-		HasGenerationData:      true,
-		CommitGraphChainLength: 1,
-	})
-}
-
-func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	logger, hook := test.NewNullLogger()
-	_, repo, _, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
-
-	//nolint:staticcheck
-	_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
-	assert.NoError(t, err)
-
-	requireRepositoryInfoLog(t, hook.AllEntries()...)
-}
 
 func TestRepackLocal(t *testing.T) {
 	t.Parallel()
@@ -110,63 +57,6 @@ func TestRepackLocal(t *testing.T) {
 }
 
 const praefectErr = `routing repository maintenance: getting repository metadata: repository not found`
-
-func TestRepackIncrementalFailure(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	tests := []struct {
-		repo *gitalypb.Repository
-		err  error
-		desc string
-	}{
-		{
-			desc: "nil repo",
-			repo: nil,
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc: "invalid storage name",
-			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`repacking objects: GetStorageByName: no such storage: "foo"`,
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc: "no storage name",
-			repo: &gitalypb.Repository{RelativePath: "bar"},
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty StorageName",
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc: "non-existing repo",
-			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"},
-			err: status.Error(
-				codes.NotFound,
-				testhelper.GitalyOrPraefect(
-					fmt.Sprintf(`repacking objects: GetRepoPath: not a git repository: "%s/bar"`, cfg.Storages[0].Path),
-					praefectErr,
-				),
-			),
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			//nolint:staticcheck
-			_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: tc.repo})
-			testhelper.RequireGrpcError(t, err, tc.err)
-		})
-	}
-}
 
 func TestRepackFullSuccess(t *testing.T) {
 	t.Parallel()

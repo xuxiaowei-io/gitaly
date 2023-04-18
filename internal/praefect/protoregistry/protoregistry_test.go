@@ -128,7 +128,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"OptimizeRepository":           protoregistry.OpMaintenance,
 			"PruneUnreachableObjects":      protoregistry.OpMaintenance,
 			"RepackFull":                   protoregistry.OpMaintenance,
-			"RepackIncremental":            protoregistry.OpMaintenance,
 			"RepositoryExists":             protoregistry.OpAccessor,
 			"RepositorySize":               protoregistry.OpAccessor,
 			"RestoreCustomHooks":           protoregistry.OpMutator,

@@ -17,14 +17,6 @@ service RepositoryService {
     };
   }
 
-  // RepackIncremental is deprecated in favor of OptimizeRepository.
-  rpc RepackIncremental(RepackIncrementalRequest) returns (RepackIncrementalResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
   // RepackFull is deprecated in favor of OptimizeRepository.
   rpc RepackFull(RepackFullRequest) returns (RepackFullResponse) {
     option deprecated = true;
@@ -397,16 +389,6 @@ message RepositoryExistsRequest {
 message RepositoryExistsResponse {
   // This comment is left unintentionally blank.
   bool exists = 1;
-}
-
-// This comment is left unintentionally blank.
-message RepackIncrementalRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// This comment is left unintentionally blank.
-message RepackIncrementalResponse {
 }
 
 // This comment is left unintentionally blank.

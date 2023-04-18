@@ -55,35 +55,3 @@ func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest)
 
 	return &gitalypb.RepackFullResponse{}, nil
 }
-
-func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
-	repository := in.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
-		return nil, structerr.NewInvalidArgument("%w", err)
-	}
-
-	repo := s.localrepo(repository)
-	cfg := housekeeping.RepackObjectsConfig{
-		Strategy:    housekeeping.RepackObjectsStrategyIncremental,
-		WriteBitmap: false,
-	}
-
-	repackCounter.WithLabelValues(fmt.Sprint(false)).Inc()
-
-	if err := housekeeping.RepackObjects(ctx, repo, cfg); err != nil {
-		return nil, structerr.NewInternal("repacking objects: %w", err)
-	}
-
-	writeCommitGraphCfg, err := housekeeping.WriteCommitGraphConfigForRepository(ctx, repo)
-	if err != nil {
-		return nil, structerr.NewInternal("getting commit-graph config: %w", err)
-	}
-
-	if err := housekeeping.WriteCommitGraph(ctx, repo, writeCommitGraphCfg); err != nil {
-		return nil, structerr.NewInternal("writing commit-graph: %w", err)
-	}
-
-	stats.LogRepositoryInfo(ctx, repo)
-
-	return &gitalypb.RepackIncrementalResponse{}, nil
-}
