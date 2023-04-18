@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -12,6 +13,8 @@ import (
 )
 
 func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_CreateBundleFromRefListServer) error {
+	ctx := stream.Context()
+
 	firstRequest, err := stream.Recv()
 	if err != nil {
 		return err
@@ -22,10 +25,10 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	ctx := stream.Context()
+	repo := s.localrepo(repository)
 
-	if _, err := s.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repository}); err != nil {
-		return err
+	if err := housekeeping.CleanupWorktrees(ctx, repo); err != nil {
+		return structerr.NewInternal("cleaning up worktrees: %w", err)
 	}
 
 	firstRead := true
@@ -47,7 +50,6 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 		return stream.Send(&gitalypb.CreateBundleFromRefListResponse{Data: p})
 	})
 
-	repo := s.localrepo(repository)
 	err = repo.CreateBundle(ctx, writer, &localrepo.CreateBundleOpts{Patterns: patterns})
 	switch {
 	case errors.Is(err, localrepo.ErrEmptyBundle):
