@@ -106,7 +106,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"ApplyGitattributes":           protoregistry.OpMutator,
 			"BackupCustomHooks":            protoregistry.OpAccessor,
 			"CalculateChecksum":            protoregistry.OpAccessor,
-			"Cleanup":                      protoregistry.OpMaintenance,
 			"CreateBundle":                 protoregistry.OpAccessor,
 			"CreateFork":                   protoregistry.OpMutator,
 			"CreateRepository":             protoregistry.OpMutator,

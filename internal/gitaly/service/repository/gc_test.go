@@ -26,10 +26,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	offsetUntilOld         = -2 * time.Hour
-	offsetUntilOldWorktree = -7 * time.Hour
-)
+var offsetUntilOld = -2 * time.Hour
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
 	t.Parallel()

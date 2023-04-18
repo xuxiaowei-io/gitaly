@@ -84,9 +84,6 @@ type RepositoryServiceClient interface {
 	GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error)
 	// This comment is left unintentionally blank.
 	CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error)
-	// Deprecated: Do not use.
-	// Cleanup is deprecated in favor of OptimizeRepository.
-	Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error)
 	// This comment is left unintentionally blank.
 	GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error)
 	// This comment is left unintentionally blank.
@@ -557,16 +554,6 @@ func (c *repositoryServiceClient) CalculateChecksum(ctx context.Context, in *Cal
 	return out, nil
 }
 
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error) {
-	out := new(CleanupResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/Cleanup", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *repositoryServiceClient) GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[7], "/gitaly.RepositoryService/GetSnapshot", opts...)
 	if err != nil {
@@ -987,9 +974,6 @@ type RepositoryServiceServer interface {
 	GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error
 	// This comment is left unintentionally blank.
 	CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error)
-	// Deprecated: Do not use.
-	// Cleanup is deprecated in favor of OptimizeRepository.
-	Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error)
 	// This comment is left unintentionally blank.
 	GetSnapshot(*GetSnapshotRequest, RepositoryService_GetSnapshotServer) error
 	// This comment is left unintentionally blank.
@@ -1140,9 +1124,6 @@ func (UnimplementedRepositoryServiceServer) GetInfoAttributes(*GetInfoAttributes
 }
 func (UnimplementedRepositoryServiceServer) CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CalculateChecksum not implemented")
-}
-func (UnimplementedRepositoryServiceServer) Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Cleanup not implemented")
 }
 func (UnimplementedRepositoryServiceServer) GetSnapshot(*GetSnapshotRequest, RepositoryService_GetSnapshotServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetSnapshot not implemented")
@@ -1697,24 +1678,6 @@ func _RepositoryService_CalculateChecksum_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RepositoryService_Cleanup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CleanupRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).Cleanup(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/Cleanup",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).Cleanup(ctx, req.(*CleanupRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RepositoryService_GetSnapshot_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetSnapshotRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -2151,10 +2114,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CalculateChecksum",
 			Handler:    _RepositoryService_CalculateChecksum_Handler,
-		},
-		{
-			MethodName: "Cleanup",
-			Handler:    _RepositoryService_Cleanup_Handler,
 		},
 		{
 			MethodName: "CreateRepositoryFromSnapshot",

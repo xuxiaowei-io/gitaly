@@ -813,22 +813,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 			},
 		},
 		{
-			desc: "Cleanup",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.Cleanup(ctx, &gitalypb.CleanupRequest{
-					Repository: repository,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.CleanupRequest{
-				Repository: primaryRepository,
-			},
-			expectedSecondaryRequest: &gitalypb.CleanupRequest{
-				Repository: secondaryRepository,
-			},
-		},
-		{
 			desc: "WriteCommitGraph",
 			maintenanceFunc: func(t *testing.T) {
 				//nolint:staticcheck
@@ -928,11 +912,6 @@ func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceSe
 func (m *mockMaintenanceServer) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
 	m.requestCh <- in
 	return &gitalypb.GarbageCollectResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.CleanupResponse{}, nil
 }
 
 func (m *mockMaintenanceServer) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {

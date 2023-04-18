@@ -197,14 +197,6 @@ service RepositoryService {
     };
   }
 
-  // Cleanup is deprecated in favor of OptimizeRepository.
-  rpc Cleanup(CleanupRequest) returns (CleanupResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
   // This comment is left unintentionally blank.
   rpc GetSnapshot(GetSnapshotRequest) returns (stream GetSnapshotResponse) {
     option (op_type) = {
@@ -411,16 +403,6 @@ message WriteCommitGraphRequest {
 
 // This comment is left unintentionally blank.
 message WriteCommitGraphResponse {
-}
-
-// This comment is left unintentionally blank.
-message CleanupRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// This comment is left unintentionally blank.
-message CleanupResponse {
 }
 
 // RepositorySizeRequest is a request for the RepositorySize RPC.
