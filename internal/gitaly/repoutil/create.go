@@ -8,8 +8,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -171,6 +173,18 @@ func Create(
 	vote, err := voteHash.Vote()
 	if err != nil {
 		return fmt.Errorf("computing vote: %w", err)
+	}
+
+	// Create the full-repack timestamp in the new repository. This is done so that we don't
+	// consider new repositories to have never been repacked yet, which would cause repository
+	// housekeeping to perform a full repack right away. And in general, this would not really
+	// be needed as the end result for most of the repository-creating RPCs would be a either an
+	// empty or a neatly-packed repository anyway.
+	//
+	// As this timestamp should never impact the user-observable state of a repository we do not
+	// include it in the voting hash.
+	if err := stats.UpdateFullRepackTimestamp(newRepoDir.Path(), time.Now()); err != nil {
+		return fmt.Errorf("creating full-repack timestamp: %w", err)
 	}
 
 	// We're now entering the critical section where we want to have exclusive access

@@ -20,7 +20,10 @@ func TestReduplicate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	fullRepackTimestamp, err := stats.FullRepackTimestamp(repoPath)
+	require.NoError(t, err)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
@@ -35,10 +38,14 @@ func TestReduplicate(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "-c", "commitGraph.generationVersion=2", "gc")
 	packedRefsStat, err := os.Stat(filepath.Join(repoPath, "packed-refs"))
 	require.NoError(t, err)
+
 	// Verify that the pool member has no objects on its own anymore.
 	repoInfo, err := stats.RepositoryInfoForRepository(repo)
 	require.NoError(t, err)
 	require.Equal(t, stats.RepositoryInfo{
+		Packfiles: stats.PackfilesInfo{
+			LastFullRepack: fullRepackTimestamp,
+		},
 		References: stats.ReferencesInfo{
 			PackedReferencesSize: uint64(packedRefsStat.Size()),
 		},
