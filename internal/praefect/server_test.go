@@ -351,15 +351,14 @@ func TestRejectBadStorage(t *testing.T) {
 	cc, _, cleanup := RunPraefectServer(t, ctx, conf, BuildOptions{})
 	defer cleanup()
 
-	req := &gitalypb.GarbageCollectRequest{
+	req := &gitalypb.OptimizeRepositoryRequest{
 		Repository: &gitalypb.Repository{
 			StorageName:  "bad-name",
 			RelativePath: "/path/to/hashed/storage",
 		},
 	}
 
-	//nolint:staticcheck
-	_, err := gitalypb.NewRepositoryServiceClient(cc).GarbageCollect(ctx, req)
+	_, err := gitalypb.NewRepositoryServiceClient(cc).OptimizeRepository(ctx, req)
 	require.Error(t, err, status.New(codes.InvalidArgument, "repo scoped: invalid Repository"))
 }
 

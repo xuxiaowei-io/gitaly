@@ -17,14 +17,6 @@ service RepositoryService {
     };
   }
 
-  // GarbageCollect is deprecated in favor of OptimizeRepository.
-  rpc GarbageCollect(GarbageCollectRequest) returns (GarbageCollectResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
   // WriteCommitGraph is deprecated in favor of OptimizeRepository.
   rpc WriteCommitGraph(WriteCommitGraphRequest) returns (WriteCommitGraphResponse) {
     option deprecated = true;
@@ -365,24 +357,6 @@ message RepositoryExistsRequest {
 message RepositoryExistsResponse {
   // This comment is left unintentionally blank.
   bool exists = 1;
-}
-
-// This comment is left unintentionally blank.
-message GarbageCollectRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
-  bool create_bitmap = 2;
-  // If set to 'true' the 'gc' will be triggered with '--prune=30.minutes.ago' flag.
-  // This will remove dangling objects from the object storage that were not modified in the last 30 minutes.
-  // If 'false' provided the 'gc' will rely on the default expiration period (2 weeks).
-  // The window of 30 minutes exists because of possible concurrent operations running on the same
-  // storage and removal of the objects may cause races and fail concurrent operations.
-  bool prune = 3;
-}
-
-// This comment is left unintentionally blank.
-message GarbageCollectResponse {
 }
 
 // This comment is left unintentionally blank.

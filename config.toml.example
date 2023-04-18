@@ -101,7 +101,7 @@ self_signed_cert = false
 
 # # You can adjust the concurrency of each RPC endpoint
 # [[concurrency]]
-# rpc = "/gitaly.RepositoryService/GarbageCollect"
+# rpc = "/gitaly.RepositoryService/OptimizeRepository"
 # max_per_repo = 1
 # max_queue_wait = "1m"
 # max_queue_size = 10

@@ -25,9 +25,6 @@ type RepositoryServiceClient interface {
 	// This comment is left unintentionally blank.
 	RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error)
 	// Deprecated: Do not use.
-	// GarbageCollect is deprecated in favor of OptimizeRepository.
-	GarbageCollect(ctx context.Context, in *GarbageCollectRequest, opts ...grpc.CallOption) (*GarbageCollectResponse, error)
-	// Deprecated: Do not use.
 	// WriteCommitGraph is deprecated in favor of OptimizeRepository.
 	WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error)
 	// RepositorySize returns information on the complete on-disk repository size. If you need more
@@ -166,16 +163,6 @@ func NewRepositoryServiceClient(cc grpc.ClientConnInterface) RepositoryServiceCl
 func (c *repositoryServiceClient) RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error) {
 	out := new(RepositoryExistsResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepositoryExists", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) GarbageCollect(ctx context.Context, in *GarbageCollectRequest, opts ...grpc.CallOption) (*GarbageCollectResponse, error) {
-	out := new(GarbageCollectResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/GarbageCollect", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -915,9 +902,6 @@ type RepositoryServiceServer interface {
 	// This comment is left unintentionally blank.
 	RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error)
 	// Deprecated: Do not use.
-	// GarbageCollect is deprecated in favor of OptimizeRepository.
-	GarbageCollect(context.Context, *GarbageCollectRequest) (*GarbageCollectResponse, error)
-	// Deprecated: Do not use.
 	// WriteCommitGraph is deprecated in favor of OptimizeRepository.
 	WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error)
 	// RepositorySize returns information on the complete on-disk repository size. If you need more
@@ -1052,9 +1036,6 @@ type UnimplementedRepositoryServiceServer struct {
 
 func (UnimplementedRepositoryServiceServer) RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositoryExists not implemented")
-}
-func (UnimplementedRepositoryServiceServer) GarbageCollect(context.Context, *GarbageCollectRequest) (*GarbageCollectResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GarbageCollect not implemented")
 }
 func (UnimplementedRepositoryServiceServer) WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WriteCommitGraph not implemented")
@@ -1206,24 +1187,6 @@ func _RepositoryService_RepositoryExists_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RepositoryServiceServer).RepositoryExists(ctx, req.(*RepositoryExistsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_GarbageCollect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GarbageCollectRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).GarbageCollect(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/GarbageCollect",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).GarbageCollect(ctx, req.(*GarbageCollectRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2046,10 +2009,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RepositoryExists",
 			Handler:    _RepositoryService_RepositoryExists_Handler,
-		},
-		{
-			MethodName: "GarbageCollect",
-			Handler:    _RepositoryService_GarbageCollect_Handler,
 		},
 		{
 			MethodName: "WriteCommitGraph",

@@ -2,12 +2,9 @@ package repository
 
 import (
 	"context"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	gclient "gitlab.com/gitlab-org/gitaly/v15/client"
@@ -28,8 +25,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
-
-var testTime = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m)
@@ -64,22 +59,6 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg,
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 	return gitalypb.NewRepositoryServiceClient(conn)
-}
-
-func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool {
-	t.Helper()
-	// NOTE: Since some filesystems don't have sub-second precision on `mtime`
-	//       we're rounding the times to seconds
-	afterTime = afterTime.Round(time.Second)
-	for _, path := range paths {
-		s, err := os.Stat(path)
-		assert.NoError(t, err)
-
-		if !s.ModTime().Round(time.Second).After(afterTime) {
-			t.Errorf("ModTime is not after afterTime: %q < %q", s.ModTime().Round(time.Second).String(), afterTime.String())
-		}
-	}
-	return t.Failed()
 }
 
 func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.GitalyServerOpt) (gitalypb.RepositoryServiceClient, string) {

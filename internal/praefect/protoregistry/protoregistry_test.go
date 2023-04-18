@@ -118,7 +118,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"FindLicense":                  protoregistry.OpAccessor,
 			"FindMergeBase":                protoregistry.OpAccessor,
 			"Fsck":                         protoregistry.OpAccessor,
-			"GarbageCollect":               protoregistry.OpMaintenance,
 			"GetArchive":                   protoregistry.OpAccessor,
 			"GetInfoAttributes":            protoregistry.OpAccessor,
 			"GetRawChanges":                protoregistry.OpAccessor,

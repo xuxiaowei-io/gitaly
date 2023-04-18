@@ -791,28 +791,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 		expectedSecondaryRequest proto.Message
 	}{
 		{
-			desc: "GarbageCollect",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
-					Repository:   repository,
-					CreateBitmap: true,
-					Prune:        true,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.GarbageCollectRequest{
-				Repository:   primaryRepository,
-				CreateBitmap: true,
-				Prune:        true,
-			},
-			expectedSecondaryRequest: &gitalypb.GarbageCollectRequest{
-				Repository:   secondaryRepository,
-				CreateBitmap: true,
-				Prune:        true,
-			},
-		},
-		{
 			desc: "WriteCommitGraph",
 			maintenanceFunc: func(t *testing.T) {
 				//nolint:staticcheck
@@ -907,11 +885,6 @@ func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceSe
 	}, testserver.WithDisablePraefect())
 
 	return server, addr
-}
-
-func (m *mockMaintenanceServer) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.GarbageCollectResponse{}, nil
 }
 
 func (m *mockMaintenanceServer) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {
