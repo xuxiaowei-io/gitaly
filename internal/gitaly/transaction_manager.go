@@ -179,7 +179,9 @@ func (txn *Transaction) Commit(ctx context.Context) error {
 }
 
 // Rollback releases resources associated with the transaction without performing any changes.
-func (txn *Transaction) Rollback() {}
+func (txn *Transaction) Rollback() error {
+	return nil
+}
 
 // Snapshot returns the details of the Transaction's read snapshot.
 func (txn *Transaction) Snapshot() Snapshot {
@@ -391,33 +393,43 @@ func (mgr *TransactionManager) Run() (returnedErr error) {
 			continue
 		}
 
-		var transaction *Transaction
-		select {
-		case transaction = <-mgr.admissionQueue:
-		case <-mgr.ctx.Done():
+		if err := mgr.processTransaction(); err != nil {
+			return fmt.Errorf("process transaction: %w", err)
 		}
-
-		// Return if the manager was stopped. The select is indeterministic so this guarantees
-		// the manager stops the processing even if there are transactions in the queue.
-		if err := mgr.ctx.Err(); err != nil {
-			return err
-		}
-
-		transaction.result <- func() error {
-			logEntry, err := mgr.verifyReferences(mgr.ctx, transaction)
-			if err != nil {
-				return fmt.Errorf("verify references: %w", err)
-			}
-
-			if transaction.customHooksUpdate != nil {
-				logEntry.CustomHooksUpdate = &gitalypb.LogEntry_CustomHooksUpdate{
-					CustomHooksTar: transaction.customHooksUpdate.CustomHooksTAR,
-				}
-			}
-
-			return mgr.appendLogEntry(logEntry)
-		}()
 	}
+}
+
+// processTransaction waits for a transaction and processes it by verifying and
+// logging it.
+func (mgr *TransactionManager) processTransaction() error {
+	var transaction *Transaction
+	select {
+	case transaction = <-mgr.admissionQueue:
+	case <-mgr.ctx.Done():
+	}
+
+	// Return if the manager was stopped. The select is indeterministic so this guarantees
+	// the manager stops the processing even if there are transactions in the queue.
+	if err := mgr.ctx.Err(); err != nil {
+		return err
+	}
+
+	transaction.result <- func() error {
+		logEntry, err := mgr.verifyReferences(mgr.ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("verify references: %w", err)
+		}
+
+		if transaction.customHooksUpdate != nil {
+			logEntry.CustomHooksUpdate = &gitalypb.LogEntry_CustomHooksUpdate{
+				CustomHooksTar: transaction.customHooksUpdate.CustomHooksTAR,
+			}
+		}
+
+		return mgr.appendLogEntry(logEntry)
+	}()
+
+	return nil
 }
 
 // Stop stops the transaction processing causing Run to return.
@@ -427,6 +439,10 @@ func (mgr *TransactionManager) Stop() { mgr.stop() }
 // indexes and initializes the notification channels that synchronize transaction beginning with log entry applying.
 func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	defer close(mgr.initialized)
+
+	if err := mgr.createDirectories(); err != nil {
+		return fmt.Errorf("create directories: %w", err)
+	}
 
 	var appliedLogIndex gitalypb.LogIndex
 	if err := mgr.readKey(keyAppliedLogIndex(getRepositoryID(mgr.repository)), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
@@ -503,12 +519,7 @@ func (mgr *TransactionManager) determineHookIndex(ctx context.Context, appendedI
 
 	hookDirs, err := os.ReadDir(filepath.Join(repoPath, "wal", "hooks"))
 	if err != nil {
-		// If the directory doesn't exist, then there are no hooks yet.
-		if !errors.Is(err, fs.ErrNotExist) {
-			return 0, fmt.Errorf("read hook directories: %w", err)
-		}
-
-		return 0, nil
+		return 0, fmt.Errorf("read hook directories: %w", err)
 	}
 
 	var hookIndex LogIndex
@@ -524,6 +535,37 @@ func (mgr *TransactionManager) determineHookIndex(ctx context.Context, appendedI
 	}
 
 	return hookIndex, err
+}
+
+// createDirectories creates the directories that are expected to exist
+// in the repository for storing the state. Initializing them simplifies
+// rest of the code as it doesn't need handling for when they don't.
+func (mgr *TransactionManager) createDirectories() error {
+	repoPath, err := mgr.repository.Path()
+	if err != nil {
+		return fmt.Errorf("repo path: %w", err)
+	}
+
+	for _, relativePath := range []string{
+		"wal/hooks",
+	} {
+		directory := filepath.Join(repoPath, relativePath)
+		if _, err := os.Stat(directory); err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("stat directory: %w", err)
+			}
+
+			if err := os.MkdirAll(directory, fs.ModePerm); err != nil {
+				return fmt.Errorf("mkdir: %w", err)
+			}
+
+			if err := safe.NewSyncer().SyncHierarchy(repoPath, relativePath); err != nil {
+				return fmt.Errorf("sync: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // verifyReferences verifies that the references in the transaction apply on top of the already accepted
@@ -764,28 +806,12 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 	syncer := safe.NewSyncer()
 
 	hooksPath := filepath.Join("wal", "hooks")
-	relativePath := filepath.Join(hooksPath, logIndex.String())
-	targetDirectory := filepath.Join(repoPath, relativePath)
+	targetDirectory := filepath.Join(repoPath, hooksPath, logIndex.String())
 	if err := os.Mkdir(targetDirectory, fs.ModePerm); err != nil {
-		switch {
-		case errors.Is(err, fs.ErrExist):
-			// The target directory may exist if we previously tried to extract the
-			// hooks there. TAR overwrites existing files and the hooks files are
-			// guaranteed to be the same as this is the same log entry.
-		case errors.Is(err, fs.ErrNotExist):
-			// One of the parent directories doesn't exist. Create the expected
-			// hierarchy. This happens only when the hooks are being set for the
-			// first time in the repository.
-			if err := os.MkdirAll(targetDirectory, fs.ModePerm); err != nil {
-				return fmt.Errorf("create directories: %w", err)
-			}
-
-			// Sync the hierarchy separately as the common path doesn't sync anything
-			// but the hooks themselves.
-			if err := syncer.SyncHierarchy(repoPath, relativePath); err != nil {
-				return fmt.Errorf("sync hierarchy: %w", err)
-			}
-		default:
+		// The target directory may exist if we previously tried to extract the
+		// hooks there. TAR overwrites existing files and the hooks files are
+		// guaranteed to be the same as this is the same log entry.
+		if !errors.Is(err, fs.ErrExist) {
 			return fmt.Errorf("create directory: %w", err)
 		}
 	}

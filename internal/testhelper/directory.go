@@ -19,7 +19,11 @@ type DirectoryEntry struct {
 	// Mode is the file mode of the entry.
 	Mode fs.FileMode
 	// Content contains the file content if this is a regular file.
-	Content []byte
+	Content any
+	// ParseContent is a function that receives the file's actual content and
+	// returns it parsed into the expected form. The returned value is ultimately
+	// asserted for equality with the Content.
+	ParseContent func(tb testing.TB, content []byte) any
 }
 
 // DirectoryState models the contents of a directory. The key is relative of the entry in
@@ -56,8 +60,13 @@ func RequireDirectoryState(tb testing.TB, rootDirectory, relativeDirectory strin
 		}
 
 		if entry.Type().IsRegular() {
-			actualEntry.Content, err = os.ReadFile(path)
+			content, err := os.ReadFile(path)
 			require.NoError(tb, err)
+
+			actualEntry.Content = content
+			if expectedEntry, ok := expected[trimmedPath]; ok && expectedEntry.ParseContent != nil {
+				actualEntry.Content = expectedEntry.ParseContent(tb, content)
+			}
 		}
 
 		actual[trimmedPath] = actualEntry
@@ -65,11 +74,16 @@ func RequireDirectoryState(tb testing.TB, rootDirectory, relativeDirectory strin
 		return nil
 	}))
 
-	if expected == nil {
-		expected = DirectoryState{}
+	// Functions are never equal unless they are nil, see https://pkg.go.dev/reflect#DeepEqual.
+	// So to check of equality we set the ParseContent functions to nil.
+	// We use a copy so we don't unexpectedly modify the original.
+	expectedCopy := make(DirectoryState, len(expected))
+	for key, value := range expected {
+		value.ParseContent = nil
+		expectedCopy[key] = value
 	}
 
-	require.Equal(tb, expected, actual)
+	require.Equal(tb, expectedCopy, actual)
 }
 
 // RequireTarState asserts that the provided tarball contents matches the expected state.
