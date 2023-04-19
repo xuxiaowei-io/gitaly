@@ -111,21 +111,20 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		}
 	}
 
-	var options []git.Option
 	switch cfg.Strategy {
 	case RepackObjectsStrategyIncremental:
-		options = []git.Option{
+		return performRepack(ctx, repo, cfg,
 			git.Flag{Name: "-d"},
-		}
+		)
 	case RepackObjectsStrategyFullWithLooseUnreachable:
-		options = []git.Option{
+		return performRepack(ctx, repo, cfg,
 			git.Flag{Name: "-A"},
 			git.Flag{Name: "--pack-kept-objects"},
 			git.Flag{Name: "-l"},
 			git.Flag{Name: "-d"},
-		}
+		)
 	case RepackObjectsStrategyFullWithCruft:
-		options = []git.Option{
+		options := []git.Option{
 			git.Flag{Name: "--cruft"},
 			git.Flag{Name: "--pack-kept-objects"},
 			git.Flag{Name: "-l"},
@@ -138,8 +137,10 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 				Value: cfg.CruftExpireBefore.Format(rfc2822DateFormat),
 			})
 		}
+
+		return performRepack(ctx, repo, cfg, options...)
 	case RepackObjectsStrategyFullWithUnreachable:
-		options = []git.Option{
+		return performRepack(ctx, repo, cfg,
 			// Do a full repack.
 			git.Flag{Name: "-a"},
 			// Don't include objects part of alternate.
@@ -148,9 +149,9 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 			git.Flag{Name: "-d"},
 			// Keep unreachable objects part of the old packs in the new pack.
 			git.Flag{Name: "--keep-unreachable"},
-		}
+		)
 	case RepackObjectsStrategyGeometric:
-		options = []git.Option{
+		return performRepack(ctx, repo, cfg,
 			// We use a geometric factor `r`, which means that every successively larger
 			// packfile must have at least `r` times the number of objects.
 			//
@@ -182,19 +183,22 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 			git.Flag{Name: "-d"},
 			// Don't include objects part of an alternate.
 			git.Flag{Name: "-l"},
-		}
+		)
 	default:
 		return structerr.NewInvalidArgument("invalid strategy: %q", cfg.Strategy)
 	}
+}
+
+func performRepack(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsConfig, opts ...git.Option) error {
 	if cfg.WriteMultiPackIndex {
-		options = append(options, git.Flag{Name: "--write-midx"})
+		opts = append(opts, git.Flag{Name: "--write-midx"})
 	}
 
 	var stderr strings.Builder
 	if err := repo.ExecAndWait(ctx,
 		git.Command{
 			Name:  "repack",
-			Flags: options,
+			Flags: opts,
 		},
 		git.WithConfig(GetRepackGitConfig(ctx, repo, cfg.WriteBitmap)...),
 		git.WithStderr(&stderr),
