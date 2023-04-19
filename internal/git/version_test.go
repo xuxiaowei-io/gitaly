@@ -158,3 +158,30 @@ func TestVersion_MidxDeletesRedundantBitmaps(t *testing.T) {
 		})
 	}
 }
+
+func TestVersion_GeometricRepackingSupportsAlternates(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		version string
+		expect  bool
+	}{
+		{"1.0.0", false},
+		{"2.39.2", false},
+		{"2.40.0", false},
+		{"2.40.1", false},
+		{"2.40.0.gl1", true},
+		{"2.40.0.gl2", true},
+		{"2.40.1.gl1", true},
+		{"2.40.1.gl2", true},
+		{"2.41.0", true},
+		{"3.0.0", true},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
+			version, err := parseVersion(tc.version)
+			require.NoError(t, err)
+			require.Equal(t, tc.expect,
+				version.GeometricRepackingSupportsAlternates())
+		})
+	}
+}
