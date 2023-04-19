@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
@@ -35,6 +36,7 @@ type OptimizationStrategy interface {
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
 // heuristics.
 type HeuristicalOptimizationStrategy struct {
+	gitVersion   git.Version
 	info         stats.RepositoryInfo
 	expireBefore time.Time
 }
@@ -42,8 +44,9 @@ type HeuristicalOptimizationStrategy struct {
 // NewHeuristicalOptimizationStrategy constructs a heuristicalOptimizationStrategy for the given
 // repository info. It derives all data from the repository so that the heuristics used by this
 // repository can be decided without further disk reads.
-func NewHeuristicalOptimizationStrategy(info stats.RepositoryInfo) HeuristicalOptimizationStrategy {
+func NewHeuristicalOptimizationStrategy(gitVersion git.Version, info stats.RepositoryInfo) HeuristicalOptimizationStrategy {
 	return HeuristicalOptimizationStrategy{
+		gitVersion:   gitVersion,
 		info:         info,
 		expireBefore: time.Now().Add(stats.StaleObjectsGracePeriod),
 	}
@@ -77,7 +80,14 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// While this is kind of annoying, it ultimately shouldn't be too bad in most contexts as
 	// the majority of objects of a repository with object pool should be in the object pool
 	// anyway. We should eventually remove this condition though once the fix has landed.
-	if len(s.info.Alternates) == 0 && featureflag.GeometricRepacking.IsEnabled(ctx) {
+	//
+	// We have upstreamed fixes for this that are about to arrive in Git v2.41. Furthermore, we
+	// have backported them into Git v2.40.0.gl1. So if we detect that the current Git version
+	// does indeed support geometric repacking then we can enable this even when the repository
+	// is part of an object pool.
+	canUseGeometricRepacking := len(s.info.Alternates) == 0 || s.gitVersion.GeometricRepackingSupportsAlternates()
+
+	if canUseGeometricRepacking && featureflag.GeometricRepacking.IsEnabled(ctx) {
 		nonCruftPackfilesCount := s.info.Packfiles.Count - s.info.Packfiles.CruftCount
 		timeSinceLastFullRepack := time.Since(s.info.Packfiles.LastFullRepack)
 

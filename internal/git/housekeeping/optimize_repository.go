@@ -52,6 +52,11 @@ func (m *RepositoryManager) OptimizeRepository(
 		return err
 	}
 
+	gitVersion, err := repo.GitVersion(ctx)
+	if err != nil {
+		return err
+	}
+
 	if _, ok := m.reposInProgress.LoadOrStore(path, struct{}{}); ok {
 		return nil
 	}
@@ -73,7 +78,7 @@ func (m *RepositoryManager) OptimizeRepository(
 
 	var strategy OptimizationStrategy
 	if cfg.StrategyConstructor == nil {
-		strategy = NewHeuristicalOptimizationStrategy(repositoryInfo)
+		strategy = NewHeuristicalOptimizationStrategy(gitVersion, repositoryInfo)
 	} else {
 		strategy = cfg.StrategyConstructor(repositoryInfo)
 	}
