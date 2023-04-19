@@ -78,9 +78,24 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		return err
 	}
 
-	var options []git.Option
 	var isFullRepack bool
+	switch cfg.Strategy {
+	case RepackObjectsStrategyIncremental, RepackObjectsStrategyGeometric:
+		isFullRepack = false
+	case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
+		isFullRepack = true
+	default:
+		return structerr.NewInvalidArgument("invalid strategy: %q", cfg.Strategy)
+	}
 
+	if !isFullRepack && !cfg.WriteMultiPackIndex && cfg.WriteBitmap {
+		return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
+	}
+	if cfg.Strategy != RepackObjectsStrategyFullWithCruft && !cfg.CruftExpireBefore.IsZero() {
+		return structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs")
+	}
+
+	var options []git.Option
 	switch cfg.Strategy {
 	case RepackObjectsStrategyIncremental:
 		options = []git.Option{
@@ -93,7 +108,6 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 			git.Flag{Name: "-l"},
 			git.Flag{Name: "-d"},
 		}
-		isFullRepack = true
 	case RepackObjectsStrategyFullWithCruft:
 		options = []git.Option{
 			git.Flag{Name: "--cruft"},
@@ -101,7 +115,6 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 			git.Flag{Name: "-l"},
 			git.Flag{Name: "-d"},
 		}
-		isFullRepack = true
 
 		if !cfg.CruftExpireBefore.IsZero() {
 			options = append(options, git.ValueFlag{
@@ -120,7 +133,6 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 			// Keep unreachable objects part of the old packs in the new pack.
 			git.Flag{Name: "--keep-unreachable"},
 		}
-		isFullRepack = true
 	case RepackObjectsStrategyGeometric:
 		options = []git.Option{
 			// We use a geometric factor `r`, which means that every successively larger
@@ -160,13 +172,6 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 	}
 	if cfg.WriteMultiPackIndex {
 		options = append(options, git.Flag{Name: "--write-midx"})
-	}
-
-	if !isFullRepack && !cfg.WriteMultiPackIndex && cfg.WriteBitmap {
-		return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
-	}
-	if cfg.Strategy != RepackObjectsStrategyFullWithCruft && !cfg.CruftExpireBefore.IsZero() {
-		return structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs")
 	}
 
 	if isFullRepack {
