@@ -3,20 +3,28 @@ package repoutil
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
+	"google.golang.org/grpc/peer"
 )
 
 func TestGetCustomHooks_successful(t *testing.T) {
@@ -224,4 +232,184 @@ func TestExtractHooks(t *testing.T) {
 			testhelper.RequireDirectoryState(t, tmpDir, "", tc.expectedState)
 		})
 	}
+}
+
+func TestSetCustomHooksRequest_success(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewTrackingManager()
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	archivePath := mustCreateCustomHooksArchive(t, ctx, []testFile{
+		{name: "pre-commit.sample", content: "foo", mode: 0o755},
+		{name: "pre-push.sample", content: "bar", mode: 0o755},
+	}, CustomHooksDir)
+
+	file, err := os.Open(archivePath)
+	require.NoError(t, err)
+
+	ctx = peer.NewContext(ctx, &peer.Peer{})
+	ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+
+	require.NoError(t, SetCustomHooks(ctx, locator, txManager, file, repo))
+
+	voteHash, err := newDirectoryVote(filepath.Join(repoPath, CustomHooksDir))
+	require.NoError(t, err)
+
+	testhelper.MustClose(t, file)
+
+	expectedVote, err := voteHash.Vote()
+	require.NoError(t, err)
+
+	require.FileExists(t, filepath.Join(repoPath, "custom_hooks", "pre-push.sample"))
+	require.Equal(t, 2, len(txManager.Votes()))
+	assert.Equal(t, voting.Prepared, txManager.Votes()[0].Phase)
+	assert.Equal(t, expectedVote, txManager.Votes()[1].Vote)
+	assert.Equal(t, voting.Committed, txManager.Votes()[1].Phase)
+}
+
+func TestSetCustomHooks_corruptTar(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	locator := config.NewLocator(cfg)
+	txManager := &transaction.MockManager{}
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	archivePath := mustCreateCorruptHooksArchive(t)
+
+	file, err := os.Open(archivePath)
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, file)
+
+	err = SetCustomHooks(ctx, locator, txManager, file, repo)
+	require.ErrorContains(t, err, "extracting hooks: waiting for tar command completion: exit status ")
+}
+
+type testFile struct {
+	name    string
+	content string
+	mode    os.FileMode
+}
+
+func TestNewDirectoryVote(t *testing.T) {
+	// The vote hash depends on the permission bits, so we must make sure that the files we
+	// write have the same permission bits on all systems. As the umask can get in our way we
+	// reset it to a known value here and restore it after the test. This also means that we
+	// cannot parallelize this test.
+	currentUmask := syscall.Umask(0)
+	defer func() {
+		syscall.Umask(currentUmask)
+	}()
+	syscall.Umask(0o022)
+
+	for _, tc := range []struct {
+		desc         string
+		files        []testFile
+		expectedHash string
+	}{
+		{
+			desc: "generated hash matches",
+			files: []testFile{
+				{name: "pre-commit.sample", content: "foo", mode: perm.SharedExecutable},
+				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
+			},
+			expectedHash: "8ca11991268de4c9278488a674fc1a88db449566",
+		},
+		{
+			desc: "generated hash matches with changed file name",
+			files: []testFile{
+				{name: "pre-commit.sample.diff", content: "foo", mode: perm.SharedExecutable},
+				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
+			},
+			expectedHash: "b5ed58ced84103da1ed9d7813a9e39b3b5daf7d7",
+		},
+		{
+			desc: "generated hash matches with changed file content",
+			files: []testFile{
+				{name: "pre-commit.sample", content: "foo", mode: perm.SharedExecutable},
+				{name: "pre-push.sample", content: "bar.diff", mode: perm.SharedExecutable},
+			},
+			expectedHash: "178083848c8a08e36c4f86c2d318a84b0bb845f2",
+		},
+		{
+			desc: "generated hash matches with changed file mode",
+			files: []testFile{
+				{name: "pre-commit.sample", content: "foo", mode: perm.SharedFile},
+				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
+			},
+			expectedHash: "c69574241b83496bb4005b4f7a0dfcda96cb317e",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			path := mustWriteCustomHookDirectory(t, tc.files, CustomHooksDir)
+
+			voteHash, err := newDirectoryVote(path)
+			require.NoError(t, err)
+
+			vote, err := voteHash.Vote()
+			require.NoError(t, err)
+
+			hash := vote.String()
+			require.Equal(t, tc.expectedHash, hash)
+		})
+	}
+}
+
+func mustWriteCustomHookDirectory(t *testing.T, files []testFile, dirName string) string {
+	t.Helper()
+
+	tmpDir := testhelper.TempDir(t)
+	hooksPath := filepath.Join(tmpDir, dirName)
+
+	err := os.Mkdir(hooksPath, perm.SharedDir)
+	require.NoError(t, err)
+
+	for _, f := range files {
+		err = os.WriteFile(filepath.Join(hooksPath, f.name), []byte(f.content), f.mode)
+		require.NoError(t, err)
+	}
+
+	return hooksPath
+}
+
+func mustCreateCustomHooksArchive(t *testing.T, ctx context.Context, files []testFile, dirName string) string {
+	t.Helper()
+
+	hooksPath := mustWriteCustomHookDirectory(t, files, dirName)
+	hooksDir := filepath.Dir(hooksPath)
+
+	tmpDir := testhelper.TempDir(t)
+	archivePath := filepath.Join(tmpDir, "custom_hooks.tar")
+
+	file, err := os.Create(archivePath)
+	require.NoError(t, err)
+
+	err = archive.WriteTarball(ctx, file, hooksDir, dirName)
+	require.NoError(t, err)
+
+	return archivePath
+}
+
+func mustCreateCorruptHooksArchive(t *testing.T) string {
+	t.Helper()
+
+	tmpDir := testhelper.TempDir(t)
+	archivePath := filepath.Join(tmpDir, "corrupt_hooks.tar")
+
+	err := os.WriteFile(archivePath, []byte("This is a corrupted tar file"), 0o755)
+	require.NoError(t, err)
+
+	return archivePath
 }
