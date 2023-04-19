@@ -95,9 +95,9 @@ workflow:
     PGUSER: postgres
     POSTGRES_DB: praefect_test
     POSTGRES_HOST_AUTH_METHOD: trust
-    TEST_REPORT: "${CI_PROJECT_DIR}/_build/reports/go-tests-report.xml"
+    TEST_JUNIT_REPORT: "${CI_PROJECT_DIR}/_build/reports/tests-junit.xml"
     TEST_COVERAGE_DIR: "${CI_PROJECT_DIR}/_build/reports/coverage"
-    TEST_FULL_OUTPUT: "${CI_PROJECT_DIR}/_build/reports/test-output.log"
+    TEST_JSON_REPORT: "${CI_PROJECT_DIR}/_build/reports/test-report.json"
     TEST_LOG_DIR: "${CI_PROJECT_DIR}/_build/reports/test-logs"
     TEST_OPTIONS: "-count=1 -timeout=20m" # a number of tests may exceed the default 10m
   before_script: &test_before_script
@@ -117,7 +117,7 @@ workflow:
     paths:
       - ${TEST_LOG_DIR}
     reports:
-      junit: ${TEST_REPORT}
+      junit: ${TEST_JUNIT_REPORT}
     when: always
     expire_in: 1 week
 
