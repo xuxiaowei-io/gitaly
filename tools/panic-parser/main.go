@@ -14,7 +14,7 @@ type LogLine struct {
 }
 
 func main() {
-	logFile := os.Getenv("TEST_FULL_OUTPUT")
+	logFile := os.Getenv("TEST_JSON_REPORT")
 	fmt.Printf("# Checking for panics in %s\n", logFile)
 
 	if os.Getenv("CI_JOB_STATUS") != "failed" {

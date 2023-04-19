@@ -222,9 +222,10 @@ TEST_PACKAGES     ?= ${SOURCE_DIR}/...
 TEST_OPTIONS      ?= -count=1
 ## Specify the output format used to print tests ["standard-verbose", "standard-quiet", "short"]
 TEST_FORMAT       ?= short
-TEST_REPORT       ?= ${BUILD_DIR}/reports/go-tests-report.xml
-# Full output of `go test -json`
-TEST_FULL_OUTPUT  ?= /dev/null
+## Specify the location where the JUnit-style format shall be written to.
+TEST_JUNIT_REPORT ?= ${BUILD_DIR}/reports/tests-junit.xml
+## Specify the location where the full JSON report shall be written to.
+TEST_JSON_REPORT  ?= /dev/null
 ## Specify the output directory for test coverage reports.
 TEST_COVERAGE_DIR ?= ${BUILD_DIR}/cover
 ## Directory where all runtime test data is being created.
@@ -255,7 +256,7 @@ find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -path "${SO
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
     TEST_LOG_DIR='${TEST_LOG_DIR}' \
-    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} --jsonfile ${TEST_FULL_OUTPUT} -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile '${TEST_JUNIT_REPORT}' --jsonfile '${TEST_JSON_REPORT}' -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 ## Test options passed to `dlv test`.
 DEBUG_OPTIONS      ?= $(patsubst -%,-test.%,${TEST_OPTIONS})
@@ -351,7 +352,7 @@ endif
 
 .PHONY: prepare-tests
 prepare-tests: libgit2 prepare-test-repos ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
-	${Q}mkdir -p "$(dir ${TEST_REPORT})"
+	${Q}mkdir -p "$(dir ${TEST_JUNIT_REPORT})"
 
 .PHONY: prepare-debug
 prepare-debug: ${DELVE}
