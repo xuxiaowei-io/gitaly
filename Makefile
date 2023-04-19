@@ -225,7 +225,7 @@ TEST_FORMAT       ?= short
 ## Specify the location where the JUnit-style format shall be written to.
 TEST_JUNIT_REPORT ?= ${BUILD_DIR}/reports/tests-junit.xml
 ## Specify the location where the full JSON report shall be written to.
-TEST_JSON_REPORT  ?= /dev/null
+TEST_JSON_REPORT  ?=
 ## Specify the output directory for test coverage reports.
 TEST_COVERAGE_DIR ?= ${BUILD_DIR}/cover
 ## Directory where all runtime test data is being created.
