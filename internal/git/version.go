@@ -36,6 +36,17 @@ type Version struct {
 	gl                  uint32
 }
 
+// NewVersion constructs a new Git version from the given components.
+func NewVersion(major, minor, patch, gl uint32) Version {
+	return Version{
+		versionString: fmt.Sprintf("%d.%d.%d.gl%d", major, minor, patch, gl),
+		major:         major,
+		minor:         minor,
+		patch:         patch,
+		gl:            gl,
+	}
+}
+
 // parseVersionOutput parses output returned by git-version(1). It is expected to be in the format
 // "git version 2.39.1.gl1".
 func parseVersionOutput(versionOutput []byte) (Version, error) {
