@@ -1,46 +1,9 @@
 # `gitaly-ruby`
 
-`gitaly-ruby` is a 'sidecar' process for the main Gitaly service. It
-allows us to run legacy Ruby application code for which it would be
-too risky or even infeasible to port it to Go. It was introduced to
-speed up the Gitaly migration project.
+There used to be a 'sidecar' called `gitaly-ruby`, and it was living here. But
+it was phased out and now this directory solely exists for downstream projects
+that still expect this directory and it's `Gemfile` to be here. In a not so
+distant future, this sidecar will only live on in our memories.
 
-## Architecture
-
-`gitaly-ruby` is a minimal Ruby gRPC service which should only receive
-requests from its (Go) parent Gitaly process. The Gitaly parent
-handles authentication, logging, metrics, configuration file parsing
-etc.
-
-The Gitaly parent is also responsible for starting and (if necessary)
-restarting `gitaly-ruby`.
-
-## Authentication
-
-`gitaly-ruby` listens on a Unix socket in a temporary directory with
-mode 0700. It runs as the same user as the Gitaly parent process.
-
-## Testing
-
-There are three sets of test that exercise `gitaly-ruby`:
-
-- Top-level Go integration tests
-- Rspec integration tests (`spec/gitaly`)
-- Rspec unit tests (`spec/lib`)
-
-If you are working on the Ruby code and you want to run the Rspec
-tests only, without recompiling the Go parts then do the following:
-
-- run `make rspec` at the top level at least once, to compile Go binaries and get the test repo;
-- edit code under the current directory (`ruby`);
-- run `bundle exec rspec` in the current directory.
-
-## Development
-
-`gitaly-ruby` is only meant to be spawned by Gitaly itself. But, during
-development you may want to try spawning it in a terminal yourself.
-You can do that with the following incantation:
-
-```shell
-sh -c 'bin/gitaly-ruby $$ tmp/socket & wait'
-```
+More info can be found in the
+[epic](https://gitlab.com/groups/gitlab-org/-/epics/2862).
