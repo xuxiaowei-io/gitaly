@@ -15,13 +15,16 @@ import (
 
 // FindAllBranchNames creates a stream of ref names for all branches in the given repository
 func (s *server) FindAllBranchNames(in *gitalypb.FindAllBranchNamesRequest, stream gitalypb.RefService_FindAllBranchNamesServer) error {
+	ctx := stream.Context()
+
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
+	repo := s.localrepo(in.GetRepository())
 	chunker := chunk.New(&findAllBranchNamesSender{stream: stream})
 
-	if err := s.listRefNames(stream.Context(), chunker, "refs/heads", in.Repository, nil); err != nil {
+	if err := listRefNames(ctx, repo, chunker, "refs/heads", nil); err != nil {
 		return structerr.NewInternal("%w", err)
 	}
 
@@ -44,12 +47,16 @@ func (ts *findAllBranchNamesSender) Send() error {
 
 // FindAllTagNames creates a stream of ref names for all tags in the given repository
 func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream gitalypb.RefService_FindAllTagNamesServer) error {
+	ctx := stream.Context()
+
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
+	repo := s.localrepo(in.GetRepository())
 	chunker := chunk.New(&findAllTagNamesSender{stream: stream})
-	if err := s.listRefNames(stream.Context(), chunker, "refs/tags", in.Repository, nil); err != nil {
+
+	if err := listRefNames(ctx, repo, chunker, "refs/tags", nil); err != nil {
 		return structerr.NewInternal("%w", err)
 	}
 
@@ -70,7 +77,7 @@ func (ts *findAllTagNamesSender) Send() error {
 	return ts.stream.Send(&gitalypb.FindAllTagNamesResponse{Names: ts.tagNames})
 }
 
-func (s *server) listRefNames(ctx context.Context, chunker *chunk.Chunker, prefix string, repo *gitalypb.Repository, extraArgs []string) error {
+func listRefNames(ctx context.Context, repo git.RepositoryExecutor, chunker *chunk.Chunker, prefix string, extraArgs []string) error {
 	flags := []git.Option{
 		git.Flag{Name: "--format=%(refname)"},
 	}
@@ -79,7 +86,7 @@ func (s *server) listRefNames(ctx context.Context, chunker *chunk.Chunker, prefi
 		flags = append(flags, git.Flag{Name: arg})
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  []string{prefix},
