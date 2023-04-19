@@ -278,7 +278,7 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), perm.SharedDir))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte("invalid"), perm.SharedFile))
 			_, err = l.FindLatest(ctx, repo)
-			require.EqualError(t, err, "pointer locator: find latest: find: find latest ID: filesystem sink: get reader for \"TestPointerLocator/invalid/LATEST\": doesn't exist")
+			require.EqualError(t, err, "pointer locator: find latest: find: find latest ID: doesn't exist")
 		})
 
 		t.Run("invalid incremental LATEST", func(t *testing.T) {

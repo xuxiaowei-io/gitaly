@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,8 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
@@ -75,6 +74,18 @@ type Locator interface {
 	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
 }
 
+// Repository abstracts git access required to make a repository backup
+type Repository interface {
+	// IsEmpty returns true if the repository has no branches.
+	IsEmpty(ctx context.Context) (bool, error)
+	// ListRefs fetches the full set of refs and targets for the repository.
+	ListRefs(ctx context.Context) ([]git.Reference, error)
+	// GetCustomHooks fetches the custom hooks archive.
+	GetCustomHooks(ctx context.Context) (io.Reader, error)
+	// CreateBundle fetches a bundle that contains refs matching patterns.
+	CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error
+}
+
 // ResolveLocator returns a locator implementation based on a locator identifier.
 func ResolveLocator(layout string, sink Sink) (Locator, error) {
 	legacy := LegacyLocator{}
@@ -101,6 +112,10 @@ type Manager struct {
 	// once. We may use this to make it easier to specify a backup to restore
 	// from, rather than always selecting the latest.
 	backupID string
+
+	// repositoryFactory returns an abstraction over git repositories in order
+	// to create and restore backups.
+	repositoryFactory func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error)
 }
 
 // NewManager creates and returns initialized *Manager instance.
@@ -110,6 +125,14 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 		conns:    pool,
 		locator:  locator,
 		backupID: backupID,
+		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
+			conn, err := pool.Dial(ctx, server.Address, server.Token)
+			if err != nil {
+				return nil, err
+			}
+
+			return newRemoteRepository(repo, conn), nil
+		},
 	}
 }
 
@@ -152,7 +175,12 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if isEmpty, err := mgr.isEmpty(ctx, req.Server, req.Repository); err != nil {
+	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
+	if isEmpty, err := repo.IsEmpty(ctx); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	} else if isEmpty {
 		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
@@ -169,18 +197,18 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		step = mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
 	}
 
-	refs, err := mgr.listRefs(ctx, req.Server, req.Repository)
+	refs, err := repo.ListRefs(ctx)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 	if err := mgr.writeRefs(ctx, step.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.writeBundle(ctx, step, req.Server, req.Repository, refs); err != nil {
-		return fmt.Errorf("manager: write bundle: %w", err)
+	if err := mgr.writeBundle(ctx, repo, step, refs); err != nil {
+		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.writeCustomHooks(ctx, step.CustomHooksPath, req.Server, req.Repository); err != nil {
-		return fmt.Errorf("manager: write custom hooks: %w", err)
+	if err := mgr.writeCustomHooks(ctx, repo, step.CustomHooksPath); err != nil {
+		return fmt.Errorf("manager: %w", err)
 	}
 
 	if err := mgr.locator.Commit(ctx, step); err != nil {
@@ -251,22 +279,11 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 
 	var err error
 	*server, err = storage.ExtractGitalyServer(ctx, storageName)
-	return err
-}
-
-func (mgr *Manager) isEmpty(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) (bool, error) {
-	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
-		return false, fmt.Errorf("isEmpty: %w", err)
+		return fmt.Errorf("set context server info: %w", err)
 	}
-	hasLocalBranches, err := repoClient.HasLocalBranches(ctx, &gitalypb.HasLocalBranchesRequest{Repository: repo})
-	switch {
-	case status.Code(err) == codes.NotFound:
-		return true, nil
-	case err != nil:
-		return false, fmt.Errorf("isEmpty: %w", err)
-	}
-	return !hasLocalBranches.GetValue(), nil
+
+	return nil
 }
 
 func (mgr *Manager) removeRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
@@ -295,95 +312,90 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.ServerInfo, repo *gitalypb.Repository, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
-	repoClient, err := mgr.newRepoClient(ctx, server)
+func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step, refs []git.Reference) (returnErr error) {
+	negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 	if err != nil {
-		return err
+		return fmt.Errorf("write bundle: %w", err)
 	}
-	stream, err := repoClient.CreateBundleFromRefList(ctx)
-	if err != nil {
-		return err
-	}
-	c := chunk.New(&createBundleFromRefListSender{
-		stream: stream,
-	})
-	if err := mgr.sendKnownRefs(ctx, step, repo, c); err != nil {
-		return err
-	}
-	for _, ref := range refs {
-		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
-			Repository: repo,
-			Patterns:   [][]byte{ref.GetName()},
-		}); err != nil {
-			return err
+	defer func() {
+		if err := negatedRefs.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("write bundle: %w", err)
 		}
-	}
-	if err := c.Flush(); err != nil {
-		return err
-	}
-	if err := stream.CloseSend(); err != nil {
-		return err
-	}
+	}()
 
-	bundle := streamio.NewReader(func() ([]byte, error) {
-		resp, err := stream.Recv()
-		if structerr.GRPCCode(err) == codes.FailedPrecondition {
-			err = errEmptyBundle
+	patternReader, patternWriter := io.Pipe()
+	defer func() {
+		if err := patternReader.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("write bundle: %w", err)
 		}
-		return resp.GetData(), err
-	})
+	}()
+	go func() {
+		defer patternWriter.Close()
+
+		for _, ref := range refs {
+			_, err := fmt.Fprintln(patternWriter, ref.Name)
+			if err != nil {
+				_ = patternWriter.CloseWithError(err)
+				return
+			}
+		}
+	}()
+
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, step.BundlePath)
 	})
 	defer func() {
 		if err := w.Close(); err != nil && returnErr == nil {
-			returnErr = err
+			returnErr = fmt.Errorf("write bundle: %w", err)
 		}
 	}()
 
-	if _, err := io.Copy(w, bundle); err != nil {
+	if err := repo.CreateBundle(ctx, w, io.MultiReader(negatedRefs, patternReader)); err != nil {
 		if errors.Is(err, errEmptyBundle) {
-			return fmt.Errorf("%T write: %w: no changes to bundle", mgr.sink, ErrSkipped)
+			return fmt.Errorf("write bundle: %w: no changes to bundle", ErrSkipped)
 		}
-		return fmt.Errorf("%T write: %w", mgr.sink, err)
+		return fmt.Errorf("write bundle: %w", err)
 	}
 
 	return nil
 }
 
-// sendKnownRefs sends the negated targets of each ref that had previously been
-// backed up. This ensures that git-bundle stops traversing commits once it
-// finds the commits that were previously backed up.
-func (mgr *Manager) sendKnownRefs(ctx context.Context, step *Step, repo *gitalypb.Repository, c *chunk.Chunker) error {
+func (mgr *Manager) negatedKnownRefs(ctx context.Context, step *Step) (io.ReadCloser, error) {
 	if len(step.PreviousRefPath) == 0 {
-		return nil
+		return io.NopCloser(new(bytes.Reader)), nil
 	}
 
-	reader, err := mgr.sink.GetReader(ctx, step.PreviousRefPath)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
+	r, w := io.Pipe()
 
-	d := git.NewShowRefDecoder(reader)
-	for {
-		var ref git.Reference
+	go func() {
+		defer w.Close()
 
-		if err := d.Decode(&ref); err == io.EOF {
-			break
-		} else if err != nil {
-			return err
+		reader, err := mgr.sink.GetReader(ctx, step.PreviousRefPath)
+		if err != nil {
+			_ = w.CloseWithError(err)
+			return
 		}
+		defer reader.Close()
 
-		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
-			Repository: repo,
-			Patterns:   [][]byte{[]byte("^" + ref.Target)},
-		}); err != nil {
-			return err
+		d := git.NewShowRefDecoder(reader)
+		for {
+			var ref git.Reference
+
+			if err := d.Decode(&ref); err == io.EOF {
+				break
+			} else if err != nil {
+				_ = w.CloseWithError(err)
+				return
+			}
+
+			if _, err := fmt.Fprintf(w, "^%s\n", ref.Target); err != nil {
+				_ = w.CloseWithError(err)
+				return
+			}
 		}
-	}
+	}()
 
-	return nil
+	return r, nil
 }
 
 type createBundleFromRefListSender struct {
@@ -444,24 +456,16 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 	return nil
 }
 
-func (mgr *Manager) writeCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := mgr.newRepoClient(ctx, server)
+func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) error {
+	hooks, err := repo.GetCustomHooks(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("write custom hooks: %w", err)
 	}
-	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: repo})
-	if err != nil {
-		return err
-	}
-	hooks := streamio.NewReader(func() ([]byte, error) {
-		resp, err := stream.Recv()
-		return resp.GetData(), err
-	})
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, path)
 	})
 	if _, err := io.Copy(w, hooks); err != nil {
-		return fmt.Errorf("%T write: %w", mgr.sink, err)
+		return fmt.Errorf("write custom hooks: %w", err)
 	}
 	return nil
 }
@@ -506,39 +510,9 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server 
 	return nil
 }
 
-// listRefs fetches the full set of refs and targets for the repository
-func (mgr *Manager) listRefs(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) ([]*gitalypb.ListRefsResponse_Reference, error) {
-	refClient, err := mgr.newRefClient(ctx, server)
-	if err != nil {
-		return nil, fmt.Errorf("list refs: %w", err)
-	}
-	stream, err := refClient.ListRefs(ctx, &gitalypb.ListRefsRequest{
-		Repository: repo,
-		Head:       true,
-		Patterns:   [][]byte{[]byte("refs/")},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list refs: %w", err)
-	}
-
-	var refs []*gitalypb.ListRefsResponse_Reference
-
-	for {
-		resp, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, fmt.Errorf("list refs: %w", err)
-		}
-		refs = append(refs, resp.GetReferences()...)
-	}
-
-	return refs, nil
-}
-
 // writeRefs writes the previously fetched list of refs in the same output
 // format as `git-show-ref(1)`
-func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb.ListRefsResponse_Reference) (returnErr error) {
+func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []git.Reference) (returnErr error) {
 	w, err := mgr.sink.GetWriter(ctx, path)
 	if err != nil {
 		return fmt.Errorf("write refs: %w", err)
@@ -550,7 +524,7 @@ func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb
 	}()
 
 	for _, ref := range refs {
-		_, err = fmt.Fprintf(w, "%s %s\n", ref.GetTarget(), ref.GetName())
+		_, err = fmt.Fprintf(w, "%s %s\n", ref.Target, ref.Name)
 		if err != nil {
 			return fmt.Errorf("write refs: %w", err)
 		}
@@ -566,13 +540,4 @@ func (mgr *Manager) newRepoClient(ctx context.Context, server storage.ServerInfo
 	}
 
 	return gitalypb.NewRepositoryServiceClient(conn), nil
-}
-
-func (mgr *Manager) newRefClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RefServiceClient, error) {
-	conn, err := mgr.conns.Dial(ctx, server.Address, server.Token)
-	if err != nil {
-		return nil, err
-	}
-
-	return gitalypb.NewRefServiceClient(conn), nil
 }
