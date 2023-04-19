@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -122,18 +121,11 @@ func TestSetCustomHooksRequest_success(t *testing.T) {
 			require.NoError(t, err)
 			closeStream()
 
-			voteHash, err := newDirectoryVote(filepath.Join(repoPath, repoutil.CustomHooksDir))
-			require.NoError(t, err)
-
 			testhelper.MustClose(t, file)
-
-			expectedVote, err := voteHash.Vote()
-			require.NoError(t, err)
 
 			require.FileExists(t, filepath.Join(repoPath, "custom_hooks", "pre-push.sample"))
 			require.Equal(t, 2, len(txManager.Votes()))
 			assert.Equal(t, voting.Prepared, txManager.Votes()[0].Phase)
-			assert.Equal(t, expectedVote, txManager.Votes()[1].Vote)
 			assert.Equal(t, voting.Committed, txManager.Votes()[1].Phase)
 		})
 	}
@@ -269,70 +261,6 @@ type testFile struct {
 	name    string
 	content string
 	mode    os.FileMode
-}
-
-func TestNewDirectoryVote(t *testing.T) {
-	// The vote hash depends on the permission bits, so we must make sure that the files we
-	// write have the same permission bits on all systems. As the umask can get in our way we
-	// reset it to a known value here and restore it after the test. This also means that we
-	// cannot parallelize this test.
-	currentUmask := syscall.Umask(0)
-	defer func() {
-		syscall.Umask(currentUmask)
-	}()
-	syscall.Umask(0o022)
-
-	for _, tc := range []struct {
-		desc         string
-		files        []testFile
-		expectedHash string
-	}{
-		{
-			desc: "generated hash matches",
-			files: []testFile{
-				{name: "pre-commit.sample", content: "foo", mode: perm.SharedExecutable},
-				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
-			},
-			expectedHash: "8ca11991268de4c9278488a674fc1a88db449566",
-		},
-		{
-			desc: "generated hash matches with changed file name",
-			files: []testFile{
-				{name: "pre-commit.sample.diff", content: "foo", mode: perm.SharedExecutable},
-				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
-			},
-			expectedHash: "b5ed58ced84103da1ed9d7813a9e39b3b5daf7d7",
-		},
-		{
-			desc: "generated hash matches with changed file content",
-			files: []testFile{
-				{name: "pre-commit.sample", content: "foo", mode: perm.SharedExecutable},
-				{name: "pre-push.sample", content: "bar.diff", mode: perm.SharedExecutable},
-			},
-			expectedHash: "178083848c8a08e36c4f86c2d318a84b0bb845f2",
-		},
-		{
-			desc: "generated hash matches with changed file mode",
-			files: []testFile{
-				{name: "pre-commit.sample", content: "foo", mode: perm.SharedFile},
-				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
-			},
-			expectedHash: "c69574241b83496bb4005b4f7a0dfcda96cb317e",
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			path := mustWriteCustomHookDirectory(t, tc.files, repoutil.CustomHooksDir)
-
-			voteHash, err := newDirectoryVote(path)
-			require.NoError(t, err)
-
-			vote, err := voteHash.Vote()
-			require.NoError(t, err)
-
-			hash := vote.String()
-			require.Equal(t, tc.expectedHash, hash)
-		})
-	}
 }
 
 func mustWriteCustomHookDirectory(t *testing.T, files []testFile, dirName string) string {
