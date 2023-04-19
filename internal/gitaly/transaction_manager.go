@@ -18,7 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -816,7 +816,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		}
 	}
 
-	if err := hook.ExtractHooks(ctx, bytes.NewReader(update.CustomHooksTar), targetDirectory, true); err != nil {
+	if err := repoutil.ExtractHooks(ctx, bytes.NewReader(update.CustomHooksTar), targetDirectory, true); err != nil {
 		return fmt.Errorf("extract hooks: %w", err)
 	}
 

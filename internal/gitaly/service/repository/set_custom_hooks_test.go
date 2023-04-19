@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
@@ -113,7 +113,7 @@ func TestSetCustomHooksRequest_success(t *testing.T) {
 			archivePath := mustCreateCustomHooksArchive(t, ctx, []testFile{
 				{name: "pre-commit.sample", content: "foo", mode: 0o755},
 				{name: "pre-push.sample", content: "bar", mode: 0o755},
-			}, hook.CustomHooksDir)
+			}, repoutil.CustomHooksDir)
 
 			file, err := os.Open(archivePath)
 			require.NoError(t, err)
@@ -122,7 +122,7 @@ func TestSetCustomHooksRequest_success(t *testing.T) {
 			require.NoError(t, err)
 			closeStream()
 
-			voteHash, err := newDirectoryVote(filepath.Join(repoPath, hook.CustomHooksDir))
+			voteHash, err := newDirectoryVote(filepath.Join(repoPath, repoutil.CustomHooksDir))
 			require.NoError(t, err)
 
 			testhelper.MustClose(t, file)
@@ -321,7 +321,7 @@ func TestNewDirectoryVote(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			path := mustWriteCustomHookDirectory(t, tc.files, hook.CustomHooksDir)
+			path := mustWriteCustomHookDirectory(t, tc.files, repoutil.CustomHooksDir)
 
 			voteHash, err := newDirectoryVote(path)
 			require.NoError(t, err)

@@ -12,7 +12,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -104,7 +104,7 @@ func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repo
 
 	// The `custom_hooks` directory in the repository is locked to prevent
 	// concurrent modification of hooks.
-	hooksLock, err := safe.NewLockingDirectory(repoPath, hook.CustomHooksDir)
+	hooksLock, err := safe.NewLockingDirectory(repoPath, repoutil.CustomHooksDir)
 	if err != nil {
 		return fmt.Errorf("creating hooks lock: %w", err)
 	}
@@ -136,11 +136,11 @@ func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repo
 		}
 	}()
 
-	if err := hook.ExtractHooks(ctx, reader, tmpDir.Path(), false); err != nil {
+	if err := repoutil.ExtractHooks(ctx, reader, tmpDir.Path(), false); err != nil {
 		return fmt.Errorf("extracting hooks: %w", err)
 	}
 
-	tempHooksPath := filepath.Join(tmpDir.Path(), hook.CustomHooksDir)
+	tempHooksPath := filepath.Join(tmpDir.Path(), repoutil.CustomHooksDir)
 
 	// No hooks will be extracted if the tar archive is empty. If this happens
 	// it means the repository should be set with an empty `custom_hooks`
@@ -161,7 +161,7 @@ func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repo
 		return fmt.Errorf("casting prepared vote: %w", err)
 	}
 
-	repoHooksPath := filepath.Join(repoPath, hook.CustomHooksDir)
+	repoHooksPath := filepath.Join(repoPath, repoutil.CustomHooksDir)
 	prevHooksPath := filepath.Join(tmpDir.Path(), "previous_hooks")
 
 	// If the `custom_hooks` directory exists in the repository, move the

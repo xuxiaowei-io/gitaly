@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -102,4 +104,124 @@ func TestGetCustomHooks_nonexistentHooks(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Empty(t, buf.String(), "Returned stream should be empty")
+}
+
+func TestExtractHooks(t *testing.T) {
+	umask := perm.GetUmask()
+
+	writeFile := func(writer *tar.Writer, path string, mode fs.FileMode, content string) {
+		require.NoError(t, writer.WriteHeader(&tar.Header{
+			Name: path,
+			Mode: int64(mode),
+			Size: int64(len(content)),
+		}))
+		_, err := writer.Write([]byte(content))
+		require.NoError(t, err)
+	}
+
+	validArchive := func() io.Reader {
+		var buffer bytes.Buffer
+		writer := tar.NewWriter(&buffer)
+		writeFile(writer, "custom_hooks/pre-receive", fs.ModePerm, "pre-receive content")
+		require.NoError(t, writer.WriteHeader(&tar.Header{
+			Name: "custom_hooks/subdirectory/",
+			Mode: int64(perm.PrivateDir),
+		}))
+		writeFile(writer, "custom_hooks/subdirectory/supporting-file", perm.PrivateFile, "supporting-file content")
+		writeFile(writer, "ignored_file", fs.ModePerm, "ignored content")
+		writeFile(writer, "ignored_directory/ignored_file", fs.ModePerm, "ignored content")
+		defer testhelper.MustClose(t, writer)
+		return &buffer
+	}
+
+	for _, tc := range []struct {
+		desc                 string
+		archive              io.Reader
+		stripPrefix          bool
+		expectedState        testhelper.DirectoryState
+		expectedErrorMessage string
+	}{
+		{
+			desc:    "empty reader",
+			archive: strings.NewReader(""),
+			expectedState: testhelper.DirectoryState{
+				"/": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+			},
+		},
+		{
+			desc: "empty archive",
+			archive: func() io.Reader {
+				var buffer bytes.Buffer
+				writer := tar.NewWriter(&buffer)
+				defer testhelper.MustClose(t, writer)
+				return &buffer
+			}(),
+			expectedState: testhelper.DirectoryState{
+				"/": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+			},
+		},
+		{
+			desc: "just custom_hooks directory",
+			archive: func() io.Reader {
+				var buffer bytes.Buffer
+				writer := tar.NewWriter(&buffer)
+				require.NoError(t, writer.WriteHeader(&tar.Header{
+					Name: "custom_hooks/",
+					Mode: int64(fs.ModePerm),
+				}))
+				defer testhelper.MustClose(t, writer)
+				return &buffer
+			}(),
+			expectedState: testhelper.DirectoryState{
+				"/":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				"/custom_hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+			},
+		},
+		{
+			desc:    "custom_hooks dir extracted",
+			archive: validArchive(),
+			expectedState: testhelper.DirectoryState{
+				"/":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				"/custom_hooks":              {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				"/custom_hooks/pre-receive":  {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-receive content")},
+				"/custom_hooks/subdirectory": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+				"/custom_hooks/subdirectory/supporting-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("supporting-file content")},
+			},
+		},
+		{
+			desc:        "custom_hooks dir extracted with prefix stripped",
+			archive:     validArchive(),
+			stripPrefix: true,
+			expectedState: testhelper.DirectoryState{
+				"/":                             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				"/pre-receive":                  {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-receive content")},
+				"/subdirectory":                 {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+				"/subdirectory/supporting-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("supporting-file content")},
+			},
+		},
+		{
+			desc:                 "corrupted archive",
+			archive:              strings.NewReader("invalid tar content"),
+			expectedErrorMessage: "waiting for tar command completion: exit status",
+			expectedState: testhelper.DirectoryState{
+				"/": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testhelper.Context(t)
+
+			tmpDir := t.TempDir()
+			err := ExtractHooks(ctx, tc.archive, tmpDir, tc.stripPrefix)
+			if tc.expectedErrorMessage != "" {
+				require.ErrorContains(t, err, tc.expectedErrorMessage)
+			} else {
+				require.NoError(t, err)
+			}
+			testhelper.RequireDirectoryState(t, tmpDir, "", tc.expectedState)
+		})
+	}
 }
