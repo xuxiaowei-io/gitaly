@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -66,6 +67,40 @@ func TestSearchFilesByContent(t *testing.T) {
 		expectedErr     error
 		expectedMatches []string
 	}{
+		{
+			desc: "no repo",
+			request: &gitalypb.SearchFilesByContentRequest{
+				Repository: nil,
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "empty request",
+			request: &gitalypb.SearchFilesByContentRequest{
+				Repository: repoProto,
+			},
+			expectedErr: structerr.NewInvalidArgument("no query given"),
+		},
+		{
+			desc: "only query given",
+			request: &gitalypb.SearchFilesByContentRequest{
+				Repository: repoProto,
+				Query:      "foo",
+			},
+			expectedErr: structerr.NewInvalidArgument("no ref given"),
+		},
+		{
+			desc: "invalid ref argument",
+			request: &gitalypb.SearchFilesByContentRequest{
+				Repository: repoProto,
+				Query:      ".",
+				Ref:        []byte("--no-index"),
+			},
+			expectedErr: structerr.NewInvalidArgument("invalid ref argument"),
+		},
 		{
 			desc: "single matching file",
 			request: &gitalypb.SearchFilesByContentRequest{
@@ -163,93 +198,6 @@ func TestSearchFilesByContent(t *testing.T) {
 			matches, err := consumeFilenameByContentChunked(stream)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedMatches, matches)
-		})
-	}
-}
-
-func TestSearchFilesByContentFailure(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-	})
-
-	gitCommandFactory := gittest.NewCommandFactory(t, cfg)
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-
-	locator := config.NewLocator(cfg)
-
-	connsPool := client.NewPool()
-	defer testhelper.MustClose(t, connsPool)
-
-	git2goExecutor := git2go.NewExecutor(cfg, gitCommandFactory, locator)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
-
-	server := NewServer(
-		cfg,
-		locator,
-		txManager,
-		gitCommandFactory,
-		catfileCache,
-		connsPool,
-		git2goExecutor,
-		housekeepingManager,
-	)
-
-	testCases := []struct {
-		desc  string
-		repo  *gitalypb.Repository
-		query string
-		ref   string
-		code  codes.Code
-		msg   string
-	}{
-		{
-			desc: "empty request",
-			repo: repo,
-			code: codes.InvalidArgument,
-			msg:  "no query given",
-		},
-		{
-			desc:  "only query given",
-			repo:  repo,
-			query: "foo",
-			code:  codes.InvalidArgument,
-			msg:   "no ref given",
-		},
-		{
-			desc:  "no repo",
-			query: "foo",
-			ref:   "master",
-			code:  codes.InvalidArgument,
-			msg:   "empty Repo",
-		},
-		{
-			desc:  "invalid ref argument",
-			repo:  repo,
-			query: ".",
-			ref:   "--no-index",
-			code:  codes.InvalidArgument,
-			msg:   "invalid ref argument",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			err := server.SearchFilesByContent(&gitalypb.SearchFilesByContentRequest{
-				Repository: tc.repo,
-				Query:      tc.query,
-				Ref:        []byte(tc.ref),
-			}, nil)
-
-			testhelper.RequireGrpcCode(t, err, tc.code)
-			require.Contains(t, err.Error(), tc.msg)
 		})
 	}
 }
