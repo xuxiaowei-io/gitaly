@@ -219,6 +219,13 @@ func TestSearchFilesByName(t *testing.T) {
 	})
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"), gittest.WithTree(treeID))
 
+	unusualNamesCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "\"file with quote.txt", Mode: "100644", Content: "something"},
+		gittest.TreeEntry{Path: ".vimrc", Mode: "100644", Content: "something"},
+		gittest.TreeEntry{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", Content: "something"},
+		gittest.TreeEntry{Path: "编码 'foo'.md", Mode: "100644", Content: "something"},
+	))
+
 	for _, tc := range []struct {
 		desc          string
 		request       *gitalypb.SearchFilesByNameRequest
@@ -268,6 +275,97 @@ func TestSearchFilesByName(t *testing.T) {
 				Ref:        []byte("non_existent_ref"),
 			},
 		},
+		{
+			desc: "file with quote",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      "\"file with quote.txt",
+			},
+			expectedFiles: []string{"\"file with quote.txt"},
+		},
+		{
+			desc: "dotfiles",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      ".vimrc",
+			},
+			expectedFiles: []string{".vimrc"},
+		},
+		{
+			desc: "latin-base language",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      "cuộc đời là những chuyến đi.md",
+			},
+			expectedFiles: []string{"cuộc đời là những chuyến đi.md"},
+		},
+		{
+			desc: "non-latin language",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      "编码 'foo'.md",
+			},
+			expectedFiles: []string{"编码 'foo'.md"},
+		},
+		{
+			desc: "filter file with quote",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      ".",
+				Filter:     "^\"file.*",
+			},
+			expectedFiles: []string{"\"file with quote.txt"},
+		},
+		{
+			desc: "filter dotfiles",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      ".",
+				Filter:     "^\\..*",
+			},
+			expectedFiles: []string{".vimrc"},
+		},
+		{
+			desc: "filter latin-base language",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      ".",
+				Filter:     "cuộc đời .*\\.md",
+			},
+			expectedFiles: []string{"cuộc đời là những chuyến đi.md"},
+		},
+		{
+			desc: "filter non-latin language",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      ".",
+				Filter:     "编码 'foo'\\.(md|txt|rdoc)",
+			},
+			expectedFiles: []string{"编码 'foo'.md"},
+		},
+		{
+			desc: "wildcard filter",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(unusualNamesCommit),
+				Query:      ".",
+				Filter:     ".*",
+			},
+			expectedFiles: []string{
+				"\"file with quote.txt",
+				".vimrc",
+				"cuộc đời là những chuyến đi.md",
+				"编码 'foo'.md",
+			},
+		},
 	} {
 		tc := tc
 
@@ -279,103 +377,6 @@ func TestSearchFilesByName(t *testing.T) {
 
 			files, err := consumeFilenameByName(stream)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-			require.Equal(t, tc.expectedFiles, files)
-		})
-	}
-}
-
-func TestSearchFilesByNameUnusualFileNamesSuccessful(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
-
-	ref := []byte("unusual_file_names")
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch(string(ref)),
-		gittest.WithMessage("commit message"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "\"file with quote.txt", Mode: "100644", Content: "something"},
-			gittest.TreeEntry{Path: ".vimrc", Mode: "100644", Content: "something"},
-			gittest.TreeEntry{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", Content: "something"},
-			gittest.TreeEntry{Path: "编码 'foo'.md", Mode: "100644", Content: "something"},
-		),
-	)
-
-	testCases := []struct {
-		desc          string
-		query         string
-		filter        string
-		expectedFiles []string
-	}{
-		{
-			desc:          "file with quote",
-			query:         "\"file with quote.txt",
-			expectedFiles: []string{"\"file with quote.txt"},
-		},
-		{
-			desc:          "dotfiles",
-			query:         ".vimrc",
-			expectedFiles: []string{".vimrc"},
-		},
-		{
-			desc:          "latin-base language",
-			query:         "cuộc đời là những chuyến đi.md",
-			expectedFiles: []string{"cuộc đời là những chuyến đi.md"},
-		},
-		{
-			desc:          "non-latin language",
-			query:         "编码 'foo'.md",
-			expectedFiles: []string{"编码 'foo'.md"},
-		},
-		{
-			desc:          "filter file with quote",
-			query:         ".",
-			filter:        "^\"file.*",
-			expectedFiles: []string{"\"file with quote.txt"},
-		},
-		{
-			desc:          "filter dotfiles",
-			query:         ".",
-			filter:        "^\\..*",
-			expectedFiles: []string{".vimrc"},
-		},
-		{
-			desc:          "filter latin-base language",
-			query:         ".",
-			filter:        "cuộc đời .*\\.md",
-			expectedFiles: []string{"cuộc đời là những chuyến đi.md"},
-		},
-		{
-			desc:          "filter non-latin language",
-			query:         ".",
-			filter:        "编码 'foo'\\.(md|txt|rdoc)",
-			expectedFiles: []string{"编码 'foo'.md"},
-		},
-		{
-			desc:   "wildcard filter",
-			query:  ".",
-			filter: ".*",
-			expectedFiles: []string{
-				"\"file with quote.txt",
-				".vimrc",
-				"cuộc đời là những chuyến đi.md",
-				"编码 'foo'.md",
-			},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.SearchFilesByName(ctx, &gitalypb.SearchFilesByNameRequest{
-				Repository: repo,
-				Ref:        ref,
-				Query:      tc.query,
-				Filter:     tc.filter,
-			})
-			require.NoError(t, err)
-
-			files, err := consumeFilenameByName(stream)
-			require.NoError(t, err)
 			require.Equal(t, tc.expectedFiles, files)
 		})
 	}
