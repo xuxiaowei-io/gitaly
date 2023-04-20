@@ -73,81 +73,81 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			desc:     "mirror is up to date",
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
-				"refs/tags/tag":     {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
+				"refs/tags/tag":        {"commit 1"},
 			},
 			mirrorRefs: refs{
-				"refs/heads/master": {"commit 1"},
-				"refs/tags/tag":     {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
+				"refs/tags/tag":        {"commit 1"},
 			},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
-				"refs/tags/tag":     "commit 1",
+				string(git.DefaultRef): "commit 1",
+				"refs/tags/tag":        "commit 1",
 			},
 		},
 		{
 			desc: "creates missing references",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
-				"refs/tags/tag":     {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
+				"refs/tags/tag":        {"commit 1"},
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
-				"refs/tags/tag":     "commit 1",
+				string(git.DefaultRef): "commit 1",
+				"refs/tags/tag":        "commit 1",
 			},
 		},
 		{
 			desc: "updates outdated references",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1", "commit 2"},
-				"refs/tags/tag":     {"commit 1", "commit 2"},
+				string(git.DefaultRef): {"commit 1", "commit 2"},
+				"refs/tags/tag":        {"commit 1", "commit 2"},
 			},
 			mirrorRefs: refs{
-				"refs/heads/master": {"commit 1"},
-				"refs/tags/tag":     {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
+				"refs/tags/tag":        {"commit 1"},
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 2",
-				"refs/tags/tag":     "commit 2",
+				string(git.DefaultRef): "commit 2",
+				"refs/tags/tag":        "commit 2",
 			},
 		},
 		{
 			desc: "deletes unneeded references",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
 			},
 			mirrorRefs: refs{
-				"refs/heads/master": {"commit 1"},
-				"refs/heads/branch": {"commit 1"},
-				"refs/tags/tag":     {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
+				"refs/heads/branch":    {"commit 1"},
+				"refs/tags/tag":        {"commit 1"},
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
+				string(git.DefaultRef): "commit 1",
 			},
 		},
 		{
 			desc: "keeps extra branches in remote not merged in local default branch",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
 			},
 			mirrorRefs: refs{
-				"refs/heads/master":     {"commit 1"},
+				string(git.DefaultRef):  {"commit 1"},
 				"refs/heads/merged":     {"commit 1"},
 				"refs/heads/not-merged": {"commit 1", "commit 2"},
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master":     "commit 1",
+				string(git.DefaultRef):  "commit 1",
 				"refs/heads/not-merged": "commit 2",
 			},
 		},
 		{
 			desc: "updates branches that match the branch selector",
 			sourceRefs: refs{
-				"refs/heads/master":      {"commit 1"},
+				string(git.DefaultRef):   {"commit 1"},
 				"refs/heads/matched":     {"commit 1"},
 				"refs/heads/not-matched": {"commit 1"},
 			},
@@ -163,7 +163,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		{
 			desc: "updates branches that match the branch selector with wildcard",
 			sourceRefs: refs{
-				"refs/heads/master":      {"commit 1"},
+				string(git.DefaultRef):   {"commit 1"},
 				"refs/heads/matched":     {"commit 1"},
 				"refs/heads/not-matched": {"commit 1"},
 			},
@@ -180,10 +180,10 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		{
 			desc: "deletes unneeded references that match the branch selector",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
 			},
 			mirrorRefs: refs{
-				"refs/heads/master":      {"commit 1"},
+				string(git.DefaultRef):   {"commit 1"},
 				"refs/heads/matched":     {"commit 1"},
 				"refs/heads/not-matched": {"commit 1"},
 				"refs/tags/tag":          {"commit 1"},
@@ -191,7 +191,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			onlyBranchesMatching: []string{"matched"},
 			response:             &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master":      "commit 1",
+				string(git.DefaultRef):   "commit 1",
 				"refs/heads/not-matched": "commit 1",
 			},
 		},
@@ -216,19 +216,19 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		{
 			desc: "does not delete refs with KeepDivergentRefs",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
 			},
 			keepDivergentRefs: true,
 			mirrorRefs: refs{
-				"refs/heads/master": {"commit 1"},
-				"refs/heads/branch": {"commit 1"},
-				"refs/tags/tag":     {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
+				"refs/heads/branch":    {"commit 1"},
+				"refs/tags/tag":        {"commit 1"},
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
-				"refs/heads/branch": "commit 1",
-				"refs/tags/tag":     "commit 1",
+				string(git.DefaultRef): "commit 1",
+				"refs/heads/branch":    "commit 1",
+				"refs/tags/tag":        "commit 1",
 			},
 		},
 		{
@@ -247,19 +247,19 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		{
 			desc: "works if tag and branch named the same",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
-				"refs/tags/master":  {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
+				"refs/tags/master":     {"commit 1"},
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
-				"refs/tags/master":  "commit 1",
+				string(git.DefaultRef): "commit 1",
+				"refs/tags/master":     "commit 1",
 			},
 		},
 		{
 			desc: "only local branches are considered",
 			sourceRefs: refs{
-				"refs/heads/master":               {"commit 1"},
+				string(git.DefaultRef):            {"commit 1"},
 				"refs/remote/local-remote/branch": {"commit 1"},
 			},
 			mirrorRefs: refs{
@@ -267,7 +267,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master":                "commit 1",
+				string(git.DefaultRef):             "commit 1",
 				"refs/remote/mirror-remote/branch": "commit 1",
 			},
 		},
@@ -310,18 +310,18 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			desc: "overwrites diverged references without KeepDivergentRefs",
 			sourceRefs: refs{
 				"refs/heads/non-diverged": {"commit 1", "commit 2"},
-				"refs/heads/master":       {"commit 3"},
+				string(git.DefaultRef):    {"commit 3"},
 				"refs/tags/tag-1":         {"commit 1"},
 			},
 			mirrorRefs: refs{
 				"refs/heads/non-diverged": {"commit 1"},
-				"refs/heads/master":       {"commit 3", "ahead"},
+				string(git.DefaultRef):    {"commit 3", "ahead"},
 				"refs/tags/tag-1":         {"commit 2"},
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
 				"refs/heads/non-diverged": "commit 2",
-				"refs/heads/master":       "commit 3",
+				string(git.DefaultRef):    "commit 3",
 				"refs/tags/tag-1":         "commit 1",
 			},
 		},
@@ -330,24 +330,24 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			desc: "keeps diverged references with KeepDivergentRefs",
 			sourceRefs: refs{
 				"refs/heads/non-diverged": {"commit 1", "commit 2"},
-				"refs/heads/master":       {"commit 3"},
+				string(git.DefaultRef):    {"commit 3"},
 				"refs/tags/tag-1":         {"commit 1"},
 			},
 			mirrorRefs: refs{
 				"refs/heads/non-diverged": {"commit 1"},
-				"refs/heads/master":       {"commit 3", "ahead"},
+				string(git.DefaultRef):    {"commit 3", "ahead"},
 				"refs/tags/tag-1":         {"commit 2"},
 			},
 			keepDivergentRefs: true,
 			response: &gitalypb.UpdateRemoteMirrorResponse{
 				DivergentRefs: [][]byte{
-					[]byte("refs/heads/master"),
+					[]byte(string(git.DefaultRef)),
 					[]byte("refs/tags/tag-1"),
 				},
 			},
 			expectedMirrorRefs: map[string]string{
 				"refs/heads/non-diverged": "commit 2",
-				"refs/heads/master":       "ahead",
+				string(git.DefaultRef):    "ahead",
 				"refs/tags/tag-1":         "commit 2",
 			},
 		},
@@ -401,10 +401,10 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		{
 			desc: "ignores symbolic references in source repo",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
 			},
 			sourceSymRefs: map[string]string{
-				"refs/heads/symbolic-reference": "refs/heads/master",
+				"refs/heads/symbolic-reference": string(git.DefaultRef),
 			},
 			onlyBranchesMatching: []string{"symbolic-reference"},
 			response:             &gitalypb.UpdateRemoteMirrorResponse{},
@@ -413,34 +413,34 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		{
 			desc: "ignores symbolic refs on the mirror",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
 			},
 			mirrorRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
 			},
 			mirrorSymRefs: map[string]string{
-				"refs/heads/symbolic-reference": "refs/heads/master",
+				"refs/heads/symbolic-reference": string(git.DefaultRef),
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
 				// If the symbolic reference was not ignored, master would get deleted
 				// as it's the branch pointed to by a symbolic ref not present in the source
 				// repo.
-				"refs/heads/master":             "commit 1",
+				string(git.DefaultRef):          "commit 1",
 				"refs/heads/symbolic-reference": "commit 1",
 			},
 		},
 		{
 			desc: "ignores symbolic refs and pushes the branch successfully",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				string(git.DefaultRef): {"commit 1"},
 			},
 			sourceSymRefs: map[string]string{
-				"refs/heads/symbolic-reference": "refs/heads/master",
+				"refs/heads/symbolic-reference": string(git.DefaultRef),
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
+				string(git.DefaultRef): "commit 1",
 			},
 		},
 		{
@@ -472,7 +472,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 							firstPush = false
 							args, err := sc.CommandArgs()
 							assert.NoError(tb, err)
-							assert.Contains(tb, args, "refs/heads/master", "first push should contain the default branch")
+							assert.Contains(tb, args, string(git.DefaultRef), "first push should contain the default branch")
 						}
 
 						return original.New(ctx, repo, sc, opts...)
@@ -480,7 +480,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				}
 			},
 			sourceRefs: func() refs {
-				out := refs{"refs/heads/master": []string{"commit 1"}}
+				out := refs{string(git.DefaultRef): []string{"commit 1"}}
 				for i := 0; i < 2*pushBatchSize; i++ {
 					out[fmt.Sprintf("refs/heads/branch-%d", i)] = []string{"commit 1"}
 				}
@@ -488,7 +488,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			}(),
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: func() map[string]string {
-				out := map[string]string{"refs/heads/master": "commit 1"}
+				out := map[string]string{string(git.DefaultRef): "commit 1"}
 				for i := 0; i < 2*pushBatchSize; i++ {
 					out[fmt.Sprintf("refs/heads/branch-%d", i)] = "commit 1"
 				}
@@ -533,13 +533,15 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			desc:     "no F/D conflicts when the ref is an ancestor",
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			sourceRefs: refs{
-				"refs/heads/branch": {"commit 1", "commit 2"},
+				string(git.DefaultRef): {"commit 1"},
+				"refs/heads/branch":    {"commit 1", "commit 2"},
 			},
 			mirrorRefs: refs{
 				"refs/heads/branch/conflict": {"commit 1"},
 			},
 			expectedMirrorRefs: map[string]string{
-				"refs/heads/branch": "commit 2",
+				string(git.DefaultRef): "commit 1",
+				"refs/heads/branch":    "commit 2",
 			},
 		},
 		{
