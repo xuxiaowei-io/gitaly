@@ -202,68 +202,84 @@ func TestSearchFilesByContent(t *testing.T) {
 	}
 }
 
-func TestSearchFilesByNameSuccessful(t *testing.T) {
+func TestSearchFilesByName(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "a", Mode: "100644", Content: "a"},
+		{Path: "b", Mode: "100644", Content: "b"},
+		{Path: "dir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{Path: "c.svg", Mode: "100644", Content: "c"},
+			{Path: "d.txt", Mode: "100644", Content: "d"},
+		})},
+	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"), gittest.WithTree(treeID))
 
-	testCases := []struct {
-		desc     string
-		ref      []byte
-		query    string
-		filter   string
-		numFiles int
-		testFile []byte
+	for _, tc := range []struct {
+		desc          string
+		request       *gitalypb.SearchFilesByNameRequest
+		expectedErr   error
+		expectedFiles []string
 	}{
 		{
-			desc:     "one file",
-			ref:      []byte("many_files"),
-			query:    "files/images/logo-black.png",
-			numFiles: 1,
-			testFile: []byte("files/images/logo-black.png"),
+			desc: "one file",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte("branch"),
+				Query:      "dir/c.svg",
+			},
+			expectedFiles: []string{
+				"dir/c.svg",
+			},
 		},
 		{
-			desc:     "many files",
-			ref:      []byte("many_files"),
-			query:    "many_files",
-			numFiles: 1001,
-			testFile: []byte("many_files/99"),
+			desc: "many files",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte("branch"),
+				Query:      "dir",
+			},
+			expectedFiles: []string{
+				"dir/c.svg",
+				"dir/d.txt",
+			},
 		},
 		{
-			desc:     "filtered",
-			ref:      []byte("many_files"),
-			query:    "files/images",
-			filter:   `\.svg$`,
-			numFiles: 1,
-			testFile: []byte("files/images/wm.svg"),
+			desc: "filtered",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte("branch"),
+				Query:      "dir",
+				Filter:     `\.svg$`,
+			},
+			expectedFiles: []string{
+				"dir/c.svg",
+			},
 		},
 		{
-			desc:     "non-existent ref",
-			query:    ".",
-			ref:      []byte("non_existent_ref"),
-			numFiles: 0,
+			desc: "non-existent ref",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Query:      ".",
+				Ref:        []byte("non_existent_ref"),
+			},
 		},
-	}
+	} {
+		tc := tc
 
-	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.SearchFilesByName(ctx, &gitalypb.SearchFilesByNameRequest{
-				Repository: repo,
-				Ref:        tc.ref,
-				Query:      tc.query,
-				Filter:     tc.filter,
-			})
+			t.Parallel()
+
+			stream, err := client.SearchFilesByName(ctx, tc.request)
 			require.NoError(t, err)
 
-			var files [][]byte
-			files, err = consumeFilenameByName(stream)
-			require.NoError(t, err)
-
-			require.Equal(t, tc.numFiles, len(files))
-			if tc.numFiles != 0 {
-				require.Contains(t, files, tc.testFile)
-			}
+			files, err := consumeFilenameByName(stream)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedFiles, files)
 		})
 	}
 }
@@ -290,61 +306,61 @@ func TestSearchFilesByNameUnusualFileNamesSuccessful(t *testing.T) {
 		desc          string
 		query         string
 		filter        string
-		expectedFiles [][]byte
+		expectedFiles []string
 	}{
 		{
 			desc:          "file with quote",
 			query:         "\"file with quote.txt",
-			expectedFiles: [][]byte{[]byte("\"file with quote.txt")},
+			expectedFiles: []string{"\"file with quote.txt"},
 		},
 		{
 			desc:          "dotfiles",
 			query:         ".vimrc",
-			expectedFiles: [][]byte{[]byte(".vimrc")},
+			expectedFiles: []string{".vimrc"},
 		},
 		{
 			desc:          "latin-base language",
 			query:         "cuộc đời là những chuyến đi.md",
-			expectedFiles: [][]byte{[]byte("cuộc đời là những chuyến đi.md")},
+			expectedFiles: []string{"cuộc đời là những chuyến đi.md"},
 		},
 		{
 			desc:          "non-latin language",
 			query:         "编码 'foo'.md",
-			expectedFiles: [][]byte{[]byte("编码 'foo'.md")},
+			expectedFiles: []string{"编码 'foo'.md"},
 		},
 		{
 			desc:          "filter file with quote",
 			query:         ".",
 			filter:        "^\"file.*",
-			expectedFiles: [][]byte{[]byte("\"file with quote.txt")},
+			expectedFiles: []string{"\"file with quote.txt"},
 		},
 		{
 			desc:          "filter dotfiles",
 			query:         ".",
 			filter:        "^\\..*",
-			expectedFiles: [][]byte{[]byte(".vimrc")},
+			expectedFiles: []string{".vimrc"},
 		},
 		{
 			desc:          "filter latin-base language",
 			query:         ".",
 			filter:        "cuộc đời .*\\.md",
-			expectedFiles: [][]byte{[]byte("cuộc đời là những chuyến đi.md")},
+			expectedFiles: []string{"cuộc đời là những chuyến đi.md"},
 		},
 		{
 			desc:          "filter non-latin language",
 			query:         ".",
 			filter:        "编码 'foo'\\.(md|txt|rdoc)",
-			expectedFiles: [][]byte{[]byte("编码 'foo'.md")},
+			expectedFiles: []string{"编码 'foo'.md"},
 		},
 		{
 			desc:   "wildcard filter",
 			query:  ".",
 			filter: ".*",
-			expectedFiles: [][]byte{
-				[]byte("\"file with quote.txt"),
-				[]byte(".vimrc"),
-				[]byte("cuộc đời là những chuyến đi.md"),
-				[]byte("编码 'foo'.md"),
+			expectedFiles: []string{
+				"\"file with quote.txt",
+				".vimrc",
+				"cuộc đời là những chuyến đi.md",
+				"编码 'foo'.md",
 			},
 		},
 	}
@@ -358,8 +374,7 @@ func TestSearchFilesByNameUnusualFileNamesSuccessful(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			var files [][]byte
-			files, err = consumeFilenameByName(stream)
+			files, err := consumeFilenameByName(stream)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedFiles, files)
 		})
@@ -394,26 +409,26 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 		filter        string
 		offset        uint32
 		limit         uint32
-		expectedFiles [][]byte
+		expectedFiles []string
 	}{
 		{
 			desc:          "only limit is set",
 			query:         ".",
 			limit:         3,
-			expectedFiles: [][]byte{[]byte("file1.md"), []byte("file2.md"), []byte("file3.md")},
+			expectedFiles: []string{"file1.md", "file2.md", "file3.md"},
 		},
 		{
 			desc:          "only offset is set",
 			query:         ".",
 			offset:        2,
-			expectedFiles: [][]byte{[]byte("file3.md"), []byte("file4.md"), []byte("file5.md"), []byte("new_file1.md"), []byte("new_file2.md"), []byte("new_file3.md")},
+			expectedFiles: []string{"file3.md", "file4.md", "file5.md", "new_file1.md", "new_file2.md", "new_file3.md"},
 		},
 		{
 			desc:          "both limit and offset are set",
 			query:         ".",
 			offset:        2,
 			limit:         2,
-			expectedFiles: [][]byte{[]byte("file3.md"), []byte("file4.md")},
+			expectedFiles: []string{"file3.md", "file4.md"},
 		},
 		{
 			desc:          "offset exceeds the total files",
@@ -426,7 +441,7 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 			query:         ".",
 			offset:        6,
 			limit:         5,
-			expectedFiles: [][]byte{[]byte("new_file2.md"), []byte("new_file3.md")},
+			expectedFiles: []string{"new_file2.md", "new_file3.md"},
 		},
 		{
 			desc:          "limit and offset combine with filter",
@@ -434,7 +449,7 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 			filter:        "new.*",
 			offset:        1,
 			limit:         2,
-			expectedFiles: [][]byte{[]byte("new_file2.md"), []byte("new_file3.md")},
+			expectedFiles: []string{"new_file2.md", "new_file3.md"},
 		},
 		{
 			desc:          "limit and offset combine with unmatched filter",
@@ -449,7 +464,7 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 			query:         "new_file2.md",
 			offset:        0,
 			limit:         2,
-			expectedFiles: [][]byte{[]byte("new_file2.md")},
+			expectedFiles: []string{"new_file2.md"},
 		},
 	}
 	for _, tc := range testCases {
@@ -464,8 +479,7 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			var files [][]byte
-			files, err = consumeFilenameByName(stream)
+			files, err := consumeFilenameByName(stream)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedFiles, files)
 		})
@@ -596,9 +610,8 @@ func consumeFilenameByContentChunked(stream gitalypb.RepositoryService_SearchFil
 	return matches, nil
 }
 
-func consumeFilenameByName(stream gitalypb.RepositoryService_SearchFilesByNameClient) ([][]byte, error) {
-	var ret [][]byte
-
+func consumeFilenameByName(stream gitalypb.RepositoryService_SearchFilesByNameClient) ([]string, error) {
+	var filenames []string
 	for {
 		resp, err := stream.Recv()
 		if err == io.EOF {
@@ -607,7 +620,11 @@ func consumeFilenameByName(stream gitalypb.RepositoryService_SearchFilesByNameCl
 		if err != nil {
 			return nil, err
 		}
-		ret = append(ret, resp.Files...)
+
+		for _, file := range resp.Files {
+			filenames = append(filenames, string(file))
+		}
 	}
-	return ret, nil
+
+	return filenames, nil
 }
