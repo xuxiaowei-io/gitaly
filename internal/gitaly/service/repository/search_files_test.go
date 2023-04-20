@@ -9,19 +9,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
 func TestSearchFilesByContent(t *testing.T) {
@@ -243,6 +234,63 @@ func TestSearchFilesByName(t *testing.T) {
 		expectedErr   error
 		expectedFiles []string
 	}{
+		{
+			desc: "repository not initialized",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: &gitalypb.Repository{},
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+				"empty StorageName",
+				"repo scoped: invalid Repository",
+			)),
+		},
+		{
+			desc: "empty request",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+			},
+			expectedErr: structerr.NewInvalidArgument("no query given"),
+		},
+		{
+			desc: "only query given",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Query:      "foo",
+			},
+			expectedErr: structerr.NewInvalidArgument("no ref given"),
+		},
+		{
+			desc: "no repo",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: nil,
+				Query:      "foo",
+				Ref:        []byte("branch"),
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "invalid filter",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Query:      "foo",
+				Ref:        []byte("branch"),
+				Filter:     "+*.",
+			},
+			expectedErr: structerr.NewInvalidArgument("filter did not compile: error parsing regexp: missing argument to repetition operator: `+`"),
+		},
+		{
+			desc: "filter longer than max",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Query:      "foo",
+				Ref:        []byte("branch"),
+				Filter:     strings.Repeat(".", searchFilesFilterMaxLength+1),
+			},
+			expectedErr: structerr.NewInvalidArgument("filter exceeds maximum length"),
+		},
 		{
 			desc: "one file",
 			request: &gitalypb.SearchFilesByNameRequest{
@@ -476,107 +524,6 @@ func TestSearchFilesByName(t *testing.T) {
 			files, err := consumeFilenameByName(stream)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedFiles, files)
-		})
-	}
-}
-
-func TestSearchFilesByNameFailure(t *testing.T) {
-	t.Parallel()
-	cfg := testcfg.Build(t)
-	gitCommandFactory := gittest.NewCommandFactory(t, cfg)
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-
-	locator := config.NewLocator(cfg)
-
-	connsPool := client.NewPool()
-	defer testhelper.MustClose(t, connsPool)
-
-	git2goExecutor := git2go.NewExecutor(cfg, gitCommandFactory, locator)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
-
-	server := NewServer(
-		cfg,
-		locator,
-		txManager,
-		gitCommandFactory,
-		catfileCache,
-		connsPool,
-		git2goExecutor,
-		housekeepingManager,
-	)
-
-	testCases := []struct {
-		desc   string
-		repo   *gitalypb.Repository
-		query  string
-		filter string
-		ref    string
-		offset uint32
-		limit  uint32
-		code   codes.Code
-		msg    string
-	}{
-		{
-			desc: "repository not initialized",
-			repo: &gitalypb.Repository{},
-			code: codes.InvalidArgument,
-			msg:  "empty StorageName",
-		},
-		{
-			desc: "empty request",
-			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "stub"},
-			code: codes.InvalidArgument,
-			msg:  "no query given",
-		},
-		{
-			desc:  "only query given",
-			repo:  &gitalypb.Repository{RelativePath: "stub", StorageName: "stub"},
-			query: "foo",
-			code:  codes.InvalidArgument,
-			msg:   "no ref given",
-		},
-		{
-			desc:  "no repo",
-			query: "foo",
-			ref:   "master",
-			code:  codes.InvalidArgument,
-			msg:   "empty Repo",
-		},
-		{
-			desc:   "invalid filter",
-			repo:   &gitalypb.Repository{RelativePath: "stub", StorageName: "stub"},
-			query:  "foo",
-			ref:    "master",
-			filter: "+*.",
-			code:   codes.InvalidArgument,
-			msg:    "filter did not compile: error parsing regexp:",
-		},
-		{
-			desc:   "filter longer than max",
-			repo:   &gitalypb.Repository{RelativePath: "stub", StorageName: "stub"},
-			query:  "foo",
-			ref:    "master",
-			filter: strings.Repeat(".", searchFilesFilterMaxLength+1),
-			code:   codes.InvalidArgument,
-			msg:    "filter exceeds maximum length",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			err := server.SearchFilesByName(&gitalypb.SearchFilesByNameRequest{
-				Repository: tc.repo,
-				Query:      tc.query,
-				Filter:     tc.filter,
-				Ref:        []byte(tc.ref),
-				Offset:     tc.offset,
-				Limit:      tc.limit,
-			}, nil)
-
-			testhelper.RequireGrpcCode(t, err, tc.code)
-			require.Contains(t, err.Error(), tc.msg)
 		})
 	}
 }
