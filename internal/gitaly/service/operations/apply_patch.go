@@ -75,15 +75,16 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return fmt.Errorf("default branch name: %w", err)
-		} else if len(defaultBranch) == 0 {
+		}
+
+		parentCommitID, err = repo.ResolveRevision(ctx, defaultBranch.Revision()+"^{commit}")
+		if errors.Is(err, git.ErrReferenceNotFound) {
 			return errNoDefaultBranch
+		} else if err != nil {
+			return fmt.Errorf("resolve default branch commit: %w", err)
 		}
 
 		branchCreated = true
-		parentCommitID, err = repo.ResolveRevision(ctx, defaultBranch.Revision()+"^{commit}")
-		if err != nil {
-			return fmt.Errorf("resolve default branch commit: %w", err)
-		}
 	}
 
 	committerTime := time.Now()
