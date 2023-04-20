@@ -6,25 +6,56 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"flag"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
-func TestCheckSubcommand_Exec(t *testing.T) {
-	t.Parallel()
+func TestCheckSubcommand(t *testing.T) {
+	defer func(old func(code int)) { cli.OsExiter = old }(cli.OsExiter)
+	cli.OsExiter = func(code int) {}
+
+	conf := config.Config{
+		ListenAddr: ":0",
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name: "vs",
+				Nodes: []*config.Node{
+					{Address: "stub", Storage: "st"},
+				},
+			},
+		},
+	}
+
+	tmpDir := testhelper.TempDir(t)
+	confData, err := toml.Marshal(conf)
+	require.NoError(t, err)
+	confPath := filepath.Join(tmpDir, "config.toml")
+	require.NoError(t, os.WriteFile(confPath, confData, perm.PublicFile))
 
 	testCases := []struct {
 		desc                string
 		checks              []service.CheckFunc
+		args                []string
 		expectedQuietOutput string
 		expectedOutput      string
 		expectedError       error
 	}{
+		{
+			desc:          "positional arguments",
+			args:          []string{"positional-arg"},
+			expectedError: cli.Exit(unexpectedPositionalArgsError{Command: "check"}, 1),
+		},
 		{
 			desc: "all checks pass",
 			checks: []service.CheckFunc{
@@ -164,20 +195,36 @@ Checking check 3...Failed (warning) error: i failed but not too badly
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			var cfg config.Config
+			var stdout bytes.Buffer
+			app := cli.App{
+				Writer: &stdout,
+				Commands: []*cli.Command{
+					newCheckCommand(tc.checks),
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Value: confPath,
+					},
+				},
+			}
 
 			t.Run("quiet", func(t *testing.T) {
-				var stdout bytes.Buffer
-				checkCmd := checkSubcommand{w: &stdout, checkFuncs: tc.checks, quiet: true}
-				assert.Equal(t, tc.expectedError, checkCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg))
-				assert.Equal(t, tc.expectedQuietOutput, stdout.String())
+				stdout.Reset()
+				err := app.Run(append([]string{progname, "check", "-q"}, tc.args...))
+				assert.Equal(t, tc.expectedError, err)
+				if len(tc.args) == 0 {
+					assert.Equal(t, tc.expectedQuietOutput, stdout.String())
+				}
 			})
 
 			t.Run("normal", func(t *testing.T) {
-				var stdout bytes.Buffer
-				checkCmd := checkSubcommand{w: &stdout, checkFuncs: tc.checks, quiet: false}
-				assert.Equal(t, tc.expectedError, checkCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg))
-				assert.Equal(t, tc.expectedOutput, stdout.String())
+				stdout.Reset()
+				err := app.Run(append([]string{progname, "check"}, tc.args...))
+				assert.Equal(t, tc.expectedError, err)
+				if len(tc.args) == 0 {
+					assert.Equal(t, tc.expectedOutput, stdout.String())
+				}
 			})
 		})
 	}

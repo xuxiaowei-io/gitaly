@@ -16,7 +16,6 @@ import (
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service"
 	"google.golang.org/grpc"
 )
 
@@ -45,7 +44,6 @@ func subcommands(logger *logrus.Entry) map[string]subcmd {
 		trackRepositoryCmdName:        newTrackRepository(logger, os.Stdout),
 		trackRepositoriesCmdName:      newTrackRepositories(logger, os.Stdout),
 		listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
-		checkCmdName:                  newCheckSubcommand(os.Stdout, service.AllChecks()...),
 		metadataCmdName:               newMetadataSubcommand(os.Stdout),
 		verifyCmdName:                 newVerifySubcommand(os.Stdout),
 		listStoragesCmdName:           newListStorages(os.Stdout),
