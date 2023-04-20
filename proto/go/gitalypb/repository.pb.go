@@ -1829,15 +1829,19 @@ func (x *FindMergeBaseResponse) GetBase() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// CreateForkRequest is a request for the CreateFork RPC.
 type CreateForkRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository that shall be created.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// SourceRepository is the repository that shall be forked.
+	//
+	// Note that the source repository is intentionally not marked as an additional repository that is
+	// to be rewritten by Praefect. This is because Gitaly will use the source repository to perform a
+	// gRPC call, which must use the original non-rewritten repository.
 	SourceRepository *Repository `protobuf:"bytes,2,opt,name=source_repository,json=sourceRepository,proto3" json:"source_repository,omitempty"`
 }
 
@@ -1887,7 +1891,7 @@ func (x *CreateForkRequest) GetSourceRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CreateForkResponse is a response for the CreateFork RPC.
 type CreateForkResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
