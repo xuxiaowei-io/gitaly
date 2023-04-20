@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
@@ -183,8 +180,8 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		// is done intentionally, as the likelihood for huge repositories to fail during a
 		// full repack is comparatively high. So if we didn't update the timestamp in case
 		// of a failure we'd potentially busy-spin trying to do a full repack.
-		if err := os.WriteFile(filepath.Join(repoPath, stats.FullRepackTimestampFilename), nil, perm.PrivateFile); err != nil {
-			return fmt.Errorf("updating timestamp: %w", err)
+		if err := stats.UpdateFullRepackTimestamp(repoPath, time.Now()); err != nil {
+			return fmt.Errorf("updating full-repack timestamp: %w", err)
 		}
 	}
 

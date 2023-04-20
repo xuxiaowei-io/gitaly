@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -38,6 +39,18 @@ func TestCreate(t *testing.T) {
 
 	var votesByPhase map[voting.Phase]int
 
+	requireFullRepackTimestampExists := func(t *testing.T, repoPath string, exists bool) {
+		t.Helper()
+
+		timestamp, err := stats.FullRepackTimestamp(repoPath)
+		require.NoError(t, err)
+		if exists {
+			require.NotZero(t, timestamp)
+		} else {
+			require.Zero(t, timestamp)
+		}
+	}
+
 	for _, tc := range []struct {
 		desc   string
 		opts   []CreateOption
@@ -62,6 +75,8 @@ func TestCreate(t *testing.T) {
 				// But the new repository must exist.
 				isBareRepo := gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--is-bare-repository")
 				require.Equal(t, "true", text.ChompBytes(isBareRepo))
+
+				requireFullRepackTimestampExists(t, realRepoPath, true)
 			},
 		},
 		{
@@ -80,6 +95,8 @@ func TestCreate(t *testing.T) {
 			verify: func(t *testing.T, tempRepo *gitalypb.Repository, tempRepoPath string, realRepo *gitalypb.Repository, realRepoPath string) {
 				value := gittest.Exec(t, cfg, "-C", realRepoPath, "config", "custom.key")
 				require.Equal(t, "value", text.ChompBytes(value))
+
+				requireFullRepackTimestampExists(t, realRepoPath, true)
 			},
 		},
 		{
@@ -105,6 +122,8 @@ func TestCreate(t *testing.T) {
 				dirEntries, err := os.ReadDir(realRepoPath)
 				require.NoError(t, err)
 				require.Empty(t, dirEntries, "directory should not have been modified")
+
+				requireFullRepackTimestampExists(t, realRepoPath, false)
 			},
 			expectedErr: structerr.NewAlreadyExists("repository exists already"),
 		},
@@ -122,6 +141,8 @@ func TestCreate(t *testing.T) {
 				require.NoDirExists(t, tempRepoPath)
 				require.NoDirExists(t, realRepoPath)
 				require.FileExists(t, realRepoPath+".lock")
+
+				requireFullRepackTimestampExists(t, realRepoPath, false)
 			},
 			expectedErr: fmt.Errorf("locking repository: %w", safe.ErrFileAlreadyLocked),
 		},
@@ -140,6 +161,8 @@ func TestCreate(t *testing.T) {
 					voting.Prepared:  1,
 					voting.Committed: 1,
 				}, votesByPhase)
+
+				requireFullRepackTimestampExists(t, realRepoPath, true)
 			},
 		},
 		{
@@ -174,6 +197,8 @@ func TestCreate(t *testing.T) {
 				// change. So if the second vote fails, then the change must have
 				// been performed and thus we'd see the repository.
 				require.DirExists(t, realRepoPath)
+
+				requireFullRepackTimestampExists(t, realRepoPath, true)
 			},
 			expectedErr: structerr.NewFailedPrecondition("committing vote: %w", errors.New("vote failed")),
 		},
@@ -245,6 +270,8 @@ func TestCreate(t *testing.T) {
 				} {
 					require.Equal(t, expectedContents, string(testhelper.MustReadFile(t, expectedPath)))
 				}
+
+				requireFullRepackTimestampExists(t, realRepoPath, true)
 			},
 		},
 		{
@@ -283,6 +310,8 @@ func TestCreate(t *testing.T) {
 				// But the new repository must exist.
 				isBareRepo := gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--is-bare-repository")
 				require.Equal(t, "true", text.ChompBytes(isBareRepo))
+
+				requireFullRepackTimestampExists(t, realRepoPath, true)
 			},
 		},
 	} {
