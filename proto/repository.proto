@@ -106,7 +106,13 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CreateFork creates a new repository from a specific source repository. This new repository will
+  // have the same branches and tags as the source repository. Internal references will not be
+  // recreated in the forked repository.
+  //
+  // All objects of the source repository will be duplicated, that is there are no space savings by
+  // creating the repository like this. The newly created repository does not join the object pool
+  // of the source repository, if there is any.
   rpc CreateFork(CreateForkRequest) returns (CreateForkResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -653,15 +659,19 @@ message FindMergeBaseResponse {
   string base = 1;
 }
 
-// This comment is left unintentionally blank.
+// CreateForkRequest is a request for the CreateFork RPC.
 message CreateForkRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository that shall be created.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // SourceRepository is the repositroy that shall be forked.
+  //
+  // Note that the source repository is intentionally not marked as an additional repository that is
+  // to be rewritten by Praefect. This is because Gitaly will us the source repository to perform a
+  // gRPC call, which must use the original non-rewritten repository.
   Repository source_repository = 2;
 }
 
-// This comment is left unintentionally blank.
+// CreateForkResponse is a response for the CreateFork RPC.
 message CreateForkResponse {
 }
 
