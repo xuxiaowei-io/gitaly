@@ -95,6 +95,22 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		return structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs")
 	}
 
+	if isFullRepack {
+		// When we have performed a full repack we're updating the "full-repack-timestamp"
+		// file. This is done so that we can tell when we have last performed a full repack
+		// in a repository. This information can be used by our heuristics to effectively
+		// rate-limit the frequency of full repacks.
+		//
+		// Note that we write the file _before_ actually writing the new pack, which means
+		// that even if the full repack fails, we would still pretend to have done it. This
+		// is done intentionally, as the likelihood for huge repositories to fail during a
+		// full repack is comparatively high. So if we didn't update the timestamp in case
+		// of a failure we'd potentially busy-spin trying to do a full repack.
+		if err := stats.UpdateFullRepackTimestamp(repoPath, time.Now()); err != nil {
+			return fmt.Errorf("updating full-repack timestamp: %w", err)
+		}
+	}
+
 	var options []git.Option
 	switch cfg.Strategy {
 	case RepackObjectsStrategyIncremental:
@@ -172,22 +188,6 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 	}
 	if cfg.WriteMultiPackIndex {
 		options = append(options, git.Flag{Name: "--write-midx"})
-	}
-
-	if isFullRepack {
-		// When we have performed a full repack we're updating the "full-repack-timestamp"
-		// file. This is done so that we can tell when we have last performed a full repack
-		// in a repository. This information can be used by our heuristics to effectively
-		// rate-limit the frequency of full repacks.
-		//
-		// Note that we write the file _before_ actually writing the new pack, which means
-		// that even if the full repack fails, we would still pretend to have done it. This
-		// is done intentionally, as the likelihood for huge repositories to fail during a
-		// full repack is comparatively high. So if we didn't update the timestamp in case
-		// of a failure we'd potentially busy-spin trying to do a full repack.
-		if err := stats.UpdateFullRepackTimestamp(repoPath, time.Now()); err != nil {
-			return fmt.Errorf("updating full-repack timestamp: %w", err)
-		}
 	}
 
 	var stderr strings.Builder
