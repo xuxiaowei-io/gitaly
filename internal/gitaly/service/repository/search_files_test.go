@@ -226,6 +226,17 @@ func TestSearchFilesByName(t *testing.T) {
 		gittest.TreeEntry{Path: "编码 'foo'.md", Mode: "100644", Content: "something"},
 	))
 
+	paginationCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file1.md", Mode: "100644", Content: "file1"},
+		gittest.TreeEntry{Path: "file2.md", Mode: "100644", Content: "file2"},
+		gittest.TreeEntry{Path: "file3.md", Mode: "100644", Content: "file3"},
+		gittest.TreeEntry{Path: "file4.md", Mode: "100644", Content: "file4"},
+		gittest.TreeEntry{Path: "file5.md", Mode: "100644", Content: "file5"},
+		gittest.TreeEntry{Path: "new_file1.md", Mode: "100644", Content: "new_file1"},
+		gittest.TreeEntry{Path: "new_file2.md", Mode: "100644", Content: "new_file2"},
+		gittest.TreeEntry{Path: "new_file3.md", Mode: "100644", Content: "new_file3"},
+	))
+
 	for _, tc := range []struct {
 		desc          string
 		request       *gitalypb.SearchFilesByNameRequest
@@ -366,6 +377,93 @@ func TestSearchFilesByName(t *testing.T) {
 				"编码 'foo'.md",
 			},
 		},
+		{
+			desc: "only limit is set",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(paginationCommit),
+				Query:      ".",
+				Limit:      3,
+			},
+			expectedFiles: []string{"file1.md", "file2.md", "file3.md"},
+		},
+		{
+			desc: "only offset is set",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(paginationCommit),
+				Query:      ".",
+				Offset:     2,
+			},
+			expectedFiles: []string{"file3.md", "file4.md", "file5.md", "new_file1.md", "new_file2.md", "new_file3.md"},
+		},
+		{
+			desc: "both limit and offset are set",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(paginationCommit),
+				Query:      ".",
+				Offset:     2,
+				Limit:      2,
+			},
+			expectedFiles: []string{"file3.md", "file4.md"},
+		},
+		{
+			desc: "offset exceeds the total files",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(paginationCommit),
+				Query:      ".",
+				Offset:     8,
+			},
+			expectedFiles: nil,
+		},
+		{
+			desc: "offset + limit exceeds the total files",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(paginationCommit),
+				Query:      ".",
+				Offset:     6,
+				Limit:      5,
+			},
+			expectedFiles: []string{"new_file2.md", "new_file3.md"},
+		},
+		{
+			desc: "limit and offset combine with filter",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(paginationCommit),
+				Query:      ".",
+				Filter:     "new.*",
+				Offset:     1,
+				Limit:      2,
+			},
+			expectedFiles: []string{"new_file2.md", "new_file3.md"},
+		},
+		{
+			desc: "limit and offset combine with unmatched filter",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(paginationCommit),
+				Query:      ".",
+				Filter:     "not_matched.*",
+				Offset:     1,
+				Limit:      2,
+			},
+			expectedFiles: nil,
+		},
+		{
+			desc: "limit and offset combine with matched query",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(paginationCommit),
+				Query:      "new_file2.md",
+				Offset:     0,
+				Limit:      2,
+			},
+			expectedFiles: []string{"new_file2.md"},
+		},
 	} {
 		tc := tc
 
@@ -377,111 +475,6 @@ func TestSearchFilesByName(t *testing.T) {
 
 			files, err := consumeFilenameByName(stream)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-			require.Equal(t, tc.expectedFiles, files)
-		})
-	}
-}
-
-func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
-
-	ref := []byte("pagination")
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch(string(ref)),
-		gittest.WithMessage("commit message"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "file1.md", Mode: "100644", Content: "file1"},
-			gittest.TreeEntry{Path: "file2.md", Mode: "100644", Content: "file2"},
-			gittest.TreeEntry{Path: "file3.md", Mode: "100644", Content: "file3"},
-			gittest.TreeEntry{Path: "file4.md", Mode: "100644", Content: "file4"},
-			gittest.TreeEntry{Path: "file5.md", Mode: "100644", Content: "file5"},
-			gittest.TreeEntry{Path: "new_file1.md", Mode: "100644", Content: "new_file1"},
-			gittest.TreeEntry{Path: "new_file2.md", Mode: "100644", Content: "new_file2"},
-			gittest.TreeEntry{Path: "new_file3.md", Mode: "100644", Content: "new_file3"},
-		),
-	)
-
-	testCases := []struct {
-		desc          string
-		query         string
-		filter        string
-		offset        uint32
-		limit         uint32
-		expectedFiles []string
-	}{
-		{
-			desc:          "only limit is set",
-			query:         ".",
-			limit:         3,
-			expectedFiles: []string{"file1.md", "file2.md", "file3.md"},
-		},
-		{
-			desc:          "only offset is set",
-			query:         ".",
-			offset:        2,
-			expectedFiles: []string{"file3.md", "file4.md", "file5.md", "new_file1.md", "new_file2.md", "new_file3.md"},
-		},
-		{
-			desc:          "both limit and offset are set",
-			query:         ".",
-			offset:        2,
-			limit:         2,
-			expectedFiles: []string{"file3.md", "file4.md"},
-		},
-		{
-			desc:          "offset exceeds the total files",
-			query:         ".",
-			offset:        8,
-			expectedFiles: nil,
-		},
-		{
-			desc:          "offset + limit exceeds the total files",
-			query:         ".",
-			offset:        6,
-			limit:         5,
-			expectedFiles: []string{"new_file2.md", "new_file3.md"},
-		},
-		{
-			desc:          "limit and offset combine with filter",
-			query:         ".",
-			filter:        "new.*",
-			offset:        1,
-			limit:         2,
-			expectedFiles: []string{"new_file2.md", "new_file3.md"},
-		},
-		{
-			desc:          "limit and offset combine with unmatched filter",
-			query:         ".",
-			filter:        "not_matched.*",
-			offset:        1,
-			limit:         2,
-			expectedFiles: nil,
-		},
-		{
-			desc:          "limit and offset combine with matched query",
-			query:         "new_file2.md",
-			offset:        0,
-			limit:         2,
-			expectedFiles: []string{"new_file2.md"},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.SearchFilesByName(ctx, &gitalypb.SearchFilesByNameRequest{
-				Repository: repo,
-				Ref:        ref,
-				Query:      tc.query,
-				Filter:     tc.filter,
-				Offset:     tc.offset,
-				Limit:      tc.limit,
-			})
-			require.NoError(t, err)
-
-			files, err := consumeFilenameByName(stream)
-			require.NoError(t, err)
 			require.Equal(t, tc.expectedFiles, files)
 		})
 	}
