@@ -41,8 +41,6 @@ import (
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
-var errNoConfigFile = errors.New("the config flag must be passed")
-
 func newServeCommand() *cli.Command {
 	return &cli.Command{
 		Name:   "serve",
@@ -61,9 +59,9 @@ func serveAction(ctx *cli.Context) error {
 		// or not as there won't be any output printed, because sub-commands are not yet
 		// registered.
 		pathToConfigFile := mustProvideConfigFlag(ctx, "")
-		conf, err := initConfig(logger, pathToConfigFile)
+		conf, err := getConfig(logger, pathToConfigFile)
 		if err != nil {
-			return cli.Exit(fmt.Errorf("configuration error: %w", err), 1)
+			return err
 		}
 		os.Exit(subCommand(conf, logger, subCmd, ctx.Args().Slice()[1:]))
 	}
@@ -85,9 +83,9 @@ func serveAction(ctx *cli.Context) error {
 }
 
 func run(appName string, logger *logrus.Entry, configPath string) error {
-	conf, err := initConfig(logger, configPath)
+	conf, err := getConfig(logger, configPath)
 	if err != nil {
-		return cli.Exit(fmt.Errorf("configuration error: %w", err), 1)
+		return err
 	}
 
 	conf.ConfigureLogger()
@@ -120,12 +118,6 @@ func run(appName string, logger *logrus.Entry, configPath string) error {
 }
 
 func initConfig(logger *logrus.Entry, path string) (config.Config, error) {
-	var conf config.Config
-
-	if path == "" {
-		return conf, errNoConfigFile
-	}
-
 	conf, err := config.FromFile(path)
 	if err != nil {
 		return conf, fmt.Errorf("error reading config file: %w", err)
@@ -142,6 +134,15 @@ func initConfig(logger *logrus.Entry, path string) (config.Config, error) {
 	if !conf.Failover.Enabled && conf.Failover.ElectionStrategy != "" {
 		logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
 			"ignoring configured election strategy as failover is disabled")
+	}
+
+	return conf, nil
+}
+
+func getConfig(logger *logrus.Entry, path string) (config.Config, error) {
+	conf, err := initConfig(logger, path)
+	if err != nil {
+		return conf, cli.Exit(fmt.Errorf("configuration error: %w", err), 1)
 	}
 
 	return conf, nil

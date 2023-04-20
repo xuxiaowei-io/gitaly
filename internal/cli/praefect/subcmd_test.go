@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package praefect
 
 import (
@@ -30,6 +28,12 @@ func registerHealthService(srv *grpc.Server) {
 func registerServerService(impl gitalypb.ServerServiceServer) svcRegistrar {
 	return func(srv *grpc.Server) {
 		gitalypb.RegisterServerServiceServer(srv, impl)
+	}
+}
+
+func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegistrar {
+	return func(srv *grpc.Server) {
+		gitalypb.RegisterPraefectInfoServiceServer(srv, impl)
 	}
 }
 

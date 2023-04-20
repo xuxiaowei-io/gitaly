@@ -21,12 +21,6 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func TestNoConfigFlag(t *testing.T) {
-	_, err := initConfig(testhelper.NewDiscardingLogEntry(t), "")
-
-	assert.Equal(t, err, errNoConfigFile)
-}
-
 func TestGetStarterConfigs(t *testing.T) {
 	for _, tc := range []struct {
 		desc   string

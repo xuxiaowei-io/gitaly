@@ -45,15 +45,7 @@
 //
 // "-virtual-storage" specifies which virtual storage to check for data loss. If not specified,
 // the check is performed for every configured virtual storage.
-//
-// # Accept Dataloss
-//
-// The subcommand "accept-dataloss" allows for accepting data loss in a repository to enable it for
-// writing again. The current version of the repository on the authoritative storage is set to be
-// the latest version and replications to other nodes are scheduled in order to bring them consistent
-// with the new authoritative version.
-//
-//	praefect -config PATH_TO_CONFIG accept-dataloss -virtual-storage <virtual-storage> -relative-path <relative-path> -authoritative-storage <authoritative-storage>
+
 package praefect
 
 import (
@@ -97,6 +89,7 @@ func NewApp() *cli.App {
 		Commands: []*cli.Command{
 			newServeCommand(),
 			newConfigurationCommand(),
+			newAcceptDatalossCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{

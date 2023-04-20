@@ -12,15 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testdb"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc"
 )
-
-func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegistrar {
-	return func(srv *grpc.Server) {
-		gitalypb.RegisterPraefectInfoServiceServer(srv, impl)
-	}
-}
 
 func TestDatalossSubcommand(t *testing.T) {
 	t.Parallel()
