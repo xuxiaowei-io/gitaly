@@ -27,13 +27,15 @@ const (
 var contentDelimiter = []byte("--\n")
 
 func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest, stream gitalypb.RepositoryService_SearchFilesByContentServer) error {
+	ctx := stream.Context()
+
 	if err := validateSearchFilesRequest(req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	ctx := stream.Context()
-	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
-		git.Command{Name: "grep", Flags: []git.Option{
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.Command{
+		Name: "grep",
+		Flags: []git.Option{
 			git.Flag{Name: "--ignore-case"},
 			git.Flag{Name: "-I"},
 			git.Flag{Name: "--line-number"},
@@ -41,8 +43,12 @@ func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest,
 			git.ValueFlag{Name: "--before-context", Value: surroundContext},
 			git.ValueFlag{Name: "--after-context", Value: surroundContext},
 			git.Flag{Name: "--perl-regexp"},
-			git.Flag{Name: "-e"},
-		}, Args: []string{req.GetQuery(), string(req.GetRef())}})
+			git.ValueFlag{Name: "-e", Value: req.GetQuery()},
+		},
+		Args: []string{
+			string(req.GetRef()),
+		},
+	})
 	if err != nil {
 		return structerr.NewInternal("cmd start failed: %w", err)
 	}

@@ -37,6 +37,10 @@ func TestSearchFilesByContent(t *testing.T) {
 		gittest.TreeEntry{Path: "huge-utf8", Mode: "100644", Content: strings.Repeat("你见天吃了什么东西?\n", 70000)},
 	))
 
+	dashedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "-dashed", Mode: "100644", Content: "-dashed\n"},
+	))
+
 	generateMatch := func(ref, file string, from, to int, generateLine func(line int) string) string {
 		var builder strings.Builder
 		for i := from; i <= to; i++ {
@@ -175,6 +179,18 @@ func TestSearchFilesByContent(t *testing.T) {
 			},
 			expectedMatches: []string{
 				generateMatch(largeFilesCommit.String(), "huge-utf8", 1, 70000, staticLine("你见天吃了什么东西?")),
+			},
+		},
+		{
+			desc: "query with leading dash",
+			request: &gitalypb.SearchFilesByContentRequest{
+				Repository:      repoProto,
+				Query:           "-dashed",
+				Ref:             []byte(dashedCommit),
+				ChunkedResponse: true,
+			},
+			expectedMatches: []string{
+				generateMatch(dashedCommit.String(), "-dashed", 1, 1, staticLine("-dashed")),
 			},
 		},
 	} {
