@@ -103,6 +103,8 @@ func sendSearchFilesResultChunked(cmd *command.Command, stream gitalypb.Reposito
 }
 
 func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, stream gitalypb.RepositoryService_SearchFilesByNameServer) error {
+	ctx := stream.Context()
+
 	if err := validateSearchFilesRequest(req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
@@ -119,11 +121,9 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 		}
 	}
 
-	ctx := stream.Context()
-	cmd, err := s.gitCmdFactory.New(
-		ctx,
-		req.GetRepository(),
-		git.Command{Name: "ls-tree", Flags: []git.Option{
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.Command{
+		Name: "ls-tree",
+		Flags: []git.Option{
 			git.Flag{Name: "--full-tree"},
 			git.Flag{Name: "--name-status"},
 			git.Flag{Name: "-r"},
@@ -132,7 +132,14 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 			// more ideal solution. Unfortunately, it supports parsing full
 			// output while we are interested in the filenames only.
 			git.Flag{Name: "-z"},
-		}, Args: []string{string(req.GetRef()), req.GetQuery()}})
+		},
+		Args: []string{
+			string(req.GetRef()),
+		},
+		PostSepArgs: []string{
+			req.GetQuery(),
+		},
+	})
 	if err != nil {
 		return structerr.NewInternal("cmd start failed: %w", err)
 	}

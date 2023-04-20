@@ -244,6 +244,10 @@ func TestSearchFilesByName(t *testing.T) {
 		gittest.TreeEntry{Path: "new_file3.md", Mode: "100644", Content: "new_file3"},
 	))
 
+	dashedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "-dashed", Mode: "100644", Content: "-dashed\n"},
+	))
+
 	for _, tc := range []struct {
 		desc          string
 		request       *gitalypb.SearchFilesByNameRequest
@@ -527,6 +531,15 @@ func TestSearchFilesByName(t *testing.T) {
 				Limit:      2,
 			},
 			expectedFiles: []string{"new_file2.md"},
+		},
+		{
+			desc: "query with leading dash",
+			request: &gitalypb.SearchFilesByNameRequest{
+				Repository: repoProto,
+				Ref:        []byte(dashedCommit),
+				Query:      "-dashed",
+			},
+			expectedFiles: []string{"-dashed"},
 		},
 	} {
 		tc := tc
