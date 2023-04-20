@@ -30,6 +30,7 @@ func TestSearchFilesByContent(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "a", Mode: "100644", Content: "a-1\na-2\na-3\na-4\na-5\na-6\n"},
 		{Path: "b", Mode: "100644", Content: "b-1\nb-2\nb-3\nb-4\nb-5\nb-6\n"},
@@ -38,6 +39,11 @@ func TestSearchFilesByContent(t *testing.T) {
 		})},
 	})
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"), gittest.WithTree(treeID))
+
+	largeFilesCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "huge-file", Mode: "100644", Content: strings.Repeat("abcdefghi\n", 210000)},
+		gittest.TreeEntry{Path: "huge-utf8", Mode: "100644", Content: strings.Repeat("你见天吃了什么东西?\n", 70000)},
+	))
 
 	generateMatch := func(ref, file string, from, to int, generateLine func(line int) string) string {
 		var builder strings.Builder
@@ -49,6 +55,9 @@ func TestSearchFilesByContent(t *testing.T) {
 	}
 	prefixedLine := func(prefix string) func(int) string {
 		return func(line int) string { return fmt.Sprintf("%s-%d", prefix, line) }
+	}
+	staticLine := func(content string) func(int) string {
+		return func(int) string { return content }
 	}
 
 	for _, tc := range []struct {
@@ -118,6 +127,30 @@ func TestSearchFilesByContent(t *testing.T) {
 				generateMatch("branch", "a", 1, 6, prefixedLine("a")),
 			},
 		},
+		{
+			desc: "large file",
+			request: &gitalypb.SearchFilesByContentRequest{
+				Repository:      repoProto,
+				Query:           "abcdefg",
+				Ref:             []byte(largeFilesCommit),
+				ChunkedResponse: true,
+			},
+			expectedMatches: []string{
+				generateMatch(largeFilesCommit.String(), "huge-file", 1, 210000, staticLine("abcdefghi")),
+			},
+		},
+		{
+			desc: "large file with unicode",
+			request: &gitalypb.SearchFilesByContentRequest{
+				Repository:      repoProto,
+				Query:           "什么东西",
+				Ref:             []byte(largeFilesCommit),
+				ChunkedResponse: true,
+			},
+			expectedMatches: []string{
+				generateMatch(largeFilesCommit.String(), "huge-utf8", 1, 70000, staticLine("你见天吃了什么东西?")),
+			},
+		},
 	} {
 		tc := tc
 
@@ -130,57 +163,6 @@ func TestSearchFilesByContent(t *testing.T) {
 			matches, err := consumeFilenameByContentChunked(stream)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedMatches, matches)
-		})
-	}
-}
-
-func TestSearchFilesByContentLargeFile(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
-
-	for _, tc := range []struct {
-		desc     string
-		filename string
-		line     string
-		repeated int
-		query    string
-	}{
-		{
-			desc:     "large file",
-			filename: "large_file_of_abcdefg_2mb",
-			line:     "abcdefghi\n", // 10 bytes
-			repeated: 210000,
-			query:    "abcdefg",
-		},
-		{
-			desc:     "large file with unicode",
-			filename: "large_file_of_unicode_1.5mb",
-			line:     "你见天吃了什么东西?\n", // 22 bytes
-			repeated: 70000,
-			query:    "什么东西",
-		},
-	} {
-		t.Run(tc.filename, func(t *testing.T) {
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
-				Path:    tc.filename,
-				Mode:    "100644",
-				Content: strings.Repeat(tc.line, tc.repeated),
-			}), gittest.WithBranch("master"))
-
-			stream, err := client.SearchFilesByContent(ctx, &gitalypb.SearchFilesByContentRequest{
-				Repository:      repo,
-				Query:           tc.query,
-				Ref:             []byte("master"),
-				ChunkedResponse: true,
-			})
-			require.NoError(t, err)
-
-			response, err := consumeFilenameByContentChunked(stream)
-			require.NoError(t, err)
-			require.Equal(t, tc.repeated, len(strings.Split(strings.TrimRight(response[0], "\n"), "\n")))
 		})
 	}
 }
