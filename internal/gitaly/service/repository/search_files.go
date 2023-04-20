@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 
@@ -121,6 +122,13 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 		}
 	}
 
+	repo := s.localrepo(req.GetRepository())
+
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.Command{
 		Name: "ls-tree",
 		Flags: []git.Option{
@@ -144,7 +152,7 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 		return structerr.NewInternal("cmd start failed: %w", err)
 	}
 
-	files, err := parseLsTree(cmd, filter, int(req.GetOffset()), int(req.GetLimit()))
+	files, err := parseLsTree(objectHash, cmd, filter, int(req.GetOffset()), int(req.GetLimit()))
 	if err != nil {
 		return err
 	}
@@ -178,10 +186,10 @@ func validateSearchFilesRequest(req searchFilesRequest) error {
 	return nil
 }
 
-func parseLsTree(cmd *command.Command, filter *regexp.Regexp, offset int, limit int) ([][]byte, error) {
+func parseLsTree(objectHash git.ObjectHash, cmd *command.Command, filter *regexp.Regexp, offset int, limit int) ([][]byte, error) {
 	var files [][]byte
 	var index int
-	parser := localrepo.NewParser(cmd, git.ObjectHashSHA1)
+	parser := localrepo.NewParser(cmd, objectHash)
 
 	for {
 		path, err := parser.NextEntryPath()
