@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -106,7 +107,7 @@ func (s *server) sendTreeEntries(
 			return err
 		}
 
-		tree, err := repo.GetTree(
+		tree, err := repo.ReadTree(
 			ctx, git.Revision(revision),
 			localrepo.WithRecursive(),
 			localrepo.WithRelativePath(path),
@@ -123,10 +124,21 @@ func (s *server) sendTreeEntries(
 				return nil
 			}
 
-			return fmt.Errorf("listing tree entries: %w", err)
+			return fmt.Errorf("reading tree: %w", err)
 		}
 
-		treeEntries := tree.Entries
+		var treeEntries []*localrepo.TreeEntry
+
+		if err := tree.Walk(func(path string, entry *localrepo.TreeEntry) error {
+			for _, child := range entry.Entries {
+				child.Path = filepath.Join(path, child.Path)
+				treeEntries = append(treeEntries, child)
+			}
+
+			return nil
+		}); err != nil {
+			return fmt.Errorf("listing tree entries: %w", err)
+		}
 
 		entries = make([]*gitalypb.TreeEntry, 0, len(treeEntries))
 		for _, entry := range treeEntries {

@@ -209,9 +209,9 @@ func (t *treeQueue) pop() *TreeEntry {
 	return e
 }
 
-// walk scans through the output of ls-tree -r, and constructs a TreeEntry
+// populate scans through the output of ls-tree -r, and constructs a TreeEntry
 // object.
-func (t *TreeEntry) walk(
+func (t *TreeEntry) populate(
 	ctx context.Context,
 	repo *Repo,
 ) error {
@@ -269,6 +269,32 @@ func (t *TreeEntry) walk(
 	}
 
 	return nil
+}
+
+func (t *TreeEntry) walk(dirPath string, callback func(path string, entry *TreeEntry) error) error {
+	if t.Type != Tree {
+		return nil
+	}
+
+	if t.Type == Tree {
+		if err := callback(dirPath, t); err != nil {
+			return err
+		}
+	}
+
+	for _, entry := range t.Entries {
+		if entry.Type == Tree {
+			if err := entry.walk(filepath.Join(dirPath, entry.Path), callback); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (t *TreeEntry) Walk(callback func(path string, entry *TreeEntry) error) error {
+	return t.walk(t.Path, callback)
 }
 
 // WriteTree takes a TreeEntry, and does a depth first walk, writing
@@ -357,51 +383,39 @@ func (repo *Repo) writeEntries(ctx context.Context, entries []*TreeEntry) (git.O
 	return treeOID, nil
 }
 
-// getTreeConfig is configuration that can be passed to GetTree.
-type getTreeConfig struct {
+// readTreeConfig is configuration that can be passed to ReadTree.
+type readTreeConfig struct {
 	recursive bool
 	// relativePath is the relative path at which listing of entries should be started.
 	relativePath string
-	walk         bool
 }
 
-// GetTreeOption is an option that modifies the behavior of GetTree()
-type GetTreeOption func(c *getTreeConfig)
+// ReadTreeOption is an option that modifies the behavior of ReadTree()
+type ReadTreeOption func(c *readTreeConfig)
 
 // WithRecursive returns all entries recursively, but "flattened" in the sense
 // that all subtrees and their entries get returned as Entries, each entry with
 // its full path.
-func WithRecursive() GetTreeOption {
-	return func(c *getTreeConfig) {
+func WithRecursive() ReadTreeOption {
+	return func(c *readTreeConfig) {
 		c.recursive = true
 	}
 }
 
-// WithRelativePath will cause GetTree to return a tree at the relative path.
-func WithRelativePath(relativePath string) GetTreeOption {
-	return func(c *getTreeConfig) {
+// WithRelativePath will cause ReadTree to return a tree at the relative path.
+func WithRelativePath(relativePath string) ReadTreeOption {
+	return func(c *readTreeConfig) {
 		c.relativePath = relativePath
 	}
 }
 
-// WithWalk will walk the rest of the tree, filling in each level's Entries.
-func WithWalk() GetTreeOption {
-	return func(c *getTreeConfig) {
-		c.walk = true
-	}
-}
-
-// GetTree gets a tree object with all of the direct children populated.
+// ReadTree gets a tree object with all of the direct children populated.
 // Walk can be called to populate every level of the tree.
-func (repo *Repo) GetTree(ctx context.Context, treeish git.Revision, options ...GetTreeOption) (*TreeEntry, error) {
-	var c getTreeConfig
+func (repo *Repo) ReadTree(ctx context.Context, treeish git.Revision, options ...ReadTreeOption) (*TreeEntry, error) {
+	var c readTreeConfig
 
 	for _, opt := range options {
 		opt(&c)
-	}
-
-	if c.walk && c.recursive {
-		return nil, errors.New("cannot walk and return recursive listings at the same time")
 	}
 
 	var treeOID git.ObjectID
@@ -423,21 +437,19 @@ func (repo *Repo) GetTree(ctx context.Context, treeish git.Revision, options ...
 		Mode: "040000",
 	}
 
-	if c.walk {
-		if err := rootEntry.walk(ctx, repo); err != nil {
+	if c.recursive {
+		if err := rootEntry.populate(ctx, repo); err != nil {
 			return nil, err
 		}
-
-		return rootEntry, nil
-	}
-
-	if rootEntry.Entries, err = repo.listEntries(
-		ctx,
-		treeish,
-		c.relativePath,
-		c.recursive,
-	); err != nil {
-		return nil, fmt.Errorf("listEntries: %w", err)
+	} else {
+		if rootEntry.Entries, err = repo.listEntries(
+			ctx,
+			treeish,
+			c.relativePath,
+			c.recursive,
+		); err != nil {
+			return nil, fmt.Errorf("listEntries: %w", err)
+		}
 	}
 
 	return rootEntry, nil

@@ -71,10 +71,11 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 	// tree with the new tree abcabc. Continue iterating up the tree,
 	// writing a new tree object each time.
 	for {
-		tree, err := quarantineRepo.GetTree(
+		tree, err := quarantineRepo.ReadTree(
 			ctx,
 			git.Revision("refs/heads/"+string(req.GetBranch())),
 			localrepo.WithRelativePath(path),
+			localrepo.WithRecursive(),
 		)
 		if err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
@@ -84,7 +85,17 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 			return "", fmt.Errorf("error reading tree: %w", err)
 		}
 
-		entries := tree.Entries
+		var entries []*localrepo.TreeEntry
+
+		if err := tree.Walk(func(path string, entry *localrepo.TreeEntry) error {
+			for _, child := range entry.Entries {
+				entries = append(entries, child)
+			}
+
+			return nil
+		}); err != nil {
+			return "", fmt.Errorf("listing tree entries: %w", err)
+		}
 
 		var newEntries []*localrepo.TreeEntry
 		var newTreeID git.ObjectID

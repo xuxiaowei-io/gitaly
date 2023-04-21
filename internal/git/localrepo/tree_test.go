@@ -380,7 +380,7 @@ func TestTreeEntryByPath(t *testing.T) {
 	}
 }
 
-func TestGetTree(t *testing.T) {
+func TestReadTree(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -414,8 +414,8 @@ func TestGetTree(t *testing.T) {
 	for _, tc := range []struct {
 		desc            string
 		treeish         git.Revision
-		cfg             *getTreeConfig
-		expectedResults []*TreeEntry
+		cfg             *readTreeConfig
+		expectedResults []TreeEntry
 		expectedErr     error
 	}{
 		{
@@ -425,7 +425,7 @@ func TestGetTree(t *testing.T) {
 		{
 			desc:    "tree with blob",
 			treeish: treeWithBlob.Revision(),
-			expectedResults: []*TreeEntry{
+			expectedResults: []TreeEntry{
 				{Mode: "100755", Type: Blob, OID: blobID, Path: "executable"},
 				{Mode: "100644", Type: Blob, OID: blobID, Path: "nonexecutable"},
 			},
@@ -433,24 +433,24 @@ func TestGetTree(t *testing.T) {
 		{
 			desc:    "tree with subtree",
 			treeish: treeWithSubtree.Revision(),
-			expectedResults: []*TreeEntry{
+			expectedResults: []TreeEntry{
 				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir"},
 			},
 		},
 		{
 			desc:    "nested trees",
 			treeish: treeWithNestedSubtrees.Revision(),
-			expectedResults: []*TreeEntry{
+			expectedResults: []TreeEntry{
 				{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "nested-subdir"},
 			},
 		},
 		{
 			desc:    "recursive nested trees",
 			treeish: treeWithNestedSubtrees.Revision(),
-			cfg: &getTreeConfig{
+			cfg: &readTreeConfig{
 				recursive: true,
 			},
-			expectedResults: []*TreeEntry{
+			expectedResults: []TreeEntry{
 				{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "nested-subdir"},
 				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "nested-subdir/subdir"},
 			},
@@ -458,21 +458,21 @@ func TestGetTree(t *testing.T) {
 		{
 			desc:    "nested subtree",
 			treeish: treeWithNestedSubtrees.Revision(),
-			cfg: &getTreeConfig{
+			cfg: &readTreeConfig{
 				relativePath: "nested-subdir",
 			},
-			expectedResults: []*TreeEntry{
+			expectedResults: []TreeEntry{
 				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir"},
 			},
 		},
 		{
 			desc:    "nested recursive subtree",
 			treeish: treeWithSubtreeContainingBlob.Revision(),
-			cfg: &getTreeConfig{
+			cfg: &readTreeConfig{
 				relativePath: "subdir",
 				recursive:    true,
 			},
-			expectedResults: []*TreeEntry{
+			expectedResults: []TreeEntry{
 				{Mode: "100644", Type: Blob, OID: blobID, Path: "blob"},
 				{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "subdir"},
 				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir/subdir"},
@@ -481,10 +481,10 @@ func TestGetTree(t *testing.T) {
 		{
 			desc:    "recursive nested trees and blobs",
 			treeish: treeWithSubtreeAndBlob.Revision(),
-			cfg: &getTreeConfig{
+			cfg: &readTreeConfig{
 				recursive: true,
 			},
-			expectedResults: []*TreeEntry{
+			expectedResults: []TreeEntry{
 				{Mode: "100644", Type: Blob, OID: blobID, Path: "blob"},
 				{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "subdir"},
 				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir/subdir"},
@@ -501,7 +501,7 @@ func TestGetTree(t *testing.T) {
 		{
 			desc:    "valid revision with invalid path",
 			treeish: treeWithSubtree.Revision(),
-			cfg: &getTreeConfig{
+			cfg: &readTreeConfig{
 				relativePath: "does-not-exist",
 			},
 			expectedErr: git.ErrReferenceNotFound,
@@ -509,7 +509,7 @@ func TestGetTree(t *testing.T) {
 		{
 			desc:    "valid revision with path pointing to blob",
 			treeish: treeWithSubtreeAndBlob.Revision(),
-			cfg: &getTreeConfig{
+			cfg: &readTreeConfig{
 				relativePath: "blob",
 			},
 			expectedErr: ErrNotTreeish,
@@ -521,20 +521,30 @@ func TestGetTree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			var options []GetTreeOption
+			var options []ReadTreeOption
 			if tc.cfg != nil && tc.cfg.recursive {
 				options = append(options, WithRecursive())
 			}
 			if tc.cfg != nil && tc.cfg.relativePath != "" {
 				options = append(options, WithRelativePath(tc.cfg.relativePath))
 			}
-			tree, err := repo.GetTree(ctx, tc.treeish, options...)
+			tree, err := repo.ReadTree(ctx, tc.treeish, options...)
 			if tc.expectedErr != nil {
 				require.ErrorIs(t, err, tc.expectedErr)
 				return
 			}
+			var results []TreeEntry
 
-			results := tree.Entries
+			require.NoError(t, tree.Walk(func(path string, tree *TreeEntry) error {
+				for _, child := range tree.Entries {
+					child.Path = filepath.Join(path, child.Path)
+					results = append(results, *child)
+					results[len(results)-1].Entries = nil
+				}
+
+				return nil
+			}))
+
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}
@@ -713,7 +723,7 @@ func requireTreeEquals(
 	treeOID git.ObjectID,
 	expect *TreeEntry,
 ) {
-	tree, err := repo.GetTree(ctx, git.Revision(treeOID))
+	tree, err := repo.ReadTree(ctx, git.Revision(treeOID))
 	require.NoError(t, err)
 
 	for i, entry := range tree.Entries {
@@ -738,7 +748,7 @@ func requireTreeEquals(
 	}
 }
 
-func TestGetTree_WithWalk(t *testing.T) {
+func TestReadTree_WithRecursive(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
@@ -872,10 +882,10 @@ func TestGetTree_WithWalk(t *testing.T) {
 
 			commitID, expectedTree := tc.setupTree(t, repoPath)
 
-			tree, err := repo.GetTree(
+			tree, err := repo.ReadTree(
 				ctx,
 				git.Revision(commitID),
-				WithWalk(),
+				WithRecursive(),
 			)
 			require.NoError(t, err)
 			require.Equal(t, expectedTree, *tree)

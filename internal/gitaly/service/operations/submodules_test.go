@@ -99,7 +99,7 @@ func TestUserUpdateSubmodule(t *testing.T) {
 			},
 		},
 		{
-			desc:    "successful + nested folder",
+			desc:    "successful nested folder",
 			subPath: "foo/sub",
 			branch:  "master",
 			setup: func(repoPath, subRepoPath string, repoProto, subRepoProto *gitalypb.Repository) setupData {
