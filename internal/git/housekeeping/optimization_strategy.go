@@ -126,20 +126,6 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 			return true, cfg
 		}
 
-		// If there are loose objects then we want to roll them up into a new packfile.
-		// Loose objects naturally accumulate during day-to-day operations, e.g. when
-		// executing RPCs part of the OperationsService which write objects into the repo
-		// directly.
-		//
-		// So in case we exceed a certain threshold of loose objects then we'll want to do a
-		// geometric repack. As geometric repacks unconditionally include all loose objects
-		// regardless of whether they are reachable or not we know that we will end up with
-		// no loose objects after this step.
-		if s.info.LooseObjects.Count > looseObjectLimit {
-			cfg.Strategy = RepackObjectsStrategyGeometric
-			return true, cfg
-		}
-
 		// In case both packfiles and loose objects are in a good state, but we don't yet
 		// have a multi-pack-index we perform an incremental repack to generate one. We need
 		// to have multi-pack-indices for the next heuristic, so it's bad if it was missing.
@@ -203,6 +189,29 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 
 		if untrackedPackfiles > uint64(actualLimit) {
 			cfg.Strategy = RepackObjectsStrategyGeometric
+			return true, cfg
+		}
+
+		// If there are loose objects then we want to roll them up into a new packfile.
+		// Loose objects naturally accumulate during day-to-day operations, e.g. when
+		// executing RPCs part of the OperationsService which write objects into the repo
+		// directly.
+		//
+		// As we have already verified that the packfile structure looks okay-ish to us, we
+		// don't need to perform a geometric repack here as that could be expensive: we
+		// might end up soaking up packfiles because the geometric sequence is not intact,
+		// but more importantly we would end up writing the multi-pack-index and potentially
+		// a bitmap. Writing these data structures introduces overhead that scales with the
+		// number of objects in the repository.
+		//
+		// So instead, we only do an incremental repack of all loose objects, regardless of
+		// their reachability. This is the cheapest we can do: we don't need to compute
+		// whether objects are reachable and we don't need to update any data structures
+		// that scale with the repository size.
+		if s.info.LooseObjects.Count > looseObjectLimit {
+			cfg.Strategy = RepackObjectsStrategyIncrementalWithUnreachable
+			cfg.WriteBitmap = false
+			cfg.WriteMultiPackIndex = false
 			return true, cfg
 		}
 

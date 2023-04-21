@@ -574,14 +574,14 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					Strategy: func() RepackObjectsStrategy {
 						if repackNeeded {
 							return geometricOrIncremental(ctx,
-								RepackObjectsStrategyGeometric,
+								RepackObjectsStrategyIncrementalWithUnreachable,
 								RepackObjectsStrategyIncremental,
 							)
 						}
 						return ""
 					}(),
-					WriteBitmap:         repackNeeded,
-					WriteMultiPackIndex: repackNeeded,
+					WriteBitmap:         repackNeeded && geometricOrIncremental(ctx, false, true),
+					WriteMultiPackIndex: repackNeeded && geometricOrIncremental(ctx, false, true),
 				}, repackCfg)
 			})
 		}

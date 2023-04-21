@@ -214,6 +214,9 @@ var commandDescriptions = map[string]commandDescription{
 	"prune": {
 		flags: scNoRefUpdates,
 	},
+	"prune-packed": {
+		flags: scNoRefUpdates,
+	},
 	"push": {
 		flags: scNoRefUpdates,
 		opts: []GlobalOption{

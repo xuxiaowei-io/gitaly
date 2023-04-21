@@ -1,17 +1,21 @@
 package housekeeping
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -708,4 +712,241 @@ func TestRepackObjects(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestRepackObjects_incrementalWithUnreachable(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	type setupData struct {
+		expectedErr       error
+		stateBeforeRepack objectsState
+		stateAfterRepack  objectsState
+		expectedPackfiles [][]git.ObjectID
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T, repoPath string) setupData
+	}{
+		{
+			desc: "unreachable object is packed",
+			setup: func(t *testing.T, repoPath string) setupData {
+				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("data"))
+				return setupData{
+					stateBeforeRepack: objectsState{
+						looseObjects: 1,
+					},
+					stateAfterRepack: objectsState{
+						looseObjects: 0,
+						packfiles:    1,
+					},
+					expectedPackfiles: [][]git.ObjectID{
+						{
+							blobID,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "reachable object is packed",
+			setup: func(t *testing.T, repoPath string) setupData {
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+
+				return setupData{
+					stateBeforeRepack: objectsState{
+						looseObjects: 2,
+					},
+					stateAfterRepack: objectsState{
+						looseObjects: 0,
+						packfiles:    1,
+					},
+					expectedPackfiles: [][]git.ObjectID{
+						{
+							commitID,
+							gittest.DefaultObjectHash.EmptyTreeOID,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "no packfile is generated when all objects are packed",
+			setup: func(t *testing.T, repoPath string) setupData {
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a", "--no-write-bitmap-index")
+
+				return setupData{
+					stateBeforeRepack: objectsState{
+						looseObjects: 2,
+						packfiles:    1,
+					},
+					stateAfterRepack: objectsState{
+						looseObjects: 0,
+						packfiles:    1,
+					},
+					expectedPackfiles: [][]git.ObjectID{
+						{
+							commitID,
+							gittest.DefaultObjectHash.EmptyTreeOID,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "some packed and non-packed objects",
+			setup: func(t *testing.T, repoPath string) setupData {
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a", "--no-write-bitmap-index")
+				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+
+				return setupData{
+					stateBeforeRepack: objectsState{
+						looseObjects: 3,
+						packfiles:    1,
+					},
+					stateAfterRepack: objectsState{
+						looseObjects: 0,
+						packfiles:    2,
+					},
+					expectedPackfiles: [][]git.ObjectID{
+						{
+							commitID,
+							gittest.DefaultObjectHash.EmptyTreeOID,
+						},
+						{
+							blobID,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "loose object in alternate object directory is ignored",
+			setup: func(t *testing.T, repoPath string) setupData {
+				alternateRepoProto, alternateRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				alternateRepo := localrepo.NewTestRepo(t, cfg, alternateRepoProto)
+				gittest.WriteBlob(t, cfg, alternateRepoPath, []byte("content"))
+				requireObjectsState(t, alternateRepo, objectsState{
+					looseObjects: 1,
+				})
+
+				require.NoError(t, os.WriteFile(
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(filepath.Join(alternateRepoPath, "objects")),
+					perm.PrivateFile,
+				))
+
+				return setupData{
+					stateBeforeRepack: objectsState{
+						looseObjects: 0,
+					},
+					stateAfterRepack: objectsState{
+						looseObjects: 0,
+						packfiles:    0,
+					},
+					expectedPackfiles: [][]git.ObjectID{},
+				}
+			},
+		},
+		{
+			desc: "local object that exists in alternate is skipped",
+			setup: func(t *testing.T, repoPath string) setupData {
+				alternateRepoProto, alternateRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				alternateRepo := localrepo.NewTestRepo(t, cfg, alternateRepoProto)
+				// We're writing a referenced commit so that the resulting object
+				// will be included in the packfile.
+				gittest.WriteCommit(t, cfg, alternateRepoPath, gittest.WithBranch("branch"))
+				gittest.Exec(t, cfg, "-C", alternateRepoPath, "repack", "-a", "-d", "--no-write-bitmap-index")
+
+				requireObjectsState(t, alternateRepo, objectsState{
+					packfiles: 1,
+				})
+
+				gittest.WriteCommit(t, cfg, repoPath)
+
+				require.NoError(t, os.WriteFile(
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(filepath.Join(alternateRepoPath, "objects")),
+					perm.PrivateFile,
+				))
+
+				return setupData{
+					stateBeforeRepack: objectsState{
+						looseObjects: 2,
+					},
+					stateAfterRepack: objectsState{
+						packfiles: 0,
+					},
+					expectedPackfiles: [][]git.ObjectID{},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			setup := tc.setup(t, repoPath)
+
+			requireObjectsState(t, repo, setup.stateBeforeRepack)
+			require.Equal(t, setup.expectedErr, RepackObjects(ctx, repo, RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyIncrementalWithUnreachable,
+			}))
+			requireObjectsState(t, repo, setup.stateAfterRepack)
+
+			packfileIndices, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.idx"))
+			require.NoError(t, err)
+
+			var packfiles [][]git.ObjectID
+			for _, packfileIndex := range packfileIndices {
+				data := testhelper.MustReadFile(t, packfileIndex)
+
+				var stdout bytes.Buffer
+				gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+					Stdin:  bytes.NewReader(data),
+					Stdout: &stdout,
+				}, "-C", repoPath, "show-index")
+
+				var packfile []git.ObjectID
+				for _, objectLine := range strings.Split(text.ChompBytes(stdout.Bytes()), "\n") {
+					// Each line printed by git-show-index(1) contains three
+					// tuples of information: the object size, the object ID and
+					// the CRC32 of the object data. We only care for the second
+					// column, the object ID.
+					objectInfo := strings.Split(objectLine, " ")
+					require.Len(t, objectInfo, 3)
+
+					packfile = append(packfile, git.ObjectID(objectInfo[1]))
+				}
+				sort.Slice(packfile, func(i, j int) bool {
+					return packfile[i].String() < packfile[j].String()
+				})
+
+				packfiles = append(packfiles, packfile)
+			}
+
+			for _, expectedPackfile := range setup.expectedPackfiles {
+				sort.Slice(expectedPackfile, func(i, j int) bool {
+					return expectedPackfile[i].String() < expectedPackfile[j].String()
+				})
+			}
+
+			require.ElementsMatch(t, setup.expectedPackfiles, packfiles)
+		})
+	}
 }
