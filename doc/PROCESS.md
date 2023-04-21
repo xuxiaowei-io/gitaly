@@ -73,11 +73,11 @@ graph TD
 ```
 
 > WARNING: This architecture imposes some limitations on how Gitaly uses feature flags
+>
 > - All Gitaly feature flags must start with the `gitaly_` prefix. Otherwise, they are
 >   not propagated to Gitaly. This prefix is stripped when used in Gitaly internally.
 > - Feature flags are not available if an operation does not contact Rails. It
 >   means Gitaly background jobs, such as repository maintenance, cannot use feature flags.
-feature flags.
 
 To check feature flags in the source code, that flag must be defined in
 [internal/metadatta/featureflag][gitaly-featureflag-folder] folder. For example:
@@ -87,15 +87,15 @@ package featureflag
 
 // GoFindLicense enables Go implementation of FindLicense
 var GoFindLicense = NewFeatureFlag(
-	// Snake-cased name of the flag. This is the name used to control the flag
-	// via chatops or admin API. The `gitaly_` prefix is stripped.
-	"go_find_license",
-	// Target version of the flag
-	"v14.3.0",
-	// Rollout Issue
-	"https://gitlab.com/gitlab-org/gitaly/-/issues/3759",
-	// Default value
-	false,
+    // Snake-cased name of the flag. This is the name used to control the flag
+    // via chatops or admin API. The `gitaly_` prefix is stripped.
+    "go_find_license",
+    // Target version of the flag
+    "v14.3.0",
+    // Rollout Issue
+    "https://gitlab.com/gitlab-org/gitaly/-/issues/3759",
+    // Default value
+    false,
 )
 ```
 
@@ -108,8 +108,8 @@ with the consumers regardless of the current flag state.
 
 ```go
 func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {
-	// Blah blah
-	if featureflag.GoFindLicense.IsEnabled(ctx) {
+    // Blah blah
+    if featureflag.GoFindLicense.IsEnabled(ctx) {
     }
 }
 ```

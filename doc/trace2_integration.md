@@ -337,20 +337,20 @@ a simple `git-status` command is slow, the following hook captures two things:
 type gitStatusHook struct{}
 
 func (h *gitStatusHook) Name() string {
-	return "git_status_hook"
+  return "git_status_hook"
 }
 
 func (h *gitStatusHook) Handle(rootCtx context.Context, trace *trace2.Trace) error {
-	trace.Walk(rootCtx, func(ctx context.Context, trace *trace2.Trace) context.Context {
-		switch trace.Name {
-		case "index:do_read_index":
-			fmt.Printf("Duration of reading index: %v", trace.FinishTime.Sub(trace.StartTime))
-		case "data:index:read/cache_nr":
-			fmt.Printf("Changed: %v", trace.Metadata["data"])
-		}
-		return ctx
-	})
-	return nil
+  trace.Walk(rootCtx, func(ctx context.Context, trace *trace2.Trace) context.Context {
+    switch trace.Name {
+    case "index:do_read_index":
+      fmt.Printf("Duration of reading index: %v", trace.FinishTime.Sub(trace.StartTime))
+    case "data:index:read/cache_nr":
+      fmt.Printf("Changed: %v", trace.Metadata["data"])
+    }
+    return ctx
+  })
+  return nil
 }
 ```
 
