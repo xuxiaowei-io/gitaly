@@ -57,13 +57,13 @@ func (m *RepositoryManager) OptimizeRepository(
 		return err
 	}
 
-	if _, ok := m.reposInProgress.LoadOrStore(path, struct{}{}); ok {
+	ok, cleanup := m.repositoryStates.tryRunningHousekeeping(path)
+	// If we didn't succeed to set the state to "running" because of a concurrent housekeeping run
+	// we exit early.
+	if !ok {
 		return nil
 	}
-
-	defer func() {
-		m.reposInProgress.Delete(path)
-	}()
+	defer cleanup()
 
 	var cfg OptimizeRepositoryConfig
 	for _, opt := range opts {
@@ -277,9 +277,21 @@ func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimizat
 }
 
 func (m *RepositoryManager) packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, error) {
+	path, err := repo.Path()
+	if err != nil {
+		return false, err
+	}
+
 	if !strategy.ShouldRepackReferences(ctx) {
 		return false, nil
 	}
+
+	// If there are any inhibitors, we don't run git-pack-refs(1).
+	ok, cleanup := m.repositoryStates.tryRunningPackRefs(path)
+	if !ok {
+		return false, nil
+	}
+	defer cleanup()
 
 	var stderr bytes.Buffer
 	if err := repo.ExecAndWait(ctx, git.Command{
