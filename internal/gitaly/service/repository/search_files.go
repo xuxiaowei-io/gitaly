@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 
@@ -27,13 +28,15 @@ const (
 var contentDelimiter = []byte("--\n")
 
 func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest, stream gitalypb.RepositoryService_SearchFilesByContentServer) error {
+	ctx := stream.Context()
+
 	if err := validateSearchFilesRequest(req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	ctx := stream.Context()
-	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
-		git.Command{Name: "grep", Flags: []git.Option{
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.Command{
+		Name: "grep",
+		Flags: []git.Option{
 			git.Flag{Name: "--ignore-case"},
 			git.Flag{Name: "-I"},
 			git.Flag{Name: "--line-number"},
@@ -41,8 +44,12 @@ func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest,
 			git.ValueFlag{Name: "--before-context", Value: surroundContext},
 			git.ValueFlag{Name: "--after-context", Value: surroundContext},
 			git.Flag{Name: "--perl-regexp"},
-			git.Flag{Name: "-e"},
-		}, Args: []string{req.GetQuery(), string(req.GetRef())}})
+			git.ValueFlag{Name: "-e", Value: req.GetQuery()},
+		},
+		Args: []string{
+			string(req.GetRef()),
+		},
+	})
 	if err != nil {
 		return structerr.NewInternal("cmd start failed: %w", err)
 	}
@@ -97,6 +104,8 @@ func sendSearchFilesResultChunked(cmd *command.Command, stream gitalypb.Reposito
 }
 
 func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, stream gitalypb.RepositoryService_SearchFilesByNameServer) error {
+	ctx := stream.Context()
+
 	if err := validateSearchFilesRequest(req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
@@ -113,11 +122,16 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 		}
 	}
 
-	ctx := stream.Context()
-	cmd, err := s.gitCmdFactory.New(
-		ctx,
-		req.GetRepository(),
-		git.Command{Name: "ls-tree", Flags: []git.Option{
+	repo := s.localrepo(req.GetRepository())
+
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.Command{
+		Name: "ls-tree",
+		Flags: []git.Option{
 			git.Flag{Name: "--full-tree"},
 			git.Flag{Name: "--name-status"},
 			git.Flag{Name: "-r"},
@@ -126,12 +140,19 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 			// more ideal solution. Unfortunately, it supports parsing full
 			// output while we are interested in the filenames only.
 			git.Flag{Name: "-z"},
-		}, Args: []string{string(req.GetRef()), req.GetQuery()}})
+		},
+		Args: []string{
+			string(req.GetRef()),
+		},
+		PostSepArgs: []string{
+			req.GetQuery(),
+		},
+	})
 	if err != nil {
 		return structerr.NewInternal("cmd start failed: %w", err)
 	}
 
-	files, err := parseLsTree(cmd, filter, int(req.GetOffset()), int(req.GetLimit()))
+	files, err := parseLsTree(objectHash, cmd, filter, int(req.GetOffset()), int(req.GetLimit()))
 	if err != nil {
 		return err
 	}
@@ -165,10 +186,10 @@ func validateSearchFilesRequest(req searchFilesRequest) error {
 	return nil
 }
 
-func parseLsTree(cmd *command.Command, filter *regexp.Regexp, offset int, limit int) ([][]byte, error) {
+func parseLsTree(objectHash git.ObjectHash, cmd *command.Command, filter *regexp.Regexp, offset int, limit int) ([][]byte, error) {
 	var files [][]byte
 	var index int
-	parser := localrepo.NewParser(cmd, git.ObjectHashSHA1)
+	parser := localrepo.NewParser(cmd, objectHash)
 
 	for {
 		path, err := parser.NextEntryPath()
