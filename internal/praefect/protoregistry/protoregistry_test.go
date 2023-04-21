@@ -146,8 +146,13 @@ func TestNewProtoRegistry(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Equalf(t, opType, methodInfo.Operation, "expect %s:%s to have the correct op type", serviceName, methodName)
+
 			require.Equal(t, method, methodInfo.FullMethodName())
-			require.False(t, GitalyProtoPreregistered.IsInterceptedMethod(method), method)
+			actualServiceName, actualMethodName := methodInfo.ServiceNameAndMethodName()
+			require.Equal(t, fmt.Sprintf("gitaly.%s", serviceName), actualServiceName)
+			require.Equal(t, methodName, actualMethodName)
+
+			require.False(t, protoregistry.GitalyProtoPreregistered.IsInterceptedMethod(method), method)
 		}
 	}
 }

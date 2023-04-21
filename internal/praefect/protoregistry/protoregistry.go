@@ -22,6 +22,148 @@ func init() {
 	}
 }
 
+// OpType represents the operation type for a RPC method
+type OpType int
+
+const (
+	// OpUnknown = unknown operation type
+	OpUnknown OpType = iota
+	// OpAccessor = accessor operation type (ready only)
+	OpAccessor
+	// OpMutator = mutator operation type (modifies a repository)
+	OpMutator
+	// OpMaintenance is an operation which performs maintenance-tasks on the repository. It
+	// shouldn't ever result in a user-visible change in behaviour, except that it may repair
+	// corrupt data.
+	OpMaintenance
+)
+
+// Scope represents the intended scope of an RPC method
+type Scope int
+
+const (
+	// ScopeUnknown is the default scope until determined otherwise
+	ScopeUnknown Scope = iota
+	// ScopeRepository indicates an RPC's scope is limited to a repository
+	ScopeRepository
+	// ScopeStorage indicates an RPC is scoped to an entire storage location
+	ScopeStorage
+)
+
+func (s Scope) String() string {
+	switch s {
+	case ScopeStorage:
+		return "storage"
+	case ScopeRepository:
+		return "repository"
+	default:
+		return fmt.Sprintf("N/A: %d", s)
+	}
+}
+
+var protoScope = map[gitalypb.OperationMsg_Scope]Scope{
+	gitalypb.OperationMsg_REPOSITORY: ScopeRepository,
+	gitalypb.OperationMsg_STORAGE:    ScopeStorage,
+}
+
+// MethodInfo contains metadata about the RPC method. Refer to documentation
+// for message type "OperationMsg" shared.proto in ./proto for
+// more documentation.
+type MethodInfo struct {
+	Operation      OpType
+	Scope          Scope
+	targetRepo     []int
+	additionalRepo []int
+	requestName    string // protobuf message name for input type
+	requestFactory protoFactory
+	storage        []int
+	fullMethodName string
+}
+
+// TargetRepo returns the target repository for a protobuf message if it exists
+func (mi MethodInfo) TargetRepo(msg proto.Message) (*gitalypb.Repository, error) {
+	return mi.getRepo(msg, mi.targetRepo)
+}
+
+// AdditionalRepo returns the additional repository for a protobuf message that needs a storage rewritten
+// if it exists
+func (mi MethodInfo) AdditionalRepo(msg proto.Message) (*gitalypb.Repository, bool, error) {
+	if mi.additionalRepo == nil {
+		return nil, false, nil
+	}
+
+	repo, err := mi.getRepo(msg, mi.additionalRepo)
+
+	return repo, true, err
+}
+
+//nolint:revive // This is unintentionally missing documentation.
+func (mi MethodInfo) FullMethodName() string {
+	return mi.fullMethodName
+}
+
+// ServiceNameAndMethodName returns a tuple of service name and method name. The service name
+// includes its package name.
+func (mi MethodInfo) ServiceNameAndMethodName() (string, string) {
+	parts := strings.SplitN(strings.TrimPrefix(mi.fullMethodName, "/"), "/", 2)
+	if len(parts) < 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
+}
+
+func (mi MethodInfo) getRepo(msg proto.Message, targetOid []int) (*gitalypb.Repository, error) {
+	if mi.requestName != string(proto.MessageName(msg)) {
+		return nil, fmt.Errorf(
+			"proto message %s does not match expected RPC request message %s",
+			proto.MessageName(msg), mi.requestName,
+		)
+	}
+
+	repo, err := reflectFindRepoTarget(msg, targetOid)
+	switch {
+	case err != nil:
+		return nil, err
+	case repo == nil:
+		// it is possible for the target repo to not be set (especially in our unit
+		// tests designed to fail and this should return an error to prevent nil
+		// pointer dereferencing
+		return nil, ErrTargetRepoMissing
+	default:
+		return repo, nil
+	}
+}
+
+// Storage returns the storage name for a protobuf message if it exists
+func (mi MethodInfo) Storage(msg proto.Message) (string, error) {
+	if mi.requestName != string(proto.MessageName(msg)) {
+		return "", fmt.Errorf(
+			"proto message %s does not match expected RPC request message %s",
+			proto.MessageName(msg), mi.requestName,
+		)
+	}
+
+	return reflectFindStorage(msg, mi.storage)
+}
+
+// SetStorage sets the storage name for a protobuf message
+func (mi MethodInfo) SetStorage(msg proto.Message, storage string) error {
+	if mi.requestName != string(proto.MessageName(msg)) {
+		return fmt.Errorf(
+			"proto message %s does not match expected RPC request message %s",
+			proto.MessageName(msg), mi.requestName,
+		)
+	}
+
+	return reflectSetStorage(msg, mi.storage, storage)
+}
+
+// UnmarshalRequestProto will unmarshal the bytes into the method's request
+// message type
+func (mi MethodInfo) UnmarshalRequestProto(b []byte) (proto.Message, error) {
+	return mi.requestFactory(b)
+}
+
 // Registry contains info about RPC methods
 type Registry struct {
 	protos map[string]MethodInfo
