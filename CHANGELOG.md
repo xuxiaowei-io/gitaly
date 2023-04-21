@@ -1,5 +1,59 @@
 # Gitaly changelog
 
+## 15.11.0 (2023-04-21)
+
+### Added (12 changes)
+
+- [ref: Support SHA256 in RPCs that search for refs containing commits](gitlab-org/gitaly@311f36bf5d7893293f644e3ba82fb0b48c111a61) ([merge request](gitlab-org/gitaly!5648))
+- [diff: Add mode to get only all parent changes](gitlab-org/gitaly@37ec51cceb17bff44b592cb600e56040b7e1ed4c) ([merge request](gitlab-org/gitaly!5564))
+- [commit: Implement SHA256 compatibility in ListLastCommitsForTree](gitlab-org/gitaly@e964f47072076890366fb7f8433bdc22a2dc598d) ([merge request](gitlab-org/gitaly!5627))
+- [git/housekeeping: Reintroduce geometric repacking strategy](gitlab-org/gitaly@528c7fe0dc0e72f173d4326d13ca07d33c88c0d3) ([merge request](gitlab-org/gitaly!5607))
+- [commit: Implement SHA256 support in ListFiles](gitlab-org/gitaly@180b159bd13ca45ae2d8948ab5b5a5c856a14210) ([merge request](gitlab-org/gitaly!5618))
+- [git/housekeeping: Introduce geometric repacking strategy](gitlab-org/gitaly@12bde1a9370ae942cbcead6de16fd8a6c7f668db) ([merge request](gitlab-org/gitaly!5590))
+- [git: Wire up Git v2.40 execution environment](gitlab-org/gitaly@bb4cbac4bf717e772497f7cc3f194266b0aeaac5) ([merge request](gitlab-org/gitaly!5587))
+- [git/housekeeping: Implement support for geometric repacking](gitlab-org/gitaly@d1c0a77c4b8df1bd075488d89c4c13f62f00f471) ([merge request](gitlab-org/gitaly!5559))
+- [proto: Add definition for a new RepositoryInfo RPC](gitlab-org/gitaly@a84210839170bd8b8f7f0e604f36b02d5d06885c) ([merge request](gitlab-org/gitaly!5556))
+- [git/stats: Expose multi-pack-index information via logs and metrics](gitlab-org/gitaly@671aa14f18ff4febe77a823dd1a318cd068fd153) ([merge request](gitlab-org/gitaly!5549))
+- [gitaly/config: Support generating configuration via external command](gitlab-org/gitaly@0c21142ce287af817bf7d20d54378f25244fb7eb) ([merge request](gitlab-org/gitaly!5525))
+- [housekeeping: Keep timestamp of last full repack](gitlab-org/gitaly@e0d3e73973f96e7e048d60ddf64cf62f14c15646) ([merge request](gitlab-org/gitaly!5527))
+
+### Fixed (13 changes)
+
+- [praefect: Use localhost listener for DB in test](gitlab-org/gitaly@755089d5bcc7b1e5507d7fd66b180ff6af88ef0b) ([merge request](gitlab-org/gitaly!5641))
+- [git/housekeeping: Improve metrics when repacking objects fails](gitlab-org/gitaly@2c0864428661fc8ec7280754bd6848da1125e7d7) ([merge request](gitlab-org/gitaly!5629))
+- [git/housekeeping: Work around broken geometric repacks in pooled repos](gitlab-org/gitaly@814d57c9d88928d48db1f52733e71b5235cc4625) ([merge request](gitlab-org/gitaly!5607))
+- [git/housekeeping: Don't loosen objects when eagerly packing object pools](gitlab-org/gitaly@0da3605e0f5eac4dedc0ff050504294a73a3aac1) ([merge request](gitlab-org/gitaly!5598))
+- [git/housekeeping: Fix missing pack-objects strategy metric](gitlab-org/gitaly@c3103db7c067dd5f87090c9678e1d63d13ef350f) ([merge request](gitlab-org/gitaly!5592))
+- [git/stats: Count cruft and kept packfiles into all packfiles](gitlab-org/gitaly@da4c9767be11988e88539ea99c0b09988aed65c4) ([merge request](gitlab-org/gitaly!5556))
+- [housekeeping: Rewrite commit-graphs when expiring cruft](gitlab-org/gitaly@8468d0d42b1bf073b6f9f5b79790a5abfe400ec5) ([merge request](gitlab-org/gitaly!5571))
+- [go: Fix incompatibility of gopsutil dependency with macOS](gitlab-org/gitaly@3c19cc07b7e3103ba499d8fe9d74b046bbc20822) ([merge request](gitlab-org/gitaly!5570))
+- [repository: Don't fail on concurrent deletions when calculating size](gitlab-org/gitaly@871cf1c261c37ffc8b769e768d3f2f34e0592673) ([merge request](gitlab-org/gitaly!5545))
+- [housekeeping: Fix uncollected time-since-last-optimization metric](gitlab-org/gitaly@57bbacf16eff492e0660a4a095255a9c3d2696b5) ([merge request](gitlab-org/gitaly!5537))
+- [statushandler: Don't lose original error when converting error codes](gitlab-org/gitaly@b20f94fb057d2684a780d4bb1bb75bb15e6fb9b0) ([merge request](gitlab-org/gitaly!5532))
+- [statushandler: Don't wrap context errors](gitlab-org/gitaly@b54ad7922fb721b5fc767c0a221c50fb98b3855a) ([merge request](gitlab-org/gitaly!5530))
+- [repository: Consider cruft packs in PruneUnreachableObjects](gitlab-org/gitaly@bd98b50cd249a250b35272c62ece295a7d68ad77) ([merge request](gitlab-org/gitaly!5526))
+
+### Changed (7 changes)
+
+- [git/housekeeping: Reduce frequency of full repacks](gitlab-org/gitaly@21d61f7d517a1034ec4de8655a9138a3a3c32103) ([merge request](gitlab-org/gitaly!5640))
+- [Makefile: Add support for building on golang 1.19 in fips mode](gitlab-org/gitaly@c87c2fdb50d059d862eeebbd3df48b236c17b7fc) ([merge request](gitlab-org/gitaly!5620))
+- [git/housekeeping: Always enable writing cruft packs](gitlab-org/gitaly@a47d6bbe9cc92e6cb1aab917831476c3c03ab31c) ([merge request](gitlab-org/gitaly!5568))
+- [repository: Always use walk-based implementation for RepositorySize](gitlab-org/gitaly@0f4b4ce50dd76726931b112f5446d0d57060cbb9) ([merge request](gitlab-org/gitaly!5569))
+- [repository: Refactor RepositorySize to not rely on du(1)](gitlab-org/gitaly@ac600d02a3c56033b76d37eeb5ffea9212f9ce56) ([merge request](gitlab-org/gitaly!5517))
+- [repository: Return error when trying to prune objects in pool repos](gitlab-org/gitaly@d6fc61e3b340055b4bceb9e2d931505e3d96aef8) ([merge request](gitlab-org/gitaly!5526))
+- [operations: Improve error when formatting tag fails](gitlab-org/gitaly@1fe3221574a389daa3a3ecb203a44a6ee9cd884f) ([merge request](gitlab-org/gitaly!5521))
+
+### Removed (4 changes)
+
+- [localrepo: Remove function to calculate repository size](gitlab-org/gitaly@771fd6c519b60de29dff9fbef458572031cc636c) ([merge request](gitlab-org/gitaly!5608))
+- [git: Drop bundled Git v2.38](gitlab-org/gitaly@34882426472008effb5e63f125c0115a4731af03) ([merge request](gitlab-org/gitaly!5546))
+- [repository: Drop size calculations via git-rev-list(1)](gitlab-org/gitaly@7b9b36c1d4cbd0a8e983c916796e9ef75dcdfaca) ([merge request](gitlab-org/gitaly!5544))
+- [repository: Drop size calculations via git-cat-file(1)](gitlab-org/gitaly@bd921065b363c21a70d3e96fabdb95c4964d59a9) ([merge request](gitlab-org/gitaly!5511))
+
+### Other (1 change)
+
+- [Do not store unique fetches in pack-objects cache](gitlab-org/gitaly@a630cfa64f4bc3c9e21c5f37d9826c9a9c89a483) ([merge request](gitlab-org/gitaly!5540))
+
 ## 15.10.3 (2023-04-14)
 
 No changes.
