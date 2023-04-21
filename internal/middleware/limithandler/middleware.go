@@ -42,6 +42,7 @@ type LimiterMiddleware struct {
 	getLockKey            GetLockKey
 	requestsDroppedMetric *prometheus.CounterVec
 	collect               func(metrics chan<- prometheus.Metric)
+	pushback              *pushback
 }
 
 // New creates a new middleware that limits requests. SetupFunc sets up the
@@ -61,6 +62,7 @@ func New(cfg config.Cfg, getLockKey GetLockKey, setupMiddleware SetupFunc) *Limi
 				"reason",
 			},
 		),
+		pushback: &pushback{policies: defaultPushbackPolicies()},
 	}
 
 	setupMiddleware(cfg, middleware)
@@ -95,9 +97,13 @@ func (c *LimiterMiddleware) UnaryInterceptor() grpc.UnaryServerInterceptor {
 			return handler(ctx, req)
 		}
 
-		return limiter.Limit(ctx, lockKey, func() (interface{}, error) {
+		response, err := limiter.Limit(ctx, lockKey, func() (interface{}, error) {
 			return handler(ctx, req)
 		})
+		if err != nil {
+			c.pushback.push(ctx, info.FullMethod, err)
+		}
+		return response, err
 	}
 }
 
@@ -163,6 +169,9 @@ func (w *wrappedStream) RecvMsg(m interface{}) error {
 		// It's our turn!
 		return nil
 	case err := <-errs:
+		if err != nil {
+			w.limiterMiddleware.pushback.push(ctx, w.info.FullMethod, err)
+		}
 		return err
 	}
 }

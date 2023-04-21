@@ -205,6 +205,7 @@ func defaultServiceConfig() string {
 		LoadBalancingConfig: []*gitalypb.LoadBalancingConfig{{
 			Policy: &gitalypb.LoadBalancingConfig_RoundRobin{},
 		}},
+		MethodConfig: defaultMethodConfigs(),
 	}
 	configJSON, err := protojson.Marshal(serviceConfig)
 	if err != nil {
@@ -212,4 +213,13 @@ func defaultServiceConfig() string {
 	}
 
 	return string(configJSON)
+}
+
+func defaultMethodConfigs() []*gitalypb.MethodConfig {
+	var configs []*gitalypb.MethodConfig
+
+	// Add the list of method configs for RPCc pushback
+	configs = append(configs, limithandler.DefaultPushbackMethodConfigs()...)
+
+	return configs
 }
