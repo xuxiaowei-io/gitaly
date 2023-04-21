@@ -6,13 +6,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -75,6 +78,43 @@ func TestCreate(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.True(t, pool.IsValid())
+}
+
+func TestCreate_emptySource(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, repoProto, _, _, client := setup(t, ctx)
+
+	objectPoolProto := &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  repoProto.StorageName,
+			RelativePath: gittest.NewObjectPoolName(t),
+		},
+	}
+
+	response, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: objectPoolProto,
+		Origin:     repoProto,
+	})
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, &gitalypb.CreateObjectPoolResponse{}, response)
+
+	objectPoolRepo := localrepo.NewTestRepo(t, cfg, objectPoolProto.Repository)
+
+	// Assert that the created object pool is indeed empty.
+	info, err := stats.RepositoryInfoForRepository(objectPoolRepo)
+	require.NoError(t, err)
+	info.Packfiles.LastFullRepack = time.Time{}
+	require.Equal(t, stats.RepositoryInfo{
+		IsObjectPool: true,
+	}, info)
+
+	// And furthermore assert that the object hash of the new object pool matches what we
+	// expect.
+	objectHash, err := objectPoolRepo.ObjectHash(ctx)
+	require.NoError(t, err)
+	require.Equal(t, gittest.DefaultObjectHash.Format, objectHash.Format)
 }
 
 func TestCreate_unsuccessful(t *testing.T) {
