@@ -61,7 +61,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		nonExistentRepository bool
 		// baseTree contanis the tree entry that form the tree of the base commit.
 		baseTree []gittest.TreeEntry
-		// baseReference is the branch where baseCommit is, by default "master"
+		// baseReference is the branch where baseCommit is, by default git.DefaultBranch
 		baseReference git.ReferenceName
 		// notSentByAuthor marks the patch as being sent by someone else than the author.
 		notSentByAuthor bool
@@ -85,7 +85,7 @@ To restore the original branch and stop patching, run "git am --abort".
 	}{
 		{
 			desc:                  "non-existent repository",
-			targetBranch:          "master",
+			targetBranch:          git.DefaultBranch,
 			nonExistentRepository: true,
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
@@ -100,7 +100,7 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			targetBranch: "master",
+			targetBranch: git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -116,7 +116,7 @@ To restore the original branch and stop patching, run "git am --abort".
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "HEAD",
-			extraBranches: []string{"refs/heads/master", "refs/heads/some-extra-branch"},
+			extraBranches: []string{git.DefaultRef.String(), "refs/heads/some-extra-branch"},
 			targetBranch:  "new-branch",
 			patches: []patchDescription{
 				{
@@ -155,8 +155,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -181,9 +181,9 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference:   "refs/heads/master",
+			baseReference:   git.DefaultRef,
 			notSentByAuthor: true,
-			targetBranch:    "master",
+			targetBranch:    git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -200,8 +200,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -226,8 +226,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -247,8 +247,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -268,8 +268,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "line 1\nline 2\nline 3\nline 4\n"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -291,8 +291,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{},
@@ -310,8 +310,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -323,7 +323,7 @@ To restore the original branch and stop patching, run "git am --abort".
 				{Mode: "100644", Path: "file", Content: "patch 1"},
 			},
 			expectedOldOID: func(repoPath string) string {
-				return text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
+				return text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", git.DefaultBranch))
 			},
 		},
 		{
@@ -331,8 +331,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -348,8 +348,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -365,8 +365,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
-			baseReference: "refs/heads/master",
-			targetBranch:  "master",
+			baseReference: git.DefaultRef,
+			targetBranch:  git.DefaultBranch,
 			patches: []patchDescription{
 				{
 					newTree: []gittest.TreeEntry{
@@ -375,13 +375,14 @@ To restore the original branch and stop patching, run "git am --abort".
 				},
 			},
 			expectedOldOID: func(repoPath string) string {
-				currentCommit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
-				// add a new commit to master so we can point at the old one, this is
-				// because by default the test only creates one commit
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(currentCommit)), gittest.WithBranch("master"))
+				currentCommit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", git.DefaultBranch))
+				// add a new commit to the default branch so we can point at
+				// the old one, this is because by default the test only
+				// creates one commit
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(currentCommit)), gittest.WithBranch(git.DefaultBranch))
 				return currentCommit
 			},
-			expectedErr: structerr.NewInternal(`update reference: Could not update refs/heads/master. Please refresh and try again.`),
+			expectedErr: structerr.NewInternal(`update reference: Could not update %s. Please refresh and try again.`, git.DefaultRef),
 		},
 	} {
 		tc := tc

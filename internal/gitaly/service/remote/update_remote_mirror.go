@@ -139,9 +139,14 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		remoteRefs[ref.Name] = ref.Target
 	}
 
+	var defaultBranchExists bool
 	var divergentRefs [][]byte
 	toUpdate := map[git.ReferenceName]string{}
 	for _, localRef := range localRefs {
+		if localRef.Name == defaultBranch {
+			defaultBranchExists = true
+		}
+
 		if localRef.IsSymbolic {
 			continue
 		}
@@ -186,14 +191,14 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	}
 
 	toDelete := remoteRefs
-	if len(defaultBranch) == 0 || firstRequest.GetKeepDivergentRefs() {
+	if !defaultBranchExists || firstRequest.GetKeepDivergentRefs() {
 		toDelete = map[git.ReferenceName]string{}
 	}
 
 	for remoteRef, remoteCommitOID := range toDelete {
-		isAncestor, err := repo.IsAncestor(ctx, git.Revision(remoteCommitOID), git.Revision(defaultBranch))
+		isAncestor, err := repo.IsAncestor(ctx, git.Revision(remoteCommitOID), defaultBranch.Revision())
 		if err != nil && !errors.Is(err, localrepo.InvalidCommitError(remoteCommitOID)) {
-			return fmt.Errorf("checking for ancestry: %w", err)
+			return fmt.Errorf("checking for default branch ancestry: %w", err)
 		}
 
 		if isAncestor {
