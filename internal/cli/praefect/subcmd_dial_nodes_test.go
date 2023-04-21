@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -23,6 +24,7 @@ func (m mockServerService) ServerInfo(ctx context.Context, r *gitalypb.ServerInf
 }
 
 func TestSubCmdDialNodes(t *testing.T) {
+	t.Parallel()
 	var resp *gitalypb.ServerInfoResponse
 	mockSvc := &mockServerService{
 		serverInfoFunc: func(_ context.Context, _ *gitalypb.ServerInfoRequest) (*gitalypb.ServerInfoResponse, error) {
@@ -46,14 +48,21 @@ func TestSubCmdDialNodes(t *testing.T) {
 
 	for _, tt := range []struct {
 		name   string
+		args   []string
 		conf   config.Config
 		resp   *gitalypb.ServerInfoResponse
 		logs   string
 		errMsg string
 	}{
 		{
+			name:   "positional arguments",
+			args:   []string{"positional-arg"},
+			errMsg: cli.Exit(unexpectedPositionalArgsError{Command: "dial-nodes"}, 1).Error(),
+		},
+		{
 			name: "2 virtuals, 2 storages, 1 node",
 			conf: config.Config{
+				SocketPath: ln.Addr().String(),
 				VirtualStorages: []*config.VirtualStorage{
 					{
 						Name: "default",
@@ -104,6 +113,7 @@ func TestSubCmdDialNodes(t *testing.T) {
 		{
 			name: "node unreachable",
 			conf: config.Config{
+				SocketPath: ln.Addr().String(),
 				VirtualStorages: []*config.VirtualStorage{
 					{
 						Name: "default",
@@ -123,17 +133,26 @@ func TestSubCmdDialNodes(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			resp = tt.resp
-			tt.conf.SocketPath = ln.Addr().String()
+			confPath := writeConfigToFile(t, tt.conf)
 
-			output := &bytes.Buffer{}
+			var stdout bytes.Buffer
+			app := cli.App{
+				Writer: &stdout,
+				Commands: []*cli.Command{
+					newDialNodesCommand(),
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Value: confPath,
+					},
+				},
+			}
 
-			cmd := dialNodesSubcommand{w: output, timeout: 1 * time.Second}
-
-			err := cmd.Exec(nil, tt.conf)
-
+			err := app.Run(append([]string{progname, "dial-nodes", "-timeout", time.Second.String()}, tt.args...))
 			if tt.errMsg == "" {
 				require.NoError(t, err)
-				require.Equal(t, tt.logs, output.String())
+				require.Equal(t, tt.logs, stdout.String())
 				return
 			}
 

@@ -26,13 +26,6 @@
 //
 //	praefect -config PATH_TO_CONFIG sql-migrate-status
 //
-// # Dial Nodes
-//
-// The subcommand "dial-nodes" helps diagnose connection problems to Gitaly or
-// Praefect. The subcommand works by sourcing the connection information from
-// the config file, and then dialing and health checking the remote nodes.
-//
-//	praefect -config PATH_TO_CONFIG dial-nodes
 
 package praefect
 
@@ -81,6 +74,7 @@ func NewApp() *cli.App {
 			newAcceptDatalossCommand(),
 			newCheckCommand(service.AllChecks()),
 			newDatalossCommand(),
+			newDialNodesCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
