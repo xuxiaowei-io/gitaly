@@ -176,11 +176,11 @@ co-exist in the same process.
 
 ```go
 roundrobinConn, err := grpc.Dial(
-	"dns://127.0.0.1:53/grpc.test:50051",
-	grpc.WithDefaultServiceConfig(`{
-		"loadBalancingConfig": [{"round_robin":{}}],
-	}`),
-	grpc.WithTransportCredentials(insecure.NewCredentials()),
+  "dns://127.0.0.1:53/grpc.test:50051",
+  grpc.WithDefaultServiceConfig(`{
+    "loadBalancingConfig": [{"round_robin":{}}],
+  }`),
+  grpc.WithTransportCredentials(insecure.NewCredentials()),
 )
 ```
 
@@ -221,25 +221,25 @@ The following code snippet is an example of how to configure auto-retry.
 
 ```go
 roundrobinConn, err := grpc.Dial(
-	"dns://127.0.0.1:53/grpc.test:50051",
-	grpc.WithDefaultServiceConfig(`{
-		"loadBalancingConfig": [{"round_robin":{}}],
-		"methodConfig": [
-			{
-				"name": [
-					{ "service": "grpc.examples.echo.Echo" }
-				],
-				"retryPolicy": {
-					"maxAttempts": 3,
-					"initialBackoff": "0.1s",
-					"maxBackoff": "1s",
-					"backoffMultiplier": 2,
-					"retryableStatusCodes": ["UNAVAILABLE", "CANCELLED", "RESOURCE_EXHAUSTED", "DEADLINE_EXCEEDED"]
-				}
-			}
-		]
-	}`), // This sets the initial balancing policy.
-	grpc.WithTransportCredentials(insecure.NewCredentials()),
+  "dns://127.0.0.1:53/grpc.test:50051",
+  grpc.WithDefaultServiceConfig(`{
+    "loadBalancingConfig": [{"round_robin":{}}],
+    "methodConfig": [
+      {
+        "name": [
+          { "service": "grpc.examples.echo.Echo" }
+        ],
+        "retryPolicy": {
+          "maxAttempts": 3,
+          "initialBackoff": "0.1s",
+          "maxBackoff": "1s",
+          "backoffMultiplier": 2,
+          "retryableStatusCodes": ["UNAVAILABLE", "CANCELLED", "RESOURCE_EXHAUSTED", "DEADLINE_EXCEEDED"]
+        }
+      }
+    ]
+  }`), // This sets the initial balancing policy.
+  grpc.WithTransportCredentials(insecure.NewCredentials()),
 )
 ```
 
