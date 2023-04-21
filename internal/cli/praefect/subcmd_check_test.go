@@ -5,15 +5,10 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -33,11 +28,7 @@ func TestCheckSubcommand(t *testing.T) {
 		},
 	}
 
-	tmpDir := testhelper.TempDir(t)
-	confData, err := toml.Marshal(conf)
-	require.NoError(t, err)
-	confPath := filepath.Join(tmpDir, "config.toml")
-	require.NoError(t, os.WriteFile(confPath, confData, perm.PublicFile))
+	confPath := writeConfigToFile(t, conf)
 
 	testCases := []struct {
 		desc                string
