@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package objectpool
 
 import (
@@ -168,7 +166,7 @@ func testFetchIntoObjectPoolTransactional(t *testing.T, ctx context.Context) {
 		require.NoError(t, err)
 
 		vote := voting.VoteFromData([]byte(fmt.Sprintf(
-			"%s %s refs/remotes/origin/heads/new-branch\n", git.ObjectHashSHA1.ZeroOID, repoCommit,
+			"%s %s refs/remotes/origin/heads/new-branch\n", gittest.DefaultObjectHash.ZeroOID, repoCommit,
 		)))
 		require.Equal(t, []voting.Vote{
 			// The first two votes stem from the fact that we're voting on no
@@ -196,7 +194,7 @@ func testFetchIntoObjectPoolTransactional(t *testing.T, ctx context.Context) {
 
 		// We expect a single vote on the reference we have deleted.
 		vote := voting.VoteFromData([]byte(fmt.Sprintf(
-			"%[1]s %[1]s %s\n", git.ObjectHashSHA1.ZeroOID, reference,
+			"%[1]s %[1]s %s\n", gittest.DefaultObjectHash.ZeroOID, reference,
 		)))
 		require.Equal(t, []voting.Vote{vote, vote}, votes)
 
@@ -223,9 +221,9 @@ func testFetchIntoObjectPoolcollectLogStatistics(t *testing.T, ctx context.Conte
 	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, logger)
 
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
 	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
