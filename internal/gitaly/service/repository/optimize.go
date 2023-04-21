@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -17,11 +18,16 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 
 	repo := s.localrepo(in.GetRepository())
 
+	gitVersion, err := repo.GitVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting Git version: %w", err)
+	}
+
 	var strategyConstructor housekeeping.OptimizationStrategyConstructor
 	switch in.GetStrategy() {
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_UNSPECIFIED, gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL:
 		strategyConstructor = func(info stats.RepositoryInfo) housekeeping.OptimizationStrategy {
-			return housekeeping.NewHeuristicalOptimizationStrategy(info)
+			return housekeeping.NewHeuristicalOptimizationStrategy(gitVersion, info)
 		}
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER:
 		strategyConstructor = func(info stats.RepositoryInfo) housekeeping.OptimizationStrategy {

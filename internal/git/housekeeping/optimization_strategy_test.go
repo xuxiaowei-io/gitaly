@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -378,6 +379,59 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					WriteMultiPackIndex: true,
 				},
 				RepackObjectsConfig{},
+			),
+		},
+		{
+			desc: "no geometric repack in object pool member with old Git version",
+			strategy: HeuristicalOptimizationStrategy{
+				gitVersion: git.NewVersion(2, 39, 0, 0),
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						Count:          9,
+						LastFullRepack: time.Now(),
+						MultiPackIndex: stats.MultiPackIndexInfo{
+							Exists:        true,
+							PackfileCount: 1,
+						},
+					},
+					Alternates: []string{"object-pool"},
+				},
+			},
+			expectedNeeded: true,
+			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyFullWithCruft,
+				WriteBitmap:         false,
+				WriteMultiPackIndex: true,
+			},
+		},
+		{
+			desc: "geometric repack in object pool member with recent Git version",
+			strategy: HeuristicalOptimizationStrategy{
+				gitVersion: git.NewVersion(2, 40, 0, 1),
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						Count:          9,
+						LastFullRepack: time.Now(),
+						MultiPackIndex: stats.MultiPackIndexInfo{
+							Exists:        true,
+							PackfileCount: 1,
+						},
+					},
+					Alternates: []string{"object-pool"},
+				},
+			},
+			expectedNeeded: true,
+			expectedConfig: geometricOrIncremental(ctx,
+				RepackObjectsConfig{
+					Strategy:            RepackObjectsStrategyGeometric,
+					WriteBitmap:         false,
+					WriteMultiPackIndex: true,
+				},
+				RepackObjectsConfig{
+					Strategy:            RepackObjectsStrategyFullWithCruft,
+					WriteBitmap:         false,
+					WriteMultiPackIndex: true,
+				},
 			),
 		},
 	} {

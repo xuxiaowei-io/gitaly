@@ -36,6 +36,17 @@ type Version struct {
 	gl                  uint32
 }
 
+// NewVersion constructs a new Git version from the given components.
+func NewVersion(major, minor, patch, gl uint32) Version {
+	return Version{
+		versionString: fmt.Sprintf("%d.%d.%d.gl%d", major, minor, patch, gl),
+		major:         major,
+		minor:         minor,
+		patch:         patch,
+		gl:            gl,
+	}
+}
+
 // parseVersionOutput parses output returned by git-version(1). It is expected to be in the format
 // "git version 2.39.1.gl1".
 func parseVersionOutput(versionOutput []byte) (Version, error) {
@@ -80,6 +91,22 @@ func (v Version) PatchIDRespectsBinaries() bool {
 func (v Version) MidxDeletesRedundantBitmaps() bool {
 	return !v.LessThan(Version{
 		major: 2, minor: 39, patch: 0,
+	})
+}
+
+// GeometricRepackingSupportsAlternates detects whether the given Git version knows to perform
+// geometric repacking in repositories which are connected to an alternate object database. This
+// used to not work due to various different bugs which have been fixed via de56e80363 (Merge branch
+// 'ps/fix-geom-repack-with-alternates' into next, 2023-04-18).
+//
+// The patches will be part of Git v2.41.0 and have been backported to Git v2.40.0.gl1.
+func (v Version) GeometricRepackingSupportsAlternates() bool {
+	if v.major == 2 && v.minor == 40 && v.gl > 0 {
+		return true
+	}
+
+	return !v.LessThan(Version{
+		major: 2, minor: 41,
 	})
 }
 

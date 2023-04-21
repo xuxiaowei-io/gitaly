@@ -280,6 +280,9 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
+	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
+	require.NoError(t, err)
+
 	linkRepoToPool := func(t *testing.T, repoPath, poolPath string) {
 		t.Helper()
 		require.NoError(t, os.WriteFile(
@@ -301,6 +304,11 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 	}
 
 	geometricOrIncrementalMetric := geometricOrIncremental(ctx, "packed_objects_geometric", "packed_objects_incremental")
+
+	geometricIfSupported := geometricOrIncrementalMetric
+	if !gitVersion.GeometricRepackingSupportsAlternates() {
+		geometricIfSupported = "packed_objects_incremental"
+	}
 
 	type metric struct {
 		name, status string
@@ -643,7 +651,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return setupData{
 					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
-						{name: "packed_objects_incremental", status: "success", count: 1},
+						{name: geometricIfSupported, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
@@ -695,7 +703,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return setupData{
 					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
-						{name: "packed_objects_incremental", status: "success", count: 1},
+						{name: geometricIfSupported, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
@@ -776,7 +784,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return setupData{
 					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
-						{name: "packed_objects_incremental", status: "success", count: 1},
+						{name: geometricIfSupported, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
