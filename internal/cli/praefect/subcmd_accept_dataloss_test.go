@@ -19,9 +19,7 @@ import (
 )
 
 func TestAcceptDatalossSubcommand(t *testing.T) {
-	defer func(old func(code int)) { cli.OsExiter = old }(cli.OsExiter)
-	cli.OsExiter = func(code int) {}
-
+	t.Parallel()
 	const (
 		vs   = "test-virtual-storage-1"
 		repo = "test-repository-1"

@@ -20,9 +20,7 @@ import (
 )
 
 func TestCheckSubcommand(t *testing.T) {
-	defer func(old func(code int)) { cli.OsExiter = old }(cli.OsExiter)
-	cli.OsExiter = func(code int) {}
-
+	t.Parallel()
 	conf := config.Config{
 		ListenAddr: ":0",
 		VirtualStorages: []*config.VirtualStorage{

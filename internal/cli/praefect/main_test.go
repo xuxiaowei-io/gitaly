@@ -9,6 +9,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
@@ -18,6 +19,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	defer func(old func(code int)) { cli.OsExiter = old }(cli.OsExiter)
+	cli.OsExiter = func(code int) {}
+
 	testhelper.Run(m)
 }
 
