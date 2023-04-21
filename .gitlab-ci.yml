@@ -19,7 +19,6 @@ variables:
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
   GO_VERSION: "1.19"
-  RUBY_VERSION: "3.0"
   RUST_VERSION: "1.65"
   POSTGRES_VERSION: "12-alpine"
   PGBOUNCER_VERSION: "1.17.0"
@@ -368,7 +367,6 @@ verify:
   artifacts:
     paths:
       - _build/proto.diff
-      - ruby/proto/gitaly/*
       - proto/go/gitalypb/*
     when: on_failure
 
@@ -413,17 +411,7 @@ license_scanning:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_TAG
   variables:
-    LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
-
-gemnasium-dependency_scanning:
-  needs: []
-  stage: analyze
-  rules:
-    - if: $DEPENDENCY_SCANNING_DISABLED
-      when: never
-    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
+    LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=.'
 
 secret_detection:
   needs: []
