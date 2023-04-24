@@ -25,12 +25,15 @@ import (
 	labkitcorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type hookError struct {
 	returnCode int
 	err        error
+	clientMsg  string
 }
 
 func (e hookError) Error() string {
@@ -62,23 +65,43 @@ var hooksBySubcommand = map[string]hookCommand{
 }
 
 func main() {
-	logger := gitalylog.NewHookLogger()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	if err := run(os.Args); err != nil {
+	// Since the environment is sanitized at the moment, we're only
+	// using this to extract the correlation ID. The finished() call
+	// to clean up the tracing will be a NOP here.
+	ctx, finished := labkittracing.ExtractFromEnv(ctx)
+	defer finished()
+
+	logger := gitalylog.NewHookLogger(ctx)
+	if err := run(ctx, os.Args); err != nil {
 		var hookError hookError
 		if errors.As(err, &hookError) {
 			if hookError.err != nil {
-				logger.Fatalf("%s", err)
+				notifyError("error executing git hook")
+				logger.WithError(hookError.err).Error("error executing git hook")
+			}
+			if hookError.clientMsg != "" {
+				notifyError(hookError.clientMsg)
 			}
 			os.Exit(hookError.returnCode)
 		}
 
-		logger.Fatalf("%s", err)
+		notifyError("error executing git hook")
+		logger.WithError(err).Error("error executing git hook")
 		os.Exit(1)
 	}
 }
 
-func run(args []string) error {
+// Both stderr and stdout of gitaly-hooks are streamed back to clients. stdout is processed by client
+// git process transparently. stderr is dumped directly to client's stdout. Thus, we must be cautious
+// what to write into stderr.
+func notifyError(msg string) {
+	fmt.Fprintln(os.Stderr, msg)
+}
+
+func run(ctx context.Context, args []string) error {
 	switch filepath.Base(args[0]) {
 	case "gitaly-hooks":
 		if len(args) < 2 {
@@ -89,7 +112,7 @@ func run(args []string) error {
 
 		switch subCmd {
 		case "git":
-			return executeHook(hookCommand{
+			return executeHook(ctx, hookCommand{
 				exec:     packObjectsHook,
 				hookType: git.PackObjectsHook,
 			}, args[2:])
@@ -103,20 +126,11 @@ func run(args []string) error {
 			return fmt.Errorf("subcommand name invalid: %q", hookName)
 		}
 
-		return executeHook(hookCommand, args[1:])
+		return executeHook(ctx, hookCommand, args[1:])
 	}
 }
 
-func executeHook(cmd hookCommand, args []string) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Since the environment is sanitized at the moment, we're only
-	// using this to extract the correlation ID. The finished() call
-	// to clean up the tracing will be a NOP here.
-	ctx, finished := labkittracing.ExtractFromEnv(ctx)
-	defer finished()
-
+func executeHook(ctx context.Context, cmd hookCommand, args []string) error {
 	payload, err := git.HooksPayloadFromEnv(os.Environ())
 	if err != nil {
 		return fmt.Errorf("error when getting hooks payload: %w", err)
@@ -138,11 +152,7 @@ func executeHook(cmd hookCommand, args []string) error {
 
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
-	if err := cmd.exec(ctx, payload, hookClient, args); err != nil {
-		return err
-	}
-
-	return nil
+	return cmd.exec(ctx, payload, hookClient, args)
 }
 
 func injectMetadataIntoOutgoingCtx(ctx context.Context, payload git.HooksPayload) context.Context {
@@ -379,19 +389,11 @@ func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hoo
 }
 
 func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
-	if err := handlePackObjectsWithSidechannel(ctx, payload, hookClient, args); err != nil {
-		return hookError{returnCode: 1, err: fmt.Errorf("RPC failed: %w", err)}
-	}
-
-	return nil
-}
-
-func handlePackObjectsWithSidechannel(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
 	ctx, wt, err := hook.SetupSidechannel(ctx, payload, func(c *net.UnixConn) error {
 		return stream.ProxyPktLine(c, os.Stdin, os.Stdout, os.Stderr)
 	})
 	if err != nil {
-		return fmt.Errorf("SetupSidechannel: %w", err)
+		return hookError{returnCode: 1, err: fmt.Errorf("RPC failed: SetupSidechannel: %w", err)}
 	}
 	defer func() {
 		// We aleady check the error further down.
@@ -418,16 +420,30 @@ func handlePackObjectsWithSidechannel(ctx context.Context, payload git.HooksPayl
 			RemoteIp:    remoteIP,
 		},
 	); err != nil {
-		return fmt.Errorf("call PackObjectsHookWithSidechannel: %w", err)
+		return wrapGRPCError(err)
 	}
 
 	if err := wt.Wait(); err != nil {
-		return err
+		return hookError{returnCode: 1, err: fmt.Errorf("RPC failed: %w", err)}
 	}
 
 	if err := wt.Close(); err != nil {
-		return fmt.Errorf("closing sidechannel: %w", err)
+		return hookError{returnCode: 1, err: fmt.Errorf("RPC failed: closing sidechannel: %w", err)}
 	}
 
 	return nil
+}
+
+func wrapGRPCError(err error) error {
+	wrappedErr := hookError{
+		returnCode: 1,
+		err:        fmt.Errorf("RPC failed: %w", err),
+	}
+	if e, ok := status.FromError(err); ok {
+		switch e.Code() {
+		case codes.ResourceExhausted:
+			wrappedErr.clientMsg = "error resource exhausted, please try again later"
+		}
+	}
+	return wrappedErr
 }

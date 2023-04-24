@@ -20,6 +20,9 @@ type ExecConfig struct {
 	// Stdout sets up stdout of the spawned command. Note that `ExecOpts()` will not return any
 	// output anymore if this field is set.
 	Stdout io.Writer
+	// Stderr sets up stderr of the spawned command. If this field is not set, the error is
+	// dumped to test logs.
+	Stderr io.Writer
 	// Env contains environment variables that should be appended to the spawned command's
 	// environment.
 	Env []string
@@ -41,11 +44,7 @@ func ExecOpts(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string)
 	// we detect this case and call `cmd.Run()` instead.
 	if execCfg.Stdout != nil {
 		if err := cmd.Run(); err != nil {
-			tb.Log(cfg.Git.BinPath, args)
-			if ee, ok := err.(*exec.ExitError); ok {
-				tb.Logf("%s\n", ee.Stderr)
-			}
-			tb.Fatal(err)
+			handleExecErr(tb, cfg, execCfg, args, err)
 		}
 
 		return nil
@@ -53,14 +52,20 @@ func ExecOpts(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string)
 
 	output, err := cmd.Output()
 	if err != nil {
-		tb.Log(cfg.Git.BinPath, args)
-		if ee, ok := err.(*exec.ExitError); ok {
-			tb.Logf("%s: %s\n", ee.Stderr, output)
-		}
-		tb.Fatal(err)
+		handleExecErr(tb, cfg, execCfg, args, err)
 	}
 
 	return output
+}
+
+func handleExecErr(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args []string, err error) {
+	if execCfg.Stderr == nil {
+		tb.Log(cfg.Git.BinPath, args)
+		if ee, ok := err.(*exec.ExitError); ok {
+			tb.Logf("%s\n", ee.Stderr)
+		}
+		tb.Fatal(err)
+	}
 }
 
 // NewCommand creates a new Git command ready for execution.
@@ -95,6 +100,7 @@ func createCommand(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...st
 
 	cmd.Stdout = execCfg.Stdout
 	cmd.Stdin = execCfg.Stdin
+	cmd.Stderr = execCfg.Stderr
 
 	return cmd
 }

@@ -30,6 +30,8 @@ import (
 	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -40,10 +42,12 @@ import (
 	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 	grpcmetadata "google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type glHookValues struct {
 	GLID, GLUsername, GLProtocol, GitObjectDir, RemoteIP string
+	GitalyLogDir                                         string
 	GitAlternateObjectDirs                               []string
 }
 
@@ -110,6 +114,9 @@ func envForHooks(tb testing.TB, ctx context.Context, cfg config.Cfg, repo *gital
 	}
 	if len(glHookValues.GitAlternateObjectDirs) > 0 {
 		env = append(env, fmt.Sprintf("GIT_ALTERNATE_OBJECT_DIRECTORIES=%s", strings.Join(glHookValues.GitAlternateObjectDirs, ":")))
+	}
+	if glHookValues.GitalyLogDir != "" {
+		env = append(env, fmt.Sprintf("GITALY_LOG_DIR=%s", glHookValues.GitalyLogDir))
 	}
 
 	return env
@@ -643,10 +650,256 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	}
 }
 
+func TestGitalyServerReturnsError(t *testing.T) {
+	resourceExhaustedErr := structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
+		ErrorMessage: limithandler.ErrMaxQueueTime.Error(),
+		RetryAfter:   durationpb.New(0),
+	})
+
+	for _, tc := range []struct {
+		hook           string
+		args           []string
+		stdin          string
+		expectedStderr string
+	}{
+		{
+			hook:           "pre-receive",
+			stdin:          "abc",
+			expectedStderr: "error executing git hook\n",
+		},
+		{
+			hook:           "post-receive",
+			stdin:          "abc",
+			expectedStderr: "error executing git hook\n",
+		},
+		{
+			hook:           "update",
+			args:           []string{"ref", "oldValue", "newValue"},
+			stdin:          "abc",
+			expectedStderr: "error executing git hook\n",
+		},
+		{
+			hook:           "reference-transaction",
+			args:           []string{"prepared"},
+			stdin:          "abc",
+			expectedStderr: "error executing git hook\n",
+		},
+	} {
+		t.Run(tc.hook, func(t *testing.T) {
+			logDir := testhelper.TempDir(t)
+
+			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+				Auth:  auth.Config{Token: "abc123"},
+				Hooks: config.Hooks{CustomHooksDir: testhelper.TempDir(t)},
+			}))
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
+
+			runHookServiceWithMockServer(t, cfg, &hookMockServer{
+				preReceiveHook: func(server gitalypb.HookService_PreReceiveHookServer) error {
+					return resourceExhaustedErr
+				},
+				postReceiveHook: func(server gitalypb.HookService_PostReceiveHookServer) error {
+					return resourceExhaustedErr
+				},
+				updateHook: func(request *gitalypb.UpdateHookRequest, server gitalypb.HookService_UpdateHookServer) error {
+					return resourceExhaustedErr
+				},
+				referenceTransactionHook: func(server gitalypb.HookService_ReferenceTransactionHookServer) error {
+					return resourceExhaustedErr
+				},
+			})
+
+			gitalyHooksPath := testcfg.BuildGitalyHooks(t, cfg)
+			testcfg.BuildGitalySSH(t, cfg)
+
+			var stderr, stdout bytes.Buffer
+
+			cmd := exec.Command(gitalyHooksPath)
+			cmd.Args = append([]string{tc.hook}, tc.args...)
+			cmd.Stderr = &stderr
+			cmd.Stdout = &stdout
+			cmd.Stdin = strings.NewReader(tc.stdin)
+			cmd.Env = envForHooks(t, ctx, cfg, repo,
+				glHookValues{
+					GLID:         glID,
+					GLUsername:   glUsername,
+					GLProtocol:   "ssh",
+					RemoteIP:     remoteIP,
+					GitalyLogDir: logDir,
+				},
+				proxyValues{})
+			cmd.Dir = repoPath
+
+			require.Error(t, cmd.Run())
+			require.Equal(t, tc.expectedStderr, stderr.String())
+			require.Equal(t, "", stdout.String())
+			hookLogs := string(testhelper.MustReadFile(t, filepath.Join(logDir, "gitaly_hooks.log")))
+
+			require.NotEmpty(t, hookLogs)
+			require.Contains(t, hookLogs, "error executing git hook")
+			require.Contains(t, hookLogs, fmt.Sprintf("correlation_id=%s", correlationID))
+		})
+	}
+}
+
+func TestGitalyServerReturnsError_packObjects(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		err            error
+		expectedStderr string
+		expectedLogs   string
+	}{
+		{
+			name: "resource exhausted with LimitError detail",
+			err: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
+				ErrorMessage: limithandler.ErrMaxQueueTime.Error(),
+				RetryAfter:   durationpb.New(0),
+			}),
+			expectedStderr: `
+remote: error executing git hook
+remote: error resource exhausted, please try again later
+`,
+			expectedLogs: `RPC failed: rpc error: code = ResourceExhausted desc = maximum time in concurrency queue reached`,
+		},
+		{
+			name: "resource exhausted without LimitError detail",
+			err:  structerr.NewResourceExhausted("not enough resource"),
+			expectedStderr: `
+remote: error executing git hook
+remote: error resource exhausted, please try again later
+`,
+			expectedLogs: `RPC failed: rpc error: code = ResourceExhausted desc = not enough resource`,
+		},
+		{
+			name: "other error - status code is hidden",
+			err:  structerr.NewUnavailable("server is not available"),
+			expectedStderr: `
+remote: error executing git hook
+`,
+			expectedLogs: `RPC failed: rpc error: code = Unavailable desc = server is not available`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logDir := testhelper.TempDir(t)
+
+			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+				Auth:  auth.Config{Token: "abc123"},
+				Hooks: config.Hooks{CustomHooksDir: testhelper.TempDir(t)},
+			}))
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
+
+			testcfg.BuildGitalyHooks(t, cfg)
+			testcfg.BuildGitalySSH(t, cfg)
+
+			runHookServiceWithMockServer(t, cfg, &hookMockServer{
+				packObjectsHookWithSidechannel: func(ctx context.Context, request *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
+					return nil, tc.err
+				},
+			})
+
+			args := []string{
+				"clone",
+				"-u",
+				"git -c uploadpack.allowFilter -c uploadpack.packObjectsHook=" + cfg.BinaryPath("gitaly-hooks") + " upload-pack",
+				"--quiet",
+				"--no-local",
+				"--bare",
+				repoPath,
+				testhelper.TempDir(t),
+			}
+
+			var stderr, stdout bytes.Buffer
+
+			gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+				Env:    envForHooks(t, ctx, cfg, repo, glHookValues{GitalyLogDir: logDir}, proxyValues{}),
+				Stdout: &stdout,
+				Stderr: &stderr,
+			}, args...)
+
+			require.Equal(t, "", stdout.String())
+
+			var actualStderr []string
+			for _, line := range strings.Split(stderr.String(), "\n") {
+				actualStderr = append(actualStderr, strings.TrimSpace(line))
+			}
+
+			require.Contains(t, strings.Join(actualStderr, "\n"), strings.TrimSpace(tc.expectedStderr))
+			hookLogs := string(testhelper.MustReadFile(t, filepath.Join(logDir, "gitaly_hooks.log")))
+			require.NotEmpty(t, hookLogs)
+			require.Contains(t, hookLogs, tc.expectedLogs)
+			require.Contains(t, hookLogs, fmt.Sprintf("correlation_id=%s", correlationID))
+		})
+	}
+}
+
 func runHookServiceServer(t *testing.T, cfg config.Cfg, assertUserDetails bool, serverOpts ...testserver.GitalyServerOpt) {
+	t.Helper()
+
 	runHookServiceWithGitlabClient(t, cfg, assertUserDetails, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	), serverOpts...)
+}
+
+func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, assertUserDetails bool, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
+	t.Helper()
+
+	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterHookServiceServer(srv, baggageAsserter{
+			t:                 t,
+			assertUserDetails: assertUserDetails,
+			wrapped:           hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()),
+		})
+	}, append(serverOpts, testserver.WithGitLabClient(gitlabClient))...)
+}
+
+func runHookServiceWithMockServer(t *testing.T, cfg config.Cfg, mockServer gitalypb.HookServiceServer) {
+	t.Helper()
+
+	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterHookServiceServer(srv, baggageAsserter{
+			t:       t,
+			wrapped: mockServer,
+		})
+	}, testserver.WithDisablePraefect())
+}
+
+type hookMockServer struct {
+	gitalypb.UnimplementedHookServiceServer
+	preReceiveHook                 func(gitalypb.HookService_PreReceiveHookServer) error
+	postReceiveHook                func(gitalypb.HookService_PostReceiveHookServer) error
+	updateHook                     func(*gitalypb.UpdateHookRequest, gitalypb.HookService_UpdateHookServer) error
+	referenceTransactionHook       func(gitalypb.HookService_ReferenceTransactionHookServer) error
+	packObjectsHookWithSidechannel func(context.Context, *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error)
+}
+
+func (s *hookMockServer) PreReceiveHook(server gitalypb.HookService_PreReceiveHookServer) error {
+	return s.preReceiveHook(server)
+}
+
+func (s *hookMockServer) PostReceiveHook(server gitalypb.HookService_PostReceiveHookServer) error {
+	return s.postReceiveHook(server)
+}
+
+func (s *hookMockServer) UpdateHook(request *gitalypb.UpdateHookRequest, server gitalypb.HookService_UpdateHookServer) error {
+	return s.updateHook(request, server)
+}
+
+func (s *hookMockServer) ReferenceTransactionHook(server gitalypb.HookService_ReferenceTransactionHookServer) error {
+	return s.referenceTransactionHook(server)
+}
+
+func (s *hookMockServer) PackObjectsHookWithSidechannel(ctx context.Context, request *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
+	return s.packObjectsHookWithSidechannel(ctx, request)
 }
 
 type baggageAsserter struct {
@@ -695,18 +948,6 @@ func (svc baggageAsserter) ReferenceTransactionHook(stream gitalypb.HookService_
 func (svc baggageAsserter) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
 	svc.assert(ctx)
 	return svc.wrapped.PackObjectsHookWithSidechannel(ctx, req)
-}
-
-func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, assertUserDetails bool, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
-	t.Helper()
-
-	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterHookServiceServer(srv, baggageAsserter{
-			t:                 t,
-			assertUserDetails: assertUserDetails,
-			wrapped:           hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()),
-		})
-	}, append(serverOpts, testserver.WithGitLabClient(gitlabClient))...)
 }
 
 func requireContainsOnce(t *testing.T, s string, contains string) {
