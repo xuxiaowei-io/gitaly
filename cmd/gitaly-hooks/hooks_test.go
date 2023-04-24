@@ -529,129 +529,6 @@ func TestHooksNotAllowed(t *testing.T) {
 	require.NoFileExists(t, customHookOutputPath)
 }
 
-func runHookServiceServer(t *testing.T, cfg config.Cfg, assertUserDetails bool, serverOpts ...testserver.GitalyServerOpt) {
-	runHookServiceWithGitlabClient(t, cfg, assertUserDetails, gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), serverOpts...)
-}
-
-type baggageAsserter struct {
-	gitalypb.UnimplementedHookServiceServer
-	t                 testing.TB
-	wrapped           gitalypb.HookServiceServer
-	assertUserDetails bool
-}
-
-func (svc baggageAsserter) assert(ctx context.Context) {
-	assert.True(svc.t, enabledFeatureFlag.IsEnabled(ctx))
-	assert.True(svc.t, disabledFeatureFlag.IsDisabled(ctx))
-
-	md, ok := grpcmetadata.FromIncomingContext(ctx)
-	assert.True(svc.t, ok)
-	correlationID := labkitcorrelation.CorrelationIDFromMetadata(md)
-	assert.NotEmpty(svc.t, correlationID)
-
-	if svc.assertUserDetails {
-		assert.Equal(svc.t, glID, metadata.GetValue(ctx, "user_id"))
-		assert.Equal(svc.t, glUsername, metadata.GetValue(ctx, "username"))
-		assert.Equal(svc.t, remoteIP, metadata.GetValue(ctx, "remote_ip"))
-	}
-}
-
-func (svc baggageAsserter) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer) error {
-	svc.assert(stream.Context())
-	return svc.wrapped.PreReceiveHook(stream)
-}
-
-func (svc baggageAsserter) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServer) error {
-	svc.assert(stream.Context())
-	return svc.wrapped.PostReceiveHook(stream)
-}
-
-func (svc baggageAsserter) UpdateHook(request *gitalypb.UpdateHookRequest, stream gitalypb.HookService_UpdateHookServer) error {
-	svc.assert(stream.Context())
-	return svc.wrapped.UpdateHook(request, stream)
-}
-
-func (svc baggageAsserter) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceTransactionHookServer) error {
-	svc.assert(stream.Context())
-	return svc.wrapped.ReferenceTransactionHook(stream)
-}
-
-func (svc baggageAsserter) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
-	svc.assert(ctx)
-	return svc.wrapped.PackObjectsHookWithSidechannel(ctx, req)
-}
-
-func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, assertUserDetails bool, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
-	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterHookServiceServer(srv, baggageAsserter{
-			t:                 t,
-			assertUserDetails: assertUserDetails,
-			wrapped:           hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()),
-		})
-	}, append(serverOpts, testserver.WithGitLabClient(gitlabClient))...)
-}
-
-func requireContainsOnce(t *testing.T, s string, contains string) {
-	r := regexp.MustCompile(contains)
-	matches := r.FindAllStringIndex(s, -1)
-	require.Equal(t, 1, len(matches))
-}
-
-func TestGitalyHooksPackObjects(t *testing.T) {
-	logDir := testhelper.TempDir(t)
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
-		Auth:    auth.Config{Token: "abc123"},
-		Logging: config.Logging{Config: internallog.Config{Dir: logDir}},
-	}))
-
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-	})
-
-	logger, hook := test.NewNullLogger()
-	runHookServiceServer(t, cfg, false, testserver.WithLogger(logger))
-
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalySSH(t, cfg)
-
-	baseArgs := []string{
-		"clone",
-		"-u",
-		"git -c uploadpack.allowFilter -c uploadpack.packObjectsHook=" + cfg.BinaryPath("gitaly-hooks") + " upload-pack",
-		"--quiet",
-		"--no-local",
-		"--bare",
-	}
-
-	testCases := []struct {
-		desc      string
-		extraArgs []string
-	}{
-		{desc: "regular clone"},
-		{desc: "shallow clone", extraArgs: []string{"--depth=1"}},
-		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			hook.Reset()
-
-			tempDir := testhelper.TempDir(t)
-
-			args := append(baseArgs, tc.extraArgs...)
-			args = append(args, repoPath, tempDir)
-			gittest.ExecOpts(t, cfg, gittest.ExecConfig{
-				Env: envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{}),
-			}, args...)
-		})
-	}
-}
-
 func TestRequestedHooks(t *testing.T) {
 	for hook, hookArgs := range map[git.Hook][]string{
 		git.ReferenceTransactionHook: {"reference-transaction"},
@@ -711,4 +588,129 @@ func TestRequestedHooks(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestGitalyHooksPackObjects(t *testing.T) {
+	logDir := testhelper.TempDir(t)
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+		Auth:    auth.Config{Token: "abc123"},
+		Logging: config.Logging{Config: internallog.Config{Dir: logDir}},
+	}))
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
+	logger, hook := test.NewNullLogger()
+	runHookServiceServer(t, cfg, false, testserver.WithLogger(logger))
+
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+
+	baseArgs := []string{
+		"clone",
+		"-u",
+		"git -c uploadpack.allowFilter -c uploadpack.packObjectsHook=" + cfg.BinaryPath("gitaly-hooks") + " upload-pack",
+		"--quiet",
+		"--no-local",
+		"--bare",
+	}
+
+	testCases := []struct {
+		desc      string
+		extraArgs []string
+	}{
+		{desc: "regular clone"},
+		{desc: "shallow clone", extraArgs: []string{"--depth=1"}},
+		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			hook.Reset()
+
+			tempDir := testhelper.TempDir(t)
+
+			args := append(baseArgs, tc.extraArgs...)
+			args = append(args, repoPath, tempDir)
+			gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+				Env: envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{}),
+			}, args...)
+		})
+	}
+}
+
+func runHookServiceServer(t *testing.T, cfg config.Cfg, assertUserDetails bool, serverOpts ...testserver.GitalyServerOpt) {
+	runHookServiceWithGitlabClient(t, cfg, assertUserDetails, gitlab.NewMockClient(
+		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+	), serverOpts...)
+}
+
+type baggageAsserter struct {
+	gitalypb.UnimplementedHookServiceServer
+	t                 testing.TB
+	wrapped           gitalypb.HookServiceServer
+	assertUserDetails bool
+}
+
+func (svc baggageAsserter) assert(ctx context.Context) {
+	assert.True(svc.t, enabledFeatureFlag.IsEnabled(ctx))
+	assert.True(svc.t, disabledFeatureFlag.IsDisabled(ctx))
+
+	md, ok := grpcmetadata.FromIncomingContext(ctx)
+	assert.True(svc.t, ok)
+	correlationID := labkitcorrelation.CorrelationIDFromMetadata(md)
+	assert.NotEmpty(svc.t, correlationID)
+
+	if svc.assertUserDetails {
+		assert.Equal(svc.t, glID, metadata.GetValue(ctx, "user_id"))
+		assert.Equal(svc.t, glUsername, metadata.GetValue(ctx, "username"))
+		assert.Equal(svc.t, remoteIP, metadata.GetValue(ctx, "remote_ip"))
+	}
+}
+
+func (svc baggageAsserter) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer) error {
+	svc.assert(stream.Context())
+	return svc.wrapped.PreReceiveHook(stream)
+}
+
+func (svc baggageAsserter) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServer) error {
+	svc.assert(stream.Context())
+	return svc.wrapped.PostReceiveHook(stream)
+}
+
+func (svc baggageAsserter) UpdateHook(request *gitalypb.UpdateHookRequest, stream gitalypb.HookService_UpdateHookServer) error {
+	svc.assert(stream.Context())
+	return svc.wrapped.UpdateHook(request, stream)
+}
+
+func (svc baggageAsserter) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceTransactionHookServer) error {
+	svc.assert(stream.Context())
+	return svc.wrapped.ReferenceTransactionHook(stream)
+}
+
+func (svc baggageAsserter) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
+	svc.assert(ctx)
+	return svc.wrapped.PackObjectsHookWithSidechannel(ctx, req)
+}
+
+func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, assertUserDetails bool, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
+	t.Helper()
+
+	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterHookServiceServer(srv, baggageAsserter{
+			t:                 t,
+			assertUserDetails: assertUserDetails,
+			wrapped:           hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()),
+		})
+	}, append(serverOpts, testserver.WithGitLabClient(gitlabClient))...)
+}
+
+func requireContainsOnce(t *testing.T, s string, contains string) {
+	r := regexp.MustCompile(contains)
+	matches := r.FindAllStringIndex(s, -1)
+	require.Equal(t, 1, len(matches))
 }
