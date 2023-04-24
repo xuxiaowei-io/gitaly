@@ -627,6 +627,16 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			return fmt.Errorf("verify references: %w", err)
 		}
 
+		if transaction.defaultBranchUpdate != nil {
+			if err := mgr.verifyDefaultBranchUpdate(mgr.ctx, transaction); err != nil {
+				return fmt.Errorf("verify default branch update: %w", err)
+			}
+
+			logEntry.DefaultBranchUpdate = &gitalypb.LogEntry_DefaultBranchUpdate{
+				ReferenceName: []byte(transaction.defaultBranchUpdate.Reference),
+			}
+		}
+
 		if transaction.customHooksUpdate != nil {
 			logEntry.CustomHooksUpdate = &gitalypb.LogEntry_CustomHooksUpdate{
 				CustomHooksTar: transaction.customHooksUpdate.CustomHooksTAR,
@@ -913,16 +923,6 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 
 	if err := mgr.verifyReferencesWithGit(ctx, logEntry.ReferenceUpdates, transaction.quarantineDirectory); err != nil {
 		return nil, fmt.Errorf("verify references with git: %w", err)
-	}
-
-	if transaction.defaultBranchUpdate != nil {
-		if err := mgr.verifyDefaultBranchUpdate(ctx, transaction); err != nil {
-			return nil, fmt.Errorf("verify default branch update: %w", err)
-		}
-
-		logEntry.DefaultBranchUpdate = &gitalypb.LogEntry_DefaultBranchUpdate{
-			ReferenceName: []byte(transaction.defaultBranchUpdate.Reference),
-		}
 	}
 
 	return logEntry, nil
