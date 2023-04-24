@@ -145,6 +145,9 @@ type Transaction struct {
 	// includesPack is set if a pack file has been computed for the transaction and should be
 	// logged.
 	includesPack bool
+	// stagingRepository is a repository that is used to stage the transaction. If there are quarantined
+	// objects, it has the quarantine applied so the objects are available for verification and packing.
+	stagingRepository repository
 
 	// Snapshot contains the details of the Transaction's read snapshot.
 	snapshot Snapshot
@@ -438,6 +441,10 @@ type resultChannel chan error
 func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transaction) error {
 	transaction.result = make(resultChannel, 1)
 
+	if err := mgr.setupStagingRepository(ctx, transaction); err != nil {
+		return fmt.Errorf("setup staging repository: %w", err)
+	}
+
 	if err := mgr.packObjects(ctx, transaction); err != nil {
 		return fmt.Errorf("pack objects: %w", err)
 	}
@@ -461,6 +468,26 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 	}
 }
 
+// setupStagingRepository sets a repository that is used to stage the transaction. The staging repository
+// has the quarantine applied so the objects are available for packing and verifying the references.
+func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, transaction *Transaction) error {
+	// If the repository exists, we use it for staging the transaction.
+	transaction.stagingRepository = mgr.repository
+
+	// If the transaction has a quarantine directory, we must use it when staging the pack
+	// file and verifying the references so the objects are available.
+	if transaction.quarantineDirectory != "" {
+		quarantinedRepo, err := transaction.stagingRepository.Quarantine(transaction.quarantineDirectory)
+		if err != nil {
+			return fmt.Errorf("quarantine: %w", err)
+		}
+
+		transaction.stagingRepository = quarantinedRepo
+	}
+
+	return nil
+}
+
 // packObjects packs the objects included in the transaction into a single pack file that is ready
 // for logging. The pack file includes all unreachable objects that are about to be made reachable.
 func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Transaction) error {
@@ -468,12 +495,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		return nil
 	}
 
-	quarantinedRepo, err := mgr.repository.Quarantine(transaction.quarantineDirectory)
-	if err != nil {
-		return fmt.Errorf("quarantine: %w", err)
-	}
-
-	objectHash, err := quarantinedRepo.ObjectHash(ctx)
+	objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
 	if err != nil {
 		return fmt.Errorf("object hash: %w", err)
 	}
@@ -501,7 +523,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 	group.Go(func() (returnedErr error) {
 		defer func() { objectsWriter.CloseWithError(returnedErr) }()
 
-		if err := quarantinedRepo.WalkUnreachableObjects(ctx,
+		if err := transaction.stagingRepository.WalkUnreachableObjects(ctx,
 			strings.NewReader(strings.Join(heads, "\n")),
 			objectsWriter,
 		); err != nil {
@@ -524,7 +546,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		}
 		defer destinationFile.Close()
 
-		if err := quarantinedRepo.PackObjects(ctx, objectsReader, destinationFile); err != nil {
+		if err := transaction.stagingRepository.PackObjects(ctx, objectsReader, destinationFile); err != nil {
 			return fmt.Errorf("pack objects: %w", err)
 		}
 
@@ -886,9 +908,9 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 			}
 		}
 
-		actualOldTip, err := mgr.repository.ResolveRevision(ctx, referenceName.Revision())
+		actualOldTip, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision())
 		if errors.Is(err, git.ErrReferenceNotFound) {
-			objectHash, err := mgr.repository.ObjectHash(ctx)
+			objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("object hash: %w", err)
 			}
@@ -924,7 +946,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		) == -1
 	})
 
-	if err := mgr.verifyReferencesWithGit(ctx, referenceUpdates, transaction.quarantineDirectory); err != nil {
+	if err := mgr.verifyReferencesWithGit(ctx, referenceUpdates, transaction.stagingRepository); err != nil {
 		return nil, fmt.Errorf("verify references with git: %w", err)
 	}
 
@@ -935,8 +957,8 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 // the updates will go through when they are being applied in the log. This also catches any invalid reference names
 // and file/directory conflicts with Git's loose reference storage which can occur with references like
 // 'refs/heads/parent' and 'refs/heads/parent/child'.
-func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, quarantineDirectory string) error {
-	updater, err := mgr.prepareReferenceTransaction(ctx, referenceUpdates, quarantineDirectory)
+func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, stagingRepository repository) error {
+	updater, err := mgr.prepareReferenceTransaction(ctx, referenceUpdates, stagingRepository)
 	if err != nil {
 		return fmt.Errorf("prepare reference transaction: %w", err)
 	}
@@ -954,7 +976,7 @@ func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, tr
 	// Check the transaction reference updates, to see if the refname exists, if we find it here
 	// we don't have to invoke git to do a refname check.
 	if refUpdate, ok := transaction.referenceUpdates[referenceName]; ok {
-		objectHash, err := mgr.repository.ObjectHash(ctx)
+		objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
 		if err != nil {
 			return fmt.Errorf("obtaining object hash: %w", err)
 		}
@@ -967,7 +989,7 @@ func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, tr
 		return nil
 	}
 
-	if _, err := mgr.repository.ResolveRevision(ctx, referenceName.Revision()); err != nil {
+	if _, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision()); err != nil {
 		return fmt.Errorf("cannot resolve default branch update: %w", err)
 	}
 
@@ -986,16 +1008,7 @@ func (mgr *TransactionManager) updateDefaultBranch(ctx context.Context, defaultB
 // prepareReferenceTransaction prepares a reference transaction with `git update-ref`. It leaves committing
 // or aborting up to the caller. Either should be called to clean up the process. The process is cleaned up
 // if an error is returned.
-func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, quarantineDirectory string) (*updateref.Updater, error) {
-	repository := mgr.repository
-	if quarantineDirectory != "" {
-		var err error
-		repository, err = mgr.repository.Quarantine(quarantineDirectory)
-		if err != nil {
-			return nil, fmt.Errorf("quarantine: %w", err)
-		}
-	}
-
+func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, repository repository) (*updateref.Updater, error) {
 	updater, err := updateref.New(ctx, repository, updateref.WithDisabledTransactions())
 	if err != nil {
 		return nil, fmt.Errorf("new: %w", err)
@@ -1049,7 +1062,7 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 		}
 	}
 
-	updater, err := mgr.prepareReferenceTransaction(ctx, logEntry.ReferenceUpdates, "")
+	updater, err := mgr.prepareReferenceTransaction(ctx, logEntry.ReferenceUpdates, mgr.repository)
 	if err != nil {
 		return fmt.Errorf("perpare reference transaction: %w", err)
 	}
