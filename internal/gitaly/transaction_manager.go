@@ -622,7 +622,10 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	}
 
 	transaction.result <- func() (commitErr error) {
-		logEntry, err := mgr.verifyReferences(mgr.ctx, transaction)
+		logEntry := &gitalypb.LogEntry{}
+
+		var err error
+		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("verify references: %w", err)
 		}
@@ -865,8 +868,8 @@ func packFilePathForLogIndex(repoPath string, index LogIndex) string {
 // verifyReferences verifies that the references in the transaction apply on top of the already accepted
 // reference changes. The old tips in the transaction are verified against the current actual tips.
 // It returns the write-ahead log entry for the transaction if it was successfully verified.
-func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) (*gitalypb.LogEntry, error) {
-	logEntry := &gitalypb.LogEntry{}
+func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) ([]*gitalypb.LogEntry_ReferenceUpdate, error) {
+	var referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate
 	for referenceName, tips := range transaction.referenceUpdates {
 		// 'git update-ref' doesn't ensure the loose references end up in the
 		// refs directory so we enforce that here.
@@ -907,25 +910,25 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 			}
 		}
 
-		logEntry.ReferenceUpdates = append(logEntry.ReferenceUpdates, &gitalypb.LogEntry_ReferenceUpdate{
+		referenceUpdates = append(referenceUpdates, &gitalypb.LogEntry_ReferenceUpdate{
 			ReferenceName: []byte(referenceName),
 			NewOid:        []byte(tips.NewOID),
 		})
 	}
 
 	// Sort the reference updates so the reference changes are always logged in a deterministic order.
-	sort.Slice(logEntry.ReferenceUpdates, func(i, j int) bool {
+	sort.Slice(referenceUpdates, func(i, j int) bool {
 		return bytes.Compare(
-			logEntry.ReferenceUpdates[i].ReferenceName,
-			logEntry.ReferenceUpdates[j].ReferenceName,
+			referenceUpdates[i].ReferenceName,
+			referenceUpdates[j].ReferenceName,
 		) == -1
 	})
 
-	if err := mgr.verifyReferencesWithGit(ctx, logEntry.ReferenceUpdates, transaction.quarantineDirectory); err != nil {
+	if err := mgr.verifyReferencesWithGit(ctx, referenceUpdates, transaction.quarantineDirectory); err != nil {
 		return nil, fmt.Errorf("verify references with git: %w", err)
 	}
 
-	return logEntry, nil
+	return referenceUpdates, nil
 }
 
 // vefifyReferencesWithGit verifies the reference updates with git by preparing reference transaction. This ensures
