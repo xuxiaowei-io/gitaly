@@ -1099,13 +1099,14 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 
 	// Notify the transactions waiting for this log entry to be applied prior to beginning.
 	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
 	notificationCh, ok := mgr.applyNotifications[logIndex]
 	if !ok {
 		// This should never happen and is a programming error if it does.
 		return fmt.Errorf("no notification channel for LSN %d", logIndex)
 	}
 	delete(mgr.applyNotifications, logIndex)
-	mgr.mutex.Unlock()
 	close(notificationCh)
 
 	return nil
