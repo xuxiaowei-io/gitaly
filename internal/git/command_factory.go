@@ -196,19 +196,14 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 		"LANG=en_US.UTF-8",
 		// Ask Git to never prompt us for any information like e.g. credentials.
 		"GIT_TERMINAL_PROMPT=0",
-	}
-
-	// Prevent the environment from affecting git calls by ignoring the configuration files.
-	// This should be done always but we have to wait until 15.0 due to backwards compatibility
-	// concerns.
-	//
-	// See https://gitlab.com/gitlab-org/gitaly/-/issues/3617.
-	if cfg.Git.IgnoreGitconfig {
-		sharedEnvironment = append(sharedEnvironment,
-			"GIT_CONFIG_GLOBAL=/dev/null",
-			"GIT_CONFIG_SYSTEM=/dev/null",
-			"XDG_CONFIG_HOME=/dev/null",
-		)
+		// Prevent the environment from affecting git calls by ignoring the configuration files.
+		// This should be done always but we have to wait until 15.0 due to backwards compatibility
+		// concerns.
+		//
+		// See https://gitlab.com/gitlab-org/gitaly/-/issues/3617.
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_SYSTEM=/dev/null",
+		"XDG_CONFIG_HOME=/dev/null",
 	}
 
 	if factoryCfg.gitBinaryPath != "" {

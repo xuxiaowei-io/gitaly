@@ -229,7 +229,6 @@ type Git struct {
 	BinPath            string      `toml:"bin_path,omitempty" json:"bin_path"`
 	CatfileCacheSize   int         `toml:"catfile_cache_size,omitempty" json:"catfile_cache_size"`
 	Config             []GitConfig `toml:"config,omitempty" json:"config"`
-	IgnoreGitconfig    bool        `toml:"ignore_gitconfig,omitempty" json:"ignore_gitconfig"`
 	SigningKey         string      `toml:"signing_key,omitempty" json:"signing_key"`
 }
 

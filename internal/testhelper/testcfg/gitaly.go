@@ -125,9 +125,6 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 	}
 
 	cfg.PackObjectsCache.Enabled = gc.packObjectsCacheEnabled
-	// Ignore the gitconfig so that tests aren't impacted by any configuration the user happens
-	// to have lying around.
-	cfg.Git.IgnoreGitconfig = true
 
 	// The tests don't require GitLab API to be accessible, but as it is required to pass
 	// validation, so the artificial values are set to pass.

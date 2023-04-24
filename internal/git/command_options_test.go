@@ -194,9 +194,6 @@ func TestGlobalOption(t *testing.T) {
 func TestWithConfig(t *testing.T) {
 	cfg := config.Cfg{
 		BinDir: testhelper.TempDir(t),
-		Git: config.Git{
-			IgnoreGitconfig: true,
-		},
 	}
 
 	ctx := testhelper.Context(t)
@@ -274,7 +271,6 @@ func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 			Config: []config.GitConfig{
 				{Key: "foo.bar", Value: "from-gitaly-config"},
 			},
-			IgnoreGitconfig: true,
 		},
 	}
 
@@ -300,9 +296,6 @@ func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 func TestWithConfigEnv(t *testing.T) {
 	cfg := config.Cfg{
 		BinDir: testhelper.TempDir(t),
-		Git: config.Git{
-			IgnoreGitconfig: true,
-		},
 	}
 
 	ctx := testhelper.Context(t)
