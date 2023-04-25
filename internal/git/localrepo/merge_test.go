@@ -2,6 +2,7 @@ package localrepo
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -277,18 +278,18 @@ func TestParseResult(t *testing.T) {
 	testCases := []struct {
 		desc        string
 		output      string
-		oid         string
+		oid         git.ObjectID
 		expectedErr *MergeTreeError
 	}{
 		{
 			desc: "single file conflict",
-			output: `4f18fcb9bc62a3a6a4f81236fd57eeb95bfb06b4
+			output: fmt.Sprintf(`%s
 file
 
 Auto-merging file
 CONFLICT (content): Merge conflict in file
-`,
-			oid: "4f18fcb9bc62a3a6a4f81236fd57eeb95bfb06b4",
+`, gittest.DefaultObjectHash.EmptyTreeOID),
+			oid: git.ObjectID(gittest.DefaultObjectHash.EmptyTreeOID),
 			expectedErr: &MergeTreeError{
 				ConflictingFiles: []string{
 					"file",
@@ -298,14 +299,14 @@ CONFLICT (content): Merge conflict in file
 		},
 		{
 			desc: "multiple files conflict",
-			output: `4f18fcb9bc62a3a6a4f81236fd57eeb95bfb06b4
+			output: fmt.Sprintf(`%s
 file1
 file2
 
 Auto-merging file
 CONFLICT (content): Merge conflict in file1
-`,
-			oid: "4f18fcb9bc62a3a6a4f81236fd57eeb95bfb06b4",
+`, gittest.DefaultObjectHash.EmptyTreeOID),
+			oid: git.ObjectID(gittest.DefaultObjectHash.EmptyTreeOID),
 			expectedErr: &MergeTreeError{
 				ConflictingFiles: []string{
 					"file1",
@@ -318,11 +319,13 @@ CONFLICT (content): Merge conflict in file1
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := parseMergeTreeError(tc.output)
+			oid, err := parseMergeTreeError(gittest.DefaultObjectHash, tc.output)
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)
 				return
 			}
+
+			require.Equal(t, tc.oid, oid)
 			require.NoError(t, err)
 		})
 	}

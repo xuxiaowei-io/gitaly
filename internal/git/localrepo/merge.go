@@ -49,8 +49,13 @@ func (repo *Repo) MergeTree(
 		flags = append(flags, git.Flag{Name: "--allow-unrelated-histories"})
 	}
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return "", fmt.Errorf("getting object hash %w", err)
+	}
+
 	var stdout, stderr bytes.Buffer
-	err := repo.ExecAndWait(
+	err = repo.ExecAndWait(
 		ctx,
 		git.Command{
 			Name:  "merge-tree",
@@ -75,12 +80,7 @@ func (repo *Repo) MergeTree(
 			return "", fmt.Errorf("merge-tree: %w", err)
 		}
 
-		return "", parseMergeTreeError(stdout.String())
-	}
-
-	objectHash, err := repo.ObjectHash(ctx)
-	if err != nil {
-		return "", fmt.Errorf("getting object hash %w", err)
+		return parseMergeTreeError(objectHash, stdout.String())
 	}
 
 	oid, err := objectHash.FromHex(text.ChompBytes(stdout.Bytes()))
@@ -94,26 +94,31 @@ func (repo *Repo) MergeTree(
 // parseMergeTreeError parses the output from git-merge-tree(1)'s stdout into
 // a MergeTreeResult struct. The format for the output can be found at
 // https://git-scm.com/docs/git-merge-tree#OUTPUT.
-func parseMergeTreeError(output string) error {
+func parseMergeTreeError(objectHash git.ObjectHash, output string) (git.ObjectID, error) {
 	var mergeTreeError MergeTreeError
 
 	lines := strings.SplitN(output, "\n\n", 2)
 
 	// When the output is of unexpected length
 	if len(lines) < 2 {
-		return errors.New("error parsing merge tree result")
+		return "", errors.New("error parsing merge tree result")
 	}
 
 	mergeTreeError.InfoMessage = strings.TrimSuffix(lines[1], "\n")
 	oidAndConflicts := strings.Split(lines[0], "\n")
 
 	if len(oidAndConflicts) < 2 {
-		return &mergeTreeError
+		return "", &mergeTreeError
+	}
+
+	oid, err := objectHash.FromHex(text.ChompBytes([]byte(oidAndConflicts[0])))
+	if err != nil {
+		return "", fmt.Errorf("hex to oid: %w", err)
 	}
 
 	mergeTreeError.ConflictingFiles = oidAndConflicts[1:]
 
-	return &mergeTreeError
+	return oid, &mergeTreeError
 }
 
 // MergeTreeError encapsulates any conflicting files and messages that occur
