@@ -661,6 +661,17 @@ message FindMergeBaseResponse {
 
 // CreateForkRequest is a request for the CreateFork RPC.
 message CreateForkRequest {
+  // LinkToObjectPoolMode will cause the newly created fork to be linked against the object pool.
+  // This enables Gitaly to significantly speed up creation of the fork and will enable object
+  // deduplication right from the start.
+  message LinkToObjectPoolMode {
+    // ObjectPool is the object pool that the repository shall be linked against. This object pool
+    // must exist and be part of the same storage as the newly created repository.
+    //
+    // In general, this should be the same object pool as the source repository is linked against.
+    ObjectPool object_pool = 1 [(additional_repository)=true];
+  }
+
   // Repository is the repository that shall be created.
   Repository repository = 1 [(target_repository)=true];
   // SourceRepository is the repositroy that shall be forked.
@@ -669,6 +680,13 @@ message CreateForkRequest {
   // to be rewritten by Praefect. This is because Gitaly will us the source repository to perform a
   // gRPC call, which must use the original non-rewritten repository.
   Repository source_repository = 2;
+
+  // Mode determines the relationship between the newly created fork, the source repository and
+  // object pools.
+  oneof mode {
+    // LinkToObjectPool will cause the newly created fork to be linked against the object pool.
+    LinkToObjectPoolMode link_to_object_pool = 3;
+  }
 }
 
 // CreateForkResponse is a response for the CreateFork RPC.

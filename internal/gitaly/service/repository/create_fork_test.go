@@ -7,9 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -290,6 +293,292 @@ func TestCreateFork_validate(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := cli.CreateFork(ctx, tc.req)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestCreateFork_linkToObjectPool(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg := testcfg.Build(t, testcfg.WithStorages("a", "b"))
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+
+	client, serverSocketPath := runRepositoryService(t, cfg)
+	cfg.SocketPath = serverSocketPath
+
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
+	type expectedState struct {
+		alternates   []string
+		looseObjects uint64
+		packfiles    uint64
+	}
+
+	type setupData struct {
+		request          *gitalypb.CreateForkRequest
+		expectedErr      error
+		expectedResponse *gitalypb.CreateForkResponse
+		expectedState    expectedState
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "linking against unset pool fails",
+			setup: func(t *testing.T) setupData {
+				sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.CreateForkRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  sourceRepo.StorageName,
+							RelativePath: gittest.NewRepositoryName(t),
+						},
+						SourceRepository: sourceRepo,
+						Mode: &gitalypb.CreateForkRequest_LinkToObjectPool{
+							LinkToObjectPool: &gitalypb.CreateForkRequest_LinkToObjectPoolMode{
+								ObjectPool: &gitalypb.ObjectPool{
+									Repository: nil,
+								},
+							},
+						},
+					},
+					expectedErr: structerr.NewInvalidArgument("validating object pool: empty Repository"),
+				}
+			},
+		},
+		{
+			desc: "linking against pool on different storage fails",
+			setup: func(t *testing.T) setupData {
+				// We create the source repository and its object pool on the second
+				// storage, but try to create the fork on the first storage.
+				sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					Storage: cfg.Storages[1],
+				})
+				objectPool, _ := gittest.CreateObjectPool(t, ctx, cfg, sourceRepo)
+
+				return setupData{
+					request: &gitalypb.CreateForkRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  cfg.Storages[0].Name,
+							RelativePath: gittest.NewRepositoryName(t),
+						},
+						SourceRepository: sourceRepo,
+						Mode: &gitalypb.CreateForkRequest_LinkToObjectPool{
+							LinkToObjectPool: &gitalypb.CreateForkRequest_LinkToObjectPoolMode{
+								ObjectPool: objectPool,
+							},
+						},
+					},
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("cannot link to object pool on different storage"),
+						// Praefect fails in weird ways when trying to
+						// resolve repositories with different storages.
+						// This is something that we're fixing in a separate
+						// track so that Praefect will fail gracefully with
+						// such requests.
+						structerr.NewNotFound(
+							"route repository creation: resolve additional replica path: get additional repository id: repository %q/%q not found",
+							cfg.Storages[0].Name,
+							objectPool.Repository.GetRelativePath(),
+						),
+					),
+				}
+			},
+		},
+		{
+			desc: "linking succeeds with unpooled repository",
+			setup: func(t *testing.T) setupData {
+				sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				// We create an object pool, but the source repository is not linked
+				// against it.
+				objectPool, objectPoolPath := gittest.CreateObjectPool(t, ctx, cfg, sourceRepo, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: false,
+				})
+
+				return setupData{
+					request: &gitalypb.CreateForkRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  sourceRepo.StorageName,
+							RelativePath: gittest.NewRepositoryName(t),
+						},
+						SourceRepository: sourceRepo,
+						Mode: &gitalypb.CreateForkRequest_LinkToObjectPool{
+							LinkToObjectPool: &gitalypb.CreateForkRequest_LinkToObjectPoolMode{
+								ObjectPool: objectPool,
+							},
+						},
+					},
+					expectedResponse: &gitalypb.CreateForkResponse{},
+					expectedState: expectedState{
+						alternates: []string{
+							filepath.Join(objectPoolPath, "objects"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "linking against missing pool fails",
+			setup: func(t *testing.T) setupData {
+				sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				// We link the source repository to the object pool, but immediately
+				// delete it afterwards.
+				objectPool, objectPoolPath := gittest.CreateObjectPool(t, ctx, cfg, sourceRepo, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+				require.NoError(t, os.RemoveAll(objectPoolPath))
+
+				return setupData{
+					request: &gitalypb.CreateForkRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  sourceRepo.StorageName,
+							RelativePath: gittest.NewRepositoryName(t),
+						},
+						SourceRepository: sourceRepo,
+						Mode: &gitalypb.CreateForkRequest_LinkToObjectPool{
+							LinkToObjectPool: &gitalypb.CreateForkRequest_LinkToObjectPoolMode{
+								ObjectPool: objectPool,
+							},
+						},
+					},
+					expectedErr: structerr.NewFailedPrecondition("object pool of source repository is not a valid repository"),
+				}
+			},
+		},
+		{
+			desc: "linking against empty object pool succeeds",
+			setup: func(t *testing.T) setupData {
+				sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+				objectPool, objectPoolPath := gittest.CreateObjectPool(t, ctx, cfg, sourceRepo, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				return setupData{
+					request: &gitalypb.CreateForkRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  sourceRepo.StorageName,
+							RelativePath: gittest.NewRepositoryName(t),
+						},
+						SourceRepository: sourceRepo,
+						Mode: &gitalypb.CreateForkRequest_LinkToObjectPool{
+							LinkToObjectPool: &gitalypb.CreateForkRequest_LinkToObjectPoolMode{
+								ObjectPool: objectPool,
+							},
+						},
+					},
+					expectedResponse: &gitalypb.CreateForkResponse{},
+					expectedState: expectedState{
+						alternates: []string{
+							filepath.Join(objectPoolPath, "objects"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "objects deduplicated via object pool are not copied",
+			setup: func(t *testing.T) setupData {
+				sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("branch"))
+
+				objectPool, objectPoolPath := gittest.CreateObjectPool(t, ctx, cfg, sourceRepo, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				return setupData{
+					request: &gitalypb.CreateForkRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  sourceRepo.StorageName,
+							RelativePath: gittest.NewRepositoryName(t),
+						},
+						SourceRepository: sourceRepo,
+						Mode: &gitalypb.CreateForkRequest_LinkToObjectPool{
+							LinkToObjectPool: &gitalypb.CreateForkRequest_LinkToObjectPoolMode{
+								ObjectPool: objectPool,
+							},
+						},
+					},
+					expectedResponse: &gitalypb.CreateForkResponse{},
+					expectedState: expectedState{
+						alternates: []string{
+							filepath.Join(objectPoolPath, "objects"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "objects exclusive to the forked repository are copied",
+			setup: func(t *testing.T) setupData {
+				sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				objectPool, objectPoolPath := gittest.CreateObjectPool(t, ctx, cfg, sourceRepo, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				// Write the object after we have created the object pool so that
+				// objects are exclusive to the pooled repository.
+				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("branch"))
+
+				return setupData{
+					request: &gitalypb.CreateForkRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  sourceRepo.StorageName,
+							RelativePath: gittest.NewRepositoryName(t),
+						},
+						SourceRepository: sourceRepo,
+						Mode: &gitalypb.CreateForkRequest_LinkToObjectPool{
+							LinkToObjectPool: &gitalypb.CreateForkRequest_LinkToObjectPoolMode{
+								ObjectPool: objectPool,
+							},
+						},
+					},
+					expectedResponse: &gitalypb.CreateForkResponse{},
+					expectedState: expectedState{
+						alternates: []string{
+							filepath.Join(objectPoolPath, "objects"),
+						},
+						packfiles: 1,
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			response, err := client.CreateFork(ctx, setup.request)
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.ProtoEqual(t, setup.expectedResponse, response)
+
+			if err != nil {
+				return
+			}
+
+			fork := localrepo.NewTestRepo(t, cfg, setup.request.Repository)
+			// Assert that the repository is indeed valid.
+			gittest.Exec(t, cfg, "-C", gittest.RepositoryPath(t, fork), "fsck")
+
+			// Furthermore, assert that its contents look as expected.
+			info, err := stats.RepositoryInfoForRepository(fork)
+			require.NoError(t, err)
+			info.Packfiles.LastFullRepack = time.Time{}
+			require.Equal(t, setup.expectedState, expectedState{
+				alternates:   info.Alternates,
+				looseObjects: info.LooseObjects.Count,
+				packfiles:    info.Packfiles.Count,
+			})
 		})
 	}
 }
