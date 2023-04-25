@@ -62,7 +62,7 @@ func (s *Server) merge(
 	ours string,
 	theirs string,
 ) (string, error) {
-	treeOID, err := quarantineRepo.MergeTree(ctx, ours, theirs, localrepo.WithAllowUnrelatedHistories())
+	treeOID, err := quarantineRepo.MergeTree(ctx, ours, theirs, localrepo.WithAllowUnrelatedHistories(), localrepo.WithConflictingFileNamesOnly())
 	if err != nil {
 		return "", err
 	}
