@@ -158,6 +158,55 @@ func TestSync(t *testing.T) {
 	}
 }
 
+func TestSyncParent(t *testing.T) {
+	tmpDir, _ := createTestDirectoryHierarchy(t)
+
+	t.Run("parent exists", func(t *testing.T) {
+		syncer, recorder := recordingSyncer()
+		require.NoError(t, syncer.SyncParent(filepath.Join(tmpDir, "root", "file_1")))
+		require.Equal(t,
+			expectedCalls("/root"),
+			recorder.recordedCalls(tmpDir),
+		)
+	})
+
+	t.Run("trailing slash ignored", func(t *testing.T) {
+		syncer, recorder := recordingSyncer()
+		require.NoError(t, syncer.SyncParent(filepath.Join(tmpDir, "root", "file_1")+string(os.PathSeparator)))
+		require.Equal(t,
+			expectedCalls("/root"),
+			recorder.recordedCalls(tmpDir),
+		)
+	})
+
+	t.Run("non-existent child", func(t *testing.T) {
+		// Since we are fsyncing just the parent, we don't really need to verify whether the
+		// child itself exists.
+		syncer, recorder := recordingSyncer()
+		require.NoError(t, syncer.SyncParent(filepath.Join(tmpDir, "root", "non-existent")))
+		require.Equal(t,
+			expectedCalls("/root"),
+			recorder.recordedCalls(tmpDir),
+		)
+	})
+
+	t.Run("non-existent parent", func(t *testing.T) {
+		syncer, recorder := recordingSyncer()
+
+		path := filepath.Join(tmpDir, "root", "non-existent-parent", "non-existent-child")
+		require.ErrorIs(
+			t,
+			syncer.SyncParent(path),
+			fs.ErrNotExist,
+		)
+
+		require.Equal(t,
+			[]call{{method: "open", path: "/root/non-existent-parent"}},
+			recorder.recordedCalls(tmpDir),
+		)
+	})
+}
+
 func TestSyncHierarchy(t *testing.T) {
 	tmpDir, rootDir := createTestDirectoryHierarchy(t)
 	syncer, recorder := recordingSyncer()

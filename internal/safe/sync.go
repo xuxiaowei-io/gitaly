@@ -48,6 +48,12 @@ func (s Syncer) Sync(path string) error {
 	return nil
 }
 
+// SyncParent syncs the parent directory of the given path. The path is cleaned prior to determining
+// the parent
+func (s Syncer) SyncParent(path string) error {
+	return s.Sync(filepath.Dir(filepath.Clean(path)))
+}
+
 // SyncRecursive walks the file tree rooted at path and fsyncing the root and the children.
 func (s Syncer) SyncRecursive(path string) error {
 	return filepath.WalkDir(path, func(path string, _ os.DirEntry, err error) error {
