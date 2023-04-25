@@ -40,8 +40,9 @@ func TestMethodInfo_getRepo(t *testing.T) {
 		method               string
 		pbMsg                proto.Message
 		expectRepo           *gitalypb.Repository
-		expectAdditionalRepo *gitalypb.Repository
 		expectErr            error
+		expectAdditionalRepo *gitalypb.Repository
+		expectAdditionalErr  error
 	}{
 		{
 			desc:   "valid request type single depth",
@@ -50,14 +51,16 @@ func TestMethodInfo_getRepo(t *testing.T) {
 			pbMsg: &gitalypb.OptimizeRepositoryRequest{
 				Repository: testRepos[0],
 			},
-			expectRepo: testRepos[0],
+			expectRepo:          testRepos[0],
+			expectAdditionalErr: ErrTargetRepoMissing,
 		},
 		{
-			desc:      "unset oneof",
-			svc:       "OperationService",
-			method:    "UserCommitFiles",
-			pbMsg:     &gitalypb.UserCommitFilesRequest{},
-			expectErr: ErrTargetRepoMissing,
+			desc:                "unset oneof",
+			svc:                 "OperationService",
+			method:              "UserCommitFiles",
+			pbMsg:               &gitalypb.UserCommitFilesRequest{},
+			expectErr:           ErrTargetRepoMissing,
+			expectAdditionalErr: ErrTargetRepoMissing,
 		},
 		{
 			desc:   "unset value in oneof",
@@ -66,7 +69,8 @@ func TestMethodInfo_getRepo(t *testing.T) {
 			pbMsg: &gitalypb.UserCommitFilesRequest{
 				UserCommitFilesRequestPayload: &gitalypb.UserCommitFilesRequest_Header{},
 			},
-			expectErr: ErrTargetRepoMissing,
+			expectErr:           ErrTargetRepoMissing,
+			expectAdditionalErr: ErrTargetRepoMissing,
 		},
 		{
 			desc:   "unset repository in oneof",
@@ -77,7 +81,8 @@ func TestMethodInfo_getRepo(t *testing.T) {
 					Header: &gitalypb.UserCommitFilesRequestHeader{},
 				},
 			},
-			expectErr: ErrTargetRepoMissing,
+			expectErr:           ErrTargetRepoMissing,
+			expectAdditionalErr: ErrTargetRepoMissing,
 		},
 		{
 			desc:   "target nested in oneOf",
@@ -90,7 +95,8 @@ func TestMethodInfo_getRepo(t *testing.T) {
 					},
 				},
 			},
-			expectRepo: testRepos[1],
+			expectRepo:          testRepos[1],
+			expectAdditionalErr: ErrTargetRepoMissing,
 		},
 		{
 			desc:   "target nested, includes additional repository",
@@ -104,35 +110,31 @@ func TestMethodInfo_getRepo(t *testing.T) {
 			expectAdditionalRepo: testRepos[0],
 		},
 		{
-			desc:      "target repo is nil",
-			svc:       "RepositoryService",
-			method:    "OptimizeRepository",
-			pbMsg:     &gitalypb.OptimizeRepositoryRequest{Repository: nil},
-			expectErr: ErrTargetRepoMissing,
+			desc:                "target repo is nil",
+			svc:                 "RepositoryService",
+			method:              "OptimizeRepository",
+			pbMsg:               &gitalypb.OptimizeRepositoryRequest{Repository: nil},
+			expectErr:           ErrTargetRepoMissing,
+			expectAdditionalErr: ErrTargetRepoMissing,
 		},
 	}
 
 	for _, tc := range testcases {
-		desc := fmt.Sprintf("%s:%s %s", tc.svc, tc.method, tc.desc)
-		t.Run(desc, func(t *testing.T) {
+		t.Run(tc.desc, func(t *testing.T) {
 			info, err := GitalyProtoPreregistered.LookupMethod(fmt.Sprintf("/gitaly.%s/%s", tc.svc, tc.method))
 			require.NoError(t, err)
 
-			actualTarget, actualErr := info.TargetRepo(tc.pbMsg)
-			require.Equal(t, tc.expectErr, actualErr)
+			t.Run("TargetRepo", func(t *testing.T) {
+				repo, err := info.TargetRepo(tc.pbMsg)
+				require.Equal(t, tc.expectErr, err)
+				require.Same(t, tc.expectRepo, repo)
+			})
 
-			// not only do we want the value to be the same, but we actually want the
-			// exact same instance to be returned
-			if tc.expectRepo != actualTarget {
-				t.Fatal("pointers do not match")
-			}
-
-			if tc.expectAdditionalRepo != nil {
-				additionalRepo, ok, err := info.AdditionalRepo(tc.pbMsg)
-				require.True(t, ok)
-				require.NoError(t, err)
-				require.Equal(t, tc.expectAdditionalRepo, additionalRepo)
-			}
+			t.Run("AdditionalRepo", func(t *testing.T) {
+				additionalRepo, err := info.AdditionalRepo(tc.pbMsg)
+				require.Equal(t, tc.expectAdditionalErr, err)
+				require.Same(t, tc.expectAdditionalRepo, additionalRepo)
+			})
 		})
 	}
 }

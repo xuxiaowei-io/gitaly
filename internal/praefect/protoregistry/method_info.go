@@ -79,16 +79,10 @@ func (mi MethodInfo) TargetRepo(msg proto.Message) (*gitalypb.Repository, error)
 	return mi.getRepo(msg, gitalypb.E_TargetRepository)
 }
 
-// AdditionalRepo returns the additional repository for a protobuf message that needs a storage rewritten
-// if it exists
-func (mi MethodInfo) AdditionalRepo(msg proto.Message) (*gitalypb.Repository, bool, error) {
-	if mi.additionalRepo == nil {
-		return nil, false, nil
-	}
-
-	repo, err := mi.getRepo(msg, gitalypb.E_AdditionalRepository)
-
-	return repo, true, err
+// AdditionalRepo returns the additional repository for a Protobuf message that needs a storage
+// rewritten if it exists.
+func (mi MethodInfo) AdditionalRepo(msg proto.Message) (*gitalypb.Repository, error) {
+	return mi.getRepo(msg, gitalypb.E_AdditionalRepository)
 }
 
 //nolint:revive // This is unintentionally missing documentation.
