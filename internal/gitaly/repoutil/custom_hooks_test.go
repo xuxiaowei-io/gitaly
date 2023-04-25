@@ -234,7 +234,7 @@ func TestExtractHooks(t *testing.T) {
 	}
 }
 
-func TestSetCustomHooksRequest_success(t *testing.T) {
+func TestSetCustomHooks_success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
