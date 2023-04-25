@@ -156,9 +156,9 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	if mergeErr != nil {
 		var conflictErr *localrepo.MergeTreeError
 		if errors.As(mergeErr, &conflictErr) {
-			conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
-			for _, conflictingFile := range conflictErr.ConflictingFiles {
-				conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
+			conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFileInfo))
+			for _, conflictingFileInfo := range conflictErr.ConflictingFileInfo {
+				conflictingFiles = append(conflictingFiles, []byte(conflictingFileInfo.FileName))
 			}
 
 			return structerr.NewFailedPrecondition("merging commits: %w", mergeErr).

@@ -116,16 +116,25 @@ func parseMergeTreeError(objectHash git.ObjectHash, output string) (git.ObjectID
 		return "", fmt.Errorf("hex to oid: %w", err)
 	}
 
-	mergeTreeError.ConflictingFiles = oidAndConflicts[1:]
+	mergeTreeError.ConflictingFileInfo = make([]ConflictingFileInfo, len(oidAndConflicts[1:]))
+
+	for i, fileName := range oidAndConflicts[1:] {
+		mergeTreeError.ConflictingFileInfo[i].FileName = fileName
+	}
 
 	return oid, &mergeTreeError
 }
 
-// MergeTreeError encapsulates any conflicting files and messages that occur
+// ConflictingFileInfo holds the conflicting file info output from git-merge-tree(1).
+type ConflictingFileInfo struct {
+	FileName string
+}
+
+// MergeTreeError encapsulates any conflicting file info and messages that occur
 // when a merge-tree(1) command fails.
 type MergeTreeError struct {
-	ConflictingFiles []string
-	InfoMessage      string
+	ConflictingFileInfo []ConflictingFileInfo
+	InfoMessage         string
 }
 
 // Error returns the error string for a conflict error.

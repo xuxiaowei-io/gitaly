@@ -128,8 +128,8 @@ func TestMergeTree(t *testing.T) {
 		{
 			desc: "with conflicts",
 			expectedErr: &MergeTreeError{
-				ConflictingFiles: []string{"file2"},
-				InfoMessage:      "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
+				ConflictingFileInfo: []ConflictingFileInfo{{FileName: "file2"}},
+				InfoMessage:         "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
 			},
 			setupFunc: func(t *testing.T, ctx context.Context, repoPath string) (git.ObjectID, git.ObjectID, []gittest.TreeEntry) {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
@@ -291,10 +291,8 @@ CONFLICT (content): Merge conflict in file
 `, gittest.DefaultObjectHash.EmptyTreeOID),
 			oid: git.ObjectID(gittest.DefaultObjectHash.EmptyTreeOID),
 			expectedErr: &MergeTreeError{
-				ConflictingFiles: []string{
-					"file",
-				},
-				InfoMessage: "Auto-merging file\nCONFLICT (content): Merge conflict in file",
+				ConflictingFileInfo: []ConflictingFileInfo{{FileName: "file"}},
+				InfoMessage:         "Auto-merging file\nCONFLICT (content): Merge conflict in file",
 			},
 		},
 		{
@@ -308,9 +306,9 @@ CONFLICT (content): Merge conflict in file1
 `, gittest.DefaultObjectHash.EmptyTreeOID),
 			oid: git.ObjectID(gittest.DefaultObjectHash.EmptyTreeOID),
 			expectedErr: &MergeTreeError{
-				ConflictingFiles: []string{
-					"file1",
-					"file2",
+				ConflictingFileInfo: []ConflictingFileInfo{
+					{FileName: "file1"},
+					{FileName: "file2"},
 				},
 				InfoMessage: "Auto-merging file\nCONFLICT (content): Merge conflict in file1",
 			},
