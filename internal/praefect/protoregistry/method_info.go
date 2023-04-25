@@ -90,6 +90,9 @@ func (mi MethodInfo) FullMethodName() string {
 	return mi.fullMethodName
 }
 
+// ErrTargetRepoMissing indicates that the target repo is missing or not set
+var ErrTargetRepoMissing = errors.New("empty Repository")
+
 func (mi MethodInfo) getRepo(msg proto.Message, extensionType protoreflect.ExtensionType) (*gitalypb.Repository, error) {
 	if mi.requestName != string(proto.MessageName(msg)) {
 		return nil, fmt.Errorf(
@@ -128,26 +131,47 @@ func (mi MethodInfo) getRepo(msg proto.Message, extensionType protoreflect.Exten
 
 // Storage returns the storage name for a protobuf message if it exists
 func (mi MethodInfo) Storage(msg proto.Message) (string, error) {
-	if mi.requestName != string(proto.MessageName(msg)) {
-		return "", fmt.Errorf(
-			"proto message %s does not match expected RPC request message %s",
-			proto.MessageName(msg), mi.requestName,
-		)
+	field, err := mi.getStorageField(msg)
+	if err != nil {
+		return "", err
 	}
 
-	return reflectFindStorage(msg, mi.storage)
+	return field.value.String(), nil
 }
 
 // SetStorage sets the storage name for a protobuf message
 func (mi MethodInfo) SetStorage(msg proto.Message, storage string) error {
+	field, err := mi.getStorageField(msg)
+	if err != nil {
+		return err
+	}
+
+	msg.ProtoReflect().Set(field.desc, protoreflect.ValueOfString(storage))
+
+	return nil
+}
+
+func (mi MethodInfo) getStorageField(msg proto.Message) (valueField, error) {
 	if mi.requestName != string(proto.MessageName(msg)) {
-		return fmt.Errorf(
+		return valueField{}, fmt.Errorf(
 			"proto message %s does not match expected RPC request message %s",
 			proto.MessageName(msg), mi.requestName,
 		)
 	}
 
-	return reflectSetStorage(msg, mi.storage, storage)
+	field, err := findFieldByExtension(msg, gitalypb.E_Storage)
+	if err != nil {
+		if errors.Is(err, errFieldNotFound) {
+			return valueField{}, fmt.Errorf("target storage field not found")
+		}
+		return valueField{}, err
+	}
+
+	if field.desc.Kind() != protoreflect.StringKind {
+		return valueField{}, fmt.Errorf("expected string, got %s", field.desc.Kind().String())
+	}
+
+	return field, nil
 }
 
 // UnmarshalRequestProto will unmarshal the bytes into the method's request

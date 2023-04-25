@@ -706,7 +706,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 func (c *Coordinator) directStorageScopedMessage(ctx context.Context, mi protoregistry.MethodInfo, msg proto.Message) (*proxy.StreamParameters, error) {
 	virtualStorage, err := mi.Storage(msg)
 	if err != nil {
-		return nil, structerr.NewInvalidArgument("%w", err)
+		return nil, structerr.NewInvalidArgument("storage scoped: %w", err)
 	}
 
 	if virtualStorage == "" {
