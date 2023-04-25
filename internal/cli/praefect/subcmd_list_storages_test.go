@@ -5,20 +5,12 @@ import (
 	"testing"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 )
 
-func TestListStorages_FlagSet(t *testing.T) {
-	t.Parallel()
-	cmd := &listStorages{}
-	fs := cmd.FlagSet()
-	require.NoError(t, fs.Parse([]string{"--virtual-storage", "vs"}))
-	require.Equal(t, "vs", cmd.virtualStorage)
-}
-
-func TestListStorages_Exec(t *testing.T) {
+func TestListStoragesSubcommand(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -124,6 +116,24 @@ func TestListStorages_Exec(t *testing.T) {
 		},
 	}
 
+	exec := func(confPath string, args []string) (string, error) {
+		var stdout bytes.Buffer
+		app := cli.App{
+			Writer: &stdout,
+			Commands: []*cli.Command{
+				newListStoragesCommand(),
+			},
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "config",
+					Value: confPath,
+				},
+			},
+		}
+		err := app.Run(append([]string{progname, "list-storages"}, args...))
+		return stdout.String(), err
+	}
+
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			var expectedOutput bytes.Buffer
@@ -142,29 +152,20 @@ func TestListStorages_Exec(t *testing.T) {
 			tc.expectedOutput(table)
 			table.Render()
 
-			var out bytes.Buffer
-			cmd := &listStorages{
-				w: &out,
-			}
-
-			fs := cmd.FlagSet()
-			require.NoError(t, fs.Parse(tc.args))
-			require.NoError(t, cmd.Exec(fs, config.Config{
+			conf := config.Config{
+				ListenAddr:      ":0",
 				VirtualStorages: tc.virtualStorages,
-			}))
-			assert.Equal(t, expectedOutput.String(), out.String())
+			}
+			confPath := writeConfigToFile(t, conf)
+			stdout, err := exec(confPath, tc.args)
+			require.NoError(t, err)
+			require.Equal(t, expectedOutput.String(), stdout)
 		})
 	}
 
-	t.Run("virtual storage arg matches no virtual storages", func(t *testing.T) {
-		var out bytes.Buffer
-		cmd := &listStorages{
-			w: &out,
-		}
-
-		fs := cmd.FlagSet()
-		require.NoError(t, fs.Parse([]string{"-virtual-storage", "vs-2"}))
-		require.NoError(t, cmd.Exec(fs, config.Config{
+	t.Run("negative", func(t *testing.T) {
+		conf := config.Config{
+			ListenAddr: ":0",
 			VirtualStorages: []*config.VirtualStorage{
 				{
 					Name: "vs-1",
@@ -180,7 +181,18 @@ func TestListStorages_Exec(t *testing.T) {
 					},
 				},
 			},
-		}))
-		assert.Equal(t, "No virtual storages named vs-2.\n", out.String())
+		}
+		confPath := writeConfigToFile(t, conf)
+
+		t.Run("virtual storage arg matches no virtual storages", func(t *testing.T) {
+			stdout, err := exec(confPath, []string{"-virtual-storage", "vs-2"})
+			require.NoError(t, err)
+			require.Equal(t, "No virtual storages named vs-2.\n", stdout)
+		})
+
+		t.Run("positional arguments", func(t *testing.T) {
+			_, err := exec(confPath, []string{"-virtual-storage", "vs-1", "positional-arg"})
+			require.Equal(t, cli.Exit(unexpectedPositionalArgsError{Command: "list-storages"}, 1), err)
+		})
 	})
 }

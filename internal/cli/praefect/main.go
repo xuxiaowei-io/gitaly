@@ -75,6 +75,7 @@ func NewApp() *cli.App {
 			newCheckCommand(service.AllChecks()),
 			newDatalossCommand(),
 			newDialNodesCommand(),
+			newListStoragesCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{

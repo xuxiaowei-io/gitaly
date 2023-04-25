@@ -44,7 +44,6 @@ func subcommands(logger *logrus.Entry) map[string]subcmd {
 		listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
 		metadataCmdName:               newMetadataSubcommand(os.Stdout),
 		verifyCmdName:                 newVerifySubcommand(os.Stdout),
-		listStoragesCmdName:           newListStorages(os.Stdout),
 	}
 }
 
