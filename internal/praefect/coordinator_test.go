@@ -154,11 +154,19 @@ func TestStreamDirectorMutator(t *testing.T) {
 	testhelper.NewServerWithHealth(t, secondarySocket)
 	secondaryNode := &config.Node{Address: "unix://" + secondarySocket, Storage: "praefect-internal-2"}
 
+	unrelatedSocket := testhelper.GetTemporaryGitalySocketFileName(t)
+	testhelper.NewServerWithHealth(t, unrelatedSocket)
+	unrelatedNode := &config.Node{Address: "unix://" + unrelatedSocket, Storage: "praefect-unrelated"}
+
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
 				Name:  "praefect",
 				Nodes: []*config.Node{primaryNode, secondaryNode},
+			},
+			{
+				Name:  "unrelated",
+				Nodes: []*config.Node{unrelatedNode},
 			},
 		},
 	}
@@ -191,7 +199,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 		setup func(t *testing.T, rs datastore.RepositoryStore) setupData
 	}{
 		{
-			desc: "successful",
+			desc: "target repository",
 			setup: func(t *testing.T, rs datastore.RepositoryStore) setupData {
 				relativePath := gittest.NewRepositoryName(t)
 				targetRepo := &gitalypb.Repository{
@@ -202,23 +210,14 @@ func TestStreamDirectorMutator(t *testing.T) {
 				repoID := createRepo(t, rs, "praefect", relativePath, relativePath)
 
 				return setupData{
-					method: "/gitaly.ObjectPoolService/FetchIntoObjectPool",
-					request: &gitalypb.FetchIntoObjectPoolRequest{
-						Origin: targetRepo,
-						ObjectPool: &gitalypb.ObjectPool{
-							Repository: targetRepo,
-						},
+					method: "/gitaly.OperationService/UserCreateTag",
+					request: &gitalypb.UserCreateTagRequest{
+						Repository: targetRepo,
 					},
-					expectedRewrittenRequest: &gitalypb.FetchIntoObjectPoolRequest{
-						Origin: &gitalypb.Repository{
+					expectedRewrittenRequest: &gitalypb.UserCreateTagRequest{
+						Repository: &gitalypb.Repository{
 							StorageName:  "praefect-internal-1",
 							RelativePath: relativePath,
-						},
-						ObjectPool: &gitalypb.ObjectPool{
-							Repository: &gitalypb.Repository{
-								StorageName:  "praefect-internal-1",
-								RelativePath: relativePath,
-							},
 						},
 					},
 					expectedEvent: datastore.ReplicationEvent{
@@ -239,7 +238,59 @@ func TestStreamDirectorMutator(t *testing.T) {
 			},
 		},
 		{
-			desc: "repository not found",
+			desc: "target and additional repository",
+			setup: func(t *testing.T, rs datastore.RepositoryStore) setupData {
+				targetRepo := &gitalypb.Repository{
+					StorageName:  "praefect",
+					RelativePath: gittest.NewRepositoryName(t),
+				}
+				additionalRepo := &gitalypb.Repository{
+					StorageName:  "praefect",
+					RelativePath: gittest.NewRepositoryName(t),
+				}
+
+				targetRepoID := createRepo(t, rs, "praefect", targetRepo.RelativePath, "rewritten-target")
+				createRepo(t, rs, "praefect", additionalRepo.RelativePath, "rewritten-additional")
+
+				return setupData{
+					method: "/gitaly.ObjectPoolService/FetchIntoObjectPool",
+					request: &gitalypb.FetchIntoObjectPoolRequest{
+						Origin: additionalRepo,
+						ObjectPool: &gitalypb.ObjectPool{
+							Repository: targetRepo,
+						},
+					},
+					expectedRewrittenRequest: &gitalypb.FetchIntoObjectPoolRequest{
+						Origin: &gitalypb.Repository{
+							StorageName:  "praefect-internal-1",
+							RelativePath: "rewritten-additional",
+						},
+						ObjectPool: &gitalypb.ObjectPool{
+							Repository: &gitalypb.Repository{
+								StorageName:  "praefect-internal-1",
+								RelativePath: "rewritten-target",
+							},
+						},
+					},
+					expectedEvent: datastore.ReplicationEvent{
+						State:   datastore.JobStateInProgress,
+						Attempt: 2,
+						LockID:  fmt.Sprintf("praefect|praefect-internal-2|%s", targetRepo.RelativePath),
+						Job: datastore.ReplicationJob{
+							RepositoryID:      targetRepoID,
+							Change:            datastore.UpdateRepo,
+							VirtualStorage:    conf.VirtualStorages[0].Name,
+							RelativePath:      targetRepo.RelativePath,
+							TargetNodeStorage: secondaryNode.Storage,
+							SourceNodeStorage: primaryNode.Storage,
+						},
+						Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+					},
+				}
+			},
+		},
+		{
+			desc: "target repository not found",
 			setup: func(t *testing.T, rs datastore.RepositoryStore) setupData {
 				// We do not create the repository, so we expect this request to
 				// fail.
@@ -249,14 +300,88 @@ func TestStreamDirectorMutator(t *testing.T) {
 				}
 
 				return setupData{
+					method: "/gitaly.OperationService/UserCreateTag",
+					request: &gitalypb.UserCreateTagRequest{
+						Repository: targetRepo,
+					},
+					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+				}
+			},
+		},
+		{
+			desc: "additional repository not found",
+			setup: func(t *testing.T, rs datastore.RepositoryStore) setupData {
+				targetRepo := &gitalypb.Repository{
+					StorageName:  "praefect",
+					RelativePath: gittest.NewRepositoryName(t),
+				}
+				additionalRepo := &gitalypb.Repository{
+					StorageName:  "praefect",
+					RelativePath: gittest.NewRepositoryName(t),
+				}
+
+				// We create the target repository, but don't create the additional
+				// one.
+				createRepo(t, rs, "praefect", targetRepo.RelativePath, "rewritten-target")
+
+				return setupData{
 					method: "/gitaly.ObjectPoolService/FetchIntoObjectPool",
 					request: &gitalypb.FetchIntoObjectPoolRequest{
-						Origin: targetRepo,
+						Origin: additionalRepo,
 						ObjectPool: &gitalypb.ObjectPool{
 							Repository: targetRepo,
 						},
 					},
-					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
+						fmt.Errorf("resolve additional replica path: %w",
+							fmt.Errorf("get additional repository id: %w",
+								commonerr.NewRepositoryNotFoundError(additionalRepo.StorageName, additionalRepo.RelativePath),
+							),
+						),
+					)),
+				}
+			},
+		},
+		{
+			desc: "target and additional repository on different storages",
+			setup: func(t *testing.T, rs datastore.RepositoryStore) setupData {
+				targetRepo := &gitalypb.Repository{
+					StorageName:  "praefect",
+					RelativePath: gittest.NewRepositoryName(t),
+				}
+				additionalRepo := &gitalypb.Repository{
+					StorageName:  "unrelated",
+					RelativePath: gittest.NewRepositoryName(t),
+				}
+
+				createRepo(t, rs, "praefect", targetRepo.RelativePath, "rewritten-target")
+				createRepo(t, rs, "unrelated", additionalRepo.RelativePath, "rewritten-additional")
+
+				return setupData{
+					method: "/gitaly.ObjectPoolService/FetchIntoObjectPool",
+					request: &gitalypb.FetchIntoObjectPoolRequest{
+						Origin: additionalRepo,
+						ObjectPool: &gitalypb.ObjectPool{
+							Repository: targetRepo,
+						},
+					},
+					// This is a bug: we try to resolve the additional
+					// repository as a member of the target repository's
+					// storage. In the best case this fails, which is a
+					// reasonable outcome. But in the worst case, if the
+					// additional repository's path exists on the target
+					// repository's storage, we could forward the request to the
+					// wrong node.
+					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
+						fmt.Errorf("resolve additional replica path: %w",
+							fmt.Errorf("get additional repository id: %w",
+								// Note how the error message uses
+								// the target repo's storage name,
+								// but the additional repo's path.
+								commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, additionalRepo.RelativePath),
+							),
+						),
+					)),
 				}
 			},
 		},
@@ -268,7 +393,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
 
 			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				assert.True(t, len(queueInterceptor.GetEnqueued()) < 2, "expected only one event to be created")
 				return queue.Enqueue(ctx, event)
