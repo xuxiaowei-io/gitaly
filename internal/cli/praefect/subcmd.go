@@ -38,7 +38,6 @@ func subcommands(logger *logrus.Entry) map[string]subcmd {
 		dialNodesCmdName:              newDialNodesSubcommand(os.Stdout),
 		sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
 		sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
-		datalossCmdName:               newDatalossSubcommand(),
 		setReplicationFactorCmdName:   newSetReplicatioFactorSubcommand(os.Stdout),
 		removeRepositoryCmdName:       newRemoveRepository(logger, os.Stdout),
 		trackRepositoryCmdName:        newTrackRepository(logger, os.Stdout),

@@ -33,18 +33,6 @@
 // the config file, and then dialing and health checking the remote nodes.
 //
 //	praefect -config PATH_TO_CONFIG dial-nodes
-//
-// # Dataloss
-//
-// The subcommand "dataloss" identifies Gitaly nodes which are missing data from the
-// previous write-enabled primary node. It does so by looking through incomplete
-// replication jobs. This is useful for identifying potential data loss from a failover
-// event.
-//
-//	praefect -config PATH_TO_CONFIG dataloss [-virtual-storage <virtual-storage>]
-//
-// "-virtual-storage" specifies which virtual storage to check for data loss. If not specified,
-// the check is performed for every configured virtual storage.
 
 package praefect
 
@@ -92,6 +80,7 @@ func NewApp() *cli.App {
 			newConfigurationCommand(),
 			newAcceptDatalossCommand(),
 			newCheckCommand(service.AllChecks()),
+			newDatalossCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{

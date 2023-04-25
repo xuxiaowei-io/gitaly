@@ -4,9 +4,14 @@ package praefect
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service/info"
@@ -17,6 +22,7 @@ import (
 func TestDatalossSubcommand(t *testing.T) {
 	t.Parallel()
 	cfg := config.Config{
+		ListenAddr: ":0",
 		VirtualStorages: []*config.VirtualStorage{
 			{
 				Name: "virtual-storage-1",
@@ -75,6 +81,8 @@ func TestDatalossSubcommand(t *testing.T) {
 		registerPraefectInfoServer(info.NewServer(cfg, gs, nil, nil, nil)),
 	})
 	defer clean()
+	cfg.SocketPath = ln.Addr().String()
+
 	for _, tc := range []struct {
 		desc            string
 		args            []string
@@ -83,13 +91,15 @@ func TestDatalossSubcommand(t *testing.T) {
 		error           error
 	}{
 		{
-			desc:  "positional arguments",
-			args:  []string{"-virtual-storage=virtual-storage-1", "positional-arg"},
-			error: unexpectedPositionalArgsError{Command: "dataloss"},
+			desc:            "positional arguments",
+			args:            []string{"-virtual-storage=virtual-storage-1", "positional-arg"},
+			virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage", Nodes: []*config.Node{{Storage: "s", Address: "a"}}}},
+			error:           cli.Exit(unexpectedPositionalArgsError{Command: "dataloss"}, 1),
 		},
 		{
-			desc: "data loss with unavailable repositories",
-			args: []string{"-virtual-storage=virtual-storage-1"},
+			desc:            "data loss with unavailable repositories",
+			args:            []string{"-virtual-storage=virtual-storage-1"},
+			virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage", Nodes: []*config.Node{{Storage: "s", Address: "a"}}}},
 			output: `Virtual storage: virtual-storage-1
   Repositories:
     repository-2 (unavailable):
@@ -102,8 +112,9 @@ func TestDatalossSubcommand(t *testing.T) {
 `,
 		},
 		{
-			desc: "data loss with partially unavailable repositories",
-			args: []string{"-virtual-storage=virtual-storage-1", "-partially-unavailable"},
+			desc:            "data loss with partially unavailable repositories",
+			args:            []string{"-virtual-storage=virtual-storage-1", "-partially-unavailable"},
+			virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage", Nodes: []*config.Node{{Storage: "s", Address: "a"}}}},
 			output: `Virtual storage: virtual-storage-1
   Repositories:
     repository-1:
@@ -123,8 +134,11 @@ func TestDatalossSubcommand(t *testing.T) {
 `,
 		},
 		{
-			desc:            "multiple virtual storages with unavailable repositories",
-			virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage-2"}, {Name: "virtual-storage-1"}},
+			desc: "multiple virtual storages with unavailable repositories",
+			virtualStorages: []*config.VirtualStorage{
+				{Name: "virtual-storage-2", Nodes: []*config.Node{{Storage: "s", Address: "a"}}},
+				{Name: "virtual-storage-1", Nodes: []*config.Node{{Storage: "s", Address: "a"}}},
+			},
 			output: `Virtual storage: virtual-storage-1
   Repositories:
     repository-2 (unavailable):
@@ -139,9 +153,12 @@ Virtual storage: virtual-storage-2
 `,
 		},
 		{
-			desc:            "multiple virtual storages with partially unavailable repositories",
-			args:            []string{"-partially-unavailable"},
-			virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage-2"}, {Name: "virtual-storage-1"}},
+			desc: "multiple virtual storages with partially unavailable repositories",
+			args: []string{"-partially-unavailable"},
+			virtualStorages: []*config.VirtualStorage{
+				{Name: "virtual-storage-2", Nodes: []*config.Node{{Storage: "s", Address: "a"}}},
+				{Name: "virtual-storage-1", Nodes: []*config.Node{{Storage: "s", Address: "a"}}},
+			},
 			output: `Virtual storage: virtual-storage-1
   Repositories:
     repository-1:
@@ -164,18 +181,33 @@ Virtual storage: virtual-storage-2
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cmd := newDatalossSubcommand()
-			output := &bytes.Buffer{}
-			cmd.output = output
+			cfg.VirtualStorages = tc.virtualStorages
 
-			fs := cmd.FlagSet()
-			require.NoError(t, fs.Parse(tc.args))
-			err := cmd.Exec(fs, config.Config{
-				VirtualStorages: tc.virtualStorages,
-				SocketPath:      ln.Addr().String(),
-			})
+			confData, err := toml.Marshal(cfg)
+			require.NoError(t, err)
+			tmpDir := testhelper.TempDir(t)
+			confPath := filepath.Join(tmpDir, "config.toml")
+			require.NoError(t, os.WriteFile(confPath, confData, perm.PublicFile))
+
+			var stdout bytes.Buffer
+			app := cli.App{
+				Writer: &stdout,
+				Commands: []*cli.Command{
+					newDatalossCommand(),
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Value: confPath,
+					},
+				},
+			}
+
+			err = app.Run(append([]string{progname, "dataloss"}, tc.args...))
 			require.Equal(t, tc.error, err, err)
-			require.Equal(t, tc.output, output.String())
+			if tc.error == nil {
+				require.Equal(t, tc.output, stdout.String())
+			}
 		})
 	}
 }

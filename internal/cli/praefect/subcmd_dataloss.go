@@ -1,128 +1,133 @@
 package praefect
 
 import (
-	"context"
-	"flag"
 	"fmt"
 	"io"
-	"log"
-	"os"
 	"sort"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-const datalossCmdName = "dataloss"
-
-type datalossSubcommand struct {
-	output                    io.Writer
-	virtualStorage            string
-	includePartiallyAvailable bool
-}
-
-func newDatalossSubcommand() *datalossSubcommand {
-	return &datalossSubcommand{output: os.Stdout}
-}
-
-func (cmd *datalossSubcommand) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(datalossCmdName, flag.ContinueOnError)
-	fs.StringVar(&cmd.virtualStorage, "virtual-storage", "", "virtual storage to check for data loss")
-	fs.BoolVar(&cmd.includePartiallyAvailable, "partially-unavailable", false, strings.TrimSpace(`
-Additionally include repositories which are available but some assigned replicas
-are unavailable. Such repositories are available but are not fully replicated. This
-increases the chance of data loss on primary failure`))
-	return fs
-}
-
-func (cmd *datalossSubcommand) println(indent int, msg string, args ...interface{}) {
-	fmt.Fprint(cmd.output, strings.Repeat("  ", indent))
-	fmt.Fprintf(cmd.output, msg, args...)
-	fmt.Fprint(cmd.output, "\n")
-}
-
-func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) error {
-	if flags.NArg() > 0 {
-		return unexpectedPositionalArgsError{Command: flags.Name()}
+func newDatalossCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "dataloss",
+		Usage: "identifies stale Gitaly nodes",
+		Description: "The subcommand \"dataloss\" identifies Gitaly nodes which are missing data from the\n" +
+			"previous write-enabled primary node. It does so by looking through incomplete\n" +
+			"replication jobs. This is useful for identifying potential data loss from a failover\n" +
+			"event.",
+		Action: datalossAction,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name: paramVirtualStorage,
+				Usage: "specifies which virtual storage to check for data loss. If not specified,\n" +
+					"the check is performed for every configured virtual storage.",
+			},
+			&cli.BoolFlag{
+				Name:  "partially-unavailable",
+				Value: false,
+				Usage: "Additionally include repositories which are available but some assigned replicas\n" +
+					"are unavailable. Such repositories are available but are not fully replicated. This\n" +
+					"increases the chance of data loss on primary failure",
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
 	}
+}
 
-	virtualStorages := []string{cmd.virtualStorage}
-	if cmd.virtualStorage == "" {
-		virtualStorages = make([]string, len(cfg.VirtualStorages))
-		for i := range cfg.VirtualStorages {
-			virtualStorages[i] = cfg.VirtualStorages[i].Name
-		}
-	}
-	sort.Strings(virtualStorages)
-
-	nodeAddr, err := getNodeAddress(cfg)
+func datalossAction(ctx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, ctx.String(configFlagName))
 	if err != nil {
 		return err
 	}
 
-	ctx := context.Background()
-	conn, err := subCmdDial(ctx, nodeAddr, cfg.Auth.Token, defaultDialTimeout)
+	includePartiallyAvailable := ctx.Bool("partially-unavailable")
+
+	virtualStorages := []string{ctx.String(paramVirtualStorage)}
+	if virtualStorages[0] == "" {
+		virtualStorages = make([]string, len(conf.VirtualStorages))
+		for i := range conf.VirtualStorages {
+			virtualStorages[i] = conf.VirtualStorages[i].Name
+		}
+	}
+	sort.Strings(virtualStorages)
+
+	nodeAddr, err := getNodeAddress(conf)
+	if err != nil {
+		return err
+	}
+
+	conn, err := subCmdDial(ctx.Context, nodeAddr, conf.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("error dialing: %w", err)
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			log.Printf("error closing connection: %v", err)
+			logger.Printf("error closing connection: %v\n", err)
 		}
 	}()
 
 	client := gitalypb.NewPraefectInfoServiceClient(conn)
 
 	for _, vs := range virtualStorages {
-		resp, err := client.DatalossCheck(ctx, &gitalypb.DatalossCheckRequest{
+		resp, err := client.DatalossCheck(ctx.Context, &gitalypb.DatalossCheckRequest{
 			VirtualStorage:             vs,
-			IncludePartiallyReplicated: cmd.includePartiallyAvailable,
+			IncludePartiallyReplicated: includePartiallyAvailable,
 		})
 		if err != nil {
 			return fmt.Errorf("error checking: %w", err)
 		}
 
-		cmd.println(0, "Virtual storage: %s", vs)
+		indentPrintln(ctx.App.Writer, 0, "Virtual storage: %s", vs)
 		if len(resp.Repositories) == 0 {
 			msg := "All repositories are available!"
-			if cmd.includePartiallyAvailable {
+			if includePartiallyAvailable {
 				msg = "All repositories are fully available on all assigned storages!"
 			}
 
-			cmd.println(1, msg)
+			indentPrintln(ctx.App.Writer, 1, msg)
 			continue
 		}
 
-		cmd.println(1, "Repositories:")
+		indentPrintln(ctx.App.Writer, 1, "Repositories:")
 		for _, repo := range resp.Repositories {
 			unavailable := ""
 			if repo.Unavailable {
 				unavailable = " (unavailable)"
 			}
 
-			cmd.println(2, "%s%s:", repo.RelativePath, unavailable)
+			indentPrintln(ctx.App.Writer, 2, "%s%s:", repo.RelativePath, unavailable)
 
 			primary := repo.Primary
 			if primary == "" {
 				primary = "No Primary"
 			}
-			cmd.println(3, "Primary: %s", primary)
+			indentPrintln(ctx.App.Writer, 3, "Primary: %s", primary)
 
-			cmd.println(3, "In-Sync Storages:")
+			indentPrintln(ctx.App.Writer, 3, "In-Sync Storages:")
 			for _, storage := range repo.Storages {
 				if storage.BehindBy != 0 {
 					continue
 				}
 
-				cmd.println(4, "%s%s%s",
+				indentPrintln(ctx.App.Writer, 4, "%s%s%s",
 					storage.Name,
 					assignedMessage(storage.Assigned),
 					unhealthyMessage(storage.Healthy),
 				)
 			}
 
-			cmd.println(3, "Outdated Storages:")
+			indentPrintln(ctx.App.Writer, 3, "Outdated Storages:")
 			for _, storage := range repo.Storages {
 				if storage.BehindBy == 0 {
 					continue
@@ -133,7 +138,7 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 					plural = "s"
 				}
 
-				cmd.println(4, "%s is behind by %d change%s or less%s%s",
+				indentPrintln(ctx.App.Writer, 4, "%s is behind by %d change%s or less%s%s",
 					storage.Name,
 					storage.BehindBy,
 					plural,
@@ -145,6 +150,12 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 	}
 
 	return nil
+}
+
+func indentPrintln(w io.Writer, indent int, msg string, args ...interface{}) {
+	fmt.Fprint(w, strings.Repeat("  ", indent))
+	fmt.Fprintf(w, msg, args...)
+	fmt.Fprint(w, "\n")
 }
 
 func unhealthyMessage(healthy bool) string {
