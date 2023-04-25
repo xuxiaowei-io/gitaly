@@ -414,14 +414,14 @@ type repository interface {
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
-func NewTransactionManager(db *badger.DB, storagePath, relativePath string, repository *localrepo.Repo, stagingDir string, transactionFinalizer func()) *TransactionManager {
+func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, transactionFinalizer func()) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
 		ctx:                  ctx,
 		stopCalled:           ctx.Done(),
 		runDone:              make(chan struct{}),
 		stop:                 cancel,
-		repository:           repository,
+		repository:           repositoryFactory.Build(relativePath),
 		repositoryPath:       filepath.Join(storagePath, relativePath),
 		relativePath:         relativePath,
 		db:                   newDatabaseAdapter(db),

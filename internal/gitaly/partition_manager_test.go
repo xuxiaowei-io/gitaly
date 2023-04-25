@@ -123,21 +123,14 @@ func TestPartitionManager(t *testing.T) {
 		return repo
 	}
 
-	localRepoFactory := func(repo repo.GitRepo) *localrepo.Repo {
-		cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
-		require.NoError(t, err)
-		t.Cleanup(clean)
+	cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
+	require.NoError(t, err)
+	t.Cleanup(clean)
 
-		catfileCache := catfile.NewCache(cfg)
-		t.Cleanup(catfileCache.Stop)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
-		return localrepo.New(
-			config.NewLocator(cfg),
-			cmdFactory,
-			catfileCache,
-			repo,
-		)
-	}
+	localRepoFactory := localrepo.NewFactory(config.NewLocator(cfg), cmdFactory, catfileCache)
 
 	// transactionData holds relevant data for each transaction created during a testcase.
 	type transactionData struct {

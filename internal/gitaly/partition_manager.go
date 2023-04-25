@@ -30,7 +30,7 @@ type PartitionManager struct {
 	// Each repository can have up to one partition.
 	partitions map[string]*partition
 	// localRepoFactory is used by PartitionManager to construct `localrepo.Repo`.
-	localRepoFactory func(repo.GitRepo) *localrepo.Repo
+	localRepoFactory localrepo.Factory
 	// logger handles all logging for PartitionManager.
 	logger logrus.FieldLogger
 	// stopped tracks whether the PartitionManager has been stopped. If the manager is stopped,
@@ -61,7 +61,7 @@ type partition struct {
 }
 
 // NewPartitionManager returns a new PartitionManager.
-func NewPartitionManager(db *badger.DB, storages []config.Storage, localRepoFactory func(repo.GitRepo) *localrepo.Repo, logger logrus.FieldLogger, stagingDir string) *PartitionManager {
+func NewPartitionManager(db *badger.DB, storages []config.Storage, localRepoFactory localrepo.Factory, logger logrus.FieldLogger, stagingDir string) *PartitionManager {
 	storagesMap := make(map[string]string, len(storages))
 	for _, storage := range storages {
 		storagesMap[storage.Name] = storage.Path
@@ -86,8 +86,6 @@ func getPartitionKey(storageName, relativePath string) string {
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
 func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Transaction, error) {
-	localRepo := pm.localRepoFactory(repo)
-
 	storagePath, ok := pm.storages[repo.GetStorageName()]
 	if !ok {
 		return nil, structerr.NewNotFound("unknown storage: %q", repo.GetStorageName())
@@ -119,7 +117,13 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := NewTransactionManager(pm.db, storagePath, relativePath, localRepo, stagingDir, pm.transactionFinalizerFactory(ptn))
+			storageScopedFactory, err := pm.localRepoFactory.ScopeByStorage(repo.GetStorageName())
+			if err != nil {
+				pm.mu.Unlock()
+				return nil, fmt.Errorf("scope by storage: %w", err)
+			}
+
+			mgr := NewTransactionManager(pm.db, storagePath, relativePath, stagingDir, storageScopedFactory, pm.transactionFinalizerFactory(ptn))
 			ptn.transactionManager = mgr
 
 			pm.partitions[partitionKey] = ptn

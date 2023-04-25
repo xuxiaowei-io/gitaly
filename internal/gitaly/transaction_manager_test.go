@@ -129,11 +129,11 @@ func TestTransactionManager(t *testing.T) {
 	}
 
 	type testSetup struct {
-		Config         config.Cfg
-		Repository     *localrepo.Repo
-		ObjectHash     git.ObjectHash
-		NonExistentOID git.ObjectID
-		Commits        testCommits
+		Config            config.Cfg
+		RepositoryFactory localrepo.StorageScopedFactory
+		ObjectHash        git.ObjectHash
+		NonExistentOID    git.ObjectID
+		Commits           testCommits
 	}
 
 	setupTest := func(t *testing.T, relativePath string) testSetup {
@@ -157,8 +157,9 @@ func TestTransactionManager(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 
+		locator := config.NewLocator(cfg)
 		localRepo := localrepo.New(
-			config.NewLocator(cfg),
+			locator,
 			cmdFactory,
 			catfileCache,
 			repo,
@@ -184,11 +185,16 @@ func TestTransactionManager(t *testing.T) {
 			return pack.Bytes()
 		}
 
+		repositoryFactory, err := localrepo.NewFactory(
+			locator, cmdFactory, catfileCache,
+		).ScopeByStorage(cfg.Storages[0].Name)
+		require.NoError(t, err)
+
 		return testSetup{
-			Config:         cfg,
-			ObjectHash:     objectHash,
-			Repository:     localRepo,
-			NonExistentOID: nonExistentOID,
+			Config:            cfg,
+			ObjectHash:        objectHash,
+			RepositoryFactory: repositoryFactory,
+			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
 				First: testCommit{
 					OID:  firstCommitOID,
@@ -2447,7 +2453,8 @@ func TestTransactionManager(t *testing.T) {
 			// Setup the repository with the exact same state as what was used to build the test cases.
 			setup := setupTest(t, relativePath)
 
-			repoPath, err := setup.Repository.Path()
+			repo := setup.RepositoryFactory.Build(relativePath)
+			repoPath, err := repo.Path()
 			require.NoError(t, err)
 
 			database, err := OpenDatabase(t.TempDir())
@@ -2461,7 +2468,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, setup.Repository, stagingDir, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -2502,8 +2509,8 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, setup.Repository, stagingDir, noopTransactionFinalizer)
-					installHooks(t, transactionManager, database, setup.Repository, hooks{
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
+					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
 						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
 						beforeDeferredStop: func(hookContext) {
@@ -2614,8 +2621,8 @@ func TestTransactionManager(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			RequireReferences(t, ctx, setup.Repository, tc.expectedState.References)
-			RequireDefaultBranch(t, ctx, setup.Repository, tc.expectedState.DefaultBranch)
+			RequireReferences(t, ctx, repo, tc.expectedState.References)
+			RequireDefaultBranch(t, ctx, repo, tc.expectedState.DefaultBranch)
 			RequireDatabase(t, ctx, database, tc.expectedState.Database)
 
 			expectedDirectory := tc.expectedState.Directory
@@ -2779,18 +2786,16 @@ func BenchmarkTransactionManager(b *testing.B) {
 				return referenceUpdates
 			}
 
+			repositoryFactory, err := localrepo.NewFactory(
+				config.NewLocator(cfg), cmdFactory, cache,
+			).ScopeByStorage(cfg.Storages[0].Name)
+			require.NoError(b, err)
+
 			// Set up the repositories and start their TransactionManagers.
 			for i := 0; i < tc.numberOfRepositories; i++ {
 				repo, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-
-				localRepo := localrepo.New(
-					config.NewLocator(cfg),
-					cmdFactory,
-					cache,
-					repo,
-				)
 
 				// Set up two commits that the updaters update their references back and forth.
 				// The commit IDs are the same across all repositories as the parameters used to
@@ -2799,7 +2804,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, localRepo, b.TempDir(), noopTransactionFinalizer)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, noopTransactionFinalizer)
 				managers = append(managers, manager)
 
 				managerWG.Add(1)
@@ -2808,7 +2813,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 					assert.NoError(b, manager.Run())
 				}()
 
-				objectHash, err := localRepo.ObjectHash(ctx)
+				objectHash, err := repositoryFactory.Build(repo.RelativePath).ObjectHash(ctx)
 				require.NoError(b, err)
 
 				for j := 0; j < tc.concurrentUpdaters; j++ {

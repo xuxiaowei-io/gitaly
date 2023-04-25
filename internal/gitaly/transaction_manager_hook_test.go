@@ -10,7 +10,6 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 )
 
 // hookFunc is a function that is executed at a specific point. It gets a hookContext that allows it to
@@ -43,7 +42,7 @@ type hooks struct {
 }
 
 // installHooks installs the configured hooks into the transactionManager.
-func installHooks(tb testing.TB, transactionManager *TransactionManager, database *badger.DB, repository *localrepo.Repo, hooks hooks) {
+func installHooks(tb testing.TB, transactionManager *TransactionManager, database *badger.DB, hooks hooks) {
 	hookContext := hookContext{stopManager: transactionManager.stop, database: database, tb: &testingHook{TB: tb}}
 
 	transactionManager.stop = func() {
@@ -69,7 +68,7 @@ func installHooks(tb testing.TB, transactionManager *TransactionManager, databas
 	}
 
 	transactionManager.repository = repositoryHook{
-		repository:  repository,
+		repository:  transactionManager.repository,
 		hookContext: hookContext,
 		hooks:       hooks,
 	}
