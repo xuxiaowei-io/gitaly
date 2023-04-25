@@ -18,7 +18,6 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -676,7 +675,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	}
 
 	var appliedLogIndex gitalypb.LogIndex
-	if err := mgr.readKey(keyAppliedLogIndex(getRepositoryID(mgr.repository)), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
+	if err := mgr.readKey(keyAppliedLogIndex(mgr.relativePath), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
 		return fmt.Errorf("read applied log index: %w", err)
 	}
 
@@ -690,7 +689,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	// As the log indexes in the keys are encoded in big endian, the latest log entry can be found by taking
 	// the first key when iterating the log entry key space in reverse.
 	if err := mgr.db.View(func(txn databaseTransaction) error {
-		logPrefix := keyPrefixLogEntries(getRepositoryID(mgr.repository))
+		logPrefix := keyPrefixLogEntries(mgr.relativePath)
 
 		iterator := txn.NewIterator(badger.IteratorOptions{Reverse: true, Prefix: logPrefix})
 		defer iterator.Close()
@@ -1141,13 +1140,13 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 
 // deleteLogEntry deletes the log entry at the given index from the log.
 func (mgr *TransactionManager) deleteLogEntry(index LogIndex) error {
-	return mgr.deleteKey(keyLogEntry(getRepositoryID(mgr.repository), index))
+	return mgr.deleteKey(keyLogEntry(mgr.relativePath, index))
 }
 
 // readLogEntry returns the log entry from the given position in the log.
 func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry, error) {
 	var logEntry gitalypb.LogEntry
-	key := keyLogEntry(getRepositoryID(mgr.repository), index)
+	key := keyLogEntry(mgr.relativePath, index)
 
 	if err := mgr.readKey(key, &logEntry); err != nil {
 		return nil, fmt.Errorf("read key: %w", err)
@@ -1158,12 +1157,12 @@ func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry,
 
 // storeLogEntry stores the log entry in the repository's write-ahead log at the given index.
 func (mgr *TransactionManager) storeLogEntry(index LogIndex, entry *gitalypb.LogEntry) error {
-	return mgr.setKey(keyLogEntry(getRepositoryID(mgr.repository), index), entry)
+	return mgr.setKey(keyLogEntry(mgr.relativePath, index), entry)
 }
 
 // storeAppliedLogIndex stores the repository's applied log index in the database.
 func (mgr *TransactionManager) storeAppliedLogIndex(index LogIndex) error {
-	return mgr.setKey(keyAppliedLogIndex(getRepositoryID(mgr.repository)), index.toProto())
+	return mgr.setKey(keyAppliedLogIndex(mgr.relativePath), index.toProto())
 }
 
 // setKey marshals and stores a given protocol buffer message into the database under the given key.
@@ -1205,13 +1204,6 @@ func (mgr *TransactionManager) deleteKey(key []byte) error {
 
 		return nil
 	})
-}
-
-// getRepositoryID returns a repository's ID. The ID should never change as it is used in the database
-// keys. Gitaly does not have a permanent ID to use yet so the repository's storage name and relative
-// path are used as a composite key.
-func getRepositoryID(repository repo.GitRepo) string {
-	return repository.GetStorageName() + ":" + repository.GetRelativePath()
 }
 
 // keyAppliedLogIndex returns the database key storing a repository's last applied log entry's index.

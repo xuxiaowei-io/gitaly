@@ -106,7 +106,7 @@ func TestPartitionManager(t *testing.T) {
 		require.Equal(t, len(expectedState), len(partitionManager.partitions))
 		for k, v := range expectedState {
 			partition, ok := partitionManager.partitions[k]
-			require.True(t, ok)
+			require.True(t, ok, "expected partition %q to be present", k)
 			require.Equal(t, v, partition.pendingTransactionCount)
 		}
 	}
@@ -163,7 +163,7 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							repo: repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{},
@@ -182,7 +182,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -192,7 +192,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 2,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -213,20 +213,20 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						begin{
 							transactionID: 2,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 2,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 2,
 							},
 						},
 						commit{
 							transactionID: 1,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -248,21 +248,21 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							repo:          repoA,
 							expectedState: map[string]uint{
-								getRepositoryID(repoA): 1,
+								getPartitionKey(repoA.GetStorageName(), repoA.GetRelativePath()): 1,
 							},
 						},
 						begin{
 							transactionID: 2,
 							repo:          repoB,
 							expectedState: map[string]uint{
-								getRepositoryID(repoA): 1,
-								getRepositoryID(repoB): 1,
+								getPartitionKey(repoA.GetStorageName(), repoA.GetRelativePath()): 1,
+								getPartitionKey(repoB.GetStorageName(), repoB.GetRelativePath()): 1,
 							},
 						},
 						commit{
 							transactionID: 1,
 							expectedState: map[string]uint{
-								getRepositoryID(repoB): 1,
+								getPartitionKey(repoB.GetStorageName(), repoB.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -282,7 +282,7 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							repo: repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						rollback{},
@@ -322,7 +322,7 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							repo: repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -343,7 +343,7 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							repo: repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						stopPartition{},
@@ -365,7 +365,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						stopPartition{
@@ -375,7 +375,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 2,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						finalizeTransaction{
@@ -467,7 +467,7 @@ func TestPartitionManager(t *testing.T) {
 					require.Equal(t, step.expectedError, err)
 
 					partitionManager.mu.Lock()
-					ptn := partitionManager.partitions[getRepositoryID(step.repo)]
+					ptn := partitionManager.partitions[getPartitionKey(step.repo.GetStorageName(), step.repo.GetRelativePath())]
 					partitionManager.mu.Unlock()
 
 					blockOnPartitionShutdown(t, ptn)

@@ -77,6 +77,11 @@ func NewPartitionManager(db *badger.DB, storages []config.Storage, localRepoFact
 	}
 }
 
+// getPartitionKey returns a partitions's key.
+func getPartitionKey(storageName, relativePath string) string {
+	return storageName + ":" + relativePath
+}
+
 // Begin gets the TransactionManager for the specified repository and starts a Transaction. If a
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
@@ -93,7 +98,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}
 
-	partitionKey := getRepositoryID(localRepo)
+	partitionKey := getPartitionKey(repo.GetStorageName(), relativePath)
 
 	for {
 		pm.mu.Lock()
