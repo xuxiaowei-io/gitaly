@@ -1,4 +1,4 @@
-package protoregistry_test
+package protoregistry
 
 import (
 	"errors"
@@ -6,12 +6,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
 
-func TestProtoRegistryTargetRepo(t *testing.T) {
+func TestMethodInfo_getRepo(t *testing.T) {
+	t.Parallel()
+
 	testRepos := []*gitalypb.Repository{
 		{
 			GitAlternateObjectDirectories: []string{"a", "b", "c"},
@@ -78,14 +80,14 @@ func TestProtoRegistryTargetRepo(t *testing.T) {
 			svc:       "RepositoryService",
 			method:    "OptimizeRepository",
 			pbMsg:     &gitalypb.OptimizeRepositoryRequest{Repository: nil},
-			expectErr: protoregistry.ErrTargetRepoMissing,
+			expectErr: ErrTargetRepoMissing,
 		},
 	}
 
 	for _, tc := range testcases {
 		desc := fmt.Sprintf("%s:%s %s", tc.svc, tc.method, tc.desc)
 		t.Run(desc, func(t *testing.T) {
-			info, err := protoregistry.GitalyProtoPreregistered.LookupMethod(fmt.Sprintf("/gitaly.%s/%s", tc.svc, tc.method))
+			info, err := GitalyProtoPreregistered.LookupMethod(fmt.Sprintf("/gitaly.%s/%s", tc.svc, tc.method))
 			require.NoError(t, err)
 
 			actualTarget, actualErr := info.TargetRepo(tc.pbMsg)
@@ -107,7 +109,9 @@ func TestProtoRegistryTargetRepo(t *testing.T) {
 	}
 }
 
-func TestProtoRegistryStorage(t *testing.T) {
+func TestMethodInfo_Storage(t *testing.T) {
+	t.Parallel()
+
 	testcases := []struct {
 		desc          string
 		svc           string
@@ -137,7 +141,7 @@ func TestProtoRegistryStorage(t *testing.T) {
 	for _, tc := range testcases {
 		desc := fmt.Sprintf("%s:%s %s", tc.svc, tc.method, tc.desc)
 		t.Run(desc, func(t *testing.T) {
-			info, err := protoregistry.GitalyProtoPreregistered.LookupMethod(fmt.Sprintf("/gitaly.%s/%s", tc.svc, tc.method))
+			info, err := GitalyProtoPreregistered.LookupMethod(fmt.Sprintf("/gitaly.%s/%s", tc.svc, tc.method))
 			require.NoError(t, err)
 
 			actualStorage, actualErr := info.Storage(tc.pbMsg)
@@ -153,6 +157,8 @@ func TestProtoRegistryStorage(t *testing.T) {
 }
 
 func TestMethodInfo_SetStorage(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		desc      string
 		service   string
@@ -181,7 +187,7 @@ func TestMethodInfo_SetStorage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			info, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly." + tc.service + "/" + tc.method)
+			info, err := GitalyProtoPreregistered.LookupMethod("/gitaly." + tc.service + "/" + tc.method)
 			require.NoError(t, err)
 
 			err = info.SetStorage(tc.pbMsg, tc.storage)
@@ -193,6 +199,37 @@ func TestMethodInfo_SetStorage(t *testing.T) {
 			} else {
 				require.Equal(t, tc.expectErr, err)
 			}
+		})
+	}
+}
+
+func TestMethodInfo_RequestFactory(t *testing.T) {
+	t.Parallel()
+
+	mInfo, err := GitalyProtoPreregistered.LookupMethod("/gitaly.RepositoryService/RepositoryExists")
+	require.NoError(t, err)
+
+	pb, err := mInfo.UnmarshalRequestProto([]byte{})
+	require.NoError(t, err)
+
+	testhelper.ProtoEqual(t, &gitalypb.RepositoryExistsRequest{}, pb)
+}
+
+func TestMethodInfoScope(t *testing.T) {
+	for _, tt := range []struct {
+		method string
+		scope  Scope
+	}{
+		{
+			method: "/gitaly.RepositoryService/RepositoryExists",
+			scope:  ScopeRepository,
+		},
+	} {
+		t.Run(tt.method, func(t *testing.T) {
+			mInfo, err := GitalyProtoPreregistered.LookupMethod(tt.method)
+			require.NoError(t, err)
+
+			require.Exactly(t, tt.scope, mInfo.Scope)
 		})
 	}
 }

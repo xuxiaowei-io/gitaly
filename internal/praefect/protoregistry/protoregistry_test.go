@@ -6,8 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestNewProtoRegistry(t *testing.T) {
@@ -181,35 +179,6 @@ func TestNewProtoRegistry_IsInterceptedMethod(t *testing.T) {
 					require.Error(t, err, "full method name not found:")
 				})
 			}
-		})
-	}
-}
-
-func TestRequestFactory(t *testing.T) {
-	mInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly.RepositoryService/RepositoryExists")
-	require.NoError(t, err)
-
-	pb, err := mInfo.UnmarshalRequestProto([]byte{})
-	require.NoError(t, err)
-
-	testhelper.ProtoEqual(t, &gitalypb.RepositoryExistsRequest{}, pb)
-}
-
-func TestMethodInfoScope(t *testing.T) {
-	for _, tt := range []struct {
-		method string
-		scope  protoregistry.Scope
-	}{
-		{
-			method: "/gitaly.RepositoryService/RepositoryExists",
-			scope:  protoregistry.ScopeRepository,
-		},
-	} {
-		t.Run(tt.method, func(t *testing.T) {
-			mInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod(tt.method)
-			require.NoError(t, err)
-
-			require.Exactly(t, tt.scope, mInfo.Scope)
 		})
 	}
 }
