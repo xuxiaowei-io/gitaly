@@ -45,18 +45,11 @@ func TestProtoRegistryTargetRepo(t *testing.T) {
 		{
 			desc:   "valid request type single depth",
 			svc:    "RepositoryService",
-			method: "RepackIncremental",
-			pbMsg: &gitalypb.RepackIncrementalRequest{
+			method: "OptimizeRepository",
+			pbMsg: &gitalypb.OptimizeRepositoryRequest{
 				Repository: testRepos[0],
 			},
 			expectRepo: testRepos[0],
-		},
-		{
-			desc:      "incorrect request type",
-			svc:       "RepositoryService",
-			method:    "RepackIncremental",
-			pbMsg:     &gitalypb.RepackIncrementalResponse{},
-			expectErr: errors.New("proto message gitaly.RepackIncrementalResponse does not match expected RPC request message gitaly.RepackIncrementalRequest"),
 		},
 		{
 			desc:   "target nested in oneOf",
@@ -85,8 +78,8 @@ func TestProtoRegistryTargetRepo(t *testing.T) {
 		{
 			desc:      "target repo is nil",
 			svc:       "RepositoryService",
-			method:    "RepackIncremental",
-			pbMsg:     &gitalypb.RepackIncrementalRequest{Repository: nil},
+			method:    "OptimizeRepository",
+			pbMsg:     &gitalypb.OptimizeRepositoryRequest{Repository: nil},
 			expectErr: protoregistry.ErrTargetRepoMissing,
 		},
 	}
@@ -137,9 +130,9 @@ func TestProtoRegistryStorage(t *testing.T) {
 		{
 			desc:      "incorrect request type",
 			svc:       "RepositoryService",
-			method:    "RepackIncremental",
-			pbMsg:     &gitalypb.RepackIncrementalResponse{},
-			expectErr: errors.New("proto message gitaly.RepackIncrementalResponse does not match expected RPC request message gitaly.RepackIncrementalRequest"),
+			method:    "OptimizeRepository",
+			pbMsg:     &gitalypb.OptimizeRepositoryResponse{},
+			expectErr: errors.New("proto message gitaly.OptimizeRepositoryResponse does not match expected RPC request message gitaly.OptimizeRepositoryRequest"),
 		},
 	}
 
@@ -182,9 +175,9 @@ func TestMethodInfo_SetStorage(t *testing.T) {
 		{
 			desc:      "incorrect request type",
 			service:   "RepositoryService",
-			method:    "RepackIncremental",
-			pbMsg:     &gitalypb.RepackIncrementalResponse{},
-			expectErr: errors.New("proto message gitaly.RepackIncrementalResponse does not match expected RPC request message gitaly.RepackIncrementalRequest"),
+			method:    "OptimizeRepository",
+			pbMsg:     &gitalypb.OptimizeRepositoryResponse{},
+			expectErr: errors.New("proto message gitaly.OptimizeRepositoryResponse does not match expected RPC request message gitaly.OptimizeRepositoryRequest"),
 		},
 	}
 

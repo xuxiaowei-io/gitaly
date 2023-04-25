@@ -782,7 +782,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 	}
 
 	repositoryClient := gitalypb.NewRepositoryServiceClient(cc)
-	refClient := gitalypb.NewRefServiceClient(cc)
 
 	for _, tc := range []struct {
 		desc                     string
@@ -790,118 +789,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 		expectedPrimaryRequest   proto.Message
 		expectedSecondaryRequest proto.Message
 	}{
-		{
-			desc: "GarbageCollect",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
-					Repository:   repository,
-					CreateBitmap: true,
-					Prune:        true,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.GarbageCollectRequest{
-				Repository:   primaryRepository,
-				CreateBitmap: true,
-				Prune:        true,
-			},
-			expectedSecondaryRequest: &gitalypb.GarbageCollectRequest{
-				Repository:   secondaryRepository,
-				CreateBitmap: true,
-				Prune:        true,
-			},
-		},
-		{
-			desc: "RepackFull",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.RepackFull(ctx, &gitalypb.RepackFullRequest{
-					Repository:   repository,
-					CreateBitmap: true,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.RepackFullRequest{
-				Repository:   primaryRepository,
-				CreateBitmap: true,
-			},
-			expectedSecondaryRequest: &gitalypb.RepackFullRequest{
-				Repository:   secondaryRepository,
-				CreateBitmap: true,
-			},
-		},
-		{
-			desc: "RepackIncremental",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{
-					Repository: repository,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.RepackIncrementalRequest{
-				Repository: primaryRepository,
-			},
-			expectedSecondaryRequest: &gitalypb.RepackIncrementalRequest{
-				Repository: secondaryRepository,
-			},
-		},
-		{
-			desc: "Cleanup",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.Cleanup(ctx, &gitalypb.CleanupRequest{
-					Repository: repository,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.CleanupRequest{
-				Repository: primaryRepository,
-			},
-			expectedSecondaryRequest: &gitalypb.CleanupRequest{
-				Repository: secondaryRepository,
-			},
-		},
-		{
-			desc: "WriteCommitGraph",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
-					Repository: repository,
-					// This is not a valid split strategy, but we currently only support a
-					// single default split strategy with value 0. So we just test with an
-					// invalid split strategy to check that a non-default value gets properly
-					// replicated.
-					SplitStrategy: 1,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.WriteCommitGraphRequest{
-				Repository:    primaryRepository,
-				SplitStrategy: 1,
-			},
-			expectedSecondaryRequest: &gitalypb.WriteCommitGraphRequest{
-				Repository:    secondaryRepository,
-				SplitStrategy: 1,
-			},
-		},
-		{
-			desc: "MidxRepack",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := repositoryClient.MidxRepack(ctx, &gitalypb.MidxRepackRequest{
-					Repository: repository,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.MidxRepackRequest{
-				Repository: primaryRepository,
-			},
-			expectedSecondaryRequest: &gitalypb.MidxRepackRequest{
-				Repository: secondaryRepository,
-			},
-		},
 		{
 			desc: "OptimizeRepository",
 			maintenanceFunc: func(t *testing.T) {
@@ -932,22 +819,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 				Repository: secondaryRepository,
 			},
 		},
-		{
-			desc: "PackRefs",
-			maintenanceFunc: func(t *testing.T) {
-				//nolint:staticcheck
-				_, err := refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
-					Repository: repository,
-				})
-				require.NoError(t, err)
-			},
-			expectedPrimaryRequest: &gitalypb.PackRefsRequest{
-				Repository: primaryRepository,
-			},
-			expectedSecondaryRequest: &gitalypb.PackRefsRequest{
-				Repository: secondaryRepository,
-			},
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			tc.maintenanceFunc(t)
@@ -960,7 +831,6 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 type mockMaintenanceServer struct {
 	requestCh chan proto.Message
 	gitalypb.UnimplementedRepositoryServiceServer
-	gitalypb.UnimplementedRefServiceServer
 }
 
 func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceServer, string) {
@@ -970,40 +840,9 @@ func runMockMaintenanceServer(t *testing.T, cfg gconfig.Cfg) (*mockMaintenanceSe
 
 	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, server)
-		gitalypb.RegisterRefServiceServer(srv, server)
 	}, testserver.WithDisablePraefect())
 
 	return server, addr
-}
-
-func (m *mockMaintenanceServer) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.GarbageCollectResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.RepackFullResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.RepackIncrementalResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.CleanupResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.WriteCommitGraphResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.MidxRepackResponse{}, nil
 }
 
 func (m *mockMaintenanceServer) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {
@@ -1014,11 +853,6 @@ func (m *mockMaintenanceServer) OptimizeRepository(ctx context.Context, in *gita
 func (m *mockMaintenanceServer) PruneUnreachableObjects(ctx context.Context, in *gitalypb.PruneUnreachableObjectsRequest) (*gitalypb.PruneUnreachableObjectsResponse, error) {
 	m.requestCh <- in
 	return &gitalypb.PruneUnreachableObjectsResponse{}, nil
-}
-
-func (m *mockMaintenanceServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*gitalypb.PackRefsResponse, error) {
-	m.requestCh <- in
-	return &gitalypb.PackRefsResponse{}, nil
 }
 
 type mockRouter struct {

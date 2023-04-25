@@ -17,46 +17,6 @@ service RepositoryService {
     };
   }
 
-  // RepackIncremental is deprecated in favor of OptimizeRepository.
-  rpc RepackIncremental(RepackIncrementalRequest) returns (RepackIncrementalResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
-  // RepackFull is deprecated in favor of OptimizeRepository.
-  rpc RepackFull(RepackFullRequest) returns (RepackFullResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
-  // MidxRepack is deprecated in favor of OptimizeRepository.
-  rpc MidxRepack(MidxRepackRequest) returns (MidxRepackResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
-  // GarbageCollect is deprecated in favor of OptimizeRepository.
-  rpc GarbageCollect(GarbageCollectRequest) returns (GarbageCollectResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
-  // WriteCommitGraph is deprecated in favor of OptimizeRepository.
-  rpc WriteCommitGraph(WriteCommitGraphRequest) returns (WriteCommitGraphResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
-    };
-  }
-
   // RepositorySize returns information on the complete on-disk repository size. If you need more
   // detailed information about the size of various sub-structures you should instead use the
   // RepositoryInfo RPC.
@@ -218,14 +178,6 @@ service RepositoryService {
   rpc CalculateChecksum(CalculateChecksumRequest) returns (CalculateChecksumResponse) {
     option (op_type) = {
       op: ACCESSOR
-    };
-  }
-
-  // Cleanup is deprecated in favor of OptimizeRepository.
-  rpc Cleanup(CleanupRequest) returns (CleanupResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MAINTENANCE
     };
   }
 
@@ -397,86 +349,6 @@ message RepositoryExistsRequest {
 message RepositoryExistsResponse {
   // This comment is left unintentionally blank.
   bool exists = 1;
-}
-
-// This comment is left unintentionally blank.
-message RepackIncrementalRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// This comment is left unintentionally blank.
-message RepackIncrementalResponse {
-}
-
-// This comment is left unintentionally blank.
-message RepackFullRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
-  bool create_bitmap = 2;
-}
-
-// This comment is left unintentionally blank.
-message RepackFullResponse {
-}
-
-// This comment is left unintentionally blank.
-message MidxRepackRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// This comment is left unintentionally blank.
-message MidxRepackResponse {
-}
-
-// This comment is left unintentionally blank.
-message GarbageCollectRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
-  bool create_bitmap = 2;
-  // If set to 'true' the 'gc' will be triggered with '--prune=30.minutes.ago' flag.
-  // This will remove dangling objects from the object storage that were not modified in the last 30 minutes.
-  // If 'false' provided the 'gc' will rely on the default expiration period (2 weeks).
-  // The window of 30 minutes exists because of possible concurrent operations running on the same
-  // storage and removal of the objects may cause races and fail concurrent operations.
-  bool prune = 3;
-}
-
-// This comment is left unintentionally blank.
-message GarbageCollectResponse {
-}
-
-// This comment is left unintentionally blank.
-message WriteCommitGraphRequest {
-  // This comment is left unintentionally blank.
-  enum SplitStrategy {
-    // SizeMultiple requires to use '--split --size-multiple=4' strategy to create/update commit graph.
-    // https://git-scm.com/docs/git-commit-graph#Documentation/git-commit-graph.txt-emwriteem
-    // It is a default, there is no need to explicitly set it in the request.
-    SizeMultiple = 0; // protolint:disable:this ENUM_FIELD_NAMES_UPPER_SNAKE_CASE ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-  }
-
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-  // SplitStrategy is a strategy used to create/update commit graph.
-  SplitStrategy splitStrategy = 2; // protolint:disable:this FIELD_NAMES_LOWER_SNAKE_CASE
-}
-
-// This comment is left unintentionally blank.
-message WriteCommitGraphResponse {
-}
-
-// This comment is left unintentionally blank.
-message CleanupRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// This comment is left unintentionally blank.
-message CleanupResponse {
 }
 
 // RepositorySizeRequest is a request for the RepositorySize RPC.
