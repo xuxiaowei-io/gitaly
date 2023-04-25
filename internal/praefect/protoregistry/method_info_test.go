@@ -53,6 +53,33 @@ func TestMethodInfo_getRepo(t *testing.T) {
 			expectRepo: testRepos[0],
 		},
 		{
+			desc:      "unset oneof",
+			svc:       "OperationService",
+			method:    "UserCommitFiles",
+			pbMsg:     &gitalypb.UserCommitFilesRequest{},
+			expectErr: ErrTargetRepoMissing,
+		},
+		{
+			desc:   "unset value in oneof",
+			svc:    "OperationService",
+			method: "UserCommitFiles",
+			pbMsg: &gitalypb.UserCommitFilesRequest{
+				UserCommitFilesRequestPayload: &gitalypb.UserCommitFilesRequest_Header{},
+			},
+			expectErr: ErrTargetRepoMissing,
+		},
+		{
+			desc:   "unset repository in oneof",
+			svc:    "OperationService",
+			method: "UserCommitFiles",
+			pbMsg: &gitalypb.UserCommitFilesRequest{
+				UserCommitFilesRequestPayload: &gitalypb.UserCommitFilesRequest_Header{
+					Header: &gitalypb.UserCommitFilesRequestHeader{},
+				},
+			},
+			expectErr: ErrTargetRepoMissing,
+		},
+		{
 			desc:   "target nested in oneOf",
 			svc:    "OperationService",
 			method: "UserCommitFiles",

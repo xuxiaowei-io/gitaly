@@ -76,7 +76,7 @@ type MethodInfo struct {
 
 // TargetRepo returns the target repository for a protobuf message if it exists
 func (mi MethodInfo) TargetRepo(msg proto.Message) (*gitalypb.Repository, error) {
-	return mi.getRepo(msg, mi.targetRepo)
+	return mi.getRepo(msg, gitalypb.E_TargetRepository)
 }
 
 // AdditionalRepo returns the additional repository for a protobuf message that needs a storage rewritten
@@ -86,7 +86,7 @@ func (mi MethodInfo) AdditionalRepo(msg proto.Message) (*gitalypb.Repository, bo
 		return nil, false, nil
 	}
 
-	repo, err := mi.getRepo(msg, mi.additionalRepo)
+	repo, err := mi.getRepo(msg, gitalypb.E_AdditionalRepository)
 
 	return repo, true, err
 }
@@ -96,7 +96,7 @@ func (mi MethodInfo) FullMethodName() string {
 	return mi.fullMethodName
 }
 
-func (mi MethodInfo) getRepo(msg proto.Message, targetOid []int) (*gitalypb.Repository, error) {
+func (mi MethodInfo) getRepo(msg proto.Message, extensionType protoreflect.ExtensionType) (*gitalypb.Repository, error) {
 	if mi.requestName != string(proto.MessageName(msg)) {
 		return nil, fmt.Errorf(
 			"proto message %s does not match expected RPC request message %s",
@@ -104,17 +104,31 @@ func (mi MethodInfo) getRepo(msg proto.Message, targetOid []int) (*gitalypb.Repo
 		)
 	}
 
-	repo, err := reflectFindRepoTarget(msg, targetOid)
-	switch {
-	case err != nil:
+	field, err := findFieldByExtension(msg, extensionType)
+	if err != nil {
+		if errors.Is(err, errFieldNotFound) {
+			return nil, ErrTargetRepoMissing
+		}
+
 		return nil, err
-	case repo == nil:
-		// it is possible for the target repo to not be set (especially in our unit
-		// tests designed to fail and this should return an error to prevent nil
-		// pointer dereferencing
-		return nil, ErrTargetRepoMissing
-	default:
+	}
+
+	if field.desc.Kind() != protoreflect.MessageKind {
+		return nil, fmt.Errorf("expected repository message, got %s", field.desc.Kind().String())
+	}
+
+	switch fieldMsg := field.value.Message().Interface().(type) {
+	case *gitalypb.Repository:
+		return fieldMsg, nil
+	case *gitalypb.ObjectPool:
+		repo := fieldMsg.GetRepository()
+		if repo == nil {
+			return nil, ErrTargetRepoMissing
+		}
+
 		return repo, nil
+	default:
+		return nil, fmt.Errorf("repository message has unexpected type %T", fieldMsg)
 	}
 }
 

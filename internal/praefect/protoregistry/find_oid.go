@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -18,23 +17,6 @@ const (
 
 // ErrTargetRepoMissing indicates that the target repo is missing or not set
 var ErrTargetRepoMissing = errors.New("empty Repository")
-
-func reflectFindRepoTarget(pbMsg proto.Message, targetOID []int) (*gitalypb.Repository, error) {
-	msgV, e := reflectFindOID(pbMsg, targetOID)
-	if e != nil {
-		if e == ErrProtoFieldEmpty {
-			return nil, ErrTargetRepoMissing
-		}
-		return nil, e
-	}
-
-	targetRepo, ok := msgV.Interface().(*gitalypb.Repository)
-	if !ok {
-		return nil, fmt.Errorf("repo target OID %v points to non-Repo type %+v", targetOID, msgV.Interface())
-	}
-
-	return targetRepo, nil
-}
 
 func reflectFindStorage(pbMsg proto.Message, targetOID []int) (string, error) {
 	msgV, e := reflectFindOID(pbMsg, targetOID)
