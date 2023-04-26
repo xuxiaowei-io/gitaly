@@ -33,17 +33,16 @@ const (
 
 func subcommands(logger *logrus.Entry) map[string]subcmd {
 	return map[string]subcmd{
-		sqlPingCmdName:                &sqlPingSubcommand{},
-		sqlMigrateCmdName:             newSQLMigrateSubCommand(os.Stdout),
-		sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
-		sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
-		setReplicationFactorCmdName:   newSetReplicatioFactorSubcommand(os.Stdout),
-		removeRepositoryCmdName:       newRemoveRepository(logger, os.Stdout),
-		trackRepositoryCmdName:        newTrackRepository(logger, os.Stdout),
-		trackRepositoriesCmdName:      newTrackRepositories(logger, os.Stdout),
-		listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
-		metadataCmdName:               newMetadataSubcommand(os.Stdout),
-		verifyCmdName:                 newVerifySubcommand(os.Stdout),
+		sqlPingCmdName:              &sqlPingSubcommand{},
+		sqlMigrateCmdName:           newSQLMigrateSubCommand(os.Stdout),
+		sqlMigrateDownCmdName:       &sqlMigrateDownSubcommand{},
+		sqlMigrateStatusCmdName:     &sqlMigrateStatusSubcommand{},
+		setReplicationFactorCmdName: newSetReplicatioFactorSubcommand(os.Stdout),
+		removeRepositoryCmdName:     newRemoveRepository(logger, os.Stdout),
+		trackRepositoryCmdName:      newTrackRepository(logger, os.Stdout),
+		trackRepositoriesCmdName:    newTrackRepositories(logger, os.Stdout),
+		metadataCmdName:             newMetadataSubcommand(os.Stdout),
+		verifyCmdName:               newVerifySubcommand(os.Stdout),
 	}
 }
 

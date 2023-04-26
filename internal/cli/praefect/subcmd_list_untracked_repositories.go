@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
@@ -19,59 +19,59 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-const (
-	listUntrackedRepositoriesName = "list-untracked-repositories"
-)
+func newListUntrackedRepositoriesCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "list-untracked-repositories",
+		Usage: "shows repositories not tracked by Praefect",
+		Description: "This command checks whether all repositories on all Gitaly nodes are tracked by Praefect.\n" +
+			"If a repository is found on the disk, but it is not known to Praefect, then the location of\n" +
+			"that repository will be written to the standard output stream in JSON format.\n" +
+			"NOTE:\n" +
+			"All errors and log messages are written to the standard error stream.\n" +
+			"The output is produced as the new data appears, it doesn't wait\n" +
+			"for the completion of the processing to produce the result.\n",
 
-var errNoConnectionToGitalies = errors.New("no connection established to gitaly nodes")
-
-type listUntrackedRepositories struct {
-	logger               logrus.FieldLogger
-	onlyIncludeOlderThan time.Duration
-	delimiter            string
-	out                  io.Writer
-}
-
-func newListUntrackedRepositories(logger logrus.FieldLogger, out io.Writer) *listUntrackedRepositories {
-	return &listUntrackedRepositories{logger: logger, out: out}
-}
-
-func (cmd *listUntrackedRepositories) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(listUntrackedRepositoriesName, flag.ExitOnError)
-	fs.StringVar(&cmd.delimiter, "delimiter", "\n", "string used as a delimiter in output")
-	fs.DurationVar(
-		&cmd.onlyIncludeOlderThan,
-		"older-than",
-		6*time.Hour,
-		"only include repositories created before this duration",
-	)
-	fs.Usage = func() {
-		printfErr("Description:\n" +
-			"	This command checks if all repositories on all gitaly nodes tracked by praefect.\n" +
-			"	If repository is found on the disk, but it is not known to praefect the location of\n" +
-			"	that repository will be written into stdout stream in JSON format.\n")
-		fs.PrintDefaults()
-		printfErr("NOTE:\n" +
-			"	All errors and log messages directed to the stderr stream.\n" +
-			"	The output is produced as the new data appears, it doesn't wait\n" +
-			"	for the completion of the processing to produce the result.\n")
+		Action: listUntrackedRepositoriesAction,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "delimiter",
+				Value: "\n",
+				Usage: "string used as a delimiter in output",
+			},
+			&cli.DurationFlag{
+				Name:  "older-than",
+				Value: 6 * time.Hour,
+				Usage: "only include repositories created before this duration",
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
 	}
-	return fs
 }
 
-func (cmd listUntrackedRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error {
-	if flags.NArg() > 0 {
-		return unexpectedPositionalArgsError{Command: flags.Name()}
+func listUntrackedRepositoriesAction(appCtx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	if err != nil {
+		return err
 	}
 
-	ctx := correlation.ContextWithCorrelation(context.Background(), correlation.SafeRandomID())
-	ctx = metadata.AppendToOutgoingContext(ctx, "client_name", listUntrackedRepositoriesName)
+	onlyIncludeOlderThan := appCtx.Duration("older-than")
+	delimiter := appCtx.String("delimiter")
 
-	logger := cmd.logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
-	logger.Debugf("starting %s command", flags.Name())
+	ctx := correlation.ContextWithCorrelation(appCtx.Context, correlation.SafeRandomID())
+	ctx = metadata.AppendToOutgoingContext(ctx, "client_name", appCtx.Command.Name)
+
+	logger = logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
+	logger.Debugf("starting %s command", appCtx.App.Name)
 
 	logger.Debug("dialing to gitaly nodes...")
-	nodeSet, err := dialGitalyStorages(ctx, cfg, defaultDialTimeout)
+	nodeSet, err := dialGitalyStorages(ctx, conf, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("dial nodes: %w", err)
 	}
@@ -81,22 +81,22 @@ func (cmd listUntrackedRepositories) Exec(flags *flag.FlagSet, cfg config.Config
 	logger.Debug("connecting to praefect database...")
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	db, err := glsql.OpenDB(openDBCtx, cfg.DB)
+	db, err := glsql.OpenDB(openDBCtx, conf.DB)
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer func() { _ = db.Close() }()
 	logger.Debug("connected to praefect database")
 
-	walker := repocleaner.NewWalker(nodeSet.Connections(), 16, cmd.onlyIncludeOlderThan)
+	walker := repocleaner.NewWalker(nodeSet.Connections(), 16, onlyIncludeOlderThan)
 	reporter := reportUntrackedRepositories{
 		ctx:         ctx,
 		checker:     datastore.NewStorageCleanup(db),
-		delimiter:   cmd.delimiter,
-		out:         cmd.out,
+		delimiter:   delimiter,
+		out:         appCtx.App.Writer,
 		printHeader: true,
 	}
-	for _, vs := range cfg.VirtualStorages {
+	for _, vs := range conf.VirtualStorages {
 		for _, node := range vs.Nodes {
 			logger.Debugf("check %q/%q storage repositories", vs.Name, node.Storage)
 			if err := walker.ExecOnRepositories(ctx, vs.Name, node.Storage, reporter.Report); err != nil {
@@ -107,6 +107,8 @@ func (cmd listUntrackedRepositories) Exec(flags *flag.FlagSet, cfg config.Config
 	logger.Debug("completed")
 	return nil
 }
+
+var errNoConnectionToGitalies = errors.New("no connection established to gitaly nodes")
 
 func dialGitalyStorages(ctx context.Context, cfg config.Config, timeout time.Duration) (praefect.NodeSet, error) {
 	nodeSet := praefect.NodeSet{}

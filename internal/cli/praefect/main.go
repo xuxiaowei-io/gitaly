@@ -76,6 +76,7 @@ func NewApp() *cli.App {
 			newDatalossCommand(),
 			newDialNodesCommand(),
 			newListStoragesCommand(),
+			newListUntrackedRepositoriesCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
