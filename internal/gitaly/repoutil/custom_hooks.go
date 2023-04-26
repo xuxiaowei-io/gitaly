@@ -183,9 +183,25 @@ func SetCustomHooks(
 		return fmt.Errorf("moving current hooks to temp: %w", err)
 	}
 
+	syncer := safe.NewSyncer()
+
+	// Sync the custom hooks in the temporary directory before being moved into
+	// the repository. This makes the move atomic as there is no state where the
+	// move succeeds, but the hook files themselves are not yet on the disk, or
+	// are partially written.
+	if err := syncer.SyncRecursive(tempHooksPath); err != nil {
+		return fmt.Errorf("syncing extracted custom hooks: %w", err)
+	}
+
 	// Move `custom_hooks` from the temporary directory to the repository.
 	if err := os.Rename(tempHooksPath, repoHooksPath); err != nil {
 		return fmt.Errorf("moving new hooks to repo: %w", err)
+	}
+
+	// Sync the parent directory after a move to ensure the directory entry of the
+	// hooks directory is flushed to the disk.
+	if err := syncer.SyncParent(repoHooksPath); err != nil {
+		return fmt.Errorf("syncing custom hooks parent directory: %w", err)
 	}
 
 	committedVote, err := newDirectoryVote(repoHooksPath)
