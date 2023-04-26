@@ -29,7 +29,6 @@ BUILD_DIR        := ${SOURCE_DIR}/_build
 PROTO_DEST_DIR   := ${SOURCE_DIR}/proto/go
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
-GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
 
 # These variables may be overridden at runtime by top-level make
 ## The prefix where Gitaly binaries will be installed to. Binaries will end up
@@ -245,7 +244,7 @@ GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-git2go %gitaly-ssh
 # All executables that should be installed.
 GITALY_INSTALLED_EXECUTABLES = $(filter-out ${GITALY_PACKED_EXECUTABLES}, ${GITALY_EXECUTABLES})
 # Find all Go source files.
-find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -path "${SOURCE_DIR}/_*" -o -path "${SOURCE_DIR}/ruby" -o -path "${SOURCE_DIR}/proto" \) -prune -o -type f -name '*.go' -print | sort -u)
+find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -path "${SOURCE_DIR}/_*" -o -path "${SOURCE_DIR}/proto" \) -prune -o -type f -name '*.go' -print | sort -u)
 
 # run_go_tests will execute Go tests with all required parameters. Its
 # behaviour can be modified via the following variables:

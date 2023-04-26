@@ -55,8 +55,8 @@ GitLab.com, read about our [observability story](doc/observability.md)!
 Most users won't install Gitaly on its own. It is already included in
 [your GitLab installation](https://about.gitlab.com/install/).
 
-Gitaly requires Go 1.18 or Go 1.19 and Ruby 2.7. Run `make` to download and
-compile Ruby dependencies, and to compile the Gitaly Go executable.
+Gitaly requires Go 1.18 or Go 1.19.7. Run `make` to compile the executables
+required by Gitaly.
 
 Gitaly uses `git`. Versions `2.38.0` and newer are supported.
 
@@ -98,9 +98,6 @@ As of Q4 2018, the following GitLab components act as Gitaly clients:
   ([example](https://gitlab.com/gitlab-org/gitaly/raw/master/README.md))
 - [`gitaly-ssh`](https://gitlab.com/gitlab-org/gitaly/tree/master/cmd/gitaly-ssh):
   for internal Git data transfers between Gitaly servers.
-- [`gitaly-ruby`](https://gitlab.com/gitlab-org/gitaly/blob/master/ruby/lib/gitlab/git/gitaly_remote_repository.rb):
-  for RPC's that interact with more than one repository, such as
-  merging a branch.
 
 The clients written in Go (`gitlab-shell`, `gitlab-workhorse`, `gitaly-ssh`)
 use library code from the
