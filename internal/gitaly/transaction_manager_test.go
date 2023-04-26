@@ -59,6 +59,10 @@ func validCustomHooks(tb testing.TB) []byte {
 	return hooks.Bytes()
 }
 
+// noopTransactionFinalizer is a transaction finalizer for testing TransactionManager that does not
+// call back to PartitionManager.
+func noopTransactionFinalizer() {}
+
 func TestTransactionManager(t *testing.T) {
 	umask := perm.GetUmask()
 
@@ -1906,7 +1910,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, setup.Repository)
+				transactionManager = NewTransactionManager(database, setup.Repository, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -1942,7 +1946,7 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, setup.Repository)
+					transactionManager = NewTransactionManager(database, setup.Repository, noopTransactionFinalizer)
 					installHooks(t, transactionManager, database, setup.Repository, hooks{
 						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
 						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
@@ -2208,7 +2212,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, localRepo)
+				manager := NewTransactionManager(database, localRepo, noopTransactionFinalizer)
 				managers = append(managers, manager)
 
 				managerWG.Add(1)

@@ -17,6 +17,7 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	repo "gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -118,6 +119,8 @@ type Snapshot struct {
 type Transaction struct {
 	// commit commits the Transaction through the TransactionManager.
 	commit func(context.Context, *Transaction) error
+	// rollback rolls back the Transaction through the TransactionManager.
+	rollback func() error
 	// result is where the outcome of the transaction is sent ot by TransactionManager once it
 	// has been determined.
 	result chan error
@@ -167,6 +170,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 	case <-readReady:
 		return &Transaction{
 			commit:   mgr.commit,
+			rollback: mgr.rollback,
 			snapshot: snapshot,
 		}, nil
 	}
@@ -180,7 +184,7 @@ func (txn *Transaction) Commit(ctx context.Context) error {
 
 // Rollback releases resources associated with the transaction without performing any changes.
 func (txn *Transaction) Rollback() error {
-	return nil
+	return txn.rollback()
 }
 
 // Snapshot returns the details of the Transaction's read snapshot.
@@ -295,6 +299,9 @@ type TransactionManager struct {
 	appliedLogIndex LogIndex
 	// hookIndex stores the log index of the latest committed hooks in the repository.
 	hookIndex LogIndex
+
+	// transactionFinalizer executes when a transaction is completed.
+	transactionFinalizer func()
 }
 
 // repository is the localrepo interface used by TransactionManager.
@@ -306,18 +313,19 @@ type repository interface {
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
-func NewTransactionManager(db *badger.DB, repository *localrepo.Repo) *TransactionManager {
+func NewTransactionManager(db *badger.DB, repository *localrepo.Repo, transactionFinalizer func()) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
-		ctx:                ctx,
-		stopCalled:         ctx.Done(),
-		runDone:            make(chan struct{}),
-		stop:               cancel,
-		repository:         repository,
-		db:                 newDatabaseAdapter(db),
-		admissionQueue:     make(chan *Transaction),
-		initialized:        make(chan struct{}),
-		applyNotifications: make(map[LogIndex]chan struct{}),
+		ctx:                  ctx,
+		stopCalled:           ctx.Done(),
+		runDone:              make(chan struct{}),
+		stop:                 cancel,
+		repository:           repository,
+		db:                   newDatabaseAdapter(db),
+		admissionQueue:       make(chan *Transaction),
+		initialized:          make(chan struct{}),
+		applyNotifications:   make(map[LogIndex]chan struct{}),
+		transactionFinalizer: transactionFinalizer,
 	}
 }
 
@@ -325,8 +333,10 @@ func NewTransactionManager(db *badger.DB, repository *localrepo.Repo) *Transacti
 // outcome has been decided.
 type resultChannel chan error
 
-// commit queus the transaction for processing and returns once the result has been determined.
+// commit queues the transaction for processing and returns once the result has been determined.
 func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transaction) error {
+	defer mgr.transactionFinalizer()
+
 	transaction.result = make(resultChannel, 1)
 
 	select {
@@ -344,6 +354,13 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 	case <-mgr.stopCalled:
 		return ErrTransactionProcessingStopped
 	}
+}
+
+// rollback rolls back and ends the transaction without committing.
+func (mgr *TransactionManager) rollback() error {
+	mgr.transactionFinalizer()
+
+	return nil
 }
 
 // unwrapExpectedError unwraps expected errors that may occur and returns them directly to the caller.
@@ -904,7 +921,7 @@ func (mgr *TransactionManager) deleteKey(key []byte) error {
 // getRepositoryID returns a repository's ID. The ID should never change as it is used in the database
 // keys. Gitaly does not have a permanent ID to use yet so the repository's storage name and relative
 // path are used as a composite key.
-func getRepositoryID(repository repository) string {
+func getRepositoryID(repository repo.GitRepo) string {
 	return repository.GetStorageName() + ":" + repository.GetRelativePath()
 }
 
