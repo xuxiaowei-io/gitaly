@@ -435,17 +435,25 @@ secret_detection:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_TAG
 
-trigger-qa:
+build-package-and-qa:
   needs: []
   stage: qa
   trigger:
     project: gitlab-org/build/omnibus-gitlab-mirror
+    strategy: depend
   variables:
     ALTERNATIVE_SOURCES: "true"
     GITALY_SERVER_VERSION: $CI_COMMIT_SHA
     GITALY_SERVER_ALTERNATIVE_REPO: $CI_PROJECT_URL
     ee: "true"
   rules:
+    - if: $CI_MERGE_REQUEST_IID
+      changes:
+        - go.sum
+      variables:
+        BUILD_ON_ALL_OS: "true"
+        MANUAL_QA_TEST: "true"
+      allow_failure: false
     - when: manual
       allow_failure: true
 
