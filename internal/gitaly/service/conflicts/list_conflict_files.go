@@ -2,12 +2,14 @@ package conflicts
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"unicode/utf8"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -39,6 +41,17 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		return err
 	}
 
+	return s.conflictFilesWithGit2Go(ctx, request, stream, ours, theirs, repo, repoPath)
+}
+
+func (s *server) conflictFilesWithGit2Go(
+	ctx context.Context,
+	request *gitalypb.ListConflictFilesRequest,
+	stream gitalypb.ConflictsService_ListConflictFilesServer,
+	ours, theirs git.ObjectID,
+	repo *localrepo.Repo,
+	repoPath string,
+) error {
 	conflicts, err := s.git2goExecutor.Conflicts(ctx, repo, git2go.ConflictsCommand{
 		Repository: repoPath,
 		Ours:       ours.String(),

@@ -2,6 +2,9 @@ package localrepo
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -127,8 +130,14 @@ func TestMergeTree(t *testing.T) {
 		{
 			desc: "with conflicts",
 			expectedErr: &MergeTreeError{
-				ConflictingFiles: []string{"file2"},
-				InfoMessage:      "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
+				ConflictingFileInfo: []ConflictingFileInfo{
+					{
+						FileName: "file2",
+						OID:      "",
+						Stage:    0,
+					},
+				},
+				InfoMessage: "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
 			},
 			setupFunc: func(t *testing.T, ctx context.Context, repoPath string) (git.ObjectID, git.ObjectID, []gittest.TreeEntry) {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
@@ -196,7 +205,7 @@ func TestMergeTree(t *testing.T) {
 
 			ours, theirs, treeEntries := tc.setupFunc(t, ctx, repoPath)
 
-			mergeTreeResult, err := repo.MergeTree(ctx, string(ours), string(theirs))
+			mergeTreeResult, err := repo.MergeTree(ctx, string(ours), string(theirs), WithConflictingFileNamesOnly())
 
 			require.Equal(t, tc.expectedErr, err)
 			if tc.expectedErr == nil {
@@ -277,52 +286,135 @@ func TestParseResult(t *testing.T) {
 	testCases := []struct {
 		desc        string
 		output      string
-		oid         string
-		expectedErr *MergeTreeError
+		oid         git.ObjectID
+		expectedErr error
 	}{
 		{
 			desc: "single file conflict",
-			output: `4f18fcb9bc62a3a6a4f81236fd57eeb95bfb06b4
-file
+			output: fmt.Sprintf(`%s
+100644 %s 2%sfile
+100644 %s 3%sfile
 
 Auto-merging file
 CONFLICT (content): Merge conflict in file
-`,
-			oid: "4f18fcb9bc62a3a6a4f81236fd57eeb95bfb06b4",
+`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t", gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			oid: gittest.DefaultObjectHash.EmptyTreeOID,
 			expectedErr: &MergeTreeError{
-				ConflictingFiles: []string{
-					"file",
+				ConflictingFileInfo: []ConflictingFileInfo{
+					{
+						FileName: "file",
+						OID:      gittest.DefaultObjectHash.EmptyTreeOID,
+						Stage:    MergeStageOurs,
+					},
+					{
+						FileName: "file",
+						OID:      gittest.DefaultObjectHash.EmptyTreeOID,
+						Stage:    MergeStageTheirs,
+					},
 				},
 				InfoMessage: "Auto-merging file\nCONFLICT (content): Merge conflict in file",
 			},
 		},
 		{
 			desc: "multiple files conflict",
-			output: `4f18fcb9bc62a3a6a4f81236fd57eeb95bfb06b4
-file1
-file2
+			output: fmt.Sprintf(`%s
+100644 %s 2%sfile1
+100644 %s 3%sfile2
 
 Auto-merging file
 CONFLICT (content): Merge conflict in file1
-`,
-			oid: "4f18fcb9bc62a3a6a4f81236fd57eeb95bfb06b4",
+`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t", gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			oid: gittest.DefaultObjectHash.EmptyTreeOID,
 			expectedErr: &MergeTreeError{
-				ConflictingFiles: []string{
-					"file1",
-					"file2",
+				ConflictingFileInfo: []ConflictingFileInfo{
+					{
+						FileName: "file1",
+						OID:      gittest.DefaultObjectHash.EmptyTreeOID,
+						Stage:    MergeStageOurs,
+					},
+					{
+						FileName: "file2",
+						OID:      gittest.DefaultObjectHash.EmptyTreeOID,
+						Stage:    MergeStageTheirs,
+					},
 				},
 				InfoMessage: "Auto-merging file\nCONFLICT (content): Merge conflict in file1",
 			},
+		},
+		{
+			desc: "no tab in conflicting file info",
+			output: fmt.Sprintf(`%s
+100644 %s 2 file1
+
+Auto-merging file
+CONFLICT (content): Merge conflict in file1
+`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID),
+			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
+			expectedErr: fmt.Errorf("parsing conflicting file info: 100644 %s 2 file1", gittest.DefaultObjectHash.EmptyTreeOID),
+		},
+		{
+			desc: "incorrect number of fields in conflicting file info",
+			output: fmt.Sprintf(`%s
+%s 2%sfile1
+
+Auto-merging file
+CONFLICT (content): Merge conflict in file1
+`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
+			expectedErr: fmt.Errorf("parsing conflicting file info: %s 2\tfile1", gittest.DefaultObjectHash.EmptyTreeOID),
+		},
+		{
+			desc: "invalid OID in conflicting file info",
+			output: fmt.Sprintf(`%s
+100644 23 2%sfile1
+
+Auto-merging file
+CONFLICT (content): Merge conflict in file1
+`, gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			oid: gittest.DefaultObjectHash.EmptyTreeOID,
+			expectedErr: fmt.Errorf("hex to oid: %w", git.InvalidObjectIDLengthError{
+				OID:           "23",
+				CorrectLength: gittest.DefaultObjectHash.EncodedLen(),
+				Length:        2,
+			}),
+		},
+		{
+			desc: "invalid stage type in conflicting file info",
+			output: fmt.Sprintf(`%s
+100644 %s foo%sfile1
+
+Auto-merging file
+CONFLICT (content): Merge conflict in file1
+`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			oid: gittest.DefaultObjectHash.EmptyTreeOID,
+			expectedErr: fmt.Errorf("converting stage to int: %w", &strconv.NumError{
+				Func: "Atoi",
+				Num:  "foo",
+				Err:  errors.New("invalid syntax"),
+			}),
+		},
+		{
+			desc: "invalid stage value in conflicting file info",
+			output: fmt.Sprintf(`%s
+100644 %s 5%sfile1
+
+Auto-merging file
+CONFLICT (content): Merge conflict in file1
+`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
+			expectedErr: fmt.Errorf("invalid value for stage: 5"),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := parseMergeTreeError(tc.output)
+			oid, err := parseMergeTreeError(gittest.DefaultObjectHash, mergeTreeConfig{}, tc.output)
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)
 				return
 			}
+
+			require.Equal(t, tc.oid, oid)
 			require.NoError(t, err)
 		})
 	}
