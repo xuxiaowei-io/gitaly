@@ -1,15 +1,7 @@
 package repository
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-
-	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -30,7 +22,7 @@ func (s *server) GetCustomHooks(in *gitalypb.GetCustomHooksRequest, stream gital
 		return stream.Send(&gitalypb.GetCustomHooksResponse{Data: p})
 	})
 
-	if err := s.getCustomHooks(ctx, writer, in.Repository); err != nil {
+	if err := repoutil.GetCustomHooks(ctx, s.locator, writer, in.Repository); err != nil {
 		return structerr.NewInternal("reading custom hooks: %w", err)
 	}
 
@@ -51,25 +43,8 @@ func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream
 		return stream.Send(&gitalypb.BackupCustomHooksResponse{Data: p})
 	})
 
-	if err := s.getCustomHooks(ctx, writer, in.Repository); err != nil {
+	if err := repoutil.GetCustomHooks(ctx, s.locator, writer, in.Repository); err != nil {
 		return structerr.NewInternal("reading custom hooks: %w", err)
-	}
-
-	return nil
-}
-
-func (s *server) getCustomHooks(ctx context.Context, writer io.Writer, repo repository.GitRepo) error {
-	repoPath, err := s.locator.GetRepoPath(repo)
-	if err != nil {
-		return fmt.Errorf("getting repo path: %w", err)
-	}
-
-	if _, err := os.Lstat(filepath.Join(repoPath, hook.CustomHooksDir)); os.IsNotExist(err) {
-		return nil
-	}
-
-	if err := archive.WriteTarball(ctx, writer, repoPath, hook.CustomHooksDir); err != nil {
-		return structerr.NewInternal("archiving hooks: %w", err)
 	}
 
 	return nil
