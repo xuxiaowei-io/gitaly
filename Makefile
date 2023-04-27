@@ -404,7 +404,7 @@ verify: check-mod-tidy notice-up-to-date check-proto lint
 .PHONY: check-mod-tidy
 check-mod-tidy:
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
-	${Q}go mod tidy -compat=1.17
+	${Q}go mod tidy
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
 
 ${TOOLS_DIR}/gitaly-linters.so: ${SOURCE_DIR}/tools/golangci-lint/go.sum $(wildcard ${SOURCE_DIR}/tools/golangci-lint/gitaly/*.go)
