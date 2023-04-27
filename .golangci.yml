@@ -15,6 +15,7 @@ linters:
     - exportloopref
     - forbidigo
     - gci
+    - gitaly-linters
     # We use both gofmt and gofumpt because gofumpt doesn't seem to be linting
     # for simplifications, while gofmt does.
     - gofmt
@@ -30,19 +31,15 @@ linters:
     - nolintlint
     - paralleltest
     - revive
+    - rowserrcheck
     - staticcheck
     - stylecheck
+    - sqlclosecheck
     - tenv
     - thelper
     - unconvert
     - unused
-    - gitaly-linters
-    # These linters don't currently support Go 1.18+. Please refer to
-    # https://github.com/golangci/golangci-lint/issues/2649 for further
-    # information.
-    #- rowserrcheck
-    #- sqlclosecheck
-    #- wastedassign
+    - wastedassign
 
 linters-settings:
   depguard:
