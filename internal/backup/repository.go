@@ -76,17 +76,22 @@ func (rr *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, erro
 }
 
 // GetCustomHooks fetches the custom hooks archive.
-func (rr *remoteRepository) GetCustomHooks(ctx context.Context) (io.Reader, error) {
+func (rr *remoteRepository) GetCustomHooks(ctx context.Context, out io.Writer) error {
 	repoClient := rr.newRepoClient()
 	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: rr.repo})
 	if err != nil {
-		return nil, fmt.Errorf("remote repository: get custom hooks: %w", err)
+		return fmt.Errorf("remote repository: get custom hooks: %w", err)
 	}
 
-	return streamio.NewReader(func() ([]byte, error) {
+	hooks := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		return resp.GetData(), err
-	}), nil
+	})
+	if _, err := io.Copy(out, hooks); err != nil {
+		return fmt.Errorf("remote repository: get custom hooks: %w", err)
+	}
+
+	return nil
 }
 
 // CreateBundle fetches a bundle that contains refs matching patterns.

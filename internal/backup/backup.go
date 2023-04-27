@@ -81,7 +81,7 @@ type Repository interface {
 	// ListRefs fetches the full set of refs and targets for the repository.
 	ListRefs(ctx context.Context) ([]git.Reference, error)
 	// GetCustomHooks fetches the custom hooks archive.
-	GetCustomHooks(ctx context.Context) (io.Reader, error)
+	GetCustomHooks(ctx context.Context, out io.Writer) error
 	// CreateBundle fetches a bundle that contains refs matching patterns.
 	CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error
 }
@@ -457,14 +457,10 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 }
 
 func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) error {
-	hooks, err := repo.GetCustomHooks(ctx)
-	if err != nil {
-		return fmt.Errorf("write custom hooks: %w", err)
-	}
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, path)
 	})
-	if _, err := io.Copy(w, hooks); err != nil {
+	if err := repo.GetCustomHooks(ctx, w); err != nil {
 		return fmt.Errorf("write custom hooks: %w", err)
 	}
 	return nil
