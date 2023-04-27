@@ -63,7 +63,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"DeleteObjectPool":           protoregistry.OpMutator,
 			"DisconnectGitAlternates":    protoregistry.OpMutator,
 			"LinkRepositoryToObjectPool": protoregistry.OpMutator,
-			"ReduplicateRepository":      protoregistry.OpMutator,
 		},
 		"OperationService": {
 			"UserApplyPatch":      protoregistry.OpMutator,
