@@ -312,13 +312,17 @@ message UserCreateTagRequest {
 message UserCreateTagResponse {
   // tag is the newly created tag.
   Tag tag = 1;
-  // exists is deprecated and never set by Gitaly. Instead, Gitaly returns a structured error with
-  // the `reference_exists` field set. This field will be removed in v16.0.
-  bool exists = 2 [deprecated=true];
-  // pre_receive_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
-  // error with either of the `access_check`, `reference_update` or `custom_hook` fields being set
-  // depending on the error condition. This field will be removed in v16.0.
-  string pre_receive_error = 3 [deprecated=true];
+
+  // Exists had previously been set in case the tag exists already. Instead, Gitaly returns a
+  // structured error with the `reference_exists` field set now.
+  reserved "exists";
+  reserved 2;
+
+  // PreReceiveError had previously been set in case access checks refused the branch deletion. This
+  // has been changed to instead we return a proper gRPC error with UserDeleteBranchError details
+  // set to an AccessCheckError.
+  reserved "pre_receive_error";
+  reserved 3;
 }
 
 // UserCreateTagError includes error descriptions which may be set as error details in case
