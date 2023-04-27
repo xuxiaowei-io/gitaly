@@ -575,13 +575,6 @@ ${BUILD_DIR}/bin/%: ${BUILD_DIR}/intermediate/% | ${BUILD_DIR}/bin
 		install "$<" "$@"; \
 	fi
 
-# The build process left a go.mod and go.sum file in ${BUILD_DIR} in the past. This causes problems these days
-# when attempting to embed the auxiliary binaries into Gitaly binary as they are considered to be in a different
-# module due to this. Remove the legacy files.
-.PHONY: remove-legacy-go-mod
-remove-legacy-go-mod:
-	${Q}rm -f $(addprefix ${BUILD_DIR}/, go.mod go.sum)
-
 # clear-go-build-cache-if-needed cleans the Go build cache if it exceeds the maximum size as
 # configured in GOCACHE_MAX_SIZE_KB.
 .PHONY: clear-go-build-cache-if-needed
@@ -589,7 +582,7 @@ clear-go-build-cache-if-needed:
 	${Q}if [ -d ${GOCACHE} ] && [ $$(du -sk ${GOCACHE} | cut -f 1) -gt ${GOCACHE_MAX_SIZE_KB} ]; then go clean --cache; fi
 
 ${BUILD_DIR}/intermediate/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly:            remove-legacy-go-mod ${GITALY_PACKED_EXECUTABLES}
+${BUILD_DIR}/intermediate/gitaly:            ${GITALY_PACKED_EXECUTABLES}
 ${BUILD_DIR}/intermediate/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
 ${BUILD_DIR}/intermediate/gitaly-git2go:     GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
 ${BUILD_DIR}/intermediate/gitaly-git2go:     libgit2
