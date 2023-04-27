@@ -542,33 +542,25 @@ message UserCherryPickRequest {
 
 // This comment is left unintentionally blank.
 message UserCherryPickResponse {
-  // CreateTreeError represents an error which happened when computing the
-  // cherry-pick.
-  enum CreateTreeError {
-    // NONE denotes that no error occurred.
-    NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // EMPTY denotes that the cherry-pick would've resulted in an empty commit,
-    // typically because it has already been applied to the target branch.
-    EMPTY = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // CONFLICT denotes that the cherry-pick resulted in a conflict.
-    CONFLICT = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-  }
-
   // branch_update represents details about the updated branch.
   OperationBranchUpdate branch_update = 1;
-  // create_tree_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
-  // error with the `cherry_pick_conflict` or `changes_already_applied` field set. This field will
-  // be removed in v16.0.
-  string create_tree_error = 2 [deprecated=true];
-  // commit_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
-  // error with the `target_branch_diverged` field set. This field will be removed in v16.0.
-  string commit_error = 3 [deprecated=true];
-  // pre_receive_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
-  // error with the `access_check` field set. This field will be removed in v16.0.
-  string pre_receive_error = 4 [deprecated=true];
-  // create_tree_error_code is deprecated and never set by Gitaly. There is no replacement. This
-  // field will be removed in v16.0.
-  CreateTreeError create_tree_error_code = 5 [deprecated=true];
+
+  // CreateTreeError has previously been set when creating the tree failed. Instead, Gitaly returns
+  // a structured error with the `cherry_pick_conflict` or `changes_already_applied` field set.
+  reserved "create_tree_error";
+  reserved 2;
+  // CommitError has previously been set when creating the commit failed. Instead, Gitaly returns a
+  // structured error with the `target_branch_diverged` field set.
+  reserved "commit_error";
+  reserved 3;
+  // PreReceiveError has previously been set when access checks have refused the cherry-pick.
+  // Instead, Gitaly returns a structured error with the `access_check` field set.
+  reserved "pre_receive_error";
+  reserved 4;
+  // CreateTreeError code was previously set to denote why creating the tree has failed. There is no
+  // replacement.
+  reserved "create_tree_error_code";
+  reserved 5;
 }
 
 // UserCherryPickError is an error returned by the UserCherryPick RPC.
