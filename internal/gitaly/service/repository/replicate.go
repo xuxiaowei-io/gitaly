@@ -13,8 +13,10 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -28,6 +30,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // ErrInvalidSourceRepository is returned when attempting to replicate from an invalid source repository.
@@ -84,20 +87,29 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 
 	outgoingCtx := metadata.IncomingToOutgoing(ctx)
 
-	if err := s.replicateRepository(outgoingCtx, in.GetSource(), in.GetRepository()); err != nil {
+	if err := s.replicateRepository(outgoingCtx, in.GetSource(), in.GetRepository(), in.GetReplicateObjectDeduplicationNetworkMembership()); err != nil {
 		return nil, structerr.NewInternal("replicating repository: %w", err)
 	}
 
 	return &gitalypb.ReplicateRepositoryResponse{}, nil
 }
 
-func (s *server) replicateRepository(ctx context.Context, source, target *gitalypb.Repository) error {
+func (s *server) replicateRepository(ctx context.Context, source, target *gitalypb.Repository, replicateObjectDeduplicationNetworkMembership bool) error {
 	if err := s.syncGitconfig(ctx, source, target); err != nil {
 		return fmt.Errorf("synchronizing gitconfig: %w", err)
 	}
 
 	if err := s.syncInfoAttributes(ctx, source, target); err != nil {
 		return fmt.Errorf("synchronizing gitattributes: %w", err)
+	}
+
+	if featureflag.ReplicateRepositoryObjectPool.IsEnabled(ctx) && replicateObjectDeduplicationNetworkMembership {
+		// Sync the repository object pool before fetching the repository to avoid additional
+		// duplication. If the object pool already exists on the target node, this will potentially
+		// reduce the amount of time it takes to fetch the repository.
+		if err := s.syncObjectPool(ctx, source, target); err != nil {
+			return fmt.Errorf("synchronizing object pools: %w", err)
+		}
 	}
 
 	if err := s.syncReferences(ctx, source, target); err != nil {
@@ -374,6 +386,87 @@ func (s *server) syncInfoAttributes(ctx context.Context, source, target *gitalyp
 	return nil
 }
 
+// syncObjectPool syncs the Git alternates file and sets up object pools as needed.
+func (s *server) syncObjectPool(ctx context.Context, sourceRepoProto, targetRepoProto *gitalypb.Repository) error {
+	sourceObjectPoolClient, err := s.newObjectPoolClient(ctx, sourceRepoProto.GetStorageName())
+	if err != nil {
+		return fmt.Errorf("create object pool client: %w", err)
+	}
+
+	// Check if source repository has an object pool. If the source repository is not linked to an
+	// object pool, the RPC returns successfully with no error and an empty response.
+	objectPoolResp, err := sourceObjectPoolClient.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
+		Repository: sourceRepoProto,
+	})
+	if err != nil {
+		return fmt.Errorf("get source object pool: %w", err)
+	}
+
+	sourcePoolProto := objectPoolResp.GetObjectPool()
+	targetRepo := s.localrepo(targetRepoProto)
+
+	// If the source repository is not linked with an object pool, the target repository will not
+	// need to be linked.
+	if sourcePoolProto == nil {
+		// In the case where the source repository does not have any Git alternates, but the
+		// existing target repository does, the target repository should have its alternates
+		// disconnected to match the current state of the source repository.
+		if err := objectpool.Disconnect(ctx, targetRepo); err != nil {
+			return fmt.Errorf("disconnect target from object pool: %w", err)
+		}
+
+		return nil
+	}
+
+	// Check the target repository for an existing object pool link.
+	targetPool, err := objectpool.FromRepo(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetRepo)
+	if err != nil && !errors.Is(err, objectpool.ErrAlternateObjectDirNotExist) {
+		return fmt.Errorf("get target object pool: %w", err)
+	}
+
+	if targetPool != nil {
+		sourcePoolRelPath := sourcePoolProto.GetRepository().GetRelativePath()
+		targetPoolRelPath := targetPool.GetRelativePath()
+
+		// If the target repository is linked to a different object pool than the source repository,
+		// the target repository can not be linked to the new object pool without first
+		// disconnecting from its current object pool. This scenario is very unlikely so an error is
+		// returned instead of performing the object pool disconnect. In the future, it may be
+		// decided to appropriately handle this scenario.
+		if sourcePoolRelPath != targetPoolRelPath {
+			return structerr.NewFailedPrecondition("target repository links to different object pool").
+				WithMetadata("source_pool_path", sourcePoolRelPath).
+				WithMetadata("target_pool_path", targetPoolRelPath)
+		}
+
+		// If the target repository is linked to the same object pool as the source repository,
+		// object pool replication is not necessary.
+		return nil
+	}
+
+	targetPoolProto := proto.Clone(sourcePoolProto).(*gitalypb.ObjectPool)
+	targetPoolProto.GetRepository().StorageName = targetRepoProto.GetStorageName()
+
+	// Check if object pool required for target repository already exists on the current node.
+	targetPool, err = objectpool.FromProto(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetPoolProto)
+	switch {
+	case errors.Is(err, objectpool.ErrInvalidPoolRepository):
+		// In the case where the source repository does link to an object pool, but the object pool
+		// does not yet exist on the target storage, the object pool must be replicated as well.
+		// This scenario is not handled yet and instead object pool replication is not performed.
+		return nil
+	case err != nil:
+		return fmt.Errorf("get target repository object pool: %w", err)
+	}
+
+	// Link the replicated repository to the object pool.
+	if err := targetPool.Link(ctx, targetRepo); err != nil {
+		return fmt.Errorf("link target repository object pool: %w", err)
+	}
+
+	return nil
+}
+
 func (s *server) writeFile(ctx context.Context, path string, mode os.FileMode, reader io.Reader) (returnedErr error) {
 	parentDir := filepath.Dir(path)
 	if err := os.MkdirAll(parentDir, perm.SharedDir); err != nil {
@@ -418,4 +511,19 @@ func (s *server) newRepoClient(ctx context.Context, storageName string) (gitalyp
 	}
 
 	return gitalypb.NewRepositoryServiceClient(conn), nil
+}
+
+// newObjectPoolClient create a new ObjectPoolClient that talks to the gitaly of the source repository.
+func (s *server) newObjectPoolClient(ctx context.Context, storageName string) (gitalypb.ObjectPoolServiceClient, error) {
+	serverInfo, err := storage.ExtractGitalyServer(ctx, storageName)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := s.conns.Dial(ctx, serverInfo.Address, serverInfo.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	return gitalypb.NewObjectPoolServiceClient(conn), nil
 }
