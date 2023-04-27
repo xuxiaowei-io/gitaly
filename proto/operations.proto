@@ -181,9 +181,11 @@ message UserCreateBranchRequest {
 message UserCreateBranchResponse {
   // This comment is left unintentionally blank.
   Branch branch = 1;
-  // pre_receive_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
-  // error with the `custom_hook` field set. This field will be removed in v16.0.
-  string pre_receive_error = 2 [deprecated=true];
+
+  // PreReceiveError had previously been set when creation of the branch was refused by hooks.
+  // Instead, Gitaly returns a structured error with the `custom_hook` field set.
+  reserved "pre_receive_error";
+  reserved 2;
 }
 
 // UserCreateBranchError is an error returned by the UserCreateBranch RPC in some specific well
