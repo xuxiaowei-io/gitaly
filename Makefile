@@ -528,13 +528,6 @@ install-git: build-git
 ## Build libgit2.
 libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 
-# This target is a stub to keep compatibility with downstream dependents that
-# still use it:
-#
-# - https://gitlab.com/gitlab-org/gitlab/blob/a7b33f5ae5a4da0c1b368172da604cce2e0d2636/spec/support/helpers/gitaly_setup.rb#L129
-${SOURCE_DIR}/.ruby-bundle:
-	${Q}touch $@
-
 ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 	${Q}mv $< $@
 
