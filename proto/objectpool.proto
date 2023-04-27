@@ -57,19 +57,6 @@ service ObjectPoolService {
     };
   }
 
-  // ReduplicateRepository will repack the objects in the object pool member so that the repository
-  // does not depend on the pool member anymore and can be removed from it. Note that this function
-  // is not safe for use.
-  //
-  // This RPC is deprecated. Please use DisconnectGitAlternates instead.  It will be removed in
-  // Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
-  rpc ReduplicateRepository(ReduplicateRepositoryRequest) returns (ReduplicateRepositoryResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MUTATOR
-    };
-  }
-
   // DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
   //
   // 1. Link all objects from the object pool into the member repository. This essenitally
@@ -143,16 +130,6 @@ message LinkRepositoryToObjectPoolRequest {
 
 // LinkRepositoryToObjectPoolResponse is a response for the LinkRepositoryToObjectPool RPC.
 message LinkRepositoryToObjectPoolResponse {
-}
-
-// ReduplicateRepositoryRequest is a request for the ReduplicateRepository RPC.
-message ReduplicateRepositoryRequest {
-  // Repository is the repository whose objects shall be reduplicated.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// ReduplicateRepositoryResponse is a response for the ReduplicateRepository RPC.
-message ReduplicateRepositoryResponse {
 }
 
 // DisconnectGitAlternatesRequest is a request for the DisconnectGitAlternates RPC.

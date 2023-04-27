@@ -89,7 +89,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.ObjectPoolService/DeleteObjectPool":           transactionsDisabled,
 	"/gitaly.ObjectPoolService/DisconnectGitAlternates":    transactionsDisabled,
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool": transactionsDisabled,
-	"/gitaly.ObjectPoolService/ReduplicateRepository":      transactionsDisabled,
 	"/gitaly.RepositoryService/RenameRepository":           transactionsDisabled,
 }
 

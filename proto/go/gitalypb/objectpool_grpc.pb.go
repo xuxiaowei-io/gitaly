@@ -34,14 +34,6 @@ type ObjectPoolServiceClient interface {
 	// LinkRepositoryToObjectPool links the specified repository to the object pool. Objects contained
 	// in the object pool will be deduplicated for this repository when repacking objects.
 	LinkRepositoryToObjectPool(ctx context.Context, in *LinkRepositoryToObjectPoolRequest, opts ...grpc.CallOption) (*LinkRepositoryToObjectPoolResponse, error)
-	// Deprecated: Do not use.
-	// ReduplicateRepository will repack the objects in the object pool member so that the repository
-	// does not depend on the pool member anymore and can be removed from it. Note that this function
-	// is not safe for use.
-	//
-	// This RPC is deprecated. Please use DisconnectGitAlternates instead.  It will be removed in
-	// Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
-	ReduplicateRepository(ctx context.Context, in *ReduplicateRepositoryRequest, opts ...grpc.CallOption) (*ReduplicateRepositoryResponse, error)
 	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
 	//
 	//  1. Link all objects from the object pool into the member repository. This essenitally
@@ -102,16 +94,6 @@ func (c *objectPoolServiceClient) LinkRepositoryToObjectPool(ctx context.Context
 	return out, nil
 }
 
-// Deprecated: Do not use.
-func (c *objectPoolServiceClient) ReduplicateRepository(ctx context.Context, in *ReduplicateRepositoryRequest, opts ...grpc.CallOption) (*ReduplicateRepositoryResponse, error) {
-	out := new(ReduplicateRepositoryResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.ObjectPoolService/ReduplicateRepository", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *objectPoolServiceClient) DisconnectGitAlternates(ctx context.Context, in *DisconnectGitAlternatesRequest, opts ...grpc.CallOption) (*DisconnectGitAlternatesResponse, error) {
 	out := new(DisconnectGitAlternatesResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.ObjectPoolService/DisconnectGitAlternates", in, out, opts...)
@@ -155,14 +137,6 @@ type ObjectPoolServiceServer interface {
 	// LinkRepositoryToObjectPool links the specified repository to the object pool. Objects contained
 	// in the object pool will be deduplicated for this repository when repacking objects.
 	LinkRepositoryToObjectPool(context.Context, *LinkRepositoryToObjectPoolRequest) (*LinkRepositoryToObjectPoolResponse, error)
-	// Deprecated: Do not use.
-	// ReduplicateRepository will repack the objects in the object pool member so that the repository
-	// does not depend on the pool member anymore and can be removed from it. Note that this function
-	// is not safe for use.
-	//
-	// This RPC is deprecated. Please use DisconnectGitAlternates instead.  It will be removed in
-	// Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
-	ReduplicateRepository(context.Context, *ReduplicateRepositoryRequest) (*ReduplicateRepositoryResponse, error)
 	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
 	//
 	//  1. Link all objects from the object pool into the member repository. This essenitally
@@ -201,9 +175,6 @@ func (UnimplementedObjectPoolServiceServer) DeleteObjectPool(context.Context, *D
 }
 func (UnimplementedObjectPoolServiceServer) LinkRepositoryToObjectPool(context.Context, *LinkRepositoryToObjectPoolRequest) (*LinkRepositoryToObjectPoolResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LinkRepositoryToObjectPool not implemented")
-}
-func (UnimplementedObjectPoolServiceServer) ReduplicateRepository(context.Context, *ReduplicateRepositoryRequest) (*ReduplicateRepositoryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReduplicateRepository not implemented")
 }
 func (UnimplementedObjectPoolServiceServer) DisconnectGitAlternates(context.Context, *DisconnectGitAlternatesRequest) (*DisconnectGitAlternatesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DisconnectGitAlternates not implemented")
@@ -281,24 +252,6 @@ func _ObjectPoolService_LinkRepositoryToObjectPool_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ObjectPoolService_ReduplicateRepository_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ReduplicateRepositoryRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ObjectPoolServiceServer).ReduplicateRepository(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.ObjectPoolService/ReduplicateRepository",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ObjectPoolServiceServer).ReduplicateRepository(ctx, req.(*ReduplicateRepositoryRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ObjectPoolService_DisconnectGitAlternates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DisconnectGitAlternatesRequest)
 	if err := dec(in); err != nil {
@@ -371,10 +324,6 @@ var ObjectPoolService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LinkRepositoryToObjectPool",
 			Handler:    _ObjectPoolService_LinkRepositoryToObjectPool_Handler,
-		},
-		{
-			MethodName: "ReduplicateRepository",
-			Handler:    _ObjectPoolService_ReduplicateRepository_Handler,
 		},
 		{
 			MethodName: "DisconnectGitAlternates",
