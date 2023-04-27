@@ -15,7 +15,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -67,114 +69,142 @@ func TestManager_Create(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	for _, tc := range []struct {
-		desc               string
-		setup              func(tb testing.TB) (*gitalypb.Repository, string)
-		createsBundle      bool
-		createsCustomHooks bool
-		err                error
+	for _, managerTC := range []struct {
+		desc  string
+		setup func(t testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager
 	}{
 		{
-			desc: "no hooks",
-			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				noHooksRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
+			desc: "RPC manager",
+			setup: func(tb testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager {
+				pool := client.NewPool()
+				tb.Cleanup(func() {
+					testhelper.MustClose(tb, pool)
 				})
-				return noHooksRepo, repoPath
+
+				return backup.NewManager(sink, locator, pool, backupID)
 			},
-			createsBundle:      true,
-			createsCustomHooks: false,
 		},
 		{
-			desc: "hooks",
-			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				hooksRepo, hooksRepoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
-				})
-				require.NoError(tb, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), perm.PublicDir))
-				require.NoError(tb, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), perm.PublicFile))
-				return hooksRepo, hooksRepoPath
+			desc: "Local manager",
+			setup: func(tb testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager {
+				if testhelper.IsPraefectEnabled() {
+					tb.Skip("local backup manager expects to operate on the local filesystem so cannot operate through praefect")
+				}
+
+				storageLocator := config.NewLocator(cfg)
+				gitCmdFactory := gittest.NewCommandFactory(tb, cfg)
+				catfileCache := catfile.NewCache(cfg)
+
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, backupID)
 			},
-			createsBundle:      true,
-			createsCustomHooks: true,
-		},
-		{
-			desc: "empty repo",
-			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
-				return emptyRepo, repoPath
-			},
-			createsBundle:      false,
-			createsCustomHooks: false,
-			err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
-		},
-		{
-			desc: "nonexistent repo",
-			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
-				nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
-				nonexistentRepo.RelativePath = gittest.NewRepositoryName(t)
-				return nonexistentRepo, repoPath
-			},
-			createsBundle:      false,
-			createsCustomHooks: false,
-			err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
 		},
 	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := tc.setup(t)
-			backupRoot := testhelper.TempDir(t)
+		for _, tc := range []struct {
+			desc               string
+			setup              func(tb testing.TB) (*gitalypb.Repository, string)
+			createsBundle      bool
+			createsCustomHooks bool
+			err                error
+		}{
+			{
+				desc: "no hooks",
+				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
+					noHooksRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+						Seed: gittest.SeedGitLabTest,
+					})
+					return noHooksRepo, repoPath
+				},
+				createsBundle:      true,
+				createsCustomHooks: false,
+			},
+			{
+				desc: "hooks",
+				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
+					hooksRepo, hooksRepoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+						Seed: gittest.SeedGitLabTest,
+					})
+					require.NoError(tb, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), perm.PublicDir))
+					require.NoError(tb, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), perm.PublicFile))
+					return hooksRepo, hooksRepoPath
+				},
+				createsBundle:      true,
+				createsCustomHooks: true,
+			},
+			{
+				desc: "empty repo",
+				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
+					emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+					return emptyRepo, repoPath
+				},
+				createsBundle:      false,
+				createsCustomHooks: false,
+				err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
+			},
+			{
+				desc: "nonexistent repo",
+				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
+					emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+					nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
+					nonexistentRepo.RelativePath = gittest.NewRepositoryName(t)
+					return nonexistentRepo, repoPath
+				},
+				createsBundle:      false,
+				createsCustomHooks: false,
+				err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
+			},
+		} {
+			t.Run(tc.desc, func(t *testing.T) {
+				repo, repoPath := tc.setup(t)
+				backupRoot := testhelper.TempDir(t)
 
-			refsPath := joinBackupPath(t, backupRoot, repo, backupID, "001.refs")
-			bundlePath := joinBackupPath(t, backupRoot, repo, backupID, "001.bundle")
-			customHooksPath := joinBackupPath(t, backupRoot, repo, backupID, "001.custom_hooks.tar")
+				refsPath := joinBackupPath(t, backupRoot, repo, backupID, "001.refs")
+				bundlePath := joinBackupPath(t, backupRoot, repo, backupID, "001.bundle")
+				customHooksPath := joinBackupPath(t, backupRoot, repo, backupID, "001.custom_hooks.tar")
 
-			pool := client.NewPool()
-			defer testhelper.MustClose(t, pool)
+				sink := backup.NewFilesystemSink(backupRoot)
+				locator, err := backup.ResolveLocator("pointer", sink)
+				require.NoError(t, err)
 
-			sink := backup.NewFilesystemSink(backupRoot)
-			locator, err := backup.ResolveLocator("pointer", sink)
-			require.NoError(t, err)
+				fsBackup := managerTC.setup(t, sink, locator)
+				err = fsBackup.Create(ctx, &backup.CreateRequest{
+					Server:     storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
+					Repository: repo,
+				})
+				if tc.err == nil {
+					require.NoError(t, err)
+				} else {
+					require.Equal(t, tc.err, err)
+				}
 
-			fsBackup := backup.NewManager(sink, locator, pool, backupID)
-			err = fsBackup.Create(ctx, &backup.CreateRequest{
-				Server:     storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
-				Repository: repo,
+				if tc.createsBundle {
+					require.FileExists(t, refsPath)
+					require.FileExists(t, bundlePath)
+
+					dirInfo, err := os.Stat(filepath.Dir(bundlePath))
+					require.NoError(t, err)
+					require.Equal(t, perm.PrivateDir, dirInfo.Mode().Perm(), "expecting restricted directory permissions")
+
+					bundleInfo, err := os.Stat(bundlePath)
+					require.NoError(t, err)
+					require.Equal(t, perm.PrivateFile, bundleInfo.Mode().Perm(), "expecting restricted file permissions")
+
+					output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
+					require.Contains(t, string(output), "The bundle records a complete history")
+
+					expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
+					actualRefs := testhelper.MustReadFile(t, refsPath)
+					require.Equal(t, string(expectedRefs), string(actualRefs))
+				} else {
+					require.NoFileExists(t, bundlePath)
+				}
+
+				if tc.createsCustomHooks {
+					require.FileExists(t, customHooksPath)
+				} else {
+					require.NoFileExists(t, customHooksPath)
+				}
 			})
-			if tc.err == nil {
-				require.NoError(t, err)
-			} else {
-				require.Equal(t, tc.err, err)
-			}
-
-			if tc.createsBundle {
-				require.FileExists(t, refsPath)
-				require.FileExists(t, bundlePath)
-
-				dirInfo, err := os.Stat(filepath.Dir(bundlePath))
-				require.NoError(t, err)
-				require.Equal(t, perm.PrivateDir, dirInfo.Mode().Perm(), "expecting restricted directory permissions")
-
-				bundleInfo, err := os.Stat(bundlePath)
-				require.NoError(t, err)
-				require.Equal(t, perm.PrivateFile, bundleInfo.Mode().Perm(), "expecting restricted file permissions")
-
-				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
-				require.Contains(t, string(output), "The bundle records a complete history")
-
-				expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
-				actualRefs := testhelper.MustReadFile(t, refsPath)
-				require.Equal(t, string(expectedRefs), string(actualRefs))
-			} else {
-				require.NoFileExists(t, bundlePath)
-			}
-
-			if tc.createsCustomHooks {
-				require.FileExists(t, customHooksPath)
-			} else {
-				require.NoFileExists(t, customHooksPath)
-			}
-		})
+		}
 	}
 }
 
@@ -188,109 +218,137 @@ func TestManager_Create_incremental(t *testing.T) {
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 	ctx := testhelper.Context(t)
 
-	for _, tc := range []struct {
-		desc              string
-		setup             func(t testing.TB, backupRoot string) (*gitalypb.Repository, string)
-		expectedIncrement string
-		expectedErr       error
+	for _, managerTC := range []struct {
+		desc  string
+		setup func(t testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager
 	}{
 		{
-			desc: "no previous backup",
-			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
+			desc: "RPC manager",
+			setup: func(tb testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager {
+				pool := client.NewPool()
+				tb.Cleanup(func() {
+					testhelper.MustClose(tb, pool)
 				})
-				return repo, repoPath
+
+				return backup.NewManager(sink, locator, pool, backupID)
 			},
-			expectedIncrement: "001",
 		},
 		{
-			desc: "previous backup, no updates",
-			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
-				})
+			desc: "Local manager",
+			setup: func(tb testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager {
+				if testhelper.IsPraefectEnabled() {
+					tb.Skip("local backup manager expects to operate on the local filesystem so cannot operate through praefect")
+				}
 
-				backupRepoPath := joinBackupPath(tb, backupRoot, repo)
-				backupPath := filepath.Join(backupRepoPath, backupID)
-				bundlePath := filepath.Join(backupPath, "001.bundle")
-				refsPath := filepath.Join(backupPath, "001.refs")
+				storageLocator := config.NewLocator(cfg)
+				gitCmdFactory := gittest.NewCommandFactory(tb, cfg)
+				catfileCache := catfile.NewCache(cfg)
 
-				require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
-				gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
-
-				refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
-				require.NoError(tb, os.WriteFile(refsPath, refs, perm.PublicFile))
-
-				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), perm.PublicFile))
-				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
-
-				return repo, repoPath
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, backupID)
 			},
-			expectedErr: fmt.Errorf("manager: %w", fmt.Errorf("write bundle: %w: no changes to bundle", backup.ErrSkipped)),
-		},
-		{
-			desc: "previous backup, updates",
-			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
-				})
-
-				backupRepoPath := joinBackupPath(tb, backupRoot, repo)
-				backupPath := filepath.Join(backupRepoPath, backupID)
-				bundlePath := filepath.Join(backupPath, "001.bundle")
-				refsPath := filepath.Join(backupPath, "001.refs")
-
-				require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
-				gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
-
-				refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
-				require.NoError(tb, os.WriteFile(refsPath, refs, perm.PublicFile))
-
-				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), perm.PublicFile))
-				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
-
-				gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("master"))
-
-				return repo, repoPath
-			},
-			expectedIncrement: "002",
 		},
 	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			backupRoot := testhelper.TempDir(t)
-			repo, repoPath := tc.setup(t, backupRoot)
+		for _, tc := range []struct {
+			desc              string
+			setup             func(t testing.TB, backupRoot string) (*gitalypb.Repository, string)
+			expectedIncrement string
+			expectedErr       error
+		}{
+			{
+				desc: "no previous backup",
+				setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
+					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+						Seed: gittest.SeedGitLabTest,
+					})
+					return repo, repoPath
+				},
+				expectedIncrement: "001",
+			},
+			{
+				desc: "previous backup, no updates",
+				setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
+					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+						Seed: gittest.SeedGitLabTest,
+					})
 
-			refsPath := joinBackupPath(t, backupRoot, repo, backupID, tc.expectedIncrement+".refs")
-			bundlePath := joinBackupPath(t, backupRoot, repo, backupID, tc.expectedIncrement+".bundle")
+					backupRepoPath := joinBackupPath(tb, backupRoot, repo)
+					backupPath := filepath.Join(backupRepoPath, backupID)
+					bundlePath := filepath.Join(backupPath, "001.bundle")
+					refsPath := filepath.Join(backupPath, "001.refs")
 
-			pool := client.NewPool()
-			defer testhelper.MustClose(t, pool)
+					require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
+					gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 
-			sink := backup.NewFilesystemSink(backupRoot)
-			locator, err := backup.ResolveLocator("pointer", sink)
-			require.NoError(t, err)
+					refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
+					require.NoError(tb, os.WriteFile(refsPath, refs, perm.PublicFile))
 
-			fsBackup := backup.NewManager(sink, locator, pool, backupID)
-			err = fsBackup.Create(ctx, &backup.CreateRequest{
-				Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
-				Repository:  repo,
-				Incremental: true,
-			})
-			if tc.expectedErr == nil {
+					require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), perm.PublicFile))
+					require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
+
+					return repo, repoPath
+				},
+				expectedErr: fmt.Errorf("manager: %w", fmt.Errorf("write bundle: %w: no changes to bundle", backup.ErrSkipped)),
+			},
+			{
+				desc: "previous backup, updates",
+				setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
+					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+						Seed: gittest.SeedGitLabTest,
+					})
+
+					backupRepoPath := joinBackupPath(tb, backupRoot, repo)
+					backupPath := filepath.Join(backupRepoPath, backupID)
+					bundlePath := filepath.Join(backupPath, "001.bundle")
+					refsPath := filepath.Join(backupPath, "001.refs")
+
+					require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
+					gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
+
+					refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
+					require.NoError(tb, os.WriteFile(refsPath, refs, perm.PublicFile))
+
+					require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), perm.PublicFile))
+					require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
+
+					gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("master"))
+
+					return repo, repoPath
+				},
+				expectedIncrement: "002",
+			},
+		} {
+			t.Run(tc.desc, func(t *testing.T) {
+				backupRoot := testhelper.TempDir(t)
+				repo, repoPath := tc.setup(t, backupRoot)
+
+				refsPath := joinBackupPath(t, backupRoot, repo, backupID, tc.expectedIncrement+".refs")
+				bundlePath := joinBackupPath(t, backupRoot, repo, backupID, tc.expectedIncrement+".bundle")
+
+				sink := backup.NewFilesystemSink(backupRoot)
+				locator, err := backup.ResolveLocator("pointer", sink)
 				require.NoError(t, err)
-			} else {
-				require.Equal(t, tc.expectedErr, err)
-				return
-			}
 
-			require.FileExists(t, refsPath)
-			require.FileExists(t, bundlePath)
+				fsBackup := managerTC.setup(t, sink, locator)
+				err = fsBackup.Create(ctx, &backup.CreateRequest{
+					Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
+					Repository:  repo,
+					Incremental: true,
+				})
+				if tc.expectedErr == nil {
+					require.NoError(t, err)
+				} else {
+					require.Equal(t, tc.expectedErr, err)
+					return
+				}
 
-			expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
-			actualRefs := testhelper.MustReadFile(t, refsPath)
-			require.Equal(t, string(expectedRefs), string(actualRefs))
-		})
+				require.FileExists(t, refsPath)
+				require.FileExists(t, bundlePath)
+
+				expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
+				actualRefs := testhelper.MustReadFile(t, refsPath)
+				require.Equal(t, string(expectedRefs), string(actualRefs))
+			})
+		}
 	}
 }
 

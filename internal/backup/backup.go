@@ -9,6 +9,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -132,6 +134,21 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 			}
 
 			return newRemoteRepository(repo, conn), nil
+		},
+	}
+}
+
+// NewManagerLocal creates and returns a *Manager instance for operating on local repositories.
+func NewManagerLocal(sink Sink, locator Locator, storageLocator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, backupID string) *Manager {
+	return &Manager{
+		sink:     sink,
+		conns:    nil, // Will be removed once the restore operations are part of the Repository interface.
+		locator:  locator,
+		backupID: backupID,
+		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
+			localRepo := localrepo.New(storageLocator, gitCmdFactory, catfileCache, repo)
+
+			return newLocalRepository(storageLocator, localRepo), nil
 		},
 	}
 }

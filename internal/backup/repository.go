@@ -9,6 +9,9 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -151,4 +154,81 @@ func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
 
 func (rr *remoteRepository) newRefClient() gitalypb.RefServiceClient {
 	return gitalypb.NewRefServiceClient(rr.conn)
+}
+
+type localRepository struct {
+	locator storage.Locator
+	repo    *localrepo.Repo
+}
+
+func newLocalRepository(locator storage.Locator, repo *localrepo.Repo) *localRepository {
+	return &localRepository{
+		locator: locator,
+		repo:    repo,
+	}
+}
+
+// IsEmpty returns true if the repository has no branches.
+func (r *localRepository) IsEmpty(ctx context.Context) (bool, error) {
+	path, err := r.locator.GetPath(r.repo)
+	if err != nil {
+		return false, fmt.Errorf("local repository: is empty: %w", err)
+	}
+
+	if !storage.IsGitDirectory(path) {
+		// Backups do not currently differentiate between non-existent and
+		// empty. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
+		return true, nil
+	}
+
+	hasBranches, err := r.repo.HasBranches(ctx)
+	if err != nil {
+		return false, fmt.Errorf("local repository: is empty: %w", err)
+	}
+
+	return !hasBranches, nil
+}
+
+// ListRefs fetches the full set of refs and targets for the repository.
+func (r *localRepository) ListRefs(ctx context.Context) ([]git.Reference, error) {
+	refs, err := r.repo.GetReferences(ctx, "refs/")
+	if err != nil {
+		return nil, fmt.Errorf("local repository: list refs: %w", err)
+	}
+
+	headOID, err := r.repo.ResolveRevision(ctx, git.Revision("HEAD"))
+	switch {
+	case errors.Is(err, git.ErrReferenceNotFound):
+		// Nothing to add
+	case err != nil:
+		return nil, structerr.NewInternal("local repository: list refs: %w", err)
+	default:
+		head := git.NewReference("HEAD", headOID.String())
+		refs = append([]git.Reference{head}, refs...)
+	}
+
+	return refs, nil
+}
+
+// GetCustomHooks fetches the custom hooks archive.
+func (r *localRepository) GetCustomHooks(ctx context.Context, out io.Writer) error {
+	if err := repoutil.GetCustomHooks(ctx, r.locator, out, r.repo); err != nil {
+		return fmt.Errorf("local repository: list refs: %w", err)
+	}
+	return nil
+}
+
+// CreateBundle fetches a bundle that contains refs matching patterns.
+func (r *localRepository) CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error {
+	err := r.repo.CreateBundle(ctx, out, &localrepo.CreateBundleOpts{
+		Patterns: patterns,
+	})
+	switch {
+	case errors.Is(err, localrepo.ErrEmptyBundle):
+		return errEmptyBundle
+	case err != nil:
+		return fmt.Errorf("local repository: create bundle: %w", err)
+	}
+
+	return nil
 }
