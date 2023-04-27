@@ -42,7 +42,7 @@ require (
 	gitlab.com/gitlab-org/labkit v1.18.0
 	go.uber.org/goleak v1.2.1
 	gocloud.dev v0.29.0
-	golang.org/x/exp v0.0.0-20230420155640-133eef4313cb
+	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.7.0
 	golang.org/x/time v0.3.0
