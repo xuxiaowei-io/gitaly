@@ -136,7 +136,7 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 	bundle := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		if structerr.GRPCCode(err) == codes.FailedPrecondition {
-			err = errEmptyBundle
+			err = localrepo.ErrEmptyBundle
 		}
 		return resp.GetData(), err
 	})
@@ -223,10 +223,7 @@ func (r *localRepository) CreateBundle(ctx context.Context, out io.Writer, patte
 	err := r.repo.CreateBundle(ctx, out, &localrepo.CreateBundleOpts{
 		Patterns: patterns,
 	})
-	switch {
-	case errors.Is(err, localrepo.ErrEmptyBundle):
-		return errEmptyBundle
-	case err != nil:
+	if err != nil {
 		return fmt.Errorf("local repository: create bundle: %w", err)
 	}
 

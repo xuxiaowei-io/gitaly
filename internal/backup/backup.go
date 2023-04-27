@@ -26,9 +26,6 @@ var (
 	ErrDoesntExist = errors.New("doesn't exist")
 )
 
-// errEmptyBundle means that the requested bundle contained nothing
-var errEmptyBundle = errors.New("empty bundle")
-
 // Sink is an abstraction over the real storage used for storing/restoring backups.
 type Sink interface {
 	// GetWriter saves the written data to relativePath. It is the callers
@@ -368,7 +365,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 	}()
 
 	if err := repo.CreateBundle(ctx, w, io.MultiReader(negatedRefs, patternReader)); err != nil {
-		if errors.Is(err, errEmptyBundle) {
+		if errors.Is(err, localrepo.ErrEmptyBundle) {
 			return fmt.Errorf("write bundle: %w: no changes to bundle", ErrSkipped)
 		}
 		return fmt.Errorf("write bundle: %w", err)
