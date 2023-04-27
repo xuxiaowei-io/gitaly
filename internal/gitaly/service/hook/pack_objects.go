@@ -108,12 +108,18 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 
 		if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) && req.GetRemoteIp() != "" {
 			ipAddr := net.ParseIP(req.GetRemoteIp())
+			if ipAddr == nil {
+				// Best effort, maybe the remote IP includes source port
+				if ip, _, err := net.SplitHostPort(req.GetRemoteIp()); err == nil {
+					ipAddr = net.ParseIP(ip)
+				}
+			}
 			// Ignore loop-back IPs
 			if ipAddr != nil && !ipAddr.IsLoopback() {
 				return s.runPackObjectsLimited(
 					ctx,
 					w,
-					req.GetRemoteIp(),
+					ipAddr.String(),
 					req,
 					args,
 					stdin,

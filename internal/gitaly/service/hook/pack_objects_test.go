@@ -743,6 +743,32 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
 		},
 		{
+			desc: "IP addresses including source port",
+			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+				{
+					GlId:     "user-123",
+					RemoteIp: "1.2.3.4:47293",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+				{
+					GlId:     "user-123",
+					RemoteIp: "1.2.3.4:51010",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+			},
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
+				featureflag.PackObjectsLimitingUser.IsEnabled(ctx) ||
+				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
+		},
+		{
 			desc: "IPv4 loopback addresses",
 			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
 				{
@@ -782,6 +808,56 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 				{
 					GlId:     "user-123",
 					RemoteIp: net.IPv6loopback.String(),
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+			},
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
+				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+		},
+		{
+			desc: "invalid IP addresses",
+			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+				{
+					GlId:     "user-123",
+					RemoteIp: "hello-world",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+				{
+					GlId:     "user-123",
+					RemoteIp: "hello-world",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+			},
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
+				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+		},
+		{
+			desc: "empty IP addresses",
+			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+				{
+					GlId:     "user-123",
+					RemoteIp: "",
+					Repository: &gitalypb.Repository{
+						StorageName:  "storage-0",
+						RelativePath: "a/b/c",
+					},
+					Args: args,
+				},
+				{
+					GlId:     "user-123",
+					RemoteIp: "",
 					Repository: &gitalypb.Repository{
 						StorageName:  "storage-0",
 						RelativePath: "a/b/c",
