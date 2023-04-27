@@ -15,8 +15,6 @@ import (
 )
 
 func TestConfiguration_validate(t *testing.T) {
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5080")
-
 	t.Parallel()
 
 	praefectBin := testcfg.BuildBinary(t, testhelper.TempDir(t), "gitlab.com/gitlab-org/gitaly/v15/cmd/praefect")

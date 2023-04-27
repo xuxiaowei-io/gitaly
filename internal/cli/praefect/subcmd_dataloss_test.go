@@ -14,8 +14,6 @@ import (
 )
 
 func TestDatalossSubcommand(t *testing.T) {
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5080")
-
 	t.Parallel()
 	cfg := config.Config{
 		ListenAddr: ":0",

@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestCheckSubcommand(t *testing.T) {
@@ -182,11 +181,6 @@ Checking check 3...Failed (warning) error: i failed but not too badly
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testhelper.SkipQuarantinedTest(t,
-				"https://gitlab.com/gitlab-org/gitaly/-/issues/5080",
-				"TestCheckSubcommand/positional_arguments",
-			)
-
 			var stdout bytes.Buffer
 			app := cli.App{
 				Writer: &stdout,
