@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 func TestMethodInfo_getRepo(t *testing.T) {
@@ -230,6 +231,123 @@ func TestMethodInfoScope(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Exactly(t, tt.scope, mInfo.Scope)
+		})
+	}
+}
+
+func TestFindFieldsByExtension(t *testing.T) {
+	t.Parallel()
+
+	repo := &gitalypb.Repository{StorageName: "storage", RelativePath: "relative-path"}
+
+	for _, tc := range []struct {
+		desc           string
+		msg            proto.Message
+		extension      protoreflect.ExtensionType
+		expectedFields []string
+	}{
+		{
+			desc: "unset field does not match",
+			msg: &gitalypb.OptimizeRepositoryRequest{
+				Repository: nil,
+			},
+			extension: gitalypb.E_TargetRepository,
+		},
+		{
+			desc: "matching field",
+			msg: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repo,
+			},
+			extension: gitalypb.E_TargetRepository,
+			expectedFields: []string{
+				"gitaly.OptimizeRepositoryRequest.repository",
+			},
+		},
+		{
+			desc: "no matching field",
+			msg: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repo,
+			},
+			extension: gitalypb.E_AdditionalRepository,
+		},
+		{
+			desc: "multiple fields with distinct extensions",
+			msg: &gitalypb.FetchIntoObjectPoolRequest{
+				Origin:     repo,
+				ObjectPool: &gitalypb.ObjectPool{Repository: repo},
+			},
+			extension: gitalypb.E_AdditionalRepository,
+			expectedFields: []string{
+				"gitaly.FetchIntoObjectPoolRequest.origin",
+			},
+		},
+		{
+			desc:      "matching field in unset oneOf",
+			msg:       &gitalypb.UserCommitFilesRequest{},
+			extension: gitalypb.E_TargetRepository,
+		},
+		{
+			desc: "matching field in empty oneOf",
+			msg: &gitalypb.UserCommitFilesRequest{
+				UserCommitFilesRequestPayload: &gitalypb.UserCommitFilesRequest_Header{},
+			},
+			extension: gitalypb.E_TargetRepository,
+		},
+		{
+			desc: "matching field with unset oneOf repository",
+			msg: &gitalypb.UserCommitFilesRequest{
+				UserCommitFilesRequestPayload: &gitalypb.UserCommitFilesRequest_Header{
+					Header: &gitalypb.UserCommitFilesRequestHeader{},
+				},
+			},
+			extension: gitalypb.E_TargetRepository,
+		},
+		{
+			desc: "matching field in oneOf",
+			msg: &gitalypb.UserCommitFilesRequest{
+				UserCommitFilesRequestPayload: &gitalypb.UserCommitFilesRequest_Header{
+					Header: &gitalypb.UserCommitFilesRequestHeader{
+						Repository: repo,
+					},
+				},
+			},
+			extension: gitalypb.E_TargetRepository,
+			expectedFields: []string{
+				"gitaly.UserCommitFilesRequestHeader.repository",
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			t.Run("findFieldsByExtension", func(t *testing.T) {
+				fields, err := findFieldsByExtension(tc.msg, tc.extension)
+				require.NoError(t, err)
+
+				var fieldNames []string
+				for _, field := range fields {
+					fieldNames = append(fieldNames, string(field.desc.FullName()))
+				}
+				require.Equal(t, tc.expectedFields, fieldNames)
+			})
+
+			t.Run("findFieldByExtension", func(t *testing.T) {
+				field, err := findFieldByExtension(tc.msg, tc.extension)
+
+				switch len(tc.expectedFields) {
+				case 0:
+					require.Equal(t, valueField{}, field)
+					require.Equal(t, errFieldNotFound, err)
+				case 1:
+					require.NoError(t, err)
+					require.Equal(t, tc.expectedFields[0], string(field.desc.FullName()))
+				default:
+					require.Equal(t, valueField{}, field)
+					require.Equal(t, errFieldAmbiguous, err)
+				}
+			})
 		})
 	}
 }

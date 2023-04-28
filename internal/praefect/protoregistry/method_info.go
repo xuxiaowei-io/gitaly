@@ -1,6 +1,7 @@
 package protoregistry
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -8,6 +9,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protopath"
+	"google.golang.org/protobuf/reflect/protorange"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -376,4 +379,64 @@ func lastName(inputType string) (string, error) {
 	}
 
 	return msgName, nil
+}
+
+type valueField struct {
+	desc  protoreflect.FieldDescriptor
+	value protoreflect.Value
+}
+
+// findFieldsByExtension will search through all populated fields and returns all of those which
+// have the given extension type set.
+func findFieldsByExtension(msg proto.Message, extensionType protoreflect.ExtensionType) ([]valueField, error) {
+	var valueFields []valueField
+
+	if err := (protorange.Options{Stable: true}).Range(msg.ProtoReflect(), func(values protopath.Values) error {
+		value := values.Index(-1)
+
+		fieldDescriptor := value.Step.FieldDescriptor()
+		if fieldDescriptor == nil {
+			return nil
+		}
+
+		opts := fieldDescriptor.Options().(*descriptorpb.FieldOptions)
+		if !proto.HasExtension(opts, extensionType) {
+			return nil
+		}
+
+		valueFields = append(valueFields, valueField{
+			desc:  fieldDescriptor,
+			value: value.Value,
+		})
+
+		return nil
+	}, nil); err != nil {
+		return nil, fmt.Errorf("ranging over message: %w", err)
+	}
+
+	return valueFields, nil
+}
+
+var (
+	errFieldNotFound  = errors.New("field not found")
+	errFieldAmbiguous = errors.New("field is ambiguous")
+)
+
+// findFieldByExtension is a wrapper around findFieldsByExtension that returns a single field
+// descriptor, only. Returns a errFieldNotFound error in case the field wasn't found, and a
+// errFieldAmbiguous error in case there are multiple fields with the same extension.
+func findFieldByExtension(msg proto.Message, extensionType protoreflect.ExtensionType) (valueField, error) {
+	fields, err := findFieldsByExtension(msg, extensionType)
+	if err != nil {
+		return valueField{}, err
+	}
+
+	switch len(fields) {
+	case 1:
+		return fields[0], nil
+	case 0:
+		return valueField{}, errFieldNotFound
+	default:
+		return valueField{}, errFieldAmbiguous
+	}
 }
