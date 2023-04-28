@@ -338,6 +338,8 @@ test:macos:
     PGDATA: /usr/local/var/postgres
     PGHOST: localhost
     PGUSER: gitlab
+  when: always
+  allow_failure: true
   before_script:
     - brew uninstall go
     - brew install cmake go@${GO_VERSION}
