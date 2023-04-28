@@ -2,6 +2,7 @@ package praefect
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,8 +27,27 @@ func TestMain(m *testing.M) {
 	defer func(old func(code int)) { cli.OsExiter = old }(cli.OsExiter)
 	cli.OsExiter = func(code int) {}
 
+	defer func(old cli.Flag) { cli.BashCompletionFlag = old }(cli.BashCompletionFlag)
+	cli.BashCompletionFlag = stubFlag{}
+
+	defer func(old cli.Flag) { cli.VersionFlag = old }(cli.VersionFlag)
+	cli.VersionFlag = stubFlag{}
+
+	defer func(old cli.Flag) { cli.HelpFlag = old }(cli.HelpFlag)
+	cli.HelpFlag = stubFlag{}
+
 	testhelper.Run(m)
 }
+
+type stubFlag struct{}
+
+func (stubFlag) String() string { return "it is a stub" }
+
+func (stubFlag) Apply(*flag.FlagSet) error { return nil }
+
+func (stubFlag) Names() []string { return nil }
+
+func (stubFlag) IsSet() bool { return false }
 
 func TestGetStarterConfigs(t *testing.T) {
 	for _, tc := range []struct {

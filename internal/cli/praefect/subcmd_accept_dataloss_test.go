@@ -15,8 +15,6 @@ import (
 )
 
 func TestAcceptDatalossSubcommand(t *testing.T) {
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5080")
-
 	t.Parallel()
 	const (
 		vs   = "test-virtual-storage-1"
