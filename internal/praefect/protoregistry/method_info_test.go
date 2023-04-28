@@ -233,3 +233,55 @@ func TestMethodInfoScope(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkMethodInfo(b *testing.B) {
+	for _, bc := range []struct {
+		desc        string
+		method      string
+		request     proto.Message
+		expectedErr error
+	}{
+		{
+			desc:   "unset target repository",
+			method: "/gitaly.RepositoryService/OptimizeRepository",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: nil,
+			},
+			expectedErr: ErrTargetRepoMissing,
+		},
+		{
+			desc:   "target repository",
+			method: "/gitaly.RepositoryService/OptimizeRepository",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "something",
+					RelativePath: "something",
+				},
+			},
+		},
+		{
+			desc:   "target object pool",
+			method: "/gitaly.ObjectPoolService/FetchIntoObjectPool",
+			request: &gitalypb.FetchIntoObjectPoolRequest{
+				ObjectPool: &gitalypb.ObjectPool{
+					Repository: &gitalypb.Repository{
+						StorageName:  "something",
+						RelativePath: "something",
+					},
+				},
+			},
+		},
+	} {
+		b.Run(bc.desc, func(b *testing.B) {
+			mi, err := GitalyProtoPreregistered.LookupMethod(bc.method)
+			require.NoError(b, err)
+
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_, err := mi.TargetRepo(bc.request)
+				require.Equal(b, bc.expectedErr, err)
+			}
+		})
+	}
+}
