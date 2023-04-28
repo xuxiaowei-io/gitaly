@@ -40,7 +40,6 @@ func subcommands(logger *logrus.Entry) map[string]subcmd {
 		setReplicationFactorCmdName: newSetReplicatioFactorSubcommand(os.Stdout),
 		removeRepositoryCmdName:     newRemoveRepository(logger, os.Stdout),
 		trackRepositoriesCmdName:    newTrackRepositories(logger, os.Stdout),
-		metadataCmdName:             newMetadataSubcommand(os.Stdout),
 	}
 }
 

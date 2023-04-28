@@ -1,96 +1,109 @@
 package praefect
 
 import (
-	"context"
 	"errors"
-	"flag"
 	"fmt"
-	"io"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-const metadataCmdName = "metadata"
-
-type metadataSubcommand struct {
-	stdout         io.Writer
-	repositoryID   int64
-	virtualStorage string
-	relativePath   string
-}
-
-func newMetadataSubcommand(stdout io.Writer) *metadataSubcommand {
-	return &metadataSubcommand{stdout: stdout}
-}
-
-func (cmd *metadataSubcommand) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(metadataCmdName, flag.ContinueOnError)
-	fs.Int64Var(&cmd.repositoryID, "repository-id", 0, "the repository's ID")
-	fs.StringVar(&cmd.virtualStorage, "virtual-storage", "", "the repository's virtual storage")
-	fs.StringVar(&cmd.relativePath, "relative-path", "", "the repository's relative path in the virtual storage")
-	return fs
-}
-
-func (cmd *metadataSubcommand) println(format string, args ...interface{}) {
-	fmt.Fprintf(cmd.stdout, format+"\n", args...)
-}
-
-func (cmd *metadataSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) error {
-	if flags.NArg() > 0 {
-		return unexpectedPositionalArgsError{Command: flags.Name()}
+func newMetadataCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "metadata",
+		Usage: "shows metadata information about repository",
+		Description: "The command provides metadata information about the repository. It includes " +
+			"identifier of the repository, path on the disk for it and it's replicas, information " +
+			"about replicas such as if it is assigned or not, its generation, health state, the storage, " +
+			"if it is a valid primary, etc. It can be invoked by providing repository identifier or " +
+			"virtual repository name and relative path.",
+		HideHelpCommand: true,
+		Action:          metadataAction,
+		Flags: []cli.Flag{
+			&cli.Int64Flag{
+				Name:  "repository-id",
+				Usage: "the repository's ID",
+			},
+			&cli.StringFlag{
+				Name:  paramVirtualStorage,
+				Usage: "the repository's virtual storage",
+			},
+			&cli.StringFlag{
+				Name:  "relative-path",
+				Usage: "the repository's relative path in the virtual storage",
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
 	}
+}
+
+func metadataAction(appCtx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	if err != nil {
+		return err
+	}
+
+	repositoryID := appCtx.Int64("repository-id")
+	virtualStorage := appCtx.String(paramVirtualStorage)
+	relativePath := appCtx.String("relative-path")
 
 	var request gitalypb.GetRepositoryMetadataRequest
 	switch {
-	case cmd.repositoryID != 0:
-		if cmd.virtualStorage != "" || cmd.relativePath != "" {
+	case repositoryID != 0:
+		if virtualStorage != "" || relativePath != "" {
 			return errors.New("virtual storage and relative path can't be provided with a repository ID")
 		}
-		request.Query = &gitalypb.GetRepositoryMetadataRequest_RepositoryId{RepositoryId: cmd.repositoryID}
-	case cmd.virtualStorage != "" || cmd.relativePath != "":
-		if cmd.virtualStorage == "" {
+		request.Query = &gitalypb.GetRepositoryMetadataRequest_RepositoryId{RepositoryId: repositoryID}
+	case virtualStorage != "" || relativePath != "":
+		if virtualStorage == "" {
 			return errors.New("virtual storage is required with relative path")
-		} else if cmd.relativePath == "" {
+		} else if relativePath == "" {
 			return errors.New("relative path is required with virtual storage")
 		}
 		request.Query = &gitalypb.GetRepositoryMetadataRequest_Path_{
 			Path: &gitalypb.GetRepositoryMetadataRequest_Path{
-				VirtualStorage: cmd.virtualStorage,
-				RelativePath:   cmd.relativePath,
+				VirtualStorage: virtualStorage,
+				RelativePath:   relativePath,
 			},
 		}
 	default:
 		return errors.New("repository id or virtual storage and relative path required")
 	}
 
-	nodeAddr, err := getNodeAddress(cfg)
+	nodeAddr, err := getNodeAddress(conf)
 	if err != nil {
 		return fmt.Errorf("get node address: %w", err)
 	}
 
-	ctx := context.TODO()
-	conn, err := subCmdDial(ctx, nodeAddr, cfg.Auth.Token, defaultDialTimeout)
+	conn, err := subCmdDial(appCtx.Context, nodeAddr, conf.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("dial: %w", err)
 	}
 	defer conn.Close()
 
-	metadata, err := gitalypb.NewPraefectInfoServiceClient(conn).GetRepositoryMetadata(ctx, &request)
+	metadata, err := gitalypb.NewPraefectInfoServiceClient(conn).GetRepositoryMetadata(appCtx.Context, &request)
 	if err != nil {
 		return fmt.Errorf("get metadata: %w", err)
 	}
 
-	cmd.println("Repository ID: %d", metadata.RepositoryId)
-	cmd.println("Virtual Storage: %q", metadata.VirtualStorage)
-	cmd.println("Relative Path: %q", metadata.RelativePath)
-	cmd.println("Replica Path: %q", metadata.ReplicaPath)
-	cmd.println("Primary: %q", metadata.Primary)
-	cmd.println("Generation: %d", metadata.Generation)
-	cmd.println("Replicas:")
+	fmt.Fprintf(appCtx.App.Writer, "Repository ID: %d\n", metadata.RepositoryId)
+	fmt.Fprintf(appCtx.App.Writer, "Virtual Storage: %q\n", metadata.VirtualStorage)
+	fmt.Fprintf(appCtx.App.Writer, "Relative Path: %q\n", metadata.RelativePath)
+	fmt.Fprintf(appCtx.App.Writer, "Replica Path: %q\n", metadata.ReplicaPath)
+	fmt.Fprintf(appCtx.App.Writer, "Primary: %q\n", metadata.Primary)
+	fmt.Fprintf(appCtx.App.Writer, "Generation: %d\n", metadata.Generation)
+	fmt.Fprintf(appCtx.App.Writer, "Replicas:\n")
 	for _, replica := range metadata.Replicas {
-		cmd.println("- Storage: %q", replica.Storage)
-		cmd.println("  Assigned: %v", replica.Assigned)
+		fmt.Fprintf(appCtx.App.Writer, "- Storage: %q\n", replica.Storage)
+		fmt.Fprintf(appCtx.App.Writer, "  Assigned: %v\n", replica.Assigned)
 
 		generationText := fmt.Sprintf("%d, fully up to date", replica.Generation)
 		if replica.Generation == -1 {
@@ -104,10 +117,10 @@ func (cmd *metadataSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 			verifiedAt = replica.VerifiedAt.AsTime().String()
 		}
 
-		cmd.println("  Generation: %s", generationText)
-		cmd.println("  Healthy: %v", replica.Healthy)
-		cmd.println("  Valid Primary: %v", replica.ValidPrimary)
-		cmd.println("  Verified At: %s", verifiedAt)
+		fmt.Fprintf(appCtx.App.Writer, "  Generation: %s\n", generationText)
+		fmt.Fprintf(appCtx.App.Writer, "  Healthy: %v\n", replica.Healthy)
+		fmt.Fprintf(appCtx.App.Writer, "  Valid Primary: %v\n", replica.ValidPrimary)
+		fmt.Fprintf(appCtx.App.Writer, "  Verified At: %s\n", verifiedAt)
 	}
 	return nil
 }

@@ -80,6 +80,7 @@ func NewApp() *cli.App {
 			newListUntrackedRepositoriesCommand(),
 			newTrackRepositoryCommand(),
 			newVerifyCommand(),
+			newMetadataCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
