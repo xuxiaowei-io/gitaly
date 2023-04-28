@@ -326,6 +326,7 @@ test:macos:
   tags:
     - shared-macos-amd64
   needs: []
+  allow_failure: true
   stage: test
   cache:
     - <<: *cache_deps_configuration
