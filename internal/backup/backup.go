@@ -9,6 +9,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -23,9 +25,6 @@ var (
 	// ErrDoesntExist means that the data was not found.
 	ErrDoesntExist = errors.New("doesn't exist")
 )
-
-// errEmptyBundle means that the requested bundle contained nothing
-var errEmptyBundle = errors.New("empty bundle")
 
 // Sink is an abstraction over the real storage used for storing/restoring backups.
 type Sink interface {
@@ -81,7 +80,7 @@ type Repository interface {
 	// ListRefs fetches the full set of refs and targets for the repository.
 	ListRefs(ctx context.Context) ([]git.Reference, error)
 	// GetCustomHooks fetches the custom hooks archive.
-	GetCustomHooks(ctx context.Context) (io.Reader, error)
+	GetCustomHooks(ctx context.Context, out io.Writer) error
 	// CreateBundle fetches a bundle that contains refs matching patterns.
 	CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error
 }
@@ -132,6 +131,21 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 			}
 
 			return newRemoteRepository(repo, conn), nil
+		},
+	}
+}
+
+// NewManagerLocal creates and returns a *Manager instance for operating on local repositories.
+func NewManagerLocal(sink Sink, locator Locator, storageLocator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, backupID string) *Manager {
+	return &Manager{
+		sink:     sink,
+		conns:    nil, // Will be removed once the restore operations are part of the Repository interface.
+		locator:  locator,
+		backupID: backupID,
+		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
+			localRepo := localrepo.New(storageLocator, gitCmdFactory, catfileCache, repo)
+
+			return newLocalRepository(storageLocator, localRepo), nil
 		},
 	}
 }
@@ -351,7 +365,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 	}()
 
 	if err := repo.CreateBundle(ctx, w, io.MultiReader(negatedRefs, patternReader)); err != nil {
-		if errors.Is(err, errEmptyBundle) {
+		if errors.Is(err, localrepo.ErrEmptyBundle) {
 			return fmt.Errorf("write bundle: %w: no changes to bundle", ErrSkipped)
 		}
 		return fmt.Errorf("write bundle: %w", err)
@@ -457,14 +471,10 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 }
 
 func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) error {
-	hooks, err := repo.GetCustomHooks(ctx)
-	if err != nil {
-		return fmt.Errorf("write custom hooks: %w", err)
-	}
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, path)
 	})
-	if _, err := io.Copy(w, hooks); err != nil {
+	if err := repo.GetCustomHooks(ctx, w); err != nil {
 		return fmt.Errorf("write custom hooks: %w", err)
 	}
 	return nil
