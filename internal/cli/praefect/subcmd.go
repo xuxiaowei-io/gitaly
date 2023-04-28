@@ -35,7 +35,6 @@ func subcommands(logger *logrus.Entry) map[string]subcmd {
 	return map[string]subcmd{
 		sqlPingCmdName:                &sqlPingSubcommand{},
 		sqlMigrateCmdName:             newSQLMigrateSubCommand(os.Stdout),
-		dialNodesCmdName:              newDialNodesSubcommand(os.Stdout),
 		sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
 		sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
 		setReplicationFactorCmdName:   newSetReplicatioFactorSubcommand(os.Stdout),

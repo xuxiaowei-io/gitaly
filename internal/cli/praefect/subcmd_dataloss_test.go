@@ -2,14 +2,10 @@ package praefect
 
 import (
 	"bytes"
-	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service/info"
@@ -182,12 +178,7 @@ Virtual storage: virtual-storage-2
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg.VirtualStorages = tc.virtualStorages
-
-			confData, err := toml.Marshal(cfg)
-			require.NoError(t, err)
-			tmpDir := testhelper.TempDir(t)
-			confPath := filepath.Join(tmpDir, "config.toml")
-			require.NoError(t, os.WriteFile(confPath, confData, perm.PublicFile))
+			confPath := writeConfigToFile(t, cfg)
 
 			var stdout bytes.Buffer
 			app := cli.App{
@@ -203,7 +194,7 @@ Virtual storage: virtual-storage-2
 				},
 			}
 
-			err = app.Run(append([]string{progname, "dataloss"}, tc.args...))
+			err := app.Run(append([]string{progname, "dataloss"}, tc.args...))
 			require.Equal(t, tc.error, err, err)
 			if tc.error == nil {
 				require.Equal(t, tc.output, stdout.String())

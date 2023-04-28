@@ -2,46 +2,51 @@ package praefect
 
 import (
 	"context"
-	"flag"
-	"io"
-	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 )
 
-const dialNodesCmdName = "dial-nodes"
-
-func newDialNodesSubcommand(w io.Writer) *dialNodesSubcommand {
-	return &dialNodesSubcommand{
-		w: w,
+func newDialNodesCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "dial-nodes",
+		Usage: "checks connection with remote nodes",
+		Description: "The subcommand \"dial-nodes\" helps diagnose connection problems to Gitaly or\n" +
+			"Praefect. The subcommand works by sourcing the connection information from\n" +
+			"the config file, and then dialing and health checking the remote nodes.",
+		Action: dialNodesAction,
+		Flags: []cli.Flag{
+			&cli.DurationFlag{
+				Name:  "timeout",
+				Usage: "timeout for dialing gitaly nodes",
+				Value: 0,
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
 	}
 }
 
-type dialNodesSubcommand struct {
-	w       io.Writer
-	timeout time.Duration
-}
-
-func (s *dialNodesSubcommand) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(dialNodesCmdName, flag.ExitOnError)
-	fs.DurationVar(&s.timeout, "timeout", 0, "timeout for dialing gitaly nodes")
-	fs.Usage = func() {
-		printfErr("Description:\n" +
-			"	This command attempts to reach all Gitaly nodes.\n")
-		fs.PrintDefaults()
+func dialNodesAction(ctx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, ctx.String(configFlagName))
+	if err != nil {
+		return err
 	}
 
-	return fs
-}
-
-func (s *dialNodesSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
-	if s.timeout == 0 {
-		s.timeout = defaultDialTimeout
+	timeout := ctx.Duration("timeout")
+	if timeout == 0 {
+		timeout = defaultDialTimeout
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	timeCtx, cancel := context.WithTimeout(ctx.Context, timeout)
 	defer cancel()
 
-	return nodes.PingAll(ctx, conf, nodes.NewTextPrinter(s.w), false)
+	return nodes.PingAll(timeCtx, conf, nodes.NewTextPrinter(ctx.App.Writer), false)
 }

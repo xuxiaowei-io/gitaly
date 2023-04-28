@@ -3,8 +3,11 @@ package praefect
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
@@ -12,6 +15,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -234,4 +238,14 @@ func TestExcludeDatabaseMetricsFromDefaultMetrics(t *testing.T) {
 			assert.Equal(t, excludeDatabaseMetrics, !metricRegisterer.repositoryCollectorRegistered)
 		})
 	}
+}
+
+func writeConfigToFile(tb testing.TB, conf config.Config) string {
+	tb.Helper()
+	confData, err := toml.Marshal(conf)
+	require.NoError(tb, err)
+	tmpDir := testhelper.TempDir(tb)
+	confPath := filepath.Join(tmpDir, "config.toml")
+	require.NoError(tb, os.WriteFile(confPath, confData, perm.PublicFile))
+	return confPath
 }
