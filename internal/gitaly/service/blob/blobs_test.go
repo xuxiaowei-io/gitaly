@@ -83,6 +83,15 @@ func TestListBlobs(t *testing.T) {
 			},
 		},
 		{
+			desc: "revision and path",
+			revisions: []string{
+				"master:a",
+			},
+			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
+				{Oid: blobAOID.String(), Size: blobASize},
+			},
+		},
+		{
 			desc: "single blob with paths",
 			revisions: []string{
 				repoInfo.lfsPointers[0].Oid,
