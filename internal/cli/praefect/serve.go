@@ -427,16 +427,9 @@ func server(
 			))
 		}
 
-		// Eventually, database-related metrics will always be exported via a separate
-		// endpoint such that it's possible to set a different scraping interval and thus to
-		// reduce database load. For now though, we register the metrics twice, once for the
-		// standard and once for the database-specific endpoint. This is done to ensure a
-		// transitory period where deployments can be moved to the new endpoint without
-		// causing breakage if they still use the old endpoint.
+		// Database-related metrics are exported via a separate endpoint such that it's possible
+		// to set a different scraping interval and thus to reduce database load.
 		dbPromRegistry.MustRegister(dbMetricCollectors...)
-		if !conf.PrometheusExcludeDatabaseFromDefaultMetrics {
-			promreg.MustRegister(dbMetricCollectors...)
-		}
 	}
 	promreg.MustRegister(metricsCollectors...)
 
