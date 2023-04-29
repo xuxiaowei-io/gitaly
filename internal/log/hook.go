@@ -1,28 +1,24 @@
 package log
 
 import (
-	"fmt"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
-// HookLogger is a wrapper around *logrus.Logger
-type HookLogger struct {
-	logger *logrus.Logger
-}
-
 // NewHookLogger creates a file logger, since both stderr and stdout will be displayed in git output
-func NewHookLogger() *HookLogger {
+func NewHookLogger(ctx context.Context) *logrus.Entry {
 	logger := logrus.New()
 
 	logDir := os.Getenv(GitalyLogDirEnvKey)
 	if logDir == "" {
 		logger.SetOutput(io.Discard)
-		return &HookLogger{logger: logger}
+		return logrus.NewEntry(logger)
 	}
 
 	logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, perm.SharedFile)
@@ -34,24 +30,11 @@ func NewHookLogger() *HookLogger {
 
 	logger.SetFormatter(UTCTextFormatter())
 
-	return &HookLogger{logger: logger}
+	return logger.WithFields(logFieldsFromContext(ctx))
 }
 
-// Fatal logs an error at the Fatal level and writes a generic message to stderr
-func (h *HookLogger) Fatal(err error) {
-	h.Fatalf("%v", err)
+func logFieldsFromContext(ctx context.Context) logrus.Fields {
+	return logrus.Fields{
+		correlation.FieldName: correlation.ExtractFromContext(ctx),
+	}
 }
-
-// Fatalf logs a formatted error at the Fatal level
-func (h *HookLogger) Fatalf(format string, a ...interface{}) {
-	fmt.Fprintln(os.Stderr, "error executing git hook")
-	h.logger.Fatalf(format, a...)
-}
-
-// Errorf logs a formatted error at the Fatal level
-func (h *HookLogger) Errorf(format string, a ...interface{}) {
-	h.logger.Errorf(format, a...)
-}
-
-// Logger returns the underlying logrus logger
-func (h *HookLogger) Logger() *logrus.Logger { return h.logger }
