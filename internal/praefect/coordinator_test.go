@@ -1726,7 +1726,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 		result, ok := status.FromError(err)
 		require.True(t, ok)
 		require.Equal(t, codes.InvalidArgument, result.Code())
-		require.Equal(t, "storage scoped: target storage is invalid", result.Message())
+		require.Equal(t, "storage scoped: target storage field not found", result.Message())
 	})
 
 	t.Run("unknown storage provided", func(t *testing.T) {

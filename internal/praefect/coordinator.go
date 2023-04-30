@@ -373,9 +373,15 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	}
 
 	var additionalRepoRelativePath string
-	if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
+	if additionalRepo, err := call.methodInfo.AdditionalRepo(call.msg); errors.Is(err, protoregistry.ErrTargetRepoMissing) {
+		// We can land here in two cases: either the message doesn't have an additional
+		// repository, or the repository wasn't set. The former case is obviously fine, but
+		// the latter case is fine, too, given that the additional repository may be an
+		// optional field for some RPC calls. The Gitaly-side RPC handlers should know to
+		// handle this case anyway, so we just leave the field unset in that case.
+	} else if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
-	} else if ok {
+	} else {
 		additionalRepoRelativePath = additionalRepo.GetRelativePath()
 	}
 
@@ -700,7 +706,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 func (c *Coordinator) directStorageScopedMessage(ctx context.Context, mi protoregistry.MethodInfo, msg proto.Message) (*proxy.StreamParameters, error) {
 	virtualStorage, err := mi.Storage(msg)
 	if err != nil {
-		return nil, structerr.NewInvalidArgument("%w", err)
+		return nil, structerr.NewInvalidArgument("storage scoped: %w", err)
 	}
 
 	if virtualStorage == "" {
@@ -794,12 +800,12 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 	targetRepo.StorageName = storage
 	targetRepo.RelativePath = relativePath
 
-	additionalRepo, ok, err := mi.AdditionalRepo(m)
-	if err != nil {
+	if additionalRepo, err := mi.AdditionalRepo(m); errors.Is(err, protoregistry.ErrTargetRepoMissing) {
+		// Nothing to rewrite in case the additional repository either doesn't exist in the
+		// message or wasn't set by the caller.
+	} else if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
-	}
-
-	if ok {
+	} else {
 		additionalRepo.StorageName = storage
 		additionalRepo.RelativePath = additionalRelativePath
 	}
