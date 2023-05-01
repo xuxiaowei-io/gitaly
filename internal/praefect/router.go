@@ -125,15 +125,16 @@ func (r RepositoryMaintenanceRoute) addLogFields(ctx context.Context) {
 type Router interface {
 	// RouteStorageAccessor returns the node which should serve the storage accessor request.
 	RouteStorageAccessor(ctx context.Context, virtualStorage string) (RouterNode, error)
-	// RouteStorageAccessor returns the primary and secondaries that should handle the storage
-	// mutator request.
+	// RouteStorageMutator returns a route to primary and secondary nodes that should handle the
+	// storage mutator request.
 	RouteStorageMutator(ctx context.Context, virtualStorage string) (StorageMutatorRoute, error)
 	// RouteRepositoryAccessor returns the node that should serve the repository accessor
 	// request. If forcePrimary is set to `true`, it returns the primary node.
 	RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error)
-	// RouteRepositoryMutatorTransaction returns the primary and secondaries that should handle the repository mutator request.
-	// Additionally, it returns nodes which should have the change replicated to. RouteRepositoryMutator should only be used
-	// with existing repositories.
+	// RouteRepositoryMutator returns a route to primary and secondary nodes that should handle the
+	// repository mutator request. Additionally, it returns nodes which do not participate in the
+	// transaction, but to which the change should be replicated. RouteRepositoryMutator should only
+	// be used with existing repositories.
 	RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error)
 	// RouteRepositoryCreation decides returns the primary and secondaries that should handle the repository creation
 	// request. It is up to the caller to store the assignments and primary information after finishing the RPC.
