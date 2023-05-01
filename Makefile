@@ -404,7 +404,7 @@ verify: check-mod-tidy notice-up-to-date check-proto lint
 .PHONY: check-mod-tidy
 check-mod-tidy:
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
-	${Q}go mod tidy -compat=1.17
+	${Q}go mod tidy
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
 
 ${TOOLS_DIR}/gitaly-linters.so: ${SOURCE_DIR}/tools/golangci-lint/go.sum $(wildcard ${SOURCE_DIR}/tools/golangci-lint/gitaly/*.go)
@@ -528,13 +528,6 @@ install-git: build-git
 ## Build libgit2.
 libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 
-# This target is a stub to keep compatibility with downstream dependents that
-# still use it:
-#
-# - https://gitlab.com/gitlab-org/gitlab/blob/a7b33f5ae5a4da0c1b368172da604cce2e0d2636/spec/support/helpers/gitaly_setup.rb#L129
-${SOURCE_DIR}/.ruby-bundle:
-	${Q}touch $@
-
 ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 	${Q}mv $< $@
 
@@ -582,13 +575,6 @@ ${BUILD_DIR}/bin/%: ${BUILD_DIR}/intermediate/% | ${BUILD_DIR}/bin
 		install "$<" "$@"; \
 	fi
 
-# The build process left a go.mod and go.sum file in ${BUILD_DIR} in the past. This causes problems these days
-# when attempting to embed the auxiliary binaries into Gitaly binary as they are considered to be in a different
-# module due to this. Remove the legacy files.
-.PHONY: remove-legacy-go-mod
-remove-legacy-go-mod:
-	${Q}rm -f $(addprefix ${BUILD_DIR}/, go.mod go.sum)
-
 # clear-go-build-cache-if-needed cleans the Go build cache if it exceeds the maximum size as
 # configured in GOCACHE_MAX_SIZE_KB.
 .PHONY: clear-go-build-cache-if-needed
@@ -596,7 +582,7 @@ clear-go-build-cache-if-needed:
 	${Q}if [ -d ${GOCACHE} ] && [ $$(du -sk ${GOCACHE} | cut -f 1) -gt ${GOCACHE_MAX_SIZE_KB} ]; then go clean --cache; fi
 
 ${BUILD_DIR}/intermediate/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly:            remove-legacy-go-mod ${GITALY_PACKED_EXECUTABLES}
+${BUILD_DIR}/intermediate/gitaly:            ${GITALY_PACKED_EXECUTABLES}
 ${BUILD_DIR}/intermediate/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
 ${BUILD_DIR}/intermediate/gitaly-git2go:     GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
 ${BUILD_DIR}/intermediate/gitaly-git2go:     libgit2
