@@ -382,6 +382,21 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	} else if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	} else {
+		// We do not support resolving multiple different repositories that reside on
+		// different virtual storages. This kind of makes sense from a technical point of
+		// view as Praefect cannot guarantee to resolve both virtual storages. So for the
+		// time being we accept this restriction and handle it explicitly.
+		//
+		// Note that this is the same condition as in `rewrittenRepositoryMessage()`. This
+		// is done so that we detect such erroneous requests before we try to connect to the
+		// target node, which allows us to return a proper error to the user that indicates
+		// the underlying issue instead of an unrelated symptom.
+		//
+		// This limitation may be lifted in the future.
+		if virtualStorage != additionalRepo.GetStorageName() {
+			return nil, structerr.NewInvalidArgument("resolving additional repository on different storage than target repository is not supported")
+		}
+
 		additionalRepoRelativePath = additionalRepo.GetRelativePath()
 	}
 

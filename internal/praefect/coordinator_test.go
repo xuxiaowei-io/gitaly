@@ -365,23 +365,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 							Repository: targetRepo,
 						},
 					},
-					// This is a bug: we try to resolve the additional
-					// repository as a member of the target repository's
-					// storage. In the best case this fails, which is a
-					// reasonable outcome. But in the worst case, if the
-					// additional repository's path exists on the target
-					// repository's storage, we could forward the request to the
-					// wrong node.
-					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
-						fmt.Errorf("resolve additional replica path: %w",
-							fmt.Errorf("get additional repository id: %w",
-								// Note how the error message uses
-								// the target repo's storage name,
-								// but the additional repo's path.
-								commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, additionalRepo.RelativePath),
-							),
-						),
-					)),
+					expectedErr: structerr.NewInvalidArgument("resolving additional repository on different storage than target repository is not supported"),
 				}
 			},
 		},
