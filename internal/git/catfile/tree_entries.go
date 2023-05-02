@@ -19,17 +19,15 @@ type revisionPath struct{ revision, path string }
 
 // TreeEntryFinder is a struct for searching through a tree with caching.
 type TreeEntryFinder struct {
-	objectReader     ObjectContentReader
-	objectInfoReader ObjectInfoReader
-	treeCache        map[revisionPath][]*gitalypb.TreeEntry
+	objectReader ObjectContentReader
+	treeCache    map[revisionPath][]*gitalypb.TreeEntry
 }
 
 // NewTreeEntryFinder initializes a TreeEntryFinder with an empty tree cache.
-func NewTreeEntryFinder(objectReader ObjectContentReader, objectInfoReader ObjectInfoReader) *TreeEntryFinder {
+func NewTreeEntryFinder(objectReader ObjectContentReader) *TreeEntryFinder {
 	return &TreeEntryFinder{
-		objectReader:     objectReader,
-		objectInfoReader: objectInfoReader,
-		treeCache:        make(map[revisionPath][]*gitalypb.TreeEntry),
+		objectReader: objectReader,
+		treeCache:    make(map[revisionPath][]*gitalypb.TreeEntry),
 	}
 }
 
@@ -48,7 +46,7 @@ func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision,
 
 	if !ok {
 		var err error
-		entries, err = TreeEntries(ctx, tef.objectReader, tef.objectInfoReader, revision, dir)
+		entries, err = TreeEntries(ctx, tef.objectReader, revision, dir)
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +115,6 @@ func extractEntryInfoFromTreeData(
 func TreeEntries(
 	ctx context.Context,
 	objectReader ObjectContentReader,
-	objectInfoReader ObjectInfoReader,
 	revision, path string,
 ) (_ []*gitalypb.TreeEntry, returnedErr error) {
 	span, ctx := tracing.StartSpanIfHasParent(

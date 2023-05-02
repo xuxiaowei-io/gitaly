@@ -42,7 +42,6 @@ func validateGetTreeEntriesRequest(in *gitalypb.GetTreeEntriesRequest) error {
 func populateFlatPath(
 	ctx context.Context,
 	objectReader catfile.ObjectContentReader,
-	objectInfoReader catfile.ObjectInfoReader,
 	entries []*gitalypb.TreeEntry,
 ) error {
 	for _, entry := range entries {
@@ -53,7 +52,7 @@ func populateFlatPath(
 		}
 
 		for i := 1; i < defaultFlatTreeRecursion; i++ {
-			subEntries, err := catfile.TreeEntries(ctx, objectReader, objectInfoReader, entry.CommitOid, string(entry.FlatPath))
+			subEntries, err := catfile.TreeEntries(ctx, objectReader, entry.CommitOid, string(entry.FlatPath))
 			if err != nil {
 				return err
 			}
@@ -82,10 +81,7 @@ func (s *server) sendTreeEntries(
 
 	var entries []*gitalypb.TreeEntry
 
-	var (
-		objectReader     catfile.ObjectContentReader
-		objectInfoReader catfile.ObjectInfoReader
-	)
+	var objectReader catfile.ObjectContentReader
 
 	// When we want to do a recursive listing, then it's a _lot_ more efficient to let
 	// git-ls-tree(1) handle this for us. In theory, we'd also want to do this for the
@@ -146,13 +142,7 @@ func (s *server) sendTreeEntries(
 		}
 		defer cancel()
 
-		objectInfoReader, cancel, err = s.catfileCache.ObjectInfoReader(stream.Context(), repo)
-		if err != nil {
-			return err
-		}
-		defer cancel()
-
-		entries, err = catfile.TreeEntries(ctx, objectReader, objectInfoReader, revision, path)
+		entries, err = catfile.TreeEntries(ctx, objectReader, revision, path)
 		if err != nil {
 			return err
 		}
@@ -192,7 +182,7 @@ func (s *server) sendTreeEntries(
 		// of my knowledge is as good as we can get. Doing this via git-ls-tree(1)
 		// wouldn't fly: we'd have to spawn a separate process for each of the
 		// subtrees, which is a lot of overhead.
-		if err := populateFlatPath(ctx, objectReader, objectInfoReader, entries); err != nil {
+		if err := populateFlatPath(ctx, objectReader, entries); err != nil {
 			return err
 		}
 	}
