@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.11.1 (2023-05-01)
+
+No changes.
+
 ## 15.11.0 (2023-04-21)
 
 ### Added (12 changes)
@@ -54,6 +58,10 @@
 
 - [Do not store unique fetches in pack-objects cache](gitlab-org/gitaly@a630cfa64f4bc3c9e21c5f37d9826c9a9c89a483) ([merge request](gitlab-org/gitaly!5540))
 
+## 15.10.5 (2023-05-01)
+
+No changes.
+
 ## 15.10.4 (2023-04-21)
 
 No changes.
@@ -101,6 +109,10 @@ No changes.
 ### Other (1 change)
 
 - [Simplify streamcache.Cache for efficient null implementation](gitlab-org/gitaly@de53fe2f5c773a059b599674ccaf459b5daf4b49) ([merge request](gitlab-org/gitaly!5444))
+
+## 15.9.6 (2023-05-01)
+
+No changes.
 
 ## 15.9.5 (2023-04-21)
 
