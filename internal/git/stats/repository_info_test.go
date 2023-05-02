@@ -208,12 +208,13 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// We use `-d`, which also prunes objects that have been packed.
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-Ad")
 			},
 			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
-					Count: 1,
-					Size:  hashDependentSize(42, 54),
+					Count:             1,
+					Size:              hashDependentSize(42, 54),
+					ReverseIndexCount: 1,
 					Bitmap: BitmapInfo{
 						Exists:       true,
 						Version:      1,
@@ -232,7 +233,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// This time we don't use `-d`, so the object will exist both in
 				// loose and packed form.
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a")
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-a")
 			},
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
@@ -240,8 +241,9 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Size:  16,
 				},
 				Packfiles: PackfilesInfo{
-					Count: 1,
-					Size:  hashDependentSize(42, 54),
+					Count:             1,
+					Size:              hashDependentSize(42, 54),
+					ReverseIndexCount: 1,
 					Bitmap: BitmapInfo{
 						Exists:       true,
 						Version:      1,
@@ -375,7 +377,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				// We write a single packed blob.
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-Ad")
 
 				// And two loose ones.
 				gittest.WriteBlob(t, cfg, repoPath, []byte("1"))
@@ -394,10 +396,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Size:  32,
 				},
 				Packfiles: PackfilesInfo{
-					Count:        1,
-					Size:         hashDependentSize(42, 54),
-					GarbageCount: 3,
-					GarbageSize:  3,
+					Count:             1,
+					Size:              hashDependentSize(42, 54),
+					ReverseIndexCount: 1,
+					GarbageCount:      3,
+					GarbageSize:       3,
 					Bitmap: BitmapInfo{
 						Exists:       true,
 						Version:      1,
@@ -811,11 +814,12 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			desc: "multi-pack-index",
 			seedRepository: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-midx")
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-Ad", "--write-midx")
 			},
 			expectedInfo: PackfilesInfo{
-				Count: 1,
-				Size:  hashDependentSize(163, 189),
+				Count:             1,
+				Size:              hashDependentSize(163, 189),
+				ReverseIndexCount: 1,
 				MultiPackIndex: MultiPackIndexInfo{
 					Exists:        true,
 					Version:       1,
@@ -827,11 +831,12 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			desc: "multi-pack-index with bitmap",
 			seedRepository: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb", "--write-midx")
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-Adb", "--write-midx")
 			},
 			expectedInfo: PackfilesInfo{
-				Count: 1,
-				Size:  hashDependentSize(163, 189),
+				Count:             1,
+				Size:              hashDependentSize(163, 189),
+				ReverseIndexCount: 1,
 				MultiPackIndex: MultiPackIndexInfo{
 					Exists:        true,
 					Version:       1,
@@ -848,17 +853,18 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			desc: "multiple packfiles with other data structures",
 			seedRepository: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
-				gittest.Exec(t, cfg, "-c", "repack.writeBitmaps=false", "-C", repoPath, "repack", "-Ad")
+				gittest.Exec(t, cfg, "-c", "repack.writeBitmaps=false", "-c", "pack.writeReverseIndex=false", "-C", repoPath, "repack", "-Ad")
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-db", "--write-midx")
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-db", "--write-midx")
 
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
-				Count:        2,
-				Size:         hashDependentSize(315, 367),
-				GarbageCount: 1,
-				GarbageSize:  1,
+				Count:             2,
+				Size:              hashDependentSize(315, 367),
+				ReverseIndexCount: 1,
+				GarbageCount:      1,
+				GarbageSize:       1,
 				MultiPackIndex: MultiPackIndexInfo{
 					Exists:        true,
 					Version:       1,
@@ -876,13 +882,14 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			seedRepository: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-db", "--write-midx")
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "--cruft", "-db", "--write-midx")
 			},
 			expectedInfo: PackfilesInfo{
-				Count:      2,
-				Size:       hashDependentSize(318, 371),
-				CruftCount: 1,
-				CruftSize:  hashDependentSize(156, 183),
+				Count:             2,
+				Size:              hashDependentSize(318, 371),
+				ReverseIndexCount: 2,
+				CruftCount:        1,
+				CruftSize:         hashDependentSize(156, 183),
 				MultiPackIndex: MultiPackIndexInfo{
 					Exists:        true,
 					Version:       1,
