@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -49,6 +50,13 @@ func startSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, s
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
+		))
+		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetTxManager(),
 			deps.GetHousekeepingManager(),
 		))
 	}, serverOpts...)

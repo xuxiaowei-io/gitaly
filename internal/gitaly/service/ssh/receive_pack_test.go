@@ -12,12 +12,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
@@ -421,33 +418,15 @@ func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	client := newSSHClient(t, cfg.SocketPath)
 
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
 
-	pool, err := objectpool.Create(
-		ctx,
-		config.NewLocator(cfg),
-		gittest.NewCommandFactory(t, cfg),
-		nil,
-		txManager,
-		housekeeping.NewManager(cfg.Prometheus, txManager),
-		&gitalypb.ObjectPool{
-			Repository: &gitalypb.Repository{
-				StorageName:  repo.GetStorageName(),
-				RelativePath: gittest.NewObjectPoolName(t),
-			},
-		},
-		repo,
-	)
-	require.NoError(t, err)
-	require.NoError(t, pool.Link(ctx, repo))
-	poolPath := gittest.RepositoryPath(t, pool)
-
+	_, poolPath := gittest.CreateObjectPool(t, ctx, cfg, repoProto, gittest.CreateObjectPoolConfig{
+		LinkRepositoryToObjectPool: true,
+	})
 	commitID := gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch(t.Name()))
 
 	// First request

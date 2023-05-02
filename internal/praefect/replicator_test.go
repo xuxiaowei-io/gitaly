@@ -17,15 +17,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
-	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
@@ -57,7 +51,6 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 		Seed:                   gittest.SeedGitLabTest,
 	})
 
-	testRepo := localrepo.NewTestRepo(t, primaryCfg, testRepoProto)
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	testcfg.BuildGitalySSH(t, primaryCfg)
 	testcfg.BuildGitalyHooks(t, primaryCfg)
@@ -83,41 +76,22 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 		}},
 	}
 
-	txManager := transaction.NewManager(primaryCfg, backchannel.NewRegistry())
-
 	// create object pool on the source
-	poolCtx := testhelper.Context(t)
-	objectPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.Create(
-		poolCtx,
-		gconfig.NewLocator(primaryCfg),
-		gittest.NewCommandFactory(t, primaryCfg),
-		nil,
-		txManager,
-		housekeeping.NewManager(primaryCfg.Prometheus, txManager),
-		&gitalypb.ObjectPool{
-			Repository: &gitalypb.Repository{
-				StorageName:  testRepoProto.GetStorageName(),
-				RelativePath: objectPoolPath,
-			},
-		},
-		testRepo,
-	)
-	require.NoError(t, err)
-	require.NoError(t, pool.Link(poolCtx, testRepo))
+	poolRepository, _ := gittest.CreateObjectPool(t, ctx, primaryCfg, testRepoProto, gittest.CreateObjectPoolConfig{
+		LinkRepositoryToObjectPool: true,
+	})
 
 	// replicate object pool repository to target node
-	poolRepository := pool.ToProto().GetRepository()
-	targetObjectPoolRepo := proto.Clone(poolRepository).(*gitalypb.Repository)
-	targetObjectPoolRepo.StorageName = backupCfg.Storages[0].Name
+	targetObjectPoolRepo := proto.Clone(poolRepository).(*gitalypb.ObjectPool)
+	targetObjectPoolRepo.Repository.StorageName = backupCfg.Storages[0].Name
 	ctx, cancel := context.WithCancel(ctx)
 
 	injectedCtx := metadata.NewOutgoingContext(ctx, testcfg.GitalyServersMetadataFromCfg(t, primaryCfg))
 
 	repoClient := newRepositoryClient(t, backupCfg.SocketPath, backupCfg.Auth.Token)
-	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: targetObjectPoolRepo,
-		Source:     poolRepository,
+	_, err := repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: targetObjectPoolRepo.Repository,
+		Source:     poolRepository.Repository,
 	})
 	require.NoError(t, err)
 
@@ -142,7 +116,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 				Change:            datastore.UpdateRepo,
 				TargetNodeStorage: secondary.GetStorage(),
 				SourceNodeStorage: shard.Primary.GetStorage(),
-				RelativePath:      testRepo.GetRelativePath(),
+				RelativePath:      testRepoProto.GetRelativePath(),
 			},
 			State:   datastore.JobStateReady,
 			Attempt: 3,
@@ -171,7 +145,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	db := testdb.New(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, repositoryID, conf.VirtualStorages[0].Name, testRepo.GetRelativePath(), testRepo.GetRelativePath(), shard.Primary.GetStorage(), nil, nil, true, false))
+	require.NoError(t, rs.CreateRepository(ctx, repositoryID, conf.VirtualStorages[0].Name, testRepoProto.GetRelativePath(), testRepoProto.GetRelativePath(), shard.Primary.GetStorage(), nil, nil, true, false))
 
 	replMgr := NewReplMgr(
 		loggerEntry,
@@ -213,7 +187,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 		[]interface{}{logEntries[3].Message, logEntries[3].Data["virtual_storage"], logEntries[3].Data["new_state"], logEntries[3].Data[logWithCorrID]},
 	)
 
-	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepo.GetRelativePath())
+	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepoProto.GetRelativePath())
 
 	gittest.Exec(t, backupCfg, "-C", replicatedPath, "cat-file", "-e", commitID.String())
 	gittest.Exec(t, backupCfg, "-C", replicatedPath, "gc")
