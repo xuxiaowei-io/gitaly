@@ -1427,6 +1427,8 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 }
 
 func TestRewrittenRepositoryMessage(t *testing.T) {
+	t.Parallel()
+
 	buildRequest := func(storageName, relativePath, additionalRelativePath string) *gitalypb.CreateObjectPoolRequest {
 		return &gitalypb.CreateObjectPoolRequest{
 			ObjectPool: &gitalypb.ObjectPool{
@@ -1442,19 +1444,43 @@ func TestRewrittenRepositoryMessage(t *testing.T) {
 		}
 	}
 
-	originalRequest := buildRequest("original-storage", "original-relative-path", "original-additional-relative-path")
+	t.Run("successfully rewritten request", func(t *testing.T) {
+		originalRequest := buildRequest("original-storage", "original-relative-path", "original-additional-relative-path")
 
-	methodInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly.ObjectPoolService/CreateObjectPool")
-	require.NoError(t, err)
+		methodInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly.ObjectPoolService/CreateObjectPool")
+		require.NoError(t, err)
 
-	rewrittenMessageBytes, err := rewrittenRepositoryMessage(methodInfo, originalRequest, "rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path")
-	require.NoError(t, err)
+		rewrittenMessageBytes, err := rewrittenRepositoryMessage(methodInfo, originalRequest, "rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path")
+		require.NoError(t, err)
 
-	var rewrittenMessage gitalypb.CreateObjectPoolRequest
-	require.NoError(t, proto.Unmarshal(rewrittenMessageBytes, &rewrittenMessage))
+		var rewrittenMessage gitalypb.CreateObjectPoolRequest
+		require.NoError(t, proto.Unmarshal(rewrittenMessageBytes, &rewrittenMessage))
 
-	testhelper.ProtoEqual(t, buildRequest("original-storage", "original-relative-path", "original-additional-relative-path"), originalRequest)
-	testhelper.ProtoEqual(t, buildRequest("rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path"), &rewrittenMessage)
+		testhelper.ProtoEqual(t, buildRequest("original-storage", "original-relative-path", "original-additional-relative-path"), originalRequest)
+		testhelper.ProtoEqual(t, buildRequest("rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path"), &rewrittenMessage)
+	})
+
+	t.Run("rewriting differing storages fails", func(t *testing.T) {
+		request := &gitalypb.CreateObjectPoolRequest{
+			ObjectPool: &gitalypb.ObjectPool{
+				Repository: &gitalypb.Repository{
+					StorageName:  "a",
+					RelativePath: "a",
+				},
+			},
+			Origin: &gitalypb.Repository{
+				StorageName:  "b",
+				RelativePath: "b",
+			},
+		}
+
+		methodInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly.ObjectPoolService/CreateObjectPool")
+		require.NoError(t, err)
+
+		rewrittenRequest, err := rewrittenRepositoryMessage(methodInfo, request, "rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path")
+		require.Equal(t, structerr.NewInvalidArgument("resolving additional repository on different storage than target repository is not supported"), err)
+		require.Nil(t, rewrittenRequest)
+	})
 }
 
 func TestStreamDirector_repo_creation(t *testing.T) {
