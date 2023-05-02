@@ -271,12 +271,18 @@ func run(cfg config.Cfg) error {
 		string(cfg.PackObjectsLimiting.Key),
 		cfg.Prometheus.GRPCLatencyBuckets,
 	)
+	newTickerFunc := func() helper.Ticker {
+		return helper.NewManualTicker()
+	}
+	if cfg.PackObjectsLimiting.MaxQueueWait > 0 {
+		newTickerFunc = func() helper.Ticker {
+			return helper.NewTimerTicker(cfg.PackObjectsLimiting.MaxQueueWait.Duration())
+		}
+	}
 	packObjectsLimiter := limithandler.NewConcurrencyLimiter(
 		cfg.PackObjectsLimiting.MaxConcurrency,
 		cfg.PackObjectsLimiting.MaxQueueLength,
-		func() helper.Ticker {
-			return helper.NewTimerTicker(cfg.PackObjectsLimiting.MaxQueueWait.Duration())
-		},
+		newTickerFunc,
 		packObjectsMonitor,
 	)
 
