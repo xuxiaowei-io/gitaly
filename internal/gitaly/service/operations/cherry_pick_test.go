@@ -343,10 +343,8 @@ func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 		hookOutputFiles = append(hookOutputFiles, hookOutputTempPath)
 	}
 
-	response, err := client.UserCherryPick(ctx, request)
+	_, err = client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
-	//nolint:staticcheck
-	require.Empty(t, response.PreReceiveError)
 
 	for _, file := range hookOutputFiles {
 		output := string(testhelper.MustReadFile(t, file))
@@ -379,8 +377,6 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 
 	response, err := client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
-	//nolint:staticcheck
-	require.Empty(t, response.PreReceiveError)
 	require.Equal(t, "b17aeac93194cf2385b32623494ebce66efbacad", response.BranchUpdate.CommitId)
 
 	pickedCommit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))

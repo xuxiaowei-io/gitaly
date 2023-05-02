@@ -921,8 +921,6 @@ func TestUserCreateTag_nestedTags(t *testing.T) {
 				}
 				response, err := client.UserCreateTag(ctx, request)
 				require.NoError(t, err)
-				//nolint:staticcheck
-				require.Empty(t, response.PreReceiveError)
 				defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagName)
 
 				createdID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", tagName)
@@ -966,8 +964,6 @@ func TestUserCreateTag_nestedTags(t *testing.T) {
 				response, err = client.UserCreateTag(ctx, request)
 				defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagNameLight)
 				require.NoError(t, err)
-				//nolint:staticcheck
-				require.Empty(t, response.PreReceiveError)
 
 				responseOk = &gitalypb.UserCreateTagResponse{
 					Tag: &gitalypb.Tag{
