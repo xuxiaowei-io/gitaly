@@ -31,7 +31,6 @@ func NewTreeEntry(commitOid, rootOid, rootPath string, filename, oidBytes, modeB
 
 	return &gitalypb.TreeEntry{
 		CommitOid: commitOid,
-		RootOid:   rootOid,
 		Oid:       oid,
 		Path:      []byte(filepath.Join(rootPath, string(filename))),
 		Type:      objectType,
