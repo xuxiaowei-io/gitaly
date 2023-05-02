@@ -415,12 +415,6 @@ message TreeEntry {
 
   // OID of the object this tree entry points to
   string oid = 1;
-  // OID of the tree attached to commit_oid. This field is deprecated and will be removed in Gitaly
-  // v16.0 as it cannot be implemented efficiently without having to spawn another extra process
-  // that needs to get queried for every single TreeEntry. And at that point the caller can just
-  // manually resolve the root tree ID via a separate RPC call, especially so as there are not
-  // currently any known users of this feature.
-  string root_oid = 2 [deprecated=true];
   // Path relative to repository root
   bytes path = 3;
   // This comment is left unintentionally blank.
@@ -431,6 +425,11 @@ message TreeEntry {
   string commit_oid = 6;
   // Relative path of the first subdir that doesn't have only one directory descendant
   bytes flat_path = 7;
+
+  // RootOid used to refer to the resolved object ID of the root tree. This field has been removed
+  // with no replacement.
+  reserved "root_oid";
+  reserved 2;
 }
 
 // This comment is left unintentionally blank.
@@ -613,10 +612,10 @@ message FindCommitsRequest {
   bool include_shortstat = 17;
   // include_referenced_by determines whether to include references that point to a
   // commit in the response. The field contains patterns that are matched against
-  // references. Only matching references are included in the response. For 
+  // references. Only matching references are included in the response. For
   // example, one can get tags pointing to a commit with `refs/tags`, or branches
   // respectively with `refs/heads`. By sending both, the response will include all
-  // references that match either pattern. 
+  // references that match either pattern.
   repeated bytes include_referenced_by = 18; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 

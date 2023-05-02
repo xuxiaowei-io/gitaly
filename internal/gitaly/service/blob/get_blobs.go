@@ -27,7 +27,7 @@ func sendGetBlobsResponse(
 ) error {
 	ctx := stream.Context()
 
-	tef := catfile.NewTreeEntryFinder(objectReader, objectInfoReader)
+	tef := catfile.NewTreeEntryFinder(objectReader)
 
 	for _, revisionPath := range req.RevisionPaths {
 		revision := revisionPath.Revision

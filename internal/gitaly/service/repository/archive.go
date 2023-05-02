@@ -137,13 +137,7 @@ func (s *server) validateGetArchivePrecondition(
 	}
 	defer cancel()
 
-	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return err
-	}
-	defer cancel()
-
-	f := catfile.NewTreeEntryFinder(objectReader, objectInfoReader)
+	f := catfile.NewTreeEntryFinder(objectReader)
 	if path != "." {
 		if ok, err := findGetArchivePath(ctx, f, commitID, path); err != nil {
 			return err
@@ -151,6 +145,12 @@ func (s *server) validateGetArchivePrecondition(
 			return structerr.NewFailedPrecondition("path doesn't exist")
 		}
 	} else {
+		objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
+		if err != nil {
+			return err
+		}
+		defer cancel()
+
 		repoHash, err := repo.ObjectHash(ctx)
 		if err != nil {
 			return err
