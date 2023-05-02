@@ -9,7 +9,7 @@ import (
 )
 
 // NewTreeEntry is a helper to construct a gitalypb.TreeEntry from the provided parameters.
-func NewTreeEntry(commitOid, rootOid, rootPath string, filename, oidBytes, modeBytes []byte) (*gitalypb.TreeEntry, error) {
+func NewTreeEntry(commitOid, rootPath string, filename, oidBytes, modeBytes []byte) (*gitalypb.TreeEntry, error) {
 	var objectType gitalypb.TreeEntry_EntryType
 
 	mode, err := strconv.ParseInt(string(modeBytes), 8, 32)

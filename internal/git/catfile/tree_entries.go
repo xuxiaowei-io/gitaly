@@ -68,7 +68,7 @@ func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision,
 func extractEntryInfoFromTreeData(
 	objectHash git.ObjectHash,
 	treeData io.Reader,
-	commitOid, rootOid, rootPath, oid string,
+	commitOid, rootPath, oid string,
 ) ([]*gitalypb.TreeEntry, error) {
 	if len(oid) == 0 {
 		return nil, fmt.Errorf("empty tree oid")
@@ -102,7 +102,7 @@ func extractEntryInfoFromTreeData(
 			return nil, fmt.Errorf("read entry oid: %w", err)
 		}
 
-		treeEntry, err := git.NewTreeEntry(commitOid, rootOid, rootPath, filename, oidBuf.Bytes(), modeBytes)
+		treeEntry, err := git.NewTreeEntry(commitOid, rootPath, filename, oidBuf.Bytes(), modeBytes)
 		if err != nil {
 			return nil, fmt.Errorf("new entry info: %w", err)
 		}
@@ -137,16 +137,6 @@ func TreeEntries(
 		return nil, nil
 	}
 
-	rootTreeInfo, err := objectInfoReader.Info(ctx, git.Revision(revision+"^{tree}"))
-	if err != nil {
-		if IsNotFound(err) {
-			return nil, nil
-		}
-
-		return nil, err
-	}
-	rootOid := rootTreeInfo.Oid.String()
-
 	treeObj, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:%s", revision, path)))
 	if err != nil {
 		if IsNotFound(err) {
@@ -171,7 +161,7 @@ func TreeEntries(
 		return nil, nil
 	}
 
-	entries, err := extractEntryInfoFromTreeData(objectHash, treeObj, revision, rootOid, path, treeObj.Oid.String())
+	entries, err := extractEntryInfoFromTreeData(objectHash, treeObj, revision, path, treeObj.Oid.String())
 	if err != nil {
 		return nil, err
 	}
