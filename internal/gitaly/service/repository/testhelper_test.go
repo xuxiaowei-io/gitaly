@@ -44,14 +44,6 @@ func newRepositoryClient(tb testing.TB, cfg config.Cfg, serverSocketPath string)
 	return gitalypb.NewRepositoryServiceClient(conn)
 }
 
-func newObjectPoolClient(tb testing.TB, cfg config.Cfg, serverSocketPath string) gitalypb.ObjectPoolServiceClient {
-	conn, err := gclient.Dial(serverSocketPath, nil)
-	require.NoError(tb, err)
-	tb.Cleanup(func() { require.NoError(tb, conn.Close()) })
-
-	return gitalypb.NewObjectPoolServiceClient(conn)
-}
-
 func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg, serverSocketPath string, handshaker internalclient.Handshaker) gitalypb.RepositoryServiceClient {
 	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),

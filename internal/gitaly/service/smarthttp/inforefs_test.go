@@ -12,16 +12,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -302,36 +297,16 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-
-	pool, err := objectpool.Create(
-		ctx,
-		config.NewLocator(cfg),
-		gittest.NewCommandFactory(t, cfg),
-		nil,
-		txManager,
-		housekeeping.NewManager(cfg.Prometheus, txManager),
-		&gitalypb.ObjectPool{
-			Repository: &gitalypb.Repository{
-				StorageName:  repo.GetStorageName(),
-				RelativePath: gittest.NewObjectPoolName(t),
-			},
-		},
-		repo,
-	)
-	require.NoError(t, err)
-	poolPath := gittest.RepositoryPath(t, pool)
-
+	_, poolPath := gittest.CreateObjectPool(t, ctx, cfg, repoProto, gittest.CreateObjectPoolConfig{
+		LinkRepositoryToObjectPool: true,
+	})
 	commitID := gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch(t.Name()))
 
-	require.NoError(t, pool.Link(ctx, repo))
-
-	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repoProto}
-
-	response, err := makeInfoRefsReceivePackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsReceivePackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.InfoRefsRequest{
+		Repository: repoProto,
+	})
 	require.NoError(t, err)
 	require.NotContains(t, string(response), commitID+" .have")
 }

@@ -47,7 +47,7 @@ func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
 
 	parentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, repo)
 
 	// Create a new commit after having created the object pool. This commit exists only in the
 	// pool member, but not in the pool itself.
@@ -126,7 +126,7 @@ func testFetchIntoObjectPoolTransactional(t *testing.T, ctx context.Context) {
 
 	client := gitalypb.NewObjectPoolServiceClient(conn)
 
-	poolProto, pool, poolPath := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, pool, poolPath := createObjectPool(t, ctx, cfg, repo)
 
 	// Inject transaction information so that FetchInotObjectPool knows to perform
 	// transactional voting.
@@ -230,7 +230,7 @@ func testFetchIntoObjectPoolcollectLogStatistics(t *testing.T, ctx context.Conte
 	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 	client := gitalypb.NewObjectPoolServiceClient(conn)
 
-	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, repo)
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: poolProto,
@@ -254,7 +254,7 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
-	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, repo)
 
 	poolWithDifferentStorage := proto.Clone(poolProto).(*gitalypb.ObjectPool)
 	poolWithDifferentStorage.Repository.StorageName = "some other storage"
@@ -309,7 +309,7 @@ func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg, repo, repoPath, _, client := setup(t, ctx)
-	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, repo)
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
