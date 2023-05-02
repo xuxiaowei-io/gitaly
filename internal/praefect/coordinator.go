@@ -382,6 +382,21 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	} else if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	} else {
+		// We do not support resolving multiple different repositories that reside on
+		// different virtual storages. This kind of makes sense from a technical point of
+		// view as Praefect cannot guarantee to resolve both virtual storages. So for the
+		// time being we accept this restriction and handle it explicitly.
+		//
+		// Note that this is the same condition as in `rewrittenRepositoryMessage()`. This
+		// is done so that we detect such erroneous requests before we try to connect to the
+		// target node, which allows us to return a proper error to the user that indicates
+		// the underlying issue instead of an unrelated symptom.
+		//
+		// This limitation may be lifted in the future.
+		if virtualStorage != additionalRepo.GetStorageName() {
+			return nil, structerr.NewInvalidArgument("resolving additional repository on different storage than target repository is not supported")
+		}
+
 		additionalRepoRelativePath = additionalRepo.GetRelativePath()
 	}
 
@@ -796,19 +811,31 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	// rewrite the target repository
-	targetRepo.StorageName = storage
-	targetRepo.RelativePath = relativePath
-
 	if additionalRepo, err := mi.AdditionalRepo(m); errors.Is(err, protoregistry.ErrTargetRepoMissing) {
 		// Nothing to rewrite in case the additional repository either doesn't exist in the
 		// message or wasn't set by the caller.
 	} else if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	} else {
+		// We do not support resolving multiple different repositories that reside on
+		// different virtual storages. This kind of makes sense from a technical point of
+		// view as Praefect cannot guarantee to resolve both virtual storages. So for the
+		// time being we accept this restriction and handle it explicitly.
+		//
+		// This limitation may be lifted in the future.
+		if targetRepo.GetStorageName() != additionalRepo.GetStorageName() {
+			return nil, structerr.NewInvalidArgument("resolving additional repository on different storage than target repository is not supported")
+		}
+
 		additionalRepo.StorageName = storage
 		additionalRepo.RelativePath = additionalRelativePath
 	}
+
+	// Rewrite the target repository. Note that we only do this after having written the
+	// additional repository so that we can check whether the original storage name of both
+	// repositories match.
+	targetRepo.StorageName = storage
+	targetRepo.RelativePath = relativePath
 
 	return proxy.NewCodec().Marshal(m)
 }
