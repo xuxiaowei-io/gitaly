@@ -65,6 +65,7 @@ func (repo *Repo) MergeTree(
 	}
 
 	flags := []git.Option{
+		git.Flag{Name: "-z"},
 		git.Flag{Name: "--write-tree"},
 	}
 
@@ -110,7 +111,7 @@ func (repo *Repo) MergeTree(
 		return parseMergeTreeError(objectHash, config, stdout.String())
 	}
 
-	oid, err := objectHash.FromHex(text.ChompBytes(stdout.Bytes()))
+	oid, err := objectHash.FromHex(strings.Split(stdout.String(), "\x00")[0])
 	if err != nil {
 		return "", fmt.Errorf("hex to oid: %w", err)
 	}
@@ -124,24 +125,23 @@ func (repo *Repo) MergeTree(
 func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output string) (git.ObjectID, error) {
 	var mergeTreeError MergeTreeError
 
-	lines := strings.SplitN(output, "\n\n", 2)
+	oidAndConflictsBuf, infoMsg, ok := strings.Cut(output, "\x00\x00")
+	if !ok {
+		return "", fmt.Errorf("couldn't parse merge tree output: %s", output)
+	}
 
+	oidAndConflicts := strings.Split(oidAndConflictsBuf, "\x00")
 	// When the output is of unexpected length
-	if len(lines) < 2 {
-		return "", errors.New("error parsing merge tree result")
-	}
-
-	mergeTreeError.InfoMessage = strings.TrimSuffix(lines[1], "\n")
-	oidAndConflicts := strings.Split(lines[0], "\n")
-
 	if len(oidAndConflicts) < 2 {
-		return "", &mergeTreeError
+		return "", errors.New("couldn't split oid and file info")
 	}
 
-	oid, err := objectHash.FromHex(text.ChompBytes([]byte(oidAndConflicts[0])))
+	oid, err := objectHash.FromHex(oidAndConflicts[0])
 	if err != nil {
 		return "", fmt.Errorf("hex to oid: %w", err)
 	}
+
+	mergeTreeError.InfoMessage = strings.TrimSuffix(infoMsg, "\x00")
 
 	mergeTreeError.ConflictingFileInfo = make([]ConflictingFileInfo, len(oidAndConflicts[1:]))
 
