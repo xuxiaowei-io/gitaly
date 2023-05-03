@@ -100,7 +100,7 @@ func (repo *Repo) MergeTree(
 
 		if exitCode > 1 {
 			if text.ChompBytes(stderr.Bytes()) == "fatal: refusing to merge unrelated histories" {
-				return "", &MergeTreeError{
+				return "", &MergeTreeConflictError{
 					InfoMessage: "unrelated histories",
 				}
 			}
@@ -122,7 +122,7 @@ func (repo *Repo) MergeTree(
 // a MergeTreeResult struct. The format for the output can be found at
 // https://git-scm.com/docs/git-merge-tree#OUTPUT.
 func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output string) (git.ObjectID, error) {
-	var mergeTreeError MergeTreeError
+	var mergeTreeError MergeTreeConflictError
 
 	lines := strings.SplitN(output, "\n\n", 2)
 
@@ -191,15 +191,15 @@ type ConflictingFileInfo struct {
 	Stage    MergeStage
 }
 
-// MergeTreeError encapsulates any conflicting file info and messages that occur
+// MergeTreeConflictError encapsulates any conflicting file info and messages that occur
 // when a merge-tree(1) command fails.
-type MergeTreeError struct {
+type MergeTreeConflictError struct {
 	ConflictingFileInfo []ConflictingFileInfo
 	InfoMessage         string
 }
 
 // Error returns the error string for a conflict error.
-func (c *MergeTreeError) Error() string {
+func (c *MergeTreeConflictError) Error() string {
 	// TODO: for now, it's better that this error matches the git2go
 	// error but once we deprecate the git2go code path in
 	// merges, we can change this error to print out the conflicting files

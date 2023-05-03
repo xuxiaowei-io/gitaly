@@ -121,7 +121,7 @@ func TestMergeTree(t *testing.T) {
 				return setupData{
 					ours:        ours,
 					theirs:      theirs,
-					expectedErr: &MergeTreeError{InfoMessage: "unrelated histories"},
+					expectedErr: &MergeTreeConflictError{InfoMessage: "unrelated histories"},
 				}
 			},
 		},
@@ -168,7 +168,7 @@ func TestMergeTree(t *testing.T) {
 				return setupData{
 					ours:   ours,
 					theirs: theirs,
-					expectedErr: &MergeTreeError{
+					expectedErr: &MergeTreeConflictError{
 						ConflictingFileInfo: []ConflictingFileInfo{
 							{
 								FileName: "file2",
@@ -233,7 +233,7 @@ func TestMergeTree(t *testing.T) {
 				return setupData{
 					ours:   ours,
 					theirs: theirs,
-					expectedErr: &MergeTreeError{
+					expectedErr: &MergeTreeConflictError{
 						ConflictingFileInfo: []ConflictingFileInfo{
 							{
 								FileName: "file1",
@@ -292,7 +292,7 @@ func TestMergeTree(t *testing.T) {
 				return setupData{
 					ours:   ours,
 					theirs: theirs,
-					expectedErr: &MergeTreeError{
+					expectedErr: &MergeTreeConflictError{
 						ConflictingFileInfo: []ConflictingFileInfo{
 							{
 								FileName: "file2",
@@ -358,7 +358,7 @@ func TestMergeTree(t *testing.T) {
 				return setupData{
 					ours:   ours,
 					theirs: theirs,
-					expectedErr: &MergeTreeError{
+					expectedErr: &MergeTreeConflictError{
 						ConflictingFileInfo: []ConflictingFileInfo{
 							{
 								FileName: "file2",
@@ -435,7 +435,7 @@ func TestMergeTree(t *testing.T) {
 				return setupData{
 					ours:   ours,
 					theirs: theirs,
-					expectedErr: &MergeTreeError{
+					expectedErr: &MergeTreeConflictError{
 						ConflictingFileInfo: []ConflictingFileInfo{
 							{
 								FileName: "file1",
@@ -511,7 +511,7 @@ func TestMergeTree(t *testing.T) {
 				return setupData{
 					ours:   ours,
 					theirs: theirs,
-					expectedErr: &MergeTreeError{
+					expectedErr: &MergeTreeConflictError{
 						ConflictingFileInfo: []ConflictingFileInfo{
 							{
 								FileName: "file1",
