@@ -1,52 +1,45 @@
 package praefect
 
 import (
-	"flag"
 	"fmt"
-	"io"
 
 	"github.com/olekukonko/tablewriter"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 )
 
-const (
-	listStoragesCmdName = "list-storages"
-)
-
-type listStorages struct {
-	virtualStorage string
-	w              io.Writer
+func newListStoragesCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "list-storages",
+		Usage: "show virtual storages and their associated storages",
+		Description: "This command lists virtual storages and their associated storages.\n" +
+			"Passing a virtual-storage argument will print out the storage associated with\n" +
+			"that particular virtual storage.\n",
+		Action: listStoragesAction,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  paramVirtualStorage,
+				Usage: "name of the virtual storage to list storages for",
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
+	}
 }
 
-func newListStorages(w io.Writer) *listStorages {
-	return &listStorages{w: w}
-}
-
-func (cmd *listStorages) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(listStoragesCmdName, flag.ExitOnError)
-	fs.StringVar(
-		&cmd.virtualStorage,
-		paramVirtualStorage,
-		"",
-		"name of the virtual storage to list storages for",
-	)
-	fs.Usage = func() {
-		printfErr("Description:\n" +
-			"	This command lists virtual storages and their associated storages.\n" +
-			"	Passing a virtual-storage argument will print out the storage associated with\n" +
-			"       that particular virtual storage.\n")
-		fs.PrintDefaults()
+func listStoragesAction(ctx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, ctx.String(configFlagName))
+	if err != nil {
+		return err
 	}
 
-	return fs
-}
-
-func (cmd listStorages) Exec(flags *flag.FlagSet, cfg config.Config) error {
-	if flags.NArg() > 0 {
-		return unexpectedPositionalArgsError{Command: flags.Name()}
-	}
-
-	table := tablewriter.NewWriter(cmd.w)
+	table := tablewriter.NewWriter(ctx.App.Writer)
 	table.SetHeader([]string{"VIRTUAL_STORAGE", "NODE", "ADDRESS"})
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoFormatHeaders(false)
@@ -59,9 +52,9 @@ func (cmd listStorages) Exec(flags *flag.FlagSet, cfg config.Config) error {
 	table.SetTablePadding("\t") // pad with tabs
 	table.SetNoWhiteSpace(true)
 
-	if cmd.virtualStorage != "" {
-		for _, virtualStorage := range cfg.VirtualStorages {
-			if virtualStorage.Name != cmd.virtualStorage {
+	if pickedVirtualStorage := ctx.String(paramVirtualStorage); pickedVirtualStorage != "" {
+		for _, virtualStorage := range conf.VirtualStorages {
+			if virtualStorage.Name != pickedVirtualStorage {
 				continue
 			}
 
@@ -74,12 +67,12 @@ func (cmd listStorages) Exec(flags *flag.FlagSet, cfg config.Config) error {
 			return nil
 		}
 
-		fmt.Fprintf(cmd.w, "No virtual storages named %s.\n", cmd.virtualStorage)
+		fmt.Fprintf(ctx.App.Writer, "No virtual storages named %s.\n", pickedVirtualStorage)
 
 		return nil
 	}
 
-	for _, virtualStorage := range cfg.VirtualStorages {
+	for _, virtualStorage := range conf.VirtualStorages {
 		for _, node := range virtualStorage.Nodes {
 			table.Append([]string{virtualStorage.Name, node.Storage, node.Address})
 		}
