@@ -4,14 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
@@ -25,6 +26,82 @@ const (
 	paramApply              = "apply"
 	paramDBOnly             = "db-only"
 )
+
+func newRemoveRepositoryCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "remove-repository",
+		Usage: "removes repository from the Gitaly cluster",
+		Description: "This command removes all state associated with a given repository from the Gitaly Cluster.\n" +
+			"This includes both on-disk repositories on all relevant Gitaly nodes as well as any potential\n" +
+			"database state as tracked by Praefect, or optionally only database state.\n" +
+			"Runs in dry-run mode by default checks whether the repository exists" +
+			"without actually removing it from the database and disk.\n" +
+			"When -apply is used, the repository will be removed from the database as well as\n" +
+			"the individual gitaly nodes on which they exist.\n" +
+			"When -apply and -db-only are used, the repository will be removed from the\n" +
+			"database but left in-place on the gitaly nodes.",
+		HideHelpCommand: true,
+		Action:          removeRepositoryAction,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     paramVirtualStorage,
+				Usage:    "name of the repository's virtual storage",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     paramRelativePath,
+				Usage:    "relative path to the repository",
+				Required: true,
+			},
+			&cli.BoolFlag{
+				Name:  paramApply,
+				Usage: "physically remove the repository from disk and the database",
+			},
+			&cli.BoolFlag{
+				Name:  paramDBOnly,
+				Usage: "remove the repository records from the database only",
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
+	}
+}
+
+func removeRepositoryAction(appCtx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	if err != nil {
+		return err
+	}
+
+	ctx := appCtx.Context
+	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	db, err := glsql.OpenDB(openDBCtx, conf.DB)
+	if err != nil {
+		return fmt.Errorf("connect to database: %w", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	ctx = correlation.ContextWithCorrelation(ctx, correlation.SafeRandomID())
+
+	rmRepo := &removeRepository{
+		logger:         logger.WithField("correlation_id", correlation.ExtractFromContext(ctx)),
+		virtualStorage: appCtx.String(paramVirtualStorage),
+		relativePath:   appCtx.String(paramRelativePath),
+		apply:          appCtx.Bool(paramApply),
+		dbOnly:         appCtx.Bool(paramDBOnly),
+		dialTimeout:    defaultDialTimeout,
+		w:              &writer{w: appCtx.App.Writer},
+	}
+
+	return rmRepo.exec(ctx, logger, db, conf)
+}
 
 type writer struct {
 	m sync.Mutex
@@ -45,57 +122,6 @@ type removeRepository struct {
 	dbOnly         bool
 	dialTimeout    time.Duration
 	w              io.Writer
-}
-
-func newRemoveRepository(logger logrus.FieldLogger, w io.Writer) *removeRepository {
-	return &removeRepository{logger: logger, w: &writer{w: w}, dialTimeout: defaultDialTimeout}
-}
-
-func (cmd *removeRepository) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(removeRepositoryCmdName, flag.ExitOnError)
-	fs.StringVar(&cmd.virtualStorage, paramVirtualStorage, "", "name of the repository's virtual storage")
-	fs.BoolVar(&cmd.apply, paramApply, false, "physically remove the repository from disk and the database")
-	fs.BoolVar(&cmd.dbOnly, paramDBOnly, false, "remove the repository records from the database only")
-	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "relative path to the repository")
-	fs.Usage = func() {
-		printfErr("Description:\n" +
-			"	This command removes all state associated with a given repository from the Gitaly Cluster.\n" +
-			"	This includes both on-disk repositories on all relevant Gitaly nodes as well as any potential\n" +
-			"	database state as tracked by Praefect, or optionally only database state.\n" +
-			"	Runs in dry-run mode by default checks whether the repository exists" +
-			"	without actually removing it from the database and disk.\n" +
-			"	When -apply is used, the repository will be removed from the database as well as\n" +
-			"	the individual gitaly nodes on which they exist.\n" +
-			"   When -apply and -db-only are used, the repository will be removed from the\n" +
-			"   database but left in-place on the gitaly nodes.")
-		fs.PrintDefaults()
-	}
-	return fs
-}
-
-func (cmd removeRepository) Exec(flags *flag.FlagSet, cfg config.Config) error {
-	switch {
-	case flags.NArg() > 0:
-		return unexpectedPositionalArgsError{Command: flags.Name()}
-	case cmd.virtualStorage == "":
-		return requiredParameterError(paramVirtualStorage)
-	case cmd.relativePath == "":
-		return requiredParameterError(paramRelativePath)
-	}
-	ctx := context.Background()
-
-	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	db, err := glsql.OpenDB(openDBCtx, cfg.DB)
-	if err != nil {
-		return fmt.Errorf("connect to database: %w", err)
-	}
-	defer func() { _ = db.Close() }()
-
-	ctx = correlation.ContextWithCorrelation(ctx, correlation.SafeRandomID())
-	logger := cmd.logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
-
-	return cmd.exec(ctx, logger, db, cfg)
 }
 
 func (cmd *removeRepository) exec(ctx context.Context, logger logrus.FieldLogger, db *sql.DB, cfg config.Config) error {
