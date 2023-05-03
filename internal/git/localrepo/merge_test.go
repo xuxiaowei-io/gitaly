@@ -95,10 +95,8 @@ func TestMergeTree(t *testing.T) {
 			},
 		},
 		{
-			desc: "no shared ancestors",
-			expectedErr: &MergeTreeError{
-				InfoMessage: "unrelated histories",
-			},
+			desc:        "no shared ancestors",
+			expectedErr: &MergeTreeError{},
 			setupFunc: func(t *testing.T, ctx context.Context, repoPath string) (git.ObjectID, git.ObjectID, []gittest.TreeEntry) {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
@@ -138,7 +136,6 @@ func TestMergeTree(t *testing.T) {
 						Stage:    0,
 					},
 				},
-				InfoMessage: "1\x00file2\x00Auto-merging\x00Auto-merging file2\n\x001\x00file2\x00CONFLICT (contents)\x00CONFLICT (add/add): Merge conflict in file2\n",
 			},
 			setupFunc: func(t *testing.T, ctx context.Context, repoPath string) (git.ObjectID, git.ObjectID, []gittest.TreeEntry) {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
@@ -321,7 +318,18 @@ func TestParseResult(t *testing.T) {
 						Stage:    MergeStageTheirs,
 					},
 				},
-				InfoMessage: "1\x00a\x00Auto-merging\x00Auto-merging a\n\x001\x00a\x00CONFLICT (contents)\x00CONFLICT (content): Merge conflict in a\n",
+				ConflictInfoMessage: []ConflictInfoMessage{
+					{
+						Paths:   []string{"a"},
+						Type:    "Auto-merging",
+						Message: "Auto-merging a\n",
+					},
+					{
+						Paths:   []string{"a"},
+						Type:    "CONFLICT (contents)",
+						Message: "CONFLICT (content): Merge conflict in a\n",
+					},
+				},
 			},
 		},
 		{
@@ -361,7 +369,6 @@ func TestParseResult(t *testing.T) {
 						Stage:    MergeStageTheirs,
 					},
 				},
-				InfoMessage: "1\x00a\x00Auto-merging\x00Auto-merging a\n\x001\x00a\x00CONFLICT (contents)\x00CONFLICT (content): Merge conflict in a\n",
 			},
 		},
 		{
@@ -399,7 +406,6 @@ func TestParseResult(t *testing.T) {
 						Stage:    MergeStageTheirs,
 					},
 				},
-				InfoMessage: "3\x00a\x00c\x00d\x00CONFLICT (rename/rename)\x00CONFLICT (rename/rename): a renamed to c in @ and to d in master.\n",
 			},
 		},
 		{
@@ -459,7 +465,6 @@ func TestParseResult(t *testing.T) {
 						Stage:    MergeStageTheirs,
 					},
 				},
-				InfoMessage: "1\x00a\x00Auto-merging\x00Auto-merging a\n\x001\x00a\x00CONFLICT (contents)\x00CONFLICT (content): Merge conflict in a\n\x001\x00b\x00Auto-merging\x00Auto-merging b\n\x001\x00b\x00CONFLICT (contents)\x00CONFLICT (content): Merge conflict in b\n",
 			},
 		},
 		{
@@ -509,7 +514,6 @@ func TestParseResult(t *testing.T) {
 						Stage:    MergeStageTheirs,
 					},
 				},
-				InfoMessage: "1\x00a\x00CONFLICT (modify/delete)\x00CONFLICT (modify/delete): a deleted in @ and modified in master.  Version master of a left in tree.\n\x001\x00b\x00Auto-merging\x00Auto-merging b\n\x001\x00b\x00CONFLICT (contents)\x00CONFLICT (content): Merge conflict in b\n",
 			},
 		},
 		{

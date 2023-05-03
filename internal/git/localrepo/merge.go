@@ -101,9 +101,7 @@ func (repo *Repo) MergeTree(
 
 		if exitCode > 1 {
 			if text.ChompBytes(stderr.Bytes()) == "fatal: refusing to merge unrelated histories" {
-				return "", &MergeTreeError{
-					InfoMessage: "unrelated histories",
-				}
+				return "", &MergeTreeError{}
 			}
 			return "", fmt.Errorf("merge-tree: %w", err)
 		}
@@ -140,8 +138,6 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 	if err != nil {
 		return "", fmt.Errorf("hex to oid: %w", err)
 	}
-
-	mergeTreeError.InfoMessage = strings.TrimSuffix(infoMsg, "\x00")
 
 	mergeTreeError.ConflictingFileInfo = make([]ConflictingFileInfo, len(oidAndConflicts[1:]))
 
@@ -181,6 +177,31 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 		}
 	}
 
+	fields := strings.Split(infoMsg, "\x00")
+	// The git output contains a null characted at the end, which creates a stray empty field.
+	fields = fields[:len(fields)-1]
+
+	for i := 0; i < len(fields); {
+		c := ConflictInfoMessage{}
+
+		numOfPaths, err := strconv.Atoi(fields[i])
+		if err != nil {
+			return "", fmt.Errorf("converting stage to int: %w", err)
+		}
+
+		if i+numOfPaths+2 > len(fields) {
+			return "", fmt.Errorf("incorrect number of fields: %s", infoMsg)
+		}
+
+		c.Paths = fields[i+1 : i+numOfPaths+1]
+		c.Type = fields[i+numOfPaths+1]
+		c.Message = fields[i+numOfPaths+2]
+
+		mergeTreeError.ConflictInfoMessage = append(mergeTreeError.ConflictInfoMessage, c)
+
+		i = i + numOfPaths + 3
+	}
+
 	return oid, &mergeTreeError
 }
 
@@ -191,11 +212,17 @@ type ConflictingFileInfo struct {
 	Stage    MergeStage
 }
 
+type ConflictInfoMessage struct {
+	Paths   []string
+	Type    string
+	Message string
+}
+
 // MergeTreeError encapsulates any conflicting file info and messages that occur
 // when a merge-tree(1) command fails.
 type MergeTreeError struct {
 	ConflictingFileInfo []ConflictingFileInfo
-	InfoMessage         string
+	ConflictInfoMessage []ConflictInfoMessage
 }
 
 // Error returns the error string for a conflict error.
