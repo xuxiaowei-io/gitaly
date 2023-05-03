@@ -7,6 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	promconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -59,11 +60,11 @@ func TestNewPerRPCPromMonitor(t *testing.T) {
 		requestsDroppedMetric,
 	)
 
-	ctx := testhelper.Context(t)
+	ctx := InitLimitStats(testhelper.Context(t))
 
-	rpcMonitor.Queued(ctx)
+	rpcMonitor.Queued(ctx, fullMethod, 5)
 	rpcMonitor.Enter(ctx, time.Second)
-	rpcMonitor.Dropped(ctx, "load")
+	rpcMonitor.Dropped(ctx, fullMethod, 5, "load")
 
 	expectedMetrics := `# HELP acquiring_seconds seconds to acquire
 # TYPE acquiring_seconds histogram
@@ -100,19 +101,28 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 		"dropped",
 		"acquiring_seconds",
 	))
+
+	stats := limitStatsFromContext(ctx)
+	require.NotNil(t, stats)
+	require.Equal(t, logrus.Fields{
+		"limit.limiting_key":             fullMethod,
+		"limit.concurrency_queue_ms":     int64(1000),
+		"limit.concurrency_queue_length": 5,
+		"limit.concurrency_dropped":      "load",
+	}, stats.Fields())
 }
 
 func TestNewPackObjectsConcurrencyMonitor(t *testing.T) {
-	ctx := testhelper.Context(t)
+	ctx := InitLimitStats(testhelper.Context(t))
 
 	m := NewPackObjectsConcurrencyMonitor(
 		"user",
 		promconfig.DefaultConfig().GRPCLatencyBuckets,
 	)
 
-	m.Queued(ctx)
+	m.Queued(ctx, "1234", 5)
 	m.Enter(ctx, time.Second)
-	m.Dropped(ctx, "load")
+	m.Dropped(ctx, "1234", 5, "load")
 
 	expectedMetrics := `# HELP gitaly_pack_objects_acquiring_seconds Histogram of time calls are rate limited (in seconds)
 # TYPE gitaly_pack_objects_acquiring_seconds histogram
@@ -146,4 +156,13 @@ gitaly_pack_objects_queued{type="user"} 1
 		"gitaly_pack_objects_queued",
 		"gitaly_pack_objects_dropped_total",
 	))
+
+	stats := limitStatsFromContext(ctx)
+	require.NotNil(t, stats)
+	require.Equal(t, logrus.Fields{
+		"limit.limiting_key":             "1234",
+		"limit.concurrency_queue_ms":     int64(1000),
+		"limit.concurrency_queue_length": 5,
+		"limit.concurrency_dropped":      "load",
+	}, stats.Fields())
 }

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -43,7 +42,7 @@ type keyedConcurrencyLimiter struct {
 
 // acquire tries to acquire the semaphore. It may fail if the admission queue is full or if the max
 // queue-time ticker ticks before acquiring a concurrency token.
-func (sem *keyedConcurrencyLimiter) acquire(ctx context.Context) (returnedErr error) {
+func (sem *keyedConcurrencyLimiter) acquire(ctx context.Context, limitingKey string) (returnedErr error) {
 	if sem.queueTokens != nil {
 		// Try to acquire the queueing token. The queueing token is used to control how many
 		// callers may wait for the concurrency token at the same time. If there are no more
@@ -68,16 +67,16 @@ func (sem *keyedConcurrencyLimiter) acquire(ctx context.Context) (returnedErr er
 				}
 			}()
 		default:
-			sem.monitor.Dropped(ctx, "max_size")
+			sem.monitor.Dropped(ctx, limitingKey, len(sem.queueTokens), "max_size")
 			return ErrMaxQueueSize
 		}
 	}
 
 	// We are queued now, so let's tell the monitor. Furthermore, even though we're still
 	// holding the queueing token when this function exits successfully we also tell the monitor
-	// that we have exited the queue. It is only an implemenation detail anyway that we hold on
+	// that we have exited the queue. It is only an implementation detail anyway that we hold on
 	// to the token, so the monitor shouldn't care about that.
-	sem.monitor.Queued(ctx)
+	sem.monitor.Queued(ctx, limitingKey, len(sem.queueTokens))
 	defer sem.monitor.Dequeued(ctx)
 
 	// Set up the ticker that keeps us from waiting indefinitely on the concurrency token.
@@ -96,9 +95,10 @@ func (sem *keyedConcurrencyLimiter) acquire(ctx context.Context) (returnedErr er
 	case sem.concurrencyTokens <- struct{}{}:
 		return nil
 	case <-ticker.C():
-		sem.monitor.Dropped(ctx, "max_time")
+		sem.monitor.Dropped(ctx, limitingKey, len(sem.queueTokens), "max_time")
 		return ErrMaxQueueTime
 	case <-ctx.Done():
+		sem.monitor.Dropped(ctx, limitingKey, len(sem.queueTokens), "other")
 		return ctx.Err()
 	}
 }
@@ -176,7 +176,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, limitingKey string, f Li
 
 	start := time.Now()
 
-	if err := sem.acquire(ctx); err != nil {
+	if err := sem.acquire(ctx, limitingKey); err != nil {
 		switch err {
 		case ErrMaxQueueSize:
 			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueSize).WithDetail(&gitalypb.LimitError{
@@ -189,8 +189,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, limitingKey string, f Li
 				RetryAfter:   durationpb.New(0),
 			})
 		default:
-			ctxlogrus.Extract(ctx).WithField("limiting_key", limitingKey).WithError(err).Error("unexpected error when dequeueing request")
-			return nil, err
+			return nil, fmt.Errorf("unexpected error when dequeueing request: %w", err)
 		}
 	}
 	defer sem.release()

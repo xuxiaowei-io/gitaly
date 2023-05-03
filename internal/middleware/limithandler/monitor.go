@@ -5,28 +5,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const acquireDurationLogThreshold = 10 * time.Millisecond
-
 // ConcurrencyMonitor allows the concurrency monitor to be observed
 type ConcurrencyMonitor interface {
-	Queued(ctx context.Context)
+	Queued(ctx context.Context, key string, length int)
 	Dequeued(ctx context.Context)
 	Enter(ctx context.Context, acquireTime time.Duration)
 	Exit(ctx context.Context)
-	Dropped(ctx context.Context, message string)
+	Dropped(ctx context.Context, key string, length int, message string)
 }
 
 type noopConcurrencyMonitor struct{}
 
-func (c *noopConcurrencyMonitor) Queued(ctx context.Context)                           {}
-func (c *noopConcurrencyMonitor) Dequeued(ctx context.Context)                         {}
-func (c *noopConcurrencyMonitor) Enter(ctx context.Context, acquireTime time.Duration) {}
-func (c *noopConcurrencyMonitor) Exit(ctx context.Context)                             {}
-func (c *noopConcurrencyMonitor) Dropped(ctx context.Context, reason string)           {}
+func (c *noopConcurrencyMonitor) Queued(context.Context, string, int)          {}
+func (c *noopConcurrencyMonitor) Dequeued(context.Context)                     {}
+func (c *noopConcurrencyMonitor) Enter(context.Context, time.Duration)         {}
+func (c *noopConcurrencyMonitor) Exit(context.Context)                         {}
+func (c *noopConcurrencyMonitor) Dropped(context.Context, string, int, string) {}
 
 // NewNoopConcurrencyMonitor returns a noopConcurrencyMonitor
 func NewNoopConcurrencyMonitor() ConcurrencyMonitor {
@@ -69,7 +66,11 @@ func newPerRPCPromMonitor(
 }
 
 // Queued is called when a request has been queued
-func (p *PromMonitor) Queued(ctx context.Context) {
+func (p *PromMonitor) Queued(ctx context.Context, key string, queueLength int) {
+	if stats := limitStatsFromContext(ctx); stats != nil {
+		stats.SetLimitingKey(key)
+		stats.SetConcurrencyQueueLength(queueLength)
+	}
 	p.queuedMetric.Inc()
 }
 
@@ -81,12 +82,6 @@ func (p *PromMonitor) Dequeued(ctx context.Context) {
 // Enter is called when a request begins to be processed
 func (p *PromMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
 	p.inProgressMetric.Inc()
-
-	if acquireTime > acquireDurationLogThreshold {
-		logger := ctxlogrus.Extract(ctx)
-		logger.WithField("acquire_ms", acquireTime.Seconds()*1000).Info("Rate limit acquire wait")
-	}
-
 	p.acquiringSecondsMetric.Observe(acquireTime.Seconds())
 
 	if stats := limitStatsFromContext(ctx); stats != nil {
@@ -100,7 +95,12 @@ func (p *PromMonitor) Exit(ctx context.Context) {
 }
 
 // Dropped is called when a request is dropped.
-func (p *PromMonitor) Dropped(ctx context.Context, reason string) {
+func (p *PromMonitor) Dropped(ctx context.Context, key string, length int, reason string) {
+	if stats := limitStatsFromContext(ctx); stats != nil {
+		stats.SetLimitingKey(key)
+		stats.SetConcurrencyQueueLength(length)
+		stats.SetConcurrencyDroppedReason(reason)
+	}
 	p.requestsDroppedMetric.WithLabelValues(reason).Inc()
 }
 
