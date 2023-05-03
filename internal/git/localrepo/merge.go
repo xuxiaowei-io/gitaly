@@ -27,6 +27,11 @@ const (
 	MergeStageTheirs = MergeStage(3)
 )
 
+// ErrMergeTreeUnrelatedHistory is used to denote the error when trying to merge two
+// trees without unrelated history. This occurs when we don't use set the
+// `allowUnrelatedHistories` option in the config.
+var ErrMergeTreeUnrelatedHistory = errors.New("unrelated histories")
+
 type mergeTreeConfig struct {
 	allowUnrelatedHistories  bool
 	conflictingFileNamesOnly bool
@@ -100,9 +105,7 @@ func (repo *Repo) MergeTree(
 
 		if exitCode > 1 {
 			if text.ChompBytes(stderr.Bytes()) == "fatal: refusing to merge unrelated histories" {
-				return "", &MergeTreeConflictError{
-					InfoMessage: "unrelated histories",
-				}
+				return "", ErrMergeTreeUnrelatedHistory
 			}
 			return "", fmt.Errorf("merge-tree: %w", err)
 		}

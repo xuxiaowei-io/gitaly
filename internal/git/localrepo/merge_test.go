@@ -121,7 +121,7 @@ func TestMergeTree(t *testing.T) {
 				return setupData{
 					ours:        ours,
 					theirs:      theirs,
-					expectedErr: &MergeTreeConflictError{InfoMessage: "unrelated histories"},
+					expectedErr: ErrMergeTreeUnrelatedHistory,
 				}
 			},
 		},
