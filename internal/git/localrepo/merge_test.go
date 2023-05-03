@@ -15,21 +15,28 @@ import (
 )
 
 func TestMergeTree(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	type setupData struct {
-		ours                git.ObjectID
-		theirs              git.ObjectID
+		ours   git.ObjectID
+		theirs git.ObjectID
+
 		expectedTreeEntries []gittest.TreeEntry
 		expectedErr         error
 	}
 
 	testCases := []struct {
-		desc  string
-		setup func(t *testing.T, ctx context.Context, repoPath string) setupData
+		desc             string
+		mergeTreeOptions []MergeTreeOption
+		setup            func(t *testing.T, ctx context.Context, repoPath string) setupData
 	}{
 		{
 			desc: "normal merge",
+			mergeTreeOptions: []MergeTreeOption{
+				WithConflictingFileNamesOnly(),
+			},
 			setup: func(t *testing.T, ctx context.Context, repoPath string) setupData {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
@@ -105,6 +112,9 @@ func TestMergeTree(t *testing.T) {
 		},
 		{
 			desc: "no shared ancestors",
+			mergeTreeOptions: []MergeTreeOption{
+				WithConflictingFileNamesOnly(),
+			},
 			setup: func(t *testing.T, ctx context.Context, repoPath string) setupData {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
@@ -140,6 +150,9 @@ func TestMergeTree(t *testing.T) {
 		},
 		{
 			desc: "with conflicts",
+			mergeTreeOptions: []MergeTreeOption{
+				WithConflictingFileNamesOnly(),
+			},
 			setup: func(t *testing.T, ctx context.Context, repoPath string) setupData {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
@@ -204,10 +217,64 @@ func TestMergeTree(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "allow unrelated histories",
+			mergeTreeOptions: []MergeTreeOption{
+				WithConflictingFileNamesOnly(),
+				WithAllowUnrelatedHistories(),
+			},
+			setup: func(t *testing.T, ctx context.Context, repoPath string) setupData {
+				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode:    "100644",
+						Path:    "file1",
+						Content: "foo",
+					},
+				})
+				tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode:    "100644",
+						Path:    "file2",
+						Content: "baz",
+					},
+				})
+				ours := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTree(tree1),
+					gittest.WithAuthorName("Woody"),
+					gittest.WithCommitterName("Woody"),
+				)
+				theirs := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTree(tree2),
+					gittest.WithAuthorName("Buzz"),
+					gittest.WithCommitterName("Buzz"),
+				)
+
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedTreeEntries: []gittest.TreeEntry{
+						{
+							Mode:    "100644",
+							Path:    "file1",
+							Content: "foo",
+						},
+						{
+							Mode:    "100644",
+							Path:    "file2",
+							Content: "baz",
+						},
+					},
+				}
+			},
+		},
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := testhelper.Context(t)
 
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -217,7 +284,7 @@ func TestMergeTree(t *testing.T) {
 
 			data := tc.setup(t, ctx, repoPath)
 
-			mergeTreeResult, err := repo.MergeTree(ctx, string(data.ours), string(data.theirs), WithConflictingFileNamesOnly())
+			mergeTreeResult, err := repo.MergeTree(ctx, string(data.ours), string(data.theirs), tc.mergeTreeOptions...)
 
 			require.Equal(t, data.expectedErr, err)
 			if data.expectedErr == nil {
@@ -231,67 +298,6 @@ func TestMergeTree(t *testing.T) {
 			}
 		})
 	}
-
-	t.Run("allow unrelated histories", func(t *testing.T) {
-		ctx := testhelper.Context(t)
-
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-		})
-		repo := NewTestRepo(t, cfg, repoProto)
-
-		tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-			{
-				Mode:    "100644",
-				Path:    "file1",
-				Content: "foo",
-			},
-		})
-		tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-			{
-				Mode:    "100644",
-				Path:    "file2",
-				Content: "baz",
-			},
-		})
-		ours := gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithTree(tree1),
-			gittest.WithAuthorName("Woody"),
-			gittest.WithCommitterName("Woody"),
-		)
-		theirs := gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithTree(tree2),
-			gittest.WithAuthorName("Buzz"),
-			gittest.WithCommitterName("Buzz"),
-		)
-
-		mergeTreeResult, err := repo.MergeTree(
-			ctx,
-			string(ours),
-			string(theirs),
-			WithAllowUnrelatedHistories(),
-		)
-		require.NoError(t, err)
-
-		gittest.RequireTree(
-			t,
-			cfg,
-			repoPath,
-			string(mergeTreeResult),
-			[]gittest.TreeEntry{
-				{
-					Mode:    "100644",
-					Path:    "file1",
-					Content: "foo",
-				},
-				{
-					Mode:    "100644",
-					Path:    "file2",
-					Content: "baz",
-				},
-			},
-		)
-	})
 }
 
 func TestParseResult(t *testing.T) {
