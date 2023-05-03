@@ -126,10 +126,7 @@ func TestMergeTree(t *testing.T) {
 			},
 		},
 		{
-			desc: "with conflicts",
-			mergeTreeOptions: []MergeTreeOption{
-				WithConflictingFileNamesOnly(),
-			},
+			desc: "with single file conflict",
 			setup: func(t *testing.T, repoPath string) setupData {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
@@ -139,6 +136,7 @@ func TestMergeTree(t *testing.T) {
 					},
 				})
 				baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("baz"))
 				tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
 						Mode:    "100644",
@@ -146,11 +144,12 @@ func TestMergeTree(t *testing.T) {
 						Content: "foo",
 					},
 					{
-						Mode:    "100644",
-						Path:    "file2",
-						Content: "baz",
+						OID:  blob1,
+						Mode: "100644",
+						Path: "file2",
 					},
 				})
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("bar"))
 				tree3 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
 						Mode:    "100644",
@@ -158,9 +157,9 @@ func TestMergeTree(t *testing.T) {
 						Content: "foo",
 					},
 					{
-						Mode:    "100644",
-						Path:    "file2",
-						Content: "bar",
+						OID:  blob2,
+						Mode: "100644",
+						Path: "file2",
 					},
 				})
 				ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree2), gittest.WithParents(baseCommit))
@@ -173,6 +172,13 @@ func TestMergeTree(t *testing.T) {
 						ConflictingFileInfo: []ConflictingFileInfo{
 							{
 								FileName: "file2",
+								OID:      blob1,
+								Stage:    MergeStageOurs,
+							},
+							{
+								FileName: "file2",
+								OID:      blob2,
+								Stage:    MergeStageTheirs,
 							},
 						},
 						InfoMessage: "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
@@ -262,32 +268,6 @@ func TestParseResult(t *testing.T) {
 		oid         git.ObjectID
 		expectedErr error
 	}{
-		{
-			desc: "single file conflict",
-			output: fmt.Sprintf(`%s
-100644 %s 2%sfile
-100644 %s 3%sfile
-
-Auto-merging file
-CONFLICT (content): Merge conflict in file
-`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t", gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
-			oid: gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: &MergeTreeError{
-				ConflictingFileInfo: []ConflictingFileInfo{
-					{
-						FileName: "file",
-						OID:      gittest.DefaultObjectHash.EmptyTreeOID,
-						Stage:    MergeStageOurs,
-					},
-					{
-						FileName: "file",
-						OID:      gittest.DefaultObjectHash.EmptyTreeOID,
-						Stage:    MergeStageTheirs,
-					},
-				},
-				InfoMessage: "Auto-merging file\nCONFLICT (content): Merge conflict in file",
-			},
-		},
 		{
 			desc: "multiple files conflict",
 			output: fmt.Sprintf(`%s
