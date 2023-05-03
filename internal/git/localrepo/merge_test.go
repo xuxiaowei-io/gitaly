@@ -17,14 +17,20 @@ import (
 func TestMergeTree(t *testing.T) {
 	cfg := testcfg.Build(t)
 
+	type setupData struct {
+		ours                git.ObjectID
+		theirs              git.ObjectID
+		expectedTreeEntries []gittest.TreeEntry
+		expectedErr         error
+	}
+
 	testCases := []struct {
-		desc        string
-		expectedErr error
-		setupFunc   func(t *testing.T, ctx context.Context, repoPath string) (ours, theirs git.ObjectID, expectedTreeEntries []gittest.TreeEntry)
+		desc  string
+		setup func(t *testing.T, ctx context.Context, repoPath string) setupData
 	}{
 		{
 			desc: "normal merge",
-			setupFunc: func(t *testing.T, ctx context.Context, repoPath string) (git.ObjectID, git.ObjectID, []gittest.TreeEntry) {
+			setup: func(t *testing.T, ctx context.Context, repoPath string) setupData {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
 						Mode:    "100644",
@@ -74,31 +80,32 @@ func TestMergeTree(t *testing.T) {
 					gittest.WithCommitterName("Buzz"),
 				)
 
-				return ours, theirs, []gittest.TreeEntry{
-					{
-						Mode:    "100644",
-						Path:    "file1",
-						Content: "foo",
-					},
-					{
-						Mode:    "100644",
-						Path:    "file2",
-						Content: "baz",
-					},
-					{
-						Mode:    "100644",
-						Path:    "file3",
-						Content: "bar",
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedTreeEntries: []gittest.TreeEntry{
+						{
+							Mode:    "100644",
+							Path:    "file1",
+							Content: "foo",
+						},
+						{
+							Mode:    "100644",
+							Path:    "file2",
+							Content: "baz",
+						},
+						{
+							Mode:    "100644",
+							Path:    "file3",
+							Content: "bar",
+						},
 					},
 				}
 			},
 		},
 		{
 			desc: "no shared ancestors",
-			expectedErr: &MergeTreeError{
-				InfoMessage: "unrelated histories",
-			},
-			setupFunc: func(t *testing.T, ctx context.Context, repoPath string) (git.ObjectID, git.ObjectID, []gittest.TreeEntry) {
+			setup: func(t *testing.T, ctx context.Context, repoPath string) setupData {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
 						Mode:    "100644",
@@ -124,22 +131,16 @@ func TestMergeTree(t *testing.T) {
 					gittest.WithCommitterName("Buzz"),
 				)
 
-				return ours, theirs, nil
+				return setupData{
+					ours:        ours,
+					theirs:      theirs,
+					expectedErr: &MergeTreeError{InfoMessage: "unrelated histories"},
+				}
 			},
 		},
 		{
 			desc: "with conflicts",
-			expectedErr: &MergeTreeError{
-				ConflictingFileInfo: []ConflictingFileInfo{
-					{
-						FileName: "file2",
-						OID:      "",
-						Stage:    0,
-					},
-				},
-				InfoMessage: "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
-			},
-			setupFunc: func(t *testing.T, ctx context.Context, repoPath string) (git.ObjectID, git.ObjectID, []gittest.TreeEntry) {
+			setup: func(t *testing.T, ctx context.Context, repoPath string) setupData {
 				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
 						Mode:    "100644",
@@ -189,7 +190,18 @@ func TestMergeTree(t *testing.T) {
 					gittest.WithCommitterName("Buzz"),
 				)
 
-				return ours, theirs, nil
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedErr: &MergeTreeError{
+						ConflictingFileInfo: []ConflictingFileInfo{
+							{
+								FileName: "file2",
+							},
+						},
+						InfoMessage: "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
+					},
+				}
 			},
 		},
 	}
@@ -203,18 +215,18 @@ func TestMergeTree(t *testing.T) {
 			})
 			repo := NewTestRepo(t, cfg, repoProto)
 
-			ours, theirs, treeEntries := tc.setupFunc(t, ctx, repoPath)
+			data := tc.setup(t, ctx, repoPath)
 
-			mergeTreeResult, err := repo.MergeTree(ctx, string(ours), string(theirs), WithConflictingFileNamesOnly())
+			mergeTreeResult, err := repo.MergeTree(ctx, string(data.ours), string(data.theirs), WithConflictingFileNamesOnly())
 
-			require.Equal(t, tc.expectedErr, err)
-			if tc.expectedErr == nil {
+			require.Equal(t, data.expectedErr, err)
+			if data.expectedErr == nil {
 				gittest.RequireTree(
 					t,
 					cfg,
 					repoPath,
 					string(mergeTreeResult),
-					treeEntries,
+					data.expectedTreeEntries,
 				)
 			}
 		})
