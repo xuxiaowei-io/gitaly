@@ -118,6 +118,10 @@ No changes.
 
 - [Simplify streamcache.Cache for efficient null implementation](gitlab-org/gitaly@de53fe2f5c773a059b599674ccaf459b5daf4b49) ([merge request](gitlab-org/gitaly!5444))
 
+## 15.9.7 (2023-05-03)
+
+No changes.
+
 ## 15.9.6 (2023-05-01)
 
 No changes.
