@@ -187,6 +187,359 @@ func TestMergeTree(t *testing.T) {
 			},
 		},
 		{
+			desc: "with single file conflict with ancestor",
+			setup: func(t *testing.T, repoPath string) setupData {
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("foo"))
+				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob1,
+						Mode: "100644",
+						Path: "file1",
+					},
+				})
+				baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
+
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("baz"))
+				tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob2,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						Mode:    "100644",
+						Path:    "file2",
+						Content: "goo",
+					},
+				})
+
+				blob3 := gittest.WriteBlob(t, cfg, repoPath, []byte("bar"))
+				tree3 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob3,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						Mode:    "100644",
+						Path:    "file2",
+						Content: "goo",
+					},
+				})
+
+				ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree2), gittest.WithParents(baseCommit))
+				theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree3), gittest.WithParents(baseCommit))
+
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedErr: &MergeTreeError{
+						ConflictingFileInfo: []ConflictingFileInfo{
+							{
+								FileName: "file1",
+								OID:      blob1,
+								Stage:    MergeStageAncestor,
+							},
+							{
+								FileName: "file1",
+								OID:      blob2,
+								Stage:    MergeStageOurs,
+							},
+							{
+								FileName: "file1",
+								OID:      blob3,
+								Stage:    MergeStageTheirs,
+							},
+						},
+						InfoMessage: "Auto-merging file1\nCONFLICT (content): Merge conflict in file1",
+					},
+				}
+			},
+		},
+		{
+			desc: "with single file conflict due to rename",
+			setup: func(t *testing.T, repoPath string) setupData {
+				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode:    "100644",
+						Path:    "file1",
+						Content: "foo",
+					},
+				})
+				baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
+
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("foo"))
+				tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob2,
+						Mode: "100644",
+						Path: "file2",
+					},
+				})
+
+				blob3 := gittest.WriteBlob(t, cfg, repoPath, []byte("bar"))
+				tree3 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob3,
+						Mode: "100644",
+						Path: "file3",
+					},
+				})
+
+				ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree2), gittest.WithParents(baseCommit))
+				theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree3), gittest.WithParents(baseCommit))
+
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedErr: &MergeTreeError{
+						ConflictingFileInfo: []ConflictingFileInfo{
+							{
+								FileName: "file2",
+								OID:      blob2,
+								Stage:    MergeStageAncestor,
+							},
+							{
+								FileName: "file2",
+								OID:      blob2,
+								Stage:    MergeStageOurs,
+							},
+						},
+						InfoMessage: fmt.Sprintf("CONFLICT (rename/delete): file1 renamed to file2 in %s, but deleted in %s.", ours, theirs),
+					},
+				}
+			},
+		},
+		{
+			desc: "with multiple file conflicts",
+			setup: func(t *testing.T, repoPath string) setupData {
+				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						Mode:    "100644",
+						Path:    "file1",
+						Content: "foo",
+					},
+				})
+				baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
+
+				blob2a := gittest.WriteBlob(t, cfg, repoPath, []byte("baz"))
+				blob2b := gittest.WriteBlob(t, cfg, repoPath, []byte("xyz"))
+				tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob2a,
+						Mode: "100644",
+						Path: "file2",
+					},
+					{
+						OID:  blob2b,
+						Mode: "100644",
+						Path: "file3",
+					},
+				})
+
+				blob3a := gittest.WriteBlob(t, cfg, repoPath, []byte("bar"))
+				blob3b := gittest.WriteBlob(t, cfg, repoPath, []byte("mno"))
+				tree3 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob3a,
+						Mode: "100644",
+						Path: "file2",
+					},
+					{
+						OID:  blob3b,
+						Mode: "100644",
+						Path: "file3",
+					},
+				})
+
+				ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree2), gittest.WithParents(baseCommit))
+				theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree3), gittest.WithParents(baseCommit))
+
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedErr: &MergeTreeError{
+						ConflictingFileInfo: []ConflictingFileInfo{
+							{
+								FileName: "file2",
+								OID:      blob2a,
+								Stage:    MergeStageOurs,
+							},
+							{
+								FileName: "file2",
+								OID:      blob3a,
+								Stage:    MergeStageTheirs,
+							},
+							{
+								FileName: "file3",
+								OID:      blob2b,
+								Stage:    MergeStageOurs,
+							},
+							{
+								FileName: "file3",
+								OID:      blob3b,
+								Stage:    MergeStageTheirs,
+							},
+						},
+						InfoMessage: "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2\nAuto-merging file3\nCONFLICT (add/add): Merge conflict in file3",
+					},
+				}
+			},
+		},
+		{
+			desc: "with multiple file conflicts and common ancestor",
+			setup: func(t *testing.T, repoPath string) setupData {
+				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("foo"))
+				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+				})
+				baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
+
+				blob2a := gittest.WriteBlob(t, cfg, repoPath, []byte("baz"))
+				blob2b := gittest.WriteBlob(t, cfg, repoPath, []byte("xyz"))
+				tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob2a,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  blob2b,
+						Mode: "100644",
+						Path: "file2",
+					},
+				})
+
+				blob3a := gittest.WriteBlob(t, cfg, repoPath, []byte("bar"))
+				blob3b := gittest.WriteBlob(t, cfg, repoPath, []byte("mno"))
+				tree3 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob3a,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  blob3b,
+						Mode: "100644",
+						Path: "file2",
+					},
+				})
+
+				ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree2), gittest.WithParents(baseCommit))
+				theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree3), gittest.WithParents(baseCommit))
+
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedErr: &MergeTreeError{
+						ConflictingFileInfo: []ConflictingFileInfo{
+							{
+								FileName: "file1",
+								OID:      blob,
+								Stage:    MergeStageAncestor,
+							},
+							{
+								FileName: "file1",
+								OID:      blob2a,
+								Stage:    MergeStageOurs,
+							},
+							{
+								FileName: "file1",
+								OID:      blob3a,
+								Stage:    MergeStageTheirs,
+							},
+							{
+								FileName: "file2",
+								OID:      blob2b,
+								Stage:    MergeStageOurs,
+							},
+							{
+								FileName: "file2",
+								OID:      blob3b,
+								Stage:    MergeStageTheirs,
+							},
+						},
+						InfoMessage: "Auto-merging file1\nCONFLICT (content): Merge conflict in file1\nAuto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
+					},
+				}
+			},
+		},
+		{
+			desc: "with multiple file conflicts due to file deletion",
+			setup: func(t *testing.T, repoPath string) setupData {
+				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("foo"))
+				tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+				})
+				baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
+
+				blob2b := gittest.WriteBlob(t, cfg, repoPath, []byte("xyz"))
+				tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob2b,
+						Mode: "100644",
+						Path: "file2",
+					},
+				})
+
+				blob3a := gittest.WriteBlob(t, cfg, repoPath, []byte("bar"))
+				blob3b := gittest.WriteBlob(t, cfg, repoPath, []byte("mno"))
+				tree3 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{
+						OID:  blob3a,
+						Mode: "100644",
+						Path: "file1",
+					},
+					{
+						OID:  blob3b,
+						Mode: "100644",
+						Path: "file2",
+					},
+				})
+
+				ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree2), gittest.WithParents(baseCommit))
+				theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree3), gittest.WithParents(baseCommit))
+
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedErr: &MergeTreeError{
+						ConflictingFileInfo: []ConflictingFileInfo{
+							{
+								FileName: "file1",
+								OID:      blob,
+								Stage:    MergeStageAncestor,
+							},
+							{
+								FileName: "file1",
+								OID:      blob3a,
+								Stage:    MergeStageTheirs,
+							},
+							{
+								FileName: "file2",
+								OID:      blob2b,
+								Stage:    MergeStageOurs,
+							},
+							{
+								FileName: "file2",
+								OID:      blob3b,
+								Stage:    MergeStageTheirs,
+							},
+						},
+						InfoMessage: fmt.Sprintf("CONFLICT (modify/delete): file1 deleted in %s and modified in %s.  Version %s of file1 left in tree.\nAuto-merging file2\nCONFLICT (add/add): Merge conflict in file2", ours, theirs, theirs),
+					},
+				}
+			},
+		},
+		{
 			desc: "allow unrelated histories",
 			mergeTreeOptions: []MergeTreeOption{
 				WithConflictingFileNamesOnly(),
@@ -268,32 +621,6 @@ func TestParseResult(t *testing.T) {
 		oid         git.ObjectID
 		expectedErr error
 	}{
-		{
-			desc: "multiple files conflict",
-			output: fmt.Sprintf(`%s
-100644 %s 2%sfile1
-100644 %s 3%sfile2
-
-Auto-merging file
-CONFLICT (content): Merge conflict in file1
-`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t", gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
-			oid: gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: &MergeTreeError{
-				ConflictingFileInfo: []ConflictingFileInfo{
-					{
-						FileName: "file1",
-						OID:      gittest.DefaultObjectHash.EmptyTreeOID,
-						Stage:    MergeStageOurs,
-					},
-					{
-						FileName: "file2",
-						OID:      gittest.DefaultObjectHash.EmptyTreeOID,
-						Stage:    MergeStageTheirs,
-					},
-				},
-				InfoMessage: "Auto-merging file\nCONFLICT (content): Merge conflict in file1",
-			},
-		},
 		{
 			desc: "no tab in conflicting file info",
 			output: fmt.Sprintf(`%s
