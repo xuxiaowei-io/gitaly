@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -181,7 +182,18 @@ func TestMergeTree(t *testing.T) {
 								Stage:    MergeStageTheirs,
 							},
 						},
-						InfoMessage: "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
+						ConflictInfoMessage: []ConflictInfoMessage{
+							{
+								Paths:   []string{"file2"},
+								Type:    "Auto-merging",
+								Message: "Auto-merging file2\n",
+							},
+							{
+								Paths:   []string{"file2"},
+								Type:    "CONFLICT (contents)",
+								Message: "CONFLICT (add/add): Merge conflict in file2\n",
+							},
+						},
 					},
 				}
 			},
@@ -251,7 +263,18 @@ func TestMergeTree(t *testing.T) {
 								Stage:    MergeStageTheirs,
 							},
 						},
-						InfoMessage: "Auto-merging file1\nCONFLICT (content): Merge conflict in file1",
+						ConflictInfoMessage: []ConflictInfoMessage{
+							{
+								Paths:   []string{"file1"},
+								Type:    "Auto-merging",
+								Message: "Auto-merging file1\n",
+							},
+							{
+								Paths:   []string{"file1"},
+								Type:    "CONFLICT (contents)",
+								Message: "CONFLICT (content): Merge conflict in file1\n",
+							},
+						},
 					},
 				}
 			},
@@ -305,7 +328,13 @@ func TestMergeTree(t *testing.T) {
 								Stage:    MergeStageOurs,
 							},
 						},
-						InfoMessage: fmt.Sprintf("CONFLICT (rename/delete): file1 renamed to file2 in %s, but deleted in %s.", ours, theirs),
+						ConflictInfoMessage: []ConflictInfoMessage{
+							{
+								Paths:   []string{"file2", "file1"},
+								Type:    "CONFLICT (rename/delete)",
+								Message: fmt.Sprintf("CONFLICT (rename/delete): file1 renamed to file2 in %s, but deleted in %s.\n", ours, theirs),
+							},
+						},
 					},
 				}
 			},
@@ -381,7 +410,28 @@ func TestMergeTree(t *testing.T) {
 								Stage:    MergeStageTheirs,
 							},
 						},
-						InfoMessage: "Auto-merging file2\nCONFLICT (add/add): Merge conflict in file2\nAuto-merging file3\nCONFLICT (add/add): Merge conflict in file3",
+						ConflictInfoMessage: []ConflictInfoMessage{
+							{
+								Paths:   []string{"file2"},
+								Type:    "Auto-merging",
+								Message: "Auto-merging file2\n",
+							},
+							{
+								Paths:   []string{"file2"},
+								Type:    "CONFLICT (contents)",
+								Message: "CONFLICT (add/add): Merge conflict in file2\n",
+							},
+							{
+								Paths:   []string{"file3"},
+								Type:    "Auto-merging",
+								Message: "Auto-merging file3\n",
+							},
+							{
+								Paths:   []string{"file3"},
+								Type:    "CONFLICT (contents)",
+								Message: "CONFLICT (add/add): Merge conflict in file3\n",
+							},
+						},
 					},
 				}
 			},
@@ -463,7 +513,28 @@ func TestMergeTree(t *testing.T) {
 								Stage:    MergeStageTheirs,
 							},
 						},
-						InfoMessage: "Auto-merging file1\nCONFLICT (content): Merge conflict in file1\nAuto-merging file2\nCONFLICT (add/add): Merge conflict in file2",
+						ConflictInfoMessage: []ConflictInfoMessage{
+							{
+								Paths:   []string{"file1"},
+								Type:    "Auto-merging",
+								Message: "Auto-merging file1\n",
+							},
+							{
+								Paths:   []string{"file1"},
+								Type:    "CONFLICT (contents)",
+								Message: "CONFLICT (content): Merge conflict in file1\n",
+							},
+							{
+								Paths:   []string{"file2"},
+								Type:    "Auto-merging",
+								Message: "Auto-merging file2\n",
+							},
+							{
+								Paths:   []string{"file2"},
+								Type:    "CONFLICT (contents)",
+								Message: "CONFLICT (add/add): Merge conflict in file2\n",
+							},
+						},
 					},
 				}
 			},
@@ -534,7 +605,23 @@ func TestMergeTree(t *testing.T) {
 								Stage:    MergeStageTheirs,
 							},
 						},
-						InfoMessage: fmt.Sprintf("CONFLICT (modify/delete): file1 deleted in %s and modified in %s.  Version %s of file1 left in tree.\nAuto-merging file2\nCONFLICT (add/add): Merge conflict in file2", ours, theirs, theirs),
+						ConflictInfoMessage: []ConflictInfoMessage{
+							{
+								Paths:   []string{"file1"},
+								Type:    "CONFLICT (modify/delete)",
+								Message: fmt.Sprintf("CONFLICT (modify/delete): file1 deleted in %s and modified in %s.  Version %s of file1 left in tree.\n", ours, theirs, theirs),
+							},
+							{
+								Paths:   []string{"file2"},
+								Type:    "Auto-merging",
+								Message: "Auto-merging file2\n",
+							},
+							{
+								Paths:   []string{"file2"},
+								Type:    "CONFLICT (contents)",
+								Message: "CONFLICT (add/add): Merge conflict in file2\n",
+							},
+						},
 					},
 				}
 			},
@@ -623,49 +710,73 @@ func TestParseResult(t *testing.T) {
 	}{
 		{
 			desc: "no tab in conflicting file info",
-			output: fmt.Sprintf(`%s
-100644 %s 2 file1
-
-Auto-merging file
-CONFLICT (content): Merge conflict in file1
-`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID),
+			output: strings.Join([]string{
+				gittest.DefaultObjectHash.EmptyTreeOID.String(),
+				fmt.Sprintf("100644 %s 1a", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 3\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				"",
+				"1",
+				"a",
+				"Auto-merging",
+				"Auto-merging a\n",
+				"",
+			}, "\x00"),
 			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: fmt.Errorf("parsing conflicting file info: 100644 %s 2 file1", gittest.DefaultObjectHash.EmptyTreeOID),
+			expectedErr: fmt.Errorf("parsing conflicting file info: 100644 %s 1a", gittest.DefaultObjectHash.EmptyTreeOID),
 		},
 		{
 			desc: "incorrect number of fields in conflicting file info",
-			output: fmt.Sprintf(`%s
-%s 2%sfile1
-
-Auto-merging file
-CONFLICT (content): Merge conflict in file1
-`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			output: strings.Join([]string{
+				gittest.DefaultObjectHash.EmptyTreeOID.String(),
+				fmt.Sprintf("100644 %s 1\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("%s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 3\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				"",
+				"1",
+				"a",
+				"Auto-merging",
+				"Auto-merging a\n",
+				"",
+			}, "\x00"),
 			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: fmt.Errorf("parsing conflicting file info: %s 2\tfile1", gittest.DefaultObjectHash.EmptyTreeOID),
+			expectedErr: fmt.Errorf("parsing conflicting file info: %s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
 		},
 		{
 			desc: "invalid OID in conflicting file info",
-			output: fmt.Sprintf(`%s
-100644 23 2%sfile1
-
-Auto-merging file
-CONFLICT (content): Merge conflict in file1
-`, gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			output: strings.Join([]string{
+				gittest.DefaultObjectHash.EmptyTreeOID.String(),
+				fmt.Sprintf("100644 %s 1\ta", "$$$"),
+				fmt.Sprintf("100644 %s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 3\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				"",
+				"1",
+				"a",
+				"Auto-merging",
+				"Auto-merging a\n",
+				"",
+			}, "\x00"),
 			oid: gittest.DefaultObjectHash.EmptyTreeOID,
 			expectedErr: fmt.Errorf("hex to oid: %w", git.InvalidObjectIDLengthError{
-				OID:           "23",
+				OID:           "$$$",
 				CorrectLength: gittest.DefaultObjectHash.EncodedLen(),
-				Length:        2,
+				Length:        3,
 			}),
 		},
 		{
 			desc: "invalid stage type in conflicting file info",
-			output: fmt.Sprintf(`%s
-100644 %s foo%sfile1
-
-Auto-merging file
-CONFLICT (content): Merge conflict in file1
-`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			output: strings.Join([]string{
+				gittest.DefaultObjectHash.EmptyTreeOID.String(),
+				fmt.Sprintf("100644 %s foo\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 3\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				"",
+				"1",
+				"a",
+				"Auto-merging",
+				"Auto-merging a\n",
+				"",
+			}, "\x00"),
 			oid: gittest.DefaultObjectHash.EmptyTreeOID,
 			expectedErr: fmt.Errorf("converting stage to int: %w", &strconv.NumError{
 				Func: "Atoi",
@@ -675,12 +786,18 @@ CONFLICT (content): Merge conflict in file1
 		},
 		{
 			desc: "invalid stage value in conflicting file info",
-			output: fmt.Sprintf(`%s
-100644 %s 5%sfile1
-
-Auto-merging file
-CONFLICT (content): Merge conflict in file1
-`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID, "\t"),
+			output: strings.Join([]string{
+				gittest.DefaultObjectHash.EmptyTreeOID.String(),
+				fmt.Sprintf("100644 %s 5\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 3\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				"",
+				"1",
+				"a",
+				"Auto-merging",
+				"Auto-merging a\n",
+				"",
+			}, "\x00"),
 			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
 			expectedErr: fmt.Errorf("invalid value for stage: 5"),
 		},
