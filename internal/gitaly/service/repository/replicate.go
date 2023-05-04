@@ -77,23 +77,31 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 
 	outgoingCtx := metadata.IncomingToOutgoing(ctx)
 
-	if err := s.syncGitconfig(outgoingCtx, in); err != nil {
-		return nil, structerr.NewInternal("synchronizing gitconfig: %w", err)
-	}
-
-	if err := s.syncInfoAttributes(outgoingCtx, in); err != nil {
-		return nil, structerr.NewInternal("synchronizing gitattributes: %w", err)
-	}
-
-	if err := s.syncRepository(outgoingCtx, in); err != nil {
-		return nil, structerr.NewInternal("synchronizing repository: %w", err)
-	}
-
-	if err := s.syncCustomHooks(ctx, in); err != nil {
-		return nil, structerr.NewInternal("synchronizing custom hooks: %w", err)
+	if err := s.replicateRepository(outgoingCtx, in.GetSource(), in.GetRepository()); err != nil {
+		return nil, structerr.NewInternal("replicating repository: %w", err)
 	}
 
 	return &gitalypb.ReplicateRepositoryResponse{}, nil
+}
+
+func (s *server) replicateRepository(ctx context.Context, source, target *gitalypb.Repository) error {
+	if err := s.syncGitconfig(ctx, source, target); err != nil {
+		return fmt.Errorf("synchronizing gitconfig: %w", err)
+	}
+
+	if err := s.syncInfoAttributes(ctx, source, target); err != nil {
+		return fmt.Errorf("synchronizing gitattributes: %w", err)
+	}
+
+	if err := s.syncRepository(ctx, source, target); err != nil {
+		return fmt.Errorf("synchronizing repository: %w", err)
+	}
+
+	if err := s.syncCustomHooks(ctx, source, target); err != nil {
+		return fmt.Errorf("synchronizing custom hooks: %w", err)
+	}
+
+	return nil
 }
 
 func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error {
@@ -203,10 +211,10 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	return nil
 }
 
-func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	repo := s.localrepo(in.GetRepository())
+func (s *server) syncRepository(ctx context.Context, source, target *gitalypb.Repository) error {
+	repo := s.localrepo(target)
 
-	if err := fetchInternalRemote(ctx, s.txManager, s.conns, repo, in.GetSource()); err != nil {
+	if err := fetchInternalRemote(ctx, s.txManager, s.conns, repo, source); err != nil {
 		return fmt.Errorf("fetch internal remote: %w", err)
 	}
 
@@ -265,14 +273,14 @@ func fetchInternalRemote(
 }
 
 // syncCustomHooks replicates custom hooks from a source to a target.
-func (s *server) syncCustomHooks(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
+func (s *server) syncCustomHooks(ctx context.Context, source, target *gitalypb.Repository) error {
+	repoClient, err := s.newRepoClient(ctx, source.GetStorageName())
 	if err != nil {
 		return fmt.Errorf("creating repo client: %w", err)
 	}
 
 	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{
-		Repository: in.GetSource(),
+		Repository: source,
 	})
 	if err != nil {
 		return fmt.Errorf("getting custom hooks: %w", err)
@@ -283,26 +291,26 @@ func (s *server) syncCustomHooks(ctx context.Context, in *gitalypb.ReplicateRepo
 		return request.GetData(), err
 	})
 
-	if err := repoutil.SetCustomHooks(ctx, s.locator, s.txManager, reader, in.GetRepository()); err != nil {
+	if err := repoutil.SetCustomHooks(ctx, s.locator, s.txManager, reader, target); err != nil {
 		return fmt.Errorf("setting custom hooks: %w", err)
 	}
 
 	return nil
 }
 
-func (s *server) syncGitconfig(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
+func (s *server) syncGitconfig(ctx context.Context, source, target *gitalypb.Repository) error {
+	repoClient, err := s.newRepoClient(ctx, source.GetStorageName())
 	if err != nil {
 		return err
 	}
 
-	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	repoPath, err := s.locator.GetRepoPath(target)
 	if err != nil {
 		return err
 	}
 
 	stream, err := repoClient.GetConfig(ctx, &gitalypb.GetConfigRequest{
-		Repository: in.GetSource(),
+		Repository: source,
 	})
 	if err != nil {
 		return err
@@ -319,19 +327,19 @@ func (s *server) syncGitconfig(ctx context.Context, in *gitalypb.ReplicateReposi
 	return nil
 }
 
-func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
+func (s *server) syncInfoAttributes(ctx context.Context, source, target *gitalypb.Repository) error {
+	repoClient, err := s.newRepoClient(ctx, source.GetStorageName())
 	if err != nil {
 		return err
 	}
 
-	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	repoPath, err := s.locator.GetRepoPath(target)
 	if err != nil {
 		return err
 	}
 
 	stream, err := repoClient.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{
-		Repository: in.GetSource(),
+		Repository: source,
 	})
 	if err != nil {
 		return err
