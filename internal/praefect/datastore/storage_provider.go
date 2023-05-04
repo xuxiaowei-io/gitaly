@@ -24,12 +24,18 @@ type ConsistentStoragesGetter interface {
 // errNotExistingVirtualStorage indicates that the requested virtual storage can't be found or not configured.
 var errNotExistingVirtualStorage = errors.New("virtual storage does not exist")
 
+type cachedReplicaInfo struct {
+	replicaPath string
+	storages    *datastructure.Set[string]
+}
+
 // CachingConsistentStoragesGetter is a ConsistentStoragesGetter that caches up to date storages by repository.
 // Each virtual storage has it's own cache that invalidates entries based on notifications.
 type CachingConsistentStoragesGetter struct {
 	csg ConsistentStoragesGetter
-	// caches is per virtual storage cache. It is initialized once on construction.
-	caches map[string]*lru.Cache[string, cacheValue]
+	// caches is per virtual storage cache. The caches themselves contain information about
+	// replicas keyed by their respective relative paths.
+	caches map[string]*lru.Cache[string, cachedReplicaInfo]
 	// access is access method to use: 0 - without caching; 1 - with caching.
 	access int32
 	// syncer allows to sync retrieval operations to omit unnecessary runs.
@@ -43,7 +49,7 @@ type CachingConsistentStoragesGetter struct {
 func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
 	cached := &CachingConsistentStoragesGetter{
 		csg:            csg,
-		caches:         make(map[string]*lru.Cache[string, cacheValue], len(virtualStorages)),
+		caches:         make(map[string]*lru.Cache[string, cachedReplicaInfo], len(virtualStorages)),
 		syncer:         syncer{inflight: map[string]chan struct{}{}},
 		callbackLogger: logger.WithField("component", "caching_storage_provider"),
 		cacheAccessTotal: prometheus.NewCounterVec(
@@ -57,7 +63,7 @@ func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg Consisten
 
 	for _, virtualStorage := range virtualStorages {
 		virtualStorage := virtualStorage
-		cache, err := lru.NewWithEvict(2<<20, func(key string, value cacheValue) {
+		cache, err := lru.NewWithEvict(2<<20, func(key string, value cachedReplicaInfo) {
 			cached.cacheAccessTotal.WithLabelValues(virtualStorage, "evict").Inc()
 		})
 		if err != nil {
@@ -134,12 +140,12 @@ func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtual
 	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
 
-func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache[string, cacheValue], cacheValue, bool) {
+func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache[string, cachedReplicaInfo], cachedReplicaInfo, bool) {
 	populateDone := func() {} // should be called AFTER any cache population is done
 
 	cache, found := c.caches[virtualStorage]
 	if !found {
-		return populateDone, nil, cacheValue{}, false
+		return populateDone, nil, cachedReplicaInfo{}, false
 	}
 
 	if storages, found := cache.Get(relativePath); found {
@@ -153,7 +159,7 @@ func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath 
 		return populateDone, cache, storages, true
 	}
 
-	return populateDone, cache, cacheValue{}, false
+	return populateDone, cache, cachedReplicaInfo{}, false
 }
 
 func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
@@ -162,32 +168,27 @@ func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
 
 // GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
 func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
-	var cache *lru.Cache[string, cacheValue]
+	var cache *lru.Cache[string, cachedReplicaInfo]
 
 	if c.isCacheEnabled() {
-		var value cacheValue
+		var info cachedReplicaInfo
 		var ok bool
 		var populationDone func()
 
-		populationDone, cache, value, ok = c.tryCache(virtualStorage, relativePath)
+		populationDone, cache, info, ok = c.tryCache(virtualStorage, relativePath)
 		defer populationDone()
 		if ok {
 			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
-			return value.replicaPath, value.storages, nil
+			return info.replicaPath, info.storages, nil
 		}
 	}
 
 	replicaPath, storages, err := c.cacheMiss(ctx, virtualStorage, relativePath)
 	if err == nil && cache != nil {
-		cache.Add(relativePath, cacheValue{replicaPath: replicaPath, storages: storages})
+		cache.Add(relativePath, cachedReplicaInfo{replicaPath: replicaPath, storages: storages})
 		c.cacheAccessTotal.WithLabelValues(virtualStorage, "populate").Inc()
 	}
 	return replicaPath, storages, err
-}
-
-type cacheValue struct {
-	replicaPath string
-	storages    *datastructure.Set[string]
 }
 
 // syncer allows to sync access to a particular key.
