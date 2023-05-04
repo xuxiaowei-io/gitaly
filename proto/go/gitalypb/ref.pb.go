@@ -71,7 +71,7 @@ func (x FindLocalBranchesRequest_SortBy) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FindLocalBranchesRequest_SortBy.Descriptor instead.
 func (FindLocalBranchesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{6, 0}
+	return file_ref_proto_rawDescGZIP(), []int{2, 0}
 }
 
 // Key is a key used for sorting.
@@ -127,7 +127,7 @@ func (x FindAllTagsRequest_SortBy_Key) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FindAllTagsRequest_SortBy_Key.Descriptor instead.
 func (FindAllTagsRequest_SortBy_Key) EnumDescriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{15, 0, 0}
+	return file_ref_proto_rawDescGZIP(), []int{11, 0, 0}
 }
 
 // This comment is left unintentionally blank.
@@ -184,7 +184,7 @@ func (x CreateBranchResponse_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CreateBranchResponse_Status.Descriptor instead.
 func (CreateBranchResponse_Status) EnumDescriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{20, 0}
+	return file_ref_proto_rawDescGZIP(), []int{16, 0}
 }
 
 // This comment is left unintentionally blank.
@@ -241,7 +241,7 @@ func (x ListRefsRequest_SortBy_Key) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ListRefsRequest_SortBy_Key.Descriptor instead.
 func (ListRefsRequest_SortBy_Key) EnumDescriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{38, 0, 0}
+	return file_ref_proto_rawDescGZIP(), []int{34, 0, 0}
 }
 
 // This comment is left unintentionally blank.
@@ -343,202 +343,6 @@ func (x *FindDefaultBranchNameResponse) GetName() []byte {
 }
 
 // This comment is left unintentionally blank.
-type FindAllBranchNamesRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	// This comment is left unintentionally blank.
-	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-}
-
-func (x *FindAllBranchNamesRequest) Reset() {
-	*x = FindAllBranchNamesRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[2]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *FindAllBranchNamesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FindAllBranchNamesRequest) ProtoMessage() {}
-
-func (x *FindAllBranchNamesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[2]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FindAllBranchNamesRequest.ProtoReflect.Descriptor instead.
-func (*FindAllBranchNamesRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *FindAllBranchNamesRequest) GetRepository() *Repository {
-	if x != nil {
-		return x.Repository
-	}
-	return nil
-}
-
-// This comment is left unintentionally blank.
-type FindAllBranchNamesResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	// This comment is left unintentionally blank.
-	Names [][]byte `protobuf:"bytes,1,rep,name=names,proto3" json:"names,omitempty"`
-}
-
-func (x *FindAllBranchNamesResponse) Reset() {
-	*x = FindAllBranchNamesResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *FindAllBranchNamesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FindAllBranchNamesResponse) ProtoMessage() {}
-
-func (x *FindAllBranchNamesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FindAllBranchNamesResponse.ProtoReflect.Descriptor instead.
-func (*FindAllBranchNamesResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *FindAllBranchNamesResponse) GetNames() [][]byte {
-	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-// This comment is left unintentionally blank.
-type FindAllTagNamesRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	// This comment is left unintentionally blank.
-	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-}
-
-func (x *FindAllTagNamesRequest) Reset() {
-	*x = FindAllTagNamesRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[4]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *FindAllTagNamesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FindAllTagNamesRequest) ProtoMessage() {}
-
-func (x *FindAllTagNamesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[4]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FindAllTagNamesRequest.ProtoReflect.Descriptor instead.
-func (*FindAllTagNamesRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *FindAllTagNamesRequest) GetRepository() *Repository {
-	if x != nil {
-		return x.Repository
-	}
-	return nil
-}
-
-// This comment is left unintentionally blank.
-type FindAllTagNamesResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	// This comment is left unintentionally blank.
-	Names [][]byte `protobuf:"bytes,1,rep,name=names,proto3" json:"names,omitempty"`
-}
-
-func (x *FindAllTagNamesResponse) Reset() {
-	*x = FindAllTagNamesResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[5]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *FindAllTagNamesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FindAllTagNamesResponse) ProtoMessage() {}
-
-func (x *FindAllTagNamesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[5]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FindAllTagNamesResponse.ProtoReflect.Descriptor instead.
-func (*FindAllTagNamesResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *FindAllTagNamesResponse) GetNames() [][]byte {
-	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-// This comment is left unintentionally blank.
 type FindLocalBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -558,7 +362,7 @@ type FindLocalBranchesRequest struct {
 func (x *FindLocalBranchesRequest) Reset() {
 	*x = FindLocalBranchesRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[6]
+		mi := &file_ref_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -571,7 +375,7 @@ func (x *FindLocalBranchesRequest) String() string {
 func (*FindLocalBranchesRequest) ProtoMessage() {}
 
 func (x *FindLocalBranchesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[6]
+	mi := &file_ref_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -584,7 +388,7 @@ func (x *FindLocalBranchesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindLocalBranchesRequest.ProtoReflect.Descriptor instead.
 func (*FindLocalBranchesRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{6}
+	return file_ref_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *FindLocalBranchesRequest) GetRepository() *Repository {
@@ -625,7 +429,7 @@ type FindLocalBranchesResponse struct {
 func (x *FindLocalBranchesResponse) Reset() {
 	*x = FindLocalBranchesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[7]
+		mi := &file_ref_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -638,7 +442,7 @@ func (x *FindLocalBranchesResponse) String() string {
 func (*FindLocalBranchesResponse) ProtoMessage() {}
 
 func (x *FindLocalBranchesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[7]
+	mi := &file_ref_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -651,7 +455,7 @@ func (x *FindLocalBranchesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindLocalBranchesResponse.ProtoReflect.Descriptor instead.
 func (*FindLocalBranchesResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{7}
+	return file_ref_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *FindLocalBranchesResponse) GetBranches() []*FindLocalBranchResponse {
@@ -691,7 +495,7 @@ type FindLocalBranchResponse struct {
 func (x *FindLocalBranchResponse) Reset() {
 	*x = FindLocalBranchResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[8]
+		mi := &file_ref_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -704,7 +508,7 @@ func (x *FindLocalBranchResponse) String() string {
 func (*FindLocalBranchResponse) ProtoMessage() {}
 
 func (x *FindLocalBranchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[8]
+	mi := &file_ref_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -717,7 +521,7 @@ func (x *FindLocalBranchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindLocalBranchResponse.ProtoReflect.Descriptor instead.
 func (*FindLocalBranchResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{8}
+	return file_ref_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *FindLocalBranchResponse) GetName() []byte {
@@ -781,7 +585,7 @@ type FindLocalBranchCommitAuthor struct {
 func (x *FindLocalBranchCommitAuthor) Reset() {
 	*x = FindLocalBranchCommitAuthor{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[9]
+		mi := &file_ref_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -794,7 +598,7 @@ func (x *FindLocalBranchCommitAuthor) String() string {
 func (*FindLocalBranchCommitAuthor) ProtoMessage() {}
 
 func (x *FindLocalBranchCommitAuthor) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[9]
+	mi := &file_ref_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -807,7 +611,7 @@ func (x *FindLocalBranchCommitAuthor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindLocalBranchCommitAuthor.ProtoReflect.Descriptor instead.
 func (*FindLocalBranchCommitAuthor) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{9}
+	return file_ref_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *FindLocalBranchCommitAuthor) GetName() []byte {
@@ -856,7 +660,7 @@ type FindAllBranchesRequest struct {
 func (x *FindAllBranchesRequest) Reset() {
 	*x = FindAllBranchesRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[10]
+		mi := &file_ref_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -869,7 +673,7 @@ func (x *FindAllBranchesRequest) String() string {
 func (*FindAllBranchesRequest) ProtoMessage() {}
 
 func (x *FindAllBranchesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[10]
+	mi := &file_ref_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -882,7 +686,7 @@ func (x *FindAllBranchesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindAllBranchesRequest.ProtoReflect.Descriptor instead.
 func (*FindAllBranchesRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{10}
+	return file_ref_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *FindAllBranchesRequest) GetRepository() *Repository {
@@ -919,7 +723,7 @@ type FindAllBranchesResponse struct {
 func (x *FindAllBranchesResponse) Reset() {
 	*x = FindAllBranchesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[11]
+		mi := &file_ref_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -932,7 +736,7 @@ func (x *FindAllBranchesResponse) String() string {
 func (*FindAllBranchesResponse) ProtoMessage() {}
 
 func (x *FindAllBranchesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[11]
+	mi := &file_ref_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -945,7 +749,7 @@ func (x *FindAllBranchesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindAllBranchesResponse.ProtoReflect.Descriptor instead.
 func (*FindAllBranchesResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{11}
+	return file_ref_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *FindAllBranchesResponse) GetBranches() []*FindAllBranchesResponse_Branch {
@@ -972,7 +776,7 @@ type FindTagRequest struct {
 func (x *FindTagRequest) Reset() {
 	*x = FindTagRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[12]
+		mi := &file_ref_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -985,7 +789,7 @@ func (x *FindTagRequest) String() string {
 func (*FindTagRequest) ProtoMessage() {}
 
 func (x *FindTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[12]
+	mi := &file_ref_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -998,7 +802,7 @@ func (x *FindTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindTagRequest.ProtoReflect.Descriptor instead.
 func (*FindTagRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{12}
+	return file_ref_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *FindTagRequest) GetRepository() *Repository {
@@ -1028,7 +832,7 @@ type FindTagResponse struct {
 func (x *FindTagResponse) Reset() {
 	*x = FindTagResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[13]
+		mi := &file_ref_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1041,7 +845,7 @@ func (x *FindTagResponse) String() string {
 func (*FindTagResponse) ProtoMessage() {}
 
 func (x *FindTagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[13]
+	mi := &file_ref_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1054,7 +858,7 @@ func (x *FindTagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindTagResponse.ProtoReflect.Descriptor instead.
 func (*FindTagResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{13}
+	return file_ref_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FindTagResponse) GetTag() *Tag {
@@ -1080,7 +884,7 @@ type FindTagError struct {
 func (x *FindTagError) Reset() {
 	*x = FindTagError{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[14]
+		mi := &file_ref_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1093,7 +897,7 @@ func (x *FindTagError) String() string {
 func (*FindTagError) ProtoMessage() {}
 
 func (x *FindTagError) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[14]
+	mi := &file_ref_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1106,7 +910,7 @@ func (x *FindTagError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindTagError.ProtoReflect.Descriptor instead.
 func (*FindTagError) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{14}
+	return file_ref_proto_rawDescGZIP(), []int{10}
 }
 
 func (m *FindTagError) GetError() isFindTagError_Error {
@@ -1153,7 +957,7 @@ type FindAllTagsRequest struct {
 func (x *FindAllTagsRequest) Reset() {
 	*x = FindAllTagsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[15]
+		mi := &file_ref_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1166,7 +970,7 @@ func (x *FindAllTagsRequest) String() string {
 func (*FindAllTagsRequest) ProtoMessage() {}
 
 func (x *FindAllTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[15]
+	mi := &file_ref_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1179,7 +983,7 @@ func (x *FindAllTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindAllTagsRequest.ProtoReflect.Descriptor instead.
 func (*FindAllTagsRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{15}
+	return file_ref_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *FindAllTagsRequest) GetRepository() *Repository {
@@ -1216,7 +1020,7 @@ type FindAllTagsResponse struct {
 func (x *FindAllTagsResponse) Reset() {
 	*x = FindAllTagsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[16]
+		mi := &file_ref_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1229,7 +1033,7 @@ func (x *FindAllTagsResponse) String() string {
 func (*FindAllTagsResponse) ProtoMessage() {}
 
 func (x *FindAllTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[16]
+	mi := &file_ref_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1242,7 +1046,7 @@ func (x *FindAllTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindAllTagsResponse.ProtoReflect.Descriptor instead.
 func (*FindAllTagsResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{16}
+	return file_ref_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *FindAllTagsResponse) GetTags() []*Tag {
@@ -1267,7 +1071,7 @@ type RefExistsRequest struct {
 func (x *RefExistsRequest) Reset() {
 	*x = RefExistsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[17]
+		mi := &file_ref_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1280,7 +1084,7 @@ func (x *RefExistsRequest) String() string {
 func (*RefExistsRequest) ProtoMessage() {}
 
 func (x *RefExistsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[17]
+	mi := &file_ref_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1293,7 +1097,7 @@ func (x *RefExistsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefExistsRequest.ProtoReflect.Descriptor instead.
 func (*RefExistsRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{17}
+	return file_ref_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RefExistsRequest) GetRepository() *Repository {
@@ -1323,7 +1127,7 @@ type RefExistsResponse struct {
 func (x *RefExistsResponse) Reset() {
 	*x = RefExistsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[18]
+		mi := &file_ref_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1336,7 +1140,7 @@ func (x *RefExistsResponse) String() string {
 func (*RefExistsResponse) ProtoMessage() {}
 
 func (x *RefExistsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[18]
+	mi := &file_ref_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1349,7 +1153,7 @@ func (x *RefExistsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefExistsResponse.ProtoReflect.Descriptor instead.
 func (*RefExistsResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{18}
+	return file_ref_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RefExistsResponse) GetValue() bool {
@@ -1376,7 +1180,7 @@ type CreateBranchRequest struct {
 func (x *CreateBranchRequest) Reset() {
 	*x = CreateBranchRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[19]
+		mi := &file_ref_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1389,7 +1193,7 @@ func (x *CreateBranchRequest) String() string {
 func (*CreateBranchRequest) ProtoMessage() {}
 
 func (x *CreateBranchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[19]
+	mi := &file_ref_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1402,7 +1206,7 @@ func (x *CreateBranchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBranchRequest.ProtoReflect.Descriptor instead.
 func (*CreateBranchRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{19}
+	return file_ref_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CreateBranchRequest) GetRepository() *Repository {
@@ -1441,7 +1245,7 @@ type CreateBranchResponse struct {
 func (x *CreateBranchResponse) Reset() {
 	*x = CreateBranchResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[20]
+		mi := &file_ref_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1454,7 +1258,7 @@ func (x *CreateBranchResponse) String() string {
 func (*CreateBranchResponse) ProtoMessage() {}
 
 func (x *CreateBranchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[20]
+	mi := &file_ref_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1467,7 +1271,7 @@ func (x *CreateBranchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBranchResponse.ProtoReflect.Descriptor instead.
 func (*CreateBranchResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{20}
+	return file_ref_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CreateBranchResponse) GetStatus() CreateBranchResponse_Status {
@@ -1499,7 +1303,7 @@ type DeleteBranchRequest struct {
 func (x *DeleteBranchRequest) Reset() {
 	*x = DeleteBranchRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[21]
+		mi := &file_ref_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1512,7 +1316,7 @@ func (x *DeleteBranchRequest) String() string {
 func (*DeleteBranchRequest) ProtoMessage() {}
 
 func (x *DeleteBranchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[21]
+	mi := &file_ref_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1525,7 +1329,7 @@ func (x *DeleteBranchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBranchRequest.ProtoReflect.Descriptor instead.
 func (*DeleteBranchRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{21}
+	return file_ref_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DeleteBranchRequest) GetRepository() *Repository {
@@ -1552,7 +1356,7 @@ type DeleteBranchResponse struct {
 func (x *DeleteBranchResponse) Reset() {
 	*x = DeleteBranchResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[22]
+		mi := &file_ref_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1565,7 +1369,7 @@ func (x *DeleteBranchResponse) String() string {
 func (*DeleteBranchResponse) ProtoMessage() {}
 
 func (x *DeleteBranchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[22]
+	mi := &file_ref_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1578,7 +1382,7 @@ func (x *DeleteBranchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBranchResponse.ProtoReflect.Descriptor instead.
 func (*DeleteBranchResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{22}
+	return file_ref_proto_rawDescGZIP(), []int{18}
 }
 
 // This comment is left unintentionally blank.
@@ -1597,7 +1401,7 @@ type FindBranchRequest struct {
 func (x *FindBranchRequest) Reset() {
 	*x = FindBranchRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[23]
+		mi := &file_ref_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1610,7 +1414,7 @@ func (x *FindBranchRequest) String() string {
 func (*FindBranchRequest) ProtoMessage() {}
 
 func (x *FindBranchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[23]
+	mi := &file_ref_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1623,7 +1427,7 @@ func (x *FindBranchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindBranchRequest.ProtoReflect.Descriptor instead.
 func (*FindBranchRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{23}
+	return file_ref_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *FindBranchRequest) GetRepository() *Repository {
@@ -1653,7 +1457,7 @@ type FindBranchResponse struct {
 func (x *FindBranchResponse) Reset() {
 	*x = FindBranchResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[24]
+		mi := &file_ref_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1666,7 +1470,7 @@ func (x *FindBranchResponse) String() string {
 func (*FindBranchResponse) ProtoMessage() {}
 
 func (x *FindBranchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[24]
+	mi := &file_ref_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1679,7 +1483,7 @@ func (x *FindBranchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindBranchResponse.ProtoReflect.Descriptor instead.
 func (*FindBranchResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{24}
+	return file_ref_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *FindBranchResponse) GetBranch() *Branch {
@@ -1706,7 +1510,7 @@ type DeleteRefsRequest struct {
 func (x *DeleteRefsRequest) Reset() {
 	*x = DeleteRefsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[25]
+		mi := &file_ref_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1719,7 +1523,7 @@ func (x *DeleteRefsRequest) String() string {
 func (*DeleteRefsRequest) ProtoMessage() {}
 
 func (x *DeleteRefsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[25]
+	mi := &file_ref_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1732,7 +1536,7 @@ func (x *DeleteRefsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRefsRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRefsRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{25}
+	return file_ref_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DeleteRefsRequest) GetRepository() *Repository {
@@ -1769,7 +1573,7 @@ type DeleteRefsResponse struct {
 func (x *DeleteRefsResponse) Reset() {
 	*x = DeleteRefsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[26]
+		mi := &file_ref_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1782,7 +1586,7 @@ func (x *DeleteRefsResponse) String() string {
 func (*DeleteRefsResponse) ProtoMessage() {}
 
 func (x *DeleteRefsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[26]
+	mi := &file_ref_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1795,7 +1599,7 @@ func (x *DeleteRefsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRefsResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRefsResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{26}
+	return file_ref_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DeleteRefsResponse) GetGitError() string {
@@ -1821,7 +1625,7 @@ type DeleteRefsError struct {
 func (x *DeleteRefsError) Reset() {
 	*x = DeleteRefsError{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[27]
+		mi := &file_ref_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1834,7 +1638,7 @@ func (x *DeleteRefsError) String() string {
 func (*DeleteRefsError) ProtoMessage() {}
 
 func (x *DeleteRefsError) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[27]
+	mi := &file_ref_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1847,7 +1651,7 @@ func (x *DeleteRefsError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRefsError.ProtoReflect.Descriptor instead.
 func (*DeleteRefsError) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{27}
+	return file_ref_proto_rawDescGZIP(), []int{23}
 }
 
 func (m *DeleteRefsError) GetError() isDeleteRefsError_Error {
@@ -1909,7 +1713,7 @@ type ListBranchNamesContainingCommitRequest struct {
 func (x *ListBranchNamesContainingCommitRequest) Reset() {
 	*x = ListBranchNamesContainingCommitRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[28]
+		mi := &file_ref_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1922,7 +1726,7 @@ func (x *ListBranchNamesContainingCommitRequest) String() string {
 func (*ListBranchNamesContainingCommitRequest) ProtoMessage() {}
 
 func (x *ListBranchNamesContainingCommitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[28]
+	mi := &file_ref_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1935,7 +1739,7 @@ func (x *ListBranchNamesContainingCommitRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use ListBranchNamesContainingCommitRequest.ProtoReflect.Descriptor instead.
 func (*ListBranchNamesContainingCommitRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{28}
+	return file_ref_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListBranchNamesContainingCommitRequest) GetRepository() *Repository {
@@ -1972,7 +1776,7 @@ type ListBranchNamesContainingCommitResponse struct {
 func (x *ListBranchNamesContainingCommitResponse) Reset() {
 	*x = ListBranchNamesContainingCommitResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[29]
+		mi := &file_ref_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1985,7 +1789,7 @@ func (x *ListBranchNamesContainingCommitResponse) String() string {
 func (*ListBranchNamesContainingCommitResponse) ProtoMessage() {}
 
 func (x *ListBranchNamesContainingCommitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[29]
+	mi := &file_ref_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1998,7 +1802,7 @@ func (x *ListBranchNamesContainingCommitResponse) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use ListBranchNamesContainingCommitResponse.ProtoReflect.Descriptor instead.
 func (*ListBranchNamesContainingCommitResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{29}
+	return file_ref_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListBranchNamesContainingCommitResponse) GetBranchNames() [][]byte {
@@ -2026,7 +1830,7 @@ type ListTagNamesContainingCommitRequest struct {
 func (x *ListTagNamesContainingCommitRequest) Reset() {
 	*x = ListTagNamesContainingCommitRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[30]
+		mi := &file_ref_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2039,7 +1843,7 @@ func (x *ListTagNamesContainingCommitRequest) String() string {
 func (*ListTagNamesContainingCommitRequest) ProtoMessage() {}
 
 func (x *ListTagNamesContainingCommitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[30]
+	mi := &file_ref_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2052,7 +1856,7 @@ func (x *ListTagNamesContainingCommitRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use ListTagNamesContainingCommitRequest.ProtoReflect.Descriptor instead.
 func (*ListTagNamesContainingCommitRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{30}
+	return file_ref_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListTagNamesContainingCommitRequest) GetRepository() *Repository {
@@ -2089,7 +1893,7 @@ type ListTagNamesContainingCommitResponse struct {
 func (x *ListTagNamesContainingCommitResponse) Reset() {
 	*x = ListTagNamesContainingCommitResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[31]
+		mi := &file_ref_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2102,7 +1906,7 @@ func (x *ListTagNamesContainingCommitResponse) String() string {
 func (*ListTagNamesContainingCommitResponse) ProtoMessage() {}
 
 func (x *ListTagNamesContainingCommitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[31]
+	mi := &file_ref_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2115,7 +1919,7 @@ func (x *ListTagNamesContainingCommitResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use ListTagNamesContainingCommitResponse.ProtoReflect.Descriptor instead.
 func (*ListTagNamesContainingCommitResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{31}
+	return file_ref_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListTagNamesContainingCommitResponse) GetTagNames() [][]byte {
@@ -2142,7 +1946,7 @@ type GetTagSignaturesRequest struct {
 func (x *GetTagSignaturesRequest) Reset() {
 	*x = GetTagSignaturesRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[32]
+		mi := &file_ref_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2155,7 +1959,7 @@ func (x *GetTagSignaturesRequest) String() string {
 func (*GetTagSignaturesRequest) ProtoMessage() {}
 
 func (x *GetTagSignaturesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[32]
+	mi := &file_ref_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2168,7 +1972,7 @@ func (x *GetTagSignaturesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTagSignaturesRequest.ProtoReflect.Descriptor instead.
 func (*GetTagSignaturesRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{32}
+	return file_ref_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetTagSignaturesRequest) GetRepository() *Repository {
@@ -2200,7 +2004,7 @@ type GetTagSignaturesResponse struct {
 func (x *GetTagSignaturesResponse) Reset() {
 	*x = GetTagSignaturesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[33]
+		mi := &file_ref_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2213,7 +2017,7 @@ func (x *GetTagSignaturesResponse) String() string {
 func (*GetTagSignaturesResponse) ProtoMessage() {}
 
 func (x *GetTagSignaturesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[33]
+	mi := &file_ref_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2226,7 +2030,7 @@ func (x *GetTagSignaturesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTagSignaturesResponse.ProtoReflect.Descriptor instead.
 func (*GetTagSignaturesResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{33}
+	return file_ref_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GetTagSignaturesResponse) GetSignatures() []*GetTagSignaturesResponse_TagSignature {
@@ -2251,7 +2055,7 @@ type GetTagMessagesRequest struct {
 func (x *GetTagMessagesRequest) Reset() {
 	*x = GetTagMessagesRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[34]
+		mi := &file_ref_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2264,7 +2068,7 @@ func (x *GetTagMessagesRequest) String() string {
 func (*GetTagMessagesRequest) ProtoMessage() {}
 
 func (x *GetTagMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[34]
+	mi := &file_ref_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2277,7 +2081,7 @@ func (x *GetTagMessagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTagMessagesRequest.ProtoReflect.Descriptor instead.
 func (*GetTagMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{34}
+	return file_ref_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetTagMessagesRequest) GetRepository() *Repository {
@@ -2309,7 +2113,7 @@ type GetTagMessagesResponse struct {
 func (x *GetTagMessagesResponse) Reset() {
 	*x = GetTagMessagesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[35]
+		mi := &file_ref_proto_msgTypes[31]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2322,7 +2126,7 @@ func (x *GetTagMessagesResponse) String() string {
 func (*GetTagMessagesResponse) ProtoMessage() {}
 
 func (x *GetTagMessagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[35]
+	mi := &file_ref_proto_msgTypes[31]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2335,7 +2139,7 @@ func (x *GetTagMessagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTagMessagesResponse.ProtoReflect.Descriptor instead.
 func (*GetTagMessagesResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{35}
+	return file_ref_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetTagMessagesResponse) GetMessage() []byte {
@@ -2367,7 +2171,7 @@ type FindAllRemoteBranchesRequest struct {
 func (x *FindAllRemoteBranchesRequest) Reset() {
 	*x = FindAllRemoteBranchesRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[36]
+		mi := &file_ref_proto_msgTypes[32]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2380,7 +2184,7 @@ func (x *FindAllRemoteBranchesRequest) String() string {
 func (*FindAllRemoteBranchesRequest) ProtoMessage() {}
 
 func (x *FindAllRemoteBranchesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[36]
+	mi := &file_ref_proto_msgTypes[32]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2393,7 +2197,7 @@ func (x *FindAllRemoteBranchesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindAllRemoteBranchesRequest.ProtoReflect.Descriptor instead.
 func (*FindAllRemoteBranchesRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{36}
+	return file_ref_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *FindAllRemoteBranchesRequest) GetRepository() *Repository {
@@ -2423,7 +2227,7 @@ type FindAllRemoteBranchesResponse struct {
 func (x *FindAllRemoteBranchesResponse) Reset() {
 	*x = FindAllRemoteBranchesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[37]
+		mi := &file_ref_proto_msgTypes[33]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2436,7 +2240,7 @@ func (x *FindAllRemoteBranchesResponse) String() string {
 func (*FindAllRemoteBranchesResponse) ProtoMessage() {}
 
 func (x *FindAllRemoteBranchesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[37]
+	mi := &file_ref_proto_msgTypes[33]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2449,7 +2253,7 @@ func (x *FindAllRemoteBranchesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindAllRemoteBranchesResponse.ProtoReflect.Descriptor instead.
 func (*FindAllRemoteBranchesResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{37}
+	return file_ref_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *FindAllRemoteBranchesResponse) GetBranches() []*Branch {
@@ -2488,7 +2292,7 @@ type ListRefsRequest struct {
 func (x *ListRefsRequest) Reset() {
 	*x = ListRefsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[38]
+		mi := &file_ref_proto_msgTypes[34]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2501,7 +2305,7 @@ func (x *ListRefsRequest) String() string {
 func (*ListRefsRequest) ProtoMessage() {}
 
 func (x *ListRefsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[38]
+	mi := &file_ref_proto_msgTypes[34]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2514,7 +2318,7 @@ func (x *ListRefsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRefsRequest.ProtoReflect.Descriptor instead.
 func (*ListRefsRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{38}
+	return file_ref_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListRefsRequest) GetRepository() *Repository {
@@ -2573,7 +2377,7 @@ type ListRefsResponse struct {
 func (x *ListRefsResponse) Reset() {
 	*x = ListRefsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[39]
+		mi := &file_ref_proto_msgTypes[35]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2586,7 +2390,7 @@ func (x *ListRefsResponse) String() string {
 func (*ListRefsResponse) ProtoMessage() {}
 
 func (x *ListRefsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[39]
+	mi := &file_ref_proto_msgTypes[35]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2599,7 +2403,7 @@ func (x *ListRefsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRefsResponse.ProtoReflect.Descriptor instead.
 func (*ListRefsResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{39}
+	return file_ref_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListRefsResponse) GetReferences() []*ListRefsResponse_Reference {
@@ -2633,7 +2437,7 @@ type FindRefsByOIDRequest struct {
 func (x *FindRefsByOIDRequest) Reset() {
 	*x = FindRefsByOIDRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[40]
+		mi := &file_ref_proto_msgTypes[36]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2646,7 +2450,7 @@ func (x *FindRefsByOIDRequest) String() string {
 func (*FindRefsByOIDRequest) ProtoMessage() {}
 
 func (x *FindRefsByOIDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[40]
+	mi := &file_ref_proto_msgTypes[36]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2659,7 +2463,7 @@ func (x *FindRefsByOIDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindRefsByOIDRequest.ProtoReflect.Descriptor instead.
 func (*FindRefsByOIDRequest) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{40}
+	return file_ref_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *FindRefsByOIDRequest) GetRepository() *Repository {
@@ -2710,7 +2514,7 @@ type FindRefsByOIDResponse struct {
 func (x *FindRefsByOIDResponse) Reset() {
 	*x = FindRefsByOIDResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[41]
+		mi := &file_ref_proto_msgTypes[37]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2723,7 +2527,7 @@ func (x *FindRefsByOIDResponse) String() string {
 func (*FindRefsByOIDResponse) ProtoMessage() {}
 
 func (x *FindRefsByOIDResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[41]
+	mi := &file_ref_proto_msgTypes[37]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2736,7 +2540,7 @@ func (x *FindRefsByOIDResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindRefsByOIDResponse.ProtoReflect.Descriptor instead.
 func (*FindRefsByOIDResponse) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{41}
+	return file_ref_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *FindRefsByOIDResponse) GetRefs() []string {
@@ -2761,7 +2565,7 @@ type FindAllBranchesResponse_Branch struct {
 func (x *FindAllBranchesResponse_Branch) Reset() {
 	*x = FindAllBranchesResponse_Branch{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[42]
+		mi := &file_ref_proto_msgTypes[38]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2774,7 +2578,7 @@ func (x *FindAllBranchesResponse_Branch) String() string {
 func (*FindAllBranchesResponse_Branch) ProtoMessage() {}
 
 func (x *FindAllBranchesResponse_Branch) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[42]
+	mi := &file_ref_proto_msgTypes[38]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2787,7 +2591,7 @@ func (x *FindAllBranchesResponse_Branch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindAllBranchesResponse_Branch.ProtoReflect.Descriptor instead.
 func (*FindAllBranchesResponse_Branch) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{11, 0}
+	return file_ref_proto_rawDescGZIP(), []int{7, 0}
 }
 
 func (x *FindAllBranchesResponse_Branch) GetName() []byte {
@@ -2819,7 +2623,7 @@ type FindAllTagsRequest_SortBy struct {
 func (x *FindAllTagsRequest_SortBy) Reset() {
 	*x = FindAllTagsRequest_SortBy{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[43]
+		mi := &file_ref_proto_msgTypes[39]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2832,7 +2636,7 @@ func (x *FindAllTagsRequest_SortBy) String() string {
 func (*FindAllTagsRequest_SortBy) ProtoMessage() {}
 
 func (x *FindAllTagsRequest_SortBy) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[43]
+	mi := &file_ref_proto_msgTypes[39]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2845,7 +2649,7 @@ func (x *FindAllTagsRequest_SortBy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindAllTagsRequest_SortBy.ProtoReflect.Descriptor instead.
 func (*FindAllTagsRequest_SortBy) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{15, 0}
+	return file_ref_proto_rawDescGZIP(), []int{11, 0}
 }
 
 func (x *FindAllTagsRequest_SortBy) GetKey() FindAllTagsRequest_SortBy_Key {
@@ -2882,7 +2686,7 @@ type GetTagSignaturesResponse_TagSignature struct {
 func (x *GetTagSignaturesResponse_TagSignature) Reset() {
 	*x = GetTagSignaturesResponse_TagSignature{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[44]
+		mi := &file_ref_proto_msgTypes[40]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2895,7 +2699,7 @@ func (x *GetTagSignaturesResponse_TagSignature) String() string {
 func (*GetTagSignaturesResponse_TagSignature) ProtoMessage() {}
 
 func (x *GetTagSignaturesResponse_TagSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[44]
+	mi := &file_ref_proto_msgTypes[40]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2908,7 +2712,7 @@ func (x *GetTagSignaturesResponse_TagSignature) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use GetTagSignaturesResponse_TagSignature.ProtoReflect.Descriptor instead.
 func (*GetTagSignaturesResponse_TagSignature) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{33, 0}
+	return file_ref_proto_rawDescGZIP(), []int{29, 0}
 }
 
 func (x *GetTagSignaturesResponse_TagSignature) GetTagId() string {
@@ -2947,7 +2751,7 @@ type ListRefsRequest_SortBy struct {
 func (x *ListRefsRequest_SortBy) Reset() {
 	*x = ListRefsRequest_SortBy{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[45]
+		mi := &file_ref_proto_msgTypes[41]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2960,7 +2764,7 @@ func (x *ListRefsRequest_SortBy) String() string {
 func (*ListRefsRequest_SortBy) ProtoMessage() {}
 
 func (x *ListRefsRequest_SortBy) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[45]
+	mi := &file_ref_proto_msgTypes[41]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2973,7 +2777,7 @@ func (x *ListRefsRequest_SortBy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRefsRequest_SortBy.ProtoReflect.Descriptor instead.
 func (*ListRefsRequest_SortBy) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{38, 0}
+	return file_ref_proto_rawDescGZIP(), []int{34, 0}
 }
 
 func (x *ListRefsRequest_SortBy) GetKey() ListRefsRequest_SortBy_Key {
@@ -3008,7 +2812,7 @@ type ListRefsResponse_Reference struct {
 func (x *ListRefsResponse_Reference) Reset() {
 	*x = ListRefsResponse_Reference{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ref_proto_msgTypes[46]
+		mi := &file_ref_proto_msgTypes[42]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3021,7 +2825,7 @@ func (x *ListRefsResponse_Reference) String() string {
 func (*ListRefsResponse_Reference) ProtoMessage() {}
 
 func (x *ListRefsResponse_Reference) ProtoReflect() protoreflect.Message {
-	mi := &file_ref_proto_msgTypes[46]
+	mi := &file_ref_proto_msgTypes[42]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3034,7 +2838,7 @@ func (x *ListRefsResponse_Reference) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRefsResponse_Reference.ProtoReflect.Descriptor instead.
 func (*ListRefsResponse_Reference) Descriptor() ([]byte, []int) {
-	return file_ref_proto_rawDescGZIP(), []int{39, 0}
+	return file_ref_proto_rawDescGZIP(), []int{35, 0}
 }
 
 func (x *ListRefsResponse_Reference) GetName() []byte {
@@ -3075,24 +2879,7 @@ var file_ref_proto_rawDesc = []byte{
 	0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x22, 0x33, 0x0a, 0x1d, 0x46, 0x69, 0x6e, 0x64, 0x44, 0x65,
 	0x66, 0x61, 0x75, 0x6c, 0x74, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x52,
 	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x55, 0x0a, 0x19, 0x46,
-	0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65,
-	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x38, 0x0a, 0x0a, 0x72, 0x65, 0x70, 0x6f,
-	0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x67,
-	0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79,
-	0x42, 0x04, 0x98, 0xc6, 0x2c, 0x01, 0x52, 0x0a, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f,
-	0x72, 0x79, 0x22, 0x32, 0x0a, 0x1a, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x42, 0x72, 0x61,
-	0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x14, 0x0a, 0x05, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0c, 0x52,
-	0x05, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x22, 0x52, 0x0a, 0x16, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c,
-	0x6c, 0x54, 0x61, 0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x12, 0x38, 0x0a, 0x0a, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x52, 0x65,
-	0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x42, 0x04, 0x98, 0xc6, 0x2c, 0x01, 0x52, 0x0a,
-	0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x22, 0x2f, 0x0a, 0x17, 0x46, 0x69,
-	0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x54, 0x61, 0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x18, 0x01,
-	0x20, 0x03, 0x28, 0x0c, 0x52, 0x05, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x22, 0x97, 0x02, 0x0a, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x97, 0x02, 0x0a, 0x18,
 	0x46, 0x69, 0x6e, 0x64, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65,
 	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x38, 0x0a, 0x0a, 0x72, 0x65, 0x70, 0x6f,
 	0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x67,
@@ -3412,7 +3199,7 @@ var file_ref_proto_rawDesc = []byte{
 	0x69, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x22,
 	0x2b, 0x0a, 0x15, 0x46, 0x69, 0x6e, 0x64, 0x52, 0x65, 0x66, 0x73, 0x42, 0x79, 0x4f, 0x49, 0x44,
 	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x72, 0x65, 0x66, 0x73,
-	0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x72, 0x65, 0x66, 0x73, 0x32, 0xe1, 0x0c, 0x0a,
+	0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x72, 0x65, 0x66, 0x73, 0x32, 0x96, 0x0b, 0x0a,
 	0x0a, 0x52, 0x65, 0x66, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x6c, 0x0a, 0x15, 0x46,
 	0x69, 0x6e, 0x64, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68,
 	0x4e, 0x61, 0x6d, 0x65, 0x12, 0x24, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69,
@@ -3420,105 +3207,93 @@ var file_ref_proto_rawDesc = []byte{
 	0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x67, 0x69, 0x74,
 	0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x42,
 	0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x12, 0x68, 0x0a, 0x12, 0x46, 0x69, 0x6e,
-	0x64, 0x41, 0x6c, 0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x12,
-	0x21, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c,
-	0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x22, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64,
-	0x41, 0x6c, 0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x09, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x88, 0x02,
-	0x01, 0x30, 0x01, 0x12, 0x5f, 0x0a, 0x0f, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x54, 0x61,
-	0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x12, 0x1e, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e,
-	0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x54, 0x61, 0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e,
-	0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x54, 0x61, 0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x09, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x88,
-	0x02, 0x01, 0x30, 0x01, 0x12, 0x62, 0x0a, 0x11, 0x46, 0x69, 0x6e, 0x64, 0x4c, 0x6f, 0x63, 0x61,
-	0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x12, 0x20, 0x2e, 0x67, 0x69, 0x74, 0x61,
-	0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x42, 0x72, 0x61, 0x6e,
-	0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x67, 0x69,
-	0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x42, 0x72,
-	0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06,
-	0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x5c, 0x0a, 0x0f, 0x46, 0x69, 0x6e, 0x64,
-	0x41, 0x6c, 0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x12, 0x1e, 0x2e, 0x67, 0x69,
-	0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x42, 0x72, 0x61, 0x6e,
-	0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x67, 0x69,
-	0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x42, 0x72, 0x61, 0x6e,
-	0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97,
-	0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x50, 0x0a, 0x0b, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c,
-	0x6c, 0x54, 0x61, 0x67, 0x73, 0x12, 0x1a, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46,
-	0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x54, 0x61, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x1b, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41,
-	0x6c, 0x6c, 0x54, 0x61, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06,
-	0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x42, 0x0a, 0x07, 0x46, 0x69, 0x6e, 0x64,
-	0x54, 0x61, 0x67, 0x12, 0x16, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e,
-	0x64, 0x54, 0x61, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x67, 0x69,
-	0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x54, 0x61, 0x67, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x12, 0x6e, 0x0a, 0x15,
-	0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x52, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x42, 0x72, 0x61,
-	0x6e, 0x63, 0x68, 0x65, 0x73, 0x12, 0x24, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46,
-	0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x52, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x42, 0x72, 0x61, 0x6e,
-	0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x67, 0x69,
-	0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x52, 0x65, 0x6d, 0x6f,
-	0x74, 0x65, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x48, 0x0a, 0x09,
-	0x52, 0x65, 0x66, 0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x12, 0x18, 0x2e, 0x67, 0x69, 0x74, 0x61,
-	0x6c, 0x79, 0x2e, 0x52, 0x65, 0x66, 0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x52, 0x65, 0x66,
-	0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06,
-	0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x12, 0x4b, 0x0a, 0x0a, 0x46, 0x69, 0x6e, 0x64, 0x42, 0x72,
-	0x61, 0x6e, 0x63, 0x68, 0x12, 0x19, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69,
-	0x6e, 0x64, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x1a, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x42, 0x72, 0x61,
-	0x6e, 0x63, 0x68, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28,
-	0x02, 0x08, 0x02, 0x12, 0x4b, 0x0a, 0x0a, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x65, 0x66,
-	0x73, 0x12, 0x19, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74,
-	0x65, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x67,
-	0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x65, 0x66, 0x73,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x01,
-	0x12, 0x8c, 0x01, 0x0a, 0x1f, 0x4c, 0x69, 0x73, 0x74, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e,
-	0x61, 0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43, 0x6f,
-	0x6d, 0x6d, 0x69, 0x74, 0x12, 0x2e, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c, 0x69,
-	0x73, 0x74, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e,
-	0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x2f, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c, 0x69,
-	0x73, 0x74, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e,
-	0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12,
-	0x83, 0x01, 0x0a, 0x1c, 0x4c, 0x69, 0x73, 0x74, 0x54, 0x61, 0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73,
-	0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74,
-	0x12, 0x2b, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x54, 0x61,
-	0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67,
-	0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2c, 0x2e,
-	0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x54, 0x61, 0x67, 0x4e, 0x61,
-	0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6d,
-	0x6d, 0x69, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28,
-	0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x5f, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x53,
-	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x73, 0x12, 0x1f, 0x2e, 0x67, 0x69, 0x74, 0x61,
-	0x6c, 0x79, 0x2e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
-	0x72, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x67, 0x69, 0x74,
-	0x61, 0x6c, 0x79, 0x2e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74,
-	0x75, 0x72, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97,
-	0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x59, 0x0a, 0x0e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67,
-	0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x12, 0x1d, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c,
-	0x79, 0x2e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79,
-	0x2e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x52,
+	0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x12, 0x62, 0x0a, 0x11, 0x46, 0x69, 0x6e,
+	0x64, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x12, 0x20,
+	0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x4c, 0x6f, 0x63, 0x61,
+	0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x21, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x4c, 0x6f,
+	0x63, 0x61, 0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x5c, 0x0a,
+	0x0f, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73,
+	0x12, 0x1e, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c,
+	0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x1f, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c,
+	0x6c, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x50, 0x0a, 0x0b, 0x46,
+	0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x54, 0x61, 0x67, 0x73, 0x12, 0x1a, 0x2e, 0x67, 0x69, 0x74,
+	0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x54, 0x61, 0x67, 0x73, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e,
+	0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x54, 0x61, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x42, 0x0a,
+	0x07, 0x46, 0x69, 0x6e, 0x64, 0x54, 0x61, 0x67, 0x12, 0x16, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c,
+	0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x54, 0x61, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x17, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x54, 0x61,
+	0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08,
+	0x02, 0x12, 0x6e, 0x0a, 0x15, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x52, 0x65, 0x6d, 0x6f,
+	0x74, 0x65, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x12, 0x24, 0x2e, 0x67, 0x69, 0x74,
+	0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c, 0x6c, 0x52, 0x65, 0x6d, 0x6f, 0x74,
+	0x65, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x25, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x41, 0x6c,
+	0x6c, 0x52, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x73, 0x52,
 	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30,
-	0x01, 0x12, 0x47, 0x0a, 0x08, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x66, 0x73, 0x12, 0x17, 0x2e,
-	0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x66, 0x73, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e,
-	0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x54, 0x0a, 0x0d, 0x46, 0x69,
-	0x6e, 0x64, 0x52, 0x65, 0x66, 0x73, 0x42, 0x79, 0x4f, 0x49, 0x44, 0x12, 0x1c, 0x2e, 0x67, 0x69,
-	0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x52, 0x65, 0x66, 0x73, 0x42, 0x79, 0x4f,
-	0x49, 0x44, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x67, 0x69, 0x74, 0x61,
-	0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x52, 0x65, 0x66, 0x73, 0x42, 0x79, 0x4f, 0x49, 0x44,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02,
-	0x42, 0x34, 0x5a, 0x32, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67,
-	0x69, 0x74, 0x6c, 0x61, 0x62, 0x2d, 0x6f, 0x72, 0x67, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79,
-	0x2f, 0x76, 0x31, 0x35, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x67, 0x69,
-	0x74, 0x61, 0x6c, 0x79, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x01, 0x12, 0x48, 0x0a, 0x09, 0x52, 0x65, 0x66, 0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x12, 0x18,
+	0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x52, 0x65, 0x66, 0x45, 0x78, 0x69, 0x73, 0x74,
+	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c,
+	0x79, 0x2e, 0x52, 0x65, 0x66, 0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x12, 0x4b, 0x0a, 0x0a, 0x46,
+	0x69, 0x6e, 0x64, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x12, 0x19, 0x2e, 0x67, 0x69, 0x74, 0x61,
+	0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69,
+	0x6e, 0x64, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x12, 0x4b, 0x0a, 0x0a, 0x44, 0x65, 0x6c, 0x65,
+	0x74, 0x65, 0x52, 0x65, 0x66, 0x73, 0x12, 0x19, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e,
+	0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x1a, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74,
+	0x65, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa,
+	0x97, 0x28, 0x02, 0x08, 0x01, 0x12, 0x8c, 0x01, 0x0a, 0x1f, 0x4c, 0x69, 0x73, 0x74, 0x42, 0x72,
+	0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e,
+	0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x12, 0x2e, 0x2e, 0x67, 0x69, 0x74, 0x61,
+	0x6c, 0x79, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d,
+	0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6d, 0x6d,
+	0x69, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2f, 0x2e, 0x67, 0x69, 0x74, 0x61,
+	0x6c, 0x79, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x42, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x4e, 0x61, 0x6d,
+	0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6d, 0x6d,
+	0x69, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02,
+	0x08, 0x02, 0x30, 0x01, 0x12, 0x83, 0x01, 0x0a, 0x1c, 0x4c, 0x69, 0x73, 0x74, 0x54, 0x61, 0x67,
+	0x4e, 0x61, 0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43,
+	0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x12, 0x2b, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c,
+	0x69, 0x73, 0x74, 0x54, 0x61, 0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61,
+	0x69, 0x6e, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x2c, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c, 0x69, 0x73, 0x74,
+	0x54, 0x61, 0x67, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x69,
+	0x6e, 0x67, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x5f, 0x0a, 0x10, 0x47, 0x65,
+	0x74, 0x54, 0x61, 0x67, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x73, 0x12, 0x1f,
+	0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x53, 0x69,
+	0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x20, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x53,
+	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x59, 0x0a, 0x0e, 0x47,
+	0x65, 0x74, 0x54, 0x61, 0x67, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x12, 0x1d, 0x2e,
+	0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x4d, 0x65, 0x73,
+	0x73, 0x61, 0x67, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x67,
+	0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x47, 0x65, 0x74, 0x54, 0x61, 0x67, 0x4d, 0x65, 0x73, 0x73,
+	0x61, 0x67, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97,
+	0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12, 0x47, 0x0a, 0x08, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65,
+	0x66, 0x73, 0x12, 0x17, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c, 0x69, 0x73, 0x74,
+	0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x67, 0x69,
+	0x74, 0x61, 0x6c, 0x79, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x66, 0x73, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x30, 0x01, 0x12,
+	0x54, 0x0a, 0x0d, 0x46, 0x69, 0x6e, 0x64, 0x52, 0x65, 0x66, 0x73, 0x42, 0x79, 0x4f, 0x49, 0x44,
+	0x12, 0x1c, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x52, 0x65,
+	0x66, 0x73, 0x42, 0x79, 0x4f, 0x49, 0x44, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d,
+	0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x46, 0x69, 0x6e, 0x64, 0x52, 0x65, 0x66, 0x73,
+	0x42, 0x79, 0x4f, 0x49, 0x44, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa,
+	0x97, 0x28, 0x02, 0x08, 0x02, 0x42, 0x34, 0x5a, 0x32, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2e,
+	0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2d, 0x6f, 0x72, 0x67, 0x2f, 0x67,
+	0x69, 0x74, 0x61, 0x6c, 0x79, 0x2f, 0x76, 0x31, 0x35, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f,
+	0x67, 0x6f, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -3534,7 +3309,7 @@ func file_ref_proto_rawDescGZIP() []byte {
 }
 
 var file_ref_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_ref_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
+var file_ref_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
 var file_ref_proto_goTypes = []interface{}{
 	(FindLocalBranchesRequest_SortBy)(0),            // 0: gitaly.FindLocalBranchesRequest.SortBy
 	(FindAllTagsRequest_SortBy_Key)(0),              // 1: gitaly.FindAllTagsRequest.SortBy.Key
@@ -3542,149 +3317,139 @@ var file_ref_proto_goTypes = []interface{}{
 	(ListRefsRequest_SortBy_Key)(0),                 // 3: gitaly.ListRefsRequest.SortBy.Key
 	(*FindDefaultBranchNameRequest)(nil),            // 4: gitaly.FindDefaultBranchNameRequest
 	(*FindDefaultBranchNameResponse)(nil),           // 5: gitaly.FindDefaultBranchNameResponse
-	(*FindAllBranchNamesRequest)(nil),               // 6: gitaly.FindAllBranchNamesRequest
-	(*FindAllBranchNamesResponse)(nil),              // 7: gitaly.FindAllBranchNamesResponse
-	(*FindAllTagNamesRequest)(nil),                  // 8: gitaly.FindAllTagNamesRequest
-	(*FindAllTagNamesResponse)(nil),                 // 9: gitaly.FindAllTagNamesResponse
-	(*FindLocalBranchesRequest)(nil),                // 10: gitaly.FindLocalBranchesRequest
-	(*FindLocalBranchesResponse)(nil),               // 11: gitaly.FindLocalBranchesResponse
-	(*FindLocalBranchResponse)(nil),                 // 12: gitaly.FindLocalBranchResponse
-	(*FindLocalBranchCommitAuthor)(nil),             // 13: gitaly.FindLocalBranchCommitAuthor
-	(*FindAllBranchesRequest)(nil),                  // 14: gitaly.FindAllBranchesRequest
-	(*FindAllBranchesResponse)(nil),                 // 15: gitaly.FindAllBranchesResponse
-	(*FindTagRequest)(nil),                          // 16: gitaly.FindTagRequest
-	(*FindTagResponse)(nil),                         // 17: gitaly.FindTagResponse
-	(*FindTagError)(nil),                            // 18: gitaly.FindTagError
-	(*FindAllTagsRequest)(nil),                      // 19: gitaly.FindAllTagsRequest
-	(*FindAllTagsResponse)(nil),                     // 20: gitaly.FindAllTagsResponse
-	(*RefExistsRequest)(nil),                        // 21: gitaly.RefExistsRequest
-	(*RefExistsResponse)(nil),                       // 22: gitaly.RefExistsResponse
-	(*CreateBranchRequest)(nil),                     // 23: gitaly.CreateBranchRequest
-	(*CreateBranchResponse)(nil),                    // 24: gitaly.CreateBranchResponse
-	(*DeleteBranchRequest)(nil),                     // 25: gitaly.DeleteBranchRequest
-	(*DeleteBranchResponse)(nil),                    // 26: gitaly.DeleteBranchResponse
-	(*FindBranchRequest)(nil),                       // 27: gitaly.FindBranchRequest
-	(*FindBranchResponse)(nil),                      // 28: gitaly.FindBranchResponse
-	(*DeleteRefsRequest)(nil),                       // 29: gitaly.DeleteRefsRequest
-	(*DeleteRefsResponse)(nil),                      // 30: gitaly.DeleteRefsResponse
-	(*DeleteRefsError)(nil),                         // 31: gitaly.DeleteRefsError
-	(*ListBranchNamesContainingCommitRequest)(nil),  // 32: gitaly.ListBranchNamesContainingCommitRequest
-	(*ListBranchNamesContainingCommitResponse)(nil), // 33: gitaly.ListBranchNamesContainingCommitResponse
-	(*ListTagNamesContainingCommitRequest)(nil),     // 34: gitaly.ListTagNamesContainingCommitRequest
-	(*ListTagNamesContainingCommitResponse)(nil),    // 35: gitaly.ListTagNamesContainingCommitResponse
-	(*GetTagSignaturesRequest)(nil),                 // 36: gitaly.GetTagSignaturesRequest
-	(*GetTagSignaturesResponse)(nil),                // 37: gitaly.GetTagSignaturesResponse
-	(*GetTagMessagesRequest)(nil),                   // 38: gitaly.GetTagMessagesRequest
-	(*GetTagMessagesResponse)(nil),                  // 39: gitaly.GetTagMessagesResponse
-	(*FindAllRemoteBranchesRequest)(nil),            // 40: gitaly.FindAllRemoteBranchesRequest
-	(*FindAllRemoteBranchesResponse)(nil),           // 41: gitaly.FindAllRemoteBranchesResponse
-	(*ListRefsRequest)(nil),                         // 42: gitaly.ListRefsRequest
-	(*ListRefsResponse)(nil),                        // 43: gitaly.ListRefsResponse
-	(*FindRefsByOIDRequest)(nil),                    // 44: gitaly.FindRefsByOIDRequest
-	(*FindRefsByOIDResponse)(nil),                   // 45: gitaly.FindRefsByOIDResponse
-	(*FindAllBranchesResponse_Branch)(nil),          // 46: gitaly.FindAllBranchesResponse.Branch
-	(*FindAllTagsRequest_SortBy)(nil),               // 47: gitaly.FindAllTagsRequest.SortBy
-	(*GetTagSignaturesResponse_TagSignature)(nil),   // 48: gitaly.GetTagSignaturesResponse.TagSignature
-	(*ListRefsRequest_SortBy)(nil),                  // 49: gitaly.ListRefsRequest.SortBy
-	(*ListRefsResponse_Reference)(nil),              // 50: gitaly.ListRefsResponse.Reference
-	(*Repository)(nil),                              // 51: gitaly.Repository
-	(*PaginationParameter)(nil),                     // 52: gitaly.PaginationParameter
-	(*Branch)(nil),                                  // 53: gitaly.Branch
-	(*GitCommit)(nil),                               // 54: gitaly.GitCommit
-	(*timestamppb.Timestamp)(nil),                   // 55: google.protobuf.Timestamp
-	(*Tag)(nil),                                     // 56: gitaly.Tag
-	(*ReferenceNotFoundError)(nil),                  // 57: gitaly.ReferenceNotFoundError
-	(*InvalidRefFormatError)(nil),                   // 58: gitaly.InvalidRefFormatError
-	(*ReferencesLockedError)(nil),                   // 59: gitaly.ReferencesLockedError
-	(SortDirection)(0),                              // 60: gitaly.SortDirection
+	(*FindLocalBranchesRequest)(nil),                // 6: gitaly.FindLocalBranchesRequest
+	(*FindLocalBranchesResponse)(nil),               // 7: gitaly.FindLocalBranchesResponse
+	(*FindLocalBranchResponse)(nil),                 // 8: gitaly.FindLocalBranchResponse
+	(*FindLocalBranchCommitAuthor)(nil),             // 9: gitaly.FindLocalBranchCommitAuthor
+	(*FindAllBranchesRequest)(nil),                  // 10: gitaly.FindAllBranchesRequest
+	(*FindAllBranchesResponse)(nil),                 // 11: gitaly.FindAllBranchesResponse
+	(*FindTagRequest)(nil),                          // 12: gitaly.FindTagRequest
+	(*FindTagResponse)(nil),                         // 13: gitaly.FindTagResponse
+	(*FindTagError)(nil),                            // 14: gitaly.FindTagError
+	(*FindAllTagsRequest)(nil),                      // 15: gitaly.FindAllTagsRequest
+	(*FindAllTagsResponse)(nil),                     // 16: gitaly.FindAllTagsResponse
+	(*RefExistsRequest)(nil),                        // 17: gitaly.RefExistsRequest
+	(*RefExistsResponse)(nil),                       // 18: gitaly.RefExistsResponse
+	(*CreateBranchRequest)(nil),                     // 19: gitaly.CreateBranchRequest
+	(*CreateBranchResponse)(nil),                    // 20: gitaly.CreateBranchResponse
+	(*DeleteBranchRequest)(nil),                     // 21: gitaly.DeleteBranchRequest
+	(*DeleteBranchResponse)(nil),                    // 22: gitaly.DeleteBranchResponse
+	(*FindBranchRequest)(nil),                       // 23: gitaly.FindBranchRequest
+	(*FindBranchResponse)(nil),                      // 24: gitaly.FindBranchResponse
+	(*DeleteRefsRequest)(nil),                       // 25: gitaly.DeleteRefsRequest
+	(*DeleteRefsResponse)(nil),                      // 26: gitaly.DeleteRefsResponse
+	(*DeleteRefsError)(nil),                         // 27: gitaly.DeleteRefsError
+	(*ListBranchNamesContainingCommitRequest)(nil),  // 28: gitaly.ListBranchNamesContainingCommitRequest
+	(*ListBranchNamesContainingCommitResponse)(nil), // 29: gitaly.ListBranchNamesContainingCommitResponse
+	(*ListTagNamesContainingCommitRequest)(nil),     // 30: gitaly.ListTagNamesContainingCommitRequest
+	(*ListTagNamesContainingCommitResponse)(nil),    // 31: gitaly.ListTagNamesContainingCommitResponse
+	(*GetTagSignaturesRequest)(nil),                 // 32: gitaly.GetTagSignaturesRequest
+	(*GetTagSignaturesResponse)(nil),                // 33: gitaly.GetTagSignaturesResponse
+	(*GetTagMessagesRequest)(nil),                   // 34: gitaly.GetTagMessagesRequest
+	(*GetTagMessagesResponse)(nil),                  // 35: gitaly.GetTagMessagesResponse
+	(*FindAllRemoteBranchesRequest)(nil),            // 36: gitaly.FindAllRemoteBranchesRequest
+	(*FindAllRemoteBranchesResponse)(nil),           // 37: gitaly.FindAllRemoteBranchesResponse
+	(*ListRefsRequest)(nil),                         // 38: gitaly.ListRefsRequest
+	(*ListRefsResponse)(nil),                        // 39: gitaly.ListRefsResponse
+	(*FindRefsByOIDRequest)(nil),                    // 40: gitaly.FindRefsByOIDRequest
+	(*FindRefsByOIDResponse)(nil),                   // 41: gitaly.FindRefsByOIDResponse
+	(*FindAllBranchesResponse_Branch)(nil),          // 42: gitaly.FindAllBranchesResponse.Branch
+	(*FindAllTagsRequest_SortBy)(nil),               // 43: gitaly.FindAllTagsRequest.SortBy
+	(*GetTagSignaturesResponse_TagSignature)(nil),   // 44: gitaly.GetTagSignaturesResponse.TagSignature
+	(*ListRefsRequest_SortBy)(nil),                  // 45: gitaly.ListRefsRequest.SortBy
+	(*ListRefsResponse_Reference)(nil),              // 46: gitaly.ListRefsResponse.Reference
+	(*Repository)(nil),                              // 47: gitaly.Repository
+	(*PaginationParameter)(nil),                     // 48: gitaly.PaginationParameter
+	(*Branch)(nil),                                  // 49: gitaly.Branch
+	(*GitCommit)(nil),                               // 50: gitaly.GitCommit
+	(*timestamppb.Timestamp)(nil),                   // 51: google.protobuf.Timestamp
+	(*Tag)(nil),                                     // 52: gitaly.Tag
+	(*ReferenceNotFoundError)(nil),                  // 53: gitaly.ReferenceNotFoundError
+	(*InvalidRefFormatError)(nil),                   // 54: gitaly.InvalidRefFormatError
+	(*ReferencesLockedError)(nil),                   // 55: gitaly.ReferencesLockedError
+	(SortDirection)(0),                              // 56: gitaly.SortDirection
 }
 var file_ref_proto_depIdxs = []int32{
-	51, // 0: gitaly.FindDefaultBranchNameRequest.repository:type_name -> gitaly.Repository
-	51, // 1: gitaly.FindAllBranchNamesRequest.repository:type_name -> gitaly.Repository
-	51, // 2: gitaly.FindAllTagNamesRequest.repository:type_name -> gitaly.Repository
-	51, // 3: gitaly.FindLocalBranchesRequest.repository:type_name -> gitaly.Repository
-	0,  // 4: gitaly.FindLocalBranchesRequest.sort_by:type_name -> gitaly.FindLocalBranchesRequest.SortBy
-	52, // 5: gitaly.FindLocalBranchesRequest.pagination_params:type_name -> gitaly.PaginationParameter
-	12, // 6: gitaly.FindLocalBranchesResponse.branches:type_name -> gitaly.FindLocalBranchResponse
-	53, // 7: gitaly.FindLocalBranchesResponse.local_branches:type_name -> gitaly.Branch
-	13, // 8: gitaly.FindLocalBranchResponse.commit_author:type_name -> gitaly.FindLocalBranchCommitAuthor
-	13, // 9: gitaly.FindLocalBranchResponse.commit_committer:type_name -> gitaly.FindLocalBranchCommitAuthor
-	54, // 10: gitaly.FindLocalBranchResponse.commit:type_name -> gitaly.GitCommit
-	55, // 11: gitaly.FindLocalBranchCommitAuthor.date:type_name -> google.protobuf.Timestamp
-	51, // 12: gitaly.FindAllBranchesRequest.repository:type_name -> gitaly.Repository
-	46, // 13: gitaly.FindAllBranchesResponse.branches:type_name -> gitaly.FindAllBranchesResponse.Branch
-	51, // 14: gitaly.FindTagRequest.repository:type_name -> gitaly.Repository
-	56, // 15: gitaly.FindTagResponse.tag:type_name -> gitaly.Tag
-	57, // 16: gitaly.FindTagError.tag_not_found:type_name -> gitaly.ReferenceNotFoundError
-	51, // 17: gitaly.FindAllTagsRequest.repository:type_name -> gitaly.Repository
-	47, // 18: gitaly.FindAllTagsRequest.sort_by:type_name -> gitaly.FindAllTagsRequest.SortBy
-	52, // 19: gitaly.FindAllTagsRequest.pagination_params:type_name -> gitaly.PaginationParameter
-	56, // 20: gitaly.FindAllTagsResponse.tags:type_name -> gitaly.Tag
-	51, // 21: gitaly.RefExistsRequest.repository:type_name -> gitaly.Repository
-	51, // 22: gitaly.CreateBranchRequest.repository:type_name -> gitaly.Repository
-	2,  // 23: gitaly.CreateBranchResponse.status:type_name -> gitaly.CreateBranchResponse.Status
-	53, // 24: gitaly.CreateBranchResponse.branch:type_name -> gitaly.Branch
-	51, // 25: gitaly.DeleteBranchRequest.repository:type_name -> gitaly.Repository
-	51, // 26: gitaly.FindBranchRequest.repository:type_name -> gitaly.Repository
-	53, // 27: gitaly.FindBranchResponse.branch:type_name -> gitaly.Branch
-	51, // 28: gitaly.DeleteRefsRequest.repository:type_name -> gitaly.Repository
-	58, // 29: gitaly.DeleteRefsError.invalid_format:type_name -> gitaly.InvalidRefFormatError
-	59, // 30: gitaly.DeleteRefsError.references_locked:type_name -> gitaly.ReferencesLockedError
-	51, // 31: gitaly.ListBranchNamesContainingCommitRequest.repository:type_name -> gitaly.Repository
-	51, // 32: gitaly.ListTagNamesContainingCommitRequest.repository:type_name -> gitaly.Repository
-	51, // 33: gitaly.GetTagSignaturesRequest.repository:type_name -> gitaly.Repository
-	48, // 34: gitaly.GetTagSignaturesResponse.signatures:type_name -> gitaly.GetTagSignaturesResponse.TagSignature
-	51, // 35: gitaly.GetTagMessagesRequest.repository:type_name -> gitaly.Repository
-	51, // 36: gitaly.FindAllRemoteBranchesRequest.repository:type_name -> gitaly.Repository
-	53, // 37: gitaly.FindAllRemoteBranchesResponse.branches:type_name -> gitaly.Branch
-	51, // 38: gitaly.ListRefsRequest.repository:type_name -> gitaly.Repository
-	49, // 39: gitaly.ListRefsRequest.sort_by:type_name -> gitaly.ListRefsRequest.SortBy
-	50, // 40: gitaly.ListRefsResponse.references:type_name -> gitaly.ListRefsResponse.Reference
-	51, // 41: gitaly.FindRefsByOIDRequest.repository:type_name -> gitaly.Repository
-	54, // 42: gitaly.FindAllBranchesResponse.Branch.target:type_name -> gitaly.GitCommit
-	1,  // 43: gitaly.FindAllTagsRequest.SortBy.key:type_name -> gitaly.FindAllTagsRequest.SortBy.Key
-	60, // 44: gitaly.FindAllTagsRequest.SortBy.direction:type_name -> gitaly.SortDirection
-	3,  // 45: gitaly.ListRefsRequest.SortBy.key:type_name -> gitaly.ListRefsRequest.SortBy.Key
-	60, // 46: gitaly.ListRefsRequest.SortBy.direction:type_name -> gitaly.SortDirection
-	4,  // 47: gitaly.RefService.FindDefaultBranchName:input_type -> gitaly.FindDefaultBranchNameRequest
-	6,  // 48: gitaly.RefService.FindAllBranchNames:input_type -> gitaly.FindAllBranchNamesRequest
-	8,  // 49: gitaly.RefService.FindAllTagNames:input_type -> gitaly.FindAllTagNamesRequest
-	10, // 50: gitaly.RefService.FindLocalBranches:input_type -> gitaly.FindLocalBranchesRequest
-	14, // 51: gitaly.RefService.FindAllBranches:input_type -> gitaly.FindAllBranchesRequest
-	19, // 52: gitaly.RefService.FindAllTags:input_type -> gitaly.FindAllTagsRequest
-	16, // 53: gitaly.RefService.FindTag:input_type -> gitaly.FindTagRequest
-	40, // 54: gitaly.RefService.FindAllRemoteBranches:input_type -> gitaly.FindAllRemoteBranchesRequest
-	21, // 55: gitaly.RefService.RefExists:input_type -> gitaly.RefExistsRequest
-	27, // 56: gitaly.RefService.FindBranch:input_type -> gitaly.FindBranchRequest
-	29, // 57: gitaly.RefService.DeleteRefs:input_type -> gitaly.DeleteRefsRequest
-	32, // 58: gitaly.RefService.ListBranchNamesContainingCommit:input_type -> gitaly.ListBranchNamesContainingCommitRequest
-	34, // 59: gitaly.RefService.ListTagNamesContainingCommit:input_type -> gitaly.ListTagNamesContainingCommitRequest
-	36, // 60: gitaly.RefService.GetTagSignatures:input_type -> gitaly.GetTagSignaturesRequest
-	38, // 61: gitaly.RefService.GetTagMessages:input_type -> gitaly.GetTagMessagesRequest
-	42, // 62: gitaly.RefService.ListRefs:input_type -> gitaly.ListRefsRequest
-	44, // 63: gitaly.RefService.FindRefsByOID:input_type -> gitaly.FindRefsByOIDRequest
-	5,  // 64: gitaly.RefService.FindDefaultBranchName:output_type -> gitaly.FindDefaultBranchNameResponse
-	7,  // 65: gitaly.RefService.FindAllBranchNames:output_type -> gitaly.FindAllBranchNamesResponse
-	9,  // 66: gitaly.RefService.FindAllTagNames:output_type -> gitaly.FindAllTagNamesResponse
-	11, // 67: gitaly.RefService.FindLocalBranches:output_type -> gitaly.FindLocalBranchesResponse
-	15, // 68: gitaly.RefService.FindAllBranches:output_type -> gitaly.FindAllBranchesResponse
-	20, // 69: gitaly.RefService.FindAllTags:output_type -> gitaly.FindAllTagsResponse
-	17, // 70: gitaly.RefService.FindTag:output_type -> gitaly.FindTagResponse
-	41, // 71: gitaly.RefService.FindAllRemoteBranches:output_type -> gitaly.FindAllRemoteBranchesResponse
-	22, // 72: gitaly.RefService.RefExists:output_type -> gitaly.RefExistsResponse
-	28, // 73: gitaly.RefService.FindBranch:output_type -> gitaly.FindBranchResponse
-	30, // 74: gitaly.RefService.DeleteRefs:output_type -> gitaly.DeleteRefsResponse
-	33, // 75: gitaly.RefService.ListBranchNamesContainingCommit:output_type -> gitaly.ListBranchNamesContainingCommitResponse
-	35, // 76: gitaly.RefService.ListTagNamesContainingCommit:output_type -> gitaly.ListTagNamesContainingCommitResponse
-	37, // 77: gitaly.RefService.GetTagSignatures:output_type -> gitaly.GetTagSignaturesResponse
-	39, // 78: gitaly.RefService.GetTagMessages:output_type -> gitaly.GetTagMessagesResponse
-	43, // 79: gitaly.RefService.ListRefs:output_type -> gitaly.ListRefsResponse
-	45, // 80: gitaly.RefService.FindRefsByOID:output_type -> gitaly.FindRefsByOIDResponse
-	64, // [64:81] is the sub-list for method output_type
-	47, // [47:64] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	47, // 0: gitaly.FindDefaultBranchNameRequest.repository:type_name -> gitaly.Repository
+	47, // 1: gitaly.FindLocalBranchesRequest.repository:type_name -> gitaly.Repository
+	0,  // 2: gitaly.FindLocalBranchesRequest.sort_by:type_name -> gitaly.FindLocalBranchesRequest.SortBy
+	48, // 3: gitaly.FindLocalBranchesRequest.pagination_params:type_name -> gitaly.PaginationParameter
+	8,  // 4: gitaly.FindLocalBranchesResponse.branches:type_name -> gitaly.FindLocalBranchResponse
+	49, // 5: gitaly.FindLocalBranchesResponse.local_branches:type_name -> gitaly.Branch
+	9,  // 6: gitaly.FindLocalBranchResponse.commit_author:type_name -> gitaly.FindLocalBranchCommitAuthor
+	9,  // 7: gitaly.FindLocalBranchResponse.commit_committer:type_name -> gitaly.FindLocalBranchCommitAuthor
+	50, // 8: gitaly.FindLocalBranchResponse.commit:type_name -> gitaly.GitCommit
+	51, // 9: gitaly.FindLocalBranchCommitAuthor.date:type_name -> google.protobuf.Timestamp
+	47, // 10: gitaly.FindAllBranchesRequest.repository:type_name -> gitaly.Repository
+	42, // 11: gitaly.FindAllBranchesResponse.branches:type_name -> gitaly.FindAllBranchesResponse.Branch
+	47, // 12: gitaly.FindTagRequest.repository:type_name -> gitaly.Repository
+	52, // 13: gitaly.FindTagResponse.tag:type_name -> gitaly.Tag
+	53, // 14: gitaly.FindTagError.tag_not_found:type_name -> gitaly.ReferenceNotFoundError
+	47, // 15: gitaly.FindAllTagsRequest.repository:type_name -> gitaly.Repository
+	43, // 16: gitaly.FindAllTagsRequest.sort_by:type_name -> gitaly.FindAllTagsRequest.SortBy
+	48, // 17: gitaly.FindAllTagsRequest.pagination_params:type_name -> gitaly.PaginationParameter
+	52, // 18: gitaly.FindAllTagsResponse.tags:type_name -> gitaly.Tag
+	47, // 19: gitaly.RefExistsRequest.repository:type_name -> gitaly.Repository
+	47, // 20: gitaly.CreateBranchRequest.repository:type_name -> gitaly.Repository
+	2,  // 21: gitaly.CreateBranchResponse.status:type_name -> gitaly.CreateBranchResponse.Status
+	49, // 22: gitaly.CreateBranchResponse.branch:type_name -> gitaly.Branch
+	47, // 23: gitaly.DeleteBranchRequest.repository:type_name -> gitaly.Repository
+	47, // 24: gitaly.FindBranchRequest.repository:type_name -> gitaly.Repository
+	49, // 25: gitaly.FindBranchResponse.branch:type_name -> gitaly.Branch
+	47, // 26: gitaly.DeleteRefsRequest.repository:type_name -> gitaly.Repository
+	54, // 27: gitaly.DeleteRefsError.invalid_format:type_name -> gitaly.InvalidRefFormatError
+	55, // 28: gitaly.DeleteRefsError.references_locked:type_name -> gitaly.ReferencesLockedError
+	47, // 29: gitaly.ListBranchNamesContainingCommitRequest.repository:type_name -> gitaly.Repository
+	47, // 30: gitaly.ListTagNamesContainingCommitRequest.repository:type_name -> gitaly.Repository
+	47, // 31: gitaly.GetTagSignaturesRequest.repository:type_name -> gitaly.Repository
+	44, // 32: gitaly.GetTagSignaturesResponse.signatures:type_name -> gitaly.GetTagSignaturesResponse.TagSignature
+	47, // 33: gitaly.GetTagMessagesRequest.repository:type_name -> gitaly.Repository
+	47, // 34: gitaly.FindAllRemoteBranchesRequest.repository:type_name -> gitaly.Repository
+	49, // 35: gitaly.FindAllRemoteBranchesResponse.branches:type_name -> gitaly.Branch
+	47, // 36: gitaly.ListRefsRequest.repository:type_name -> gitaly.Repository
+	45, // 37: gitaly.ListRefsRequest.sort_by:type_name -> gitaly.ListRefsRequest.SortBy
+	46, // 38: gitaly.ListRefsResponse.references:type_name -> gitaly.ListRefsResponse.Reference
+	47, // 39: gitaly.FindRefsByOIDRequest.repository:type_name -> gitaly.Repository
+	50, // 40: gitaly.FindAllBranchesResponse.Branch.target:type_name -> gitaly.GitCommit
+	1,  // 41: gitaly.FindAllTagsRequest.SortBy.key:type_name -> gitaly.FindAllTagsRequest.SortBy.Key
+	56, // 42: gitaly.FindAllTagsRequest.SortBy.direction:type_name -> gitaly.SortDirection
+	3,  // 43: gitaly.ListRefsRequest.SortBy.key:type_name -> gitaly.ListRefsRequest.SortBy.Key
+	56, // 44: gitaly.ListRefsRequest.SortBy.direction:type_name -> gitaly.SortDirection
+	4,  // 45: gitaly.RefService.FindDefaultBranchName:input_type -> gitaly.FindDefaultBranchNameRequest
+	6,  // 46: gitaly.RefService.FindLocalBranches:input_type -> gitaly.FindLocalBranchesRequest
+	10, // 47: gitaly.RefService.FindAllBranches:input_type -> gitaly.FindAllBranchesRequest
+	15, // 48: gitaly.RefService.FindAllTags:input_type -> gitaly.FindAllTagsRequest
+	12, // 49: gitaly.RefService.FindTag:input_type -> gitaly.FindTagRequest
+	36, // 50: gitaly.RefService.FindAllRemoteBranches:input_type -> gitaly.FindAllRemoteBranchesRequest
+	17, // 51: gitaly.RefService.RefExists:input_type -> gitaly.RefExistsRequest
+	23, // 52: gitaly.RefService.FindBranch:input_type -> gitaly.FindBranchRequest
+	25, // 53: gitaly.RefService.DeleteRefs:input_type -> gitaly.DeleteRefsRequest
+	28, // 54: gitaly.RefService.ListBranchNamesContainingCommit:input_type -> gitaly.ListBranchNamesContainingCommitRequest
+	30, // 55: gitaly.RefService.ListTagNamesContainingCommit:input_type -> gitaly.ListTagNamesContainingCommitRequest
+	32, // 56: gitaly.RefService.GetTagSignatures:input_type -> gitaly.GetTagSignaturesRequest
+	34, // 57: gitaly.RefService.GetTagMessages:input_type -> gitaly.GetTagMessagesRequest
+	38, // 58: gitaly.RefService.ListRefs:input_type -> gitaly.ListRefsRequest
+	40, // 59: gitaly.RefService.FindRefsByOID:input_type -> gitaly.FindRefsByOIDRequest
+	5,  // 60: gitaly.RefService.FindDefaultBranchName:output_type -> gitaly.FindDefaultBranchNameResponse
+	7,  // 61: gitaly.RefService.FindLocalBranches:output_type -> gitaly.FindLocalBranchesResponse
+	11, // 62: gitaly.RefService.FindAllBranches:output_type -> gitaly.FindAllBranchesResponse
+	16, // 63: gitaly.RefService.FindAllTags:output_type -> gitaly.FindAllTagsResponse
+	13, // 64: gitaly.RefService.FindTag:output_type -> gitaly.FindTagResponse
+	37, // 65: gitaly.RefService.FindAllRemoteBranches:output_type -> gitaly.FindAllRemoteBranchesResponse
+	18, // 66: gitaly.RefService.RefExists:output_type -> gitaly.RefExistsResponse
+	24, // 67: gitaly.RefService.FindBranch:output_type -> gitaly.FindBranchResponse
+	26, // 68: gitaly.RefService.DeleteRefs:output_type -> gitaly.DeleteRefsResponse
+	29, // 69: gitaly.RefService.ListBranchNamesContainingCommit:output_type -> gitaly.ListBranchNamesContainingCommitResponse
+	31, // 70: gitaly.RefService.ListTagNamesContainingCommit:output_type -> gitaly.ListTagNamesContainingCommitResponse
+	33, // 71: gitaly.RefService.GetTagSignatures:output_type -> gitaly.GetTagSignaturesResponse
+	35, // 72: gitaly.RefService.GetTagMessages:output_type -> gitaly.GetTagMessagesResponse
+	39, // 73: gitaly.RefService.ListRefs:output_type -> gitaly.ListRefsResponse
+	41, // 74: gitaly.RefService.FindRefsByOID:output_type -> gitaly.FindRefsByOIDResponse
+	60, // [60:75] is the sub-list for method output_type
+	45, // [45:60] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_ref_proto_init() }
@@ -3721,54 +3486,6 @@ func file_ref_proto_init() {
 			}
 		}
 		file_ref_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*FindAllBranchNamesRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ref_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*FindAllBranchNamesResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ref_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*FindAllTagNamesRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ref_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*FindAllTagNamesResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ref_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindLocalBranchesRequest); i {
 			case 0:
 				return &v.state
@@ -3780,7 +3497,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindLocalBranchesResponse); i {
 			case 0:
 				return &v.state
@@ -3792,7 +3509,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindLocalBranchResponse); i {
 			case 0:
 				return &v.state
@@ -3804,7 +3521,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindLocalBranchCommitAuthor); i {
 			case 0:
 				return &v.state
@@ -3816,7 +3533,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindAllBranchesRequest); i {
 			case 0:
 				return &v.state
@@ -3828,7 +3545,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindAllBranchesResponse); i {
 			case 0:
 				return &v.state
@@ -3840,7 +3557,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindTagRequest); i {
 			case 0:
 				return &v.state
@@ -3852,7 +3569,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindTagResponse); i {
 			case 0:
 				return &v.state
@@ -3864,7 +3581,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindTagError); i {
 			case 0:
 				return &v.state
@@ -3876,7 +3593,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindAllTagsRequest); i {
 			case 0:
 				return &v.state
@@ -3888,7 +3605,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindAllTagsResponse); i {
 			case 0:
 				return &v.state
@@ -3900,7 +3617,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*RefExistsRequest); i {
 			case 0:
 				return &v.state
@@ -3912,7 +3629,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*RefExistsResponse); i {
 			case 0:
 				return &v.state
@@ -3924,7 +3641,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CreateBranchRequest); i {
 			case 0:
 				return &v.state
@@ -3936,7 +3653,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CreateBranchResponse); i {
 			case 0:
 				return &v.state
@@ -3948,7 +3665,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteBranchRequest); i {
 			case 0:
 				return &v.state
@@ -3960,7 +3677,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteBranchResponse); i {
 			case 0:
 				return &v.state
@@ -3972,7 +3689,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindBranchRequest); i {
 			case 0:
 				return &v.state
@@ -3984,7 +3701,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindBranchResponse); i {
 			case 0:
 				return &v.state
@@ -3996,7 +3713,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteRefsRequest); i {
 			case 0:
 				return &v.state
@@ -4008,7 +3725,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteRefsResponse); i {
 			case 0:
 				return &v.state
@@ -4020,7 +3737,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteRefsError); i {
 			case 0:
 				return &v.state
@@ -4032,7 +3749,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListBranchNamesContainingCommitRequest); i {
 			case 0:
 				return &v.state
@@ -4044,7 +3761,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListBranchNamesContainingCommitResponse); i {
 			case 0:
 				return &v.state
@@ -4056,7 +3773,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListTagNamesContainingCommitRequest); i {
 			case 0:
 				return &v.state
@@ -4068,7 +3785,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListTagNamesContainingCommitResponse); i {
 			case 0:
 				return &v.state
@@ -4080,7 +3797,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetTagSignaturesRequest); i {
 			case 0:
 				return &v.state
@@ -4092,7 +3809,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetTagSignaturesResponse); i {
 			case 0:
 				return &v.state
@@ -4104,7 +3821,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetTagMessagesRequest); i {
 			case 0:
 				return &v.state
@@ -4116,7 +3833,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetTagMessagesResponse); i {
 			case 0:
 				return &v.state
@@ -4128,7 +3845,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindAllRemoteBranchesRequest); i {
 			case 0:
 				return &v.state
@@ -4140,7 +3857,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindAllRemoteBranchesResponse); i {
 			case 0:
 				return &v.state
@@ -4152,7 +3869,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListRefsRequest); i {
 			case 0:
 				return &v.state
@@ -4164,7 +3881,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListRefsResponse); i {
 			case 0:
 				return &v.state
@@ -4176,7 +3893,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindRefsByOIDRequest); i {
 			case 0:
 				return &v.state
@@ -4188,7 +3905,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[41].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindRefsByOIDResponse); i {
 			case 0:
 				return &v.state
@@ -4200,7 +3917,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[42].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindAllBranchesResponse_Branch); i {
 			case 0:
 				return &v.state
@@ -4212,7 +3929,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[43].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FindAllTagsRequest_SortBy); i {
 			case 0:
 				return &v.state
@@ -4224,7 +3941,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[44].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetTagSignaturesResponse_TagSignature); i {
 			case 0:
 				return &v.state
@@ -4236,7 +3953,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[45].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[41].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListRefsRequest_SortBy); i {
 			case 0:
 				return &v.state
@@ -4248,7 +3965,7 @@ func file_ref_proto_init() {
 				return nil
 			}
 		}
-		file_ref_proto_msgTypes[46].Exporter = func(v interface{}, i int) interface{} {
+		file_ref_proto_msgTypes[42].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListRefsResponse_Reference); i {
 			case 0:
 				return &v.state
@@ -4261,10 +3978,10 @@ func file_ref_proto_init() {
 			}
 		}
 	}
-	file_ref_proto_msgTypes[14].OneofWrappers = []interface{}{
+	file_ref_proto_msgTypes[10].OneofWrappers = []interface{}{
 		(*FindTagError_TagNotFound)(nil),
 	}
-	file_ref_proto_msgTypes[27].OneofWrappers = []interface{}{
+	file_ref_proto_msgTypes[23].OneofWrappers = []interface{}{
 		(*DeleteRefsError_InvalidFormat)(nil),
 		(*DeleteRefsError_ReferencesLocked)(nil),
 	}
@@ -4274,7 +3991,7 @@ func file_ref_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_ref_proto_rawDesc,
 			NumEnums:      4,
-			NumMessages:   47,
+			NumMessages:   43,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

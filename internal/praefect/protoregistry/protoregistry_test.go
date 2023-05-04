@@ -79,10 +79,8 @@ func TestNewProtoRegistry(t *testing.T) {
 		},
 		"RefService": {
 			"DeleteRefs":                      OpMutator,
-			"FindAllBranchNames":              OpAccessor,
 			"FindAllBranches":                 OpAccessor,
 			"FindAllRemoteBranches":           OpAccessor,
-			"FindAllTagNames":                 OpAccessor,
 			"FindAllTags":                     OpAccessor,
 			"FindBranch":                      OpAccessor,
 			"FindDefaultBranchName":           OpAccessor,
