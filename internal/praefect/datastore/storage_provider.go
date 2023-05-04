@@ -29,17 +29,20 @@ type cachedReplicaInfo struct {
 	storages    *datastructure.Set[string]
 }
 
+type virtualStorageCache struct {
+	syncer           syncer
+	replicaInfoCache *lru.Cache[string, cachedReplicaInfo]
+}
+
 // CachingConsistentStoragesGetter is a ConsistentStoragesGetter that caches up to date storages by repository.
 // Each virtual storage has it's own cache that invalidates entries based on notifications.
 type CachingConsistentStoragesGetter struct {
 	csg ConsistentStoragesGetter
 	// caches is per virtual storage cache. The caches themselves contain information about
 	// replicas keyed by their respective relative paths.
-	caches map[string]*lru.Cache[string, cachedReplicaInfo]
+	caches map[string]*virtualStorageCache
 	// access is access method to use: 0 - without caching; 1 - with caching.
 	access int32
-	// syncer allows to sync retrieval operations to omit unnecessary runs.
-	syncer syncer
 	// callbackLogger should be used only inside of the methods used as callbacks.
 	callbackLogger   logrus.FieldLogger
 	cacheAccessTotal *prometheus.CounterVec
@@ -49,8 +52,7 @@ type CachingConsistentStoragesGetter struct {
 func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
 	cached := &CachingConsistentStoragesGetter{
 		csg:            csg,
-		caches:         make(map[string]*lru.Cache[string, cachedReplicaInfo], len(virtualStorages)),
-		syncer:         syncer{inflight: map[string]chan struct{}{}},
+		caches:         make(map[string]*virtualStorageCache, len(virtualStorages)),
 		callbackLogger: logger.WithField("component", "caching_storage_provider"),
 		cacheAccessTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -63,13 +65,16 @@ func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg Consisten
 
 	for _, virtualStorage := range virtualStorages {
 		virtualStorage := virtualStorage
-		cache, err := lru.NewWithEvict(2<<20, func(key string, value cachedReplicaInfo) {
+		replicaInfoCache, err := lru.NewWithEvict(2<<20, func(key string, value cachedReplicaInfo) {
 			cached.cacheAccessTotal.WithLabelValues(virtualStorage, "evict").Inc()
 		})
 		if err != nil {
 			return nil, err
 		}
-		cached.caches[virtualStorage] = cache
+		cached.caches[virtualStorage] = &virtualStorageCache{
+			syncer:           syncer{inflight: map[string]chan struct{}{}},
+			replicaInfoCache: replicaInfoCache,
+		}
 	}
 
 	return cached, nil
@@ -97,7 +102,7 @@ func (c *CachingConsistentStoragesGetter) Notification(n glsql.Notification) {
 		}
 
 		for _, relativePath := range entry.RelativePaths {
-			cache.Remove(relativePath)
+			cache.replicaInfoCache.Remove(relativePath)
 		}
 	}
 }
@@ -131,7 +136,7 @@ func (c *CachingConsistentStoragesGetter) disableCaching() {
 	atomic.StoreInt32(&c.access, 0)
 
 	for _, cache := range c.caches {
-		cache.Purge()
+		cache.replicaInfoCache.Purge()
 	}
 }
 
@@ -143,7 +148,7 @@ func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
 func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
 	cache, hasCache := c.caches[virtualStorage]
 	if hasCache && c.isCacheEnabled() {
-		if replicaInfo, found := cache.Get(relativePath); found {
+		if replicaInfo, found := cache.replicaInfoCache.Get(relativePath); found {
 			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
 			return replicaInfo.replicaPath, replicaInfo.storages, nil
 		}
@@ -152,11 +157,11 @@ func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Cont
 		// This will cause us to wait for any ongoing calls, but also locks out other new
 		// callers so that we can racelessly populate the cache. The deferred call will then
 		// unlock other callers again once we're done with the lookup.
-		defer c.syncer.await(relativePath)()
+		defer cache.syncer.await(relativePath)()
 
 		// We re-try whether the cache has been populated now via any concurrent Goroutine.
 		// If so, we return the newly populated entry.
-		if replicaInfo, found := cache.Get(relativePath); found {
+		if replicaInfo, found := cache.replicaInfoCache.Get(relativePath); found {
 			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
 			return replicaInfo.replicaPath, replicaInfo.storages, nil
 		}
@@ -173,7 +178,7 @@ func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Cont
 	}
 	if cache != nil {
 		c.cacheAccessTotal.WithLabelValues(virtualStorage, "populate").Inc()
-		cache.Add(relativePath, cachedReplicaInfo{replicaPath: replicaPath, storages: storages})
+		cache.replicaInfoCache.Add(relativePath, cachedReplicaInfo{replicaPath: replicaPath, storages: storages})
 	}
 
 	return replicaPath, storages, err
