@@ -66,14 +66,6 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		})
 	}
 
-	//nolint: staticcheck
-	if host := req.GetRemoteParams().GetHttpHost(); host != "" {
-		config = append(config, git.ConfigPair{
-			Key:   fmt.Sprintf("http.%s.extraHeader", req.GetRemoteParams().GetUrl()),
-			Value: "Host: " + host,
-		})
-	}
-
 	opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
 
 	sshCommand, cleanup, err := git.BuildSSHInvocation(ctx, req.GetSshKey(), req.GetKnownHosts())

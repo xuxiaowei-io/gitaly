@@ -28,14 +28,9 @@ import (
 
 const (
 	httpToken = "ABCefg0999182"
-	httpHost  = "example.com"
 )
 
 func gitRequestValidation(w http.ResponseWriter, r *http.Request, next http.Handler) {
-	if r.Host != httpHost {
-		http.Error(w, "No Host", http.StatusBadRequest)
-		return
-	}
 	if r.Header.Get("Authorization") != httpToken {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -784,7 +779,6 @@ func TestFetchRemote(t *testing.T) {
 						RemoteParams: &gitalypb.Remote{
 							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, "invalid/repo/path.git"),
 							HttpAuthorizationHeader: httpToken,
-							HttpHost:                httpHost,
 						},
 					},
 					runs: []run{
@@ -813,7 +807,6 @@ func TestFetchRemote(t *testing.T) {
 						RemoteParams: &gitalypb.Remote{
 							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
 							HttpAuthorizationHeader: httpToken,
-							HttpHost:                httpHost,
 						},
 					},
 					runs: []run{
@@ -841,8 +834,7 @@ func TestFetchRemote(t *testing.T) {
 					request: &gitalypb.FetchRemoteRequest{
 						Repository: repoProto,
 						RemoteParams: &gitalypb.Remote{
-							Url:      fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
-							HttpHost: httpHost,
+							Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
 						},
 					},
 					runs: []run{
@@ -871,8 +863,7 @@ func TestFetchRemote(t *testing.T) {
 					request: &gitalypb.FetchRemoteRequest{
 						Repository: repoProto,
 						RemoteParams: &gitalypb.Remote{
-							Url:      fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
-							HttpHost: httpHost,
+							Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
 						},
 					},
 					runs: []run{
@@ -905,7 +896,6 @@ func TestFetchRemote(t *testing.T) {
 						RemoteParams: &gitalypb.Remote{
 							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
 							HttpAuthorizationHeader: httpToken,
-							HttpHost:                httpHost,
 						},
 						Timeout: 1,
 					},
