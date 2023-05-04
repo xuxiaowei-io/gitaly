@@ -135,59 +135,47 @@ func (c *CachingConsistentStoragesGetter) disableCaching() {
 	}
 }
 
-func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
-	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
-	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
-}
-
-func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache[string, cachedReplicaInfo], cachedReplicaInfo, bool) {
-	populateDone := func() {} // should be called AFTER any cache population is done
-
-	cache, found := c.caches[virtualStorage]
-	if !found {
-		return populateDone, nil, cachedReplicaInfo{}, false
-	}
-
-	if storages, found := cache.Get(relativePath); found {
-		return populateDone, cache, storages, true
-	}
-
-	// synchronises concurrent attempts to update cache for the same key.
-	populateDone = c.syncer.await(relativePath)
-
-	if storages, found := cache.Get(relativePath); found {
-		return populateDone, cache, storages, true
-	}
-
-	return populateDone, cache, cachedReplicaInfo{}, false
-}
-
 func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
 	return atomic.LoadInt32(&c.access) != 0
 }
 
 // GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
 func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
-	var cache *lru.Cache[string, cachedReplicaInfo]
-
-	if c.isCacheEnabled() {
-		var info cachedReplicaInfo
-		var ok bool
-		var populationDone func()
-
-		populationDone, cache, info, ok = c.tryCache(virtualStorage, relativePath)
-		defer populationDone()
-		if ok {
+	cache, hasCache := c.caches[virtualStorage]
+	if hasCache && c.isCacheEnabled() {
+		if replicaInfo, found := cache.Get(relativePath); found {
 			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
-			return info.replicaPath, info.storages, nil
+			return replicaInfo.replicaPath, replicaInfo.storages, nil
 		}
+
+		// Synchronise concurrent attempts to update the cache for the same relative path.
+		// This will cause us to wait for any ongoing calls, but also locks out other new
+		// callers so that we can racelessly populate the cache. The deferred call will then
+		// unlock other callers again once we're done with the lookup.
+		defer c.syncer.await(relativePath)()
+
+		// We re-try whether the cache has been populated now via any concurrent Goroutine.
+		// If so, we return the newly populated entry.
+		if replicaInfo, found := cache.Get(relativePath); found {
+			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
+			return replicaInfo.replicaPath, replicaInfo.storages, nil
+		}
+	} else {
+		// Unset the cache so that we don't try to populate it when it is disabled.
+		cache = nil
 	}
 
-	replicaPath, storages, err := c.cacheMiss(ctx, virtualStorage, relativePath)
-	if err == nil && cache != nil {
-		cache.Add(relativePath, cachedReplicaInfo{replicaPath: replicaPath, storages: storages})
-		c.cacheAccessTotal.WithLabelValues(virtualStorage, "populate").Inc()
+	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
+
+	replicaPath, storages, err := c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return "", nil, err
 	}
+	if cache != nil {
+		c.cacheAccessTotal.WithLabelValues(virtualStorage, "populate").Inc()
+		cache.Add(relativePath, cachedReplicaInfo{replicaPath: replicaPath, storages: storages})
+	}
+
 	return replicaPath, storages, err
 }
 
