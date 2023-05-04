@@ -2,7 +2,6 @@ package remote
 
 import (
 	"fmt"
-	"net/http"
 	"path/filepath"
 	"testing"
 
@@ -81,13 +80,12 @@ func TestFindRemoteRootRef(t *testing.T) {
 		{
 			desc: "successful",
 			setup: func(t *testing.T) setupData {
-				host := "example.com"
 				secret := "mysecret"
 
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
 
-				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, newGitRequestValidationMiddleware(host, secret))
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, nil)
 				originURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath))
 
 				return setupData{
@@ -95,7 +93,6 @@ func TestFindRemoteRootRef(t *testing.T) {
 						Repository:              localRepo,
 						RemoteUrl:               originURL,
 						HttpAuthorizationHeader: secret,
-						HttpHost:                host,
 					},
 					expectedResponse: &gitalypb.FindRemoteRootRefResponse{
 						Ref: "main",
@@ -141,21 +138,6 @@ func TestFindRemoteRootRef(t *testing.T) {
 			testhelper.RequireGrpcError(t, setup.expectedErr, err)
 			testhelper.ProtoEqual(t, setup.expectedResponse, response)
 		})
-	}
-}
-
-func newGitRequestValidationMiddleware(host, secret string) func(http.ResponseWriter, *http.Request, http.Handler) {
-	return func(w http.ResponseWriter, r *http.Request, next http.Handler) {
-		if r.Host != host {
-			http.Error(w, "No Host", http.StatusBadRequest)
-			return
-		}
-		if r.Header.Get("Authorization") != secret {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		next.ServeHTTP(w, r)
 	}
 }
 
