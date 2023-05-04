@@ -19,16 +19,6 @@ service RefService {
     };
   }
 
-  // FindAllTagNames is deprecated in favor of ListRefs
-  //
-  // https://gitlab.com/gitlab-org/gitaly/-/issues/3966
-  rpc FindAllTagNames(FindAllTagNamesRequest) returns (stream FindAllTagNamesResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-    option deprecated = true;
-  }
-
   // Return a stream so we can divide the response in chunks of branches
   rpc FindLocalBranches(FindLocalBranchesRequest) returns (stream FindLocalBranchesResponse) {
     option (op_type) = {
@@ -149,18 +139,6 @@ message FindDefaultBranchNameRequest {
 message FindDefaultBranchNameResponse {
   // This comment is left unintentionally blank.
   bytes name = 1;
-}
-
-// This comment is left unintentionally blank.
-message FindAllTagNamesRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// This comment is left unintentionally blank.
-message FindAllTagNamesResponse {
-  // This comment is left unintentionally blank.
-  repeated bytes names = 1;
 }
 
 // This comment is left unintentionally blank.
