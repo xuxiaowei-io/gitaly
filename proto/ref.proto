@@ -19,16 +19,6 @@ service RefService {
     };
   }
 
-  // FindAllBranchNames is deprecated in favor of ListRefs
-  //
-  // https://gitlab.com/gitlab-org/gitaly/-/issues/3966
-  rpc FindAllBranchNames(FindAllBranchNamesRequest) returns (stream FindAllBranchNamesResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-    option deprecated = true;
-  }
-
   // FindAllTagNames is deprecated in favor of ListRefs
   //
   // https://gitlab.com/gitlab-org/gitaly/-/issues/3966
@@ -159,18 +149,6 @@ message FindDefaultBranchNameRequest {
 message FindDefaultBranchNameResponse {
   // This comment is left unintentionally blank.
   bytes name = 1;
-}
-
-// This comment is left unintentionally blank.
-message FindAllBranchNamesRequest {
-  // This comment is left unintentionally blank.
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// This comment is left unintentionally blank.
-message FindAllBranchNamesResponse {
-  // This comment is left unintentionally blank.
-  repeated bytes names = 1;
 }
 
 // This comment is left unintentionally blank.

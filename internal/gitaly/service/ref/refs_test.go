@@ -3,12 +3,7 @@
 package ref
 
 import (
-	"bufio"
-	"bytes"
-	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -31,130 +26,6 @@ func containsRef(refs [][]byte, ref string) bool {
 		}
 	}
 	return false
-}
-
-//nolint:staticcheck
-func TestSuccessfulFindAllBranchNames(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(t, ctx)
-
-	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
-	c, err := client.FindAllBranchNames(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	var names [][]byte
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		names = append(names, r.GetNames()...)
-	}
-
-	expectedBranches := testhelper.MustReadFile(t, "testdata/branches.txt")
-	for _, branch := range bytes.Split(bytes.TrimSpace(expectedBranches), []byte("\n")) {
-		require.Contains(t, names, branch)
-	}
-}
-
-//nolint:staticcheck
-func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
-
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
-
-	// We want to create enough refs to overflow the default bufio.Scanner
-	// buffer. Such an overflow will cause scanner.Bytes() to become invalid
-	// at some point. That is expected behavior, but our tests did not
-	// trigger it, so we got away with naively using scanner.Bytes() and
-	// causing a bug: https://gitlab.com/gitlab-org/gitaly/issues/1473.
-	refSizeLowerBound := 100
-	numRefs := 2 * bufio.MaxScanTokenSize / refSizeLowerBound
-
-	// Instead of using git-update-ref(1) to create the thousands of references we just write
-	// our own packed-refs file, which is significantly faster.
-	packedRefs, err := os.Create(filepath.Join(repoPath, "packed-refs"))
-	require.NoError(t, err)
-
-	var expectedRefs [][]byte
-	for i := 0; i < numRefs; i++ {
-		refName := fmt.Sprintf("refs/heads/test-%0100d", i)
-		_, err := packedRefs.WriteString(fmt.Sprintf("%s %s\n", commitID, refName))
-		require.NoError(t, err)
-		expectedRefs = append(expectedRefs, []byte(refName))
-	}
-	testhelper.MustClose(t, packedRefs)
-
-	c, err := client.FindAllBranchNames(ctx, &gitalypb.FindAllBranchNamesRequest{
-		Repository: repoProto,
-	})
-	require.NoError(t, err)
-
-	var actualRefs [][]byte
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		actualRefs = append(actualRefs, r.GetNames()...)
-	}
-	require.Equal(t, expectedRefs, actualRefs)
-}
-
-//nolint:staticcheck
-func TestFindAllBranchNames_validate(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRefService(t, ctx)
-
-	for _, tc := range []struct {
-		desc        string
-		repo        *gitalypb.Repository
-		expectedErr error
-	}{
-		{
-			desc: "repository not provided",
-			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc: "repository doesn't exist on disk",
-			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
-				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
-			)),
-		},
-		{
-			desc: "unknown storage",
-			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "invalid"`,
-				"repo scoped: invalid Repository",
-			)),
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			c, err := client.FindAllBranchNames(ctx, &gitalypb.FindAllBranchNamesRequest{Repository: tc.repo})
-			require.NoError(t, err)
-			_, err = c.Recv()
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-		})
-	}
 }
 
 //nolint:staticcheck

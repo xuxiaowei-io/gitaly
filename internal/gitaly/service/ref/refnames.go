@@ -13,38 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-// FindAllBranchNames creates a stream of ref names for all branches in the given repository
-func (s *server) FindAllBranchNames(in *gitalypb.FindAllBranchNamesRequest, stream gitalypb.RefService_FindAllBranchNamesServer) error {
-	ctx := stream.Context()
-
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
-	}
-
-	repo := s.localrepo(in.GetRepository())
-	chunker := chunk.New(&findAllBranchNamesSender{stream: stream})
-
-	if err := listRefNames(ctx, repo, chunker, "refs/heads", nil); err != nil {
-		return structerr.NewInternal("%w", err)
-	}
-
-	return nil
-}
-
-type findAllBranchNamesSender struct {
-	stream      gitalypb.RefService_FindAllBranchNamesServer
-	branchNames [][]byte
-}
-
-func (ts *findAllBranchNamesSender) Reset() { ts.branchNames = nil }
-func (ts *findAllBranchNamesSender) Append(m proto.Message) {
-	ts.branchNames = append(ts.branchNames, []byte(m.(*wrapperspb.StringValue).Value))
-}
-
-func (ts *findAllBranchNamesSender) Send() error {
-	return ts.stream.Send(&gitalypb.FindAllBranchNamesResponse{Names: ts.branchNames})
-}
-
 // FindAllTagNames creates a stream of ref names for all tags in the given repository
 func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream gitalypb.RefService_FindAllTagNamesServer) error {
 	ctx := stream.Context()
