@@ -16,6 +16,15 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
+const (
+	// TypePerRPC is a concurrency limiter whose key is the full method of gRPC server. All
+	// requests of the same method shares the concurrency limit.
+	TypePerRPC = "per-rpc"
+	// TypePackObjects is a dedicated concurrency limiter for pack-objects. It uses request
+	// information (RemoteIP/Repository/User) as the limiting key.
+	TypePackObjects = "pack-objects"
+)
+
 // ErrMaxQueueTime indicates a request has reached the maximum time allowed to wait in the
 // concurrency queue.
 var ErrMaxQueueTime = errors.New("maximum time in concurrency queue reached")
@@ -312,8 +321,10 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 			limit.MaxPerRepo,
 			limit.MaxQueueSize,
 			newTickerFunc,
-			newPerRPCPromMonitor("gitaly", limit.RPC, queuedMetric, inProgressMetric,
-				acquiringSecondsMetric, middleware.requestsDroppedMetric),
+			newPerRPCPromMonitor(
+				"gitaly", limit.RPC,
+				queuedMetric, inProgressMetric, acquiringSecondsMetric, middleware.requestsDroppedMetric,
+			),
 		)
 	}
 
@@ -326,8 +337,11 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 			func() helper.Ticker {
 				return helper.NewManualTicker()
 			},
-			newPerRPCPromMonitor("gitaly", replicateRepositoryFullMethod, queuedMetric,
-				inProgressMetric, acquiringSecondsMetric, middleware.requestsDroppedMetric))
+			newPerRPCPromMonitor(
+				"gitaly", replicateRepositoryFullMethod,
+				queuedMetric, inProgressMetric, acquiringSecondsMetric, middleware.requestsDroppedMetric,
+			),
+		)
 	}
 
 	middleware.methodLimiters = result

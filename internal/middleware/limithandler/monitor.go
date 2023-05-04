@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// ConcurrencyMonitor allows the concurrency monitor to be observed
+// ConcurrencyMonitor allows the concurrency monitor to be observed.
 type ConcurrencyMonitor interface {
 	Queued(ctx context.Context, key string, length int)
 	Dequeued(ctx context.Context)
@@ -32,8 +32,11 @@ func NewNoopConcurrencyMonitor() ConcurrencyMonitor {
 
 // PromMonitor keeps track of prometheus metrics for limithandlers.
 // It conforms to both the ConcurrencyMonitor, and prometheus.Collector
-// interfaces
+// interfaces.
 type PromMonitor struct {
+	// limitingType stores the type of the limiter. There are two types at the moment: per-rpc
+	// and pack-objects.
+	limitingType           string
 	queuedMetric           prometheus.Gauge
 	inProgressMetric       prometheus.Gauge
 	acquiringSecondsMetric prometheus.Observer
@@ -53,6 +56,7 @@ func newPerRPCPromMonitor(
 	serviceName, methodName := splitMethodName(fullMethod)
 
 	return &PromMonitor{
+		limitingType:           TypePerRPC,
 		queuedMetric:           queuedMetric.WithLabelValues(system, serviceName, methodName),
 		inProgressMetric:       inProgressMetric.WithLabelValues(system, serviceName, methodName),
 		acquiringSecondsMetric: acquiringSecondsVec.WithLabelValues(system, serviceName, methodName),
@@ -65,21 +69,21 @@ func newPerRPCPromMonitor(
 	}
 }
 
-// Queued is called when a request has been queued
+// Queued is called when a request has been queued.
 func (p *PromMonitor) Queued(ctx context.Context, key string, queueLength int) {
 	if stats := limitStatsFromContext(ctx); stats != nil {
-		stats.SetLimitingKey(key)
+		stats.SetLimitingKey(p.limitingType, key)
 		stats.SetConcurrencyQueueLength(queueLength)
 	}
 	p.queuedMetric.Inc()
 }
 
-// Dequeued is called when a request has been dequeued
+// Dequeued is called when a request has been dequeued.
 func (p *PromMonitor) Dequeued(ctx context.Context) {
 	p.queuedMetric.Dec()
 }
 
-// Enter is called when a request begins to be processed
+// Enter is called when a request begins to be processed.
 func (p *PromMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
 	p.inProgressMetric.Inc()
 	p.acquiringSecondsMetric.Observe(acquireTime.Seconds())
@@ -89,7 +93,7 @@ func (p *PromMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
 	}
 }
 
-// Exit is called when a request has finished processing
+// Exit is called when a request has finished processing.
 func (p *PromMonitor) Exit(ctx context.Context) {
 	p.inProgressMetric.Dec()
 }
@@ -97,7 +101,7 @@ func (p *PromMonitor) Exit(ctx context.Context) {
 // Dropped is called when a request is dropped.
 func (p *PromMonitor) Dropped(ctx context.Context, key string, length int, reason string) {
 	if stats := limitStatsFromContext(ctx); stats != nil {
-		stats.SetLimitingKey(key)
+		stats.SetLimitingKey(p.limitingType, key)
 		stats.SetConcurrencyQueueLength(length)
 		stats.SetConcurrencyDroppedReason(reason)
 	}
@@ -105,12 +109,14 @@ func (p *PromMonitor) Dropped(ctx context.Context, key string, length int, reaso
 }
 
 func newPromMonitor(
+	limitingType string,
 	keyType string,
 	queuedVec, inProgressVec *prometheus.GaugeVec,
 	acquiringSecondsVec *prometheus.HistogramVec,
 	requestsDroppedVec *prometheus.CounterVec,
 ) *PromMonitor {
 	return &PromMonitor{
+		limitingType:                 limitingType,
 		queuedMetric:                 queuedVec.WithLabelValues(keyType),
 		inProgressMetric:             inProgressVec.WithLabelValues(keyType),
 		acquiringSecondsMetric:       acquiringSecondsVec.WithLabelValues(keyType),
@@ -119,7 +125,7 @@ func newPromMonitor(
 	}
 }
 
-// Collect collects all the metrics that PromMonitor keeps track of
+// Collect collects all the metrics that PromMonitor keeps track of.
 func (p *PromMonitor) Collect(metrics chan<- prometheus.Metric) {
 	p.queuedMetric.Collect(metrics)
 	p.inProgressMetric.Collect(metrics)
@@ -127,7 +133,7 @@ func (p *PromMonitor) Collect(metrics chan<- prometheus.Metric) {
 	p.requestsDroppedMetric.Collect(metrics)
 }
 
-// Describe describes all the metrics that PromMonitor keeps track of
+// Describe describes all the metrics that PromMonitor keeps track of.
 func (p *PromMonitor) Describe(descs chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(p, descs)
 }
@@ -142,7 +148,7 @@ func splitMethodName(fullMethodName string) (string, string) {
 }
 
 // NewPackObjectsConcurrencyMonitor returns a concurrency monitor for use
-// with limiting pack objects processes
+// with limiting pack objects processes.
 func NewPackObjectsConcurrencyMonitor(keyType string, latencyBuckets []float64) *PromMonitor {
 	acquiringSecondsVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -178,6 +184,7 @@ func NewPackObjectsConcurrencyMonitor(keyType string, latencyBuckets []float64) 
 	).MustCurryWith(prometheus.Labels{"type": keyType})
 
 	return newPromMonitor(
+		TypePackObjects,
 		keyType,
 		queuedVec,
 		inProgressVec,

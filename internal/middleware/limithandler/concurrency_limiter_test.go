@@ -237,7 +237,7 @@ type blockingQueueCounter struct {
 
 // Queued will block on a channel. We need a way to synchronize on when a Limiter has attempted to acquire
 // a semaphore but has not yet. The caller can use the channel to wait for many requests to be queued
-func (b *blockingQueueCounter) Queued(_ context.Context, _ string, _ int) {
+func (b *blockingQueueCounter) Queued(context.Context, string, int) {
 	b.queuedCh <- struct{}{}
 }
 

@@ -120,6 +120,7 @@ func TestInterceptor(t *testing.T) {
 				require.NoError(t, err)
 			},
 			expectedLogData: map[string]any{
+				"limit.limiting_type":            "per-rpc",
 				"limit.limiting_key":             "@hashed/1234",
 				"limit.concurrency_queue_length": 0,
 			},
@@ -141,6 +142,7 @@ func TestInterceptor(t *testing.T) {
 				}
 			},
 			expectedLogData: map[string]any{
+				"limit.limiting_type":            "per-rpc",
 				"limit.limiting_key":             "@hashed/1234",
 				"limit.concurrency_queue_length": 0,
 			},

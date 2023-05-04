@@ -105,6 +105,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 	stats := limitStatsFromContext(ctx)
 	require.NotNil(t, stats)
 	require.Equal(t, logrus.Fields{
+		"limit.limiting_type":            TypePerRPC,
 		"limit.limiting_key":             fullMethod,
 		"limit.concurrency_queue_ms":     int64(1000),
 		"limit.concurrency_queue_length": 5,
@@ -160,6 +161,7 @@ gitaly_pack_objects_queued{type="user"} 1
 	stats := limitStatsFromContext(ctx)
 	require.NotNil(t, stats)
 	require.Equal(t, logrus.Fields{
+		"limit.limiting_type":            TypePackObjects,
 		"limit.limiting_key":             "1234",
 		"limit.concurrency_queue_ms":     int64(1000),
 		"limit.concurrency_queue_length": 5,

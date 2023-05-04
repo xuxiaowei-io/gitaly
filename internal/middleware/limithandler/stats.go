@@ -16,6 +16,8 @@ type LimitStats struct {
 	sync.Mutex
 	// limitingKey is the key used for limiting accounting
 	limitingKey string
+	// limitingType is the type of limiter
+	limitingType string
 	// concurrencyQueueLen is the combination of in-flight requests and in-queue requests. It tells
 	// how busy the queue of the same limiting key is
 	concurrencyQueueLength int
@@ -38,10 +40,11 @@ func (s *LimitStats) AddConcurrencyQueueMs(queueMs int64) {
 }
 
 // SetLimitingKey set limiting key.
-func (s *LimitStats) SetLimitingKey(limitingKey string) {
+func (s *LimitStats) SetLimitingKey(limitingType string, limitingKey string) {
 	s.Lock()
 	defer s.Unlock()
 	s.limitingKey = limitingKey
+	s.limitingType = limitingType
 }
 
 // SetConcurrencyQueueLength set concurrency queue length.
@@ -67,6 +70,7 @@ func (s *LimitStats) Fields() logrus.Fields {
 		return nil
 	}
 	logs := logrus.Fields{
+		"limit.limiting_type":            s.limitingType,
 		"limit.limiting_key":             s.limitingKey,
 		"limit.concurrency_queue_ms":     s.concurrencyQueueMs,
 		"limit.concurrency_queue_length": s.concurrencyQueueLength,
