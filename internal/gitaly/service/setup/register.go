@@ -144,7 +144,12 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetPackObjectsConcurrencyTracker(),
 		deps.GetPackObjectsLimiter(),
 	))
-	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(deps.GetCfg().Storages))
+	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(
+		deps.GetCfg().Storages,
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 	reflection.Register(srv)
