@@ -175,11 +175,13 @@ func TestMergeTree(t *testing.T) {
 								FileName: "file2",
 								OID:      blob1,
 								Stage:    MergeStageOurs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file2",
 								OID:      blob2,
 								Stage:    MergeStageTheirs,
+								Mode:     0o100644,
 							},
 						},
 						ConflictInfoMessage: []ConflictInfoMessage{
@@ -251,16 +253,19 @@ func TestMergeTree(t *testing.T) {
 								FileName: "file1",
 								OID:      blob1,
 								Stage:    MergeStageAncestor,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file1",
 								OID:      blob2,
 								Stage:    MergeStageOurs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file1",
 								OID:      blob3,
 								Stage:    MergeStageTheirs,
+								Mode:     0o100644,
 							},
 						},
 						ConflictInfoMessage: []ConflictInfoMessage{
@@ -321,11 +326,13 @@ func TestMergeTree(t *testing.T) {
 								FileName: "file2",
 								OID:      blob2,
 								Stage:    MergeStageAncestor,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file2",
 								OID:      blob2,
 								Stage:    MergeStageOurs,
+								Mode:     0o100644,
 							},
 						},
 						ConflictInfoMessage: []ConflictInfoMessage{
@@ -393,21 +400,25 @@ func TestMergeTree(t *testing.T) {
 								FileName: "file2",
 								OID:      blob2a,
 								Stage:    MergeStageOurs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file2",
 								OID:      blob3a,
 								Stage:    MergeStageTheirs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file3",
 								OID:      blob2b,
 								Stage:    MergeStageOurs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file3",
 								OID:      blob3b,
 								Stage:    MergeStageTheirs,
+								Mode:     0o100644,
 							},
 						},
 						ConflictInfoMessage: []ConflictInfoMessage{
@@ -491,26 +502,31 @@ func TestMergeTree(t *testing.T) {
 								FileName: "file1",
 								OID:      blob,
 								Stage:    MergeStageAncestor,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file1",
 								OID:      blob2a,
 								Stage:    MergeStageOurs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file1",
 								OID:      blob3a,
 								Stage:    MergeStageTheirs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file2",
 								OID:      blob2b,
 								Stage:    MergeStageOurs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file2",
 								OID:      blob3b,
 								Stage:    MergeStageTheirs,
+								Mode:     0o100644,
 							},
 						},
 						ConflictInfoMessage: []ConflictInfoMessage{
@@ -588,21 +604,25 @@ func TestMergeTree(t *testing.T) {
 								FileName: "file1",
 								OID:      blob,
 								Stage:    MergeStageAncestor,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file1",
 								OID:      blob3a,
 								Stage:    MergeStageTheirs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file2",
 								OID:      blob2b,
 								Stage:    MergeStageOurs,
+								Mode:     0o100644,
 							},
 							{
 								FileName: "file2",
 								OID:      blob3b,
 								Stage:    MergeStageTheirs,
+								Mode:     0o100644,
 							},
 						},
 						ConflictInfoMessage: []ConflictInfoMessage{
