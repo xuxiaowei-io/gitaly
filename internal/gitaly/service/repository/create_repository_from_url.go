@@ -17,7 +17,7 @@ import (
 
 func (s *server) cloneFromURLCommand(
 	ctx context.Context,
-	repoURL, repoHost, resolvedAddress, repositoryFullPath, authorizationToken string, mirror bool,
+	repoURL, resolvedAddress, repositoryFullPath, authorizationToken string, mirror bool,
 	opts ...git.CmdOpt,
 ) (*command.Command, error) {
 	cloneFlags := []git.Option{
@@ -66,13 +66,6 @@ func (s *server) cloneFromURLCommand(
 		config = append(config, resolveConfig...)
 	}
 
-	if repoHost != "" {
-		config = append(config, git.ConfigPair{
-			Key:   "http.extraHeader",
-			Value: "Host: " + repoHost,
-		})
-	}
-
 	return s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.Command{
 			Name:  "clone",
@@ -97,8 +90,6 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		var stderr bytes.Buffer
 		cmd, err := s.cloneFromURLCommand(ctx,
 			req.GetUrl(),
-			//nolint:staticcheck
-			req.GetHttpHost(),
 			req.GetResolvedAddress(),
 			targetPath,
 			req.GetHttpAuthorizationHeader(),

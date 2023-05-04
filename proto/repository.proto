@@ -671,11 +671,6 @@ message CreateRepositoryFromURLRequest {
   Repository repository = 1 [(target_repository)=true];
   // This comment is left unintentionally blank.
   string url = 2;
-  // HttpHost is the hostname of the remote repository. Use this when the
-  // URL hostname has already been resolved to an IP address to prevent DNS
-  // rebinding. This is deprecated as we will be using resolved_address
-  // going forward.
-  string http_host = 3 [deprecated=true];
   // http_authorization_header is the HTTP header which can be added to
   // the request in order to authenticate against the repository.
   string http_authorization_header = 4;
@@ -692,6 +687,10 @@ message CreateRepositoryFromURLRequest {
   // Works with HTTP/HTTPS/Git/SSH protocols.
   // Optional.
   string resolved_address = 6;
+
+  // HttpHost has been removed in favor of ResolvedAddress.
+  reserved 3;
+  reserved "http_host";
 }
 
 // This comment is left unintentionally blank.
