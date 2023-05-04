@@ -326,17 +326,6 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 
 // GetDefaultBranch determines the default branch name
 func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, error) {
-	branches, err := repo.GetBranches(ctx)
-	if err != nil {
-		return "", err
-	}
-	switch len(branches) {
-	case 0:
-		return "", nil
-	case 1:
-		return branches[0].Name, nil
-	}
-
 	headReference, err := repo.HeadReference(ctx)
 	if err != nil {
 		return "", err
@@ -344,30 +333,24 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 
 	// Ideally we would only use HEAD to determine the default branch, but
 	// gitlab-rails depends on the branch being determined like this.
-	var defaultRef, legacyDefaultRef git.ReferenceName
-	for _, branch := range branches {
-		if len(headReference) != 0 && headReference == branch.Name {
-			return branch.Name, nil
+	for _, headCandidate := range []git.ReferenceName{
+		headReference, git.DefaultRef, git.LegacyDefaultRef,
+	} {
+		has, err := repo.HasRevision(ctx, headCandidate.Revision())
+		if err != nil {
+			return "", err
 		}
-
-		if git.DefaultRef == branch.Name {
-			defaultRef = branch.Name
+		if has {
+			return headCandidate, nil
 		}
-
-		if git.LegacyDefaultRef == branch.Name {
-			legacyDefaultRef = branch.Name
-		}
-	}
-
-	if len(defaultRef) != 0 {
-		return defaultRef, nil
-	}
-
-	if len(legacyDefaultRef) != 0 {
-		return legacyDefaultRef, nil
 	}
 
 	// If all else fails, return the first branch name
+	branches, err := repo.getReferences(ctx, 1, "refs/heads/")
+	if err != nil || len(branches) == 0 {
+		return "", err
+	}
+
 	return branches[0].Name, nil
 }
 
