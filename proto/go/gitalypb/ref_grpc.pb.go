@@ -24,16 +24,6 @@ const _ = grpc.SupportPackageIsVersion7
 type RefServiceClient interface {
 	// This comment is left unintentionally blank.
 	FindDefaultBranchName(ctx context.Context, in *FindDefaultBranchNameRequest, opts ...grpc.CallOption) (*FindDefaultBranchNameResponse, error)
-	// Deprecated: Do not use.
-	// FindAllBranchNames is deprecated in favor of ListRefs
-	//
-	// https://gitlab.com/gitlab-org/gitaly/-/issues/3966
-	FindAllBranchNames(ctx context.Context, in *FindAllBranchNamesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchNamesClient, error)
-	// Deprecated: Do not use.
-	// FindAllTagNames is deprecated in favor of ListRefs
-	//
-	// https://gitlab.com/gitlab-org/gitaly/-/issues/3966
-	FindAllTagNames(ctx context.Context, in *FindAllTagNamesRequest, opts ...grpc.CallOption) (RefService_FindAllTagNamesClient, error)
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(ctx context.Context, in *FindLocalBranchesRequest, opts ...grpc.CallOption) (RefService_FindLocalBranchesClient, error)
 	// This comment is left unintentionally blank.
@@ -91,74 +81,8 @@ func (c *refServiceClient) FindDefaultBranchName(ctx context.Context, in *FindDe
 	return out, nil
 }
 
-// Deprecated: Do not use.
-func (c *refServiceClient) FindAllBranchNames(ctx context.Context, in *FindAllBranchNamesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchNamesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[0], "/gitaly.RefService/FindAllBranchNames", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &refServiceFindAllBranchNamesClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type RefService_FindAllBranchNamesClient interface {
-	Recv() (*FindAllBranchNamesResponse, error)
-	grpc.ClientStream
-}
-
-type refServiceFindAllBranchNamesClient struct {
-	grpc.ClientStream
-}
-
-func (x *refServiceFindAllBranchNamesClient) Recv() (*FindAllBranchNamesResponse, error) {
-	m := new(FindAllBranchNamesResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// Deprecated: Do not use.
-func (c *refServiceClient) FindAllTagNames(ctx context.Context, in *FindAllTagNamesRequest, opts ...grpc.CallOption) (RefService_FindAllTagNamesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[1], "/gitaly.RefService/FindAllTagNames", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &refServiceFindAllTagNamesClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type RefService_FindAllTagNamesClient interface {
-	Recv() (*FindAllTagNamesResponse, error)
-	grpc.ClientStream
-}
-
-type refServiceFindAllTagNamesClient struct {
-	grpc.ClientStream
-}
-
-func (x *refServiceFindAllTagNamesClient) Recv() (*FindAllTagNamesResponse, error) {
-	m := new(FindAllTagNamesResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *refServiceClient) FindLocalBranches(ctx context.Context, in *FindLocalBranchesRequest, opts ...grpc.CallOption) (RefService_FindLocalBranchesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[2], "/gitaly.RefService/FindLocalBranches", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[0], "/gitaly.RefService/FindLocalBranches", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +114,7 @@ func (x *refServiceFindLocalBranchesClient) Recv() (*FindLocalBranchesResponse, 
 }
 
 func (c *refServiceClient) FindAllBranches(ctx context.Context, in *FindAllBranchesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[3], "/gitaly.RefService/FindAllBranches", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[1], "/gitaly.RefService/FindAllBranches", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +146,7 @@ func (x *refServiceFindAllBranchesClient) Recv() (*FindAllBranchesResponse, erro
 }
 
 func (c *refServiceClient) FindAllTags(ctx context.Context, in *FindAllTagsRequest, opts ...grpc.CallOption) (RefService_FindAllTagsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[4], "/gitaly.RefService/FindAllTags", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[2], "/gitaly.RefService/FindAllTags", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +187,7 @@ func (c *refServiceClient) FindTag(ctx context.Context, in *FindTagRequest, opts
 }
 
 func (c *refServiceClient) FindAllRemoteBranches(ctx context.Context, in *FindAllRemoteBranchesRequest, opts ...grpc.CallOption) (RefService_FindAllRemoteBranchesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[5], "/gitaly.RefService/FindAllRemoteBranches", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[3], "/gitaly.RefService/FindAllRemoteBranches", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +246,7 @@ func (c *refServiceClient) DeleteRefs(ctx context.Context, in *DeleteRefsRequest
 }
 
 func (c *refServiceClient) ListBranchNamesContainingCommit(ctx context.Context, in *ListBranchNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListBranchNamesContainingCommitClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[6], "/gitaly.RefService/ListBranchNamesContainingCommit", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[4], "/gitaly.RefService/ListBranchNamesContainingCommit", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +278,7 @@ func (x *refServiceListBranchNamesContainingCommitClient) Recv() (*ListBranchNam
 }
 
 func (c *refServiceClient) ListTagNamesContainingCommit(ctx context.Context, in *ListTagNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListTagNamesContainingCommitClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[7], "/gitaly.RefService/ListTagNamesContainingCommit", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[5], "/gitaly.RefService/ListTagNamesContainingCommit", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +310,7 @@ func (x *refServiceListTagNamesContainingCommitClient) Recv() (*ListTagNamesCont
 }
 
 func (c *refServiceClient) GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[8], "/gitaly.RefService/GetTagSignatures", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[6], "/gitaly.RefService/GetTagSignatures", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +342,7 @@ func (x *refServiceGetTagSignaturesClient) Recv() (*GetTagSignaturesResponse, er
 }
 
 func (c *refServiceClient) GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[9], "/gitaly.RefService/GetTagMessages", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[7], "/gitaly.RefService/GetTagMessages", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +374,7 @@ func (x *refServiceGetTagMessagesClient) Recv() (*GetTagMessagesResponse, error)
 }
 
 func (c *refServiceClient) ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[10], "/gitaly.RefService/ListRefs", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[8], "/gitaly.RefService/ListRefs", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -496,16 +420,6 @@ func (c *refServiceClient) FindRefsByOID(ctx context.Context, in *FindRefsByOIDR
 type RefServiceServer interface {
 	// This comment is left unintentionally blank.
 	FindDefaultBranchName(context.Context, *FindDefaultBranchNameRequest) (*FindDefaultBranchNameResponse, error)
-	// Deprecated: Do not use.
-	// FindAllBranchNames is deprecated in favor of ListRefs
-	//
-	// https://gitlab.com/gitlab-org/gitaly/-/issues/3966
-	FindAllBranchNames(*FindAllBranchNamesRequest, RefService_FindAllBranchNamesServer) error
-	// Deprecated: Do not use.
-	// FindAllTagNames is deprecated in favor of ListRefs
-	//
-	// https://gitlab.com/gitlab-org/gitaly/-/issues/3966
-	FindAllTagNames(*FindAllTagNamesRequest, RefService_FindAllTagNamesServer) error
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(*FindLocalBranchesRequest, RefService_FindLocalBranchesServer) error
 	// This comment is left unintentionally blank.
@@ -553,12 +467,6 @@ type UnimplementedRefServiceServer struct {
 
 func (UnimplementedRefServiceServer) FindDefaultBranchName(context.Context, *FindDefaultBranchNameRequest) (*FindDefaultBranchNameResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindDefaultBranchName not implemented")
-}
-func (UnimplementedRefServiceServer) FindAllBranchNames(*FindAllBranchNamesRequest, RefService_FindAllBranchNamesServer) error {
-	return status.Errorf(codes.Unimplemented, "method FindAllBranchNames not implemented")
-}
-func (UnimplementedRefServiceServer) FindAllTagNames(*FindAllTagNamesRequest, RefService_FindAllTagNamesServer) error {
-	return status.Errorf(codes.Unimplemented, "method FindAllTagNames not implemented")
 }
 func (UnimplementedRefServiceServer) FindLocalBranches(*FindLocalBranchesRequest, RefService_FindLocalBranchesServer) error {
 	return status.Errorf(codes.Unimplemented, "method FindLocalBranches not implemented")
@@ -631,48 +539,6 @@ func _RefService_FindDefaultBranchName_Handler(srv interface{}, ctx context.Cont
 		return srv.(RefServiceServer).FindDefaultBranchName(ctx, req.(*FindDefaultBranchNameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _RefService_FindAllBranchNames_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(FindAllBranchNamesRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(RefServiceServer).FindAllBranchNames(m, &refServiceFindAllBranchNamesServer{stream})
-}
-
-type RefService_FindAllBranchNamesServer interface {
-	Send(*FindAllBranchNamesResponse) error
-	grpc.ServerStream
-}
-
-type refServiceFindAllBranchNamesServer struct {
-	grpc.ServerStream
-}
-
-func (x *refServiceFindAllBranchNamesServer) Send(m *FindAllBranchNamesResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _RefService_FindAllTagNames_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(FindAllTagNamesRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(RefServiceServer).FindAllTagNames(m, &refServiceFindAllTagNamesServer{stream})
-}
-
-type RefService_FindAllTagNamesServer interface {
-	Send(*FindAllTagNamesResponse) error
-	grpc.ServerStream
-}
-
-type refServiceFindAllTagNamesServer struct {
-	grpc.ServerStream
-}
-
-func (x *refServiceFindAllTagNamesServer) Send(m *FindAllTagNamesResponse) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _RefService_FindLocalBranches_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -987,16 +853,6 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "FindAllBranchNames",
-			Handler:       _RefService_FindAllBranchNames_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "FindAllTagNames",
-			Handler:       _RefService_FindAllTagNames_Handler,
-			ServerStreams: true,
-		},
 		{
 			StreamName:    "FindLocalBranches",
 			Handler:       _RefService_FindLocalBranches_Handler,

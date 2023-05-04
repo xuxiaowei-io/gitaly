@@ -1,9 +1,12 @@
 package ref
 
 import (
+	"bufio"
+	"context"
 	"fmt"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -111,4 +114,43 @@ func (ts *tagNamesContainingCommitSender) Send() error {
 
 func stripPrefix(s string, prefix string) []byte {
 	return []byte(strings.TrimPrefix(s, prefix))
+}
+
+func listRefNames(ctx context.Context, repo git.RepositoryExecutor, chunker *chunk.Chunker, prefix string, extraArgs []string) error {
+	flags := []git.Option{
+		git.Flag{Name: "--format=%(refname)"},
+	}
+
+	for _, arg := range extraArgs {
+		flags = append(flags, git.Flag{Name: arg})
+	}
+
+	cmd, err := repo.Exec(ctx, git.Command{
+		Name:  "for-each-ref",
+		Flags: flags,
+		Args:  []string{prefix},
+	})
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(cmd)
+	for scanner.Scan() {
+		// Important: don't use scanner.Bytes() because the slice will become
+		// invalid on the next loop iteration. Instead, use scanner.Text() to
+		// force a copy.
+		if err := chunker.Send(&wrapperspb.StringValue{Value: scanner.Text()}); err != nil {
+			return err
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return err
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	return chunker.Flush()
 }
