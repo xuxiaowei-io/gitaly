@@ -870,11 +870,6 @@ message CreateRepositoryFromSnapshotRequest {
   string http_url = 2;
   // This comment is left unintentionally blank.
   string http_auth = 3;
-  // HttpHost is the hostname of the remote snapshot. Use this when the
-  // URL hostname has already been resolved to an IP address to prevent DNS
-  // rebinding. This is deprecated as we will be using resolved_address
-  // going forward.
-  string http_host = 4 [deprecated=true];
   // ResolvedAddress holds the resolved IP address of the remote_url. This is
   // used to avoid DNS rebinding by mapping the url to the resolved address.
   // Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
@@ -882,6 +877,10 @@ message CreateRepositoryFromSnapshotRequest {
   // Works with HTTP/HTTPS protocols.
   // Optional.
   string resolved_address = 5;
+
+  // HttpHost has been removed in favor of ResolvedAddress.
+  reserved 4;
+  reserved "http_host";
 }
 
 // This comment is left unintentionally blank.
