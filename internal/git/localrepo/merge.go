@@ -163,6 +163,11 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 				return "", fmt.Errorf("parsing conflicting file info: %s", infoLine)
 			}
 
+			mode, err := strconv.ParseInt(info[0], 8, 32)
+			if err != nil {
+				return "", fmt.Errorf("parsing mode: %w", err)
+			}
+
 			mergeTreeConflictError.ConflictingFileInfo[i].OID, err = objectHash.FromHex(info[1])
 			if err != nil {
 				return "", fmt.Errorf("hex to oid: %w", err)
@@ -177,6 +182,7 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 				return "", fmt.Errorf("invalid value for stage: %d", stage)
 			}
 
+			mergeTreeConflictError.ConflictingFileInfo[i].Mode = int32(mode)
 			mergeTreeConflictError.ConflictingFileInfo[i].Stage = MergeStage(stage)
 			mergeTreeConflictError.ConflictingFileInfo[i].FileName = infoAndFilename[1]
 		}
@@ -213,6 +219,7 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 // ConflictingFileInfo holds the conflicting file info output from git-merge-tree(1).
 type ConflictingFileInfo struct {
 	FileName string
+	Mode     int32
 	OID      git.ObjectID
 	Stage    MergeStage
 }
