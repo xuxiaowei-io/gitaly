@@ -47,17 +47,7 @@ var (
 )
 
 func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest, args *packObjectsArgs, stdinReader io.Reader, output io.Writer) error {
-	data, err := protojson.Marshal(req)
-	if err != nil {
-		return err
-	}
-
-	h := sha256.New()
-	if _, err := h.Write(data); err != nil {
-		return err
-	}
-
-	stdin, err := bufferStdin(stdinReader, h)
+	cacheKey, stdin, err := s.computeCacheKey(req, stdinReader)
 	if err != nil {
 		return err
 	}
@@ -74,9 +64,7 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 		}
 	}()
 
-	key := hex.EncodeToString(h.Sum(nil))
-
-	servedBytes, created, err := s.packObjectsCache.Fetch(ctx, key, output, func(w io.Writer) error {
+	servedBytes, created, err := s.packObjectsCache.Fetch(ctx, cacheKey, output, func(w io.Writer) error {
 		// TODO: We now have three different concurrency strategies for pack-objects. All of
 		// them are guarded behind feature flags. This situation is because we wanted to verify
 		// and pick the most effective strategy. `PackObjectsLimiting.Key` config is ignored
@@ -90,7 +78,7 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 				req,
 				args,
 				stdin,
-				key,
+				cacheKey,
 			)
 		}
 
@@ -102,7 +90,7 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 				req,
 				args,
 				stdin,
-				key,
+				cacheKey,
 			)
 		}
 
@@ -123,12 +111,12 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 					req,
 					args,
 					stdin,
-					key,
+					cacheKey,
 				)
 			}
 		}
 
-		return s.runPackObjects(ctx, w, req, args, stdin, key)
+		return s.runPackObjects(ctx, w, req, args, stdin, cacheKey)
 	})
 	if err != nil {
 		return err
@@ -142,12 +130,36 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 	}
 
 	ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
-		"cache_key": key,
+		"cache_key": cacheKey,
 		"bytes":     servedBytes,
 	}).Info("served bytes")
 	packObjectsServedBytes.Add(float64(servedBytes))
 
 	return nil
+}
+
+// computeCacheKey returns the cache key used for caching pack-objects. A cache key is made up of
+// both the requested objects and essential parameters that could impact the content of the
+// generated packfile. Including any insignificant information could result in a lower cache hit rate.
+func (s *server) computeCacheKey(req *gitalypb.PackObjectsHookWithSidechannelRequest, stdinReader io.Reader) (string, io.ReadCloser, error) {
+	cacheHash := sha256.New()
+	cacheKeyPrefix, err := protojson.Marshal(&gitalypb.PackObjectsHookWithSidechannelRequest{
+		Repository:  req.Repository,
+		Args:        req.Args,
+		GitProtocol: req.GitProtocol,
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	if _, err := cacheHash.Write(cacheKeyPrefix); err != nil {
+		return "", nil, err
+	}
+	stdin, err := bufferStdin(stdinReader, cacheHash)
+	if err != nil {
+		return "", nil, err
+	}
+	cacheKey := hex.EncodeToString(cacheHash.Sum(nil))
+	return cacheKey, stdin, nil
 }
 
 func (s *server) runPackObjects(
