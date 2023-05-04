@@ -124,14 +124,15 @@ func TestManager(t *testing.T) {
 				require.Nil(t, manager.fd)
 			}
 
-			manager.Finish(testhelper.Context(t))
-			require.NoError(t, manager.Error())
+			trace, err := manager.Finish(testhelper.Context(t))
+			require.NoError(t, err)
 			if activated {
 				require.NoFileExists(t, manager.fd.Name())
 			}
 			if assert != nil {
 				assert(t, manager)
 			}
+			require.Equal(t, expectedTrace, trace.Inspect(false))
 		})
 	}
 }
@@ -181,10 +182,11 @@ func TestManager_tempfileFailures(t *testing.T) {
 			_ = manager.Inject([]string{})
 
 			tc.setup(t, manager)
-			manager.Finish(testhelper.Context(t))
+			trace, err := manager.Finish(testhelper.Context(t))
 
-			require.Regexp(t, tc.expectedError, manager.Error().Error())
+			require.Regexp(t, tc.expectedError, err.Error())
 			require.NoFileExists(t, manager.fd.Name())
+			require.Nil(t, trace)
 		})
 	}
 }
@@ -215,8 +217,9 @@ func TestManager_handlerFailures(t *testing.T) {
 
 	events := testhelper.MustReadFile(t, "testdata/git-pack-objects.event")
 	require.NoError(t, os.WriteFile(manager.fd.Name(), events, os.ModeAppend))
-	manager.Finish(testhelper.Context(t))
+	trace, err := manager.Finish(testhelper.Context(t))
 
-	require.Equal(t, `trace2: executing "dummy2" handler: something goes wrong`, manager.Error().Error())
+	require.Equal(t, `trace2: executing "dummy2" handler: something goes wrong`, err.Error())
 	require.NoFileExists(t, manager.fd.Name())
+	require.Nil(t, trace)
 }

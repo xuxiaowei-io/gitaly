@@ -35,11 +35,6 @@ func (m *Manager) HookNames() []string {
 	return names
 }
 
-// Error returns the error occurs after the manager finishes
-func (m *Manager) Error() error {
-	return m.err
-}
-
 // Inject injects the path to the tempfile used to store trace2 events and conventional environment
 // variables to the input ENV list.
 func (m *Manager) Inject(env []string) []string {
@@ -75,9 +70,9 @@ func (m *Manager) Inject(env []string) []string {
 }
 
 // Finish reads the events, parses them to a tree, triggers hook handlers, and clean up the fd.
-func (m *Manager) Finish(ctx context.Context) {
-	if m.Error() != nil {
-		return
+func (m *Manager) Finish(ctx context.Context) (*Trace, error) {
+	if m.err != nil {
+		return nil, m.err
 	}
 
 	defer func() {
@@ -97,17 +92,15 @@ func (m *Manager) Finish(ctx context.Context) {
 
 	trace, err := Parse(ctx, m.fd)
 	if err != nil {
-		m.err = fmt.Errorf("trace2: parsing events: %w", err)
-		return
+		return nil, fmt.Errorf("trace2: parsing events: %w", err)
 	}
 	if trace == nil {
-		m.err = fmt.Errorf("trace2: no events to handle")
-		return
+		return nil, fmt.Errorf("trace2: no events to handle")
 	}
 	for _, hook := range m.hooks {
 		if err := hook.Handle(ctx, trace); err != nil {
-			m.err = fmt.Errorf("trace2: executing %q handler: %w", hook.Name(), err)
-			return
+			return nil, fmt.Errorf("trace2: executing %q handler: %w", hook.Name(), err)
 		}
 	}
+	return trace, nil
 }

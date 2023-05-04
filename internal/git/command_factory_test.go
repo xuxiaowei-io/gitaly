@@ -856,6 +856,13 @@ func TestWithTrace2Hooks(t *testing.T) {
 				for key, value := range tc.expectedStats {
 					require.Equal(t, value, fields[key])
 				}
+				if _, exists := tc.expectedStats["trace2.activated"]; exists {
+					loggedEvents := fields["trace2.events"]
+					require.NotNil(t, loggedEvents)
+					for _, event := range essentialEvents {
+						require.Contains(t, loggedEvents, event)
+					}
+				}
 			} else {
 				require.Nil(t, command.StatsFromContext(ctx))
 			}

@@ -602,13 +602,16 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 
 func (cf *ExecCommandFactory) trace2Finalizer(manager *trace2.Manager) func(context.Context, *command.Command) {
 	return func(ctx context.Context, cmd *command.Command) {
-		manager.Finish(ctx)
+		trace, err := manager.Finish(ctx)
 		stats := command.StatsFromContext(ctx)
 		if stats != nil {
 			stats.RecordMetadata("trace2.activated", "true")
 			stats.RecordMetadata("trace2.hooks", strings.Join(manager.HookNames(), ","))
-			if manager.Error() != nil {
-				stats.RecordMetadata("trace2.error", manager.Error().Error())
+			if trace != nil {
+				stats.RecordMetadata("trace2.events", trace.Inspect(true))
+			}
+			if err != nil {
+				stats.RecordMetadata("trace2.error", err.Error())
 			}
 		}
 	}
