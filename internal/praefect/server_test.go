@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -548,8 +549,8 @@ func TestRemoveRepository(t *testing.T) {
 	cc, _, cleanup := RunPraefectServer(t, ctx, praefectCfg, BuildOptions{
 		WithQueue: queueInterceptor,
 		WithRepoStore: datastore.MockRepositoryStore{
-			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-				return relativePath, nil, nil
+			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
+				return relativePath, datastructure.NewSet[string](), nil
 			},
 		},
 		WithNodeMgr: nodeMgr,
@@ -825,8 +826,8 @@ func TestProxyWrites(t *testing.T) {
 	})
 
 	rs := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-			return relativePath, map[string]struct{}{cfg0.Storages[0].Name: {}, cfg1.Storages[0].Name: {}, cfg2.Storages[0].Name: {}}, nil
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
+			return relativePath, datastructure.SetFromValues(cfg0.Storages[0].Name, cfg1.Storages[0].Name, cfg2.Storages[0].Name), nil
 		},
 	}
 

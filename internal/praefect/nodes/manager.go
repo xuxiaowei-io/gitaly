@@ -12,6 +12,7 @@ import (
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
@@ -277,23 +278,23 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 		return nil, err
 	}
 
-	if len(upToDateStorages) == 0 {
+	if upToDateStorages == nil || upToDateStorages.IsEmpty() {
 		// this possible when there is no data yet in the database for the repository
 		shard, err := n.GetShard(ctx, virtualStorageName)
 		if err != nil {
 			return nil, fmt.Errorf("get shard for %q: %w", virtualStorageName, err)
 		}
 
-		upToDateStorages = map[string]struct{}{shard.Primary.GetStorage(): {}}
+		upToDateStorages = datastructure.SetFromValues(shard.Primary.GetStorage())
 	}
 
-	healthyStorages := make([]Node, 0, len(upToDateStorages))
+	healthyStorages := make([]Node, 0, upToDateStorages.Len())
 	for _, node := range n.Nodes()[virtualStorageName] {
 		if !node.IsHealthy() {
 			continue
 		}
 
-		if _, ok := upToDateStorages[node.GetStorage()]; !ok {
+		if !upToDateStorages.HasValue(node.GetStorage()) {
 			continue
 		}
 

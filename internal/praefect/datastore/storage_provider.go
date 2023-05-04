@@ -11,13 +11,14 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
 )
 
 // ConsistentStoragesGetter returns storages which contain the latest generation of a repository.
 type ConsistentStoragesGetter interface {
 	// GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
-	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error)
+	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error)
 }
 
 // errNotExistingVirtualStorage indicates that the requested virtual storage can't be found or not configured.
@@ -133,7 +134,7 @@ func (c *CachingConsistentStoragesGetter) getCache(virtualStorage string) (*lru.
 	return val, found
 }
 
-func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
 	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
 	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
@@ -165,7 +166,7 @@ func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
 }
 
 // GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
-func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
 	var cache *lru.Cache[string, interface{}]
 
 	if c.isCacheEnabled() {
@@ -191,7 +192,7 @@ func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Cont
 
 type cacheValue struct {
 	replicaPath string
-	storages    map[string]struct{}
+	storages    *datastructure.Set[string]
 }
 
 func getKey(cache *lru.Cache[string, interface{}], key string) (cacheValue, bool) {

@@ -37,7 +37,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// empty cache should be populated
 		replicaPath, storages, err := cache.GetConsistentStorages(ctx, "unknown", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -61,7 +61,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// empty cache should be populated
 		replicaPath, storages, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -75,7 +75,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// populated cache should return cached value
 		replicaPath, storages, err = cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -126,7 +126,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// first access populates the cache
 		replicaPath, storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages1)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages1.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		// invalid payload disables caching
@@ -137,19 +137,19 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// second access omits cached data as caching should be disabled
 		replicaPath, storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages2)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages2.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		// third access retrieves data and caches it
 		replicaPath, storages3, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages3)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages3.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		// fourth access retrieves data from cache
 		replicaPath, storages4, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages4)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages4.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		require.Len(t, logHook.AllEntries(), 1)
@@ -185,11 +185,11 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// first access populates the cache
 		replicaPath, path1Storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, path1Storages1)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, path1Storages1.Values())
 		require.Equal(t, "replica-path-1", replicaPath)
 		replicaPath, path2Storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/2")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}}, path2Storages1)
+		require.ElementsMatch(t, []string{"g1", "g2"}, path2Storages1.Values())
 		require.Equal(t, "replica-path-2", replicaPath)
 
 		// notification evicts entries for '/repo/path/2' from the cache
@@ -203,12 +203,12 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// second access re-uses cached data for '/repo/path/1'
 		replicaPath1, path1Storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, path1Storages2)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, path1Storages2.Values())
 		require.Equal(t, "replica-path-1", replicaPath1)
 		// second access populates the cache again for '/repo/path/2'
 		replicaPath, path2Storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/2")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}}, path2Storages2)
+		require.ElementsMatch(t, []string{"g1", "g2"}, path2Storages2.Values())
 		require.Equal(t, "replica-path-2", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -235,7 +235,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// first access populates the cache
 		replicaPath, storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages1)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages1.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		// disconnection disables cache
@@ -244,7 +244,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// second access retrieve data and doesn't populate the cache
 		replicaPath, storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages2)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages2.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`

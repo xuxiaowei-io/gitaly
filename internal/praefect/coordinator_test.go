@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -94,11 +95,11 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			ctx := testhelper.Context(t)
 
 			rs := datastore.MockRepositoryStore{
-				GetConsistentStoragesFunc: func(context.Context, string, string) (string, map[string]struct{}, error) {
+				GetConsistentStoragesFunc: func(context.Context, string, string) (string, *datastructure.Set[string], error) {
 					if tc.readOnly {
-						return "", map[string]struct{}{storage + "-other": {}}, nil
+						return "", datastructure.SetFromValues(storage + "-other"), nil
 					}
-					return "", map[string]struct{}{storage: {}}, nil
+					return "", datastructure.NewSet[string](), nil
 				},
 			}
 
@@ -483,8 +484,8 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	}
 
 	rs := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-			return relativePath, map[string]struct{}{"primary": {}, "secondary": {}}, nil
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
+			return relativePath, datastructure.SetFromValues("primary", "secondary"), nil
 		},
 	}
 
@@ -595,8 +596,8 @@ func TestStreamDirectorMutator_SecondaryErrorHandling(t *testing.T) {
 	}
 
 	rs := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-			return relativePath, map[string]struct{}{"praefect-internal-1": {}, "praefect-internal-2": {}, "praefect-internal-3": {}}, nil
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
+			return relativePath, datastructure.SetFromValues("praefect-internal-1", "praefect-internal-2", "praefect-internal-3"), nil
 		},
 	}
 
@@ -681,8 +682,8 @@ func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
 
 	incrementGenerationInvoked := false
 	rs := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-			return relativePath, map[string]struct{}{"praefect-internal-2": {}}, nil
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
+			return relativePath, datastructure.SetFromValues("praefect-internal-2"), nil
 		},
 		CreateRepositoryFunc: func(ctx context.Context, repositoryID int64, virtualStorage, relativePath, replicaPath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 			require.Fail(t, "CreateRepository should not be called")
@@ -1172,8 +1173,8 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	entry := testhelper.NewDiscardingLogEntry(t)
 
 	repoStore := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-			return relativePath, map[string]struct{}{primaryNodeConf.Storage: {}, secondaryNodeConf.Storage: {}}, nil
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
+			return relativePath, datastructure.SetFromValues(primaryNodeConf.Storage, secondaryNodeConf.Storage), nil
 		},
 	}
 
@@ -2186,8 +2187,8 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 					GetReplicaPathFunc: func(ctx context.Context, repositoryID int64) (string, error) {
 						return repoProto.GetRelativePath(), nil
 					},
-					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-						return relativePath, map[string]struct{}{"primary": {}, "secondary-1": {}, "secondary-2": {}}, nil
+					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
+						return relativePath, datastructure.SetFromValues("primary", "secondary-1", "secondary-2"), nil
 					},
 				},
 			})

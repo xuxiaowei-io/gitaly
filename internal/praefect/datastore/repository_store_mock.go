@@ -1,6 +1,10 @@
 package datastore
 
-import "context"
+import (
+	"context"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
+)
 
 // MockRepositoryStore allows for mocking a RepositoryStore by parametrizing its behavior. All methods
 // default to what could be considered success if not set.
@@ -16,8 +20,8 @@ type MockRepositoryStore struct {
 	DeleteReplicaFunc                       func(ctx context.Context, repositoryID int64, storage string) error
 	RenameRepositoryInPlaceFunc             func(ctx context.Context, virtualStorage, relativePath, newRelativePath string) error
 	RenameRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
-	GetConsistentStoragesByRepositoryIDFunc func(ctx context.Context, repositoryID int64) (string, map[string]struct{}, error)
-	GetConsistentStoragesFunc               func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error)
+	GetConsistentStoragesByRepositoryIDFunc func(ctx context.Context, repositoryID int64) (string, *datastructure.Set[string], error)
+	GetConsistentStoragesFunc               func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error)
 	GetPartiallyAvailableRepositoriesFunc   func(ctx context.Context, virtualStorage string) ([]RepositoryMetadata, error)
 	DeleteInvalidRepositoryFunc             func(ctx context.Context, repositoryID int64, storage string) error
 	RepositoryExistsFunc                    func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
@@ -115,18 +119,18 @@ func (m MockRepositoryStore) RenameRepository(ctx context.Context, virtualStorag
 }
 
 // GetConsistentStoragesByRepositoryID returns result of execution of the GetConsistentStoragesByRepositoryIDFunc field if it is set or an empty map.
-func (m MockRepositoryStore) GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (string, map[string]struct{}, error) {
+func (m MockRepositoryStore) GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (string, *datastructure.Set[string], error) {
 	if m.GetConsistentStoragesFunc == nil {
-		return "", map[string]struct{}{}, nil
+		return "", datastructure.NewSet[string](), nil
 	}
 
 	return m.GetConsistentStoragesByRepositoryIDFunc(ctx, repositoryID)
 }
 
 // GetConsistentStorages returns result of execution of the GetConsistentStoragesFunc field if it is set or an empty map.
-func (m MockRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+func (m MockRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
 	if m.GetConsistentStoragesFunc == nil {
-		return "", map[string]struct{}{}, nil
+		return "", datastructure.NewSet[string](), nil
 	}
 
 	return m.GetConsistentStoragesFunc(ctx, virtualStorage, relativePath)
