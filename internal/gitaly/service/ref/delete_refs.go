@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -38,38 +37,30 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	}
 	defer func() {
 		if err := updater.Close(); err != nil && returnedErr == nil {
-			// Only return the error if the feature flag is active. Traditionally
-			// the error was packed into the response body so this would start
-			// returning a real error. With structured errors, an actual error
-			// is returned so this would not override it.
-			if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-				returnedErr = fmt.Errorf("close updater: %w", err)
-			}
+			returnedErr = fmt.Errorf("close updater: %w", err)
 		}
 	}()
 
 	voteHash := voting.NewVoteHash()
 
-	if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-		var invalidRefnames [][]byte
+	var invalidRefnames [][]byte
 
-		for _, ref := range refnames {
-			if err := git.ValidateRevision([]byte(ref)); err != nil {
-				invalidRefnames = append(invalidRefnames, []byte(ref))
-			}
+	for _, ref := range refnames {
+		if err := git.ValidateRevision([]byte(ref)); err != nil {
+			invalidRefnames = append(invalidRefnames, []byte(ref))
 		}
+	}
 
-		if len(invalidRefnames) > 0 {
-			return nil, structerr.NewInvalidArgument("invalid references").WithDetail(
-				&gitalypb.DeleteRefsError{
-					Error: &gitalypb.DeleteRefsError_InvalidFormat{
-						InvalidFormat: &gitalypb.InvalidRefFormatError{
-							Refs: invalidRefnames,
-						},
+	if len(invalidRefnames) > 0 {
+		return nil, structerr.NewInvalidArgument("invalid references").WithDetail(
+			&gitalypb.DeleteRefsError{
+				Error: &gitalypb.DeleteRefsError_InvalidFormat{
+					InvalidFormat: &gitalypb.InvalidRefFormatError{
+						Refs: invalidRefnames,
 					},
 				},
-			)
-		}
+			},
+		)
 	}
 
 	if err := updater.Start(); err != nil {
@@ -78,11 +69,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 
 	for _, ref := range refnames {
 		if err := updater.Delete(ref); err != nil {
-			if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-				return nil, structerr.NewInternal("unable to delete refs: %w", err)
-			}
-
-			return &gitalypb.DeleteRefsResponse{GitError: err.Error()}, nil
+			return nil, structerr.NewInternal("unable to delete refs: %w", err)
 		}
 
 		if _, err := voteHash.Write([]byte(ref.String() + "\n")); err != nil {
@@ -91,26 +78,20 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	}
 
 	if err := updater.Prepare(); err != nil {
-		if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-			var alreadyLockedErr *updateref.AlreadyLockedError
-			if errors.As(err, &alreadyLockedErr) {
-				return nil, structerr.NewFailedPrecondition("cannot lock references").WithDetail(
-					&gitalypb.DeleteRefsError{
-						Error: &gitalypb.DeleteRefsError_ReferencesLocked{
-							ReferencesLocked: &gitalypb.ReferencesLockedError{
-								Refs: [][]byte{[]byte(alreadyLockedErr.Ref)},
-							},
+		var alreadyLockedErr *updateref.AlreadyLockedError
+		if errors.As(err, &alreadyLockedErr) {
+			return nil, structerr.NewFailedPrecondition("cannot lock references").WithDetail(
+				&gitalypb.DeleteRefsError{
+					Error: &gitalypb.DeleteRefsError_ReferencesLocked{
+						ReferencesLocked: &gitalypb.ReferencesLockedError{
+							Refs: [][]byte{[]byte(alreadyLockedErr.Ref)},
 						},
 					},
-				)
-			}
-
-			return nil, structerr.NewInternal("unable to prepare: %w", err)
+				},
+			)
 		}
 
-		return &gitalypb.DeleteRefsResponse{
-			GitError: fmt.Sprintf("unable to delete refs: %s", err.Error()),
-		}, nil
+		return nil, structerr.NewInternal("unable to prepare: %w", err)
 	}
 
 	vote, err := voteHash.Vote()
@@ -127,11 +108,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	}
 
 	if err := updater.Commit(); err != nil {
-		if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-			return nil, structerr.NewInternal("unable to commit: %w", err)
-		}
-
-		return &gitalypb.DeleteRefsResponse{GitError: fmt.Sprintf("unable to delete refs: %s", err.Error())}, nil
+		return nil, structerr.NewInternal("unable to commit: %w", err)
 	}
 
 	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Committed); err != nil {

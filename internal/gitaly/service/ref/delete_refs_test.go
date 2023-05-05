@@ -3,10 +3,8 @@
 package ref
 
 import (
-	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -17,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -32,15 +29,7 @@ import (
 func TestDeleteRefs_successful(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.DeleteRefsStructuredErrors).Run(
-		t,
-		testDeleteRefSuccessful,
-	)
-}
-
-func testDeleteRefSuccessful(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -106,15 +95,7 @@ func testDeleteRefSuccessful(t *testing.T, ctx context.Context) {
 func TestDeleteRefs_transaction(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.DeleteRefsStructuredErrors).Run(
-		t,
-		testDeleteRefsTransaction,
-	)
-}
-
-func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -189,15 +170,7 @@ func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
 func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.DeleteRefsStructuredErrors).Run(
-		t,
-		testDeleteRefsInvalidRefFormat,
-	)
-}
-
-func testDeleteRefsInvalidRefFormat(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 
 	request := &gitalypb.DeleteRefsRequest{
@@ -207,36 +180,23 @@ func testDeleteRefsInvalidRefFormat(t *testing.T, ctx context.Context) {
 
 	response, err := client.DeleteRefs(ctx, request)
 
-	if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-		require.Nil(t, response)
-		detailedErr := structerr.NewInvalidArgument("invalid references").WithDetail(
-			&gitalypb.DeleteRefsError{
-				Error: &gitalypb.DeleteRefsError_InvalidFormat{
-					InvalidFormat: &gitalypb.InvalidRefFormatError{
-						Refs: request.Refs,
-					},
+	require.Nil(t, response)
+	detailedErr := structerr.NewInvalidArgument("invalid references").WithDetail(
+		&gitalypb.DeleteRefsError{
+			Error: &gitalypb.DeleteRefsError_InvalidFormat{
+				InvalidFormat: &gitalypb.InvalidRefFormatError{
+					Refs: request.Refs,
 				},
 			},
-		)
-		testhelper.RequireGrpcError(t, detailedErr, err)
-	} else {
-		require.NoError(t, err)
-		require.Equal(t, response.GitError, `unable to delete refs: invalid reference format: "refs invalid-ref-format"`)
-	}
+		},
+	)
+	testhelper.RequireGrpcError(t, detailedErr, err)
 }
 
 func TestDeleteRefs_refLocked(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.DeleteRefsStructuredErrors).Run(
-		t,
-		testDeleteRefsRefLocked,
-	)
-}
-
-func testDeleteRefsRefLocked(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repoProto, _, client := setupRefService(t, ctx)
 
 	request := &gitalypb.DeleteRefsRequest{
@@ -262,22 +222,17 @@ func testDeleteRefsRefLocked(t *testing.T, ctx context.Context) {
 
 	response, err := client.DeleteRefs(ctx, request)
 
-	if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-		require.Nil(t, response)
-		detailedErr := structerr.NewFailedPrecondition("cannot lock references").WithDetail(
-			&gitalypb.DeleteRefsError{
-				Error: &gitalypb.DeleteRefsError_ReferencesLocked{
-					ReferencesLocked: &gitalypb.ReferencesLockedError{
-						Refs: [][]byte{[]byte("refs/heads/master")},
-					},
+	require.Nil(t, response)
+	detailedErr := structerr.NewFailedPrecondition("cannot lock references").WithDetail(
+		&gitalypb.DeleteRefsError{
+			Error: &gitalypb.DeleteRefsError_ReferencesLocked{
+				ReferencesLocked: &gitalypb.ReferencesLockedError{
+					Refs: [][]byte{[]byte("refs/heads/master")},
 				},
 			},
-		)
-		testhelper.RequireGrpcError(t, detailedErr, err)
-	} else {
-		require.NoError(t, err)
-		assert.Contains(t, response.GetGitError(), "reference is already locked")
-	}
+		},
+	)
+	testhelper.RequireGrpcError(t, detailedErr, err)
 }
 
 func TestDeleteRefs_validation(t *testing.T) {
