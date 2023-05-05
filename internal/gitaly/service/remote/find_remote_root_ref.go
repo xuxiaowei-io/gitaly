@@ -37,13 +37,6 @@ func (s *server) findRemoteRootRefCmd(ctx context.Context, request *gitalypb.Fin
 			Value: "Authorization: " + authHeader,
 		})
 	}
-	//nolint:staticcheck
-	if host := request.GetHttpHost(); host != "" {
-		config = append(config, git.ConfigPair{
-			Key:   fmt.Sprintf("http.%s.extraHeader", request.RemoteUrl),
-			Value: "Host: " + host,
-		})
-	}
 
 	return s.gitCmdFactory.New(ctx, request.Repository,
 		git.Command{
