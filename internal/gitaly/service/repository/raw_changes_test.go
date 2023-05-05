@@ -4,7 +4,6 @@ package repository
 
 import (
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"testing"
 	"unicode/utf8"

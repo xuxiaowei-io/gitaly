@@ -4,7 +4,6 @@ package repository
 
 import (
 	"bytes"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"path/filepath"
 	"testing"
 

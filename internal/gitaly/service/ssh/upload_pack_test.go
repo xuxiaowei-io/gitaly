@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/client/v15"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"os"
 	"os/exec"

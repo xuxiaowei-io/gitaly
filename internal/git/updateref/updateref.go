@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"regexp"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"

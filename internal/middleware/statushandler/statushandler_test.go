@@ -3,7 +3,6 @@ package statushandler
 import (
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

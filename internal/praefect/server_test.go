@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"math/rand"
 	"net"

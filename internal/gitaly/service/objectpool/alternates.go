@@ -3,7 +3,6 @@ package objectpool
 import (
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 	"path/filepath"
 	"sort"

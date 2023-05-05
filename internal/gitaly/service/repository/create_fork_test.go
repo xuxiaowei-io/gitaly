@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/client/v15/internal/x509"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 	"path/filepath"
 	"strings"

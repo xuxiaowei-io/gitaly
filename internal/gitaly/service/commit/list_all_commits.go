@@ -7,7 +7,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 )
 
 func verifyListAllCommitsRequest(request *gitalypb.ListAllCommitsRequest) error {

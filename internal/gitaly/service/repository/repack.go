@@ -3,8 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"

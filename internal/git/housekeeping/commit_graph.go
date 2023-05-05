@@ -3,8 +3,6 @@ package housekeeping
 import (
 	"bytes"
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
-
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"path/filepath"
 	"strconv"
 	"testing"

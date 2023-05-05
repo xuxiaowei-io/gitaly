@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"strconv"
 

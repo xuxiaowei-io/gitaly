@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"testing"
 
 	"github.com/stretchr/testify/require"

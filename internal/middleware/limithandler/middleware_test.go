@@ -3,7 +3,6 @@ package limithandler_test
 import (
 	"bytes"
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"net"
 	"sync"

@@ -1,8 +1,6 @@
 package housekeeping
 
 import (
-	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"path/filepath"
 	"testing"
 
@@ -10,8 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )

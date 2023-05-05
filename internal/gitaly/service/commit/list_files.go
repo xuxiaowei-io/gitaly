@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"

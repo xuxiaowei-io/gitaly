@@ -2,8 +2,6 @@ package objectpool
 
 import (
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
-
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"

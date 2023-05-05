@@ -4,7 +4,6 @@ package praefect
 
 import (
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"net"
 	"path/filepath"
 	"testing"

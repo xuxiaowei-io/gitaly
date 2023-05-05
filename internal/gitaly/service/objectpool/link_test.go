@@ -3,7 +3,6 @@
 package objectpool
 
 import (
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 )

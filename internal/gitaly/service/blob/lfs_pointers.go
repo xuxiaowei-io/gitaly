@@ -3,7 +3,6 @@ package blob
 import (
 	"bytes"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"strings"
 

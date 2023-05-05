@@ -4,7 +4,6 @@ package commit
 
 import (
 	"errors"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"strconv"
 	"testing"

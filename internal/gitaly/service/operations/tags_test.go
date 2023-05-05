@@ -4,7 +4,6 @@ package operations
 
 import (
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"path/filepath"
 	"strings"
 	"testing"

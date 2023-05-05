@@ -6,6 +6,9 @@ go 1.18
 replace github.com/go-enry/go-license-detector/v4 => github.com/pavelmemory/go-license-detector/v4 v4.3.1-0.20220801101717-a7c9e28533cf
 
 require (
+	gitlab.com/gitlab-org/gitaly/proto/v15 v15.9.0-rc5
+	gitlab.com/gitlab-org/gitaly/structerr/v15 v15.9.0-rc5
+	gitlab.com/gitlab-org/gitaly/client/v15 v15.9.0-rc5
 	github.com/ProtonMail/go-crypto v0.0.0-20230201104953-d1d05f4e2bfb
 	github.com/beevik/ntp v0.3.0
 	github.com/cloudflare/tableflip v1.2.3

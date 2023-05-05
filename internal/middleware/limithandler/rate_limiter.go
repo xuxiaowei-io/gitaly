@@ -3,7 +3,6 @@ package limithandler
 import (
 	"context"
 	"errors"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"sync"
 	"time"
 

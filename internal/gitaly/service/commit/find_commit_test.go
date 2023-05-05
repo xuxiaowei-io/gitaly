@@ -4,7 +4,6 @@ package commit
 
 import (
 	"bufio"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"strings"
 	"testing"
 

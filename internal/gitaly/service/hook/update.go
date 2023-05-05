@@ -2,7 +2,6 @@ package hook
 
 import (
 	"errors"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os/exec"
 	"sync"
 

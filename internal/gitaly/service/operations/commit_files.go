@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"strings"
 

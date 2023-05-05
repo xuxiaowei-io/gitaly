@@ -6,9 +6,9 @@ use (
 	./proto
 	./structerr
 )
-
-replace (
-	gitlab.com/gitlab-org/gitaly/client/v15 v15.9.0-rc3 => ./client
-	gitlab.com/gitlab-org/gitaly/proto/v15 v15.9.0-rc3 => ./proto
-	gitlab.com/gitlab-org/gitaly/structerr/v15 v15.9.0-rc3 => ./structerr
-)
+//
+//replace (
+//	gitlab.com/gitlab-org/gitaly/client/v15 v15.9.0-rc5 => ./client
+//	gitlab.com/gitlab-org/gitaly/proto/v15 v15.9.0-rc5 => ./proto
+//	gitlab.com/gitlab-org/gitaly/structerr/v15 v15.9.0-rc5 => ./structerr
+//)

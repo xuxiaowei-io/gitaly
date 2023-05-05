@@ -3,7 +3,6 @@ package dnsresolver
 import (
 	"fmt"
 	"gitlab.com/gitlab-org/gitaly/client/v15/internal/dnsresolver"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"net"
 	"testing"
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"net/url"
 
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"

@@ -4,7 +4,6 @@ package remote
 
 import (
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"net/http"
 	"path/filepath"
 	"testing"

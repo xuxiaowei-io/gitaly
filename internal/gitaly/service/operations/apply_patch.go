@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"math/rand"
 	"path/filepath"
 	"time"

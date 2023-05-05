@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"hash"
 
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"

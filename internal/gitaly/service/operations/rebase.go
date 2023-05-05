@@ -3,7 +3,6 @@ package operations
 import (
 	"errors"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"

@@ -2,8 +2,6 @@ package metadatahandler
 
 import (
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"strings"
 
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"

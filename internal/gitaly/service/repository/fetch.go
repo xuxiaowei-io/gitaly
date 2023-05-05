@@ -3,8 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
-
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"

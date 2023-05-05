@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"

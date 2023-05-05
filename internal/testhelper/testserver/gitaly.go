@@ -2,7 +2,6 @@ package testserver
 
 import (
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"net"
 	"os"
 	"testing"

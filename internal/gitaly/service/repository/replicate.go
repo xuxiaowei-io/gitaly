@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	structerr2 "gitlab.com/gitlab-org/gitaly/v15/structerr"
+	structerr2 "gitlab.com/gitlab-org/gitaly/structerr/v15"
 	"io"
 	"os"
 	"path/filepath"

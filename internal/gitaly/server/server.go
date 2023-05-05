@@ -3,7 +3,6 @@ package server
 import (
 	"crypto/tls"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"time"
 
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"

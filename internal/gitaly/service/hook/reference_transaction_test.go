@@ -5,7 +5,6 @@ package hook
 import (
 	"context"
 	"crypto/sha1"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"net"
 	"testing"
 

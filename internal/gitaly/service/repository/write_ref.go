@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
-
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"

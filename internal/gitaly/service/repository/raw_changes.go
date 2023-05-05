@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"regexp"
 	"strconv"

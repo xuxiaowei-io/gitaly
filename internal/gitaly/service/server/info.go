@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 	"path/filepath"
 
@@ -11,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/fstype"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 )
 

@@ -5,7 +5,6 @@ package cleanup
 import (
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"strings"
 	"testing"

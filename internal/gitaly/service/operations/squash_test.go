@@ -5,7 +5,6 @@ package operations
 import (
 	"context"
 	"errors"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 	"strings"
 	"testing"

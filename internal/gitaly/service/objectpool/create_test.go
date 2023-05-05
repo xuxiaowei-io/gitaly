@@ -4,7 +4,6 @@ package objectpool
 
 import (
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 	"path/filepath"
 	"strings"

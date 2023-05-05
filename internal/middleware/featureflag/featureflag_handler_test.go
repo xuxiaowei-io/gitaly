@@ -2,7 +2,6 @@ package featureflag
 
 import (
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"net"
 	"testing"
 

@@ -2,7 +2,6 @@ package diff
 
 import (
 	"context"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"

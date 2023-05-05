@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb/testproto"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"

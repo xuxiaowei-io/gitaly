@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 	"testing"
 
@@ -9,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"google.golang.org/grpc/codes"

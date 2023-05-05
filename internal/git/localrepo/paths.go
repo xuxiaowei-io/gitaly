@@ -1,7 +1,6 @@
 package localrepo
 
 import (
-	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"os"
 	"path/filepath"
 	"strings"
