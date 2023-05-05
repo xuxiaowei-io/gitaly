@@ -28,22 +28,16 @@ import (
 
 var (
 	secret       = "Magic secret"
-	host         = "example.com"
 	redirectPath = "/redirecting-snapshot.tar"
 	tarPath      = "/snapshot.tar"
 )
 
 type tarTesthandler struct {
 	tarData io.Reader
-	host    string
 	secret  string
 }
 
 func (h *tarTesthandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.host != "" && r.Host != h.host {
-		http.Error(w, "No Host", http.StatusBadRequest)
-		return
-	}
 	if r.Header.Get("Authorization") != h.secret {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -96,7 +90,7 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	data, entries := generateTarFile(t, sourceRepoPath)
 
 	// Create a HTTP server that serves a given tar file
-	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret, host: host})
+	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret})
 	defer srv.Close()
 
 	repoRelativePath := filepath.Join("non-existing-parent", "repository")
@@ -109,7 +103,6 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 		Repository: repo,
 		HttpUrl:    srv.URL + tarPath,
 		HttpAuth:   secret,
-		HttpHost:   host,
 	}
 
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
@@ -222,7 +215,7 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 		},
 	}
 
-	srv := httptest.NewServer(&tarTesthandler{secret: secret, host: host})
+	srv := httptest.NewServer(&tarTesthandler{secret: secret})
 	defer srv.Close()
 
 	for _, tc := range testCases {
@@ -238,7 +231,6 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 				},
 				HttpUrl:         srv.URL + tc.url,
 				HttpAuth:        tc.auth,
-				HttpHost:        host,
 				ResolvedAddress: tc.resolvedAddress,
 			}
 
@@ -269,7 +261,7 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	// Only serve half of the tar file
 	dataReader := io.LimitReader(bytes.NewReader(data), int64(len(data)/2))
 
-	srv := httptest.NewServer(&tarTesthandler{tarData: dataReader, secret: secret, host: host})
+	srv := httptest.NewServer(&tarTesthandler{tarData: dataReader, secret: secret})
 	defer srv.Close()
 
 	// Delete the repository so we can re-use the path
@@ -279,7 +271,6 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 		Repository: repo,
 		HttpUrl:    srv.URL + tarPath,
 		HttpAuth:   secret,
-		HttpHost:   host,
 	}
 
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
@@ -308,7 +299,7 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 	data, entries := generateTarFile(t, sourceRepoPath)
 
 	// Create a HTTP server that serves a given tar file
-	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret, host: host})
+	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret})
 	defer srv.Close()
 
 	repoRelativePath := gittest.NewRepositoryName(t)
@@ -325,14 +316,13 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 	u, err := url.Parse(srv.URL)
 	require.NoError(t, err)
 
-	randomHostname := fmt.Sprintf("http://www.example.com:%s%s", u.Port(), tarPath)
+	randomHostname := fmt.Sprintf("http://localhost:%s%s", u.Port(), tarPath)
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
 		Repository:      repo,
 		HttpUrl:         randomHostname,
 		HttpAuth:        secret,
 		ResolvedAddress: u.Hostname(),
-		HttpHost:        host,
 	}
 
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)

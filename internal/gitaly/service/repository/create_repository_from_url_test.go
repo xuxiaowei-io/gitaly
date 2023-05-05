@@ -85,7 +85,6 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	_, err := client.CreateRepositoryFromURL(ctx, &gitalypb.CreateRepositoryFromURLRequest{
 		Repository:              importedRepo,
 		Url:                     fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(remoteRepoPath)),
-		HttpHost:                "www.example.com",
 		HttpAuthorizationHeader: "GL-Geo EhEhKSUk_385GSLnS7BI:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoie1wic2NvcGVcIjpcInJvb3QvZ2l0bGFiLWNlXCJ9IiwianRpIjoiNmQ4ZDM1NGQtZjUxYS00MDQ5LWExZjctMjUyMjk4YmQwMTI4IiwiaWF0IjoxNjQyMDk1MzY5LCJuYmYiOjE2NDIwOTUzNjQsImV4cCI6MTY0MjA5NTk2OX0.YEpfzg8305dUqkYOiB7_dhbL0FVSaUPgpSpMuKrgNrg",
 		Mirror:                  true,
 	})
@@ -267,7 +266,6 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			cmd, err := s.cloneFromURLCommand(
 				ctx,
 				tc.url,
-				"www.example.com",
 				tc.resolvedAddress,
 				filepath.Join(testhelper.TempDir(t), "target"),
 				tc.token,
@@ -301,13 +299,6 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 				require.Subset(t, cmd.Env(), []string{
 					"GIT_CONFIG_KEY_1=http.curloptResolve",
 					"GIT_CONFIG_VALUE_1=" + tc.expectedCurloptResolveHeader,
-					"GIT_CONFIG_KEY_2=http.extraHeader",
-					"GIT_CONFIG_VALUE_2=Host: www.example.com",
-				})
-			} else {
-				require.Subset(t, cmd.Env(), []string{
-					"GIT_CONFIG_KEY_1=http.extraHeader",
-					"GIT_CONFIG_VALUE_1=Host: www.example.com",
 				})
 			}
 		})
@@ -323,7 +314,7 @@ func TestServer_CloneFromURLCommand_withMirror(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, url, "", "", repositoryFullPath, "", true, git.WithDisabledHooks())
+	cmd, err := s.cloneFromURLCommand(ctx, url, "", repositoryFullPath, "", true, git.WithDisabledHooks())
 	require.NoError(t, err)
 
 	args := cmd.Args()
