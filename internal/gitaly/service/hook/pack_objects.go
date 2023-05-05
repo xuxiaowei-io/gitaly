@@ -81,18 +81,6 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 			)
 		}
 
-		if featureflag.PackObjectsLimitingUser.IsEnabled(ctx) && req.GetGlId() != "" {
-			return s.runPackObjectsLimited(
-				ctx,
-				w,
-				req.GetGlId(),
-				req,
-				args,
-				stdin,
-				cacheKey,
-			)
-		}
-
 		if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) && req.GetRemoteIp() != "" {
 			ipAddr := net.ParseIP(req.GetRemoteIp())
 			if ipAddr == nil {

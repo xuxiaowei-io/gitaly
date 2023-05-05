@@ -89,7 +89,6 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
@@ -222,7 +221,6 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
@@ -444,7 +442,6 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
@@ -701,7 +698,6 @@ func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
@@ -781,7 +777,6 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
 		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, testPackObjectsConcurrency)
@@ -796,8 +791,6 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 
 	if featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) {
 		keyType = "repo"
-	} else if featureflag.PackObjectsLimitingUser.IsEnabled(ctx) {
-		keyType = "user"
 	} else if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) {
 		keyType = "remote_ip"
 	}
@@ -856,7 +849,6 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 				},
 			},
 			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx) ||
 				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
 		},
 		{
@@ -882,7 +874,6 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 				},
 			},
 			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx) ||
 				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
 		},
 		{
@@ -907,8 +898,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx),
 		},
 		{
 			desc: "IPv6 loopback addresses",
@@ -932,8 +922,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx),
 		},
 		{
 			desc: "invalid IP addresses",
@@ -957,8 +946,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx),
 		},
 		{
 			desc: "empty IP addresses",
@@ -982,8 +970,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
