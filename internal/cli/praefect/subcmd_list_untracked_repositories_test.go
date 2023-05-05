@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
@@ -21,34 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func TestListUntrackedRepositories_FlagSet(t *testing.T) {
-	t.Parallel()
-	cmd := &listUntrackedRepositories{}
-	for _, tc := range []struct {
-		desc string
-		args []string
-		exp  []interface{}
-	}{
-		{
-			desc: "custom values",
-			args: []string{"--delimiter", ",", "--older-than", "1s"},
-			exp:  []interface{}{",", time.Second},
-		},
-		{
-			desc: "default values",
-			args: nil,
-			exp:  []interface{}{"\n", 6 * time.Hour},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			fs := cmd.FlagSet()
-			require.NoError(t, fs.Parse(tc.args))
-			require.ElementsMatch(t, tc.exp, []interface{}{cmd.delimiter, cmd.onlyIncludeOlderThan})
-		})
-	}
-}
-
-func TestListUntrackedRepositories_Exec(t *testing.T) {
+func TestListUntrackedRepositoriesCommand(t *testing.T) {
 	t.Parallel()
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
@@ -75,6 +49,8 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 		DB: dbConf,
 	}
 
+	confPath := writeConfigToFile(t, conf)
+
 	praefectServer := testserver.StartPraefect(t, conf)
 
 	cc, err := client.Dial(praefectServer.Address(), nil)
@@ -87,10 +63,6 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 
 	// Repository managed by praefect, exists on gitaly-1 and gitaly-2.
 	createRepo(t, ctx, repoClient, praefectStorage, "path/to/test/repo")
-	out := &bytes.Buffer{}
-	cmd := newListUntrackedRepositories(testhelper.NewDiscardingLogger(t), out)
-	fs := cmd.FlagSet()
-	require.NoError(t, fs.Parse([]string{"-older-than", "4h"}))
 
 	// Repositories not managed by praefect.
 	repo1, repo1Path := gittest.CreateRepository(t, ctx, g1Cfg, gittest.CreateRepositoryConfig{
@@ -103,24 +75,61 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
+	timeDelta := 4 * time.Hour
 	require.NoError(t, os.Chtimes(
 		repo1Path,
-		time.Now().Add(-(4*time.Hour+1*time.Second)),
-		time.Now().Add(-(4*time.Hour+1*time.Second))))
+		time.Now().Add(-(timeDelta+1*time.Second)),
+		time.Now().Add(-(timeDelta+1*time.Second))))
 	require.NoError(t, os.Chtimes(
 		repo2Path,
-		time.Now().Add(-(4*time.Hour+1*time.Second)),
-		time.Now().Add(-(4*time.Hour+1*time.Second))))
+		time.Now().Add(-(timeDelta+1*time.Second)),
+		time.Now().Add(-(timeDelta+1*time.Second))))
 
-	require.NoError(t, cmd.Exec(fs, conf))
-
-	exp := []string{
-		"The following repositories were found on disk, but missing from the tracking database:",
-		fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo1.RelativePath),
-		fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo2.RelativePath),
-		"", // an empty extra element required as each line ends with "delimiter" and strings.Split returns all parts
+	newApp := func() (cli.App, *bytes.Buffer) {
+		var stdout bytes.Buffer
+		return cli.App{
+			Writer: &stdout,
+			Commands: []*cli.Command{
+				newListUntrackedRepositoriesCommand(),
+			},
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "config",
+					Value: confPath,
+				},
+			},
+		}, &stdout
 	}
-	require.ElementsMatch(t, exp, strings.Split(out.String(), "\n"))
+
+	t.Run("positional arguments", func(t *testing.T) {
+		app, _ := newApp()
+		err := app.Run([]string{progname, "list-untracked-repositories", "positional-arg"})
+		require.Equal(t, cli.Exit(unexpectedPositionalArgsError{Command: "list-untracked-repositories"}, 1), err)
+	})
+
+	t.Run("default flag values used", func(t *testing.T) {
+		app, stdout := newApp()
+		err := app.Run([]string{progname, "list-untracked-repositories"})
+		require.NoError(t, err)
+		require.Empty(t, stdout.String())
+	})
+
+	t.Run("passed flag values used", func(t *testing.T) {
+		app, stdout := newApp()
+		err := app.Run([]string{progname, "list-untracked-repositories", "-older-than", timeDelta.String(), "-delimiter", "~"})
+		require.NoError(t, err)
+
+		exp := []string{
+			"The following repositories were found on disk, but missing from the tracking database:",
+			fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo1.RelativePath),
+			fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo2.RelativePath),
+			"", // an empty extra element required as each line ends with "delimiter" and strings.Split returns all parts
+		}
+		elems := strings.Split(stdout.String(), "~")
+		require.Len(t, elems, len(exp)-1)
+		elems = append(elems[1:], strings.Split(elems[0], "\n")...)
+		require.ElementsMatch(t, exp, elems)
+	})
 }
 
 func createRepo(t *testing.T, ctx context.Context, repoClient gitalypb.RepositoryServiceClient, storageName, relativePath string) *gitalypb.Repository {
