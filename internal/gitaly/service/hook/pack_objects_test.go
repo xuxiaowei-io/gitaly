@@ -89,7 +89,6 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
@@ -221,7 +220,6 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
@@ -442,7 +440,6 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
@@ -698,7 +695,6 @@ func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
@@ -776,10 +772,7 @@ func setupSidechannel(t *testing.T, ctx context.Context, oid string) (context.Co
 func TestPackObjects_concurrencyLimit(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRepo,
-		featureflag.PackObjectsLimitingRemoteIP,
-	).Run(t, testPackObjectsConcurrency)
+	testhelper.NewFeatureSets(featureflag.PackObjectsLimitingRemoteIP).Run(t, testPackObjectsConcurrency)
 }
 
 func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
@@ -789,9 +782,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 
 	var keyType string
 
-	if featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) {
-		keyType = "repo"
-	} else if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) {
+	if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) {
 		keyType = "remote_ip"
 	}
 
@@ -848,8 +839,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
+			shouldLimit: featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
 		},
 		{
 			desc: "IP addresses including source port",
@@ -873,8 +863,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
+			shouldLimit: featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
 		},
 		{
 			desc: "IPv4 loopback addresses",
@@ -898,7 +887,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx),
+			shouldLimit: false,
 		},
 		{
 			desc: "IPv6 loopback addresses",
@@ -922,7 +911,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx),
+			shouldLimit: false,
 		},
 		{
 			desc: "invalid IP addresses",
@@ -946,7 +935,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx),
+			shouldLimit: false,
 		},
 		{
 			desc: "empty IP addresses",
@@ -970,7 +959,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx),
+			shouldLimit: false,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
