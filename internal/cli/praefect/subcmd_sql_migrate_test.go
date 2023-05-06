@@ -2,11 +2,12 @@ package praefect
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/migrations"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -15,16 +16,27 @@ import (
 func TestSubCmdSqlMigrate(t *testing.T) {
 	db := testdb.New(t)
 	dbCfg := testdb.GetConfig(t, db.Name)
-	cfg := config.Config{DB: dbCfg}
+	cfg := config.Config{
+		ListenAddr:      "/dev/null",
+		VirtualStorages: []*config.VirtualStorage{{Name: "p", Nodes: []*config.Node{{Storage: "s", Address: "localhost"}}}},
+		DB:              dbCfg,
+	}
+	confPath := writeConfigToFile(t, cfg)
 
 	migrationCt := len(migrations.All())
 
 	for _, tc := range []struct {
 		desc           string
 		up             int
-		verbose        bool
+		args           []string
 		expectedOutput []string
+		expectedErr    error
 	}{
+		{
+			desc:        "unexpected positional arguments",
+			args:        []string{"positonal-arg"},
+			expectedErr: cli.Exit(unexpectedPositionalArgsError{Command: "sql-migrate"}, 1),
+		},
 		{
 			desc:           "All migrations up",
 			up:             migrationCt,
@@ -51,9 +63,9 @@ func TestSubCmdSqlMigrate(t *testing.T) {
 			},
 		},
 		{
-			desc:    "Verbose output",
-			up:      0,
-			verbose: true,
+			desc: "Verbose output",
+			up:   0,
+			args: []string{"-verbose"},
 			expectedOutput: []string{
 				fmt.Sprintf("praefect sql-migrate: migrations to apply: %d", migrationCt),
 				"20200109161404_hello_world: migrating",
@@ -67,9 +79,25 @@ func TestSubCmdSqlMigrate(t *testing.T) {
 			testdb.SetMigrations(t, db, cfg, tc.up)
 
 			var stdout bytes.Buffer
-			migrateCmd := sqlMigrateSubcommand{w: &stdout, ignoreUnknown: true, verbose: tc.verbose}
-			assert.NoError(t, migrateCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg))
-
+			var stderr bytes.Buffer
+			app := cli.App{
+				Reader:          bytes.NewReader(nil),
+				Writer:          &stdout,
+				ErrWriter:       &stderr,
+				HideHelpCommand: true,
+				Commands: []*cli.Command{
+					newSQLMigrateCommand(),
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Value: confPath,
+					},
+				},
+			}
+			err := app.Run(append([]string{progname, sqlMigrateCmdName, "-ignore-unknown"}, tc.args...))
+			require.Equal(t, tc.expectedErr, err)
+			assert.Empty(t, stderr.String())
 			for _, out := range tc.expectedOutput {
 				assert.Contains(t, stdout.String(), out)
 			}
