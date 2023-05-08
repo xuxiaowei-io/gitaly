@@ -705,8 +705,8 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 		replicationFactor           int
 		primaryPick                 int
 		repositoryExists            bool
-		expectedPrimaryCandidates   int
-		expectedSecondaryCandidates int
+		expectedPrimaryCandidates   []int
+		expectedSecondaryCandidates []int
 		expectedRoute               matcher
 		expectedErr                 error
 	}{
@@ -727,7 +727,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			additionalRelativePath:    additionalRelativePath,
 			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"primary"}},
 			primaryPick:               0,
-			expectedPrimaryCandidates: 1,
+			expectedPrimaryCandidates: []int{1},
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:          1,
@@ -743,7 +743,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			virtualStorage:            "virtual-storage-1",
 			healthyNodes:              StaticHealthChecker(configuredNodes),
 			primaryPick:               0,
-			expectedPrimaryCandidates: 3,
+			expectedPrimaryCandidates: []int{3},
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
@@ -761,7 +761,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			virtualStorage:            "virtual-storage-1",
 			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"primary", "secondary-1"}},
 			primaryPick:               0,
-			expectedPrimaryCandidates: 2,
+			expectedPrimaryCandidates: []int{2},
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
@@ -780,7 +780,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			healthyNodes:              StaticHealthChecker(configuredNodes),
 			replicationFactor:         1,
 			primaryPick:               0,
-			expectedPrimaryCandidates: 3,
+			expectedPrimaryCandidates: []int{3},
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
@@ -795,8 +795,8 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			healthyNodes:                StaticHealthChecker(configuredNodes),
 			replicationFactor:           2,
 			primaryPick:                 0,
-			expectedPrimaryCandidates:   3,
-			expectedSecondaryCandidates: 2,
+			expectedPrimaryCandidates:   []int{3},
+			expectedSecondaryCandidates: []int{2},
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
@@ -818,8 +818,8 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			healthyNodes:                StaticHealthChecker{"virtual-storage-1": {"primary", "secondary-1"}},
 			replicationFactor:           3,
 			primaryPick:                 0,
-			expectedPrimaryCandidates:   2,
-			expectedSecondaryCandidates: 2,
+			expectedPrimaryCandidates:   []int{2},
+			expectedSecondaryCandidates: []int{2},
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:       1,
@@ -836,7 +836,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			healthyNodes:              StaticHealthChecker(configuredNodes),
 			primaryPick:               0,
 			repositoryExists:          true,
-			expectedPrimaryCandidates: 3,
+			expectedPrimaryCandidates: []int{3},
 			expectedErr:               fmt.Errorf("reserve repository id: %w", commonerr.ErrRepositoryAlreadyExists),
 		},
 		{
@@ -864,6 +864,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 
 			require.NoError(t, rs.CreateRepository(ctx, 2, "virtual-storage-1", additionalRelativePath, additionalReplicaPath, "primary", nil, nil, true, true))
 
+			var primaryCandidates, secondaryCandidates []int
 			route, err := NewPerRepositoryRouter(
 				Connections{
 					"virtual-storage-1": {
@@ -876,11 +877,11 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 				tc.healthyNodes,
 				mockRandom{
 					intnFunc: func(n int) int {
-						require.Equal(t, tc.expectedPrimaryCandidates, n)
+						primaryCandidates = append(primaryCandidates, n)
 						return tc.primaryPick
 					},
 					shuffleFunc: func(n int, swap func(i, j int)) {
-						require.Equal(t, tc.expectedSecondaryCandidates, n)
+						secondaryCandidates = append(secondaryCandidates, n)
 					},
 				},
 				nil,
@@ -888,13 +889,14 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 				rs,
 				map[string]int{"virtual-storage-1": tc.replicationFactor},
 			).RouteRepositoryCreation(ctx, tc.virtualStorage, relativePath, tc.additionalRelativePath)
-			if tc.expectedErr != nil {
-				require.Equal(t, tc.expectedErr, err)
-				return
-			}
 
-			require.NoError(t, err)
-			tc.expectedRoute(t, route)
+			require.Equal(t, tc.expectedPrimaryCandidates, primaryCandidates)
+			require.Equal(t, tc.expectedSecondaryCandidates, secondaryCandidates)
+			require.Equal(t, tc.expectedErr, err)
+
+			if tc.expectedErr == nil {
+				tc.expectedRoute(t, route)
+			}
 		})
 	}
 }
