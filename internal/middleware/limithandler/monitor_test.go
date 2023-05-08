@@ -127,26 +127,26 @@ func TestNewPackObjectsConcurrencyMonitor(t *testing.T) {
 
 	expectedMetrics := `# HELP gitaly_pack_objects_acquiring_seconds Histogram of time calls are rate limited (in seconds)
 # TYPE gitaly_pack_objects_acquiring_seconds histogram
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="0.001"} 0
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="0.005"} 0
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="0.025"} 0
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="0.1"} 0
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="0.5"} 0
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="1"} 1
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="10"} 1
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="30"} 1
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="60"} 1
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="300"} 1
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="1500"} 1
-gitaly_pack_objects_acquiring_seconds_bucket{type="user",le="+Inf"} 1
-gitaly_pack_objects_acquiring_seconds_sum{type="user"} 1
-gitaly_pack_objects_acquiring_seconds_count{type="user"} 1
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="0.001"} 0
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="0.005"} 0
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="0.025"} 0
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="0.1"} 0
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="0.5"} 0
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="1"} 1
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="10"} 1
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="30"} 1
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="60"} 1
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="300"} 1
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="1500"} 1
+gitaly_pack_objects_acquiring_seconds_bucket{limiting_key="user",le="+Inf"} 1
+gitaly_pack_objects_acquiring_seconds_sum{limiting_key="user"} 1
+gitaly_pack_objects_acquiring_seconds_count{limiting_key="user"} 1
 # HELP gitaly_pack_objects_dropped_total Number of requests dropped from the queue
 # TYPE gitaly_pack_objects_dropped_total counter
-gitaly_pack_objects_dropped_total{reason="load",type="user"} 1
+gitaly_pack_objects_dropped_total{limiting_key="user",reason="load"} 1
 # HELP gitaly_pack_objects_queued Gauge of number of queued calls
 # TYPE gitaly_pack_objects_queued gauge
-gitaly_pack_objects_queued{type="user"} 1
+gitaly_pack_objects_queued{limiting_key="user"} 1
 
 `
 	require.NoError(t, testutil.CollectAndCompare(

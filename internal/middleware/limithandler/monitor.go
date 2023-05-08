@@ -110,16 +110,16 @@ func (p *PromMonitor) Dropped(ctx context.Context, key string, length int, reaso
 
 func newPromMonitor(
 	limitingType string,
-	keyType string,
+	limitingKey string,
 	queuedVec, inProgressVec *prometheus.GaugeVec,
 	acquiringSecondsVec *prometheus.HistogramVec,
 	requestsDroppedVec *prometheus.CounterVec,
 ) *PromMonitor {
 	return &PromMonitor{
 		limitingType:                 limitingType,
-		queuedMetric:                 queuedVec.WithLabelValues(keyType),
-		inProgressMetric:             inProgressVec.WithLabelValues(keyType),
-		acquiringSecondsMetric:       acquiringSecondsVec.WithLabelValues(keyType),
+		queuedMetric:                 queuedVec.WithLabelValues(limitingKey),
+		inProgressMetric:             inProgressVec.WithLabelValues(limitingKey),
+		acquiringSecondsMetric:       acquiringSecondsVec.WithLabelValues(limitingKey),
 		requestsDroppedMetric:        requestsDroppedVec,
 		acquiringSecondsHistogramVec: acquiringSecondsVec,
 	}
@@ -149,14 +149,14 @@ func splitMethodName(fullMethodName string) (string, string) {
 
 // NewPackObjectsConcurrencyMonitor returns a concurrency monitor for use
 // with limiting pack objects processes.
-func NewPackObjectsConcurrencyMonitor(keyType string, latencyBuckets []float64) *PromMonitor {
+func NewPackObjectsConcurrencyMonitor(limitingKey string, latencyBuckets []float64) *PromMonitor {
 	acquiringSecondsVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "gitaly_pack_objects_acquiring_seconds",
 			Help:    "Histogram of time calls are rate limited (in seconds)",
 			Buckets: latencyBuckets,
 		},
-		[]string{"type"},
+		[]string{"limiting_key"},
 	)
 
 	inProgressVec := prometheus.NewGaugeVec(
@@ -164,7 +164,7 @@ func NewPackObjectsConcurrencyMonitor(keyType string, latencyBuckets []float64) 
 			Name: "gitaly_pack_objects_in_progress",
 			Help: "Gauge of number of concurrent in-progress calls",
 		},
-		[]string{"type"},
+		[]string{"limiting_key"},
 	)
 
 	queuedVec := prometheus.NewGaugeVec(
@@ -172,7 +172,7 @@ func NewPackObjectsConcurrencyMonitor(keyType string, latencyBuckets []float64) 
 			Name: "gitaly_pack_objects_queued",
 			Help: "Gauge of number of queued calls",
 		},
-		[]string{"type"},
+		[]string{"limiting_key"},
 	)
 
 	requestsDroppedVec := prometheus.NewCounterVec(
@@ -180,12 +180,12 @@ func NewPackObjectsConcurrencyMonitor(keyType string, latencyBuckets []float64) 
 			Name: "gitaly_pack_objects_dropped_total",
 			Help: "Number of requests dropped from the queue",
 		},
-		[]string{"type", "reason"},
-	).MustCurryWith(prometheus.Labels{"type": keyType})
+		[]string{"limiting_key", "reason"},
+	).MustCurryWith(prometheus.Labels{"limiting_key": limitingKey})
 
 	return newPromMonitor(
 		TypePackObjects,
-		keyType,
+		limitingKey,
 		queuedVec,
 		inProgressVec,
 		acquiringSecondsVec,
