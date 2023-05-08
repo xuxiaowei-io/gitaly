@@ -53,31 +53,31 @@ func (c *counter) currentVal() int {
 	return c.current
 }
 
-func (c *counter) Queued(ctx context.Context) {
+func (c *counter) Queued(context.Context, string, int) {
 	c.Lock()
 	defer c.Unlock()
 	c.queued++
 }
 
-func (c *counter) Dequeued(ctx context.Context) {
+func (c *counter) Dequeued(context.Context) {
 	c.Lock()
 	defer c.Unlock()
 	c.dequeued++
 }
 
-func (c *counter) Enter(ctx context.Context, acquireTime time.Duration) {
+func (c *counter) Enter(context.Context, time.Duration) {
 	c.Lock()
 	defer c.Unlock()
 	c.enter++
 }
 
-func (c *counter) Exit(ctx context.Context) {
+func (c *counter) Exit(context.Context) {
 	c.Lock()
 	defer c.Unlock()
 	c.exit++
 }
 
-func (c *counter) Dropped(ctx context.Context, reason string) {
+func (c *counter) Dropped(_ context.Context, _ string, _ int, reason string) {
 	switch reason {
 	case "max_time":
 		c.droppedTime++
@@ -237,7 +237,7 @@ type blockingQueueCounter struct {
 
 // Queued will block on a channel. We need a way to synchronize on when a Limiter has attempted to acquire
 // a semaphore but has not yet. The caller can use the channel to wait for many requests to be queued
-func (b *blockingQueueCounter) Queued(_ context.Context) {
+func (b *blockingQueueCounter) Queued(context.Context, string, int) {
 	b.queuedCh <- struct{}{}
 }
 

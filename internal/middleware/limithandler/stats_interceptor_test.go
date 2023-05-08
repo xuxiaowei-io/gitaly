@@ -33,7 +33,7 @@ func createNewServer(t *testing.T, cfg config.Cfg, logger *logrus.Logger) *grpc.
 
 	concurrencyLimitHandler := limithandler.New(
 		cfg,
-		limithandler.LimitConcurrencyByRepo,
+		func(ctx context.Context) string { return "@hashed/1234" },
 		limithandler.WithConcurrencyLimiters,
 	)
 
@@ -80,7 +80,18 @@ func TestInterceptor(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+		Concurrency: []config.Concurrency{
+			{
+				RPC:        "/gitaly.RefService/RefExists",
+				MaxPerRepo: 1,
+			},
+			{
+				RPC:        "/gitaly.RefService/ListRefs",
+				MaxPerRepo: 1,
+			},
+		},
+	}))
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -98,7 +109,7 @@ func TestInterceptor(t *testing.T) {
 	tests := []struct {
 		name            string
 		performRPC      func(t *testing.T, ctx context.Context, client gitalypb.RefServiceClient)
-		expectedLogData []string
+		expectedLogData map[string]any
 	}{
 		{
 			name: "Unary",
@@ -108,7 +119,11 @@ func TestInterceptor(t *testing.T) {
 				_, err := client.RefExists(ctx, req)
 				require.NoError(t, err)
 			},
-			expectedLogData: []string{"limit.concurrency_queue_ms"},
+			expectedLogData: map[string]any{
+				"limit.limiting_type":            "per-rpc",
+				"limit.limiting_key":             "@hashed/1234",
+				"limit.concurrency_queue_length": 0,
+			},
 		},
 		{
 			name: "Stream",
@@ -126,7 +141,11 @@ func TestInterceptor(t *testing.T) {
 					require.NoError(t, err)
 				}
 			},
-			expectedLogData: []string{"limit.concurrency_queue_ms"},
+			expectedLogData: map[string]any{
+				"limit.limiting_type":            "per-rpc",
+				"limit.limiting_key":             "@hashed/1234",
+				"limit.concurrency_queue_length": 0,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -143,9 +162,10 @@ func TestInterceptor(t *testing.T) {
 
 			logEntries := hook.AllEntries()
 			require.Len(t, logEntries, 1)
-			for _, expectedLogKey := range tt.expectedLogData {
-				require.Contains(t, logEntries[0].Data, expectedLogKey)
+			for expectedLogKey, expectedLogValue := range tt.expectedLogData {
+				require.Equal(t, expectedLogValue, logEntries[0].Data[expectedLogKey])
 			}
+			require.GreaterOrEqual(t, logEntries[0].Data["limit.concurrency_queue_ms"], int64(0))
 		})
 	}
 }
