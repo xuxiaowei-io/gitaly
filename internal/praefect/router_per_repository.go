@@ -286,44 +286,32 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 	return route, nil
 }
 
-// RouteRepositoryCreation picks a random healthy node to act as the primary node and selects the secondary nodes
-// if assignments are enabled. Healthy secondaries take part in the transaction, unhealthy secondaries are set as
-// replication targets.
-func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRelativePath string) (RepositoryMutatorRoute, error) {
-	additionalReplicaPath, err := r.resolveAdditionalReplicaPath(ctx, virtualStorage, additionalRelativePath)
-	if err != nil {
-		return RepositoryMutatorRoute{}, fmt.Errorf("resolve additional replica path: %w", err)
-	}
+type assignedNodes struct {
+	primary            RouterNode
+	secondaries        []RouterNode
+	replicationTargets []string
+}
 
+// assignRepsoitoryToNodes picks a random healthy node to act as the primary node and selects the
+// secondary nodes if assignments are enabled. Healthy secondaries take part in the transaction,
+// unhealthy secondaries are set as replication targets.
+func (r *PerRepositoryRouter) assignRepositoryToNodes(
+	ctx context.Context, virtualStorage, relativePath string,
+) (assignedNodes, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
-		return RepositoryMutatorRoute{}, err
+		return assignedNodes{}, err
 	}
 
 	primary, err := r.pickRandom(healthyNodes)
 	if err != nil {
-		return RepositoryMutatorRoute{}, err
-	}
-
-	id, err := r.rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
-	if err != nil {
-		return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", err)
-	}
-
-	replicaPath := praefectutil.DeriveReplicaPath(id)
-	if stats.IsRailsPoolRepository(&gitalypb.Repository{
-		StorageName:  virtualStorage,
-		RelativePath: relativePath,
-	}) {
-		replicaPath = praefectutil.DerivePoolPath(id)
+		return assignedNodes{}, err
 	}
 
 	replicationFactor := r.defaultReplicationFactors[virtualStorage]
 	if replicationFactor == 1 {
-		return RepositoryMutatorRoute{
-			RepositoryID: id,
-			ReplicaPath:  replicaPath,
-			Primary:      primary,
+		return assignedNodes{
+			primary: primary,
 		}, nil
 	}
 
@@ -369,13 +357,46 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		replicationTargets = append(replicationTargets, secondaryNode.Storage)
 	}
 
+	return assignedNodes{
+		primary:            primary,
+		secondaries:        secondaries,
+		replicationTargets: replicationTargets,
+	}, nil
+}
+
+// RouteRepositoryCreation routes an incoming repository creation to a set of target nodes that will
+// be designated to hold the new repository.
+func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRelativePath string) (RepositoryMutatorRoute, error) {
+	additionalReplicaPath, err := r.resolveAdditionalReplicaPath(ctx, virtualStorage, additionalRelativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("resolve additional replica path: %w", err)
+	}
+
+	assignedNodes, err := r.assignRepositoryToNodes(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, err
+	}
+
+	id, err := r.rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", err)
+	}
+
+	replicaPath := praefectutil.DeriveReplicaPath(id)
+	if stats.IsRailsPoolRepository(&gitalypb.Repository{
+		StorageName:  virtualStorage,
+		RelativePath: relativePath,
+	}) {
+		replicaPath = praefectutil.DerivePoolPath(id)
+	}
+
 	return RepositoryMutatorRoute{
 		RepositoryID:          id,
 		ReplicaPath:           replicaPath,
 		AdditionalReplicaPath: additionalReplicaPath,
-		Primary:               primary,
-		Secondaries:           secondaries,
-		ReplicationTargets:    replicationTargets,
+		Primary:               assignedNodes.primary,
+		Secondaries:           assignedNodes.secondaries,
+		ReplicationTargets:    assignedNodes.replicationTargets,
 	}, nil
 }
 
