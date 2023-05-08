@@ -268,7 +268,6 @@ func run(cfg config.Cfg) error {
 	)
 
 	packObjectsMonitor := limithandler.NewPackObjectsConcurrencyMonitor(
-		string(cfg.PackObjectsLimiting.Key),
 		cfg.Prometheus.GRPCLatencyBuckets,
 	)
 	newTickerFunc := func() helper.Ticker {

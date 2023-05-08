@@ -397,53 +397,10 @@ type RateLimiting struct {
 	Burst int `toml:"burst" json:"burst"`
 }
 
-// PackObjectsLimitingKey is the key for limiting pack objects concurrency
-type PackObjectsLimitingKey string
-
-const (
-	// PackObjectsLimitingKeyUser will limit the pack objects concurrency
-	// by user
-	PackObjectsLimitingKeyUser = PackObjectsLimitingKey("user")
-	// PackObjectsLimitingKeyRepository will limit the pack objects concurrency
-	// by repository
-	PackObjectsLimitingKeyRepository = PackObjectsLimitingKey("repository")
-	// PackObjectsLimitingKeyRemoteIP will limit the pack objects concurrency
-	// by RemoteIP
-	PackObjectsLimitingKeyRemoteIP = PackObjectsLimitingKey("remote_ip")
-)
-
-// ParsePackObjectsLimitingKey checks if the key is a valid
-// PackObjectsLimitingKey
-func ParsePackObjectsLimitingKey(k string) (PackObjectsLimitingKey, error) {
-	switch PackObjectsLimitingKey(k) {
-	case PackObjectsLimitingKeyUser:
-		return PackObjectsLimitingKeyUser, nil
-	case PackObjectsLimitingKeyRepository:
-		return PackObjectsLimitingKeyRepository, nil
-	case PackObjectsLimitingKeyRemoteIP:
-		return PackObjectsLimitingKeyRemoteIP, nil
-	default:
-		return "", fmt.Errorf("unsupported pack objects limiting key: %q", k)
-	}
-}
-
-// UnmarshalText unmarshals a key into a ParsePackObjectsLimitingKey
-func (p *PackObjectsLimitingKey) UnmarshalText(text []byte) error {
-	v, err := ParsePackObjectsLimitingKey(string(text))
-	if err != nil {
-		return err
-	}
-	*p = v
-	return nil
-}
-
 // PackObjectsLimiting allows the concurrency of pack objects processes to be limited
 // Requests that come in after the maximum number of concurrent pack objects
 // processes have been reached will wait.
 type PackObjectsLimiting struct {
-	// Key is the key by which concurrency will be limited. Supported keys
-	// are: user_id, repository.
-	Key PackObjectsLimitingKey `toml:"key,omitempty" json:"key,omitempty"`
 	// MaxConcurrency is the maximum number of concurrent pack objects processes
 	// for a given key.
 	MaxConcurrency int `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
@@ -515,7 +472,6 @@ func defaultPackObjectsLimiting() PackObjectsLimiting {
 	}
 
 	return PackObjectsLimiting{
-		Key:            "",
 		MaxConcurrency: maxConcurrency,
 		MaxQueueLength: maxQueueLength,
 		MaxQueueWait:   0, // Do not enforce queue wait at this point

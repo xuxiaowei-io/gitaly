@@ -1617,59 +1617,30 @@ func TestPackObjectsLimiting(t *testing.T) {
 		expectedCfg       PackObjectsLimiting
 	}{
 		{
-			desc: "using repo as key",
+			desc: "max_queue_wait is set to 10s",
 			rawCfg: `[pack_objects_limiting]
-			key = "repository"
 			max_concurrency = 20
  			max_queue_length = 100
 			max_queue_wait = "10s"
 			`,
 			expectedCfg: PackObjectsLimiting{
-				Key:            PackObjectsLimitingKeyRepository,
 				MaxConcurrency: 20,
 				MaxQueueLength: 100,
 				MaxQueueWait:   duration.Duration(10 * time.Second),
 			},
 		},
 		{
-			desc: "using user as key",
+			desc: "max_queue_wait is set to 1m",
 			rawCfg: `[pack_objects_limiting]
-			key = "user"
 			max_concurrency = 10
 			max_queue_length = 100
 			max_queue_wait = "1m"
 			`,
 			expectedCfg: PackObjectsLimiting{
-				Key:            PackObjectsLimitingKeyUser,
 				MaxConcurrency: 10,
 				MaxQueueLength: 100,
 				MaxQueueWait:   duration.Duration(1 * time.Minute),
 			},
-		},
-		{
-			desc: "using remote_ip as key",
-			rawCfg: `[pack_objects_limiting]
-			key = "remote_ip"
-			max_concurrency = 10
-			max_queue_length = 100
-			max_queue_wait = "1m"
-			`,
-			expectedCfg: PackObjectsLimiting{
-				Key:            PackObjectsLimitingKeyRemoteIP,
-				MaxConcurrency: 10,
-				MaxQueueLength: 100,
-				MaxQueueWait:   duration.Duration(1 * time.Minute),
-			},
-		},
-		{
-			desc: "invalid key",
-			rawCfg: `[pack_objects_limiting]
-			key = "project"
-			max_concurrency = 10
-			max_queue_length = 100
-			max_queue_wait = "1m"
-			`,
-			expectedErrString: `unsupported pack objects limiting key: "project"`,
 		},
 	}
 
