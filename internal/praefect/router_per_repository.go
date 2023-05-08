@@ -303,65 +303,81 @@ func (r *PerRepositoryRouter) assignRepositoryToNodes(
 		return assignedNodes{}, err
 	}
 
-	primary, err := r.pickRandom(healthyNodes)
-	if err != nil {
-		return assignedNodes{}, err
-	}
-
 	replicationFactor := r.defaultReplicationFactors[virtualStorage]
-	if replicationFactor == 1 {
+
+	switch {
+	case replicationFactor == 1:
+		// If we have a replication factor of 1 then picking the primary node is already
+		// sufficient.
+		primary, err := r.pickRandom(healthyNodes)
+		if err != nil {
+			return assignedNodes{}, err
+		}
+
 		return assignedNodes{
 			primary: primary,
 		}, nil
-	}
+	default:
+		// Otherwise, we need to figure out what the actual replication factor is supposed
+		// to be and assign secondaries as required to satisfy it.
 
-	var secondaryNodes []RouterNode
-	for storage, conn := range r.conns[virtualStorage] {
-		if storage == primary.Storage {
-			continue
+		primary, err := r.pickRandom(healthyNodes)
+		if err != nil {
+			return assignedNodes{}, err
 		}
 
-		secondaryNodes = append(secondaryNodes, RouterNode{
-			Storage:    storage,
-			Connection: conn,
-		})
-	}
-
-	// replicationFactor being zero indicates it has not been configured. If so, we fallback to the behavior
-	// of no assignments, replicate everywhere and do not select assigned secondaries below.
-	if replicationFactor > 0 {
-		// Select random secondaries according to the default replication factor.
-		r.rand.Shuffle(len(secondaryNodes), func(i, j int) {
-			secondaryNodes[i], secondaryNodes[j] = secondaryNodes[j], secondaryNodes[i]
-		})
-
-		secondaryNodes = secondaryNodes[:replicationFactor-1]
-	}
-
-	var secondaries []RouterNode
-	var replicationTargets []string
-	for _, secondaryNode := range secondaryNodes {
-		isHealthy := false
-		for _, healthyNode := range healthyNodes {
-			if healthyNode == secondaryNode {
-				isHealthy = true
-				break
+		var secondaryNodes []RouterNode
+		for storage, conn := range r.conns[virtualStorage] {
+			if storage == primary.Storage {
+				continue
 			}
+
+			secondaryNodes = append(secondaryNodes, RouterNode{
+				Storage:    storage,
+				Connection: conn,
+			})
 		}
 
-		if isHealthy {
-			secondaries = append(secondaries, secondaryNode)
-			continue
+		// replicationFactor being zero indicates it has not been configured. If so, we
+		// fallback to the behavior of no assignments and replicate everywhere. Otherwise,
+		// if we have a positive replication factor, we pick a random set of secondaries.
+		if replicationFactor > 0 {
+			// Select random secondaries according to the default replication factor.
+			r.rand.Shuffle(len(secondaryNodes), func(i, j int) {
+				secondaryNodes[i], secondaryNodes[j] = secondaryNodes[j], secondaryNodes[i]
+			})
+
+			secondaryNodes = secondaryNodes[:replicationFactor-1]
 		}
 
-		replicationTargets = append(replicationTargets, secondaryNode.Storage)
+		// We now split up secondaries into two sets: those which are known to be healthy
+		// and those which aren't. This allows us to decide whether we'll route to the
+		// secondary node immediately or instead create a replication job.
+		var healthySecondaries []RouterNode
+		var replicationTargets []string
+		for _, secondaryNode := range secondaryNodes {
+			isHealthy := false
+			for _, healthyNode := range healthyNodes {
+				if healthyNode == secondaryNode {
+					isHealthy = true
+					break
+				}
+			}
+
+			if isHealthy {
+				healthySecondaries = append(healthySecondaries, secondaryNode)
+				continue
+			}
+
+			replicationTargets = append(replicationTargets, secondaryNode.Storage)
+		}
+
+		return assignedNodes{
+			primary:            primary,
+			secondaries:        healthySecondaries,
+			replicationTargets: replicationTargets,
+		}, nil
 	}
-
-	return assignedNodes{
-		primary:            primary,
-		secondaries:        secondaries,
-		replicationTargets: replicationTargets,
-	}, nil
 }
 
 // RouteRepositoryCreation routes an incoming repository creation to a set of target nodes that will
