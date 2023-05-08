@@ -80,10 +80,10 @@ func CatfileInfo(
 	requestChan := make(chan catfileInfoRequest, 32)
 	go func() {
 		defer func() {
-			close(requestChan)
 			if atomic.AddInt32(&queueRefcount, -1) == 0 {
 				queueCleanup()
 			}
+			close(requestChan)
 		}()
 
 		var i int64
@@ -132,10 +132,10 @@ func CatfileInfo(
 	resultChan := make(chan CatfileInfoResult)
 	go func() {
 		defer func() {
-			close(resultChan)
 			if atomic.AddInt32(&queueRefcount, -1) == 0 {
 				queueCleanup()
 			}
+			close(resultChan)
 		}()
 
 		// It's fine to iterate over the request channel without paying attention to
