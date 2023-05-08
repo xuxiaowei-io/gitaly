@@ -1066,7 +1066,7 @@ type mockOptimizationStrategy struct {
 	repackObjectsCfg       RepackObjectsConfig
 	shouldPruneObjects     bool
 	pruneObjectsCfg        PruneObjectsConfig
-	shouldRepackReferences bool
+	shouldRepackReferences func(ctx context.Context) bool
 	shouldWriteCommitGraph bool
 	writeCommitGraphCfg    WriteCommitGraphConfig
 }
@@ -1079,8 +1079,8 @@ func (m mockOptimizationStrategy) ShouldPruneObjects(context.Context) (bool, Pru
 	return m.shouldPruneObjects, m.pruneObjectsCfg
 }
 
-func (m mockOptimizationStrategy) ShouldRepackReferences(context.Context) bool {
-	return m.shouldRepackReferences
+func (m mockOptimizationStrategy) ShouldRepackReferences(ctx context.Context) bool {
+	return m.shouldRepackReferences(ctx)
 }
 
 func (m mockOptimizationStrategy) ShouldWriteCommitGraph(context.Context) (bool, WriteCommitGraphConfig) {
