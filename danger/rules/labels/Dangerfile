@@ -6,8 +6,9 @@ INHERITABLE_LABELS = %w[
   security
   performance
   Deliverable
-  gitaly::cluster
-  gitaly::git
+  group::gitaly::cluster
+  group::gitaly::git
+  group::gitaly
 ]
 
 def inherited_labels
