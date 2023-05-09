@@ -1042,12 +1042,12 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		t.Run("consistent secondary", func(t *testing.T) {
 			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
-			require.Equal(t, map[string]struct{}{"primary": {}, "consistent-secondary": {}}, secondaries)
+			require.ElementsMatch(t, []string{"primary", "consistent-secondary"}, secondaries.Values())
 			require.Equal(t, "replica-path", replicaPath)
 
 			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
-			require.Equal(t, map[string]struct{}{"primary": {}, "consistent-secondary": {}}, secondaries)
+			require.ElementsMatch(t, []string{"primary", "consistent-secondary"}, secondaries.Values())
 			require.Equal(t, "replica-path", replicaPath)
 		})
 
@@ -1056,12 +1056,12 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		t.Run("outdated primary", func(t *testing.T) {
 			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
-			require.Equal(t, map[string]struct{}{"consistent-secondary": {}}, secondaries)
+			require.Equal(t, []string{"consistent-secondary"}, secondaries.Values())
 			require.Equal(t, "replica-path", replicaPath)
 
 			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
-			require.Equal(t, map[string]struct{}{"consistent-secondary": {}}, secondaries)
+			require.Equal(t, []string{"consistent-secondary"}, secondaries.Values())
 			require.Equal(t, "replica-path", replicaPath)
 		})
 
@@ -1088,12 +1088,12 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 
 			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
-			require.Equal(t, map[string]struct{}{"unknown": {}}, secondaries)
+			require.Equal(t, []string{"unknown"}, secondaries.Values())
 			require.Equal(t, "replica-path", replicaPath)
 
 			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
-			require.Equal(t, map[string]struct{}{"unknown": {}}, secondaries)
+			require.Equal(t, []string{"unknown"}, secondaries.Values())
 			require.Equal(t, "replica-path", replicaPath)
 		})
 
@@ -1120,31 +1120,31 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			replicaPath, storages, err := rs.GetConsistentStorages(ctx, vs, "original-path")
 			require.NoError(t, err)
 			require.Equal(t, "replica-path", replicaPath)
-			require.Equal(t, map[string]struct{}{"storage-1": {}, "storage-2": {}}, storages)
+			require.ElementsMatch(t, []string{"storage-1", "storage-2"}, storages.Values())
 			replicaPath, storages, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
 			require.Equal(t, "replica-path", replicaPath)
-			require.Equal(t, map[string]struct{}{"storage-1": {}, "storage-2": {}}, storages)
+			require.ElementsMatch(t, []string{"storage-1", "storage-2"}, storages.Values())
 
 			require.NoError(t, rs.RenameRepository(ctx, vs, "original-path", "storage-1", "new-path"))
 			replicaPath, storages, err = rs.GetConsistentStorages(ctx, vs, "new-path")
 			require.NoError(t, err)
 			require.Equal(t, "new-path", replicaPath)
-			require.Equal(t, map[string]struct{}{"storage-1": {}}, storages)
+			require.Equal(t, []string{"storage-1"}, storages.Values())
 			replicaPath, storages, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
 			require.Equal(t, "new-path", replicaPath)
-			require.Equal(t, map[string]struct{}{"storage-1": {}}, storages)
+			require.Equal(t, []string{"storage-1"}, storages.Values())
 
 			require.NoError(t, rs.RenameRepository(ctx, vs, "original-path", "storage-2", "new-path"))
 			replicaPath, storages, err = rs.GetConsistentStorages(ctx, vs, "new-path")
 			require.NoError(t, err)
 			require.Equal(t, "new-path", replicaPath)
-			require.Equal(t, map[string]struct{}{"storage-1": {}, "storage-2": {}}, storages)
+			require.ElementsMatch(t, []string{"storage-1", "storage-2"}, storages.Values())
 			replicaPath, storages, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
 			require.Equal(t, "new-path", replicaPath)
-			require.Equal(t, map[string]struct{}{"storage-1": {}, "storage-2": {}}, storages)
+			require.ElementsMatch(t, []string{"storage-1", "storage-2"}, storages.Values())
 		})
 	})
 

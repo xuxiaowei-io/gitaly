@@ -11,28 +11,38 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
 )
 
 // ConsistentStoragesGetter returns storages which contain the latest generation of a repository.
 type ConsistentStoragesGetter interface {
 	// GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
-	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error)
+	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error)
 }
 
 // errNotExistingVirtualStorage indicates that the requested virtual storage can't be found or not configured.
 var errNotExistingVirtualStorage = errors.New("virtual storage does not exist")
 
+type cachedReplicaInfo struct {
+	replicaPath string
+	storages    *datastructure.Set[string]
+}
+
+type virtualStorageCache struct {
+	syncer           syncer
+	replicaInfoCache *lru.Cache[string, cachedReplicaInfo]
+}
+
 // CachingConsistentStoragesGetter is a ConsistentStoragesGetter that caches up to date storages by repository.
 // Each virtual storage has it's own cache that invalidates entries based on notifications.
 type CachingConsistentStoragesGetter struct {
 	csg ConsistentStoragesGetter
-	// caches is per virtual storage cache. It is initialized once on construction.
-	caches map[string]*lru.Cache[string, interface{}]
+	// caches is per virtual storage cache. The caches themselves contain information about
+	// replicas keyed by their respective relative paths.
+	caches map[string]*virtualStorageCache
 	// access is access method to use: 0 - without caching; 1 - with caching.
 	access int32
-	// syncer allows to sync retrieval operations to omit unnecessary runs.
-	syncer syncer
 	// callbackLogger should be used only inside of the methods used as callbacks.
 	callbackLogger   logrus.FieldLogger
 	cacheAccessTotal *prometheus.CounterVec
@@ -42,8 +52,7 @@ type CachingConsistentStoragesGetter struct {
 func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
 	cached := &CachingConsistentStoragesGetter{
 		csg:            csg,
-		caches:         make(map[string]*lru.Cache[string, interface{}], len(virtualStorages)),
-		syncer:         syncer{inflight: map[string]chan struct{}{}},
+		caches:         make(map[string]*virtualStorageCache, len(virtualStorages)),
 		callbackLogger: logger.WithField("component", "caching_storage_provider"),
 		cacheAccessTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -56,13 +65,16 @@ func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg Consisten
 
 	for _, virtualStorage := range virtualStorages {
 		virtualStorage := virtualStorage
-		cache, err := lru.NewWithEvict(2<<20, func(key string, value interface{}) {
+		replicaInfoCache, err := lru.NewWithEvict(2<<20, func(key string, value cachedReplicaInfo) {
 			cached.cacheAccessTotal.WithLabelValues(virtualStorage, "evict").Inc()
 		})
 		if err != nil {
 			return nil, err
 		}
-		cached.caches[virtualStorage] = cache
+		cached.caches[virtualStorage] = &virtualStorageCache{
+			syncer:           syncer{inflight: map[string]chan struct{}{}},
+			replicaInfoCache: replicaInfoCache,
+		}
 	}
 
 	return cached, nil
@@ -83,14 +95,14 @@ func (c *CachingConsistentStoragesGetter) Notification(n glsql.Notification) {
 	}
 
 	for _, entry := range changes {
-		cache, found := c.getCache(entry.VirtualStorage)
+		cache, found := c.caches[entry.VirtualStorage]
 		if !found {
 			c.callbackLogger.WithError(errNotExistingVirtualStorage).WithField("virtual_storage", entry.VirtualStorage).Error("cache not found")
 			continue
 		}
 
 		for _, relativePath := range entry.RelativePaths {
-			cache.Remove(relativePath)
+			cache.replicaInfoCache.Remove(relativePath)
 		}
 	}
 }
@@ -124,40 +136,8 @@ func (c *CachingConsistentStoragesGetter) disableCaching() {
 	atomic.StoreInt32(&c.access, 0)
 
 	for _, cache := range c.caches {
-		cache.Purge()
+		cache.replicaInfoCache.Purge()
 	}
-}
-
-func (c *CachingConsistentStoragesGetter) getCache(virtualStorage string) (*lru.Cache[string, interface{}], bool) {
-	val, found := c.caches[virtualStorage]
-	return val, found
-}
-
-func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
-	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
-}
-
-func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache[string, interface{}], cacheValue, bool) {
-	populateDone := func() {} // should be called AFTER any cache population is done
-
-	cache, found := c.getCache(virtualStorage)
-	if !found {
-		return populateDone, nil, cacheValue{}, false
-	}
-
-	if storages, found := getKey(cache, relativePath); found {
-		return populateDone, cache, storages, true
-	}
-
-	// synchronises concurrent attempts to update cache for the same key.
-	populateDone = c.syncer.await(relativePath)
-
-	if storages, found := getKey(cache, relativePath); found {
-		return populateDone, cache, storages, true
-	}
-
-	return populateDone, cache, cacheValue{}, false
 }
 
 func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
@@ -165,39 +145,43 @@ func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
 }
 
 // GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
-func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-	var cache *lru.Cache[string, interface{}]
-
-	if c.isCacheEnabled() {
-		var value cacheValue
-		var ok bool
-		var populationDone func()
-
-		populationDone, cache, value, ok = c.tryCache(virtualStorage, relativePath)
-		defer populationDone()
-		if ok {
+func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
+	cache, hasCache := c.caches[virtualStorage]
+	if hasCache && c.isCacheEnabled() {
+		if replicaInfo, found := cache.replicaInfoCache.Get(relativePath); found {
 			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
-			return value.replicaPath, value.storages, nil
+			return replicaInfo.replicaPath, replicaInfo.storages, nil
 		}
+
+		// Synchronise concurrent attempts to update the cache for the same relative path.
+		// This will cause us to wait for any ongoing calls, but also locks out other new
+		// callers so that we can racelessly populate the cache. The deferred call will then
+		// unlock other callers again once we're done with the lookup.
+		defer cache.syncer.await(relativePath)()
+
+		// We re-try whether the cache has been populated now via any concurrent Goroutine.
+		// If so, we return the newly populated entry.
+		if replicaInfo, found := cache.replicaInfoCache.Get(relativePath); found {
+			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
+			return replicaInfo.replicaPath, replicaInfo.storages, nil
+		}
+	} else {
+		// Unset the cache so that we don't try to populate it when it is disabled.
+		cache = nil
 	}
 
-	replicaPath, storages, err := c.cacheMiss(ctx, virtualStorage, relativePath)
-	if err == nil && cache != nil {
-		cache.Add(relativePath, cacheValue{replicaPath: replicaPath, storages: storages})
+	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
+
+	replicaPath, storages, err := c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return "", nil, err
+	}
+	if cache != nil {
 		c.cacheAccessTotal.WithLabelValues(virtualStorage, "populate").Inc()
+		cache.replicaInfoCache.Add(relativePath, cachedReplicaInfo{replicaPath: replicaPath, storages: storages})
 	}
+
 	return replicaPath, storages, err
-}
-
-type cacheValue struct {
-	replicaPath string
-	storages    map[string]struct{}
-}
-
-func getKey(cache *lru.Cache[string, interface{}], key string) (cacheValue, bool) {
-	val, found := cache.Get(key)
-	vals, _ := val.(cacheValue)
-	return vals, found
 }
 
 // syncer allows to sync access to a particular key.

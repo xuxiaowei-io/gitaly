@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
@@ -321,12 +322,12 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	var consistentSecondariesErr error
-	consistentStorages := map[string]struct{}{}
+	var consistentStorages *datastructure.Set[string]
 
 	verify := func(failover bool, scenario func(t *testing.T, nm Manager, rs datastore.RepositoryStore)) func(*testing.T) {
 		conf.Failover.Enabled = failover
 		rs := datastore.MockRepositoryStore{
-			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
 				return relativePath, consistentStorages, consistentSecondariesErr
 			},
 		}
@@ -357,7 +358,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	}))
 
 	t.Run("no up to date storages", verify(true, func(t *testing.T, nm Manager, rs datastore.RepositoryStore) {
-		consistentStorages = nil
+		consistentStorages = datastructure.NewSet[string]()
 
 		node, err := nm.GetSyncedNode(ctx, virtualStorage, repoPath)
 		require.NoError(t, err)
@@ -365,7 +366,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	}))
 
 	t.Run("multiple storages up to date", verify(true, func(t *testing.T, nm Manager, rs datastore.RepositoryStore) {
-		consistentStorages = map[string]struct{}{"gitaly-0": {}, "gitaly-1": {}, "gitaly-2": {}}
+		consistentStorages = datastructure.SetFromValues("gitaly-0", "gitaly-1", "gitaly-2")
 
 		chosen := map[Node]struct{}{}
 		for i := 0; i < 1000 && len(chosen) < 2; i++ {
@@ -379,7 +380,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	}))
 
 	t.Run("single secondary storage up to date but unhealthy", verify(true, func(t *testing.T, nm Manager, rs datastore.RepositoryStore) {
-		consistentStorages = map[string]struct{}{"gitaly-0": {}, "gitaly-1": {}}
+		consistentStorages = datastructure.SetFromValues("gitaly-0", "gitaly-1")
 
 		healthSrvs[1].SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
 
@@ -399,7 +400,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	}))
 
 	t.Run("no healthy storages", verify(true, func(t *testing.T, nm Manager, rs datastore.RepositoryStore) {
-		consistentStorages = map[string]struct{}{"gitaly-0": {}, "gitaly-1": {}}
+		consistentStorages = datastructure.SetFromValues("gitaly-0", "gitaly-1")
 
 		healthSrvs[0].SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
 		healthSrvs[1].SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
@@ -426,7 +427,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	}))
 
 	t.Run("disabled failover doesn't disable health state", verify(false, func(t *testing.T, nm Manager, rs datastore.RepositoryStore) {
-		consistentStorages = map[string]struct{}{"gitaly-0": {}, "gitaly-1": {}}
+		consistentStorages = datastructure.SetFromValues("gitaly-0", "gitaly-1")
 
 		shard, err := nm.GetShard(ctx, virtualStorage)
 		require.NoError(t, err)
