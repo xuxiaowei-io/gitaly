@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -158,7 +157,7 @@ type Transaction struct {
 	includesPack bool
 	// stagingRepository is a repository that is used to stage the transaction. If there are quarantined
 	// objects, it has the quarantine applied so the objects are available for verification and packing.
-	stagingRepository repository
+	stagingRepository *localrepo.Repo
 
 	// Snapshot contains the details of the Transaction's read snapshot.
 	snapshot Snapshot
@@ -424,7 +423,7 @@ type TransactionManager struct {
 	// never been created, or if it has been deleted.
 	repositoryExists bool
 	// repository is the repository this TransactionManager is acting on.
-	repository repository
+	repository *localrepo.Repo
 	// repositoryPath is the path to the repository this TransactionManager is acting on.
 	repositoryPath string
 	// relativePath is the repository's relative path inside the storage.
@@ -464,17 +463,6 @@ type TransactionManager struct {
 	// the repository. It's keyed by the log index the transaction is waiting to be applied and the
 	// value is the resultChannel that is waiting the result.
 	awaitingTransactions map[LogIndex]resultChannel
-}
-
-// repository is the localrepo interface used by TransactionManager.
-type repository interface {
-	git.RepositoryExecutor
-	ResolveRevision(context.Context, git.Revision) (git.ObjectID, error)
-	SetDefaultBranch(ctx context.Context, txManager transaction.Manager, reference git.ReferenceName) error
-	UnpackObjects(context.Context, io.Reader) error
-	Quarantine(string) (*localrepo.Repo, error)
-	WalkUnreachableObjects(context.Context, io.Reader, io.Writer) error
-	PackObjects(context.Context, io.Reader, io.Writer) error
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
@@ -1100,7 +1088,7 @@ func verifyReferencePrefix(referenceName git.ReferenceName) error {
 // the updates will go through when they are being applied in the log. This also catches any invalid reference names
 // and file/directory conflicts with Git's loose reference storage which can occur with references like
 // 'refs/heads/parent' and 'refs/heads/parent/child'.
-func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, stagingRepository repository) error {
+func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, stagingRepository *localrepo.Repo) error {
 	updater, err := mgr.prepareReferenceTransaction(ctx, referenceUpdates, stagingRepository)
 	if err != nil {
 		return fmt.Errorf("prepare reference transaction: %w", err)
@@ -1155,7 +1143,7 @@ func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, def
 // prepareReferenceTransaction prepares a reference transaction with `git update-ref`. It leaves committing
 // or aborting up to the caller. Either should be called to clean up the process. The process is cleaned up
 // if an error is returned.
-func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, repository repository) (*updateref.Updater, error) {
+func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, repository *localrepo.Repo) (*updateref.Updater, error) {
 	updater, err := updateref.New(ctx, repository, updateref.WithDisabledTransactions())
 	if err != nil {
 		return nil, fmt.Errorf("new: %w", err)
