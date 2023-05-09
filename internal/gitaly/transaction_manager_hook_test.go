@@ -1,7 +1,6 @@
 package gitaly
 
 import (
-	"context"
 	"regexp"
 	"runtime"
 	"strings"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 )
 
 // hookFunc is a function that is executed at a specific point. It gets a hookContext that allows it to
@@ -31,8 +29,8 @@ type hookContext struct {
 type hooks struct {
 	// beforeReadLogEntry is invoked before a log entry is read from the database.
 	beforeReadLogEntry hookFunc
-	// beforeResolveRevision is invoked before ResolveRevision is invoked.
-	beforeResolveRevision hookFunc
+	// beforeStoreLogEntry is invoked before the log entry is stored to the database.
+	beforeStoreLogEntry hookFunc
 	// beforeDeferredStop is invoked before the deferred Stop is invoked in Run.
 	beforeDeferredStop hookFunc
 	// beforeDeleteLogEntry is invoked before a log entry is deleted from the database.
@@ -66,26 +64,6 @@ func installHooks(tb testing.TB, transactionManager *TransactionManager, databas
 		hooks:       hooks,
 		hookContext: hookContext,
 	}
-
-	transactionManager.repository = repositoryHook{
-		repository:  transactionManager.repository,
-		hookContext: hookContext,
-		hooks:       hooks,
-	}
-}
-
-type repositoryHook struct {
-	repository
-	hookContext
-	hooks
-}
-
-func (hook repositoryHook) ResolveRevision(ctx context.Context, revision git.Revision) (git.ObjectID, error) {
-	if hook.beforeResolveRevision != nil {
-		hook.hooks.beforeResolveRevision(hook.hookContext)
-	}
-
-	return hook.repository.ResolveRevision(ctx, revision)
 }
 
 type databaseHook struct {
@@ -165,6 +143,11 @@ func (hook writeBatchHook) Set(key []byte, value []byte) error {
 	if regexLogIndex.Match(key) && hook.hooks.beforeStoreAppliedLogIndex != nil {
 		hook.hooks.beforeStoreAppliedLogIndex(hook.hookContext)
 	}
+
+	if regexLogEntry.Match(key) && hook.hooks.beforeStoreLogEntry != nil {
+		hook.hooks.beforeStoreLogEntry(hook.hookContext)
+	}
+
 	return hook.writeBatch.Set(key, value)
 }
 

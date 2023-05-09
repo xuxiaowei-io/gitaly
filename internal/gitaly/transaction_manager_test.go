@@ -2911,8 +2911,8 @@ func TestTransactionManager(t *testing.T) {
 
 					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
 					installHooks(t, transactionManager, database, hooks{
-						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
-						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
+						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
+						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
 						beforeDeferredStop: func(hookContext) {
 							if step.Hooks.WaitForTransactionsWhenStopping {
 								inflightTransactions.Wait()
