@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
 )
@@ -125,7 +126,7 @@ type RepositoryStore interface {
 	// RenameRepository which can be removed in a later release.
 	RenameRepositoryInPlace(ctx context.Context, virtualStorage, relativePath, newRelativePath string) error
 	// GetConsistentStoragesByRepositoryID returns the replica path and the set of up to date storages for the given repository keyed by repository ID.
-	GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (string, map[string]struct{}, error)
+	GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (string, *datastructure.Set[string], error)
 	ConsistentStoragesGetter
 	// RepositoryExists returns whether the repository exists on a virtual storage.
 	RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error)
@@ -641,7 +642,7 @@ AND storage = $3
 }
 
 // GetConsistentStoragesByRepositoryID returns the replica path and the set of up to date storages for the given repository keyed by repository ID.
-func (rs *PostgresRepositoryStore) GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (string, map[string]struct{}, error) {
+func (rs *PostgresRepositoryStore) GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (string, *datastructure.Set[string], error) {
 	return rs.getConsistentStorages(ctx, `
 SELECT replica_path, ARRAY_AGG(storage)
 FROM repositories
@@ -652,7 +653,7 @@ GROUP BY replica_path
 }
 
 // GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
-func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
 	replicaPath, storages, err := rs.getConsistentStorages(ctx, `
 SELECT replica_path, ARRAY_AGG(storage)
 FROM repositories
@@ -669,7 +670,7 @@ GROUP BY replica_path
 }
 
 // getConsistentStorages is a helper for querying the consistent storages by different keys.
-func (rs *PostgresRepositoryStore) getConsistentStorages(ctx context.Context, query string, params ...interface{}) (string, map[string]struct{}, error) {
+func (rs *PostgresRepositoryStore) getConsistentStorages(ctx context.Context, query string, params ...interface{}) (string, *datastructure.Set[string], error) {
 	var replicaPath string
 	var storages glsql.StringArray
 
@@ -681,13 +682,7 @@ func (rs *PostgresRepositoryStore) getConsistentStorages(ctx context.Context, qu
 		return "", nil, fmt.Errorf("query: %w", err)
 	}
 
-	result := storages.Slice()
-	consistentStorages := make(map[string]struct{}, len(result))
-	for _, storage := range result {
-		consistentStorages[storage] = struct{}{}
-	}
-
-	return replicaPath, consistentStorages, nil
+	return replicaPath, datastructure.SetFromSlice(storages.Slice()), nil
 }
 
 //nolint:revive // This is unintentionally missing documentation.

@@ -176,7 +176,7 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 
 	healthyConsistentNodes := make([]RouterNode, 0, len(healthyNodes))
 	for _, node := range healthyNodes {
-		if _, ok := consistentStorages[node.Storage]; !ok {
+		if !consistentStorages.HasValue(node.Storage) {
 			continue
 		}
 
@@ -243,7 +243,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
 
-	if _, ok := consistentStorages[primary]; !ok {
+	if !consistentStorages.HasValue(primary) {
 		return RepositoryMutatorRoute{}, ErrRepositoryReadOnly
 	}
 
@@ -264,7 +264,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 			continue
 		}
 
-		if _, consistent := consistentStorages[node.Storage]; !consistent || !healthy {
+		if !consistentStorages.HasValue(node.Storage) || !healthy {
 			route.ReplicationTargets = append(route.ReplicationTargets, assigned)
 			continue
 		}

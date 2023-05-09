@@ -1,7 +1,9 @@
 package datastore
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"runtime"
 	"strings"
 	"sync"
@@ -13,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -37,7 +40,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// empty cache should be populated
 		replicaPath, storages, err := cache.GetConsistentStorages(ctx, "unknown", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -61,7 +64,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// empty cache should be populated
 		replicaPath, storages, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -75,7 +78,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// populated cache should return cached value
 		replicaPath, storages, err = cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -126,7 +129,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// first access populates the cache
 		replicaPath, storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages1)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages1.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		// invalid payload disables caching
@@ -137,19 +140,19 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// second access omits cached data as caching should be disabled
 		replicaPath, storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages2)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages2.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		// third access retrieves data and caches it
 		replicaPath, storages3, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages3)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages3.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		// fourth access retrieves data from cache
 		replicaPath, storages4, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages4)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages4.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		require.Len(t, logHook.AllEntries(), 1)
@@ -185,11 +188,11 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// first access populates the cache
 		replicaPath, path1Storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, path1Storages1)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, path1Storages1.Values())
 		require.Equal(t, "replica-path-1", replicaPath)
 		replicaPath, path2Storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/2")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}}, path2Storages1)
+		require.ElementsMatch(t, []string{"g1", "g2"}, path2Storages1.Values())
 		require.Equal(t, "replica-path-2", replicaPath)
 
 		// notification evicts entries for '/repo/path/2' from the cache
@@ -203,12 +206,12 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// second access re-uses cached data for '/repo/path/1'
 		replicaPath1, path1Storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, path1Storages2)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, path1Storages2.Values())
 		require.Equal(t, "replica-path-1", replicaPath1)
 		// second access populates the cache again for '/repo/path/2'
 		replicaPath, path2Storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/2")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}}, path2Storages2)
+		require.ElementsMatch(t, []string{"g1", "g2"}, path2Storages2.Values())
 		require.Equal(t, "replica-path-2", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -235,7 +238,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// first access populates the cache
 		replicaPath, storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages1)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages1.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		// disconnection disables cache
@@ -244,7 +247,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		// second access retrieve data and doesn't populate the cache
 		replicaPath, storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages2)
+		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages2.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -306,6 +309,53 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		}
 
 		close(start)
+		wg.Wait()
+	})
+
+	t.Run("concurrent access to different virtual storages", func(t *testing.T) {
+		db.TruncateAll(t)
+		ctx := testhelper.Context(t)
+
+		storageCh := make(chan struct{})
+		mockRepositoryStore := MockRepositoryStore{
+			GetConsistentStoragesFunc: func(_ context.Context, virtualStorage string, _ string) (string, *datastructure.Set[string], error) {
+				switch virtualStorage {
+				case "storage-1":
+					storageCh <- struct{}{}
+					<-storageCh
+					return "", nil, nil
+				case "storage-2":
+					return "", nil, nil
+				default:
+					return "", nil, errors.New("unexpected storage")
+				}
+			},
+		}
+
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), mockRepositoryStore, []string{"storage-1", "storage-2"})
+		require.NoError(t, err)
+		cache.Connected()
+
+		// Kick off a Goroutine that asks for a specific relative path on storage-1. This
+		// Goroutine will block until we signal it to leave via the storage channel.
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _, err := cache.GetConsistentStorages(ctx, "storage-1", "path")
+			require.NoError(t, err)
+		}()
+
+		// Synchronize with the Goroutine so that we know it's running.
+		<-storageCh
+
+		// Retrieve consistent storages for the same path, but on a different virtual
+		// storage. The first query should not impact this.
+		_, _, err = cache.GetConsistentStorages(ctx, "storage-2", "path")
+		require.NoError(t, err)
+
+		// Unblock the Goroutine and wait for it to exit.
+		storageCh <- struct{}{}
 		wg.Wait()
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
@@ -89,13 +90,13 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
 
-	if len(consistentStorages) == 0 {
+	if consistentStorages == nil || consistentStorages.IsEmpty() {
 		// if there is no up to date storages we'll have to consider the storage
 		// up to date as this will be the case on repository creation
-		consistentStorages = map[string]struct{}{shard.Primary.GetStorage(): {}}
+		consistentStorages = datastructure.SetFromValues(shard.Primary.GetStorage())
 	}
 
-	if _, ok := consistentStorages[shard.Primary.GetStorage()]; !ok {
+	if !consistentStorages.HasValue(shard.Primary.GetStorage()) {
 		return RepositoryMutatorRoute{}, ErrRepositoryReadOnly
 	}
 
@@ -104,9 +105,9 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 	var replicationTargets []string
 	// Only healthy secondaries which are consistent with the primary are allowed to take
 	// part in the transaction. Unhealthy nodes would block the transaction until they come back.
-	participatingSecondaries := make([]nodes.Node, 0, len(consistentStorages))
+	participatingSecondaries := make([]nodes.Node, 0, consistentStorages.Len())
 	for _, secondary := range shard.Secondaries {
-		if _, ok := consistentStorages[secondary.GetStorage()]; ok && secondary.IsHealthy() {
+		if consistentStorages.HasValue(secondary.GetStorage()) && secondary.IsHealthy() {
 			participatingSecondaries = append(participatingSecondaries, secondary)
 			continue
 		}
