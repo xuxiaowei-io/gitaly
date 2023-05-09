@@ -43,9 +43,10 @@ import (
 
 func newServeCommand() *cli.Command {
 	return &cli.Command{
-		Name:   "serve",
-		Usage:  "launch the server daemon",
-		Action: serveAction,
+		Name:            "serve",
+		Usage:           "launch the server daemon",
+		Action:          serveAction,
+		HideHelpCommand: true,
 	}
 }
 

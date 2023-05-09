@@ -120,9 +120,10 @@ func TestListStoragesSubcommand(t *testing.T) {
 	exec := func(confPath string, args []string) (string, error) {
 		var stdout bytes.Buffer
 		app := cli.App{
-			Reader:    bytes.NewReader(nil),
-			Writer:    &stdout,
-			ErrWriter: io.Discard,
+			Reader:          bytes.NewReader(nil),
+			Writer:          &stdout,
+			ErrWriter:       io.Discard,
+			HideHelpCommand: true,
 			Commands: []*cli.Command{
 				newListStoragesCommand(),
 			},

@@ -15,7 +15,8 @@ func newListStoragesCommand() *cli.Command {
 		Description: "This command lists virtual storages and their associated storages.\n" +
 			"Passing a virtual-storage argument will print out the storage associated with\n" +
 			"that particular virtual storage.\n",
-		Action: listStoragesAction,
+		HideHelpCommand: true,
+		Action:          listStoragesAction,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  paramVirtualStorage,

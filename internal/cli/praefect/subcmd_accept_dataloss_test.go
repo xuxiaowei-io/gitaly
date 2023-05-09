@@ -139,9 +139,10 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			app := cli.App{
-				Reader:    bytes.NewReader(nil),
-				Writer:    io.Discard,
-				ErrWriter: io.Discard,
+				Reader:          bytes.NewReader(nil),
+				Writer:          io.Discard,
+				ErrWriter:       io.Discard,
+				HideHelpCommand: true,
 				Commands: []*cli.Command{
 					newAcceptDatalossCommand(),
 				},

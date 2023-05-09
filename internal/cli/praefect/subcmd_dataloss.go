@@ -19,7 +19,8 @@ func newDatalossCommand() *cli.Command {
 			"previous write-enabled primary node. It does so by looking through incomplete\n" +
 			"replication jobs. This is useful for identifying potential data loss from a failover\n" +
 			"event.",
-		Action: datalossAction,
+		HideHelpCommand: true,
+		Action:          datalossAction,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name: paramVirtualStorage,

@@ -181,9 +181,10 @@ Virtual storage: virtual-storage-2
 
 			var stdout bytes.Buffer
 			app := cli.App{
-				Reader:    bytes.NewReader(nil),
-				Writer:    &stdout,
-				ErrWriter: io.Discard,
+				Reader:          bytes.NewReader(nil),
+				Writer:          &stdout,
+				ErrWriter:       io.Discard,
+				HideHelpCommand: true,
 				Commands: []*cli.Command{
 					newDatalossCommand(),
 				},
