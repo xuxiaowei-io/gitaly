@@ -53,7 +53,6 @@ func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error 
 
 func (s *Server) merge(
 	ctx context.Context,
-	repoPath string,
 	quarantineRepo *localrepo.Repo,
 	authorName string,
 	authorMail string,
@@ -110,11 +109,6 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
-	repoPath, err := quarantineRepo.Path()
-	if err != nil {
-		return err
-	}
-
 	referenceName := git.NewReferenceNameFromBranchName(string(firstRequest.Branch))
 
 	var revision git.ObjectID
@@ -145,7 +139,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	mergeCommitID, mergeErr := s.merge(ctx, repoPath, quarantineRepo,
+	mergeCommitID, mergeErr := s.merge(ctx, quarantineRepo,
 		string(firstRequest.User.Name),
 		string(firstRequest.User.Email),
 		authorDate,
