@@ -18,6 +18,7 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
@@ -455,6 +456,8 @@ type TransactionManager struct {
 	appliedLogIndex LogIndex
 	// customHookIndex stores the log index of the latest committed custom custom hooks in the repository.
 	customHookIndex LogIndex
+	// housekeepingManager access to the housekeeping.Manager.
+	housekeepingManager housekeeping.Manager
 
 	// transactionFinalizer executes when a transaction is completed.
 	transactionFinalizer func()
@@ -466,7 +469,16 @@ type TransactionManager struct {
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
-func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, cmdFactory git.CommandFactory, transactionFinalizer func()) *TransactionManager {
+func NewTransactionManager(
+	db *badger.DB,
+	storagePath,
+	relativePath,
+	stagingDir string,
+	cmdFactory git.CommandFactory,
+	housekeepingManager housekeeping.Manager,
+	repositoryFactory localrepo.StorageScopedFactory,
+	transactionFinalizer func(),
+) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
 		ctx:                  ctx,
@@ -483,6 +495,7 @@ func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir 
 		initialized:          make(chan struct{}),
 		applyNotifications:   make(map[LogIndex]chan struct{}),
 		stagingDirectory:     stagingDir,
+		housekeepingManager:  housekeepingManager,
 		transactionFinalizer: transactionFinalizer,
 		awaitingTransactions: make(map[LogIndex]resultChannel),
 	}
