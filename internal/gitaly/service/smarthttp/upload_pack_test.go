@@ -105,6 +105,12 @@ func TestServer_PostUploadPackSidechannel_gitConfigOptions(t *testing.T) {
 }
 
 func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+	testhelper.SkipQuarantinedTest(
+		t,
+		"https://gitlab.com/gitlab-org/gitaly/-/issues/5027",
+		"TestServer_PostUploadPackSidechannel_gitConfigOptions/no_config_options",
+	)
+
 	cfg := testcfg.Build(t, opts...)
 	testcfg.BuildGitalyHooks(t, cfg)
 
