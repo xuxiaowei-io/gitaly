@@ -5,14 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 )
-
-const logDurationThreshold = 5 * time.Millisecond
 
 var (
 	spawnTokens chan struct{}
@@ -63,7 +60,7 @@ func getSpawnToken(ctx context.Context) (putToken func(), err error) {
 
 	select {
 	case spawnTokens <- struct{}{}:
-		logTime(ctx, start, "spawn token acquired")
+		logTime(ctx, start, "")
 
 		return func() {
 			<-spawnTokens
@@ -83,11 +80,8 @@ func logTime(ctx context.Context, start time.Time, msg string) {
 
 	if stats := StatsFromContext(ctx); stats != nil {
 		stats.RecordSum("command.spawn_token_wait_ms", int(delta.Milliseconds()))
+		if len(msg) != 0 {
+			stats.RecordMetadata("command.spawn_token_error", msg)
+		}
 	}
-
-	if delta < logDurationThreshold {
-		return
-	}
-
-	ctxlogrus.Extract(ctx).WithField("spawn_queue_ms", delta.Seconds()*1000).Info(msg)
 }
