@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -137,7 +138,9 @@ func TestSubCmdDialNodes(t *testing.T) {
 
 			var stdout bytes.Buffer
 			app := cli.App{
-				Writer: &stdout,
+				Reader:    bytes.NewReader(nil),
+				Writer:    &stdout,
+				ErrWriter: io.Discard,
 				Commands: []*cli.Command{
 					newDialNodesCommand(),
 				},

@@ -183,7 +183,9 @@ Checking check 3...Failed (warning) error: i failed but not too badly
 		t.Run(tc.desc, func(t *testing.T) {
 			var stdout bytes.Buffer
 			app := cli.App{
-				Writer: &stdout,
+				Reader:    bytes.NewReader(nil),
+				Writer:    &stdout,
+				ErrWriter: io.Discard,
 				Commands: []*cli.Command{
 					newCheckCommand(tc.checks),
 				},
