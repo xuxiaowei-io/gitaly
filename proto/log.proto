@@ -44,6 +44,9 @@ message LogEntry {
   DefaultBranchUpdate default_branch_update = 2;
   // CustomHooksUpdate contains the custom hooks to set in the repository.
   CustomHooksUpdate custom_hooks_update = 3;
+  // includes_pack denotes whether this log entry has a pack file associated
+  // with it. The pack files are stored separately on the filesystem.
+  bool includes_pack = 4;
 }
 
 // LogIndex serializes a log index. It's used for storing a repository's

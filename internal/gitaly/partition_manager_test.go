@@ -2,6 +2,9 @@ package gitaly
 
 import (
 	"context"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -12,11 +15,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	repo "gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
 func TestPartitionManager(t *testing.T) {
+	umask := perm.GetUmask()
+
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -431,8 +437,17 @@ func TestPartitionManager(t *testing.T) {
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
 
-			partitionManager := NewPartitionManager(database, localRepoFactory, logrus.StandardLogger())
-			defer partitionManager.Stop()
+			stagingDir := filepath.Join(t.TempDir(), "staging")
+			require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
+
+			partitionManager := NewPartitionManager(database, localRepoFactory, logrus.StandardLogger(), stagingDir)
+			defer func() {
+				partitionManager.Stop()
+				// Assert all staging directories have been removed.
+				testhelper.RequireDirectoryState(t, stagingDir, "", testhelper.DirectoryState{
+					"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+				})
+			}()
 
 			// openTransactionData holds references to all transactions and its associated partition
 			// created during the testcase.
