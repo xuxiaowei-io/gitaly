@@ -16,8 +16,10 @@ import (
 	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func TestPartitionManager(t *testing.T) {
@@ -132,10 +134,11 @@ func TestPartitionManager(t *testing.T) {
 		require.Equal(t, expectedState, actualState)
 	}
 
-	setupRepository := func(t *testing.T, cfg config.Cfg) repo.GitRepo {
+	setupRepository := func(t *testing.T, cfg config.Cfg, storage config.Storage) repo.GitRepo {
 		t.Helper()
 
 		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			Storage:                storage,
 			SkipCreationViaService: true,
 		})
 
@@ -160,7 +163,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "transaction committed for single repository",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				return setupData{
 					steps: steps{
@@ -180,7 +183,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "two transactions committed for single repository sequentially",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				return setupData{
 					steps: steps{
@@ -215,7 +218,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "two transactions committed for single repository in parallel",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				return setupData{
 					steps: steps{
@@ -253,10 +256,11 @@ func TestPartitionManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "transaction committed for two repositories",
+			desc: "transaction committed for multiple repositories",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repoA := setupRepository(t, cfg)
-				repoB := setupRepository(t, cfg)
+				repoA := setupRepository(t, cfg, cfg.Storages[0])
+				repoB := setupRepository(t, cfg, cfg.Storages[0])
+				repoC := setupRepository(t, cfg, cfg.Storages[1])
 
 				return setupData{
 					steps: steps{
@@ -279,16 +283,40 @@ func TestPartitionManager(t *testing.T) {
 								},
 							},
 						},
+						begin{
+							transactionID: 3,
+							repo:          repoC,
+							expectedState: map[string]map[string]uint{
+								"default": {
+									repoA.GetRelativePath(): 1,
+									repoB.GetRelativePath(): 1,
+								},
+								"other-storage": {
+									repoC.GetRelativePath(): 1,
+								},
+							},
+						},
 						commit{
 							transactionID: 1,
 							expectedState: map[string]map[string]uint{
 								"default": {
 									repoB.GetRelativePath(): 1,
 								},
+								"other-storage": {
+									repoC.GetRelativePath(): 1,
+								},
 							},
 						},
 						commit{
 							transactionID: 2,
+							expectedState: map[string]map[string]uint{
+								"other-storage": {
+									repoC.GetRelativePath(): 1,
+								},
+							},
+						},
+						commit{
+							transactionID: 3,
 						},
 					},
 				}
@@ -297,7 +325,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "transaction rolled back for single repository",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				return setupData{
 					steps: steps{
@@ -317,7 +345,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "starting transaction failed due to cancelled context",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				stepCtx, cancel := context.WithCancel(ctx)
 				cancel()
@@ -336,7 +364,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "committing transaction failed due to cancelled context",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				stepCtx, cancel := context.WithCancel(ctx)
 				cancel()
@@ -362,7 +390,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "committing transaction failed due to stopped transaction manager",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				return setupData{
 					steps: steps{
@@ -385,7 +413,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "transaction from previous transaction manager finalized after new manager started",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				return setupData{
 					steps: steps{
@@ -423,7 +451,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "transaction started after partition manager stopped",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				return setupData{
 					steps: steps{
@@ -439,7 +467,7 @@ func TestPartitionManager(t *testing.T) {
 		{
 			desc: "multiple transactions started after partition manager stopped",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				repo := setupRepository(t, cfg)
+				repo := setupRepository(t, cfg, cfg.Storages[0])
 
 				return setupData{
 					steps: steps{
@@ -458,12 +486,60 @@ func TestPartitionManager(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "transaction for a non-existent storage",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				return setupData{
+					steps: steps{
+						begin{
+							repo: &gitalypb.Repository{
+								StorageName: "non-existent",
+							},
+							expectedError: structerr.NewNotFound("unknown storage: %q", "non-existent"),
+						},
+					},
+				}
+			},
+		},
+
+		{
+			desc: "relative paths are cleaned",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repo := setupRepository(t, cfg, cfg.Storages[0])
+
+				return setupData{
+					steps: steps{
+						begin{
+							transactionID: 1,
+							repo:          repo,
+							expectedState: map[string]map[string]uint{
+								"default": {
+									repo.GetRelativePath(): 1,
+								},
+							},
+						},
+						begin{
+							transactionID: 2,
+							repo: &gitalypb.Repository{
+								StorageName:  repo.GetStorageName(),
+								RelativePath: filepath.Join(repo.GetRelativePath(), "child-dir", ".."),
+							},
+							expectedState: map[string]map[string]uint{
+								"default": {
+									repo.GetRelativePath(): 2,
+								},
+							},
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			cfg := testcfg.Build(t)
+			cfg := testcfg.Build(t, testcfg.WithStorages("default", "other-storage"))
 
 			cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
 			require.NoError(t, err)
@@ -524,13 +600,17 @@ func TestPartitionManager(t *testing.T) {
 					txn, err := partitionManager.Begin(beginCtx, step.repo)
 					require.Equal(t, step.expectedError, err)
 
+					blockOnPartitionShutdown(t, partitionManager)
+					checkExpectedState(t, cfg, partitionManager, step.expectedState)
+
+					if err != nil {
+						continue
+					}
+
 					storagePtn := partitionManager.storages[step.repo.GetStorageName()]
 					storagePtn.mu.Lock()
 					ptn := storagePtn.partitions[step.repo.GetRelativePath()]
 					storagePtn.mu.Unlock()
-
-					blockOnPartitionShutdown(t, partitionManager)
-					checkExpectedState(t, cfg, partitionManager, step.expectedState)
 
 					openTransactionData[step.transactionID] = &transactionData{
 						txn:        txn,
