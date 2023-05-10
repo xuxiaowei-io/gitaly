@@ -9,7 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"google.golang.org/grpc/test/grpc_testing"
+	"google.golang.org/grpc/interop/grpc_testing"
 	"google.golang.org/protobuf/proto"
 )
 

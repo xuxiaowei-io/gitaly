@@ -21,8 +21,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/grpcstats"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/interop/grpc_testing"
 	"google.golang.org/grpc/stats"
-	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/proto"
 )
 

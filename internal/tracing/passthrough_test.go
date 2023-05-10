@@ -14,7 +14,7 @@ import (
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/test/grpc_testing"
+	"google.golang.org/grpc/interop/grpc_testing"
 )
 
 func TestExtractSpanContextFromEnv(t *testing.T) {

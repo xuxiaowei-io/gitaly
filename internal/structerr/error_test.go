@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/interop/grpc_testing"
 	"google.golang.org/grpc/status"
-	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
