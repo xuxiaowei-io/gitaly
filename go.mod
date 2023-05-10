@@ -7,7 +7,7 @@ replace github.com/go-enry/go-license-detector/v4 => github.com/gl-gitaly/go-lic
 
 require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230426101702-58e86b294756
-	github.com/beevik/ntp v0.3.0
+	github.com/beevik/ntp v0.3.2
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups v1.1.0
 	github.com/dgraph-io/badger/v3 v3.2103.5
@@ -188,9 +188,9 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gonum.org/v1/gonum v0.8.2 // indirect
