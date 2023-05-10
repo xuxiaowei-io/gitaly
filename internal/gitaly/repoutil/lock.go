@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
-	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // Lock attempts to lock the entire repository directory such that only one
@@ -20,7 +20,7 @@ import (
 //
 // Returns the error safe.ErrFileAlreadyLocked if the repository is already
 // locked.
-func Lock(ctx context.Context, locator storage.Locator, repository *gitalypb.Repository) (func(), error) {
+func Lock(ctx context.Context, locator storage.Locator, repository repository.GitRepo) (func(), error) {
 	path, err := locator.GetPath(repository)
 	if err != nil {
 		return nil, err
