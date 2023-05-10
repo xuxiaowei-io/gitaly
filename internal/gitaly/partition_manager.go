@@ -198,8 +198,10 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 
 			storagePtn.activePartitions.Add(1)
 			go func() {
+				logger := storagePtn.logger.WithField("partition", relativePath)
+
 				if err := mgr.Run(); err != nil {
-					storagePtn.logger.WithError(err).Error("partition failed")
+					logger.WithError(err).Error("partition failed")
 				}
 
 				// In the event that TransactionManager stops running, a new TransactionManager will
@@ -213,7 +215,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				close(ptn.shutdown)
 
 				if err := os.RemoveAll(stagingDir); err != nil {
-					storagePtn.logger.WithError(err).Error("failed removing partition's staging directory")
+					logger.WithError(err).Error("failed removing partition's staging directory")
 				}
 
 				storagePtn.activePartitions.Done()
