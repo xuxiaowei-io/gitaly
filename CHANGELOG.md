@@ -68,6 +68,12 @@ No changes.
 
 - [Do not store unique fetches in pack-objects cache](gitlab-org/gitaly@a630cfa64f4bc3c9e21c5f37d9826c9a9c89a483) ([merge request](gitlab-org/gitaly!5540))
 
+## 15.10.7 (2023-05-10)
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to security release v2.40.1.gl2 and v2.39.3.gl1](gitlab-org/security/gitaly@5699beac807410236f2bfdf6995e2b0c139af96b) ([merge request](gitlab-org/security/gitaly!85))
+
 ## 15.10.6 (2023-05-03)
 
 No changes.
