@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 )
 
 // ErrEmptyBundle is returned when the bundle to be created would have been empty.

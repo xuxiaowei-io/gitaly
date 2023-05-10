@@ -5,7 +5,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 func newListStoragesCommand() *cli.Command {

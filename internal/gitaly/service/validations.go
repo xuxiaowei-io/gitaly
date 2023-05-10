@@ -3,8 +3,8 @@ package service
 import (
 	"strings"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // ValidateRepository checks where the Repository is provided and

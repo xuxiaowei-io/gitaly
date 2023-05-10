@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 )
 
 const (

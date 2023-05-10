@@ -7,8 +7,8 @@ import (
 	"encoding/gob"
 	"flag"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
 )
 
 // This subcommand is only called in tests, so we don't want to register it like

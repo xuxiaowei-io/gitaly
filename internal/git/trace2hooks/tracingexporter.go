@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/opentracing/opentracing-go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trace2"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 )
 
 // NewTracingExporter initializes TracingExporter, which is a hook to convert Trace2 events to

@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/dnsresolver"
-	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/dnsresolver"
+	gitalyx509 "gitlab.com/gitlab-org/gitaly/v16/internal/x509"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"

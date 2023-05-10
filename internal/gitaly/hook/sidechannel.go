@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v16/internal/metadata"
 	"google.golang.org/grpc/metadata"
 )
 

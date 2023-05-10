@@ -11,8 +11,8 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/datastructure"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 )
 
 // ConsistentStoragesGetter returns storages which contain the latest generation of a repository.
