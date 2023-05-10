@@ -15,7 +15,8 @@ func newDialNodesCommand() *cli.Command {
 		Description: "The subcommand \"dial-nodes\" helps diagnose connection problems to Gitaly or\n" +
 			"Praefect. The subcommand works by sourcing the connection information from\n" +
 			"the config file, and then dialing and health checking the remote nodes.",
-		Action: dialNodesAction,
+		HideHelpCommand: true,
+		Action:          dialNodesAction,
 		Flags: []cli.Flag{
 			&cli.DurationFlag{
 				Name:  "timeout",

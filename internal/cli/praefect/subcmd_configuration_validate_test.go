@@ -71,9 +71,6 @@ USAGE:
 DESCRIPTION:
    The command accepts configuration in toml format on STDIN. It applies validation rules to the received configuration and returns all the found validation errors in JSON format back on STDOUT.
 
-COMMANDS:
-   help, h  Shows a list of commands or help for one command
-
 OPTIONS:
    --help, -h  show help
 `,

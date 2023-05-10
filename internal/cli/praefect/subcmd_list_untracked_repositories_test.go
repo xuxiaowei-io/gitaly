@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -88,7 +89,10 @@ func TestListUntrackedRepositoriesCommand(t *testing.T) {
 	newApp := func() (cli.App, *bytes.Buffer) {
 		var stdout bytes.Buffer
 		return cli.App{
-			Writer: &stdout,
+			Reader:          bytes.NewReader(nil),
+			Writer:          &stdout,
+			ErrWriter:       io.Discard,
+			HideHelpCommand: true,
 			Commands: []*cli.Command{
 				newListUntrackedRepositoriesCommand(),
 			},

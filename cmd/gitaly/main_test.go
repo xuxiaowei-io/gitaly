@@ -30,7 +30,7 @@ func TestGitalyCLI(t *testing.T) {
 		{
 			desc:     "without arguments",
 			exitCode: 2,
-			stdout:   "NAME:\n   gitaly - a git server\n\nUSAGE:\n   gitaly command [command options] [arguments...]\n\nCOMMANDS:\n   serve          launch the server daemon\n   check          verify internal API is accessible\n   configuration  allows to run commands related to the configuration\n   hooks          manage hooks for a git repository\n   help, h        Shows a list of commands or help for one command\n\nOPTIONS:\n   --help, -h     show help\n   --version, -v  print the version\n",
+			stdout:   "NAME:\n   gitaly - a git server\n\nUSAGE:\n   gitaly command [command options] [arguments...]\n\nCOMMANDS:\n   serve          launch the server daemon\n   check          verify internal API is accessible\n   configuration  allows to run commands related to the configuration\n   hooks          manage hooks for a git repository\n\nOPTIONS:\n   --help, -h     show help\n   --version, -v  print the version\n",
 		},
 		{
 			desc:     "with non-existent config",
@@ -42,7 +42,7 @@ func TestGitalyCLI(t *testing.T) {
 			desc:     "check without config",
 			args:     []string{"check"},
 			exitCode: 2,
-			stdout:   "NAME:\n   gitaly check - verify internal API is accessible\n\nUSAGE:\n   gitaly check command [command options] <configfile>\n\nCOMMANDS:\n   help, h  Shows a list of commands or help for one command\n\nOPTIONS:\n   --help, -h  show help\n",
+			stdout:   "NAME:\n   gitaly check - verify internal API is accessible\n\nUSAGE:\n   gitaly check command [command options] <configfile>\n\nOPTIONS:\n   --help, -h  show help\n",
 			stderr:   "invalid argument(s)",
 		},
 		{

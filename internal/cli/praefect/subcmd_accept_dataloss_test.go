@@ -1,7 +1,9 @@
 package praefect
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -137,6 +139,10 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			app := cli.App{
+				Reader:          bytes.NewReader(nil),
+				Writer:          io.Discard,
+				ErrWriter:       io.Discard,
+				HideHelpCommand: true,
 				Commands: []*cli.Command{
 					newAcceptDatalossCommand(),
 				},

@@ -2,6 +2,7 @@ package praefect
 
 import (
 	"bytes"
+	"io"
 	"testing"
 
 	"github.com/olekukonko/tablewriter"
@@ -119,7 +120,10 @@ func TestListStoragesSubcommand(t *testing.T) {
 	exec := func(confPath string, args []string) (string, error) {
 		var stdout bytes.Buffer
 		app := cli.App{
-			Writer: &stdout,
+			Reader:          bytes.NewReader(nil),
+			Writer:          &stdout,
+			ErrWriter:       io.Discard,
+			HideHelpCommand: true,
 			Commands: []*cli.Command{
 				newListStoragesCommand(),
 			},

@@ -17,7 +17,8 @@ func newConfigurationValidateCommand() *cli.Command {
 		Description: "The command accepts configuration in toml format on STDIN. It applies " +
 			"validation rules to the received configuration and returns all the found " +
 			"validation errors in JSON format back on STDOUT.",
-		Action: configurationValidateAction,
+		HideHelpCommand: true,
+		Action:          configurationValidateAction,
 	}
 }
 

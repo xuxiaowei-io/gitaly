@@ -11,8 +11,9 @@ const validationErrorCode = 2
 
 func newConfigurationCommand() *cli.Command {
 	return &cli.Command{
-		Name:  "configuration",
-		Usage: "allows to run commands related to the configuration",
+		Name:            "configuration",
+		Usage:           "allows to run commands related to the configuration",
+		HideHelpCommand: true,
 		Subcommands: []*cli.Command{
 			{
 				Name:   "validate",
