@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync/atomic"
 
-	"google.golang.org/grpc/test/grpc_testing"
+	"google.golang.org/grpc/interop/grpc_testing"
 )
 
 type server struct {

@@ -31,8 +31,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/interop/grpc_testing"
 	"google.golang.org/grpc/status"
-	"google.golang.org/grpc/test/grpc_testing"
 )
 
 var proxyEnvironmentKeys = []string{"http_proxy", "https_proxy", "no_proxy"}
