@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/smudge"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
+	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/labkit/log"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )

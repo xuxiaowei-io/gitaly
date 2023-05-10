@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
 )
 
 func TestCheckSubcommand(t *testing.T) {

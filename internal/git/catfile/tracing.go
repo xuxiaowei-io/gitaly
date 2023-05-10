@@ -6,7 +6,7 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 )
 
 type trace struct {

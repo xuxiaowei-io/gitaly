@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/repocleaner"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/repocleaner"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc/metadata"
 )

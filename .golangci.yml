@@ -55,10 +55,10 @@ linters-settings:
     exclude-functions:
       - (*database/sql.DB).Close
       - (*database/sql.Rows).Close
-      - (*gitlab.com/gitlab-org/gitaly/v15/client.Pool).Close
-      - (*gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel.ServerConn).Close
-      - (*gitlab.com/gitlab-org/gitaly/v15/internal/streamcache.pipe).Close
-      - (*gitlab.com/gitlab-org/gitaly/v15/internal/streamcache.pipeReader).Close
+      - (*gitlab.com/gitlab-org/gitaly/v16/client.Pool).Close
+      - (*gitlab.com/gitlab-org/gitaly/v16/internal/sidechannel.ServerConn).Close
+      - (*gitlab.com/gitlab-org/gitaly/v16/internal/streamcache.pipe).Close
+      - (*gitlab.com/gitlab-org/gitaly/v16/internal/streamcache.pipeReader).Close
       - (*google.golang.org/grpc.ClientConn).Close
       - (*google.golang.org/grpc.ServerConn).Close
       - (*io.PipeReader).Close
@@ -142,7 +142,7 @@ linters-settings:
         error_wrap:
           included-functions:
             - fmt.Errorf
-            - gitlab.com/gitlab-org/gitaly/v15/internal/structerr.*
+            - gitlab.com/gitlab-org/gitaly/v16/internal/structerr.*
 
 issues:
   exclude-use-default: false

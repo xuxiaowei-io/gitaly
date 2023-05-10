@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	cli "gitlab.com/gitlab-org/gitaly/v15/internal/cli/gitaly"
+	cli "gitlab.com/gitlab-org/gitaly/v16/internal/cli/gitaly"
 )
 
 func main() {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 )
 
 // endOfAttributes is a magic attribute name we use to detect all attributes

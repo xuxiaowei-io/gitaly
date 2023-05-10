@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
 )
 
 func newDialNodesCommand() *cli.Command {

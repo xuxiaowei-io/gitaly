@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
 )
 
 func init() {

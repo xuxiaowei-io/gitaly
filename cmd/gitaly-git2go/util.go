@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	git "github.com/libgit2/git2go/v34"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 )
 
 func lookupCommit(repo *git.Repository, ref string) (*git.Commit, error) {

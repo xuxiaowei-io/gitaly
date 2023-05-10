@@ -3,7 +3,7 @@
 package gittest
 
 import (
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 )
 
 // DefaultObjectHash is the default hash used for running tests.

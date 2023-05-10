@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/client"
-	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/client"
+	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 )
