@@ -1,3 +1,6 @@
+project_id = gitlab.mr_json['project_id']
+mr_id = gitlab.mr_json['iid']
+
 INHERITABLE_LABELS = %w[
   type::bug
   type::feature
@@ -11,16 +14,22 @@ INHERITABLE_LABELS = %w[
   group::gitaly
 ]
 
-def inherited_labels
-  gitlab.api
-    .merge_request_closes_issues( gitlab.mr_json['project_id'], gitlab.mr_json['iid'])
-    .flat_map { |i| i.labels }
-    .compact
-    .uniq
-    .select { |label| INHERITABLE_LABELS.include?(label) }
-end
-
 GITALY_TEAM = gitlab.api.all_group_members("gl-gitaly").flat_map{ |i| i.username }
+
+inherited_labels = []
+gitlab.api
+  .merge_request_closes_issues(project_id, mr_id)
+  .select do |issue|
+
+    if gitlab.mr_json['state'] == 'merged'
+      new_labels = issue.labels
+      new_labels << "workflow::complete"
+      gitlab.api.edit_issue(project_id, issue.iid, {labels: labels})
+    end
+
+    inherited_labels += issue.labels.select { |label| INHERITABLE_LABELS.include?(label) }
+  end
+inherited_labels.uniq!
 
 required_labels = %w[devops::systems]
 required_labels << "group::gitaly" if GITALY_TEAM.include?(gitlab.mr_author)
