@@ -13,15 +13,15 @@ import (
 )
 
 func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest) (*gitalypb.CreateForkResponse, error) {
-	targetRepository := req.Repository
-	sourceRepository := req.SourceRepository
-
-	if sourceRepository == nil {
-		return nil, structerr.NewInvalidArgument("empty SourceRepository")
+	if err := service.ValidateRepository(req.GetSourceRepository()); err != nil {
+		return nil, structerr.NewInvalidArgument("validating source repository: %w", err)
 	}
 	if err := service.ValidateRepository(req.GetRepository()); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
+
+	targetRepository := req.Repository
+	sourceRepository := req.SourceRepository
 
 	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, targetRepository, func(repo *gitalypb.Repository) error {
 		targetPath, err := s.locator.GetPath(repo)

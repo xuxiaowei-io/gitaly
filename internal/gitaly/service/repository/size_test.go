@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -33,8 +32,6 @@ func TestSuccessfulRepositorySizeRequestPoolMember(t *testing.T) {
 	repoClient, serverSocketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
-	objectPoolClient := newObjectPoolClient(t, cfg, serverSocketPath)
-
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
@@ -45,32 +42,9 @@ func TestSuccessfulRepositorySizeRequestPoolMember(t *testing.T) {
 
 	sizeBeforePool := response.GetSize()
 
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-
-	poolProto := &gitalypb.ObjectPool{
-		Repository: &gitalypb.Repository{
-			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewObjectPoolName(t),
-		},
-	}
-
-	_, err = objectPoolClient.CreateObjectPool(
-		ctx,
-		&gitalypb.CreateObjectPoolRequest{
-			ObjectPool: poolProto,
-			Origin:     repo,
-		})
-	require.NoError(t, err)
-
-	_, err = objectPoolClient.LinkRepositoryToObjectPool(
-		ctx,
-		&gitalypb.LinkRepositoryToObjectPoolRequest{
-			Repository: repo,
-			ObjectPool: poolProto,
-		},
-	)
-	require.NoError(t, err)
+	gittest.CreateObjectPool(t, ctx, cfg, repo, gittest.CreateObjectPoolConfig{
+		LinkRepositoryToObjectPool: true,
+	})
 
 	gittest.Exec(t, cfg, "-C", repoPath, "gc")
 

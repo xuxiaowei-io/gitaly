@@ -283,7 +283,7 @@ func TestCreateFork_validate(t *testing.T) {
 				if testhelper.IsPraefectEnabled() {
 					return status.Error(codes.AlreadyExists, "route repository creation: reserve repository id: repository already exists")
 				}
-				return status.Error(codes.InvalidArgument, "empty SourceRepository")
+				return status.Error(codes.InvalidArgument, "validating source repository: empty Repository")
 			}(),
 		},
 	} {
