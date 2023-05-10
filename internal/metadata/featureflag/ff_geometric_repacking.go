@@ -6,5 +6,5 @@ var GeometricRepacking = NewFeatureFlag(
 	"geometric_repacking",
 	"v15.11.0",
 	"https://gitlab.com/gitlab-org/gitaly/-/issues/5031",
-	false,
+	true,
 )
