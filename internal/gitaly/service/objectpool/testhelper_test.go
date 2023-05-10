@@ -93,23 +93,11 @@ func createObjectPool(
 	tb testing.TB,
 	ctx context.Context,
 	cfg config.Cfg,
-	client gitalypb.ObjectPoolServiceClient,
 	source *gitalypb.Repository,
 ) (*gitalypb.ObjectPool, *objectpool.ObjectPool, string) {
 	tb.Helper()
 
-	poolProto := &gitalypb.ObjectPool{
-		Repository: &gitalypb.Repository{
-			StorageName:  source.GetStorageName(),
-			RelativePath: gittest.NewObjectPoolName(tb),
-		},
-	}
-
-	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
-		ObjectPool: poolProto,
-		Origin:     source,
-	})
-	require.NoError(tb, err)
+	poolProto, poolProtoPath := gittest.CreateObjectPool(tb, ctx, cfg, source)
 
 	txManager := transaction.NewManager(cfg, nil)
 	catfileCache := catfile.NewCache(cfg)
@@ -130,5 +118,5 @@ func createObjectPool(
 	)
 	require.NoError(tb, err)
 
-	return poolProto, pool, gittest.RepositoryPath(tb, pool)
+	return poolProto, pool, poolProtoPath
 }

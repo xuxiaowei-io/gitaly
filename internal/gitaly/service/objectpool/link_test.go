@@ -23,7 +23,7 @@ func TestLink(t *testing.T) {
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, repo)
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
@@ -80,7 +80,7 @@ func TestLink_idempotent(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repoProto, _, _, client := setup(t, ctx)
 
-	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repoProto)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, repoProto)
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repoProto,
@@ -99,7 +99,7 @@ func TestLink_noClobber(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
-	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repoProto)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, repoProto)
 
 	alternatesFile := filepath.Join(repoPath, "objects/info/alternates")
 	require.NoFileExists(t, alternatesFile)

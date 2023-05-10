@@ -53,7 +53,13 @@ type RepositoryServiceClient interface {
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
 	// This comment is left unintentionally blank.
 	FindMergeBase(ctx context.Context, in *FindMergeBaseRequest, opts ...grpc.CallOption) (*FindMergeBaseResponse, error)
-	// This comment is left unintentionally blank.
+	// CreateFork creates a new repository from a specific source repository. This new repository will
+	// have the same branches and tags as the source repository. Internal references will not be
+	// recreated in the forked repository.
+	//
+	// All objects of the source repository will be duplicated, that is there are no space savings by
+	// creating the repository like this. The newly created repository does not join the object pool
+	// of the source repository, if there is any.
 	CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error)
 	// This comment is left unintentionally blank.
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
@@ -917,7 +923,13 @@ type RepositoryServiceServer interface {
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
 	// This comment is left unintentionally blank.
 	FindMergeBase(context.Context, *FindMergeBaseRequest) (*FindMergeBaseResponse, error)
-	// This comment is left unintentionally blank.
+	// CreateFork creates a new repository from a specific source repository. This new repository will
+	// have the same branches and tags as the source repository. Internal references will not be
+	// recreated in the forked repository.
+	//
+	// All objects of the source repository will be duplicated, that is there are no space savings by
+	// creating the repository like this. The newly created repository does not join the object pool
+	// of the source repository, if there is any.
 	CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error)
 	// This comment is left unintentionally blank.
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)

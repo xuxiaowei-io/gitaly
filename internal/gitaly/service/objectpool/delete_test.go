@@ -21,7 +21,7 @@ func TestDelete(t *testing.T) {
 
 	repositoryClient := gitalypb.NewRepositoryServiceClient(extractConn(client))
 
-	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repoProto)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, repoProto)
 	validPoolPath := poolProto.GetRepository().GetRelativePath()
 
 	for _, tc := range []struct {
