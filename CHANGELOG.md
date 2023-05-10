@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.9.8 (2023-05-10)
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to security release v2.40.1.gl2 and v2.39.3.gl1](gitlab-org/security/gitaly@99201bff6161425f7c43e78ba708b76b300b4ae3) ([merge request](gitlab-org/security/gitaly!86))
+
 ## 15.9.7 (2023-05-03)
 
 No changes.
