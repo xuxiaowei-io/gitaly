@@ -69,30 +69,6 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 		// and pick the most effective strategy. `PackObjectsLimiting.Key` config is ignored
 		// at this point. We will either checking it properly, or remove it when there is
 		// a conclusion on production.
-		if featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) {
-			return s.runPackObjectsLimited(
-				ctx,
-				w,
-				req.GetRepository().GetStorageName()+":"+req.GetRepository().GetRelativePath(),
-				req,
-				args,
-				stdin,
-				cacheKey,
-			)
-		}
-
-		if featureflag.PackObjectsLimitingUser.IsEnabled(ctx) && req.GetGlId() != "" {
-			return s.runPackObjectsLimited(
-				ctx,
-				w,
-				req.GetGlId(),
-				req,
-				args,
-				stdin,
-				cacheKey,
-			)
-		}
-
 		if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) && req.GetRemoteIp() != "" {
 			ipAddr := net.ParseIP(req.GetRemoteIp())
 			if ipAddr == nil {

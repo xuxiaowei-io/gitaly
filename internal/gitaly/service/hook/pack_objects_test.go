@@ -89,8 +89,6 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
-		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
@@ -222,8 +220,6 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
-		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
@@ -444,8 +440,6 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
-		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
@@ -701,8 +695,6 @@ func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
-		featureflag.PackObjectsLimitingRepo,
 		featureflag.PackObjectsLimitingRemoteIP,
 	).Run(t, runTestsWithRuntimeDir(
 		t,
@@ -780,27 +772,13 @@ func setupSidechannel(t *testing.T, ctx context.Context, oid string) (context.Co
 func TestPackObjects_concurrencyLimit(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingUser,
-		featureflag.PackObjectsLimitingRepo,
-		featureflag.PackObjectsLimitingRemoteIP,
-	).Run(t, testPackObjectsConcurrency)
+	testhelper.NewFeatureSets(featureflag.PackObjectsLimitingRemoteIP).Run(t, testPackObjectsConcurrency)
 }
 
 func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg := cfgWithCache(t, 0)
-
-	var keyType string
-
-	if featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) {
-		keyType = "repo"
-	} else if featureflag.PackObjectsLimitingUser.IsEnabled(ctx) {
-		keyType = "user"
-	} else if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) {
-		keyType = "remote_ip"
-	}
 
 	args := []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"}
 
@@ -855,9 +833,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
+			shouldLimit: featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
 		},
 		{
 			desc: "IP addresses including source port",
@@ -881,9 +857,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
+			shouldLimit: featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
 		},
 		{
 			desc: "IPv4 loopback addresses",
@@ -907,8 +881,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+			shouldLimit: false,
 		},
 		{
 			desc: "IPv6 loopback addresses",
@@ -932,8 +905,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+			shouldLimit: false,
 		},
 		{
 			desc: "invalid IP addresses",
@@ -957,8 +929,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+			shouldLimit: false,
 		},
 		{
 			desc: "empty IP addresses",
@@ -982,14 +953,12 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) ||
-				featureflag.PackObjectsLimitingUser.IsEnabled(ctx),
+			shouldLimit: false,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ticker := helper.NewManualTicker()
 			monitor := limithandler.NewPackObjectsConcurrencyMonitor(
-				keyType,
 				cfg.Prometheus.GRPCLatencyBuckets,
 			)
 			limiter := limithandler.NewConcurrencyLimiter(
@@ -1067,10 +1036,10 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 
 				require.NoError(t,
 					testutil.GatherAndCompare(registry,
-						bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_pack_objects_in_progress Gauge of number of concurrent in-progress calls
+						bytes.NewBufferString(`# HELP gitaly_pack_objects_in_progress Gauge of number of concurrent in-progress calls
 # TYPE gitaly_pack_objects_in_progress gauge
-gitaly_pack_objects_in_progress{type=%q} 1
-`, keyType)), "gitaly_pack_objects_in_progress"))
+gitaly_pack_objects_in_progress 1
+`), "gitaly_pack_objects_in_progress"))
 
 				ticker.Tick()
 
@@ -1083,13 +1052,13 @@ gitaly_pack_objects_in_progress{type=%q} 1
 
 				close(blockCh)
 
-				expectedMetrics := bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_pack_objects_dropped_total Number of requests dropped from the queue
+				expectedMetrics := bytes.NewBufferString(`# HELP gitaly_pack_objects_dropped_total Number of requests dropped from the queue
 # TYPE gitaly_pack_objects_dropped_total counter
-gitaly_pack_objects_dropped_total{reason="max_time", type=%q} 1
+gitaly_pack_objects_dropped_total{reason="max_time"} 1
 # HELP gitaly_pack_objects_queued Gauge of number of queued calls
 # TYPE gitaly_pack_objects_queued gauge
-gitaly_pack_objects_queued{type=%q} 0
-`, keyType, keyType))
+gitaly_pack_objects_queued 0
+`)
 
 				require.NoError(t,
 					testutil.GatherAndCompare(registry, expectedMetrics,
