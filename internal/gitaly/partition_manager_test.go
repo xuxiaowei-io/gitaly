@@ -168,7 +168,7 @@ func TestPartitionManager(t *testing.T) {
 							repo: repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -189,7 +189,7 @@ func TestPartitionManager(t *testing.T) {
 							repo:          repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -201,7 +201,7 @@ func TestPartitionManager(t *testing.T) {
 							repo:          repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -224,7 +224,7 @@ func TestPartitionManager(t *testing.T) {
 							repo:          repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -233,7 +233,7 @@ func TestPartitionManager(t *testing.T) {
 							repo:          repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 2,
+									repo.GetRelativePath(): 2,
 								},
 							},
 						},
@@ -241,7 +241,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -265,7 +265,7 @@ func TestPartitionManager(t *testing.T) {
 							repo:          repoA,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repoA.GetStorageName(), repoA.GetRelativePath()): 1,
+									repoA.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -274,8 +274,8 @@ func TestPartitionManager(t *testing.T) {
 							repo:          repoB,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repoA.GetStorageName(), repoA.GetRelativePath()): 1,
-									getPartitionKey(repoB.GetStorageName(), repoB.GetRelativePath()): 1,
+									repoA.GetRelativePath(): 1,
+									repoB.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -283,7 +283,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repoB.GetStorageName(), repoB.GetRelativePath()): 1,
+									repoB.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -305,7 +305,7 @@ func TestPartitionManager(t *testing.T) {
 							repo: repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -347,7 +347,7 @@ func TestPartitionManager(t *testing.T) {
 							repo: repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -370,7 +370,7 @@ func TestPartitionManager(t *testing.T) {
 							repo: repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -394,7 +394,7 @@ func TestPartitionManager(t *testing.T) {
 							repo:          repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -406,7 +406,7 @@ func TestPartitionManager(t *testing.T) {
 							repo:          repo,
 							expectedState: map[string]map[string]uint{
 								"default": {
-									getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
+									repo.GetRelativePath(): 1,
 								},
 							},
 						},
@@ -526,7 +526,7 @@ func TestPartitionManager(t *testing.T) {
 
 					storagePtn := partitionManager.storages[step.repo.GetStorageName()]
 					storagePtn.mu.Lock()
-					ptn := storagePtn.partitions[getPartitionKey(step.repo.GetStorageName(), step.repo.GetRelativePath())]
+					ptn := storagePtn.partitions[step.repo.GetRelativePath()]
 					storagePtn.mu.Unlock()
 
 					blockOnPartitionShutdown(t, partitionManager)

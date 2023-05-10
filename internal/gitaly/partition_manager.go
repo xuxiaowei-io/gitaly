@@ -158,11 +158,6 @@ func stagingDirectoryPath(storagePath string) string {
 	return filepath.Join(storagePath, "staging")
 }
 
-// getPartitionKey returns a partitions's key.
-func getPartitionKey(storageName, relativePath string) string {
-	return storageName + ":" + relativePath
-}
-
 // Begin gets the TransactionManager for the specified repository and starts a Transaction. If a
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
@@ -177,8 +172,6 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}
 
-	partitionKey := getPartitionKey(repo.GetStorageName(), relativePath)
-
 	for {
 		storagePtn.mu.Lock()
 		if storagePtn.stopped {
@@ -186,7 +179,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 			return nil, ErrPartitionManagerStopped
 		}
 
-		ptn, ok := storagePtn.partitions[partitionKey]
+		ptn, ok := storagePtn.partitions[relativePath]
 		if !ok {
 			ptn = &partition{
 				shutdown: make(chan struct{}),
@@ -201,7 +194,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 			mgr := NewTransactionManager(storagePtn.database, storagePtn.path, relativePath, stagingDir, storagePtn.repoFactory, storagePtn.transactionFinalizerFactory(ptn))
 			ptn.transactionManager = mgr
 
-			storagePtn.partitions[partitionKey] = ptn
+			storagePtn.partitions[relativePath] = ptn
 
 			storagePtn.activePartitions.Add(1)
 			go func() {
@@ -214,7 +207,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				// deleted allowing the next transaction for the repository to create a new partition
 				// and TransactionManager.
 				storagePtn.mu.Lock()
-				delete(storagePtn.partitions, partitionKey)
+				delete(storagePtn.partitions, relativePath)
 				storagePtn.mu.Unlock()
 
 				close(ptn.shutdown)
