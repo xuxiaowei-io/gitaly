@@ -4,8 +4,8 @@ import (
 	"io"
 
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/cmd"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v16/cmd"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 )
 
 const validationErrorCode = 2

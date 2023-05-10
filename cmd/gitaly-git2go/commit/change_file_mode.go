@@ -4,7 +4,7 @@ package commit
 
 import (
 	git "github.com/libgit2/git2go/v34"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 )
 
 func applyChangeFileMode(action git2go.ChangeFileMode, index *git.Index) error {

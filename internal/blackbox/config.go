@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	logconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	logconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
 )
 
 // Config is the configuration for gitaly-blackbox.

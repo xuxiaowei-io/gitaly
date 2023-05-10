@@ -9,8 +9,8 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	repo "gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 )
 
 // ErrPartitionManagerStopped is returned when the PartitionManager stops processing transactions.

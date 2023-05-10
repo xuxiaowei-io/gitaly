@@ -3,8 +3,8 @@ package gitaly
 import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v15/cmd"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/cmd"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 )
 
 const validationErrorCode = 2

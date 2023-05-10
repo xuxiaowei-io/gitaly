@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"bytes"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 )
 
 func Fuzz(data []byte) int {

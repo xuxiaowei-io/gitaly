@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 )
 
 // ReplicationEventExistsError is returned when trying to add an already existing

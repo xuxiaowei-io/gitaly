@@ -9,13 +9,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/client"
-	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/v15/streamio"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/client"
+	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/grpc"
 )
 

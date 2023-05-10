@@ -5,7 +5,7 @@ package testproto;
 import "lint.proto";
 import "shared.proto";
 
-option go_package = "gitlab.com/gitlab-org/gitaly/v15/proto/testproto";
+option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/testproto";
 
 message InvalidMethodRequest {
 }

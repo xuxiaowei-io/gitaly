@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
 
 // BuildSSHInvocation builds a command line to invoke SSH with the provided key and known hosts.

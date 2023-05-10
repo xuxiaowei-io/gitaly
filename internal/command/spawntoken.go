@@ -9,7 +9,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 )
 
 const logDurationThreshold = 5 * time.Millisecond
