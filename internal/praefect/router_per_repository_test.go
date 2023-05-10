@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
@@ -664,8 +665,18 @@ func TestPerRepositoryRouter_RouteRepositoryMaintenance(t *testing.T) {
 
 func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FixRoutingWithAdditionalRepository).Run(t, testPerRepositoryRouterRouteRepositoryCreation)
+}
 
-	ctx := testhelper.Context(t)
+func withOrWithoutRoutingFix[T any](ctx context.Context, enabled, disabled T) T {
+	if featureflag.FixRoutingWithAdditionalRepository.IsEnabled(ctx) {
+		return enabled
+	}
+	return disabled
+}
+
+func testPerRepositoryRouterRouteRepositoryCreation(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	configuredNodes := map[string][]string{
 		"virtual-storage-1": {"primary", "secondary-1", "secondary-2"},
@@ -718,23 +729,18 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedErr:    nodes.ErrVirtualStorageNotExist,
 		},
 		{
-			desc: "no healthy secondaries",
-			setupRepoStore: func(t *testing.T, rs datastore.RepositoryStore) {
-				require.NoError(t, rs.CreateRepository(ctx, 2, "virtual-storage-1", "additional-relative-path", "additional-replica-path", "primary", nil, nil, true, true))
-			},
+			desc:                      "no healthy secondaries",
 			virtualStorage:            "virtual-storage-1",
 			relativePath:              "relative-path",
-			additionalRelativePath:    "additional-relative-path",
 			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"primary"}},
 			primaryPick:               0,
 			expectedPrimaryCandidates: []int{1},
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
-					RepositoryID:          1,
-					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
-					AdditionalReplicaPath: "additional-replica-path",
-					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
-					ReplicationTargets:    []string{"secondary-1", "secondary-2"},
+					RepositoryID:       1,
+					ReplicaPath:        praefectutil.DeriveReplicaPath(1),
+					Primary:            RouterNode{Storage: "primary", Connection: primaryConn},
+					ReplicationTargets: []string{"secondary-1", "secondary-2"},
 				},
 			),
 		},
@@ -854,10 +860,231 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			relativePath:           "relative-path",
 			additionalRelativePath: "non-existent",
 			expectedErr: fmt.Errorf(
-				"resolve additional replica path: %w",
-				fmt.Errorf(
-					"get additional repository id: %w",
-					commonerr.NewRepositoryNotFoundError("virtual-storage-1", "non-existent"),
+				"resolve additional replica metadata: %w",
+				fmt.Errorf("repository not found"),
+			),
+		},
+		{
+			desc: "unhealthy primary with additional repository",
+			setupRepoStore: func(t *testing.T, rs datastore.RepositoryStore) {
+				require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "additional-relative-path", "something", "primary", nil, nil, true, true))
+			},
+			virtualStorage:            "virtual-storage-1",
+			additionalRelativePath:    "additional-relative-path",
+			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"secondary-1", "secondary-2"}},
+			primaryPick:               1,
+			expectedPrimaryCandidates: withOrWithoutRoutingFix(ctx, nil, []int{2}),
+			expectedErr:               withOrWithoutRoutingFix(ctx, nodes.ErrPrimaryNotHealthy, nil),
+			expectedRoute: withOrWithoutRoutingFix(ctx, nil, requireOneOf(
+				RepositoryMutatorRoute{
+					RepositoryID:          1,
+					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+					AdditionalReplicaPath: "something",
+					Primary:               RouterNode{Storage: "secondary-2", Connection: secondary2Conn},
+					Secondaries:           []RouterNode{{Storage: "secondary-1", Connection: secondary1Conn}},
+					ReplicationTargets:    []string{"primary"},
+				},
+			)),
+		},
+		{
+			desc: "additional repo without secondaries with explicit replication factor",
+			setupRepoStore: func(t *testing.T, rs datastore.RepositoryStore) {
+				require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "additional-relative-path", "something", "primary", nil, nil, true, true))
+			},
+			virtualStorage:            "virtual-storage-1",
+			additionalRelativePath:    "additional-relative-path",
+			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"primary"}},
+			replicationFactor:         1,
+			expectedPrimaryCandidates: withOrWithoutRoutingFix(ctx, nil, []int{1}),
+			expectedRoute: requireOneOf(
+				RepositoryMutatorRoute{
+					RepositoryID:          1,
+					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+					AdditionalReplicaPath: "something",
+					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+				},
+			),
+		},
+		{
+			desc: "additional repo without secondaries",
+			setupRepoStore: func(t *testing.T, rs datastore.RepositoryStore) {
+				require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "additional-relative-path", "something", "primary", nil, nil, true, true))
+			},
+			virtualStorage:            "virtual-storage-1",
+			additionalRelativePath:    "additional-relative-path",
+			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"primary"}},
+			expectedPrimaryCandidates: withOrWithoutRoutingFix(ctx, nil, []int{1}),
+			expectedRoute: requireOneOf(
+				withOrWithoutRoutingFix(ctx,
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+					},
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+						ReplicationTargets:    []string{"secondary-1", "secondary-2"},
+					},
+				),
+			),
+		},
+		{
+			desc: "additional repo without assignments",
+			setupRepoStore: func(t *testing.T, rs datastore.RepositoryStore) {
+				require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "additional-relative-path", "something", "primary", []string{
+					"secondary-1", "secondary-2",
+				}, nil, true, false))
+			},
+			virtualStorage:            "virtual-storage-1",
+			additionalRelativePath:    "additional-relative-path",
+			healthyNodes:              configuredNodes,
+			primaryPick:               1,
+			expectedPrimaryCandidates: withOrWithoutRoutingFix(ctx, nil, []int{3}),
+			expectedRoute: requireOneOf(
+				withOrWithoutRoutingFix(ctx,
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+						Secondaries: []RouterNode{
+							{Storage: "secondary-1", Connection: secondary1Conn},
+							{Storage: "secondary-2", Connection: secondary2Conn},
+						},
+					},
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "secondary-1", Connection: secondary1Conn},
+						Secondaries: []RouterNode{
+							{Storage: "primary", Connection: primaryConn},
+							{Storage: "secondary-2", Connection: secondary2Conn},
+						},
+					},
+				),
+			),
+		},
+		{
+			desc: "additional repo with mixed-health secondaries",
+			setupRepoStore: func(t *testing.T, rs datastore.RepositoryStore) {
+				require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "additional-relative-path", "something", "primary", []string{
+					"secondary-1", "secondary-2",
+				}, nil, true, true))
+			},
+			virtualStorage:            "virtual-storage-1",
+			additionalRelativePath:    "additional-relative-path",
+			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"primary", "secondary-2"}},
+			primaryPick:               1,
+			expectedPrimaryCandidates: withOrWithoutRoutingFix(ctx, nil, []int{2}),
+			expectedRoute: requireOneOf(
+				withOrWithoutRoutingFix(ctx,
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+						Secondaries:           []RouterNode{{Storage: "secondary-2", Connection: secondary2Conn}},
+						ReplicationTargets:    []string{"secondary-1"},
+					},
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "secondary-2", Connection: secondary2Conn},
+						Secondaries:           []RouterNode{{Storage: "primary", Connection: primaryConn}},
+						ReplicationTargets:    []string{"secondary-1"},
+					},
+				),
+			),
+		},
+		{
+			desc: "additional repo with mixed-generation secondaries",
+			setupRepoStore: func(t *testing.T, rs datastore.RepositoryStore) {
+				require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "additional-relative-path", "something", "primary", []string{
+					"secondary-1",
+					"secondary-2",
+				}, nil, true, true))
+
+				require.NoError(t, rs.SetGeneration(ctx, 1, "primary", "additional-relative-path", 10))
+				require.NoError(t, rs.SetGeneration(ctx, 1, "secondary-1", "additional-relative-path", 3))
+				require.NoError(t, rs.SetGeneration(ctx, 1, "secondary-2", "additional-relative-path", 10))
+			},
+			virtualStorage:            "virtual-storage-1",
+			additionalRelativePath:    "additional-relative-path",
+			healthyNodes:              configuredNodes,
+			primaryPick:               0,
+			expectedPrimaryCandidates: withOrWithoutRoutingFix(ctx, nil, []int{3}),
+			expectedRoute: requireOneOf(
+				withOrWithoutRoutingFix(ctx,
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+						Secondaries:           []RouterNode{{Storage: "secondary-2", Connection: secondary2Conn}},
+						ReplicationTargets:    []string{"secondary-1"},
+					},
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+						Secondaries: []RouterNode{
+							{Storage: "secondary-1", Connection: secondary1Conn},
+							{Storage: "secondary-2", Connection: secondary2Conn},
+						},
+					},
+				),
+			),
+		},
+		{
+			desc: "additional repo ignores replication factor",
+			setupRepoStore: func(t *testing.T, rs datastore.RepositoryStore) {
+				require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "additional-relative-path", "something", "primary", []string{
+					"secondary-1",
+					"secondary-2",
+				}, nil, true, true))
+			},
+			virtualStorage:              "virtual-storage-1",
+			additionalRelativePath:      "additional-relative-path",
+			replicationFactor:           2,
+			primaryPick:                 1,
+			expectedPrimaryCandidates:   withOrWithoutRoutingFix(ctx, nil, []int{3}),
+			expectedSecondaryCandidates: withOrWithoutRoutingFix(ctx, nil, []int{2}),
+			healthyNodes:                configuredNodes,
+			expectedRoute: withOrWithoutRoutingFix(ctx,
+				requireOneOf(
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+						Secondaries: []RouterNode{
+							{Storage: "secondary-1", Connection: secondary1Conn},
+							{Storage: "secondary-2", Connection: secondary2Conn},
+						},
+					},
+				),
+				requireOneOf(
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "secondary-1", Connection: secondary1Conn},
+						Secondaries:           []RouterNode{{Storage: "primary", Connection: primaryConn}},
+					},
+					RepositoryMutatorRoute{
+						RepositoryID:          1,
+						ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+						AdditionalReplicaPath: "something",
+						Primary:               RouterNode{Storage: "secondary-1", Connection: secondary1Conn},
+						Secondaries:           []RouterNode{{Storage: "secondary-2", Connection: secondary2Conn}},
+					},
 				),
 			),
 		},
