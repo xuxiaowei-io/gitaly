@@ -30,8 +30,8 @@ func newListUntrackedRepositoriesCommand() *cli.Command {
 			"All errors and log messages are written to the standard error stream.\n" +
 			"The output is produced as the new data appears, it doesn't wait\n" +
 			"for the completion of the processing to produce the result.\n",
-
-		Action: listUntrackedRepositoriesAction,
+		HideHelpCommand: true,
+		Action:          listUntrackedRepositoriesAction,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "delimiter",

@@ -15,10 +15,11 @@ import (
 
 func newCheckCommand() *cli.Command {
 	return &cli.Command{
-		Name:      "check",
-		Usage:     "verify internal API is accessible",
-		ArgsUsage: "<configfile>",
-		Action:    checkAction,
+		Name:            "check",
+		Usage:           "verify internal API is accessible",
+		ArgsUsage:       "<configfile>",
+		Action:          checkAction,
+		HideHelpCommand: true,
 	}
 }
 

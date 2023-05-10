@@ -24,7 +24,8 @@ func NewApp() *cli.App {
 		// serveAction is also here in the root to keep the CLI backwards compatible
 		// with the previous way to launch Gitaly with just `gitaly <configfile>`. We
 		// may want to deprecate this eventually.
-		Action: serveAction,
+		Action:          serveAction,
+		HideHelpCommand: true,
 		Commands: []*cli.Command{
 			newServeCommand(),
 			newCheckCommand(),

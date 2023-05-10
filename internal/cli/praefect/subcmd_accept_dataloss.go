@@ -18,6 +18,7 @@ writing again. The current version of the repository on the authoritative storag
 the latest version and replications to other nodes are scheduled in order to bring them consistent
 with the new authoritative version.
 `,
+		HideHelpCommand: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     paramVirtualStorage,
