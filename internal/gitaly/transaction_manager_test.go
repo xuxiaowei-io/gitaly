@@ -423,6 +423,30 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
+			desc: "create reference with existing reference lock",
+			steps: steps{
+				StartManager{
+					ModifyRepository: func(_ testing.TB, repoPath string) {
+						err := os.WriteFile(fmt.Sprintf("%s/refs/heads/main.lock", repoPath), []byte{}, 0o666)
+						require.NoError(t, err)
+					},
+				},
+				Begin{},
+				Commit{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
 			desc: "create a file-directory reference conflict different transaction",
 			steps: steps{
 				StartManager{},

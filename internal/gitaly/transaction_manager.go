@@ -1157,26 +1157,67 @@ func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, def
 // or aborting up to the caller. Either should be called to clean up the process. The process is cleaned up
 // if an error is returned.
 func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, repository *localrepo.Repo) (*updateref.Updater, error) {
-	updater, err := updateref.New(ctx, repository, updateref.WithDisabledTransactions())
-	if err != nil {
-		return nil, fmt.Errorf("new: %w", err)
-	}
-
-	if err := updater.Start(); err != nil {
-		return nil, fmt.Errorf("start: %w", err)
-	}
-
-	for _, referenceUpdate := range referenceUpdates {
-		if err := updater.Update(git.ReferenceName(referenceUpdate.ReferenceName), git.ObjectID(referenceUpdate.NewOid), ""); err != nil {
-			return nil, fmt.Errorf("update %q: %w", referenceUpdate.ReferenceName, err)
+	// This section runs git-update-ref(1), but could fail due to existing
+	// reference locks. So we create a function which can be called again
+	// post cleanup of stale reference locks.
+	updateFunc := func() (*updateref.Updater, error) {
+		updater, err := updateref.New(ctx, repository, updateref.WithDisabledTransactions())
+		if err != nil {
+			return nil, fmt.Errorf("new: %w", err)
 		}
+
+		if err := updater.Start(); err != nil {
+			return nil, fmt.Errorf("start: %w", err)
+		}
+
+		for _, referenceUpdate := range referenceUpdates {
+			if err := updater.Update(git.ReferenceName(referenceUpdate.ReferenceName), git.ObjectID(referenceUpdate.NewOid), ""); err != nil {
+				return nil, fmt.Errorf("update %q: %w", referenceUpdate.ReferenceName, err)
+			}
+		}
+
+		if err := updater.Prepare(); err != nil {
+			return nil, fmt.Errorf("prepare: %w", err)
+		}
+
+		return updater, nil
 	}
 
-	if err := updater.Prepare(); err != nil {
-		return nil, fmt.Errorf("prepare: %w", err)
+	// If git-update-ref(1) runs without issues, our work here is done.
+	updater, err := updateFunc()
+	if err == nil {
+		return updater, nil
 	}
 
-	return updater, nil
+	// If we get an error due to existing stale reference locks, we should clear it up
+	// and retry running git-update-ref(1).
+	var updateRefError *updateref.AlreadyLockedError
+	if errors.As(err, &updateRefError) {
+		// Before clearing stale reference locks, we add should ensure that housekeeping doesn't
+		// run git-pack-refs(1), which could create new reference locks. So we add an inhibitor.
+		success, cleanup, err := mgr.housekeepingManager.AddPackRefsInhibitor(ctx, mgr.repositoryPath)
+		if !success {
+			return nil, fmt.Errorf("add pack-refs inhibitor: %w", err)
+		}
+		defer cleanup()
+
+		// We ask housekeeping to cleanup stale reference locks. We don't add a grace period, because
+		// transaction manager is the only process which writes into the repository, so it is safe
+		// to delete these locks.
+		if err := mgr.housekeepingManager.CleanStaleData(ctx, mgr.repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
+			return nil, fmt.Errorf("running reflock cleanup: %w", err)
+		}
+
+		// We try a second time, this should succeed. If not, there is something wrong and
+		// we return the error.
+		//
+		// Do note, that we've already added an inhibitor above, so git-pack-refs(1) won't run
+		// again until we return from this function so ideally this should work, but in case it
+		// doesn't we return the error.
+		return updateFunc()
+	}
+
+	return nil, err
 }
 
 // appendLogEntry appends the transaction to the write-ahead log. References that failed verification are skipped and thus not

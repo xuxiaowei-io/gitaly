@@ -19,6 +19,8 @@ type Manager interface {
 	// OptimizeRepository optimizes the repository's data structures such that it can be more
 	// efficiently served.
 	OptimizeRepository(context.Context, *localrepo.Repo, ...OptimizeRepositoryOption) error
+	// AddPackRefsInhibitor allows clients to block housekeeping from running git-pack-refs(1).
+	AddPackRefsInhibitor(ctx context.Context, repoPath string) (bool, func(), error)
 }
 
 // repositoryState holds the housekeeping state for individual repositories. This structure can be
@@ -310,4 +312,11 @@ func (m *RepositoryManager) Collect(metrics chan<- prometheus.Metric) {
 	m.dataStructureCount.Collect(metrics)
 	m.dataStructureSize.Collect(metrics)
 	m.dataStructureTimeSinceLastOptimization.Collect(metrics)
+}
+
+// AddPackRefsInhibitor exposes the internal function addPackRefsInhibitor on the
+// RepositoryManager level. This can then be used by other clients to block housekeeping
+// from running git-pack-refs(1).
+func (m *RepositoryManager) AddPackRefsInhibitor(ctx context.Context, repoPath string) (successful bool, _ func(), err error) {
+	return m.repositoryStates.addPackRefsInhibitor(ctx, repoPath)
 }
