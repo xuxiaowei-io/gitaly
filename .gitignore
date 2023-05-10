@@ -2,10 +2,12 @@
 /_build/
 /*.deb
 
-# Ruby build artifacts
+# Ruby build artifacts. (Keep these around until 16.1)
 /.ruby-bundle
 /ruby/vendor/bundle
 /ruby/.bundle
+
+# Gem build artifacts
 /gitaly-*.gem
 
 # Configuration and runtime data
