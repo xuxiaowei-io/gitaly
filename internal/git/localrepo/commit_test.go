@@ -32,23 +32,13 @@ func TestWriteCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	treeEntryA := TreeEntry{Path: "file", Mode: "100644", OID: blobID}
-	treeA := &TreeEntry{
-		Type:    Tree,
-		Mode:    "040000",
-		Entries: []*TreeEntry{&treeEntryA},
-	}
-	require.NoError(t, treeA.Write(
-		ctx,
-		repo))
+	treeA, err := repo.WriteTree(ctx, []TreeEntry{treeEntryA})
+	require.NoError(t, err)
 
-	treeB := &TreeEntry{
-		Type: Tree,
-		Mode: "040000",
-		Entries: []*TreeEntry{
-			{Path: "file", Mode: "100644", OID: changedBlobID},
-		},
-	}
-	require.NoError(t, treeB.Write(ctx, repo))
+	treeB, err := repo.WriteTree(ctx, []TreeEntry{
+		{Path: "file", Mode: "100644", OID: changedBlobID},
+	})
+	require.NoError(t, err)
 	commitA, err := repo.WriteCommit(
 		ctx,
 		WriteCommitConfig{
@@ -57,7 +47,7 @@ func TestWriteCommit(t *testing.T) {
 			CommitterName:  "Tazmanian Devil",
 			CommitterEmail: "taz@devils.org",
 			Message:        "I ❤️  Tazmania",
-			TreeID:         treeA.OID,
+			TreeID:         treeA,
 		},
 	)
 	require.NoError(t, err)
@@ -69,7 +59,7 @@ func TestWriteCommit(t *testing.T) {
 			CommitterName:  "Daffy Duck",
 			CommitterEmail: "daffy@ducks.org",
 			Message:        "Big beak",
-			TreeID:         treeB.OID,
+			TreeID:         treeB,
 		},
 	)
 	require.NoError(t, err)
@@ -90,7 +80,7 @@ func TestWriteCommit(t *testing.T) {
 		{
 			desc: "with commit message",
 			cfg: WriteCommitConfig{
-				TreeID:         treeA.OID,
+				TreeID:         treeA,
 				AuthorName:     "Scrooge Mcduck",
 				AuthorEmail:    "chief@ducks.org",
 				CommitterName:  "Mickey Mouse",
@@ -100,7 +90,7 @@ func TestWriteCommit(t *testing.T) {
 				Message:        "my custom message\n\ntrailer\n",
 			},
 			expectedCommit: strings.Join([]string{
-				"tree " + string(treeA.OID),
+				"tree " + string(treeA),
 				fmt.Sprintf(
 					"author Scrooge Mcduck <chief@ducks.org> %d %s",
 					commitDate.Unix(),
@@ -120,7 +110,7 @@ func TestWriteCommit(t *testing.T) {
 		{
 			desc: "with multiple parents",
 			cfg: WriteCommitConfig{
-				TreeID:         treeA.OID,
+				TreeID:         treeA,
 				Parents:        []git.ObjectID{commitA, commitB},
 				AuthorName:     "Scrooge Mcduck",
 				AuthorEmail:    "chief@ducks.org",
@@ -131,7 +121,7 @@ func TestWriteCommit(t *testing.T) {
 				Message:        "my custom message",
 			},
 			expectedCommit: strings.Join([]string{
-				"tree " + treeA.OID.String(),
+				"tree " + treeA.String(),
 				"parent " + commitA.String(),
 				"parent " + commitB.String(),
 				fmt.Sprintf(
@@ -151,7 +141,7 @@ func TestWriteCommit(t *testing.T) {
 		{
 			desc: "with reference",
 			cfg: WriteCommitConfig{
-				TreeID:         treeA.OID,
+				TreeID:         treeA,
 				Parents:        []git.ObjectID{commitA, commitB},
 				AuthorName:     "Scrooge Mcduck",
 				AuthorEmail:    "chief@ducks.org",
@@ -163,7 +153,7 @@ func TestWriteCommit(t *testing.T) {
 				Reference:      "refs/heads/foo",
 			},
 			expectedCommit: strings.Join([]string{
-				"tree " + treeA.OID.String(),
+				"tree " + treeA.String(),
 				"parent " + commitA.String(),
 				"parent " + commitB.String(),
 				fmt.Sprintf(
@@ -213,19 +203,14 @@ func TestWriteCommit_validation(t *testing.T) {
 
 	blobID, err := repo.WriteBlob(ctx, "", strings.NewReader("foo"))
 	require.NoError(t, err)
-	tree := &TreeEntry{
-		Type: Tree,
-		Mode: "040000",
-		Entries: []*TreeEntry{
-			{
-				OID:  blobID,
-				Mode: "100644",
-				Path: "file1",
-			},
+	treeID, err := repo.WriteTree(ctx, []TreeEntry{
+		{
+			OID:  blobID,
+			Mode: "100644",
+			Path: "file1",
 		},
-	}
-	require.NoError(t, tree.Write(ctx, repo))
-	treeID := tree.OID
+	})
+	require.NoError(t, err)
 
 	testCases := []struct {
 		desc        string
