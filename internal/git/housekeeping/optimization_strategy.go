@@ -121,6 +121,14 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 			WriteMultiPackIndex: false,
 		}
 
+		// When alternative object directories have been modified since our last full repack
+		// then we have likely joined an object pool since then. This means that we'll want
+		// to perform a full repack in order to deduplicate objects that are part of the
+		// object pool.
+		if s.info.Alternates.LastModified.After(s.info.Packfiles.LastFullRepack) {
+			return true, fullRepackCfg
+		}
+
 		// It is mandatory for us that we perform regular full repacks in repositories so
 		// that we can evict objects which are unreachable into a separate cruft pack. So in
 		// the case where we have more than one non-cruft packfiles and the time since our
@@ -269,6 +277,13 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		// We want to always update the multi-pack-index while we're already at it repacking
 		// some of the objects.
 		WriteMultiPackIndex: true,
+	}
+
+	// When alternative object directories have been modified since our last full repack then we
+	// have likely joined an object pool since then. This means that we'll want to perform a
+	// full repack in order to deduplicate objects that are part of the object pool.
+	if s.info.Alternates.LastModified.After(s.info.Packfiles.LastFullRepack) {
+		return true, fullRepackCfg
 	}
 
 	// Whenever we do an incremental repack we create a new packfile, and as a result Git may
