@@ -79,6 +79,7 @@ func NewApp() *cli.App {
 			newListStoragesCommand(),
 			newListUntrackedRepositoriesCommand(),
 			newTrackRepositoryCommand(),
+			newVerifyCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
