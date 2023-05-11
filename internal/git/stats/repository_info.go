@@ -137,9 +137,8 @@ type RepositoryInfo struct {
 	References ReferencesInfo `json:"references"`
 	// CommitGraph contains information about the repository's commit-graphs.
 	CommitGraph CommitGraphInfo `json:"commit_graph"`
-	// Alternates is the list of absolute paths of alternate object databases this repository is
-	// connected to.
-	Alternates []string `json:"alternates"`
+	// Alternates contains information about alternate object directories.
+	Alternates AlternatesInfo `json:"alternates"`
 }
 
 // RepositoryInfoForRepository computes the RepositoryInfo for a repository.
@@ -174,7 +173,7 @@ func RepositoryInfoForRepository(repo *localrepo.Repo) (RepositoryInfo, error) {
 		return RepositoryInfo{}, fmt.Errorf("checking commit-graph info: %w", err)
 	}
 
-	info.Alternates, err = readAlternates(repo)
+	info.Alternates, err = AlternatesInfoForRepository(repoPath)
 	if err != nil {
 		return RepositoryInfo{}, fmt.Errorf("reading alterantes: %w", err)
 	}
@@ -487,19 +486,28 @@ func hasPrefixAndSuffix(s, prefix, suffix string) bool {
 	return strings.HasPrefix(s, prefix) && strings.HasSuffix(s, suffix)
 }
 
-func readAlternates(repo *localrepo.Repo) ([]string, error) {
-	repoPath, err := repo.Path()
-	if err != nil {
-		return nil, fmt.Errorf("getting repository path: %w", err)
-	}
+// AlternatesInfo contains information about altenrate object directories the repository is linked
+// to.
+type AlternatesInfo struct {
+	// Exists determines whether the `info/alternates` file exists or not.
+	Exists bool `json:"exists"`
+	// Paths contains the list of paths to object directories that the repository is linked to.
+	ObjectDirectories []string `json:"object_directories,omitempty"`
+}
 
+// AlternatesInfoForRepository reads the alternates file and returns information on it. This
+// function does not return an error in case the alternates file doesn't exist. Existence can be
+// checked via the `Exists` field of the returned `AlternatesInfo` structure.
+func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
 	contents, err := os.ReadFile(filepath.Join(repoPath, "objects", "info", "alternates"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
+			return AlternatesInfo{
+				Exists: false,
+			}, nil
 		}
 
-		return nil, fmt.Errorf("reading alternates: %w", err)
+		return AlternatesInfo{}, fmt.Errorf("reading alternates: %w", err)
 	}
 
 	relativeAlternatePaths := strings.Split(text.ChompBytes(contents), "\n")
@@ -512,7 +520,10 @@ func readAlternates(repo *localrepo.Repo) ([]string, error) {
 		}
 	}
 
-	return alternatePaths, nil
+	return AlternatesInfo{
+		Exists:            true,
+		ObjectDirectories: alternatePaths,
+	}, nil
 }
 
 // BitmapInfo contains information about a packfile or multi-pack-index bitmap.

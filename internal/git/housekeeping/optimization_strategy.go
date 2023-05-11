@@ -66,7 +66,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		// We cannot write bitmaps when there are alternates as we don't have full closure
 		// of all objects in the packfile. This also does not currently work with multi pack
 		// indices.
-		WriteBitmap: len(s.info.Alternates) == 0,
+		WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
 		// We want to always update the multi-pack-index while we're already at it repacking
 		// some of the objects.
 		WriteMultiPackIndex: true,
@@ -85,7 +85,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// have backported them into Git v2.40.0.gl1. So if we detect that the current Git version
 	// does indeed support geometric repacking then we can enable this even when the repository
 	// is part of an object pool.
-	canUseGeometricRepacking := len(s.info.Alternates) == 0 || s.gitVersion.GeometricRepackingSupportsAlternates()
+	canUseGeometricRepacking := len(s.info.Alternates.ObjectDirectories) == 0 || s.gitVersion.GeometricRepackingSupportsAlternates()
 
 	if canUseGeometricRepacking && featureflag.GeometricRepacking.IsEnabled(ctx) {
 		nonCruftPackfilesCount := s.info.Packfiles.Count - s.info.Packfiles.CruftCount
@@ -436,7 +436,7 @@ func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationSt
 // not have any alternates.
 func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (bool, RepackObjectsConfig) {
 	cfg := RepackObjectsConfig{
-		WriteBitmap:         len(s.info.Alternates) == 0,
+		WriteBitmap:         len(s.info.Alternates.ObjectDirectories) == 0,
 		WriteMultiPackIndex: true,
 	}
 

@@ -135,9 +135,12 @@ func TestLogObjectInfo(t *testing.T) {
 			References: ReferencesInfo{
 				PackedReferencesSize: uint64(packedRefsStat.Size()),
 			},
-			Alternates: []string{
-				filepath.Join(repoPath1, "/objects"),
-				filepath.Join(repoPath2, "/objects"),
+			Alternates: AlternatesInfo{
+				Exists: true,
+				ObjectDirectories: []string{
+					filepath.Join(repoPath1, "/objects"),
+					filepath.Join(repoPath2, "/objects"),
+				},
 			},
 		}, repoInfo)
 	})
@@ -275,8 +278,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), perm.PrivateFile))
 			},
 			expectedInfo: RepositoryInfo{
-				Alternates: []string{
-					alternatePath,
+				Alternates: AlternatesInfo{
+					Exists: true,
+					ObjectDirectories: []string{
+						alternatePath,
+					},
 				},
 			},
 		},
@@ -408,8 +414,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
 				},
-				Alternates: []string{
-					alternatePath,
+				Alternates: AlternatesInfo{
+					Exists: true,
+					ObjectDirectories: []string{
+						alternatePath,
+					},
 				},
 			},
 		},
@@ -425,6 +434,197 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			repoInfo, err := RepositoryInfoForRepository(repo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedInfo, repoInfo)
+		})
+	}
+}
+
+func TestAlternatesInfoForRepository(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	createRepo := func(t *testing.T) (*gitalypb.Repository, string) {
+		return gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+	}
+	writeAlternates := func(t *testing.T, repoPath string, alternates []byte) {
+		require.NoError(t, os.WriteFile(
+			filepath.Join(repoPath, "objects", "info", "alternates"),
+			alternates,
+			perm.PrivateFile,
+		))
+	}
+
+	type setupData struct {
+		repoPath     string
+		expectedErr  error
+		expectedInfo AlternatesInfo
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "invalid path",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					repoPath: "/does/not/exist",
+					expectedInfo: AlternatesInfo{
+						Exists: false,
+					},
+				}
+			},
+		},
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: false,
+					},
+				}
+			},
+		},
+		{
+			desc: "empty alternates file",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, nil)
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							filepath.Join(repoPath, "objects"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "missing trailing newline",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/absolute"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/absolute",
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "absolute path",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/absolute\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/absolute",
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "relative path",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("../../../../../@pools/foo/bar\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							filepath.Join(cfg.Storages[0].Path, "@pools", "foo", "bar"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "mixed absolute and relative paths",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/absolute\n../../../../../@pools/foo/bar\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/absolute",
+							filepath.Join(cfg.Storages[0].Path, "@pools", "foo", "bar"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "empty lines",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/first\n\n/second\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/first",
+							filepath.Join(repoPath, "objects"),
+							"/second",
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "comment",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/first\n# comment\n/second\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/first",
+							filepath.Join(repoPath, "objects", "# comment"),
+							"/second",
+						},
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			info, err := AlternatesInfoForRepository(setup.repoPath)
+			require.Equal(t, setup.expectedErr, err)
+			require.Equal(t, setup.expectedInfo, info)
 		})
 	}
 }

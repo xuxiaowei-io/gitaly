@@ -41,7 +41,6 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 							Exists: false,
 						},
 					},
-					Alternates: []string{},
 				},
 			},
 			expectedNeeded: true,
@@ -64,7 +63,9 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 							Exists: false,
 						},
 					},
-					Alternates: []string{"something"},
+					Alternates: stats.AlternatesInfo{
+						ObjectDirectories: []string{"something"},
+					},
 				},
 			},
 			// If we have no bitmap in the repository we'd normally want to fully repack
@@ -394,7 +395,9 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 							PackfileCount: 1,
 						},
 					},
-					Alternates: []string{"object-pool"},
+					Alternates: stats.AlternatesInfo{
+						ObjectDirectories: []string{"object-pool"},
+					},
 				},
 			},
 			expectedNeeded: true,
@@ -417,7 +420,9 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 							PackfileCount: 1,
 						},
 					},
-					Alternates: []string{"object-pool"},
+					Alternates: stats.AlternatesInfo{
+						ObjectDirectories: []string{"object-pool"},
+					},
 				},
 			},
 			expectedNeeded: true,
@@ -529,7 +534,9 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 									Exists: true,
 								},
 							},
-							Alternates: tc.alternates,
+							Alternates: stats.AlternatesInfo{
+								ObjectDirectories: tc.alternates,
+							},
 						},
 						expireBefore: expireBefore,
 					}
@@ -991,7 +998,9 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 			desc: "alternate",
 			strategy: EagerOptimizationStrategy{
 				info: stats.RepositoryInfo{
-					Alternates: []string{"path/to/alternate"},
+					Alternates: stats.AlternatesInfo{
+						ObjectDirectories: []string{"path/to/alternate"},
+					},
 				},
 				expireBefore: expireBefore,
 			},
@@ -1017,7 +1026,9 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 			strategy: EagerOptimizationStrategy{
 				info: stats.RepositoryInfo{
 					IsObjectPool: true,
-					Alternates:   []string{"path/to/alternate"},
+					Alternates: stats.AlternatesInfo{
+						ObjectDirectories: []string{"path/to/alternate"},
+					},
 				},
 				expireBefore: expireBefore,
 			},

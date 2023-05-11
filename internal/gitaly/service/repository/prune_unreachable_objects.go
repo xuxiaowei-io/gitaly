@@ -57,7 +57,7 @@ func (s *server) PruneUnreachableObjects(
 	if err := housekeeping.RepackObjects(ctx, repo, housekeeping.RepackObjectsConfig{
 		Strategy:            housekeeping.RepackObjectsStrategyFullWithCruft,
 		WriteMultiPackIndex: true,
-		WriteBitmap:         len(repoInfo.Alternates) == 0,
+		WriteBitmap:         len(repoInfo.Alternates.ObjectDirectories) == 0,
 		CruftExpireBefore:   expireBefore,
 	}); err != nil {
 		return nil, structerr.NewInternal("repacking objects: %w", err)
