@@ -785,6 +785,10 @@ remote: error executing git hook
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			testhelper.SkipQuarantinedTest(t,
+				"https://gitlab.com/gitlab-org/gitaly/-/issues/5105",
+				"TestGitalyServerReturnsError_packObjects/resource_exhausted_with_LimitError_detail")
+
 			logDir := testhelper.TempDir(t)
 
 			ctx := testhelper.Context(t)
