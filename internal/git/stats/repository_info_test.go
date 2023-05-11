@@ -357,10 +357,8 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			desc: "last full repack timestamp",
 			setup: func(t *testing.T, repoPath string) {
 				timestampPath := filepath.Join(repoPath, fullRepackTimestampFilename)
-				require.NoError(t, os.WriteFile(timestampPath, nil, perm.PrivateFile))
-
 				date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
-				require.NoError(t, os.Chtimes(timestampPath, date, date))
+				writeFileWithMtime(t, timestampPath, nil, date)
 			},
 			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
@@ -576,8 +574,7 @@ func TestCountLooseObjects(t *testing.T) {
 		beforeCutoffDate := cutoffDate.Add(-1 * time.Minute)
 
 		for _, objectPath := range objectPaths {
-			require.NoError(t, os.WriteFile(objectPath, []byte("1"), perm.SharedFile))
-			require.NoError(t, os.Chtimes(objectPath, afterCutoffDate, afterCutoffDate))
+			writeFileWithMtime(t, objectPath, []byte("1"), afterCutoffDate)
 		}
 
 		// Objects are recent, so with the cutoff-date they shouldn't be counted.
@@ -1485,4 +1482,10 @@ func hashDependentSize(sha1, sha256 uint64) uint64 {
 		return sha1
 	}
 	return sha256
+}
+
+func writeFileWithMtime(tb testing.TB, path string, content []byte, date time.Time) {
+	tb.Helper()
+	require.NoError(tb, os.WriteFile(path, content, perm.PrivateFile))
+	require.NoError(tb, os.Chtimes(path, date, date))
 }
