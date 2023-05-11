@@ -185,25 +185,6 @@ type InvalidObjectError string
 
 func (err InvalidObjectError) Error() string { return fmt.Sprintf("invalid object %q", string(err)) }
 
-// ReadObjectInfo attempts to read the object info based on a revision.
-func (repo *Repo) ReadObjectInfo(ctx context.Context, rev git.Revision) (*catfile.ObjectInfo, error) {
-	infoReader, cleanup, err := repo.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return nil, fmt.Errorf("getting object info reader: %w", err)
-	}
-	defer cleanup()
-
-	objectInfo, err := infoReader.Info(ctx, rev)
-	if err != nil {
-		if catfile.IsNotFound(err) {
-			return nil, InvalidObjectError(rev)
-		}
-		return nil, fmt.Errorf("getting object info %w", err)
-	}
-
-	return objectInfo, nil
-}
-
 // ReadObject reads an object from the repository's object database. InvalidObjectError
 // is returned if the oid does not refer to a valid object.
 func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, error) {

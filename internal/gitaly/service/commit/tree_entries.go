@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"sort"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -94,12 +93,10 @@ func (s *server) sendTreeEntries(
 	// git-ls-tree(1) is worse than using a long-lived catfile process. We thus fall back to
 	// using catfile readers to answer these non-recursive queries.
 	if recursive {
-		tree, err := repo.ReadTree(
-			ctx,
-			git.Revision(revision),
-			localrepo.WithRelativePath(path),
-			localrepo.WithRecursive(),
-		)
+		treeEntries, err := repo.ListEntries(ctx, git.Revision(revision), &localrepo.ListEntriesConfig{
+			Recursive:    recursive,
+			RelativePath: path,
+		})
 		if err != nil {
 			// Design wart: we do not return an error if the request does not
 			// point to a tree object, but just return nothing.
@@ -108,27 +105,24 @@ func (s *server) sendTreeEntries(
 			}
 
 			// Same if we try to list tree entries of a revision which doesn't exist.
-			if errors.Is(err, localrepo.ErrTreeNotExist) || errors.Is(err, git.ErrReferenceNotFound) {
+			if errors.Is(err, localrepo.ErrNotExist) {
 				return nil
 			}
 
-			return fmt.Errorf("reading tree: %w", err)
+			return fmt.Errorf("listing tree entries: %w", err)
 		}
 
-		if err := tree.Walk(func(dir string, entry *localrepo.TreeEntry) error {
-			if entry.OID == tree.OID {
-				return nil
-			}
-
+		entries = make([]*gitalypb.TreeEntry, 0, len(treeEntries))
+		for _, entry := range treeEntries {
 			objectID, err := entry.OID.Bytes()
 			if err != nil {
 				return fmt.Errorf("converting tree entry OID: %w", err)
 			}
 
-			newEntry, err := git.NewTreeEntry(
+			treeEntry, err := git.NewTreeEntry(
 				revision,
 				path,
-				[]byte(filepath.Join(dir, entry.Path)),
+				[]byte(entry.Path),
 				objectID,
 				[]byte(entry.Mode),
 			)
@@ -136,11 +130,7 @@ func (s *server) sendTreeEntries(
 				return fmt.Errorf("converting tree entry: %w", err)
 			}
 
-			entries = append(entries, newEntry)
-
-			return nil
-		}); err != nil {
-			return fmt.Errorf("listing tree entries: %w", err)
+			entries = append(entries, treeEntry)
 		}
 	} else {
 		var err error
