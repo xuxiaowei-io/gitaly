@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -20,15 +18,8 @@ import (
 
 func TestDisconnectGitAlternates(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.RevlistForConnectivity,
-	).Run(
-		t,
-		testDisconnectGitAlternates,
-	)
-}
 
-func testDisconnectGitAlternates(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -67,13 +58,8 @@ func testDisconnectGitAlternates(t *testing.T, ctx context.Context) {
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForConnectivity).Run(
-		t,
-		testDisconnectGitAlternatesNoAlternates,
-	)
-}
 
-func testDisconnectGitAlternatesNoAlternates(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -89,13 +75,8 @@ func testDisconnectGitAlternatesNoAlternates(t *testing.T, ctx context.Context) 
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForConnectivity).Run(
-		t,
-		testDisconnectGitAlternatesUnexpectedAlternates,
-	)
-}
 
-func testDisconnectGitAlternatesUnexpectedAlternates(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg, _, _, _, client := setup(t, ctx)
 
 	testCases := []struct {
@@ -127,13 +108,9 @@ func testDisconnectGitAlternatesUnexpectedAlternates(t *testing.T, ctx context.C
 
 func TestRemoveAlternatesIfOk(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForConnectivity).Run(
-		t,
-		testRemoveAlternatesIfOk,
-	)
-}
 
-func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	t.Run("pack files are missing", func(t *testing.T) {
 		cfg, repoProto, repoPath, _, _ := setup(t, ctx)
 		srv := server{gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
