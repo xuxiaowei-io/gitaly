@@ -1215,6 +1215,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 				},
+				AssertManager{},
 				StopManager{},
 				StartManager{},
 				Begin{
