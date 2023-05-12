@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 )
 
 const (
@@ -499,7 +499,7 @@ type AlternatesInfo struct {
 // function does not return an error in case the alternates file doesn't exist. Existence can be
 // checked via the `Exists` field of the returned `AlternatesInfo` structure.
 func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
-	contents, err := os.ReadFile(filepath.Join(repoPath, "objects", "info", "alternates"))
+	file, err := os.Open(filepath.Join(repoPath, "objects", "info", "alternates"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return AlternatesInfo{
@@ -507,17 +507,34 @@ func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
 			}, nil
 		}
 
-		return AlternatesInfo{}, fmt.Errorf("reading alternates: %w", err)
+		return AlternatesInfo{}, err
 	}
+	defer file.Close()
 
-	relativeAlternatePaths := strings.Split(text.ChompBytes(contents), "\n")
-	alternatePaths := make([]string, 0, len(relativeAlternatePaths))
-	for _, relativeAlternatePath := range relativeAlternatePaths {
-		if filepath.IsAbs(relativeAlternatePath) {
-			alternatePaths = append(alternatePaths, relativeAlternatePath)
-		} else {
-			alternatePaths = append(alternatePaths, filepath.Join(repoPath, "objects", relativeAlternatePath))
+	var alternatePaths []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+
+		switch {
+		case len(line) == 0:
+			// Empty lines are skipped by Git.
+			continue
+		case bytes.HasPrefix(line, []byte("#")):
+			// Lines starting with a '#' are comments and thus need to be skipped.
+			continue
+		default:
+			path := scanner.Text()
+
+			if filepath.IsAbs(path) {
+				alternatePaths = append(alternatePaths, path)
+			} else {
+				alternatePaths = append(alternatePaths, filepath.Join(repoPath, "objects", path))
+			}
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return AlternatesInfo{}, fmt.Errorf("scanning alternate paths: %w", err)
 	}
 
 	return AlternatesInfo{

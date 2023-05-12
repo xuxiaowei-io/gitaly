@@ -500,9 +500,6 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 					repoPath: repoPath,
 					expectedInfo: AlternatesInfo{
 						Exists: true,
-						ObjectDirectories: []string{
-							filepath.Join(repoPath, "objects"),
-						},
 					},
 				}
 			},
@@ -588,7 +585,6 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 						Exists: true,
 						ObjectDirectories: []string{
 							"/first",
-							filepath.Join(repoPath, "objects"),
 							"/second",
 						},
 					},
@@ -607,7 +603,6 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 						Exists: true,
 						ObjectDirectories: []string{
 							"/first",
-							filepath.Join(repoPath, "objects", "# comment"),
 							"/second",
 						},
 					},
