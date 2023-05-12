@@ -129,11 +129,11 @@ func TestTransactionManager(t *testing.T) {
 	}
 
 	type testSetup struct {
-		Config         config.Cfg
-		Repository     *localrepo.Repo
-		ObjectHash     git.ObjectHash
-		NonExistentOID git.ObjectID
-		Commits        testCommits
+		Config            config.Cfg
+		RepositoryFactory localrepo.StorageScopedFactory
+		ObjectHash        git.ObjectHash
+		NonExistentOID    git.ObjectID
+		Commits           testCommits
 	}
 
 	setupTest := func(t *testing.T, relativePath string) testSetup {
@@ -157,8 +157,9 @@ func TestTransactionManager(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 
+		locator := config.NewLocator(cfg)
 		localRepo := localrepo.New(
-			config.NewLocator(cfg),
+			locator,
 			cmdFactory,
 			catfileCache,
 			repo,
@@ -184,11 +185,16 @@ func TestTransactionManager(t *testing.T) {
 			return pack.Bytes()
 		}
 
+		repositoryFactory, err := localrepo.NewFactory(
+			locator, cmdFactory, catfileCache,
+		).ScopeByStorage(cfg.Storages[0].Name)
+		require.NoError(t, err)
+
 		return testSetup{
-			Config:         cfg,
-			ObjectHash:     objectHash,
-			Repository:     localRepo,
-			NonExistentOID: nonExistentOID,
+			Config:            cfg,
+			ObjectHash:        objectHash,
+			RepositoryFactory: repositoryFactory,
+			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
 				First: testCommit{
 					OID:  firstCommitOID,
@@ -369,7 +375,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -388,7 +394,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -426,7 +432,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/parent",
 				References:    []git.Reference{{Name: "refs/heads/parent", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -500,7 +506,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/parent/child",
 				References:    []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -554,7 +560,7 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				References: []git.Reference{{Name: "refs/tags/v1.0.0", Target: setup.ObjectHash.EmptyTreeOID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -609,7 +615,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/non-conflicting", Target: setup.Commits.Second.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -649,7 +655,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -688,7 +694,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -722,7 +728,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -762,7 +768,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/non-conflicting", Target: setup.Commits.Third.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -806,7 +812,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/non-conflicting", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -857,7 +863,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -889,7 +895,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -926,7 +932,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -970,7 +976,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/non-conflicting", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1004,7 +1010,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1035,7 +1041,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -1079,7 +1085,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -1149,7 +1155,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -1198,7 +1204,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1235,7 +1241,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1273,7 +1279,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1318,7 +1324,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1360,7 +1366,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1407,7 +1413,7 @@ func TestTransactionManager(t *testing.T) {
 				DefaultBranch: "refs/heads/main",
 				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1465,7 +1471,7 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranch: "refs/heads/main",
 					References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 					Database: DatabaseState{
-						string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+						string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 					},
 				},
 			}
@@ -1508,7 +1514,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyLogEntry(getRepositoryID(setup.Repository), 1)): &gitalypb.LogEntry{
+					string(keyLogEntry(relativePath, 1)): &gitalypb.LogEntry{
 						ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
 							{
 								ReferenceName: []byte("refs/heads/main"),
@@ -1553,7 +1559,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1594,7 +1600,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1674,7 +1680,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 			},
 		},
@@ -1715,7 +1721,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1767,7 +1773,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -1841,7 +1847,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.Third.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(3).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -1893,7 +1899,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -1989,7 +1995,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.Third.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(3).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -2054,7 +2060,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -2132,7 +2138,7 @@ func TestTransactionManager(t *testing.T) {
 					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -2168,7 +2174,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -2209,7 +2215,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -2283,7 +2289,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(2).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -2448,7 +2454,8 @@ func TestTransactionManager(t *testing.T) {
 			// Setup the repository with the exact same state as what was used to build the test cases.
 			setup := setupTest(t, relativePath)
 
-			repoPath, err := setup.Repository.Path()
+			repo := setup.RepositoryFactory.Build(relativePath)
+			repoPath, err := repo.Path()
 			require.NoError(t, err)
 
 			database, err := OpenDatabase(t.TempDir())
@@ -2456,12 +2463,13 @@ func TestTransactionManager(t *testing.T) {
 			defer testhelper.MustClose(t, database)
 
 			stagingDir := t.TempDir()
+			storagePath := setup.Config.Storages[0].Path
 
 			var (
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, setup.Repository, stagingDir, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -2502,8 +2510,8 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, setup.Repository, stagingDir, noopTransactionFinalizer)
-					installHooks(t, transactionManager, database, setup.Repository, hooks{
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
+					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
 						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
 						beforeDeferredStop: func(hookContext) {
@@ -2614,8 +2622,8 @@ func TestTransactionManager(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			RequireReferences(t, ctx, setup.Repository, tc.expectedState.References)
-			RequireDefaultBranch(t, ctx, setup.Repository, tc.expectedState.DefaultBranch)
+			RequireReferences(t, ctx, repo, tc.expectedState.References)
+			RequireDefaultBranch(t, ctx, repo, tc.expectedState.DefaultBranch)
 			RequireDatabase(t, ctx, database, tc.expectedState.Database)
 
 			expectedDirectory := tc.expectedState.Directory
@@ -2779,18 +2787,16 @@ func BenchmarkTransactionManager(b *testing.B) {
 				return referenceUpdates
 			}
 
+			repositoryFactory, err := localrepo.NewFactory(
+				config.NewLocator(cfg), cmdFactory, cache,
+			).ScopeByStorage(cfg.Storages[0].Name)
+			require.NoError(b, err)
+
 			// Set up the repositories and start their TransactionManagers.
 			for i := 0; i < tc.numberOfRepositories; i++ {
 				repo, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-
-				localRepo := localrepo.New(
-					config.NewLocator(cfg),
-					cmdFactory,
-					cache,
-					repo,
-				)
 
 				// Set up two commits that the updaters update their references back and forth.
 				// The commit IDs are the same across all repositories as the parameters used to
@@ -2799,7 +2805,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, localRepo, b.TempDir(), noopTransactionFinalizer)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, noopTransactionFinalizer)
 				managers = append(managers, manager)
 
 				managerWG.Add(1)
@@ -2808,7 +2814,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 					assert.NoError(b, manager.Run())
 				}()
 
-				objectHash, err := localRepo.ObjectHash(ctx)
+				objectHash, err := repositoryFactory.Build(repo.RelativePath).ObjectHash(ctx)
 				require.NoError(b, err)
 
 				for j := 0; j < tc.concurrentUpdaters; j++ {

@@ -106,7 +106,7 @@ func TestPartitionManager(t *testing.T) {
 		require.Equal(t, len(expectedState), len(partitionManager.partitions))
 		for k, v := range expectedState {
 			partition, ok := partitionManager.partitions[k]
-			require.True(t, ok)
+			require.True(t, ok, "expected partition %q to be present", k)
 			require.Equal(t, v, partition.pendingTransactionCount)
 		}
 	}
@@ -123,21 +123,14 @@ func TestPartitionManager(t *testing.T) {
 		return repo
 	}
 
-	localRepoFactory := func(repo repo.GitRepo) *localrepo.Repo {
-		cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
-		require.NoError(t, err)
-		t.Cleanup(clean)
+	cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
+	require.NoError(t, err)
+	t.Cleanup(clean)
 
-		catfileCache := catfile.NewCache(cfg)
-		t.Cleanup(catfileCache.Stop)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
-		return localrepo.New(
-			config.NewLocator(cfg),
-			cmdFactory,
-			catfileCache,
-			repo,
-		)
-	}
+	localRepoFactory := localrepo.NewFactory(config.NewLocator(cfg), cmdFactory, catfileCache)
 
 	// transactionData holds relevant data for each transaction created during a testcase.
 	type transactionData struct {
@@ -163,7 +156,7 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							repo: repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{},
@@ -182,7 +175,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -192,7 +185,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 2,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -213,20 +206,20 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						begin{
 							transactionID: 2,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 2,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 2,
 							},
 						},
 						commit{
 							transactionID: 1,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -248,21 +241,21 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							repo:          repoA,
 							expectedState: map[string]uint{
-								getRepositoryID(repoA): 1,
+								getPartitionKey(repoA.GetStorageName(), repoA.GetRelativePath()): 1,
 							},
 						},
 						begin{
 							transactionID: 2,
 							repo:          repoB,
 							expectedState: map[string]uint{
-								getRepositoryID(repoA): 1,
-								getRepositoryID(repoB): 1,
+								getPartitionKey(repoA.GetStorageName(), repoA.GetRelativePath()): 1,
+								getPartitionKey(repoB.GetStorageName(), repoB.GetRelativePath()): 1,
 							},
 						},
 						commit{
 							transactionID: 1,
 							expectedState: map[string]uint{
-								getRepositoryID(repoB): 1,
+								getPartitionKey(repoB.GetStorageName(), repoB.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -282,7 +275,7 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							repo: repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						rollback{},
@@ -322,7 +315,7 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							repo: repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						commit{
@@ -343,7 +336,7 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							repo: repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						stopPartition{},
@@ -365,7 +358,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 1,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						stopPartition{
@@ -375,7 +368,7 @@ func TestPartitionManager(t *testing.T) {
 							transactionID: 2,
 							repo:          repo,
 							expectedState: map[string]uint{
-								getRepositoryID(repo): 1,
+								getPartitionKey(repo.GetStorageName(), repo.GetRelativePath()): 1,
 							},
 						},
 						finalizeTransaction{
@@ -440,7 +433,7 @@ func TestPartitionManager(t *testing.T) {
 			stagingDir := filepath.Join(t.TempDir(), "staging")
 			require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
-			partitionManager := NewPartitionManager(database, localRepoFactory, logrus.StandardLogger(), stagingDir)
+			partitionManager := NewPartitionManager(database, cfg.Storages, localRepoFactory, logrus.StandardLogger(), stagingDir)
 			defer func() {
 				partitionManager.Stop()
 				// Assert all staging directories have been removed.
@@ -467,7 +460,7 @@ func TestPartitionManager(t *testing.T) {
 					require.Equal(t, step.expectedError, err)
 
 					partitionManager.mu.Lock()
-					ptn := partitionManager.partitions[getRepositoryID(step.repo)]
+					ptn := partitionManager.partitions[getPartitionKey(step.repo.GetStorageName(), step.repo.GetRelativePath())]
 					partitionManager.mu.Unlock()
 
 					blockOnPartitionShutdown(t, ptn)
