@@ -14,16 +14,16 @@ type ConcurrencyMonitor interface {
 	Dequeued(ctx context.Context)
 	Enter(ctx context.Context, acquireTime time.Duration)
 	Exit(ctx context.Context)
-	Dropped(ctx context.Context, key string, length int, message string)
+	Dropped(ctx context.Context, key string, length int, acquireTime time.Duration, message string)
 }
 
 type noopConcurrencyMonitor struct{}
 
-func (c *noopConcurrencyMonitor) Queued(context.Context, string, int)          {}
-func (c *noopConcurrencyMonitor) Dequeued(context.Context)                     {}
-func (c *noopConcurrencyMonitor) Enter(context.Context, time.Duration)         {}
-func (c *noopConcurrencyMonitor) Exit(context.Context)                         {}
-func (c *noopConcurrencyMonitor) Dropped(context.Context, string, int, string) {}
+func (c *noopConcurrencyMonitor) Queued(context.Context, string, int)                         {}
+func (c *noopConcurrencyMonitor) Dequeued(context.Context)                                    {}
+func (c *noopConcurrencyMonitor) Enter(context.Context, time.Duration)                        {}
+func (c *noopConcurrencyMonitor) Exit(context.Context)                                        {}
+func (c *noopConcurrencyMonitor) Dropped(context.Context, string, int, time.Duration, string) {}
 
 // NewNoopConcurrencyMonitor returns a noopConcurrencyMonitor
 func NewNoopConcurrencyMonitor() ConcurrencyMonitor {
@@ -99,11 +99,12 @@ func (p *PromMonitor) Exit(ctx context.Context) {
 }
 
 // Dropped is called when a request is dropped.
-func (p *PromMonitor) Dropped(ctx context.Context, key string, length int, reason string) {
+func (p *PromMonitor) Dropped(ctx context.Context, key string, length int, acquireTime time.Duration, reason string) {
 	if stats := limitStatsFromContext(ctx); stats != nil {
 		stats.SetLimitingKey(p.limitingType, key)
 		stats.SetConcurrencyQueueLength(length)
 		stats.SetConcurrencyDroppedReason(reason)
+		stats.AddConcurrencyQueueMs(acquireTime.Milliseconds())
 	}
 	p.requestsDroppedMetric.WithLabelValues(reason).Inc()
 }
