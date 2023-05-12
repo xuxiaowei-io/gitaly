@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"
@@ -286,21 +287,172 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 	return route, nil
 }
 
-// RouteRepositoryCreation picks a random healthy node to act as the primary node and selects the secondary nodes
-// if assignments are enabled. Healthy secondaries take part in the transaction, unhealthy secondaries are set as
-// replication targets.
-func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRelativePath string) (RepositoryMutatorRoute, error) {
-	additionalReplicaPath, err := r.resolveAdditionalReplicaPath(ctx, virtualStorage, additionalRelativePath)
-	if err != nil {
-		return RepositoryMutatorRoute{}, fmt.Errorf("resolve additional replica path: %w", err)
-	}
+type assignedNodes struct {
+	primary            RouterNode
+	secondaries        []RouterNode
+	replicationTargets []string
+}
 
+// assignRepsoitoryToNodes picks a random healthy node to act as the primary node and selects the
+// secondary nodes if assignments are enabled. Healthy secondaries take part in the transaction,
+// unhealthy secondaries are set as replication targets.
+func (r *PerRepositoryRouter) assignRepositoryToNodes(
+	ctx context.Context, virtualStorage, relativePath string, additionalRepoMetadata *datastore.RepositoryMetadata,
+) (assignedNodes, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
-		return RepositoryMutatorRoute{}, err
+		return assignedNodes{}, err
 	}
 
-	primary, err := r.pickRandom(healthyNodes)
+	replicationFactor := r.defaultReplicationFactors[virtualStorage]
+
+	switch {
+	case featureflag.FixRoutingWithAdditionalRepository.IsEnabled(ctx) && additionalRepoMetadata != nil:
+		// RPCs that create repositories can have an additional repository. This repository
+		// is used as additional input and is expected to be directly accessible on the
+		// target node, or otherwise we wouldn't have to resolve its relative path.
+		//
+		// It follows that the newly created repository and the additional repository must
+		// live on the same storage nodes. So instead of picking primary and secondaries
+		// randomly, we instead choose the same storage nodes as the preexisting additional
+		// repository is assigned to.
+
+		healthyNodesByStorage := map[string]RouterNode{}
+		for _, healthyNode := range healthyNodes {
+			healthyNodesByStorage[healthyNode.Storage] = healthyNode
+		}
+
+		primary, ok := healthyNodesByStorage[additionalRepoMetadata.Primary]
+		if !ok {
+			return assignedNodes{}, nodes.ErrPrimaryNotHealthy
+		}
+
+		// For every secondary we need to figure out whether it's in a state so that we can
+		// create it on them directly or whether we need to replicate asynchronously
+		// instead.
+		var healthySecondaries []RouterNode
+		var replicationTargets []string
+		for _, replica := range additionalRepoMetadata.Replicas {
+			if replica.Storage == primary.Storage {
+				continue
+			}
+
+			// An unhealthy storage cannot serve requests, so we set these up as a
+			// replication target.
+			node, ok := healthyNodesByStorage[replica.Storage]
+			if !ok {
+				replicationTargets = append(replicationTargets, replica.Storage)
+				continue
+			}
+
+			// We expect that the additional repository will be used by the RPC call, so
+			// if its state differs from the primary node it is likely that the end
+			// result would differ, as well. So in case the generation numbers are not
+			// equal we'll thus set it up as a replication target instead and rely on
+			// ReplicateRepository to fix things up for us.
+			if replica.Generation != additionalRepoMetadata.Generation {
+				replicationTargets = append(replicationTargets, replica.Storage)
+				continue
+			}
+
+			healthySecondaries = append(healthySecondaries, node)
+		}
+
+		return assignedNodes{
+			primary:            primary,
+			secondaries:        healthySecondaries,
+			replicationTargets: replicationTargets,
+		}, nil
+	case replicationFactor == 1:
+		// If we have a replication factor of 1 then picking the primary node is already
+		// sufficient.
+		primary, err := r.pickRandom(healthyNodes)
+		if err != nil {
+			return assignedNodes{}, err
+		}
+
+		return assignedNodes{
+			primary: primary,
+		}, nil
+	default:
+		// Otherwise, we need to figure out what the actual replication factor is supposed
+		// to be and assign secondaries as required to satisfy it.
+
+		primary, err := r.pickRandom(healthyNodes)
+		if err != nil {
+			return assignedNodes{}, err
+		}
+
+		var secondaryNodes []RouterNode
+		for storage, conn := range r.conns[virtualStorage] {
+			if storage == primary.Storage {
+				continue
+			}
+
+			secondaryNodes = append(secondaryNodes, RouterNode{
+				Storage:    storage,
+				Connection: conn,
+			})
+		}
+
+		// replicationFactor being zero indicates it has not been configured. If so, we
+		// fallback to the behavior of no assignments and replicate everywhere. Otherwise,
+		// if we have a positive replication factor, we pick a random set of secondaries.
+		if replicationFactor > 0 {
+			// Select random secondaries according to the default replication factor.
+			r.rand.Shuffle(len(secondaryNodes), func(i, j int) {
+				secondaryNodes[i], secondaryNodes[j] = secondaryNodes[j], secondaryNodes[i]
+			})
+
+			secondaryNodes = secondaryNodes[:replicationFactor-1]
+		}
+
+		// We now split up secondaries into two sets: those which are known to be healthy
+		// and those which aren't. This allows us to decide whether we'll route to the
+		// secondary node immediately or instead create a replication job.
+		var healthySecondaries []RouterNode
+		var replicationTargets []string
+		for _, secondaryNode := range secondaryNodes {
+			isHealthy := false
+			for _, healthyNode := range healthyNodes {
+				if healthyNode == secondaryNode {
+					isHealthy = true
+					break
+				}
+			}
+
+			if isHealthy {
+				healthySecondaries = append(healthySecondaries, secondaryNode)
+				continue
+			}
+
+			replicationTargets = append(replicationTargets, secondaryNode.Storage)
+		}
+
+		return assignedNodes{
+			primary:            primary,
+			secondaries:        healthySecondaries,
+			replicationTargets: replicationTargets,
+		}, nil
+	}
+}
+
+// RouteRepositoryCreation routes an incoming repository creation to a set of target nodes that will
+// be designated to hold the new repository.
+func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRelativePath string) (RepositoryMutatorRoute, error) {
+	var additionalRepoMetadata *datastore.RepositoryMetadata
+	var additionalReplicaPath string
+	if additionalRelativePath != "" {
+		metadata, err := r.rs.GetRepositoryMetadataByPath(ctx, virtualStorage, additionalRelativePath)
+		if err != nil {
+			return RepositoryMutatorRoute{}, fmt.Errorf("resolve additional replica metadata: %w", err)
+		}
+
+		additionalRepoMetadata = &metadata
+		additionalReplicaPath = metadata.ReplicaPath
+	}
+
+	assignedNodes, err := r.assignRepositoryToNodes(ctx, virtualStorage, relativePath, additionalRepoMetadata)
 	if err != nil {
 		return RepositoryMutatorRoute{}, err
 	}
@@ -318,64 +470,13 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		replicaPath = praefectutil.DerivePoolPath(id)
 	}
 
-	replicationFactor := r.defaultReplicationFactors[virtualStorage]
-	if replicationFactor == 1 {
-		return RepositoryMutatorRoute{
-			RepositoryID: id,
-			ReplicaPath:  replicaPath,
-			Primary:      primary,
-		}, nil
-	}
-
-	var secondaryNodes []RouterNode
-	for storage, conn := range r.conns[virtualStorage] {
-		if storage == primary.Storage {
-			continue
-		}
-
-		secondaryNodes = append(secondaryNodes, RouterNode{
-			Storage:    storage,
-			Connection: conn,
-		})
-	}
-
-	// replicationFactor being zero indicates it has not been configured. If so, we fallback to the behavior
-	// of no assignments, replicate everywhere and do not select assigned secondaries below.
-	if replicationFactor > 0 {
-		// Select random secondaries according to the default replication factor.
-		r.rand.Shuffle(len(secondaryNodes), func(i, j int) {
-			secondaryNodes[i], secondaryNodes[j] = secondaryNodes[j], secondaryNodes[i]
-		})
-
-		secondaryNodes = secondaryNodes[:replicationFactor-1]
-	}
-
-	var secondaries []RouterNode
-	var replicationTargets []string
-	for _, secondaryNode := range secondaryNodes {
-		isHealthy := false
-		for _, healthyNode := range healthyNodes {
-			if healthyNode == secondaryNode {
-				isHealthy = true
-				break
-			}
-		}
-
-		if isHealthy {
-			secondaries = append(secondaries, secondaryNode)
-			continue
-		}
-
-		replicationTargets = append(replicationTargets, secondaryNode.Storage)
-	}
-
 	return RepositoryMutatorRoute{
 		RepositoryID:          id,
 		ReplicaPath:           replicaPath,
 		AdditionalReplicaPath: additionalReplicaPath,
-		Primary:               primary,
-		Secondaries:           secondaries,
-		ReplicationTargets:    replicationTargets,
+		Primary:               assignedNodes.primary,
+		Secondaries:           assignedNodes.secondaries,
+		ReplicationTargets:    assignedNodes.replicationTargets,
 	}, nil
 }
 
