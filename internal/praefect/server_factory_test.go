@@ -16,11 +16,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"

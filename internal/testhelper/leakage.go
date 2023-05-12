@@ -29,7 +29,7 @@ func mustHaveNoGoroutines() {
 		goleak.IgnoreTopFunction("gitlab.com/gitlab-org/labkit/log.listenForSignalHangup"),
 		// The backchannel code is somehow stock on closing its connections. I have no clue
 		// why that is, but we should investigate.
-		goleak.IgnoreTopFunction(PkgPath("internal/backchannel.clientHandshake.serve.func4")),
+		goleak.IgnoreTopFunction(PkgPath("internal/grpc/backchannel.clientHandshake.serve.func4")),
 	); err != nil {
 		panic(fmt.Errorf("goroutines running: %w", err))
 	}
