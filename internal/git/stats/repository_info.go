@@ -493,6 +493,9 @@ type AlternatesInfo struct {
 	Exists bool `json:"exists"`
 	// Paths contains the list of paths to object directories that the repository is linked to.
 	ObjectDirectories []string `json:"object_directories,omitempty"`
+	// LastModified is the time when the alternates file has last been modified. Has the zero
+	// value when the alternates file doesn't exist.
+	LastModified time.Time `json:"last_modified"`
 }
 
 // AlternatesInfoForRepository reads the alternates file and returns information on it. This
@@ -510,6 +513,11 @@ func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
 		return AlternatesInfo{}, err
 	}
 	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return AlternatesInfo{}, err
+	}
 
 	var alternatePaths []string
 	scanner := bufio.NewScanner(file)
@@ -540,6 +548,7 @@ func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
 	return AlternatesInfo{
 		Exists:            true,
 		ObjectDirectories: alternatePaths,
+		LastModified:      stat.ModTime(),
 	}, nil
 }
 

@@ -122,6 +122,9 @@ func TestLogObjectInfo(t *testing.T) {
 		targetRepoPath := filepath.Join(storagePath, targetRepoName)
 		gittest.Exec(t, cfg, "clone", "--bare", "--shared", repoPath1, "--reference", repoPath1, "--reference", repoPath2, targetRepoPath)
 
+		alternatesStat, err := os.Stat(filepath.Join(targetRepoPath, "objects", "info", "alternates"))
+		require.NoError(t, err)
+
 		LogRepositoryInfo(ctx, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
 			RelativePath: targetRepoName,
@@ -141,6 +144,7 @@ func TestLogObjectInfo(t *testing.T) {
 					filepath.Join(repoPath1, "/objects"),
 					filepath.Join(repoPath2, "/objects"),
 				},
+				LastModified: alternatesStat.ModTime(),
 			},
 		}, repoInfo)
 	})
@@ -181,6 +185,8 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	alternatePath = filepath.Join(alternatePath, "objects")
+
+	date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
 
 	for _, tc := range []struct {
 		desc         string
@@ -274,8 +280,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "alternates",
 			setup: func(t *testing.T, repoPath string) {
-				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
-				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), perm.PrivateFile))
+				writeFileWithMtime(t,
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(alternatePath),
+					date,
+				)
 			},
 			expectedInfo: RepositoryInfo{
 				Alternates: AlternatesInfo{
@@ -283,6 +292,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					ObjectDirectories: []string{
 						alternatePath,
 					},
+					LastModified: date,
 				},
 			},
 		},
@@ -363,7 +373,6 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			desc: "last full repack timestamp",
 			setup: func(t *testing.T, repoPath string) {
 				timestampPath := filepath.Join(repoPath, fullRepackTimestampFilename)
-				date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
 				writeFileWithMtime(t, timestampPath, nil, date)
 			},
 			expectedInfo: RepositoryInfo{
@@ -375,8 +384,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "all together",
 			setup: func(t *testing.T, repoPath string) {
-				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
-				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), perm.PrivateFile))
+				writeFileWithMtime(t,
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(alternatePath),
+					date,
+				)
 
 				// We write a single packed blob.
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
@@ -419,6 +431,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					ObjectDirectories: []string{
 						alternatePath,
 					},
+					LastModified: date,
 				},
 			},
 		},
@@ -444,17 +457,19 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
+	date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
+
 	createRepo := func(t *testing.T) (*gitalypb.Repository, string) {
 		return gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 	}
 	writeAlternates := func(t *testing.T, repoPath string, alternates []byte) {
-		require.NoError(t, os.WriteFile(
+		writeFileWithMtime(t,
 			filepath.Join(repoPath, "objects", "info", "alternates"),
 			alternates,
-			perm.PrivateFile,
-		))
+			date,
+		)
 	}
 
 	type setupData struct {
@@ -499,7 +514,8 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 				return setupData{
 					repoPath: repoPath,
 					expectedInfo: AlternatesInfo{
-						Exists: true,
+						Exists:       true,
+						LastModified: date,
 					},
 				}
 			},
@@ -517,6 +533,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 						ObjectDirectories: []string{
 							"/absolute",
 						},
+						LastModified: date,
 					},
 				}
 			},
@@ -534,6 +551,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 						ObjectDirectories: []string{
 							"/absolute",
 						},
+						LastModified: date,
 					},
 				}
 			},
@@ -551,6 +569,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 						ObjectDirectories: []string{
 							filepath.Join(cfg.Storages[0].Path, "@pools", "foo", "bar"),
 						},
+						LastModified: date,
 					},
 				}
 			},
@@ -569,6 +588,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 							"/absolute",
 							filepath.Join(cfg.Storages[0].Path, "@pools", "foo", "bar"),
 						},
+						LastModified: date,
 					},
 				}
 			},
@@ -587,6 +607,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 							"/first",
 							"/second",
 						},
+						LastModified: date,
 					},
 				}
 			},
@@ -605,6 +626,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 							"/first",
 							"/second",
 						},
+						LastModified: date,
 					},
 				}
 			},
