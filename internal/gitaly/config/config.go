@@ -26,7 +26,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
 
@@ -455,26 +454,15 @@ func defaultPackObjectsCacheConfig() StreamCacheConfig {
 func defaultPackObjectsLimiting() PackObjectsLimiting {
 	var maxConcurrency, maxQueueLength int
 
-	// TODO: Injecting environment variables here boosts the time to try out new concurrency
-	// limiting. When this new limiter is in-place, they should go through official
-	// configure methods (Omnibus, K8s helm chart, etc.) instead.
-	if maxConcurrencyFromEnv, err := env.GetInt("GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY", 200); err == nil {
-		maxConcurrency = maxConcurrencyFromEnv
-	}
 	if maxConcurrency == 0 {
-		// TODO: remove this default setting when we remove the feature
-		// flags PackObjectsLimitingRepo, PackObjectsLimitingUser, and PackObjectsLimitingRemoteIP
-		// feature flag issue:  https://gitlab.com/gitlab-org/gitaly/-/issues/4413
 		maxConcurrency = 200
-	}
-	if maxQueueLengthFromEnv, err := env.GetInt("GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH", 0); err == nil {
-		maxQueueLength = maxQueueLengthFromEnv
 	}
 
 	return PackObjectsLimiting{
 		MaxConcurrency: maxConcurrency,
 		MaxQueueLength: maxQueueLength,
-		MaxQueueWait:   0, // Do not enforce queue wait at this point
+		// Requests can stay in the queue as long as they want
+		MaxQueueWait: 0,
 	}
 }
 
