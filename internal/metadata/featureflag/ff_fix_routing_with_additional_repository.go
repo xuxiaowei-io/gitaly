@@ -8,6 +8,6 @@ package featureflag
 var FixRoutingWithAdditionalRepository = NewFeatureFlag(
 	"fix_routing_with_additional_repository",
 	"v16.0.0",
-	"",
+	"https://gitlab.com/gitlab-org/gitaly/-/issues/5134",
 	false,
 )
