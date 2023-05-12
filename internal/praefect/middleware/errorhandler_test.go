@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/grpc-proxy/proxy"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
