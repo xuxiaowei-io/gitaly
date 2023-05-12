@@ -7,8 +7,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backoff"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/dnsresolver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/dnsresolver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
