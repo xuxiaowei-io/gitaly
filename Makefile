@@ -53,6 +53,7 @@ PROTOC_GEN_GO               := ${TOOLS_DIR}/protoc-gen-go
 PROTOC_GEN_GO_GRPC          := ${TOOLS_DIR}/protoc-gen-go-grpc
 PROTOC_GEN_GITALY_LINT      := ${TOOLS_DIR}/protoc-gen-gitaly-lint
 PROTOC_GEN_GITALY_PROTOLIST := ${TOOLS_DIR}/protoc-gen-gitaly-protolist
+PROTOC_GEN_DOC              := ${TOOLS_DIR}/protoc-gen-doc
 GOTESTSUM                   := ${TOOLS_DIR}/gotestsum
 GOCOVER_COBERTURA           := ${TOOLS_DIR}/gocover-cobertura
 DELVE                       := ${TOOLS_DIR}/dlv
@@ -499,6 +500,12 @@ build-proto-gem:
 publish-proto-gem: build-proto-gem
 	${Q}gem push "${BUILD_DIR}/gitaly.gem"
 
+.PHONY: build-proto-docs
+## Build HTML documentation for Gitaly Protobuf definitions.
+build-proto-docs: ${PROTOC} ${PROTOC_GEN_DOC}
+	${Q}rm -rf ${BUILD_DIR}/proto-docs && mkdir -p ${BUILD_DIR}/proto-docs
+	${Q}${PROTOC} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --doc_out=${BUILD_DIR}/proto-docs --doc_opt=html,index.html --plugin=protoc-gen-doc=${PROTOC_GEN_DOC} ${SOURCE_DIR}/proto/*.proto
+
 .PHONY: no-changes
 no-changes:
 	${Q}${GIT} diff --exit-code
@@ -687,6 +694,7 @@ ${GOTESTSUM}:         TOOL_PACKAGE = gotest.tools/gotestsum
 ${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses
 ${PROTOC_GEN_GO}:     TOOL_PACKAGE = google.golang.org/protobuf/cmd/protoc-gen-go
 ${PROTOC_GEN_GO_GRPC}:TOOL_PACKAGE = google.golang.org/grpc/cmd/protoc-gen-go-grpc
+${PROTOC_GEN_DOC}:    TOOL_PACKAGE = github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc
 ${DELVE}:             TOOL_PACKAGE = github.com/go-delve/delve/cmd/dlv
 
 ${TEST_REPO}:

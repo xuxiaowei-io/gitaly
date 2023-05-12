@@ -450,6 +450,19 @@ publish-proto-gem:
   rules:
     - if: '$CI_SERVER_HOST == "gitlab.com" && $CI_PROJECT_NAMESPACE == "gitlab-org" && $CI_COMMIT_TAG'
 
+pages:
+  needs: []
+  stage: publish
+  allow_failure: true
+  script:
+    - make build-proto-docs
+    - mv _build/proto-docs public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - *rules_run_on_merge
+
 build-package-and-qa:
   needs: []
   stage: qa
