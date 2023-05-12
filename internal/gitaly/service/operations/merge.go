@@ -171,7 +171,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 				)
 		}
 
-		return structerr.NewInternal("unknown merge error: %w", err)
+		return structerr.NewInternal("unknown merge error: %w", mergeErr)
 	}
 
 	mergeOID, err := git.ObjectHashSHA1.FromHex(mergeCommitID)
