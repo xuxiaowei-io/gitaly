@@ -78,6 +78,7 @@ func NewApp() *cli.App {
 			newDialNodesCommand(),
 			newListStoragesCommand(),
 			newListUntrackedRepositoriesCommand(),
+			newTrackRepositoryCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
