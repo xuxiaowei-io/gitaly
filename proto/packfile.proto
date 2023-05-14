@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package gitaly;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
+
+message Stats {
+  // total size of all pktlines' data
+  int64 PayloadSize = 1;
+  // total number of packets
+  int64 Packets = 2;
+  // capabilities announced by the client
+  repeated string caps = 3;
+  // wants is the number of objects the client announced it wants
+  int64 wants = 4;
+  // haves is the number of objects the client announced it has
+  int64 Haves = 5;
+  // shallows is the number of shallow boundaries announced by the client
+  int64 shallows = 6;
+  // deepen-filter. One of "deepen <depth>", "deepen-since <timestamp>", "deepen-not <ref>".
+  string deepen = 7;
+  // filter-spec specified by the client.
+  string filter = 8;
+}

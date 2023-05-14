@@ -3834,12 +3834,12 @@ type Remote struct {
 	// mirror_refmaps contains the refspecs which shall be fetched. Some special
 	// refspecs are accepted:
 	//
-	//   - "all_refs" gets translated to "+refs/*:refs/*", which mirrors all
-	//     references of the source repository.
-	//   - "heads" gets translated to "+refs/heads/*:refs/heads/*", which mirrors
-	//     all branches of the source repository.
-	//   - "tags" gets translated to "+refs/tags/*:refs/tags/*", which mirrors all
-	//     tags of the source repository.
+	// - "all_refs" gets translated to "+refs/*:refs/*", which mirrors all
+	//   references of the source repository.
+	// - "heads" gets translated to "+refs/heads/*:refs/heads/*", which mirrors
+	//   all branches of the source repository.
+	// - "tags" gets translated to "+refs/tags/*:refs/tags/*", which mirrors all
+	//   tags of the source repository.
 	//
 	// If no refspecs are given, this defaults to "all_refs".
 	MirrorRefmaps []string `protobuf:"bytes,4,rep,name=mirror_refmaps,json=mirrorRefmaps,proto3" json:"mirror_refmaps,omitempty"`

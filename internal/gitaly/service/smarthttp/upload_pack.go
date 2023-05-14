@@ -28,7 +28,8 @@ func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalyp
 	}
 	defer conn.Close()
 
-	if err := s.runUploadPack(ctx, req, repoPath, gitConfig, conn, conn); err != nil {
+	stats, err := s.runUploadPack(ctx, req, repoPath, gitConfig, conn, conn)
+	if err != nil {
 		return nil, structerr.NewInternal("running upload-pack: %w", err)
 	}
 
@@ -36,7 +37,18 @@ func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalyp
 		return nil, structerr.NewInternal("close sidechannel connection: %w", err)
 	}
 
-	return &gitalypb.PostUploadPackWithSidechannelResponse{}, nil
+	return &gitalypb.PostUploadPackWithSidechannelResponse{
+		Stats: &gitalypb.Stats{
+			PayloadSize: stats.PayloadSize,
+			Packets:     int64(stats.Packets),
+			Caps:        stats.Caps,
+			Wants:       int64(stats.Wants),
+			Haves:       int64(stats.Haves),
+			Shallows:    int64(stats.Shallows),
+			Deepen:      stats.Deepen,
+			Filter:      stats.Filter,
+		},
+	}, nil
 }
 
 type statsCollector struct {
@@ -92,12 +104,18 @@ func (s *server) validateUploadPackRequest(ctx context.Context, req *gitalypb.Po
 	return repoPath, config, nil
 }
 
-func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest, repoPath string, gitConfig []git.ConfigPair, stdin io.Reader, stdout io.Writer) error {
+func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest, repoPath string, gitConfig []git.ConfigPair, stdin io.Reader, stdout io.Writer) (stats stats.PackfileNegotiation, err error) {
 	h := sha1.New()
 
 	stdin = io.TeeReader(stdin, h)
 	stdin, collector := s.runStatsCollector(ctx, stdin)
-	defer collector.finish()
+	var finished bool
+	defer func() {
+		if finished {
+			return
+		}
+		stats = collector.finish()
+	}()
 
 	commandOpts := []git.CmdOpt{
 		git.WithStdin(stdin),
@@ -112,29 +130,34 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 		Args:  []string{repoPath},
 	}, commandOpts...)
 	if err != nil {
-		return structerr.NewUnavailable("spawning upload-pack: %w", err)
+		err = structerr.NewUnavailable("spawning upload-pack: %w", err)
+		return
 	}
 
 	// Use a custom buffer size to minimize the number of system calls.
 	respBytes, err := io.CopyBuffer(stdout, cmd, make([]byte, 64*1024))
 	if err != nil {
-		return structerr.NewUnavailable("copying stdout from upload-pack: %w", err)
+		err = structerr.NewUnavailable("copying stdout from upload-pack: %w", err)
+		return
 	}
 
-	if err := cmd.Wait(); err != nil {
-		stats := collector.finish()
+	if err = cmd.Wait(); err != nil {
+		stats = collector.finish()
+		finished = true
 
 		if _, ok := command.ExitStatus(err); ok && stats.Deepen != "" {
 			// We have seen a 'deepen' message in the request. It is expected that
 			// git-upload-pack has a non-zero exit status: don't treat this as an
 			// error.
-			return nil
+			err = nil
+			return
 		}
 
-		return structerr.NewUnavailable("waiting for upload-pack: %w", err)
+		err = structerr.NewUnavailable("waiting for upload-pack: %w", err)
+		return
 	}
 
 	ctxlogrus.Extract(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")
 
-	return nil
+	return
 }

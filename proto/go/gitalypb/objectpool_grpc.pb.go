@@ -36,13 +36,13 @@ type ObjectPoolServiceClient interface {
 	LinkRepositoryToObjectPool(ctx context.Context, in *LinkRepositoryToObjectPoolRequest, opts ...grpc.CallOption) (*LinkRepositoryToObjectPoolResponse, error)
 	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
 	//
-	//  1. Link all objects from the object pool into the member repository. This essenitally
-	//     reduplicates previously-duplicated objects so that the repository will continue to function
-	//     after being unlinked.
-	//  2. Remove the alternates link to the object pool.
-	//  3. Perform a consistency check to assert that the repository is indeed fully functional after
-	//     unlinking it from its pool. If the consistency check fails the alternates link is restored
-	//     an the RPC fails.
+	// 1. Link all objects from the object pool into the member repository. This essenitally
+	//    reduplicates previously-duplicated objects so that the repository will continue to function
+	//    after being unlinked.
+	// 2. Remove the alternates link to the object pool.
+	// 3. Perform a consistency check to assert that the repository is indeed fully functional after
+	//    unlinking it from its pool. If the consistency check fails the alternates link is restored
+	//    an the RPC fails.
 	//
 	// If successful, the object pool member is disconnected from the object pool and does not depend
 	// on it anymore.
@@ -139,13 +139,13 @@ type ObjectPoolServiceServer interface {
 	LinkRepositoryToObjectPool(context.Context, *LinkRepositoryToObjectPoolRequest) (*LinkRepositoryToObjectPoolResponse, error)
 	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
 	//
-	//  1. Link all objects from the object pool into the member repository. This essenitally
-	//     reduplicates previously-duplicated objects so that the repository will continue to function
-	//     after being unlinked.
-	//  2. Remove the alternates link to the object pool.
-	//  3. Perform a consistency check to assert that the repository is indeed fully functional after
-	//     unlinking it from its pool. If the consistency check fails the alternates link is restored
-	//     an the RPC fails.
+	// 1. Link all objects from the object pool into the member repository. This essenitally
+	//    reduplicates previously-duplicated objects so that the repository will continue to function
+	//    after being unlinked.
+	// 2. Remove the alternates link to the object pool.
+	// 3. Perform a consistency check to assert that the repository is indeed fully functional after
+	//    unlinking it from its pool. If the consistency check fails the alternates link is restored
+	//    an the RPC fails.
 	//
 	// If successful, the object pool member is disconnected from the object pool and does not depend
 	// on it anymore.

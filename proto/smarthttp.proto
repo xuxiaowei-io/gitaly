@@ -4,6 +4,7 @@ package gitaly;
 
 import "lint.proto";
 import "shared.proto";
+import "packfile.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
@@ -85,6 +86,7 @@ message PostUploadPackWithSidechannelRequest {
 // This is an empty response since the raw data is transferred to the client via the sidechannel
 // exclusively.
 message PostUploadPackWithSidechannelResponse {
+  Stats stats = 1;
 }
 
 // PostReceivePackRequest is the request for the PostReceivePack rpc. It is a stream used to
