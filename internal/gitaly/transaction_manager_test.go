@@ -1077,6 +1077,7 @@ func TestTransactionManager(t *testing.T) {
 					CustomHooksUpdate: &CustomHooksUpdate{
 						CustomHooksTAR: validCustomHooks(t),
 					},
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,
@@ -1120,6 +1121,7 @@ func TestTransactionManager(t *testing.T) {
 					CustomHooksUpdate: &CustomHooksUpdate{
 						CustomHooksTAR: validCustomHooks(t),
 					},
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,
@@ -1302,6 +1304,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,
@@ -1346,6 +1349,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{},
 				StartManager{},
@@ -1388,6 +1392,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{},
 				StartManager{},
@@ -1510,6 +1515,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 			},
 			expectedState: StateAssertion{
@@ -1748,6 +1754,7 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
+					ExpectedError: ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,
@@ -1975,6 +1982,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Third.OID},
 					},
 					QuarantinedPacks: [][]byte{setup.Commits.Third.Pack},
+					ExpectedError:    ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,
@@ -2048,6 +2056,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					QuarantinedPacks: [][]byte{setup.Commits.First.Pack},
+					ExpectedError:    ErrTransactionProcessingStopped,
 				},
 				AssertManager{
 					ExpectedError: errSimulatedCrash,

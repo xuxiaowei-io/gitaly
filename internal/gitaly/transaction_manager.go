@@ -400,6 +400,11 @@ type TransactionManager struct {
 
 	// transactionFinalizer executes when a transaction is completed.
 	transactionFinalizer func()
+
+	// awaitingTransactions contains transactions waiting for their log entry to be applied to
+	// the repository. It's keyed by the log index the transaction is waiting to be applied and the
+	// value is the resultChannel that is waiting the result.
+	awaitingTransactions map[LogIndex]resultChannel
 }
 
 // repository is the localrepo interface used by TransactionManager.
@@ -430,6 +435,7 @@ func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir 
 		applyNotifications:   make(map[LogIndex]chan struct{}),
 		stagingDirectory:     stagingDir,
 		transactionFinalizer: transactionFinalizer,
+		awaitingTransactions: make(map[LogIndex]resultChannel),
 	}
 }
 
@@ -643,7 +649,7 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 		return err
 	}
 
-	transaction.result <- func() (commitErr error) {
+	if err := func() (commitErr error) {
 		logEntry := &gitalypb.LogEntry{}
 
 		var err error
@@ -692,7 +698,12 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 		}
 
 		return mgr.appendLogEntry(nextLogIndex, logEntry)
-	}()
+	}(); err != nil {
+		transaction.result <- err
+		return nil
+	}
+
+	mgr.awaitingTransactions[mgr.appendedLogIndex] = transaction.result
 
 	return nil
 }
@@ -1050,7 +1061,7 @@ func (mgr *TransactionManager) appendLogEntry(nextLogIndex LogIndex, logEntry *g
 }
 
 // applyLogEntry reads a log entry at the given index and applies it to the repository.
-func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIndex) error {
+func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIndex) (returnedErr error) {
 	logEntry, err := mgr.readLogEntry(logIndex)
 	if err != nil {
 		return fmt.Errorf("read log entry: %w", err)
@@ -1100,6 +1111,13 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 	}
 	delete(mgr.applyNotifications, logIndex)
 	close(notificationCh)
+
+	// There is no awaiter for a transaction if the transaction manager is recovering
+	// transactions from the log after starting up.
+	if resultChan, ok := mgr.awaitingTransactions[logIndex]; ok {
+		resultChan <- nil
+		delete(mgr.awaitingTransactions, logIndex)
+	}
 
 	return nil
 }
