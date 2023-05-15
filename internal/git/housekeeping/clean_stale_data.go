@@ -89,10 +89,8 @@ func DefaultStaleDataCleanup() CleanStaleDataConfig {
 	}
 }
 
-// CleanStaleData cleans up any stale data in the repository.
-func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo) error {
-	cfg := DefaultStaleDataCleanup()
-
+// CleanStaleData removes any stale data in the repository as per the provided configuration.
+func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo, cfg CleanStaleDataConfig) error {
 	span, ctx := tracing.StartSpanIfHasParent(ctx, "housekeeping.CleanStaleData", nil)
 	defer span.Finish()
 
