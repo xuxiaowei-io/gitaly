@@ -1363,7 +1363,7 @@ func TestTagHookOutput(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, tc := range []struct {
 		desc           string
@@ -1426,45 +1426,55 @@ func TestTagHookOutput(t *testing.T) {
 				hookType: gitalypb.CustomHookError_HOOK_TYPE_UPDATE,
 			},
 		} {
+			tc := tc
+			hookTC := hookTC
+
 			t.Run(hookTC.hook+"/"+tc.desc, func(t *testing.T) {
-				tagNameInput := "some-tag"
-				createRequest := &gitalypb.UserCreateTagRequest{
-					Repository:     repo,
-					TagName:        []byte(tagNameInput),
-					TargetRevision: []byte("master"),
-					User:           gittest.TestUser,
-				}
-				deleteRequest := &gitalypb.UserDeleteTagRequest{
-					Repository: repo,
-					TagName:    []byte(tagNameInput),
-					User:       gittest.TestUser,
-				}
+				t.Parallel()
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+				gittest.WriteTag(t, cfg, repoPath, "to-be-deleted", commitID.Revision())
 
 				hookFilename := gittest.WriteCustomHook(t, repoPath, hookTC.hook, []byte(tc.hookContent))
 
-				createResponse, err := client.UserCreateTag(ctx, createRequest)
-				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("reference update denied by custom hooks").WithDetail(
-					&gitalypb.UserCreateTagError{
-						Error: &gitalypb.UserCreateTagError_CustomHook{
-							CustomHook: &gitalypb.CustomHookError{
-								HookType: hookTC.hookType,
-								Stdout:   []byte(tc.expectedStdout),
-								Stderr:   []byte(tc.expectedStderr),
+				t.Run("UserCreateTag", func(t *testing.T) {
+					t.Parallel()
+
+					response, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
+						Repository:     repo,
+						TagName:        []byte("new-tag"),
+						TargetRevision: []byte(git.DefaultBranch),
+						User:           gittest.TestUser,
+					})
+
+					testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("reference update denied by custom hooks").WithDetail(
+						&gitalypb.UserCreateTagError{
+							Error: &gitalypb.UserCreateTagError_CustomHook{
+								CustomHook: &gitalypb.CustomHookError{
+									HookType: hookTC.hookType,
+									Stdout:   []byte(tc.expectedStdout),
+									Stderr:   []byte(tc.expectedStderr),
+								},
 							},
 						},
-					},
-				), err)
-				require.Nil(t, createResponse)
+					), err)
+					require.Nil(t, response)
+				})
 
-				defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagNameInput)
-				gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
+				t.Run("UserDeleteTag", func(t *testing.T) {
+					t.Parallel()
 
-				deleteResponse, err := client.UserDeleteTag(ctx, deleteRequest)
-				require.NoError(t, err)
-				deleteResponseOk := &gitalypb.UserDeleteTagResponse{
-					PreReceiveError: tc.expectedErr(hookFilename),
-				}
-				testhelper.ProtoEqual(t, deleteResponseOk, deleteResponse)
+					response, err := client.UserDeleteTag(ctx, &gitalypb.UserDeleteTagRequest{
+						Repository: repo,
+						TagName:    []byte("to-be-deleted"),
+						User:       gittest.TestUser,
+					})
+					require.NoError(t, err)
+					testhelper.ProtoEqual(t, &gitalypb.UserDeleteTagResponse{
+						PreReceiveError: tc.expectedErr(hookFilename),
+					}, response)
+				})
 			})
 		}
 	}
