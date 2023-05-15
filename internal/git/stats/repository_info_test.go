@@ -122,6 +122,9 @@ func TestLogObjectInfo(t *testing.T) {
 		targetRepoPath := filepath.Join(storagePath, targetRepoName)
 		gittest.Exec(t, cfg, "clone", "--bare", "--shared", repoPath1, "--reference", repoPath1, "--reference", repoPath2, targetRepoPath)
 
+		alternatesStat, err := os.Stat(filepath.Join(targetRepoPath, "objects", "info", "alternates"))
+		require.NoError(t, err)
+
 		LogRepositoryInfo(ctx, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
 			RelativePath: targetRepoName,
@@ -135,9 +138,13 @@ func TestLogObjectInfo(t *testing.T) {
 			References: ReferencesInfo{
 				PackedReferencesSize: uint64(packedRefsStat.Size()),
 			},
-			Alternates: []string{
-				filepath.Join(repoPath1, "/objects"),
-				filepath.Join(repoPath2, "/objects"),
+			Alternates: AlternatesInfo{
+				Exists: true,
+				ObjectDirectories: []string{
+					filepath.Join(repoPath1, "/objects"),
+					filepath.Join(repoPath2, "/objects"),
+				},
+				LastModified: alternatesStat.ModTime(),
 			},
 		}, repoInfo)
 	})
@@ -178,6 +185,8 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	alternatePath = filepath.Join(alternatePath, "objects")
+
+	date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
 
 	for _, tc := range []struct {
 		desc         string
@@ -271,12 +280,19 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "alternates",
 			setup: func(t *testing.T, repoPath string) {
-				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
-				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), perm.PrivateFile))
+				writeFileWithMtime(t,
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(alternatePath),
+					date,
+				)
 			},
 			expectedInfo: RepositoryInfo{
-				Alternates: []string{
-					alternatePath,
+				Alternates: AlternatesInfo{
+					Exists: true,
+					ObjectDirectories: []string{
+						alternatePath,
+					},
+					LastModified: date,
 				},
 			},
 		},
@@ -357,10 +373,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			desc: "last full repack timestamp",
 			setup: func(t *testing.T, repoPath string) {
 				timestampPath := filepath.Join(repoPath, fullRepackTimestampFilename)
-				require.NoError(t, os.WriteFile(timestampPath, nil, perm.PrivateFile))
-
-				date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
-				require.NoError(t, os.Chtimes(timestampPath, date, date))
+				writeFileWithMtime(t, timestampPath, nil, date)
 			},
 			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
@@ -371,8 +384,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "all together",
 			setup: func(t *testing.T, repoPath string) {
-				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
-				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), perm.PrivateFile))
+				writeFileWithMtime(t,
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(alternatePath),
+					date,
+				)
 
 				// We write a single packed blob.
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
@@ -410,8 +426,12 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
 				},
-				Alternates: []string{
-					alternatePath,
+				Alternates: AlternatesInfo{
+					Exists: true,
+					ObjectDirectories: []string{
+						alternatePath,
+					},
+					LastModified: date,
 				},
 			},
 		},
@@ -427,6 +447,201 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			repoInfo, err := RepositoryInfoForRepository(repo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedInfo, repoInfo)
+		})
+	}
+}
+
+func TestAlternatesInfoForRepository(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
+
+	createRepo := func(t *testing.T) (*gitalypb.Repository, string) {
+		return gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+	}
+	writeAlternates := func(t *testing.T, repoPath string, alternates []byte) {
+		writeFileWithMtime(t,
+			filepath.Join(repoPath, "objects", "info", "alternates"),
+			alternates,
+			date,
+		)
+	}
+
+	type setupData struct {
+		repoPath     string
+		expectedErr  error
+		expectedInfo AlternatesInfo
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "invalid path",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					repoPath: "/does/not/exist",
+					expectedInfo: AlternatesInfo{
+						Exists: false,
+					},
+				}
+			},
+		},
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: false,
+					},
+				}
+			},
+		},
+		{
+			desc: "empty alternates file",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, nil)
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists:       true,
+						LastModified: date,
+					},
+				}
+			},
+		},
+		{
+			desc: "missing trailing newline",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/absolute"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/absolute",
+						},
+						LastModified: date,
+					},
+				}
+			},
+		},
+		{
+			desc: "absolute path",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/absolute\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/absolute",
+						},
+						LastModified: date,
+					},
+				}
+			},
+		},
+		{
+			desc: "relative path",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("../../../../../@pools/foo/bar\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							filepath.Join(cfg.Storages[0].Path, "@pools", "foo", "bar"),
+						},
+						LastModified: date,
+					},
+				}
+			},
+		},
+		{
+			desc: "mixed absolute and relative paths",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/absolute\n../../../../../@pools/foo/bar\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/absolute",
+							filepath.Join(cfg.Storages[0].Path, "@pools", "foo", "bar"),
+						},
+						LastModified: date,
+					},
+				}
+			},
+		},
+		{
+			desc: "empty lines",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/first\n\n/second\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/first",
+							"/second",
+						},
+						LastModified: date,
+					},
+				}
+			},
+		},
+		{
+			desc: "comment",
+			setup: func(t *testing.T) setupData {
+				_, repoPath := createRepo(t)
+				writeAlternates(t, repoPath, []byte("/first\n# comment\n/second\n"))
+
+				return setupData{
+					repoPath: repoPath,
+					expectedInfo: AlternatesInfo{
+						Exists: true,
+						ObjectDirectories: []string{
+							"/first",
+							"/second",
+						},
+						LastModified: date,
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			info, err := AlternatesInfoForRepository(setup.repoPath)
+			require.Equal(t, setup.expectedErr, err)
+			require.Equal(t, setup.expectedInfo, info)
 		})
 	}
 }
@@ -576,8 +791,7 @@ func TestCountLooseObjects(t *testing.T) {
 		beforeCutoffDate := cutoffDate.Add(-1 * time.Minute)
 
 		for _, objectPath := range objectPaths {
-			require.NoError(t, os.WriteFile(objectPath, []byte("1"), perm.SharedFile))
-			require.NoError(t, os.Chtimes(objectPath, afterCutoffDate, afterCutoffDate))
+			writeFileWithMtime(t, objectPath, []byte("1"), afterCutoffDate)
 		}
 
 		// Objects are recent, so with the cutoff-date they shouldn't be counted.
@@ -1485,4 +1699,10 @@ func hashDependentSize(sha1, sha256 uint64) uint64 {
 		return sha1
 	}
 	return sha256
+}
+
+func writeFileWithMtime(tb testing.TB, path string, content []byte, date time.Time) {
+	tb.Helper()
+	require.NoError(tb, os.WriteFile(path, content, perm.PrivateFile))
+	require.NoError(tb, os.Chtimes(path, date, date))
 }

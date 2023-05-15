@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 )
 
 const (
@@ -137,9 +137,8 @@ type RepositoryInfo struct {
 	References ReferencesInfo `json:"references"`
 	// CommitGraph contains information about the repository's commit-graphs.
 	CommitGraph CommitGraphInfo `json:"commit_graph"`
-	// Alternates is the list of absolute paths of alternate object databases this repository is
-	// connected to.
-	Alternates []string `json:"alternates"`
+	// Alternates contains information about alternate object directories.
+	Alternates AlternatesInfo `json:"alternates"`
 }
 
 // RepositoryInfoForRepository computes the RepositoryInfo for a repository.
@@ -174,7 +173,7 @@ func RepositoryInfoForRepository(repo *localrepo.Repo) (RepositoryInfo, error) {
 		return RepositoryInfo{}, fmt.Errorf("checking commit-graph info: %w", err)
 	}
 
-	info.Alternates, err = readAlternates(repo)
+	info.Alternates, err = AlternatesInfoForRepository(repoPath)
 	if err != nil {
 		return RepositoryInfo{}, fmt.Errorf("reading alterantes: %w", err)
 	}
@@ -487,32 +486,70 @@ func hasPrefixAndSuffix(s, prefix, suffix string) bool {
 	return strings.HasPrefix(s, prefix) && strings.HasSuffix(s, suffix)
 }
 
-func readAlternates(repo *localrepo.Repo) ([]string, error) {
-	repoPath, err := repo.Path()
-	if err != nil {
-		return nil, fmt.Errorf("getting repository path: %w", err)
-	}
+// AlternatesInfo contains information about altenrate object directories the repository is linked
+// to.
+type AlternatesInfo struct {
+	// Exists determines whether the `info/alternates` file exists or not.
+	Exists bool `json:"exists"`
+	// Paths contains the list of paths to object directories that the repository is linked to.
+	ObjectDirectories []string `json:"object_directories,omitempty"`
+	// LastModified is the time when the alternates file has last been modified. Has the zero
+	// value when the alternates file doesn't exist.
+	LastModified time.Time `json:"last_modified"`
+}
 
-	contents, err := os.ReadFile(filepath.Join(repoPath, "objects", "info", "alternates"))
+// AlternatesInfoForRepository reads the alternates file and returns information on it. This
+// function does not return an error in case the alternates file doesn't exist. Existence can be
+// checked via the `Exists` field of the returned `AlternatesInfo` structure.
+func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
+	file, err := os.Open(filepath.Join(repoPath, "objects", "info", "alternates"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
+			return AlternatesInfo{
+				Exists: false,
+			}, nil
 		}
 
-		return nil, fmt.Errorf("reading alternates: %w", err)
+		return AlternatesInfo{}, err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return AlternatesInfo{}, err
 	}
 
-	relativeAlternatePaths := strings.Split(text.ChompBytes(contents), "\n")
-	alternatePaths := make([]string, 0, len(relativeAlternatePaths))
-	for _, relativeAlternatePath := range relativeAlternatePaths {
-		if filepath.IsAbs(relativeAlternatePath) {
-			alternatePaths = append(alternatePaths, relativeAlternatePath)
-		} else {
-			alternatePaths = append(alternatePaths, filepath.Join(repoPath, "objects", relativeAlternatePath))
+	var alternatePaths []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+
+		switch {
+		case len(line) == 0:
+			// Empty lines are skipped by Git.
+			continue
+		case bytes.HasPrefix(line, []byte("#")):
+			// Lines starting with a '#' are comments and thus need to be skipped.
+			continue
+		default:
+			path := scanner.Text()
+
+			if filepath.IsAbs(path) {
+				alternatePaths = append(alternatePaths, path)
+			} else {
+				alternatePaths = append(alternatePaths, filepath.Join(repoPath, "objects", path))
+			}
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return AlternatesInfo{}, fmt.Errorf("scanning alternate paths: %w", err)
+	}
 
-	return alternatePaths, nil
+	return AlternatesInfo{
+		Exists:            true,
+		ObjectDirectories: alternatePaths,
+		LastModified:      stat.ModTime(),
+	}, nil
 }
 
 // BitmapInfo contains information about a packfile or multi-pack-index bitmap.
