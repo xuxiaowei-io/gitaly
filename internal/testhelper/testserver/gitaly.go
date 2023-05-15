@@ -17,7 +17,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
@@ -348,6 +350,18 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		gsd.housekeepingManager = housekeeping.NewManager(cfg.Prometheus, gsd.txMgr)
 	}
 
+	var partitionManager *gitaly.PartitionManager
+	if _, ok := os.LookupEnv("GITALY_TEST_WAL"); ok {
+		var err error
+		partitionManager, err = gitaly.NewPartitionManager(
+			cfg.Storages,
+			localrepo.NewFactory(gsd.locator, gsd.gitCmdFactory, gsd.catfileCache),
+			gsd.logger,
+		)
+		require.NoError(tb, err)
+		tb.Cleanup(partitionManager.Stop)
+	}
+
 	return &service.Dependencies{
 		Cfg:                           cfg,
 		ClientPool:                    gsd.conns,
@@ -366,6 +380,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		Git2goExecutor:                gsd.git2goExecutor,
 		UpdaterWithHooks:              gsd.updaterWithHooks,
 		HousekeepingManager:           gsd.housekeepingManager,
+		PartitionManager:              partitionManager,
 	}
 }
 

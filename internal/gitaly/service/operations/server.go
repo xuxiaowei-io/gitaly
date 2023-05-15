@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -21,14 +22,15 @@ import (
 //nolint:revive // This is unintentionally missing documentation.
 type Server struct {
 	gitalypb.UnimplementedOperationServiceServer
-	hookManager    hook.Manager
-	txManager      transaction.Manager
-	locator        storage.Locator
-	conns          *client.Pool
-	git2goExecutor *git2go.Executor
-	gitCmdFactory  git.CommandFactory
-	catfileCache   catfile.Cache
-	updater        *updateref.UpdaterWithHooks
+	hookManager      hook.Manager
+	txManager        transaction.Manager
+	locator          storage.Locator
+	conns            *client.Pool
+	git2goExecutor   *git2go.Executor
+	gitCmdFactory    git.CommandFactory
+	catfileCache     catfile.Cache
+	updater          *updateref.UpdaterWithHooks
+	partitionManager *gitaly.PartitionManager
 }
 
 // NewServer creates a new instance of a grpc OperationServiceServer
@@ -41,16 +43,18 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	updater *updateref.UpdaterWithHooks,
+	partitionManager *gitaly.PartitionManager,
 ) *Server {
 	return &Server{
-		hookManager:    hookManager,
-		txManager:      txManager,
-		locator:        locator,
-		conns:          conns,
-		git2goExecutor: git2goExecutor,
-		gitCmdFactory:  gitCmdFactory,
-		catfileCache:   catfileCache,
-		updater:        updater,
+		hookManager:      hookManager,
+		txManager:        txManager,
+		locator:          locator,
+		conns:            conns,
+		git2goExecutor:   git2goExecutor,
+		gitCmdFactory:    gitCmdFactory,
+		catfileCache:     catfileCache,
+		updater:          updater,
+		partitionManager: partitionManager,
 	}
 }
 

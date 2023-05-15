@@ -83,6 +83,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 		deps.GetUpdaterWithHooks(),
+		deps.GetPartitionManager(),
 	))
 	gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
 		deps.GetLocator(),

@@ -778,8 +778,6 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg := cfgWithCache(t, 0)
-
 	args := []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"}
 
 	for _, tc := range []struct {
@@ -957,6 +955,8 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			cfg := cfgWithCache(t, 0)
+
 			ticker := helper.NewManualTicker()
 			monitor := limithandler.NewPackObjectsConcurrencyMonitor(
 				cfg.Prometheus.GRPCLatencyBuckets,
