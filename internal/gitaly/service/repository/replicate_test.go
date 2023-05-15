@@ -334,7 +334,7 @@ func TestReplicateRepository(t *testing.T) {
 				return setupData{
 					source:        source,
 					target:        target,
-					expectedError: structerr.NewInternal("replicating repository: synchronizing repository: fetch internal remote: exit status 128"),
+					expectedError: structerr.NewInternal("replicating repository: synchronizing references: fetch internal remote: exit status 128"),
 				}
 			},
 		},

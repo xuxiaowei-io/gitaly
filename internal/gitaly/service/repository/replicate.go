@@ -93,8 +93,8 @@ func (s *server) replicateRepository(ctx context.Context, source, target *gitaly
 		return fmt.Errorf("synchronizing gitattributes: %w", err)
 	}
 
-	if err := s.syncRepository(ctx, source, target); err != nil {
-		return fmt.Errorf("synchronizing repository: %w", err)
+	if err := s.syncReferences(ctx, source, target); err != nil {
+		return fmt.Errorf("synchronizing references: %w", err)
 	}
 
 	if err := s.syncCustomHooks(ctx, source, target); err != nil {
@@ -211,7 +211,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	return nil
 }
 
-func (s *server) syncRepository(ctx context.Context, source, target *gitalypb.Repository) error {
+func (s *server) syncReferences(ctx context.Context, source, target *gitalypb.Repository) error {
 	repo := s.localrepo(target)
 
 	if err := fetchInternalRemote(ctx, s.txManager, s.conns, repo, source); err != nil {
