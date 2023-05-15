@@ -400,6 +400,16 @@ bench: ${BENCHMARK_REPO} prepare-tests
 test-with-praefect: prepare-tests
 	${Q}GITALY_TEST_WITH_PRAEFECT=YesPlease $(call run_go_tests)
 
+.PHONY: test-wal
+## Run Go tests with write-ahead logging enabled.
+test-wal: export GITALY_TEST_WAL = YesPlease
+test-wal: test
+
+.PHONY: test-with-praefect-wal
+## Run Go tests with write-ahead logging and Praefect enabled.
+test-with-praefect-wal: export GITALY_TEST_WAL = YesPlease
+test-with-praefect-wal: test-with-praefect
+
 .PHONY: race-go
 ## Run Go tests with race detection enabled.
 race-go: override TEST_OPTIONS := ${TEST_OPTIONS} -race
