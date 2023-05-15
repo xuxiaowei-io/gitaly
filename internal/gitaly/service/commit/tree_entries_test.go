@@ -4,6 +4,7 @@ package commit
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -1209,9 +1211,8 @@ func BenchmarkGetTreeEntries(b *testing.B) {
 	ctx := testhelper.Context(b)
 	cfg, client := setupCommitService(b, ctx)
 
-	repo, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: "benchmark.git",
-	})
+	repo, repoPath := gittest.CreateRepository(b, ctx, cfg)
+	commitID := populateRepoWithTreesBlobs(b, repoPath, cfg, 20)
 
 	for _, tc := range []struct {
 		desc            string
@@ -1222,31 +1223,31 @@ func BenchmarkGetTreeEntries(b *testing.B) {
 			desc: "recursive from root",
 			request: &gitalypb.GetTreeEntriesRequest{
 				Repository: repo,
-				Revision:   []byte("9659e770b131abb4e01d74306819192cd553c258"),
+				Revision:   []byte(commitID),
 				Path:       []byte("."),
 				Recursive:  true,
 			},
-			expectedEntries: 61027,
+			expectedEntries: 40419,
 		},
 		{
 			desc: "non-recursive from root",
 			request: &gitalypb.GetTreeEntriesRequest{
 				Repository: repo,
-				Revision:   []byte("9659e770b131abb4e01d74306819192cd553c258"),
+				Revision:   []byte(commitID),
 				Path:       []byte("."),
 				Recursive:  false,
 			},
-			expectedEntries: 101,
+			expectedEntries: 21,
 		},
 		{
 			desc: "recursive from subdirectory",
 			request: &gitalypb.GetTreeEntriesRequest{
 				Repository: repo,
-				Revision:   []byte("9659e770b131abb4e01d74306819192cd553c258"),
-				Path:       []byte("lib/gitlab"),
+				Revision:   []byte(commitID),
+				Path:       []byte("folder1/folder2/folder3"),
 				Recursive:  true,
 			},
-			expectedEntries: 2642,
+			expectedEntries: 34356,
 		},
 	} {
 		b.Run(tc.desc, func(b *testing.B) {
@@ -1303,4 +1304,45 @@ func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitServi
 		}
 	}
 	return entries, cursor
+}
+
+func populateRepoWithTreesBlobs(tb testing.TB, repoPath string, cfg config.Cfg, depth int) git.ObjectID {
+	var treeOID git.ObjectID
+	treeCount, blobCount := 20, 100
+
+	writeTree := func(path string) gittest.TreeEntry {
+		entries := []gittest.TreeEntry{}
+
+		for i := 0; i < blobCount; i++ {
+			entries = append(entries, gittest.TreeEntry{
+				OID: gittest.WriteBlob(tb, cfg, repoPath, []byte(fmt.Sprintf("%d", i))), Mode: "100644", Path: fmt.Sprintf("%d", i),
+			})
+		}
+
+		return gittest.TreeEntry{
+			OID:  gittest.WriteTree(tb, cfg, repoPath, entries),
+			Mode: "040000",
+			Path: path,
+		}
+	}
+
+	for i := depth; i > 0; i-- {
+		entries := []gittest.TreeEntry{}
+
+		for j := 0; j < treeCount; j++ {
+			entries = append(entries, writeTree(fmt.Sprintf("%d", j)))
+		}
+
+		if treeOID != "" {
+			entries = append(entries, gittest.TreeEntry{
+				OID:  treeOID,
+				Mode: "040000",
+				Path: fmt.Sprintf("folder%d", i),
+			})
+		}
+
+		treeOID = gittest.WriteTree(tb, cfg, repoPath, entries)
+	}
+
+	return gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTree(treeOID))
 }
