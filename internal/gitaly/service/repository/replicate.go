@@ -197,7 +197,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	}
 
 	if err = cmd.Wait(); err != nil {
-		return fmt.Errorf("wait for tar, stderr: %q, err: %w", stderr, err)
+		return structerr.New("wait for tar: %w", err).WithMetadata("stderr", stderr)
 	}
 
 	return nil
@@ -234,7 +234,7 @@ func fetchInternalRemote(
 		},
 	); err != nil {
 		if errors.As(err, &localrepo.FetchFailedError{}) {
-			return fmt.Errorf("fetch: %w, stderr: %q", err, stderr.String())
+			return structerr.New("%w", err).WithMetadata("stderr", stderr.String())
 		}
 
 		return fmt.Errorf("fetch: %w", err)

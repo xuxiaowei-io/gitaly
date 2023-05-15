@@ -656,7 +656,7 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 		RelativePath: "does-not-exist.git",
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "fatal: Could not read from remote repository")
+	require.Contains(t, err.Error(), "exit status 128")
 }
 
 func TestReplicateRepository_hooks(t *testing.T) {
