@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -37,6 +38,7 @@ type Dependencies struct {
 	Git2goExecutor                *git2go.Executor
 	UpdaterWithHooks              *updateref.UpdaterWithHooks
 	HousekeepingManager           housekeeping.Manager
+	PartitionManager              *gitaly.PartitionManager
 }
 
 // GetCfg returns service configuration.
@@ -122,4 +124,9 @@ func (dc *Dependencies) GetHousekeepingManager() housekeeping.Manager {
 // GetPackObjectsLimiter returns the pack-objects limiter.
 func (dc *Dependencies) GetPackObjectsLimiter() limithandler.Limiter {
 	return dc.PackObjectsLimiter
+}
+
+// GetPartitionManager returns the PartitionManager.
+func (dc *Dependencies) GetPartitionManager() *gitaly.PartitionManager {
+	return dc.PartitionManager
 }
