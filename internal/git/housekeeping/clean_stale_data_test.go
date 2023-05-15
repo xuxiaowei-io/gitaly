@@ -655,7 +655,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 		desc            string
 		file            string
 		subdirs         []string
-		finder          staleFileFinderFn
+		finder          findStaleFileFunc
 		expectedMetrics cleanStaleDataMetrics
 	}{
 		{

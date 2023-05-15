@@ -41,7 +41,11 @@ var lockfiles = []string{
 	"objects/info/commit-graphs/commit-graph-chain.lock",
 }
 
-type staleFileFinderFn func(context.Context, string) ([]string, error)
+type (
+	findStaleFileFunc            func(context.Context, string) ([]string, error)
+	cleanupRepoFunc              func(context.Context, *localrepo.Repo) (int, error)
+	cleanupRepoWithTxManagerFunc func(context.Context, *localrepo.Repo, transaction.Manager) (int, error)
+)
 
 // CleanStaleData cleans up any stale data in the repository.
 func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo) error {
@@ -72,7 +76,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 	}()
 
 	var filesToPrune []string
-	for staleFileType, staleFileFinder := range map[string]staleFileFinderFn{
+	for staleFileType, staleFileFinder := range map[string]findStaleFileFunc{
 		"objects":        findTemporaryObjects,
 		"locks":          findStaleLockfiles,
 		"refs":           findBrokenLooseReferences,
@@ -101,22 +105,25 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		}
 	}
 
-	prunedRefDirs, err := removeRefEmptyDirs(ctx, repo)
-	staleDataByType["refsemptydir"] = prunedRefDirs
-	if err != nil {
-		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
+	for repoCleanupName, repoCleanupFn := range map[string]cleanupRepoFunc{
+		"refsemptydir":   removeRefEmptyDirs,
+		"configsections": pruneEmptyConfigSections,
+	} {
+		cleanupCount, err := repoCleanupFn(ctx, repo)
+		staleDataByType[repoCleanupName] = cleanupCount
+		if err != nil {
+			return fmt.Errorf("housekeeping could not perform cleanup %s: %w", repoCleanupName, err)
+		}
 	}
 
-	configCleaned, err := removeUnnecessaryConfig(ctx, repo, m.txManager)
-	if err != nil {
-		return err
-	}
-	staleDataByType["configkeys"] = configCleaned
-
-	skippedSections, err := pruneEmptyConfigSections(ctx, repo)
-	staleDataByType["configsections"] = skippedSections
-	if err != nil {
-		return fmt.Errorf("failed pruning empty sections: %w", err)
+	for repoCleanupName, repoCleanupFn := range map[string]cleanupRepoWithTxManagerFunc{
+		"configkeys": removeUnnecessaryConfig,
+	} {
+		cleanupCount, err := repoCleanupFn(ctx, repo, m.txManager)
+		staleDataByType[repoCleanupName] = cleanupCount
+		if err != nil {
+			return fmt.Errorf("housekeeping could not perform cleanup (with TxManager) %s: %w", repoCleanupName, err)
+		}
 	}
 
 	return nil
