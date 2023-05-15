@@ -193,7 +193,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, nil, targetBranch, patchedCommit, currentCommit); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, nil, header.Repository, header.User, nil, targetBranch, patchedCommit, currentCommit); err != nil {
 		return fmt.Errorf("update reference: %w", err)
 	}
 

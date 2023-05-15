@@ -145,7 +145,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, newrev, oldrev); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, nil, req.GetRepository(), req.User, quarantineDir, referenceName, newrev, oldrev); err != nil {
 		var customHookErr updateref.CustomHookError
 		if errors.As(err, &customHookErr) {
 			return nil, structerr.NewFailedPrecondition("access check failed").WithDetail(

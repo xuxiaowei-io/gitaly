@@ -58,7 +58,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, startPointOID, git.ObjectHashSHA1.ZeroOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, nil, req.GetRepository(), req.User, quarantineDir, referenceName, startPointOID, git.ObjectHashSHA1.ZeroOID); err != nil {
 		var customHookErr updateref.CustomHookError
 
 		if errors.As(err, &customHookErr) {
@@ -140,7 +140,7 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 		return nil, err
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, newOID, oldOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, nil, req.GetRepository(), req.User, quarantineDir, referenceName, newOID, oldOID); err != nil {
 		var customHookErr updateref.CustomHookError
 		if errors.As(err, &customHookErr) {
 			return &gitalypb.UserUpdateBranchResponse{
@@ -203,7 +203,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, referenceValue); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, nil, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, referenceValue); err != nil {
 		var notAllowedError hook.NotAllowedError
 		var customHookErr updateref.CustomHookError
 		var updateRefError updateref.Error

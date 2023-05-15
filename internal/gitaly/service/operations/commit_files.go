@@ -126,10 +126,11 @@ func validatePath(rootPath, relPath string) (string, error) {
 }
 
 func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommitFilesRequestHeader, stream gitalypb.OperationService_UserCommitFilesServer) error {
-	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository())
+	tx, quarantineDir, quarantineRepo, clean, err := s.begin(ctx, header.GetRepository())
 	if err != nil {
-		return err
+		return fmt.Errorf("begin: %w", err)
 	}
+	defer func() { _ = clean() }()
 
 	repoPath, err := quarantineRepo.Path()
 	if err != nil {
@@ -339,7 +340,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, header.GetRepository(), header.User, quarantineDir, targetBranchName, commitID, oldRevision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, tx, header.GetRepository(), header.User, quarantineDir, targetBranchName, commitID, oldRevision); err != nil {
 		if errors.As(err, &updateref.Error{}) {
 			return structerr.NewFailedPrecondition("%w", err)
 		}

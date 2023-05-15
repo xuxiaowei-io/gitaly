@@ -198,6 +198,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 
 	if err := s.updater.UpdateReference(
 		ctx,
+		nil,
 		header.Repository,
 		header.User,
 		quarantineDir,

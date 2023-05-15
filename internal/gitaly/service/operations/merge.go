@@ -193,7 +193,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return structerr.NewFailedPrecondition("merge aborted by client")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, firstRequest.GetRepository(), firstRequest.User, quarantineDir, referenceName, mergeOID, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, nil, firstRequest.GetRepository(), firstRequest.User, quarantineDir, referenceName, mergeOID, revision); err != nil {
 		var notAllowedError hook.NotAllowedError
 		var customHookErr updateref.CustomHookError
 		var updateRefError updateref.Error
@@ -331,7 +331,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, structerr.NewFailedPrecondition("not fast forward")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, in.GetRepository(), in.User, quarantineDir, referenceName, commitID, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, nil, in.GetRepository(), in.User, quarantineDir, referenceName, commitID, revision); err != nil {
 		var customHookErr updateref.CustomHookError
 		if errors.As(err, &customHookErr) {
 			return &gitalypb.UserFFBranchResponse{

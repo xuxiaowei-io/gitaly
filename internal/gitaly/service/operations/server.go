@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -60,6 +61,35 @@ func NewServer(
 
 func (s *Server) localrepo(repo repository.GitRepo) *localrepo.Repo {
 	return localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repo)
+}
+
+func (s *Server) begin(ctx context.Context, repo *gitalypb.Repository) (_ *gitaly.Transaction, _ *quarantine.Dir, _ *localrepo.Repo, _ func() error, returnedErr error) {
+	if s.partitionManager != nil {
+		tx, err := s.partitionManager.Begin(ctx, repo)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("begin: %w", err)
+		}
+		defer func() {
+			if returnedErr != nil {
+				_ = tx.Rollback()
+			}
+		}()
+
+		quarantineDir, err := tx.QuarantineDirectory()
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("quarantine directory: %w", err)
+		}
+
+		quarantineRepo, err := s.localrepo(repo).Quarantine(quarantineDir)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("quarantine repo: %w", err)
+		}
+
+		return tx, nil, quarantineRepo, tx.Rollback, nil
+	}
+
+	quarantineDir, quarantinedRepo, err := s.quarantinedRepo(ctx, repo)
+	return nil, quarantineDir, quarantinedRepo, func() error { return nil }, err
 }
 
 func (s *Server) quarantinedRepo(

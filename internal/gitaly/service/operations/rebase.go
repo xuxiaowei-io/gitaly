@@ -110,6 +110,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 
 	if err := s.updateReferenceWithHooks(
 		ctx,
+		nil,
 		header.GetRepository(),
 		header.User,
 		quarantineDir,

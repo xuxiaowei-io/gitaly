@@ -258,6 +258,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 
 	if err := s.updateReferenceWithHooks(
 		ctx,
+		nil,
 		req.GetRepository(),
 		req.GetUser(),
 		quarantineDir,

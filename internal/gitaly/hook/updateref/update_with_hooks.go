@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -145,8 +146,12 @@ func NewUpdaterWithHooks(
 // with the quarantined repository as returned by the quarantine structure. If these hooks succeed,
 // quarantined objects will be migrated and all subsequent hooks are executed via the unquarantined
 // repository.
+//
+// If transaction is set, the actual update is done through the WAL by calling Commit on it. The
+// quarantine directory is taken from the transaction, and the other quarantineDir parameter is ignored.
 func (u *UpdaterWithHooks) UpdateReference(
 	ctx context.Context,
+	tx *gitaly.Transaction,
 	repoProto *gitalypb.Repository,
 	user *gitalypb.User,
 	quarantineDir *quarantine.Dir,
@@ -192,7 +197,22 @@ func (u *UpdaterWithHooks) UpdateReference(
 	// then subsequently passed to Rails, which can use the quarantine directory to more
 	// efficiently query which objects are new.
 	quarantinedRepo := repoProto
-	if quarantineDir != nil {
+	if tx != nil {
+		quarantineDir, err := tx.QuarantineDirectory()
+		if err != nil {
+			return fmt.Errorf("quarantine directory: %w", err)
+		}
+
+		repoPath, err := repo.Path()
+		if err != nil {
+			return fmt.Errorf("repo path: %w", err)
+		}
+
+		quarantinedRepo, err = quarantine.Apply(repoPath, repoProto, quarantineDir)
+		if err != nil {
+			return fmt.Errorf("quarantine repo: %w", err)
+		}
+	} else if quarantineDir != nil {
 		quarantinedRepo = quarantineDir.QuarantinedRepo()
 	}
 
@@ -218,6 +238,9 @@ func (u *UpdaterWithHooks) UpdateReference(
 		// We only need to update the hooks payload to the unquarantined repo in case we
 		// had a quarantine environment. Otherwise, the initial hooks payload is for the
 		// real repository anyway.
+		//
+		// With WAL, the update and reference transaction hooks must still execute with the quarantine
+		// as the objects are only written into the repository once the transaction has been committed.
 		hooksPayload, err = git.NewHooksPayload(u.cfg, repoProto, objectHash, transaction, &receiveHooksPayload, git.ReceivePackHooks, featureflag.FromContext(ctx)).Env()
 		if err != nil {
 			return fmt.Errorf("constructing quarantined hooks payload: %w", err)
@@ -228,52 +251,84 @@ func (u *UpdaterWithHooks) UpdateReference(
 		return fmt.Errorf("running update hooks: %w", wrapHookError(err, git.UpdateHook, stdout.String(), stderr.String()))
 	}
 
-	// We are already manually invoking the reference-transaction hook, so there is no need to
-	// set up hooks again here. One could argue that it would be easier to just have git handle
-	// execution of the reference-transaction hook. But unfortunately, it has proven to be
-	// problematic: if we queue a deletion, and the reference to be deleted exists both as
-	// packed-ref and as loose ref, then we would see two transactions: first a transaction
-	// deleting the packed-ref which would otherwise get unshadowed by deleting the loose ref,
-	// and only then do we see the deletion of the loose ref. So this depends on how well a repo
-	// is packed, which is obviously a bad thing as Gitaly nodes may be differently packed. We
-	// thus continue to manually drive the reference-transaction hook here, which doesn't have
-	// this problem.
-	updater, err := updateref.New(ctx, repo, updateref.WithDisabledTransactions())
-	if err != nil {
-		return fmt.Errorf("creating updater: %w", err)
-	}
-
-	// We need to explicitly cancel the update here such that we release the lock when this
-	// function exits if there is any error between locking and committing.
-	defer func() { _ = updater.Close() }()
-
-	if err := updater.Start(); err != nil {
-		return fmt.Errorf("start reference transaction: %w", err)
-	}
-
-	if err := updater.Update(reference, newrev, oldrev); err != nil {
-		return fmt.Errorf("queueing ref update: %w", err)
-	}
-
-	// We need to lock the reference before executing the reference-transaction hook such that
-	// there cannot be any concurrent modification.
-	if err := updater.Prepare(); err != nil {
-		return Error{
-			Reference: reference,
-			OldOID:    oldrev,
-			NewOID:    newrev,
+	if tx != nil {
+		// The prepared step deviates from the non-WAL behavior as it doesn't verify nor lock the references
+		// prior to casting the prepared vote.
+		if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
+			return fmt.Errorf("executing preparatory reference-transaction hook: %w", err)
 		}
-	}
 
-	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
-		return fmt.Errorf("executing preparatory reference-transaction hook: %w", err)
-	}
+		tx.UpdateReferences(gitaly.ReferenceUpdates{
+			reference: {OldOID: oldrev, NewOID: newrev},
+		})
 
-	if err := updater.Commit(); err != nil {
-		return Error{
-			Reference: reference,
-			OldOID:    oldrev,
-			NewOID:    newrev,
+		if err := tx.Commit(ctx); err != nil {
+			var errReferenceVerification gitaly.ReferenceVerificationError
+			if errors.As(err, &errReferenceVerification) {
+				return Error{
+					Reference: errReferenceVerification.ReferenceName,
+					OldOID:    oldrev,
+					NewOID:    newrev,
+				}
+			}
+
+			return fmt.Errorf("commit: %w", err)
+		}
+
+		// The quarantined objects are written into the repository following a commit and the quarantine directory
+		// removed. Replace the quarantined repository with the normal repository in the payload.
+		hooksPayload, err = git.NewHooksPayload(u.cfg, repoProto, objectHash, transaction, &receiveHooksPayload, git.ReceivePackHooks, featureflag.FromContext(ctx)).Env()
+		if err != nil {
+			return fmt.Errorf("constructing quarantined hooks payload: %w", err)
+		}
+	} else {
+		// We are already manually invoking the reference-transaction hook, so there is no need to
+		// set up hooks again here. One could argue that it would be easier to just have git handle
+		// execution of the reference-transaction hook. But unfortunately, it has proven to be
+		// problematic: if we queue a deletion, and the reference to be deleted exists both as
+		// packed-ref and as loose ref, then we would see two transactions: first a transaction
+		// deleting the packed-ref which would otherwise get unshadowed by deleting the loose ref,
+		// and only then do we see the deletion of the loose ref. So this depends on how well a repo
+		// is packed, which is obviously a bad thing as Gitaly nodes may be differently packed. We
+		// thus continue to manually drive the reference-transaction hook here, which doesn't have
+		// this problem.
+		updater, err := updateref.New(ctx, repo, updateref.WithDisabledTransactions())
+		if err != nil {
+			return fmt.Errorf("creating updater: %w", err)
+		}
+
+		// We need to explicitly cancel the update here such that we release the lock when this
+		// function exits if there is any error between locking and committing.
+		defer func() { _ = updater.Close() }()
+
+		if err := updater.Start(); err != nil {
+			return fmt.Errorf("start reference transaction: %w", err)
+		}
+
+		if err := updater.Update(reference, newrev, oldrev); err != nil {
+			return fmt.Errorf("queueing ref update: %w", err)
+		}
+
+		// We need to lock the reference before executing the reference-transaction hook such that
+		// there cannot be any concurrent modification.
+		if err := updater.Prepare(); err != nil {
+			return Error{
+				Reference: reference,
+				OldOID:    oldrev,
+				NewOID:    newrev,
+			}
+		}
+
+		if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
+			return fmt.Errorf("executing preparatory reference-transaction hook: %w", err)
+		}
+
+		if err := updater.Commit(); err != nil {
+			return Error{
+				Reference: reference,
+				OldOID:    oldrev,
+				NewOID:    newrev,
+			}
 		}
 	}
 
