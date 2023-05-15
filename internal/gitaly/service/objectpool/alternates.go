@@ -10,13 +10,11 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -204,35 +202,17 @@ func (s *server) removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo,
 		}
 	}()
 
-	var err error
-	var cmd *command.Command
-
-	if featureflag.RevlistForConnectivity.IsEnabled(ctx) {
-		// The choice here of git rev-list is for performance reasons.
-		// git fsck --connectivity-only performed badly for large
-		// repositories. The reasons are detailed in https://lore.kernel.org/git/9304B938-4A59-456B-B091-DBBCAA1823B2@gmail.com/
-		cmd, err = repo.Exec(ctx, git.Command{
-			Name: "rev-list",
-			Flags: []git.Option{
-				git.Flag{Name: "--objects"},
-				git.Flag{Name: "--all"},
-				git.Flag{Name: "--quiet"},
-			},
-		})
-	} else {
-		cmd, err = repo.Exec(ctx, git.Command{
-			Name:  "fsck",
-			Flags: []git.Option{git.Flag{Name: "--connectivity-only"}},
-		}, git.WithConfig(git.ConfigPair{
-			// Starting with Git's f30e4d854b (fsck: verify commit graph when implicitly
-			// enabled, 2021-10-15), git-fsck(1) will check the commit graph for consistency
-			// even if `core.commitGraph` is not enabled explicitly. We do not want to verify
-			// whether the commit graph is consistent though, but only care about connectivity,
-			// so we now explicitly disable usage of the commit graph.
-			Key: "core.commitGraph", Value: "false",
-		}))
-	}
-
+	// The choice here of git rev-list is for performance reasons.
+	// git fsck --connectivity-only performed badly for large
+	// repositories. The reasons are detailed in https://lore.kernel.org/git/9304B938-4A59-456B-B091-DBBCAA1823B2@gmail.com/
+	cmd, err := repo.Exec(ctx, git.Command{
+		Name: "rev-list",
+		Flags: []git.Option{
+			git.Flag{Name: "--objects"},
+			git.Flag{Name: "--all"},
+			git.Flag{Name: "--quiet"},
+		},
+	})
 	if err != nil {
 		return err
 	}
