@@ -470,10 +470,15 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 	return nil
 }
 
-func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) error {
+func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) (returnErr error) {
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, path)
 	})
+	defer func() {
+		if err := w.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("write custom hooks: %w", err)
+		}
+	}()
 	if err := repo.GetCustomHooks(ctx, w); err != nil {
 		return fmt.Errorf("write custom hooks: %w", err)
 	}

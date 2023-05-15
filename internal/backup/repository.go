@@ -213,7 +213,7 @@ func (r *localRepository) ListRefs(ctx context.Context) ([]git.Reference, error)
 // GetCustomHooks fetches the custom hooks archive.
 func (r *localRepository) GetCustomHooks(ctx context.Context, out io.Writer) error {
 	if err := repoutil.GetCustomHooks(ctx, r.locator, out, r.repo); err != nil {
-		return fmt.Errorf("local repository: list refs: %w", err)
+		return fmt.Errorf("local repository: get custom hooks: %w", err)
 	}
 	return nil
 }
