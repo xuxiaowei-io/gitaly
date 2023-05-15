@@ -21,7 +21,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func TestNew_environment(t *testing.T) {
@@ -196,7 +200,18 @@ func TestNew_spawnTimeout(t *testing.T) {
 
 	// And after some time we expect that spawning of the command fails due to the configured
 	// timeout.
-	require.Equal(t, fmt.Errorf("process spawn timed out after 200ms"), <-errCh)
+	err := <-errCh
+	var structErr structerr.Error
+	require.ErrorAs(t, err, &structErr)
+	details := structErr.Details()
+	require.Len(t, details, 1)
+
+	limitErr, ok := details[0].(*gitalypb.LimitError)
+	require.True(t, ok)
+
+	testhelper.RequireGrpcCode(t, err, codes.ResourceExhausted)
+	require.Equal(t, "process spawn timed out after 200ms", limitErr.ErrorMessage)
+	require.Equal(t, durationpb.New(0), limitErr.RetryAfter)
 }
 
 func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {

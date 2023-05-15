@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
-
-const logDurationThreshold = 5 * time.Millisecond
 
 var (
 	spawnTokens chan struct{}
@@ -63,31 +63,32 @@ func getSpawnToken(ctx context.Context) (putToken func(), err error) {
 
 	select {
 	case spawnTokens <- struct{}{}:
-		logTime(ctx, start, "spawn token acquired")
+		recordTime(ctx, start, "")
 
 		return func() {
 			<-spawnTokens
 		}, nil
 	case <-time.After(spawnConfig.Timeout):
-		logTime(ctx, start, "spawn token timeout")
+		recordTime(ctx, start, "spawn token timeout")
 		spawnTimeoutCount.Inc()
 
-		return nil, fmt.Errorf("process spawn timed out after %v", spawnConfig.Timeout)
+		msg := fmt.Sprintf("process spawn timed out after %v", spawnConfig.Timeout)
+		return nil, structerr.NewResourceExhausted(msg).WithDetail(&gitalypb.LimitError{
+			ErrorMessage: msg,
+			RetryAfter:   durationpb.New(0),
+		})
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
 
-func logTime(ctx context.Context, start time.Time, msg string) {
+func recordTime(ctx context.Context, start time.Time, msg string) {
 	delta := time.Since(start)
 
 	if stats := StatsFromContext(ctx); stats != nil {
 		stats.RecordSum("command.spawn_token_wait_ms", int(delta.Milliseconds()))
+		if len(msg) != 0 {
+			stats.RecordMetadata("command.spawn_token_error", msg)
+		}
 	}
-
-	if delta < logDurationThreshold {
-		return
-	}
-
-	ctxlogrus.Extract(ctx).WithField("spawn_queue_ms", delta.Seconds()*1000).Info(msg)
 }
