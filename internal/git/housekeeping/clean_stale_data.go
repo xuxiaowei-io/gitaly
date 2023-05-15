@@ -55,6 +55,16 @@ type CleanStaleDataConfig struct {
 	repoCleanupWithTxManagers map[string]cleanupRepoWithTxManagerFunc
 }
 
+// OnlyStaleReferenceLockCleanup returns a config which only contains a
+// stale reference lock cleaner with the provided grace period.
+func OnlyStaleReferenceLockCleanup(gracePeriod time.Duration) CleanStaleDataConfig {
+	return CleanStaleDataConfig{
+		staleFileFinders: map[string]findStaleFileFunc{
+			"reflocks": findStaleReferenceLocks(gracePeriod),
+		},
+	}
+}
+
 // DefaultStaleDataCleanup is the default configuration for CleanStaleData
 // which contains all the cleanup functions.
 func DefaultStaleDataCleanup() CleanStaleDataConfig {
