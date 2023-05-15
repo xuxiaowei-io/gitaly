@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
@@ -106,20 +107,11 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
 	}
 
-	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prune|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
-	if err := repo.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, m.txManager); err != nil {
-		if !errors.Is(err, git.ErrNotFound) {
-			return fmt.Errorf("housekeeping could not unset unnecessary config lines: %w", err)
-		}
-		staleDataByType["configkeys"] = 0
-	} else {
-		// If we didn't get an error we know that we've deleted _something_. We just set
-		// this variable to `1` because we don't count how many keys we have deleted. It's
-		// probably good enough: we only want to know whether we're still pruning such old
-		// configuration or not, but typically don't care how many there are so that we know
-		// when to delete this cleanup of legacy data.
-		staleDataByType["configkeys"] = 1
+	configCleaned, err := removeUnnecessaryConfig(ctx, repo, m.txManager)
+	if err != nil {
+		return err
 	}
+	staleDataByType["configkeys"] = configCleaned
 
 	skippedSections, err := pruneEmptyConfigSections(ctx, repo)
 	staleDataByType["configsections"] = skippedSections
@@ -467,6 +459,24 @@ func findStaleReferenceLocks(ctx context.Context, repoPath string) ([]string, er
 	}
 
 	return staleReferenceLocks, nil
+}
+
+func removeUnnecessaryConfig(ctx context.Context, repository *localrepo.Repo, txManager transaction.Manager) (int, error) {
+	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prune|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
+	if err := repository.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, txManager); err != nil {
+		if !errors.Is(err, git.ErrNotFound) {
+			return 0, fmt.Errorf("housekeeping could not unset unnecessary config lines: %w", err)
+		}
+
+		return 0, nil
+	}
+
+	// If we didn't get an error we know that we've deleted _something_. We just set
+	// this variable to `1` because we don't count how many keys we have deleted. It's
+	// probably good enough: we only want to know whether we're still pruning such old
+	// configuration or not, but typically don't care how many there are so that we know
+	// when to delete this cleanup of legacy data.
+	return 1, nil
 }
 
 // findPackedRefsLock returns stale lockfiles for the packed-refs file.
