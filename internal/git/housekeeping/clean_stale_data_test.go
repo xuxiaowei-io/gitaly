@@ -933,7 +933,7 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 				expectedReferenceLocks = append(expectedReferenceLocks, filepath.Join(repoPath, referenceLock))
 			}
 
-			staleLockfiles, err := findStaleReferenceLocks(ctx, repoPath)
+			staleLockfiles, err := findStaleReferenceLocks(referenceLockfileGracePeriod)(ctx, repoPath)
 			require.NoError(t, err)
 			require.ElementsMatch(t, expectedReferenceLocks, staleLockfiles)
 

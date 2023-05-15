@@ -80,7 +80,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		"objects":        findTemporaryObjects,
 		"locks":          findStaleLockfiles,
 		"refs":           findBrokenLooseReferences,
-		"reflocks":       findStaleReferenceLocks,
+		"reflocks":       findStaleReferenceLocks(referenceLockfileGracePeriod),
 		"packfilelocks":  findStalePackFileLocks,
 		"packedrefslock": findPackedRefsLock,
 		"packedrefsnew":  findPackedRefsNew,
@@ -425,47 +425,50 @@ func findBrokenLooseReferences(ctx context.Context, repoPath string) ([]string, 
 	return brokenRefs, nil
 }
 
-// findStaleReferenceLocks scans the refdb for stale locks for loose references.
-func findStaleReferenceLocks(ctx context.Context, repoPath string) ([]string, error) {
-	var staleReferenceLocks []string
+// findStaleReferenceLocks provides a function which scans the refdb for stale locks
+// and loose references against the provided grace period.
+func findStaleReferenceLocks(gracePeriod time.Duration) findStaleFileFunc {
+	return func(_ context.Context, repoPath string) ([]string, error) {
+		var staleReferenceLocks []string
 
-	if err := filepath.WalkDir(filepath.Join(repoPath, "refs"), func(path string, dirEntry fs.DirEntry, err error) error {
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) {
+		if err := filepath.WalkDir(filepath.Join(repoPath, "refs"), func(path string, dirEntry fs.DirEntry, err error) error {
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) {
+					return nil
+				}
+
+				return err
+			}
+
+			if dirEntry.IsDir() {
 				return nil
 			}
 
-			return err
-		}
-
-		if dirEntry.IsDir() {
-			return nil
-		}
-
-		if !strings.HasSuffix(dirEntry.Name(), ".lock") {
-			return nil
-		}
-
-		fi, err := dirEntry.Info()
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
+			if !strings.HasSuffix(dirEntry.Name(), ".lock") {
 				return nil
 			}
 
-			return fmt.Errorf("statting reference lock: %w", err)
-		}
+			fi, err := dirEntry.Info()
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return nil
+				}
 
-		if time.Since(fi.ModTime()) < referenceLockfileGracePeriod {
+				return fmt.Errorf("statting reference lock: %w", err)
+			}
+
+			if time.Since(fi.ModTime()) < gracePeriod {
+				return nil
+			}
+
+			staleReferenceLocks = append(staleReferenceLocks, path)
 			return nil
+		}); err != nil {
+			return nil, fmt.Errorf("walking refs: %w", err)
 		}
 
-		staleReferenceLocks = append(staleReferenceLocks, path)
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("walking refs: %w", err)
+		return staleReferenceLocks, nil
 	}
-
-	return staleReferenceLocks, nil
 }
 
 func removeUnnecessaryConfig(ctx context.Context, repository *localrepo.Repo, txManager transaction.Manager) (int, error) {
