@@ -250,25 +250,27 @@ func TestUserDeleteTag(t *testing.T) {
 
 func TestUserDeleteTag_hooks(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	tagNameInput := "to-be-déleted-soon-tag"
-
-	request := &gitalypb.UserDeleteTagRequest{
-		Repository: repo,
-		TagName:    []byte(tagNameInput),
-		User:       gittest.TestUser,
-	}
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, hookName := range GitlabHooks {
+		hookName := hookName
+
 		t.Run(hookName, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
+			t.Parallel()
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			commitID := gittest.WriteCommit(t, cfg, repoPath)
+			gittest.WriteTag(t, cfg, repoPath, "to-be-deleted", commitID.Revision())
 
 			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
-			_, err := client.UserDeleteTag(ctx, request)
+			_, err := client.UserDeleteTag(ctx, &gitalypb.UserDeleteTagRequest{
+				Repository: repo,
+				TagName:    []byte("to-be-deleted"),
+				User:       gittest.TestUser,
+			})
 			require.NoError(t, err)
 
 			output := testhelper.MustReadFile(t, hookOutputTempPath)
@@ -875,9 +877,16 @@ func TestUserCreateTag_nestedTags(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "blob", Mode: "100644", OID: blobID},
+	})
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID))
 
 	for _, tc := range []struct {
 		desc             string
@@ -887,17 +896,17 @@ func TestUserCreateTag_nestedTags(t *testing.T) {
 	}{
 		{
 			desc:             "nested tags to commit",
-			targetObject:     "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
+			targetObject:     commitID.String(),
 			targetObjectType: "commit",
 		},
 		{
 			desc:             "nested tags to tree",
 			targetObjectType: "tree",
-			targetObject:     "612036fac47c5d31c212b17268e2f3ba807bce1e",
+			targetObject:     treeID.String(),
 		},
 		{
 			desc:             "nested tags to blob",
-			targetObject:     "dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82",
+			targetObject:     blobID.String(),
 			targetObjectType: "blob",
 		},
 	} {
@@ -1093,19 +1102,13 @@ func TestUserCreateTag_gitHooks(t *testing.T) {
 
 func TestUserDeleteTag_hookFailure(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	tagNameInput := "to-be-deleted-soon-tag"
-	gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
-	defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagNameInput)
-
-	request := &gitalypb.UserDeleteTagRequest{
-		Repository: repo,
-		TagName:    []byte(tagNameInput),
-		User:       gittest.TestUser,
-	}
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	gittest.WriteTag(t, cfg, repoPath, "to-be-deleted", commitID.Revision())
 
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
@@ -1113,12 +1116,16 @@ func TestUserDeleteTag_hookFailure(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
-			response, err := client.UserDeleteTag(ctx, request)
+			response, err := client.UserDeleteTag(ctx, &gitalypb.UserDeleteTagRequest{
+				Repository: repo,
+				TagName:    []byte("to-be-deleted"),
+				User:       gittest.TestUser,
+			})
 			require.NoError(t, err)
 			require.Contains(t, response.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
 
 			tags := gittest.Exec(t, cfg, "-C", repoPath, "tag")
-			require.Contains(t, string(tags), tagNameInput, "tag name does not exist in tags list")
+			require.Contains(t, string(tags), "to-be-deleted", "tag name does not exist in tags list")
 		})
 	}
 }
