@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -70,12 +71,20 @@ func TestWalkRepos(t *testing.T) {
 		os.Chtimes(testRepo2Path, time.Now(), modifiedDate),
 	)
 
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
 	// to test a directory being deleted during a walk, we must delete a directory after
 	// the file walk has started. To achieve that, we wrap the server to pass down a wrapped
 	// stream that allows us to hook in to stream responses. We then delete 'b' when
 	// the first repo 'a' is being streamed to the client.
 	deleteOnce := sync.Once{}
-	srv := NewServer([]config.Storage{{Name: storageName, Path: storageRoot}})
+	srv := NewServer(
+		[]config.Storage{{Name: storageName, Path: storageRoot}},
+		config.NewLocator(cfg),
+		gittest.NewCommandFactory(t, cfg),
+		catfileCache,
+	)
 	wsrv := &serverWrapper{
 		srv,
 		func(r *gitalypb.WalkReposRequest, s gitalypb.InternalGitaly_WalkReposServer) error {
