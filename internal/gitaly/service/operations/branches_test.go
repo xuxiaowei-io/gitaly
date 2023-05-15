@@ -31,18 +31,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type testTransactionServer struct {
-	gitalypb.UnimplementedRefTransactionServer
-	called int
-}
-
-func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-	s.called++
-	return &gitalypb.VoteTransactionResponse{
-		State: gitalypb.VoteTransactionResponse_COMMIT,
-	}, nil
-}
-
 func TestUserCreateBranch_successful(t *testing.T) {
 	t.Parallel()
 
