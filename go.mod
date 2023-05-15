@@ -32,7 +32,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pelletier/go-toml/v2 v2.0.7
-	github.com/prometheus/client_golang v1.15.0
+	github.com/prometheus/client_golang v1.15.1
 	github.com/rubenv/sql-migrate v1.4.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.2
