@@ -192,6 +192,10 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 	}
 
 	txn.initStagingDirectory = func() error {
+		if txn.stagingDirectory != "" {
+			return nil
+		}
+
 		stagingDirectory, err := os.MkdirTemp(mgr.stagingDirectory, "")
 		if err != nil {
 			return fmt.Errorf("mkdir temp: %w", err)
