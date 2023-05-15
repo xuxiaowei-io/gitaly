@@ -13,686 +13,1194 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
-func TestGetTreeEntries_curlyBraces(t *testing.T) {
+func TestGetTreeEntries(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg := testcfg.Build(t)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
-		Path: "issue-46261", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-			{
-				Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-					{Path: "test1.txt", Mode: "100644", Content: "test1"},
-				}),
-			},
-			{
-				Path: "{{curly}}", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-					{Path: "test2.txt", Mode: "100644", Content: "test2"},
-				}),
-			},
-		}),
-	}))
+	cfg.SocketPath = startTestServices(t, cfg)
+	client := newCommitServiceClient(t, cfg.SocketPath)
+
+	type setupData struct {
+		request             *gitalypb.GetTreeEntriesRequest
+		expectedTreeEntries []*gitalypb.TreeEntry
+		expectedCursor      *gitalypb.PaginationCursor
+		expectedErr         error
+	}
 
 	for _, tc := range []struct {
-		desc      string
-		revision  []byte
-		path      []byte
-		recursive bool
-		filename  []byte
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			desc:     "with a normal folder",
-			revision: []byte("master"),
-			path:     []byte("issue-46261/folder"),
-			filename: []byte("issue-46261/folder/test1.txt"),
-		},
-		{
-			desc:     "with a folder with curly braces",
-			revision: []byte("master"),
-			path:     []byte("issue-46261/{{curly}}"),
-			filename: []byte("issue-46261/{{curly}}/test2.txt"),
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			request := &gitalypb.GetTreeEntriesRequest{
-				Repository: repo,
-				Revision:   []byte(commitID.String()),
-				Path:       tc.path,
-				Recursive:  tc.recursive,
-			}
+			desc: "path with curly braces exists",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-			c, err := client.GetTreeEntries(ctx, request)
-			require.NoError(t, err)
+				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("test1"))
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: "issue-46261", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test1.txt", Mode: "100644", OID: blob},
+						})},
+						{Path: "{{curly}}", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", Content: "test2"},
+						})},
+					}),
+				}))
 
-			fetchedEntries, _ := getTreeEntriesFromTreeEntryClient(t, c, nil)
-			require.Equal(t, 1, len(fetchedEntries))
-			require.Equal(t, tc.filename, fetchedEntries[0].FlatPath)
-		})
-	}
-}
-
-func TestGetTreeEntries_successful(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
-
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	rootEntries := []*gitalypb.TreeEntry{
-		{
-			Oid:       "fd90a3d2d21d6b4f9bec2c33fb7f49780c55f0d2",
-			Path:      []byte(".DS_Store"),
-			FlatPath:  []byte(".DS_Store"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
-			Path:      []byte(".gitignore"),
-			FlatPath:  []byte(".gitignore"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "fdaada1754989978413d618ee1fb1c0469d6a664",
-			Path:      []byte(".gitmodules"),
-			FlatPath:  []byte(".gitmodules"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "c74175afd117781cbc983664339a0f599b5bb34e",
-			Path:      []byte("CHANGELOG"),
-			FlatPath:  []byte("CHANGELOG"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "c1788657b95998a2f177a4f86d68a60f2a80117f",
-			Path:      []byte("CONTRIBUTING.md"),
-			FlatPath:  []byte("CONTRIBUTING.md"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "50b27c6518be44c42c4d87966ae2481ce895624c",
-			Path:      []byte("LICENSE"),
-			FlatPath:  []byte("LICENSE"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
-			Path:      []byte("MAINTENANCE.md"),
-			FlatPath:  []byte("MAINTENANCE.md"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "bf757025c40c62e6ffa6f11d3819c769a76dbe09",
-			Path:      []byte("PROCESS.md"),
-			FlatPath:  []byte("PROCESS.md"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "faaf198af3a36dbf41961466703cc1d47c61d051",
-			Path:      []byte("README.md"),
-			FlatPath:  []byte("README.md"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "998707b421c89bd9a3063333f9f728ef3e43d101",
-			Path:      []byte("VERSION"),
-			FlatPath:  []byte("VERSION"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "3c122d2b7830eca25235131070602575cf8b41a1",
-			Path:      []byte("encoding"),
-			FlatPath:  []byte("encoding"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "b4a3321157f6e80c42b031ecc9ba79f784c8a557",
-			Path:      []byte("files"),
-			FlatPath:  []byte("files"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "6fd00c6336d6385ef6efe553a29107b35d18d380",
-			Path:      []byte("level-0"),
-			FlatPath:  []byte("level-0"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "409f37c4f05865e4fb208c771485f211a22c4c2d",
-			Path:      []byte("six"),
-			FlatPath:  []byte("six"),
-			Type:      gitalypb.TreeEntry_COMMIT,
-			Mode:      0o160000,
-			CommitOid: commitID,
-		},
-	}
-
-	// Order: Tree, Blob, Submodules
-	sortedRootEntries := append(rootEntries[10:13], rootEntries[0:10]...)
-	sortedRootEntries = append(sortedRootEntries, rootEntries[13])
-	sortedAndPaginated := []*gitalypb.TreeEntry{rootEntries[10], rootEntries[11], rootEntries[12], rootEntries[0]}
-
-	filesDirEntries := []*gitalypb.TreeEntry{
-		{
-			Oid:       "60d7a906c2fd9e4509aeb1187b98d0ea7ce827c9",
-			Path:      []byte("files/.DS_Store"),
-			FlatPath:  []byte("files/.DS_Store"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "2132d150328bd9334cc4e62a16a5d998a7e399b9",
-			Path:      []byte("files/flat"),
-			FlatPath:  []byte("files/flat/path/correct"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "a1e8f8d745cc87e3a9248358d9352bb7f9a0aeba",
-			Path:      []byte("files/html"),
-			FlatPath:  []byte("files/html"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "5e147e3af6740ee83103ec2ecdf846cae696edd1",
-			Path:      []byte("files/images"),
-			FlatPath:  []byte("files/images"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "7853101769f3421725ddc41439c2cd4610e37ad9",
-			Path:      []byte("files/js"),
-			FlatPath:  []byte("files/js"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "fd581c619bf59cfdfa9c8282377bb09c2f897520",
-			Path:      []byte("files/markdown"),
-			FlatPath:  []byte("files/markdown"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "b59dbe4a27371d53e61bf3cb8bef66be53572db0",
-			Path:      []byte("files/ruby"),
-			FlatPath:  []byte("files/ruby"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-	}
-
-	recursiveEntries := []*gitalypb.TreeEntry{
-		{
-			Oid:       "d564d0bc3dd917926892c55e3706cc116d5b165e",
-			Path:      []byte("level-0/level-1-1"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-			Path:      []byte("level-0/level-1-1/.gitkeep"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "02366a40d0cde8191e43a8c5b821176c0668522c",
-			Path:      []byte("level-0/level-1-2"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "d564d0bc3dd917926892c55e3706cc116d5b165e",
-			Path:      []byte("level-0/level-1-2/level-2"),
-			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      0o40000,
-			CommitOid: commitID,
-		},
-		{
-			Oid:       "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-			Path:      []byte("level-0/level-1-2/level-2/.gitkeep"),
-			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0o100644,
-			CommitOid: commitID,
-		},
-	}
-
-	stripFlatPaths := func(entries []*gitalypb.TreeEntry) []*gitalypb.TreeEntry {
-		strippedEntries := make([]*gitalypb.TreeEntry, 0, len(entries))
-
-		for _, entry := range entries {
-			entry := proto.Clone(entry).(*gitalypb.TreeEntry)
-			entry.FlatPath = nil
-			strippedEntries = append(strippedEntries, entry)
-		}
-
-		return strippedEntries
-	}
-
-	getPageToken := func(tb testing.TB, entry *gitalypb.TreeEntry) string {
-		tb.Helper()
-
-		pageToken, err := encodePageToken(entry)
-		require.NoError(tb, err)
-
-		return pageToken
-	}
-
-	testCases := []struct {
-		description   string
-		revision      []byte
-		path          []byte
-		recursive     bool
-		sortBy        gitalypb.GetTreeEntriesRequest_SortBy
-		entries       []*gitalypb.TreeEntry
-		pageToken     string
-		pageLimit     int32
-		cursor        string
-		skipFlatPaths bool
-	}{
-		{
-			description: "with root path",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries,
-		},
-		{
-			description:   "with root path and disabled flat paths",
-			revision:      []byte(commitID),
-			path:          []byte("."),
-			skipFlatPaths: true,
-			entries:       stripFlatPaths(rootEntries),
-		},
-		{
-			description: "with a folder",
-			revision:    []byte(commitID),
-			path:        []byte("files"),
-			entries:     filesDirEntries,
-		},
-		{
-			description:   "with a folder and disabled flat paths",
-			revision:      []byte(commitID),
-			path:          []byte("files"),
-			skipFlatPaths: true,
-			entries:       stripFlatPaths(filesDirEntries),
-		},
-		{
-			description: "with recursive",
-			revision:    []byte(commitID),
-			path:        []byte("level-0"),
-			recursive:   true,
-			entries:     recursiveEntries,
-		},
-		{
-			description: "with a file",
-			revision:    []byte(commitID),
-			path:        []byte(".gitignore"),
-			entries:     nil,
-		},
-		{
-			description: "with a non-existing path",
-			revision:    []byte(commitID),
-			path:        []byte("i-dont/exist"),
-			entries:     nil,
-		},
-		{
-			description: "with a non-existing path",
-			revision:    []byte(commitID),
-			path:        []byte("i-dont/exist"),
-			recursive:   true,
-			entries:     nil,
-		},
-		{
-			description: "with a non-existing revision, nonrecursive",
-			revision:    []byte("this-revision-does-not-exist"),
-			path:        []byte("."),
-			entries:     nil,
-		},
-		{
-			description: "with a non-existing revision, recursive",
-			revision:    []byte("this-revision-does-not-exist"),
-			path:        []byte("."),
-			entries:     nil,
-			recursive:   true,
-		},
-		{
-			description: "with root path and sorted by trees first",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     sortedRootEntries,
-			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
-		},
-		{
-			description: "with root path and sorted by trees with pagination",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     sortedAndPaginated,
-			pageLimit:   4,
-			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
-			cursor:      "eyJmaWxlX25hbWUiOiIuRFNfU3RvcmUifQ==",
-		},
-		{
-			description: "with pagination parameters",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[3:6],
-			pageToken:   getPageToken(t, rootEntries[2]),
-			pageLimit:   3,
-			cursor:      "eyJmaWxlX25hbWUiOiJMSUNFTlNFIn0=",
-		},
-		{
-			description: "with pagination parameters larger than length",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[12:],
-			pageToken:   getPageToken(t, rootEntries[11]),
-			pageLimit:   20,
-		},
-		{
-			description: "with pagination limit of -1",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[2:],
-			pageToken:   getPageToken(t, rootEntries[1]),
-			pageLimit:   -1,
-		},
-		{
-			description: "with pagination limit of 0",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			pageToken:   getPageToken(t, rootEntries[0]),
-			pageLimit:   0,
-		},
-		{
-			description: "with a blank pagination token",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			pageToken:   "",
-			entries:     rootEntries[0:2],
-			pageLimit:   2,
-			cursor:      "eyJmaWxlX25hbWUiOiIuZ2l0aWdub3JlIn0=",
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.description, func(t *testing.T) {
-			request := &gitalypb.GetTreeEntriesRequest{
-				Repository:    repo,
-				Revision:      testCase.revision,
-				Path:          testCase.path,
-				Recursive:     testCase.recursive,
-				Sort:          testCase.sortBy,
-				SkipFlatPaths: testCase.skipFlatPaths,
-			}
-
-			if testCase.pageToken != "" || testCase.pageLimit > 0 {
-				request.PaginationParams = &gitalypb.PaginationParameter{
-					PageToken: testCase.pageToken,
-					Limit:     testCase.pageLimit,
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("issue-46261/folder"),
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       blob.String(),
+							Path:      []byte("issue-46261/folder/test1.txt"),
+							Type:      0,
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("issue-46261/folder/test1.txt"),
+						},
+					},
 				}
-			}
-
-			c, err := client.GetTreeEntries(ctx, request)
-
-			require.NoError(t, err)
-			fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, nil)
-			testhelper.ProtoEqual(t, testCase.entries, fetchedEntries)
-
-			if testCase.pageLimit > 0 && len(testCase.entries) < len(rootEntries) {
-				require.NotNil(t, cursor)
-
-				require.Equal(t, testCase.cursor, cursor.NextCursor)
-			}
-		})
-	}
-}
-
-func TestGetTreeEntries_unsuccessful(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
-
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	testCases := []struct {
-		description   string
-		revision      []byte
-		path          []byte
-		pageToken     string
-		expectedError error
-	}{
-		{
-			description:   "with non-existent token",
-			revision:      []byte(commitID),
-			path:          []byte("."),
-			pageToken:     "non-existent",
-			expectedError: status.Error(codes.Internal, "could not find starting OID: non-existent"),
+			},
 		},
-	}
+		{
+			desc: "path with curly braces exists and is requested",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	for _, testCase := range testCases {
-		t.Run(testCase.description, func(t *testing.T) {
-			request := &gitalypb.GetTreeEntriesRequest{
-				Repository: repo,
-				Revision:   testCase.revision,
-				Path:       testCase.path,
-			}
+				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("test2"))
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: "issue-46261", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test1.txt", Mode: "100644", Content: "test1"},
+						})},
+						{Path: "{{curly}}", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", OID: blob},
+						})},
+					}),
+				}))
 
-			if testCase.pageToken != "" {
-				request.PaginationParams = &gitalypb.PaginationParameter{
-					PageToken: testCase.pageToken,
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("issue-46261/{{curly}}"),
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       blob.String(),
+							Path:      []byte("issue-46261/{{curly}}/test2.txt"),
+							Type:      0,
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("issue-46261/{{curly}}/test2.txt"),
+						},
+					},
 				}
-			}
-
-			c, err := client.GetTreeEntries(ctx, request)
-			require.NoError(t, err)
-
-			fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, testCase.expectedError)
-
-			require.Empty(t, fetchedEntries)
-			require.Nil(t, cursor)
-		})
-	}
-}
-
-func TestGetTreeEntries_deepFlatpath(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
-
-	nestingLevel := 12
-	require.Greater(t, nestingLevel, defaultFlatTreeRecursion, "sanity check: construct folder deeper than default recursion value")
-
-	// We create a tree structure that is one deeper than the flat-tree recursion limit.
-	var treeID git.ObjectID
-	for i := nestingLevel; i >= 0; i-- {
-		var treeEntry gittest.TreeEntry
-		if treeID == "" {
-			treeEntry = gittest.TreeEntry{Path: ".gitkeep", Mode: "100644", Content: "something"}
-		} else {
-			// We use a numbered directory name to make it easier to see when things get
-			// truncated.
-			treeEntry = gittest.TreeEntry{Path: strconv.Itoa(i), Mode: "040000", OID: treeID}
-		}
-
-		treeID = gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{treeEntry})
-	}
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID))
-
-	// We make a non-recursive request which tries to fetch tree entrie for the tree structure
-	// we have created above. This should return a single entry, which is the directory we're
-	// requesting.
-	stream, err := client.GetTreeEntries(ctx, &gitalypb.GetTreeEntriesRequest{
-		Repository: repo,
-		Revision:   []byte(commitID),
-		Path:       []byte("0"),
-		Recursive:  false,
-	})
-	require.NoError(t, err)
-	treeEntries, _ := getTreeEntriesFromTreeEntryClient(t, stream, nil)
-
-	// We know that there is a directory "1/2/3/4/5/6/7/8/9/10/11/12", but here we only get
-	// "1/2/3/4/5/6/7/8/9/10/11" as flat path. This proves that FlatPath recursion is bounded,
-	// which is the point of this test.
-	require.Equal(t, []*gitalypb.TreeEntry{{
-		Oid:       "ba0cae41e396836584a4114feac0b943faf786da",
-		Path:      []byte("0/1"),
-		FlatPath:  []byte("0/1/2/3/4/5/6/7/8/9/10"),
-		Type:      gitalypb.TreeEntry_TREE,
-		Mode:      0o40000,
-		CommitOid: commitID.String(),
-	}}, treeEntries)
-}
-
-func TestGetTreeEntries_file(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
-			Mode:    "100644",
-			Path:    "README.md",
-			Content: "something with spaces in between",
-		}),
-	)
-
-	// request entries of the tree with single-folder structure on each level
-	stream, err := client.GetTreeEntries(ctx, &gitalypb.GetTreeEntriesRequest{
-		Repository: repo,
-		Revision:   []byte(commitID.String()),
-		Path:       []byte("README.md"),
-		Recursive:  true,
-	})
-	require.NoError(t, err)
-
-	// When trying to read a blob, the expectation is that we fail gracefully by just returning
-	// nothing.
-	entries, err := stream.Recv()
-	require.Equal(t, io.EOF, err)
-	require.Empty(t, entries)
-}
-
-func TestGetTreeEntries_validation(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
-	path := []byte("a/b/c")
-
-	for _, tc := range []struct {
-		desc        string
-		request     *gitalypb.GetTreeEntriesRequest
-		expectedErr error
-	}{
+			},
+		},
 		{
 			desc: "repository does not exist",
-			request: &gitalypb.GetTreeEntriesRequest{
-				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
-				Revision:   revision,
-				Path:       path,
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
+						Revision:   []byte(gittest.DefaultObjectHash.EmptyTreeOID),
+						Path:       []byte("folder"),
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"GetStorageByName: no such storage: \"fake\"",
+						"repo scoped: invalid Repository",
+					)),
+				}
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"GetStorageByName: no such storage: \"fake\"",
-				"repo scoped: invalid Repository",
-			)),
 		},
 		{
 			desc: "repository is nil",
-			request: &gitalypb.GetTreeEntriesRequest{
-				Repository: nil,
-				Revision:   revision,
-				Path:       path,
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: nil,
+						Revision:   []byte(gittest.DefaultObjectHash.EmptyTreeOID),
+						Path:       []byte("folder"),
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
+				}
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
 		},
 		{
 			desc: "revision is empty",
-			request: &gitalypb.GetTreeEntriesRequest{
-				Repository: repo,
-				Revision:   nil,
-				Path:       path,
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   nil,
+						Path:       []byte("folder"),
+					},
+					expectedErr: structerr.NewInvalidArgument("empty revision"),
+				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty revision"),
 		},
 		{
 			desc: "path is empty",
-			request: &gitalypb.GetTreeEntriesRequest{
-				Repository: repo,
-				Revision:   revision,
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					}),
+				}))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+					},
+					expectedErr: structerr.NewInvalidArgument("empty Path"),
+				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty Path"),
 		},
 		{
 			desc: "revision is invalid",
-			request: &gitalypb.GetTreeEntriesRequest{
-				Repository: repo,
-				Revision:   []byte("--output=/meow"),
-				Path:       path,
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte("--output=/meow"),
+						Path:       []byte("folder"),
+					},
+					expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
+				}
 			},
-			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
+		},
+		{
+			desc: "non existent token",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					}),
+				}))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("folder"),
+						PaginationParams: &gitalypb.PaginationParameter{
+							PageToken: "non-existent",
+						},
+					},
+					expectedErr: status.Error(codes.Internal, "could not find starting OID: non-existent"),
+				}
+			},
+		},
+		{
+			desc: "path points to a file",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    "README.md",
+						Content: "something with spaces in between",
+					}),
+				)
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID.String()),
+						// When the path points to a blob and not a tree,
+						// we get no results from GetTreeEntries.
+						Path: []byte("README.md"),
+					},
+				}
+			},
+		},
+		{
+			desc: "deeply nested flat path",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				nestingLevel := 12
+				require.Greater(t, nestingLevel, defaultFlatTreeRecursion, "sanity check: construct folder deeper than default recursion value")
+
+				// We create a tree structure that is one deeper than the flat-tree recursion limit.
+				var treeIDs []git.ObjectID
+				for i := nestingLevel; i >= 0; i-- {
+					var treeEntry gittest.TreeEntry
+					if len(treeIDs) == 0 {
+						treeEntry = gittest.TreeEntry{Path: ".gitkeep", Mode: "100644", Content: "something"}
+					} else {
+						// We use a numbered directory name to make it easier to see when things get
+						// truncated.
+						treeEntry = gittest.TreeEntry{Path: strconv.Itoa(i), Mode: "040000", OID: treeIDs[len(treeIDs)-1]}
+					}
+
+					treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{treeEntry})
+					treeIDs = append(treeIDs, treeID)
+				}
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeIDs[len(treeIDs)-1]))
+
+				return setupData{
+					// We make a non-recursive request which tries to fetch tree entrie for the tree structure
+					// we have created above. This should return a single entry, which is the directory we're
+					// requesting.
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("0"),
+						Recursive:  false,
+					},
+					// We know that there is a directory "1/2/3/4/5/6/7/8/9/10/11/12", but here we only get
+					// "1/2/3/4/5/6/7/8/9/10/11" as flat path. This proves that FlatPath recursion is bounded,
+					// which is the point of this test.
+					expectedTreeEntries: []*gitalypb.TreeEntry{{
+						Oid:       treeIDs[nestingLevel-2].String(),
+						Path:      []byte("0/1"),
+						FlatPath:  []byte("0/1/2/3/4/5/6/7/8/9/10"),
+						Type:      gitalypb.TreeEntry_TREE,
+						Mode:      0o40000,
+						CommitOid: commitID.String(),
+					}},
+				}
+			},
+		},
+		{
+			desc: "with root path but only files in repo",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				fileOID := gittest.WriteBlob(t, cfg, repoPath, []byte("file"))
+				file2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("file2"))
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: file2OID, Mode: "100644", Path: "bar"},
+					gittest.TreeEntry{OID: fileOID, Mode: "100644", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       file2OID.String(),
+							Path:      []byte("bar"),
+							Type:      gitalypb.TreeEntry_BLOB,
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("bar"),
+						},
+						{
+							Oid:       fileOID.String(),
+							Path:      []byte("foo"),
+							Type:      gitalypb.TreeEntry_BLOB,
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("foo"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "with root path and disabled flat path but only files in repo",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				fileOID := gittest.WriteBlob(t, cfg, repoPath, []byte("file"))
+				file2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("file2"))
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: file2OID, Mode: "100644", Path: "bar"},
+					gittest.TreeEntry{OID: fileOID, Mode: "100644", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository:    repo,
+						Revision:      []byte(commitID),
+						Path:          []byte("."),
+						SkipFlatPaths: true,
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       file2OID.String(),
+							Path:      []byte("bar"),
+							Type:      gitalypb.TreeEntry_BLOB,
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       fileOID.String(),
+							Path:      []byte("foo"),
+							Type:      gitalypb.TreeEntry_BLOB,
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "with root path and repo with folders",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					})},
+				})
+
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", Content: "test2"},
+						})},
+					})},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       folder2OID.String(),
+							Path:      []byte("bar"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("bar/folder2/folder3"),
+						},
+						{
+							Oid:       folderOID.String(),
+							Path:      []byte("foo"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("foo/folder"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "with specific folder",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "test.txt", Mode: "100644", Content: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", Content: "test2"},
+						})},
+					})},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("foo"),
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       subFolderOID.String(),
+							Path:      []byte("foo/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("foo/folder"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "with specific folder and disabled flatpath",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "test.txt", Mode: "100644", Content: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", Content: "test2"},
+						})},
+					})},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository:    repo,
+						Revision:      []byte(commitID),
+						Path:          []byte("foo"),
+						SkipFlatPaths: true,
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       subFolderOID.String(),
+							Path:      []byte("foo/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "with recursive",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blobOID, Mode: "100644", Path: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				blob2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subSubFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blob2OID, Mode: "100644", Path: "test"},
+				})
+				subFolder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: subSubFolderOID, Mode: "040000", Path: "folder2"},
+				})
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolder2OID},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+						Recursive:  true,
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       folder2OID.String(),
+							Path:      []byte("bar"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subFolder2OID.String(),
+							Path:      []byte("bar/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subSubFolderOID.String(),
+							Path:      []byte("bar/folder/folder2"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blob2OID.String(),
+							Path:      []byte("bar/folder/folder2/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       folderOID.String(),
+							Path:      []byte("foo"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subFolderOID.String(),
+							Path:      []byte("foo/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blobOID.String(),
+							Path:      []byte("foo/folder/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "with non-existent path",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					})},
+				})
+
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", Content: "test2"},
+						})},
+					})},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("does-not-exist"),
+					},
+				}
+			},
+		},
+		{
+			desc: "with non-existent path plus recursive",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					})},
+				})
+
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", Content: "test2"},
+						})},
+					})},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("does-not-exist"),
+						Recursive:  true,
+					},
+				}
+			},
+		},
+		{
+			desc: "with non-existent revision",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					})},
+				})
+
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", Content: "test2"},
+						})},
+					})},
+				})
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte("does-not-exist"),
+						Path:       []byte("."),
+					},
+				}
+			},
+		},
+		{
+			desc: "with non-existent revision plus recursive",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					})},
+				})
+
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "test2.txt", Mode: "100644", Content: "test2"},
+						})},
+					})},
+				})
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte("does-not-exist"),
+						Path:       []byte("."),
+						Recursive:  true,
+					},
+				}
+			},
+		},
+		{
+			desc: "sorted by trees first",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blobOID, Mode: "100644", Path: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				blob2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subSubFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blob2OID, Mode: "100644", Path: "test"},
+				})
+				subFolder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: subSubFolderOID, Mode: "040000", Path: "folder2"},
+				})
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolder2OID},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+						Recursive:  true,
+						Sort:       gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       folder2OID.String(),
+							Path:      []byte("bar"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subFolder2OID.String(),
+							Path:      []byte("bar/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subSubFolderOID.String(),
+							Path:      []byte("bar/folder/folder2"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       folderOID.String(),
+							Path:      []byte("foo"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subFolderOID.String(),
+							Path:      []byte("foo/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blob2OID.String(),
+							Path:      []byte("bar/folder/folder2/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blobOID.String(),
+							Path:      []byte("foo/folder/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "sorted by trees first and paginated",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blobOID, Mode: "100644", Path: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				blob2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subSubFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blob2OID, Mode: "100644", Path: "test"},
+				})
+				subFolder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: subSubFolderOID, Mode: "040000", Path: "folder2"},
+				})
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolder2OID},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				expectedTreeEntries := []*gitalypb.TreeEntry{
+					{
+						Oid:       folder2OID.String(),
+						Path:      []byte("bar"),
+						Type:      gitalypb.TreeEntry_TREE,
+						Mode:      0o40000,
+						CommitOid: commitID.String(),
+					},
+					{
+						Oid:       subFolder2OID.String(),
+						Path:      []byte("bar/folder"),
+						Type:      gitalypb.TreeEntry_TREE,
+						Mode:      0o40000,
+						CommitOid: commitID.String(),
+					},
+					{
+						Oid:       subSubFolderOID.String(),
+						Path:      []byte("bar/folder/folder2"),
+						Type:      gitalypb.TreeEntry_TREE,
+						Mode:      0o40000,
+						CommitOid: commitID.String(),
+					},
+				}
+
+				cursor, err := encodePageToken(expectedTreeEntries[2])
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+						Recursive:  true,
+						Sort:       gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+						PaginationParams: &gitalypb.PaginationParameter{
+							Limit: 3,
+						},
+					},
+					expectedTreeEntries: expectedTreeEntries,
+					expectedCursor: &gitalypb.PaginationCursor{
+						NextCursor: cursor,
+					},
+				}
+			},
+		},
+		{
+			desc: "sorted by trees first and paginated with token",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blobOID, Mode: "100644", Path: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				blob2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subSubFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blob2OID, Mode: "100644", Path: "test"},
+				})
+				subFolder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: subSubFolderOID, Mode: "040000", Path: "folder2"},
+				})
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolder2OID},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+						Recursive:  true,
+						Sort:       gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+						PaginationParams: &gitalypb.PaginationParameter{
+							PageToken: folderOID.String(),
+							Limit:     3,
+						},
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       subFolderOID.String(),
+							Path:      []byte("foo/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blob2OID.String(),
+							Path:      []byte("bar/folder/folder2/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blobOID.String(),
+							Path:      []byte("foo/folder/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "sorted by trees first with high pagination limit",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blobOID, Mode: "100644", Path: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				blob2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subSubFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blob2OID, Mode: "100644", Path: "test"},
+				})
+				subFolder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: subSubFolderOID, Mode: "040000", Path: "folder2"},
+				})
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolder2OID},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+						Recursive:  true,
+						Sort:       gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+						PaginationParams: &gitalypb.PaginationParameter{
+							Limit: 100,
+						},
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       folder2OID.String(),
+							Path:      []byte("bar"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subFolder2OID.String(),
+							Path:      []byte("bar/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subSubFolderOID.String(),
+							Path:      []byte("bar/folder/folder2"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       folderOID.String(),
+							Path:      []byte("foo"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subFolderOID.String(),
+							Path:      []byte("foo/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blob2OID.String(),
+							Path:      []byte("bar/folder/folder2/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blobOID.String(),
+							Path:      []byte("foo/folder/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "sorted by trees first with 0 pagination limit",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blobOID, Mode: "100644", Path: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				blob2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subSubFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blob2OID, Mode: "100644", Path: "test"},
+				})
+				subFolder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: subSubFolderOID, Mode: "040000", Path: "folder2"},
+				})
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolder2OID},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+						Recursive:  true,
+						Sort:       gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+						PaginationParams: &gitalypb.PaginationParameter{
+							Limit: 0,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "sorted by trees first with -1 pagination limit",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blobOID, Mode: "100644", Path: "test"},
+				})
+				folderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolderOID},
+				})
+
+				blob2OID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				subSubFolderOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: blob2OID, Mode: "100644", Path: "test"},
+				})
+				subFolder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{OID: subSubFolderOID, Mode: "040000", Path: "folder2"},
+				})
+				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "folder", Mode: "040000", OID: subFolder2OID},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
+					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
+				))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+						Path:       []byte("."),
+						Recursive:  true,
+						Sort:       gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+						PaginationParams: &gitalypb.PaginationParameter{
+							Limit: -1,
+						},
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       folder2OID.String(),
+							Path:      []byte("bar"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subFolder2OID.String(),
+							Path:      []byte("bar/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subSubFolderOID.String(),
+							Path:      []byte("bar/folder/folder2"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       folderOID.String(),
+							Path:      []byte("foo"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       subFolderOID.String(),
+							Path:      []byte("foo/folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blob2OID.String(),
+							Path:      []byte("bar/folder/folder2/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+						{
+							Oid:       blobOID.String(),
+							Path:      []byte("foo/folder/test"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+						},
+					},
+				}
+			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.GetTreeEntries(ctx, tc.request)
+			t.Parallel()
+
+			data := tc.setup(t)
+
+			c, err := client.GetTreeEntries(ctx, data.request)
 			require.NoError(t, err)
 
-			err = drainTreeEntriesResponse(stream)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, data.expectedErr)
+			testhelper.ProtoEqual(t, data.expectedTreeEntries, fetchedEntries)
+			if data.expectedCursor != nil || cursor.GetNextCursor() != "" {
+				testhelper.ProtoEqual(t, data.expectedCursor, cursor)
+			}
 		})
 	}
 }
@@ -795,12 +1303,4 @@ func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitServi
 		}
 	}
 	return entries, cursor
-}
-
-func drainTreeEntriesResponse(c gitalypb.CommitService_GetTreeEntriesClient) error {
-	var err error
-	for err == nil {
-		_, err = c.Recv()
-	}
-	return err
 }
