@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
@@ -609,16 +607,7 @@ func TestGetTreeEntries(t *testing.T) {
 					})},
 				})
 
-				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-							{Path: "test2.txt", Mode: "100644", Content: "test2"},
-						})},
-					})},
-				})
-
 				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
 					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
 				))
 
@@ -642,16 +631,7 @@ func TestGetTreeEntries(t *testing.T) {
 					})},
 				})
 
-				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-							{Path: "test2.txt", Mode: "100644", Content: "test2"},
-						})},
-					})},
-				})
-
 				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
 					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
 				))
 
@@ -676,16 +656,7 @@ func TestGetTreeEntries(t *testing.T) {
 					})},
 				})
 
-				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-							{Path: "test2.txt", Mode: "100644", Content: "test2"},
-						})},
-					})},
-				})
-
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
 					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
 				))
 
@@ -709,16 +680,7 @@ func TestGetTreeEntries(t *testing.T) {
 					})},
 				})
 
-				folder2OID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-					{Path: "folder2", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-						{Path: "folder3", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-							{Path: "test2.txt", Mode: "100644", Content: "test2"},
-						})},
-					})},
-				})
-
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{OID: folder2OID, Mode: "040000", Path: "bar"},
 					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
 				))
 
