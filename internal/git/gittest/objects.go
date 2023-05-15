@@ -20,6 +20,15 @@ func ObjectHashIsSHA256() bool {
 	return DefaultObjectHash.EmptyTreeOID == git.ObjectHashSHA256.EmptyTreeOID
 }
 
+// ObjectHashDependent returns the value from the given map that is associated with the default
+// object hash (e.g. "sha1", "sha256"). Fails in case the map doesn't contain the current object
+// hash.
+func ObjectHashDependent[T any](tb testing.TB, valuesByObjectHash map[string]T) T {
+	tb.Helper()
+	require.Contains(tb, valuesByObjectHash, DefaultObjectHash.Format)
+	return valuesByObjectHash[DefaultObjectHash.Format]
+}
+
 // ListObjects returns a list of all object IDs in the repository.
 func ListObjects(tb testing.TB, cfg config.Cfg, repoPath string) []git.ObjectID {
 	tb.Helper()

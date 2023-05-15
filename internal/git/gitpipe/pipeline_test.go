@@ -111,9 +111,9 @@ func TestPipeline_revlist(t *testing.T) {
 				WithObjects(),
 			},
 			expectedResults: []CatfileObjectResult{
-				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(66, 90)}}},
+				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(t, 66, 90)}}},
 				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: blobB, Type: "blob", Size: 1}}, ObjectName: []byte("blob")},
-				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: subtree, Type: "tree", Size: hashDependentObjectSize(35, 47)}}, ObjectName: []byte("subtree")},
+				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: subtree, Type: "tree", Size: hashDependentObjectSize(t, 35, 47)}}, ObjectName: []byte("subtree")},
 				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: blobA, Type: "blob", Size: 6}}, ObjectName: []byte("subtree/subblob")},
 			},
 		},
@@ -152,10 +152,10 @@ func TestPipeline_revlist(t *testing.T) {
 				WithObjects(),
 			},
 			expectedResults: []CatfileObjectResult{
-				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: commitB, Type: "commit", Size: hashDependentObjectSize(225, 273)}}},
-				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(66, 90)}}},
+				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: commitB, Type: "commit", Size: hashDependentObjectSize(t, 225, 273)}}},
+				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(t, 66, 90)}}},
 				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: blobB, Type: "blob", Size: 1}}, ObjectName: []byte("blob")},
-				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: subtree, Type: "tree", Size: hashDependentObjectSize(35, 47)}}, ObjectName: []byte("subtree")},
+				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: subtree, Type: "tree", Size: hashDependentObjectSize(t, 35, 47)}}, ObjectName: []byte("subtree")},
 				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: blobA, Type: "blob", Size: 6}}, ObjectName: []byte("subtree/subblob")},
 			},
 		},
@@ -166,7 +166,7 @@ func TestPipeline_revlist(t *testing.T) {
 				commitB.String(),
 			},
 			expectedResults: []CatfileObjectResult{
-				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: commitB, Type: "commit", Size: hashDependentObjectSize(225, 273)}}},
+				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: commitB, Type: "commit", Size: hashDependentObjectSize(t, 225, 273)}}},
 			},
 		},
 		{

@@ -230,12 +230,10 @@ func TestObjectInfoReader_queue(t *testing.T) {
 	commitInfo := ObjectInfo{
 		Oid:  commitOID,
 		Type: "commit",
-		Size: func() int64 {
-			if gittest.ObjectHashIsSHA256() {
-				return 201
-			}
-			return 177
-		}(),
+		Size: gittest.ObjectHashDependent(t, map[string]int64{
+			"sha1":   177,
+			"sha256": 201,
+		}),
 		Format: gittest.DefaultObjectHash.Format,
 	}
 
