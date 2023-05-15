@@ -47,8 +47,42 @@ type (
 	cleanupRepoWithTxManagerFunc func(context.Context, *localrepo.Repo, transaction.Manager) (int, error)
 )
 
+// CleanStaleDataConfig is the configuration for running CleanStaleData. It is used to define
+// the different types of cleanups we want to run.
+type CleanStaleDataConfig struct {
+	staleFileFinders          map[string]findStaleFileFunc
+	repoCleanups              map[string]cleanupRepoFunc
+	repoCleanupWithTxManagers map[string]cleanupRepoWithTxManagerFunc
+}
+
+// DefaultStaleDataCleanup is the default configuration for CleanStaleData
+// which contains all the cleanup functions.
+func DefaultStaleDataCleanup() CleanStaleDataConfig {
+	return CleanStaleDataConfig{
+		staleFileFinders: map[string]findStaleFileFunc{
+			"objects":        findTemporaryObjects,
+			"locks":          findStaleLockfiles,
+			"refs":           findBrokenLooseReferences,
+			"reflocks":       findStaleReferenceLocks(referenceLockfileGracePeriod),
+			"packfilelocks":  findStalePackFileLocks,
+			"packedrefslock": findPackedRefsLock,
+			"packedrefsnew":  findPackedRefsNew,
+			"serverinfo":     findServerInfo,
+		},
+		repoCleanups: map[string]cleanupRepoFunc{
+			"refsemptydir":   removeRefEmptyDirs,
+			"configsections": pruneEmptyConfigSections,
+		},
+		repoCleanupWithTxManagers: map[string]cleanupRepoWithTxManagerFunc{
+			"configkeys": removeUnnecessaryConfig,
+		},
+	}
+}
+
 // CleanStaleData cleans up any stale data in the repository.
 func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo) error {
+	cfg := DefaultStaleDataCleanup()
+
 	span, ctx := tracing.StartSpanIfHasParent(ctx, "housekeeping.CleanStaleData", nil)
 	defer span.Finish()
 
@@ -76,16 +110,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 	}()
 
 	var filesToPrune []string
-	for staleFileType, staleFileFinder := range map[string]findStaleFileFunc{
-		"objects":        findTemporaryObjects,
-		"locks":          findStaleLockfiles,
-		"refs":           findBrokenLooseReferences,
-		"reflocks":       findStaleReferenceLocks(referenceLockfileGracePeriod),
-		"packfilelocks":  findStalePackFileLocks,
-		"packedrefslock": findPackedRefsLock,
-		"packedrefsnew":  findPackedRefsNew,
-		"serverinfo":     findServerInfo,
-	} {
+	for staleFileType, staleFileFinder := range cfg.staleFileFinders {
 		staleFiles, err := staleFileFinder(ctx, repoPath)
 		if err != nil {
 			return fmt.Errorf("housekeeping failed to find %s: %w", staleFileType, err)
@@ -105,10 +130,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		}
 	}
 
-	for repoCleanupName, repoCleanupFn := range map[string]cleanupRepoFunc{
-		"refsemptydir":   removeRefEmptyDirs,
-		"configsections": pruneEmptyConfigSections,
-	} {
+	for repoCleanupName, repoCleanupFn := range cfg.repoCleanups {
 		cleanupCount, err := repoCleanupFn(ctx, repo)
 		staleDataByType[repoCleanupName] = cleanupCount
 		if err != nil {
@@ -116,9 +138,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		}
 	}
 
-	for repoCleanupName, repoCleanupFn := range map[string]cleanupRepoWithTxManagerFunc{
-		"configkeys": removeUnnecessaryConfig,
-	} {
+	for repoCleanupName, repoCleanupFn := range cfg.repoCleanupWithTxManagers {
 		cleanupCount, err := repoCleanupFn(ctx, repo, m.txManager)
 		staleDataByType[repoCleanupName] = cleanupCount
 		if err != nil {
