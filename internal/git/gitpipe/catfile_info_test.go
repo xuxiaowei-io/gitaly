@@ -277,6 +277,7 @@ func TestCatfileInfo(t *testing.T) {
 		// We now consume all the input of the iterator.
 		require.True(t, it.Next())
 		require.False(t, it.Next())
+		require.NoError(t, it.Err())
 
 		// Which means that the queue should now be unused, so we can again use it.
 		_, err = CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, input))
