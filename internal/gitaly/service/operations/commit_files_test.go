@@ -1054,7 +1054,7 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 	require.NoError(t, stream.Send(actionContentRequest("content")))
 	_, err = stream.CloseAndRecv()
 
-	testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
+	testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("Error: Denied by custom hooks.").WithDetail(
 		&gitalypb.UserCommitFilesError{
 			Error: &gitalypb.UserCommitFilesError_CustomHook{
 				CustomHook: &gitalypb.CustomHookError{
@@ -1498,7 +1498,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 			expectedOut := fmt.Sprintf("GL_ID=%s GL_USERNAME=%s\n",
 				gittest.TestUser.GlId, gittest.TestUser.GlUsername)
 
-			testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
+			testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("Error: Denied by custom hooks.").WithDetail(
 				&gitalypb.UserCommitFilesError{
 					Error: &gitalypb.UserCommitFilesError_CustomHook{
 						CustomHook: &gitalypb.CustomHookError{

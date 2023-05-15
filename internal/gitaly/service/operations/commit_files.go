@@ -80,7 +80,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 				},
 			)
 		case errors.As(err, &customHookErr):
-			return structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
+			return structerr.NewPermissionDenied("Error: Denied by custom hooks.").WithDetail(
 				&gitalypb.UserCommitFilesError{
 					Error: &gitalypb.UserCommitFilesError_CustomHook{
 						CustomHook: customHookErr.Proto(),
