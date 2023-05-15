@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -370,8 +368,11 @@ func TestUserCreateTag_successful(t *testing.T) {
 			message:        "This is an annotated tag",
 			expectedResponse: &gitalypb.UserCreateTagResponse{
 				Tag: &gitalypb.Tag{
-					Name:         []byte(inputTagName),
-					Id:           "6c6134431f05e3d22726a3876cc1fecea7df18b5",
+					Name: []byte(inputTagName),
+					Id: gittest.ObjectHashDependent(t, map[string]string{
+						"sha1":   "6c6134431f05e3d22726a3876cc1fecea7df18b5",
+						"sha256": "a9dc4f6d82a3be4e52aad29658cb59e6599498a273d02afac0b4bfd0b79d508d",
+					}),
 					TargetCommit: targetRevisionCommit,
 					Message:      []byte("This is an annotated tag"),
 					MessageSize:  24,
@@ -1017,7 +1018,10 @@ func TestUserCreateTag_stableTagIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, &gitalypb.Tag{
-		Id:           "d877784c740f492d74e6073de649a6b046ab3656",
+		Id: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "d877784c740f492d74e6073de649a6b046ab3656",
+			"sha256": "32397ee1fd84d0b06365045712b658cd2fd265e4d8478fc8186e68555abe4002",
+		}),
 		Name:         []byte("happy-tag"),
 		Message:      []byte("my message"),
 		MessageSize:  10,
