@@ -2564,7 +2564,13 @@ func TestTransactionManager(t *testing.T) {
 					transaction, err := transactionManager.Begin(beginCtx)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
-						require.Equal(t, step.ExpectedSnapshot, transaction.Snapshot())
+						expectedSnapshot := step.ExpectedSnapshot
+						expectedSnapshot.HookPath = filepath.Join(repoPath, "custom_hooks")
+						if expectedSnapshot.HookIndex > 0 {
+							expectedSnapshot.HookPath = hookPathForLogIndex(repoPath, expectedSnapshot.HookIndex)
+						}
+
+						require.Equal(t, expectedSnapshot, transaction.Snapshot())
 					}
 					openTransactions[step.TransactionID] = transaction
 				case Commit:

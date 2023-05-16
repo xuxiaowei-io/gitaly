@@ -115,6 +115,8 @@ type Snapshot struct {
 	// HookIndex is index of the hooks on the disk that are included in this Transactions's snapshot
 	// and were the latest on the read index.
 	HookIndex LogIndex
+	// HookPath is an absolute filesystem path to the hooks in this snapshot.
+	HookPath string
 }
 
 // Transaction is a unit-of-work that contains reference changes to perform on the repository.
@@ -179,7 +181,14 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 		snapshot: Snapshot{
 			ReadIndex: mgr.appendedLogIndex,
 			HookIndex: mgr.hookIndex,
+			HookPath:  hookPathForLogIndex(mgr.repositoryPath, mgr.hookIndex),
 		},
+	}
+
+	// If there are no hooks stored through the WAL yet, then default to the custom hooks
+	// that may already exist in the repository for backwards compatibility.
+	if txn.snapshot.HookIndex == 0 {
+		txn.snapshot.HookPath = filepath.Join(mgr.repositoryPath, "custom_hooks")
 	}
 
 	readReady := mgr.applyNotifications[txn.snapshot.ReadIndex]
