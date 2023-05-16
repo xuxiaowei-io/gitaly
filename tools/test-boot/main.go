@@ -146,6 +146,9 @@ func testBoot(appCtx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("create temp directory: %w", err)
 	}
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
 	if err := os.Mkdir(gitlabShellDir, 0o755); err != nil {
