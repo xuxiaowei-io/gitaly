@@ -54,12 +54,12 @@ func TestServerFactory(t *testing.T) {
 		Seed:                   gittest.SeedGitLabTest,
 	})
 
-	certFile, keyFile := testhelper.GenerateCerts(t)
+	certificate := testhelper.GenerateCertificate(t)
 
 	conf := config.Config{
 		TLS: gconfig.TLS{
-			CertPath: certFile,
-			KeyPath:  keyFile,
+			CertPath: certificate.CertPath,
+			KeyPath:  certificate.KeyPath,
 		},
 		VirtualStorages: []*config.VirtualStorage{
 			{

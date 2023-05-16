@@ -106,11 +106,11 @@ func TestGitalyServerFactory(t *testing.T) {
 	})
 
 	t.Run("secure", func(t *testing.T) {
-		certFile, keyFile := testhelper.GenerateCerts(t)
+		certificate := testhelper.GenerateCertificate(t)
 
 		cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{TLS: config.TLS{
-			CertPath: certFile,
-			KeyPath:  keyFile,
+			CertPath: certificate.CertPath,
+			KeyPath:  certificate.KeyPath,
 		}}))
 
 		sf := NewGitalyServerFactory(

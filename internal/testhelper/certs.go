@@ -15,9 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// GenerateCerts creates a certificate that can be used to establish TLS protected TCP connection.
-// It returns paths to the file with the certificate and its private key.
-func GenerateCerts(tb testing.TB) (string, string) {
+// Certificate is a generated certificate.
+type Certificate struct {
+	CertPath string
+	KeyPath  string
+}
+
+// GenerateCertificate creates a certificate that can be used to establish TLS protected TCP
+// connections.
+func GenerateCertificate(tb testing.TB) Certificate {
 	tb.Helper()
 
 	rootCert := &x509.Certificate{
@@ -87,5 +93,8 @@ func GenerateCerts(tb testing.TB) (string, string) {
 		}),
 	)
 
-	return certFile.Name(), keyFile.Name()
+	return Certificate{
+		CertPath: certFile.Name(),
+		KeyPath:  keyFile.Name(),
+	}
 }
