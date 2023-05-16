@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -237,7 +238,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	// is packed, which is obviously a bad thing as Gitaly nodes may be differently packed. We
 	// thus continue to manually drive the reference-transaction hook here, which doesn't have
 	// this problem.
-	updater, err := New(ctx, repo, WithDisabledTransactions())
+	updater, err := updateref.New(ctx, repo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return fmt.Errorf("creating updater: %w", err)
 	}
