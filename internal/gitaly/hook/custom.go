@@ -38,11 +38,17 @@ func (e CustomHookError) Unwrap() error {
 	return e.err
 }
 
-// newCustomHooksExecutor creates a new hooks executor for custom hooks. Hooks
-// are looked up and executed in the following order:
+// newCustomHooksExecutor creates a new hooks executor for custom hooks.
 //
-// 1. <repository>.git/custom_hooks/<hook_name> - per project hook
-// 2. <repository>.git/custom_hooks/<hook_name>.d/* - per project hooks
+// Repository specific custom hooks are executed by default from `<repo>.git/custom_hooks`.
+// This is the non-WAL behavior where hooks are updated in place. With WAL, the hooks are
+// managed with MVCC. If the transaction is set, we'll use the hook path from its snapshot
+// to ensure we execute the correct version of the hooks.
+//
+// Hooks are looked up and executed in the following order:
+//
+// 1. <repository specific hooks>/<hook_name> - per project hook
+// 2. <repository specific hooks>/<hook_name>.d/* - per project hooks
 // 3. <custom_hooks_dir>/hooks/<hook_name>.d/* - global hooks
 //
 // Any files which are either not executable or have a trailing `~` are ignored.
@@ -52,13 +58,18 @@ func (m *GitLabHookManager) newCustomHooksExecutor(tx *gitaly.Transaction, repo 
 		return nil, err
 	}
 
+	hookPath := filepath.Join(repoPath, "custom_hooks")
+	if tx != nil {
+		hookPath = tx.Snapshot().HookPath
+	}
+
 	var hookFiles []string
-	projectCustomHookFile := filepath.Join(repoPath, "custom_hooks", hookName)
+	projectCustomHookFile := filepath.Join(hookPath, hookName)
 	if isValidHook(projectCustomHookFile) {
 		hookFiles = append(hookFiles, projectCustomHookFile)
 	}
 
-	projectCustomHookDir := filepath.Join(repoPath, "custom_hooks", fmt.Sprintf("%s.d", hookName))
+	projectCustomHookDir := filepath.Join(hookPath, fmt.Sprintf("%s.d", hookName))
 	files, err := findHooks(projectCustomHookDir)
 	if err != nil {
 		return nil, err
