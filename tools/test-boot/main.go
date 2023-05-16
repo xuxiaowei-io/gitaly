@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +14,8 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"google.golang.org/grpc"
 )
 
 type gitalyConfig struct {
@@ -111,15 +112,22 @@ func spawnAndWait(ctx context.Context, gitalyBin, configPath, socketPath string)
 
 	start := time.Now()
 	for i := 0; i < 100; i++ {
-		conn, err := net.Dial("unix", socketPath)
-		if err == nil {
-			fmt.Printf("\n\nconnection established after %v\n\n", time.Since(start))
-			conn.Close()
-			return nil
+		ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+
+		conn, err := client.DialContext(ctx, "unix://"+socketPath, []grpc.DialOption{
+			grpc.WithBlock(),
+		})
+
+		cancel()
+
+		if err != nil {
+			fmt.Printf(".")
+			continue
 		}
 
-		fmt.Printf(".")
-		time.Sleep(100 * time.Millisecond)
+		fmt.Printf("\n\nconnection established after %v\n\n", time.Since(start))
+		conn.Close()
+		return nil
 	}
 
 	fmt.Println("")
