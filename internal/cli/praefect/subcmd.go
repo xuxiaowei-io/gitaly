@@ -41,7 +41,6 @@ func subcommands(logger *logrus.Entry) map[string]subcmd {
 		removeRepositoryCmdName:     newRemoveRepository(logger, os.Stdout),
 		trackRepositoriesCmdName:    newTrackRepositories(logger, os.Stdout),
 		metadataCmdName:             newMetadataSubcommand(os.Stdout),
-		verifyCmdName:               newVerifySubcommand(os.Stdout),
 	}
 }
 

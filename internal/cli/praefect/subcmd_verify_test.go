@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service/info"
@@ -49,6 +51,11 @@ func TestVerifySubcommand(t *testing.T) {
 		error          error
 		expectedState  state
 	}{
+		{
+			desc:  "positional arguments",
+			args:  []string{"positional-arg"},
+			error: cli.Exit(unexpectedPositionalArgsError{Command: "verify"}, 1),
+		},
 		{
 			desc:          "no selector given",
 			error:         errors.New("(repository id), (virtual storage) or (virtual storage, storage) required"),
@@ -187,12 +194,36 @@ func TestVerifySubcommand(t *testing.T) {
 			`)
 			require.NoError(t, err)
 
-			stdout := &bytes.Buffer{}
-			cmd := newVerifySubcommand(stdout)
+			conf := config.Config{
+				SocketPath: ln.Addr().String(),
+				VirtualStorages: []*config.VirtualStorage{
+					{
+						Name: "vs",
+						Nodes: []*config.Node{
+							{Address: "stub", Storage: "st"},
+						},
+					},
+				},
+			}
+			confPath := writeConfigToFile(t, conf)
 
-			fs := cmd.FlagSet()
-			require.NoError(t, fs.Parse(tc.args))
-			err = cmd.Exec(fs, config.Config{SocketPath: ln.Addr().String()})
+			var stdout bytes.Buffer
+			app := cli.App{
+				Reader:          bytes.NewReader(nil),
+				Writer:          &stdout,
+				ErrWriter:       io.Discard,
+				HideHelpCommand: true,
+				Commands: []*cli.Command{
+					newVerifyCommand(),
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Value: confPath,
+					},
+				},
+			}
+			err = app.Run(append([]string{progname, verifyCmdName}, tc.args...))
 			testhelper.RequireGrpcError(t, tc.error, err)
 			if tc.error != nil {
 				return
