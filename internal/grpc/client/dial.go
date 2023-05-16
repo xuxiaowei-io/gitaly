@@ -60,6 +60,7 @@ type Handshaker interface {
 type dialConfig struct {
 	handshaker Handshaker
 	grpcOpts   []grpc.DialOption
+	creds      credentials.TransportCredentials
 }
 
 // DialOption is an option that can be passed to Dial.
@@ -82,6 +83,15 @@ func WithGrpcOptions(opts []grpc.DialOption) DialOption {
 	}
 }
 
+// WithTransportCredentials sets up the given credentials. By default, non-TLS connections will use
+// insecure credentials whereas TLS connections will use the x509 system certificate pool. This
+// option allows callers to override these defaults.
+func WithTransportCredentials(creds credentials.TransportCredentials) DialOption {
+	return func(cfg *dialConfig) {
+		cfg.creds = creds
+	}
+}
+
 // Dial dials a Gitaly node serving at the given address. Dial is used by the public 'client' package
 // and the expected behavior is mostly documented there.
 func Dial(ctx context.Context, rawAddress string, opts ...DialOption) (*grpc.ClientConn, error) {
@@ -95,34 +105,23 @@ func Dial(ctx context.Context, rawAddress string, opts ...DialOption) (*grpc.Cli
 
 	var canonicalAddress string
 	var err error
-	var transportCredentials credentials.TransportCredentials
+	var secure bool
 
 	switch getConnectionType(rawAddress) {
 	case invalidConnection:
 		return nil, fmt.Errorf("invalid connection string: %q", rawAddress)
-
 	case tlsConnection:
 		canonicalAddress, err = extractHostFromRemoteURL(rawAddress) // Ensure the form: "host:port" ...
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract host for 'tls' connection: %w", err)
 		}
 
-		certPool, err := gitalyx509.SystemCertPool()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get system certificat pool for 'tls' connection: %w", err)
-		}
-
-		transportCredentials = credentials.NewTLS(&tls.Config{
-			RootCAs:    certPool,
-			MinVersion: tls.VersionTLS12,
-		})
-
+		secure = true
 	case tcpConnection:
 		canonicalAddress, err = extractHostFromRemoteURL(rawAddress) // Ensure the form: "host:port" ...
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract host for 'tcp' connection: %w", err)
 		}
-
 	case dnsConnection:
 		err = dnsresolver.ValidateURL(rawAddress)
 		if err != nil {
@@ -149,21 +148,29 @@ func Dial(ctx context.Context, rawAddress string, opts ...DialOption) (*grpc.Cli
 		)
 	}
 
-	if dialCfg.handshaker != nil {
-		if transportCredentials == nil {
+	transportCredentials := dialCfg.creds
+	if transportCredentials == nil {
+		if !secure {
 			transportCredentials = insecure.NewCredentials()
-		}
+		} else {
+			certPool, err := gitalyx509.SystemCertPool()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get system certificat pool for 'tls' connection: %w", err)
+			}
 
+			transportCredentials = credentials.NewTLS(&tls.Config{
+				RootCAs:    certPool,
+				MinVersion: tls.VersionTLS12,
+			})
+		}
+	}
+
+	if dialCfg.handshaker != nil {
 		transportCredentials = dialCfg.handshaker.ClientHandshake(transportCredentials)
 	}
 
-	if transportCredentials == nil {
-		connOpts = append(connOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	} else {
-		connOpts = append(connOpts, grpc.WithTransportCredentials(transportCredentials))
-	}
-
 	connOpts = append(connOpts,
+		grpc.WithTransportCredentials(transportCredentials),
 		// grpc.KeepaliveParams must be specified at least as large as what is allowed by the
 		// server-side grpc.KeepaliveEnforcementPolicy
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
