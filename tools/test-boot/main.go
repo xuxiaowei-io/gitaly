@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -89,8 +90,8 @@ func writeGitalyConfig(path string, params gitalyConfig) error {
 	return nil
 }
 
-func spawnAndWait(gitalyBin, configPath, socketPath string) (returnedError error) {
-	cmd := exec.Command(gitalyBin, configPath)
+func spawnAndWait(ctx context.Context, gitalyBin, configPath, socketPath string) (returnedError error) {
+	cmd := exec.CommandContext(ctx, gitalyBin, configPath)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -127,6 +128,8 @@ func spawnAndWait(gitalyBin, configPath, socketPath string) (returnedError error
 }
 
 func testBoot(appCtx *cli.Context) error {
+	ctx := appCtx.Context
+
 	useBundledGit := appCtx.Bool("bundled-git")
 
 	gitalyDir := appCtx.String("gitaly-directory")
@@ -177,7 +180,7 @@ func testBoot(appCtx *cli.Context) error {
 		return nil
 	}
 
-	if err := spawnAndWait(gitalyBin, configPath, socketPath); err != nil {
+	if err := spawnAndWait(ctx, gitalyBin, configPath, socketPath); err != nil {
 		return err
 	}
 	return nil
