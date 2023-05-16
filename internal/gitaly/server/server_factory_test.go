@@ -4,8 +4,6 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"net"
 	"os"
@@ -25,7 +23,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -37,11 +34,11 @@ func TestGitalyServerFactory(t *testing.T) {
 	grp, ctx := errgroup.WithContext(ctx)
 	t.Cleanup(func() { assert.NoError(t, grp.Wait()) })
 
-	checkHealth := func(t *testing.T, sf *GitalyServerFactory, schema, addr string) healthpb.HealthClient {
+	checkHealth := func(t *testing.T, sf *GitalyServerFactory, schema, addr string, cert *testhelper.Certificate) healthpb.HealthClient {
 		t.Helper()
 
 		var cc *grpc.ClientConn
-		if schema == starter.TLS {
+		if cert != nil {
 			srv, err := sf.CreateExternal(true)
 			require.NoError(t, err)
 			t.Cleanup(srv.Stop)
@@ -52,16 +49,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			require.NoError(t, err)
 			grp.Go(func() error { return srv.Serve(listener) })
 
-			certPool, err := x509.SystemCertPool()
-			require.NoError(t, err)
-
-			pem := testhelper.MustReadFile(t, sf.cfg.TLS.CertPath)
-			require.True(t, certPool.AppendCertsFromPEM(pem))
-
-			creds := credentials.NewTLS(&tls.Config{
-				RootCAs:    certPool,
-				MinVersion: tls.VersionTLS12,
-			})
+			creds := cert.TransportCredentials(t)
 
 			cc, err = grpc.DialContext(ctx, listener.Addr().String(), grpc.WithTransportCredentials(creds))
 			require.NoError(t, err)
@@ -102,7 +90,7 @@ func TestGitalyServerFactory(t *testing.T) {
 		)
 		t.Cleanup(sf.Stop)
 
-		checkHealth(t, sf, starter.TCP, "localhost:0")
+		checkHealth(t, sf, starter.TCP, "localhost:0", nil)
 	})
 
 	t.Run("secure", func(t *testing.T) {
@@ -122,7 +110,7 @@ func TestGitalyServerFactory(t *testing.T) {
 		)
 		t.Cleanup(sf.Stop)
 
-		checkHealth(t, sf, starter.TLS, "localhost:0")
+		checkHealth(t, sf, starter.TLS, "localhost:0", &certificate)
 	})
 
 	t.Run("all services must be stopped", func(t *testing.T) {
@@ -136,12 +124,12 @@ func TestGitalyServerFactory(t *testing.T) {
 		)
 		t.Cleanup(sf.Stop)
 
-		tcpHealthClient := checkHealth(t, sf, starter.TCP, "localhost:0")
+		tcpHealthClient := checkHealth(t, sf, starter.TCP, "localhost:0", nil)
 
 		socket := testhelper.GetTemporaryGitalySocketFileName(t)
 		t.Cleanup(func() { require.NoError(t, os.RemoveAll(socket)) })
 
-		socketHealthClient := checkHealth(t, sf, starter.Unix, socket)
+		socketHealthClient := checkHealth(t, sf, starter.Unix, socket, nil)
 
 		sf.GracefulStop() // stops all started servers(listeners)
 
@@ -166,7 +154,7 @@ func TestGitalyServerFactory(t *testing.T) {
 		)
 		t.Cleanup(sf.Stop)
 
-		checkHealth(t, sf, starter.TCP, "localhost:0")
+		checkHealth(t, sf, starter.TCP, "localhost:0", nil)
 
 		// Stop all servers to drain any postprocessing done for RPC calls.
 		sf.GracefulStop()

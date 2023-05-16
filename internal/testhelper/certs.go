@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"math/big"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/credentials"
 )
 
 // Certificate is a generated certificate.
@@ -97,4 +99,21 @@ func GenerateCertificate(tb testing.TB) Certificate {
 		CertPath: certFile.Name(),
 		KeyPath:  keyFile.Name(),
 	}
+}
+
+// TransportCredentials creates new transport credentials that contain the generated certificates.
+func (c Certificate) TransportCredentials(tb testing.TB) credentials.TransportCredentials {
+	return credentials.NewTLS(&tls.Config{
+		RootCAs:    c.CertPool(tb),
+		MinVersion: tls.VersionTLS12,
+	})
+}
+
+// CertPool creates a new certificate pool containing the certificate.
+func (c Certificate) CertPool(tb testing.TB) *x509.CertPool {
+	tb.Helper()
+	pem := MustReadFile(tb, c.CertPath)
+	pool := x509.NewCertPool()
+	require.True(tb, pool.AppendCertsFromPEM(pem))
+	return pool
 }
