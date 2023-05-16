@@ -57,9 +57,9 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 	return cfg, pool, repo
 }
 
-func hashDependentSize(sha1Size, sha256Size uint64) uint64 {
-	if gittest.ObjectHashIsSHA256() {
-		return sha256Size
-	}
-	return sha1Size
+func hashDependentSize(tb testing.TB, sha1Size, sha256Size uint64) uint64 {
+	return gittest.ObjectHashDependent(tb, map[string]uint64{
+		"sha1":   sha1Size,
+		"sha256": sha256Size,
+	})
 }

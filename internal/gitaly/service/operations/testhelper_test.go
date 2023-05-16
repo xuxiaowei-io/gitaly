@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -167,4 +165,16 @@ func setupAndStartGitlabServer(tb testing.TB, glID, glRepository string, cfg con
 	tb.Cleanup(cleanup)
 
 	return url
+}
+
+type testTransactionServer struct {
+	gitalypb.UnimplementedRefTransactionServer
+	called int
+}
+
+func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
+	s.called++
+	return &gitalypb.VoteTransactionResponse{
+		State: gitalypb.VoteTransactionResponse_COMMIT,
+	}, nil
 }

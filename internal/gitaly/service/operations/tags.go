@@ -38,15 +38,21 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	}
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
 
+	repo := s.localrepo(req.GetRepository())
+
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object format: %w", err)
+	}
+
 	var revision git.ObjectID
-	var err error
 	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
-		revision, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		revision, err = objectHash.FromHex(expectedOldOID)
 		if err != nil {
 			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
 		}
 
-		revision, err = s.localrepo(req.GetRepository()).ResolveRevision(
+		revision, err = repo.ResolveRevision(
 			ctx, git.Revision(fmt.Sprintf("%s^{object}", revision)),
 		)
 		if err != nil {
@@ -54,7 +60,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 				WithMetadata("old_object_id", expectedOldOID)
 		}
 	} else {
-		revision, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
+		revision, err = repo.ResolveRevision(ctx, referenceName.Revision())
 		if err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return nil, structerr.NewFailedPrecondition("tag not found: %s", req.TagName)
@@ -63,7 +69,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, objectHash.ZeroOID, revision); err != nil {
 		var customHookErr updateref.CustomHookError
 		if errors.As(err, &customHookErr) {
 			return &gitalypb.UserDeleteTagResponse{
@@ -129,6 +135,11 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		return nil, err
 	}
 
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	tag, tagID, err := s.createTag(ctx, quarantineRepo, targetRevision, req.TagName, req.Message, req.User, committerTime)
 	if err != nil {
 		return nil, err
@@ -160,7 +171,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		)
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, quarantineDir, referenceName, tagID, git.ObjectHashSHA1.ZeroOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, quarantineDir, referenceName, tagID, objectHash.ZeroOID); err != nil {
 		var notAllowedError hook.NotAllowedError
 		var customHookErr updateref.CustomHookError
 		var updateRefError updateref.Error

@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -250,25 +248,27 @@ func TestUserDeleteTag(t *testing.T) {
 
 func TestUserDeleteTag_hooks(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	tagNameInput := "to-be-déleted-soon-tag"
-
-	request := &gitalypb.UserDeleteTagRequest{
-		Repository: repo,
-		TagName:    []byte(tagNameInput),
-		User:       gittest.TestUser,
-	}
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, hookName := range GitlabHooks {
+		hookName := hookName
+
 		t.Run(hookName, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
+			t.Parallel()
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			commitID := gittest.WriteCommit(t, cfg, repoPath)
+			gittest.WriteTag(t, cfg, repoPath, "to-be-deleted", commitID.Revision())
 
 			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
-			_, err := client.UserDeleteTag(ctx, request)
+			_, err := client.UserDeleteTag(ctx, &gitalypb.UserDeleteTagRequest{
+				Repository: repo,
+				TagName:    []byte("to-be-deleted"),
+				User:       gittest.TestUser,
+			})
 			require.NoError(t, err)
 
 			output := testhelper.MustReadFile(t, hookOutputTempPath)
@@ -368,8 +368,11 @@ func TestUserCreateTag_successful(t *testing.T) {
 			message:        "This is an annotated tag",
 			expectedResponse: &gitalypb.UserCreateTagResponse{
 				Tag: &gitalypb.Tag{
-					Name:         []byte(inputTagName),
-					Id:           "6c6134431f05e3d22726a3876cc1fecea7df18b5",
+					Name: []byte(inputTagName),
+					Id: gittest.ObjectHashDependent(t, map[string]string{
+						"sha1":   "6c6134431f05e3d22726a3876cc1fecea7df18b5",
+						"sha256": "a9dc4f6d82a3be4e52aad29658cb59e6599498a273d02afac0b4bfd0b79d508d",
+					}),
 					TargetCommit: targetRevisionCommit,
 					Message:      []byte("This is an annotated tag"),
 					MessageSize:  24,
@@ -875,9 +878,16 @@ func TestUserCreateTag_nestedTags(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "blob", Mode: "100644", OID: blobID},
+	})
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID))
 
 	for _, tc := range []struct {
 		desc             string
@@ -887,17 +897,17 @@ func TestUserCreateTag_nestedTags(t *testing.T) {
 	}{
 		{
 			desc:             "nested tags to commit",
-			targetObject:     "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
+			targetObject:     commitID.String(),
 			targetObjectType: "commit",
 		},
 		{
 			desc:             "nested tags to tree",
 			targetObjectType: "tree",
-			targetObject:     "612036fac47c5d31c212b17268e2f3ba807bce1e",
+			targetObject:     treeID.String(),
 		},
 		{
 			desc:             "nested tags to blob",
-			targetObject:     "dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82",
+			targetObject:     blobID.String(),
 			targetObjectType: "blob",
 		},
 	} {
@@ -1008,7 +1018,10 @@ func TestUserCreateTag_stableTagIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, &gitalypb.Tag{
-		Id:           "d877784c740f492d74e6073de649a6b046ab3656",
+		Id: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "d877784c740f492d74e6073de649a6b046ab3656",
+			"sha256": "32397ee1fd84d0b06365045712b658cd2fd265e4d8478fc8186e68555abe4002",
+		}),
 		Name:         []byte("happy-tag"),
 		Message:      []byte("my message"),
 		MessageSize:  10,
@@ -1093,19 +1106,13 @@ func TestUserCreateTag_gitHooks(t *testing.T) {
 
 func TestUserDeleteTag_hookFailure(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	tagNameInput := "to-be-deleted-soon-tag"
-	gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
-	defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagNameInput)
-
-	request := &gitalypb.UserDeleteTagRequest{
-		Repository: repo,
-		TagName:    []byte(tagNameInput),
-		User:       gittest.TestUser,
-	}
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	gittest.WriteTag(t, cfg, repoPath, "to-be-deleted", commitID.Revision())
 
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
@@ -1113,12 +1120,16 @@ func TestUserDeleteTag_hookFailure(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
-			response, err := client.UserDeleteTag(ctx, request)
+			response, err := client.UserDeleteTag(ctx, &gitalypb.UserDeleteTagRequest{
+				Repository: repo,
+				TagName:    []byte("to-be-deleted"),
+				User:       gittest.TestUser,
+			})
 			require.NoError(t, err)
 			require.Contains(t, response.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
 
 			tags := gittest.Exec(t, cfg, "-C", repoPath, "tag")
-			require.Contains(t, string(tags), tagNameInput, "tag name does not exist in tags list")
+			require.Contains(t, string(tags), "to-be-deleted", "tag name does not exist in tags list")
 		})
 	}
 }
@@ -1363,7 +1374,7 @@ func TestTagHookOutput(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, tc := range []struct {
 		desc           string
@@ -1426,45 +1437,55 @@ func TestTagHookOutput(t *testing.T) {
 				hookType: gitalypb.CustomHookError_HOOK_TYPE_UPDATE,
 			},
 		} {
+			tc := tc
+			hookTC := hookTC
+
 			t.Run(hookTC.hook+"/"+tc.desc, func(t *testing.T) {
-				tagNameInput := "some-tag"
-				createRequest := &gitalypb.UserCreateTagRequest{
-					Repository:     repo,
-					TagName:        []byte(tagNameInput),
-					TargetRevision: []byte("master"),
-					User:           gittest.TestUser,
-				}
-				deleteRequest := &gitalypb.UserDeleteTagRequest{
-					Repository: repo,
-					TagName:    []byte(tagNameInput),
-					User:       gittest.TestUser,
-				}
+				t.Parallel()
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+				gittest.WriteTag(t, cfg, repoPath, "to-be-deleted", commitID.Revision())
 
 				hookFilename := gittest.WriteCustomHook(t, repoPath, hookTC.hook, []byte(tc.hookContent))
 
-				createResponse, err := client.UserCreateTag(ctx, createRequest)
-				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("reference update denied by custom hooks").WithDetail(
-					&gitalypb.UserCreateTagError{
-						Error: &gitalypb.UserCreateTagError_CustomHook{
-							CustomHook: &gitalypb.CustomHookError{
-								HookType: hookTC.hookType,
-								Stdout:   []byte(tc.expectedStdout),
-								Stderr:   []byte(tc.expectedStderr),
+				t.Run("UserCreateTag", func(t *testing.T) {
+					t.Parallel()
+
+					response, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
+						Repository:     repo,
+						TagName:        []byte("new-tag"),
+						TargetRevision: []byte(git.DefaultBranch),
+						User:           gittest.TestUser,
+					})
+
+					testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("reference update denied by custom hooks").WithDetail(
+						&gitalypb.UserCreateTagError{
+							Error: &gitalypb.UserCreateTagError_CustomHook{
+								CustomHook: &gitalypb.CustomHookError{
+									HookType: hookTC.hookType,
+									Stdout:   []byte(tc.expectedStdout),
+									Stderr:   []byte(tc.expectedStderr),
+								},
 							},
 						},
-					},
-				), err)
-				require.Nil(t, createResponse)
+					), err)
+					require.Nil(t, response)
+				})
 
-				defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagNameInput)
-				gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
+				t.Run("UserDeleteTag", func(t *testing.T) {
+					t.Parallel()
 
-				deleteResponse, err := client.UserDeleteTag(ctx, deleteRequest)
-				require.NoError(t, err)
-				deleteResponseOk := &gitalypb.UserDeleteTagResponse{
-					PreReceiveError: tc.expectedErr(hookFilename),
-				}
-				testhelper.ProtoEqual(t, deleteResponseOk, deleteResponse)
+					response, err := client.UserDeleteTag(ctx, &gitalypb.UserDeleteTagRequest{
+						Repository: repo,
+						TagName:    []byte("to-be-deleted"),
+						User:       gittest.TestUser,
+					})
+					require.NoError(t, err)
+					testhelper.ProtoEqual(t, &gitalypb.UserDeleteTagResponse{
+						PreReceiveError: tc.expectedErr(hookFilename),
+					}, response)
+				})
 			})
 		}
 	}

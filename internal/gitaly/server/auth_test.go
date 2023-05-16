@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package server
 
 import (
@@ -318,8 +316,8 @@ func TestAuthBeforeLimit(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	gitlabURL, cleanup := gitlab.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &gitlab.TestServerOptions{
 		SecretToken:                 "secretToken",
@@ -352,7 +350,7 @@ sleep %v
 			_, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
 				Repository:     repo,
 				TagName:        []byte(fmt.Sprintf("tag-name-%d", i)),
-				TargetRevision: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
+				TargetRevision: []byte(commitID),
 				User:           gittest.TestUser,
 				Message:        []byte("a new tag!"),
 			})

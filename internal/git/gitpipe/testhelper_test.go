@@ -51,9 +51,9 @@ func (ch *chanObjectIterator) ObjectName() []byte {
 	return []byte("idontcare")
 }
 
-func hashDependentObjectSize(sha1Size, sha256Size int64) int64 {
-	if gittest.ObjectHashIsSHA256() {
-		return sha256Size
-	}
-	return sha1Size
+func hashDependentObjectSize(tb testing.TB, sha1Size, sha256Size int64) int64 {
+	return gittest.ObjectHashDependent(tb, map[string]int64{
+		"sha1":   sha1Size,
+		"sha256": sha256Size,
+	})
 }

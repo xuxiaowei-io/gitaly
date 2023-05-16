@@ -166,7 +166,7 @@ func TestLogObjectInfo(t *testing.T) {
 		require.Equal(t, RepositoryInfo{
 			LooseObjects: LooseObjectsInfo{
 				Count: 2,
-				Size:  hashDependentSize(142, 158),
+				Size:  hashDependentSize(t, 142, 158),
 			},
 			References: ReferencesInfo{
 				LooseReferencesCount: 1,
@@ -222,7 +222,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
 					Count:             1,
-					Size:              hashDependentSize(42, 54),
+					Size:              hashDependentSize(t, 42, 54),
 					ReverseIndexCount: 1,
 					Bitmap: BitmapInfo{
 						Exists:       true,
@@ -251,7 +251,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				},
 				Packfiles: PackfilesInfo{
 					Count:             1,
-					Size:              hashDependentSize(42, 54),
+					Size:              hashDependentSize(t, 42, 54),
 					ReverseIndexCount: 1,
 					Bitmap: BitmapInfo{
 						Exists:       true,
@@ -308,7 +308,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
 					Count: 2,
-					Size:  hashDependentSize(142, 158),
+					Size:  hashDependentSize(t, 142, 158),
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -330,7 +330,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
 					Count: 2,
-					Size:  hashDependentSize(142, 158),
+					Size:  hashDependentSize(t, 142, 158),
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -357,7 +357,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
 					Count: 2,
-					Size:  hashDependentSize(142, 158),
+					Size:  hashDependentSize(t, 142, 158),
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -413,7 +413,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				},
 				Packfiles: PackfilesInfo{
 					Count:             1,
-					Size:              hashDependentSize(42, 54),
+					Size:              hashDependentSize(t, 42, 54),
 					ReverseIndexCount: 1,
 					GarbageCount:      3,
 					GarbageSize:       3,
@@ -1015,7 +1015,7 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			},
 			expectedInfo: PackfilesInfo{
 				Count:             1,
-				Size:              hashDependentSize(163, 189),
+				Size:              hashDependentSize(t, 163, 189),
 				ReverseIndexCount: 1,
 				Bitmap: BitmapInfo{
 					Exists:       true,
@@ -1032,7 +1032,7 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			},
 			expectedInfo: PackfilesInfo{
 				Count:             1,
-				Size:              hashDependentSize(163, 189),
+				Size:              hashDependentSize(t, 163, 189),
 				ReverseIndexCount: 1,
 				MultiPackIndex: MultiPackIndexInfo{
 					Exists:        true,
@@ -1049,7 +1049,7 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			},
 			expectedInfo: PackfilesInfo{
 				Count:             1,
-				Size:              hashDependentSize(163, 189),
+				Size:              hashDependentSize(t, 163, 189),
 				ReverseIndexCount: 1,
 				MultiPackIndex: MultiPackIndexInfo{
 					Exists:        true,
@@ -1075,7 +1075,7 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			},
 			expectedInfo: PackfilesInfo{
 				Count:             2,
-				Size:              hashDependentSize(315, 367),
+				Size:              hashDependentSize(t, 315, 367),
 				ReverseIndexCount: 1,
 				GarbageCount:      1,
 				GarbageSize:       1,
@@ -1100,10 +1100,10 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			},
 			expectedInfo: PackfilesInfo{
 				Count:             2,
-				Size:              hashDependentSize(318, 371),
+				Size:              hashDependentSize(t, 318, 371),
 				ReverseIndexCount: 2,
 				CruftCount:        1,
-				CruftSize:         hashDependentSize(156, 183),
+				CruftSize:         hashDependentSize(t, 156, 183),
 				MultiPackIndex: MultiPackIndexInfo{
 					Exists:        true,
 					Version:       1,
@@ -1694,11 +1694,11 @@ func TestFullRepackTimestamp(t *testing.T) {
 	})
 }
 
-func hashDependentSize(sha1, sha256 uint64) uint64 {
-	if gittest.DefaultObjectHash.Format == "sha1" {
-		return sha1
-	}
-	return sha256
+func hashDependentSize(tb testing.TB, sha1, sha256 uint64) uint64 {
+	return gittest.ObjectHashDependent(tb, map[string]uint64{
+		"sha1":   sha1,
+		"sha256": sha256,
+	})
 }
 
 func writeFileWithMtime(tb testing.TB, path string, content []byte, date time.Time) {

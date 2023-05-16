@@ -328,7 +328,7 @@ func testObjectPoolLogStats(t *testing.T, ctx context.Context) {
 					IsObjectPool: true,
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
-						Size:  hashDependentSize(142, 158),
+						Size:  hashDependentSize(t, 142, 158),
 					},
 					References: stats.ReferencesInfo{
 						LooseReferencesCount: 1,
@@ -352,7 +352,7 @@ func testObjectPoolLogStats(t *testing.T, ctx context.Context) {
 					IsObjectPool: true,
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
-						Size:  hashDependentSize(142, 158),
+						Size:  hashDependentSize(t, 142, 158),
 					},
 					References: stats.ReferencesInfo{
 						LooseReferencesCount: 1,

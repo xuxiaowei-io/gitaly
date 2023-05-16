@@ -75,7 +75,7 @@ func TestCatfileInfo(t *testing.T) {
 				{OID: blobID, ObjectName: []byte("branch-test.txt")},
 			},
 			expectedResults: []CatfileInfoResult{
-				{ObjectInfo: &catfile.ObjectInfo{Oid: treeID, Type: "tree", Size: hashDependentObjectSize(43, 55), Format: gittest.DefaultObjectHash.Format}},
+				{ObjectInfo: &catfile.ObjectInfo{Oid: treeID, Type: "tree", Size: hashDependentObjectSize(t, 43, 55), Format: gittest.DefaultObjectHash.Format}},
 				{ObjectInfo: &catfile.ObjectInfo{Oid: blobID, Type: "blob", Size: 8, Format: gittest.DefaultObjectHash.Format}, ObjectName: []byte("branch-test.txt")},
 			},
 		},
@@ -307,8 +307,8 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6, Format: gittest.DefaultObjectHash.Format}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob2, Type: "blob", Size: 6, Format: gittest.DefaultObjectHash.Format}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: gittest.DefaultObjectHash.EmptyTreeOID, Type: "tree", Size: 0, Format: gittest.DefaultObjectHash.Format}},
-		{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(34, 46), Format: gittest.DefaultObjectHash.Format}},
-		{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: hashDependentObjectSize(177, 201), Format: gittest.DefaultObjectHash.Format}},
+		{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(t, 34, 46), Format: gittest.DefaultObjectHash.Format}},
+		{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: hashDependentObjectSize(t, 177, 201), Format: gittest.DefaultObjectHash.Format}},
 	}
 
 	t.Run("successful", func(t *testing.T) {
