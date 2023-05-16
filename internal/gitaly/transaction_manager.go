@@ -125,6 +125,8 @@ type Snapshot struct {
 	// CustomHookIndex is index of the custom hooks on the disk that are included in this Transactions's
 	// snapshot and were the latest on the read index.
 	CustomHookIndex LogIndex
+	// CustomHookPath is an absolute filesystem path to the custom hooks in this snapshot.
+	CustomHookPath string
 }
 
 // Transaction is a unit-of-work that contains reference changes to perform on the repository.
@@ -205,8 +207,15 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 		snapshot: Snapshot{
 			ReadIndex:       mgr.appendedLogIndex,
 			CustomHookIndex: mgr.customHookIndex,
+			CustomHookPath:  customHookPathForLogIndex(mgr.repositoryPath, mgr.customHookIndex),
 		},
 		finished: make(chan struct{}),
+	}
+
+	// If there are no custom hooks stored through the WAL yet, then default to the custom hooks
+	// that may already exist in the repository for backwards compatibility.
+	if txn.snapshot.CustomHookIndex == 0 {
+		txn.snapshot.CustomHookPath = filepath.Join(mgr.repositoryPath, repoutil.CustomHooksDir)
 	}
 
 	openTransactionElement := mgr.openTransactions.PushBack(txn)

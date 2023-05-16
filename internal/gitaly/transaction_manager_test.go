@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -2855,7 +2856,13 @@ func TestTransactionManager(t *testing.T) {
 					transaction, err := transactionManager.Begin(beginCtx)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
-						require.Equal(t, step.ExpectedSnapshot, transaction.Snapshot())
+						expectedSnapshot := step.ExpectedSnapshot
+						expectedSnapshot.CustomHookPath = filepath.Join(repoPath, repoutil.CustomHooksDir)
+						if expectedSnapshot.CustomHookIndex > 0 {
+							expectedSnapshot.CustomHookPath = customHookPathForLogIndex(repoPath, expectedSnapshot.CustomHookIndex)
+						}
+
+						require.Equal(t, expectedSnapshot, transaction.Snapshot())
 					}
 					openTransactions[step.TransactionID] = transaction
 				case Commit:
