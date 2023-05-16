@@ -1146,10 +1146,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		return nil
 	}
 
-	syncer := safe.NewSyncer()
-
-	hooksPath := filepath.Join("wal", "hooks")
-	targetDirectory := filepath.Join(mgr.repositoryPath, hooksPath, logIndex.String())
+	targetDirectory := hookPathForLogIndex(mgr.repositoryPath, logIndex)
 	if err := os.Mkdir(targetDirectory, fs.ModePerm); err != nil {
 		// The target directory may exist if we previously tried to extract the
 		// hooks there. TAR overwrites existing files and the hooks files are
@@ -1163,17 +1160,24 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		return fmt.Errorf("extract hooks: %w", err)
 	}
 
+	syncer := safe.NewSyncer()
 	// TAR doesn't sync the extracted files so do it manually here.
 	if err := syncer.SyncRecursive(targetDirectory); err != nil {
 		return fmt.Errorf("sync hooks: %w", err)
 	}
 
 	// Sync the parent directory as well.
-	if err := syncer.Sync(filepath.Join(mgr.repositoryPath, hooksPath)); err != nil {
+	if err := syncer.SyncParent(targetDirectory); err != nil {
 		return fmt.Errorf("sync hook directory: %w", err)
 	}
 
 	return nil
+}
+
+// hookPathForLogIndex returns the filesystem paths where the hooks for the
+// given log index are stored.
+func hookPathForLogIndex(repositoryPath string, logIndex LogIndex) string {
+	return filepath.Join(repositoryPath, "wal", "hooks", logIndex.String())
 }
 
 // deleteLogEntry deletes the log entry at the given index from the log.
