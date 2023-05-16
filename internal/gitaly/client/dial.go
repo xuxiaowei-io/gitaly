@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/dnsresolver"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/dnsresolver"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v16/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v16/internal/metadata"
 	"google.golang.org/grpc/metadata"
 )
 

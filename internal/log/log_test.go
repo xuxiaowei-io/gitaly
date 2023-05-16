@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpcstats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/grpcstats"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/interop/grpc_testing"

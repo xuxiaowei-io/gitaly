@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 )
 
 // FieldsProducer adds feature_flags logging fields to gRPC logs. Only enabled flags are available.

@@ -4,10 +4,10 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"google.golang.org/grpc"
 )
 

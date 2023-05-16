@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"

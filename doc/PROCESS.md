@@ -137,7 +137,7 @@ in detail in the following sections.
 /chatops run feature set gitaly_go_find_license true --staging
 ```
 
-[gitaly-featureflag-folder]: https://gitlab.com/gitlab-org/gitaly/-/tree/master/internal/metadata/featureflag
+[gitaly-featureflag-folder]: https://gitlab.com/gitlab-org/gitaly/-/tree/master/internal/featureflag
 [test-featureset]: https://gitlab.com/gitlab-org/gitaly/blob/c6fb49b9c6e854c0a2803f53106af501d6006cb8/internal/testhelper/featureset.go#L55-55
 
 ### Flag management with chatops

@@ -7,9 +7,9 @@ import (
 
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/sentryhandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/fieldextractors"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/middleware/sentryhandler"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

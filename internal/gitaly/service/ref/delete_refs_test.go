@@ -14,7 +14,7 @@ import (
 	hookservice "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"

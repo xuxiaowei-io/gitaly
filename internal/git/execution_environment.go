@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata/featureflag"
 	"golang.org/x/sys/unix"
 )
 
