@@ -14,8 +14,8 @@ import (
 // Manager is a housekeeping manager. It is supposed to handle housekeeping tasks for repositories
 // such as the cleanup of unneeded files and optimizations for the repository's data structures.
 type Manager interface {
-	// CleanStaleData removes any stale data in the repository.
-	CleanStaleData(context.Context, *localrepo.Repo) error
+	// CleanStaleData removes any stale data in the repository as per the provided configuration.
+	CleanStaleData(ctx context.Context, repo *localrepo.Repo, cfg CleanStaleDataConfig) error
 	// OptimizeRepository optimizes the repository's data structures such that it can be more
 	// efficiently served.
 	OptimizeRepository(context.Context, *localrepo.Repo, ...OptimizeRepositoryOption) error

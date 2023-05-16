@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
@@ -40,10 +41,56 @@ var lockfiles = []string{
 	"objects/info/commit-graphs/commit-graph-chain.lock",
 }
 
-type staleFileFinderFn func(context.Context, string) ([]string, error)
+type (
+	findStaleFileFunc            func(context.Context, string) ([]string, error)
+	cleanupRepoFunc              func(context.Context, *localrepo.Repo) (int, error)
+	cleanupRepoWithTxManagerFunc func(context.Context, *localrepo.Repo, transaction.Manager) (int, error)
+)
 
-// CleanStaleData cleans up any stale data in the repository.
-func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo) error {
+// CleanStaleDataConfig is the configuration for running CleanStaleData. It is used to define
+// the different types of cleanups we want to run.
+type CleanStaleDataConfig struct {
+	staleFileFinders          map[string]findStaleFileFunc
+	repoCleanups              map[string]cleanupRepoFunc
+	repoCleanupWithTxManagers map[string]cleanupRepoWithTxManagerFunc
+}
+
+// OnlyStaleReferenceLockCleanup returns a config which only contains a
+// stale reference lock cleaner with the provided grace period.
+func OnlyStaleReferenceLockCleanup(gracePeriod time.Duration) CleanStaleDataConfig {
+	return CleanStaleDataConfig{
+		staleFileFinders: map[string]findStaleFileFunc{
+			"reflocks": findStaleReferenceLocks(gracePeriod),
+		},
+	}
+}
+
+// DefaultStaleDataCleanup is the default configuration for CleanStaleData
+// which contains all the cleanup functions.
+func DefaultStaleDataCleanup() CleanStaleDataConfig {
+	return CleanStaleDataConfig{
+		staleFileFinders: map[string]findStaleFileFunc{
+			"objects":        findTemporaryObjects,
+			"locks":          findStaleLockfiles,
+			"refs":           findBrokenLooseReferences,
+			"reflocks":       findStaleReferenceLocks(referenceLockfileGracePeriod),
+			"packfilelocks":  findStalePackFileLocks,
+			"packedrefslock": findPackedRefsLock,
+			"packedrefsnew":  findPackedRefsNew,
+			"serverinfo":     findServerInfo,
+		},
+		repoCleanups: map[string]cleanupRepoFunc{
+			"refsemptydir":   removeRefEmptyDirs,
+			"configsections": pruneEmptyConfigSections,
+		},
+		repoCleanupWithTxManagers: map[string]cleanupRepoWithTxManagerFunc{
+			"configkeys": removeUnnecessaryConfig,
+		},
+	}
+}
+
+// CleanStaleData removes any stale data in the repository as per the provided configuration.
+func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo, cfg CleanStaleDataConfig) error {
 	span, ctx := tracing.StartSpanIfHasParent(ctx, "housekeeping.CleanStaleData", nil)
 	defer span.Finish()
 
@@ -71,16 +118,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 	}()
 
 	var filesToPrune []string
-	for staleFileType, staleFileFinder := range map[string]staleFileFinderFn{
-		"objects":        findTemporaryObjects,
-		"locks":          findStaleLockfiles,
-		"refs":           findBrokenLooseReferences,
-		"reflocks":       findStaleReferenceLocks,
-		"packfilelocks":  findStalePackFileLocks,
-		"packedrefslock": findPackedRefsLock,
-		"packedrefsnew":  findPackedRefsNew,
-		"serverinfo":     findServerInfo,
-	} {
+	for staleFileType, staleFileFinder := range cfg.staleFileFinders {
 		staleFiles, err := staleFileFinder(ctx, repoPath)
 		if err != nil {
 			return fmt.Errorf("housekeeping failed to find %s: %w", staleFileType, err)
@@ -100,31 +138,20 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		}
 	}
 
-	prunedRefDirs, err := removeRefEmptyDirs(ctx, repo)
-	staleDataByType["refsemptydir"] = prunedRefDirs
-	if err != nil {
-		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
-	}
-
-	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prune|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
-	if err := repo.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, m.txManager); err != nil {
-		if !errors.Is(err, git.ErrNotFound) {
-			return fmt.Errorf("housekeeping could not unset unnecessary config lines: %w", err)
+	for repoCleanupName, repoCleanupFn := range cfg.repoCleanups {
+		cleanupCount, err := repoCleanupFn(ctx, repo)
+		staleDataByType[repoCleanupName] = cleanupCount
+		if err != nil {
+			return fmt.Errorf("housekeeping could not perform cleanup %s: %w", repoCleanupName, err)
 		}
-		staleDataByType["configkeys"] = 0
-	} else {
-		// If we didn't get an error we know that we've deleted _something_. We just set
-		// this variable to `1` because we don't count how many keys we have deleted. It's
-		// probably good enough: we only want to know whether we're still pruning such old
-		// configuration or not, but typically don't care how many there are so that we know
-		// when to delete this cleanup of legacy data.
-		staleDataByType["configkeys"] = 1
 	}
 
-	skippedSections, err := pruneEmptyConfigSections(ctx, repo)
-	staleDataByType["configsections"] = skippedSections
-	if err != nil {
-		return fmt.Errorf("failed pruning empty sections: %w", err)
+	for repoCleanupName, repoCleanupFn := range cfg.repoCleanupWithTxManagers {
+		cleanupCount, err := repoCleanupFn(ctx, repo, m.txManager)
+		staleDataByType[repoCleanupName] = cleanupCount
+		if err != nil {
+			return fmt.Errorf("housekeeping could not perform cleanup (with TxManager) %s: %w", repoCleanupName, err)
+		}
 	}
 
 	return nil
@@ -426,47 +453,68 @@ func findBrokenLooseReferences(ctx context.Context, repoPath string) ([]string, 
 	return brokenRefs, nil
 }
 
-// findStaleReferenceLocks scans the refdb for stale locks for loose references.
-func findStaleReferenceLocks(ctx context.Context, repoPath string) ([]string, error) {
-	var staleReferenceLocks []string
+// findStaleReferenceLocks provides a function which scans the refdb for stale locks
+// and loose references against the provided grace period.
+func findStaleReferenceLocks(gracePeriod time.Duration) findStaleFileFunc {
+	return func(_ context.Context, repoPath string) ([]string, error) {
+		var staleReferenceLocks []string
 
-	if err := filepath.WalkDir(filepath.Join(repoPath, "refs"), func(path string, dirEntry fs.DirEntry, err error) error {
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) {
+		if err := filepath.WalkDir(filepath.Join(repoPath, "refs"), func(path string, dirEntry fs.DirEntry, err error) error {
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) {
+					return nil
+				}
+
+				return err
+			}
+
+			if dirEntry.IsDir() {
 				return nil
 			}
 
-			return err
-		}
-
-		if dirEntry.IsDir() {
-			return nil
-		}
-
-		if !strings.HasSuffix(dirEntry.Name(), ".lock") {
-			return nil
-		}
-
-		fi, err := dirEntry.Info()
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
+			if !strings.HasSuffix(dirEntry.Name(), ".lock") {
 				return nil
 			}
 
-			return fmt.Errorf("statting reference lock: %w", err)
-		}
+			fi, err := dirEntry.Info()
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return nil
+				}
 
-		if time.Since(fi.ModTime()) < referenceLockfileGracePeriod {
+				return fmt.Errorf("statting reference lock: %w", err)
+			}
+
+			if time.Since(fi.ModTime()) < gracePeriod {
+				return nil
+			}
+
+			staleReferenceLocks = append(staleReferenceLocks, path)
 			return nil
+		}); err != nil {
+			return nil, fmt.Errorf("walking refs: %w", err)
 		}
 
-		staleReferenceLocks = append(staleReferenceLocks, path)
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("walking refs: %w", err)
+		return staleReferenceLocks, nil
+	}
+}
+
+func removeUnnecessaryConfig(ctx context.Context, repository *localrepo.Repo, txManager transaction.Manager) (int, error) {
+	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prune|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
+	if err := repository.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, txManager); err != nil {
+		if !errors.Is(err, git.ErrNotFound) {
+			return 0, fmt.Errorf("housekeeping could not unset unnecessary config lines: %w", err)
+		}
+
+		return 0, nil
 	}
 
-	return staleReferenceLocks, nil
+	// If we didn't get an error we know that we've deleted _something_. We just set
+	// this variable to `1` because we don't count how many keys we have deleted. It's
+	// probably good enough: we only want to know whether we're still pruning such old
+	// configuration or not, but typically don't care how many there are so that we know
+	// when to delete this cleanup of legacy data.
+	return 1, nil
 }
 
 // findPackedRefsLock returns stale lockfiles for the packed-refs file.
