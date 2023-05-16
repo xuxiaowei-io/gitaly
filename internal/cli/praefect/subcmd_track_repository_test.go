@@ -2,15 +2,14 @@ package praefect
 
 import (
 	"bytes"
-	"flag"
-	"net"
+	"io"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -25,62 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func TestAddRepository_FlagSet(t *testing.T) {
-	t.Parallel()
-	cmd := &trackRepository{}
-	fs := cmd.FlagSet()
-	require.NoError(t, fs.Parse([]string{"--virtual-storage", "vs", "--repository", "repo", "--authoritative-storage", "storage-0"}))
-	require.Equal(t, "vs", cmd.virtualStorage)
-	require.Equal(t, "repo", cmd.relativePath)
-	require.Equal(t, "storage-0", cmd.authoritativeStorage)
-}
-
-func TestAddRepository_Exec_invalidArgs(t *testing.T) {
-	t.Parallel()
-	t.Run("not all flag values processed", func(t *testing.T) {
-		cmd := trackRepository{}
-		flagSet := flag.NewFlagSet("cmd", flag.PanicOnError)
-		require.NoError(t, flagSet.Parse([]string{"stub"}))
-		err := cmd.Exec(flagSet, config.Config{})
-		require.EqualError(t, err, "cmd doesn't accept positional arguments")
-	})
-
-	t.Run("virtual-storage is not set", func(t *testing.T) {
-		cmd := trackRepository{}
-		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), config.Config{})
-		require.EqualError(t, err, `"virtual-storage" is a required parameter`)
-	})
-
-	t.Run("repository is not set", func(t *testing.T) {
-		cmd := trackRepository{virtualStorage: "stub"}
-		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), config.Config{})
-		require.EqualError(t, err, `"repository" is a required parameter`)
-	})
-
-	t.Run("authoritative-storage is not set", func(t *testing.T) {
-		cmd := trackRepository{virtualStorage: "stub", relativePath: "path/to/repo"}
-		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), config.Config{Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository}})
-		require.EqualError(t, err, `"authoritative-storage" is a required parameter`)
-	})
-
-	t.Run("db connection error", func(t *testing.T) {
-		listener, addr := testhelper.GetLocalhostListener(t)
-		require.NoError(t, listener.Close())
-
-		host, portStr, err := net.SplitHostPort(addr)
-		require.NoError(t, err)
-		port, err := strconv.ParseUint(portStr, 10, 16)
-		require.NoError(t, err)
-
-		cmd := trackRepository{virtualStorage: "stub", relativePath: "stub", authoritativeStorage: "storage-0", logger: testhelper.NewDiscardingLogger(t)}
-		cfg := config.Config{DB: config.DB{Host: host, Port: int(port), SSLMode: "disable"}}
-		err = cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "connect to database: send ping: failed to connect to")
-	})
-}
-
-func TestAddRepository_Exec(t *testing.T) {
+func TestTrackRepositorySubcommand(t *testing.T) {
 	t.Parallel()
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
@@ -117,6 +61,7 @@ func TestAddRepository_Exec(t *testing.T) {
 			ElectionStrategy: config.ElectionStrategyPerRepository,
 		},
 	}
+	confPath := writeConfigToFile(t, conf)
 
 	gitalyCC, err := client.Dial(g1Addr, nil)
 	require.NoError(t, err)
@@ -138,26 +83,129 @@ func TestAddRepository_Exec(t *testing.T) {
 	}
 
 	authoritativeStorage := g1Cfg.Storages[0].Name
-	logger := testhelper.NewDiscardingLogger(t)
+	repoDS := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+
+	relativePathAlreadyExist := "path/to/test/repo_2"
+	require.NoError(t, createRepoThroughGitaly1(relativePathAlreadyExist))
+	require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePathAlreadyExist))
+	require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePathAlreadyExist))
+	idRelativePathAlreadyExist, err := repoDS.ReserveRepositoryID(ctx, virtualStorageName, relativePathAlreadyExist)
+	require.NoError(t, err)
+	require.NoError(t, repoDS.CreateRepository(
+		ctx,
+		idRelativePathAlreadyExist,
+		virtualStorageName,
+		relativePathAlreadyExist,
+		relativePathAlreadyExist,
+		g1Cfg.Storages[0].Name,
+		nil,
+		nil,
+		true,
+		true,
+	))
+
+	runCmd := func(t *testing.T, args []string) (string, error) {
+		var stdout bytes.Buffer
+		app := cli.App{
+			Reader:          bytes.NewReader(nil),
+			Writer:          &stdout,
+			ErrWriter:       io.Discard,
+			HideHelpCommand: true,
+			Commands: []*cli.Command{
+				newTrackRepositoryCommand(),
+			},
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "config",
+					Value: confPath,
+				},
+			},
+		}
+		err := app.Run(append([]string{progname, trackRepositoryCmdName}, args...))
+		return stdout.String(), err
+	}
+
+	t.Run("fails", func(t *testing.T) {
+		for _, tc := range []struct {
+			name     string
+			args     []string
+			errorMsg string
+		}{
+			{
+				name:     "positional arguments",
+				args:     []string{"-virtual-storage=v", "-repository=r", "-authoritative-storage=s", "positional-arg"},
+				errorMsg: "track-repository doesn't accept positional arguments",
+			},
+			{
+				name: "virtual-storage is not set",
+				args: []string{
+					"-repository", "path/to/test/repo_1",
+					"-authoritative-storage", authoritativeStorage,
+				},
+				errorMsg: `Required flag "virtual-storage" not set`,
+			},
+			{
+				name: "repository is not set",
+				args: []string{
+					"-virtual-storage", virtualStorageName,
+					"-authoritative-storage", authoritativeStorage,
+				},
+				errorMsg: `Required flag "repository" not set`,
+			},
+			{
+				name: "authoritative-storage is not set",
+				args: []string{
+					"-virtual-storage", virtualStorageName,
+					"-repository", "path/to/test/repo_1",
+				},
+				errorMsg: `Required flag "authoritative-storage" not set`,
+			},
+			{
+				name: "repository does not exist",
+				args: []string{
+					"-virtual-storage", virtualStorageName,
+					"-repository", "path/to/test/repo_1",
+					"-authoritative-storage", authoritativeStorage,
+				},
+				errorMsg: "attempting to track repository in praefect database: authoritative repository does not exist",
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := runCmd(t, tc.args)
+				require.EqualError(t, err, tc.errorMsg)
+			})
+		}
+	})
 
 	t.Run("ok", func(t *testing.T) {
 		testCases := []struct {
 			relativePath         string
 			desc                 string
 			replicateImmediately bool
-			expectedOutput       string
+			repositoryExists     bool
+			expectedOutput       []string
 		}{
 			{
-				relativePath:         "path/to/test/repo1",
 				desc:                 "force replication",
+				relativePath:         "path/to/test/repo1",
 				replicateImmediately: true,
-				expectedOutput:       "Finished replicating repository to \"gitaly-2\".\n",
+				expectedOutput:       []string{"Finished replicating repository to \"gitaly-2\".\n"},
 			},
 			{
-				relativePath:         "path/to/test/repo2",
 				desc:                 "do not force replication",
+				relativePath:         "path/to/test/repo2",
 				replicateImmediately: false,
-				expectedOutput:       "Added replication job to replicate repository to \"gitaly-2\".\n",
+				expectedOutput:       []string{"Added replication job to replicate repository to \"gitaly-2\".\n"},
+			},
+			{
+				desc:             "records already exist",
+				relativePath:     relativePathAlreadyExist,
+				repositoryExists: true,
+				expectedOutput: []string{
+					"repository is already tracked in praefect database",
+					"Finished adding new repository to be tracked in praefect database.",
+					"Added replication job to replicate repository to \"gitaly-2\".\n",
+				},
 			},
 		}
 
@@ -178,27 +226,28 @@ func TestAddRepository_Exec(t *testing.T) {
 				nodeMgr.Start(0, time.Hour)
 				defer nodeMgr.Stop()
 
-				repoDS := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 				exists, err := repoDS.RepositoryExists(ctx, virtualStorageName, tc.relativePath)
 				require.NoError(t, err)
-				require.False(t, exists)
+				require.Equal(t, tc.repositoryExists, exists)
 
 				// create the repo on Gitaly without Praefect knowing
-				require.NoError(t, createRepoThroughGitaly1(tc.relativePath))
-				require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, tc.relativePath))
-				require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, tc.relativePath))
-				var stdout bytes.Buffer
-
-				addRepoCmd := &trackRepository{
-					logger:               logger,
-					virtualStorage:       virtualStorageName,
-					relativePath:         tc.relativePath,
-					authoritativeStorage: authoritativeStorage,
-					replicateImmediately: tc.replicateImmediately,
-					w:                    &stdout,
+				if !tc.repositoryExists {
+					require.NoError(t, createRepoThroughGitaly1(tc.relativePath))
+					require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, tc.relativePath))
+					require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, tc.relativePath))
 				}
 
-				require.NoError(t, addRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+				args := []string{
+					"-virtual-storage", virtualStorageName,
+					"-repository", tc.relativePath,
+					"-authoritative-storage", authoritativeStorage,
+				}
+				if tc.replicateImmediately {
+					args = append(args, "-replicate-immediately")
+				}
+				stdout, err := runCmd(t, args)
+				require.NoError(t, err)
+
 				as := datastore.NewAssignmentStore(db, conf.StorageNames())
 
 				repositoryID, err := repoDS.GetRepositoryID(ctx, virtualStorageName, tc.relativePath)
@@ -206,14 +255,20 @@ func TestAddRepository_Exec(t *testing.T) {
 
 				assignments, err := as.GetHostAssignments(ctx, virtualStorageName, repositoryID)
 				require.NoError(t, err)
-				require.Len(t, assignments, 2)
+				if tc.repositoryExists {
+					require.Len(t, assignments, 1)
+				} else {
+					require.Len(t, assignments, 2)
+					assert.Contains(t, assignments, g2Cfg.Storages[0].Name)
+				}
 				assert.Contains(t, assignments, g1Cfg.Storages[0].Name)
-				assert.Contains(t, assignments, g2Cfg.Storages[0].Name)
 
 				exists, err = repoDS.RepositoryExists(ctx, virtualStorageName, tc.relativePath)
 				require.NoError(t, err)
 				assert.True(t, exists)
-				assert.Contains(t, stdout.String(), tc.expectedOutput)
+				for _, expectedOutput := range tc.expectedOutput {
+					assert.Contains(t, stdout, expectedOutput)
+				}
 
 				if !tc.replicateImmediately {
 					queue := datastore.NewPostgresReplicationEventQueue(db)
@@ -226,54 +281,6 @@ func TestAddRepository_Exec(t *testing.T) {
 		}
 	})
 
-	t.Run("repository does not exist", func(t *testing.T) {
-		relativePath := "path/to/test/repo_1"
-
-		cmd := &trackRepository{
-			w:                    &bytes.Buffer{},
-			logger:               testhelper.NewDiscardingLogger(t),
-			virtualStorage:       "praefect",
-			relativePath:         relativePath,
-			authoritativeStorage: authoritativeStorage,
-		}
-
-		assert.ErrorIs(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf), errAuthoritativeRepositoryNotExist)
-	})
-
-	t.Run("records already exist", func(t *testing.T) {
-		relativePath := "path/to/test/repo_2"
-
-		require.NoError(t, createRepoThroughGitaly1(relativePath))
-		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
-		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
-
-		ds := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-		id, err := ds.ReserveRepositoryID(ctx, virtualStorageName, relativePath)
-		require.NoError(t, err)
-		require.NoError(t, ds.CreateRepository(
-			ctx,
-			id,
-			virtualStorageName,
-			relativePath,
-			relativePath,
-			g1Cfg.Storages[0].Name,
-			nil,
-			nil,
-			true,
-			true,
-		))
-
-		cmd := &trackRepository{
-			w:                    &bytes.Buffer{},
-			logger:               testhelper.NewDiscardingLogger(t),
-			virtualStorage:       virtualStorageName,
-			relativePath:         relativePath,
-			authoritativeStorage: authoritativeStorage,
-		}
-
-		assert.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
-	})
-
 	t.Run("replication event exists", func(t *testing.T) {
 		relativePath := "path/to/test/repo_3"
 
@@ -281,19 +288,20 @@ func TestAddRepository_Exec(t *testing.T) {
 		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
 		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
 
-		var stdout bytes.Buffer
-		cmd := &trackRepository{
-			w:                    &stdout,
-			logger:               testhelper.NewDiscardingLogger(t),
-			virtualStorage:       virtualStorageName,
-			relativePath:         relativePath,
-			authoritativeStorage: authoritativeStorage,
-		}
-
-		assert.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+		_, err := runCmd(t, []string{
+			"-virtual-storage", virtualStorageName,
+			"-repository", relativePath,
+			"-authoritative-storage", authoritativeStorage,
+		})
+		require.NoError(t, err)
 		// running the command twice means we try creating the replication event
 		// again, which should log the duplicate but not break the flow.
-		assert.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
-		assert.Contains(t, stdout.String(), "replication event queue already has similar entry: replication event \"\" -> \"praefect\" -> \"gitaly-2\" -> \"path/to/test/repo_3\" already exists.")
+		stdout, err := runCmd(t, []string{
+			"-virtual-storage", virtualStorageName,
+			"-repository", relativePath,
+			"-authoritative-storage", authoritativeStorage,
+		})
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "replication event queue already has similar entry: replication event \"\" -> \"praefect\" -> \"gitaly-2\" -> \"path/to/test/repo_3\" already exists.")
 	})
 }

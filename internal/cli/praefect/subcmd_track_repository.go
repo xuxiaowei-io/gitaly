@@ -4,13 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"math/rand"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
+	glcli "gitlab.com/gitlab-org/gitaly/v16/internal/cli"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
@@ -27,13 +29,47 @@ const (
 	trackRepositoryCmdName = "track-repository"
 )
 
-type trackRepository struct {
-	w                    io.Writer
-	logger               logrus.FieldLogger
-	virtualStorage       string
-	relativePath         string
-	authoritativeStorage string
-	replicateImmediately bool
+func newTrackRepositoryCommand() *cli.Command {
+	return &cli.Command{
+		Name:  trackRepositoryCmdName,
+		Usage: "Praefect starts to track given repository",
+		Description: "This command adds a given repository to be tracked by Praefect.\n" +
+			"It checks if the repository exists on disk on the authoritative storage,\n" +
+			"and whether database records are absent from tracking the repository.\n" +
+			"If the 'replicate-immediately' flag is used, the command will attempt to replicate\n" +
+			"the repository to the secondaries. The command is blocked until the\n" +
+			"replication finishes. Otherwise, replication jobs will be created and will " +
+			"be executed eventually by Praefect in the background.\n",
+		HideHelpCommand: true,
+		Action:          trackRepositoryAction,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     paramVirtualStorage,
+				Usage:    "name of the repository's virtual storage",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     paramRelativePath,
+				Usage:    "relative path to the repository",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:  paramAuthoritativeStorage,
+				Usage: "storage with the repository to consider as authoritative",
+			},
+			&cli.BoolFlag{
+				Name:  "replicate-immediately",
+				Usage: "kick off a replication immediately",
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
+	}
 }
 
 type trackRepositoryRequest struct {
@@ -44,39 +80,21 @@ type trackRepositoryRequest struct {
 
 var errAuthoritativeRepositoryNotExist = errors.New("authoritative repository does not exist")
 
-func newTrackRepository(logger logrus.FieldLogger, w io.Writer) *trackRepository {
-	return &trackRepository{w: w, logger: logger}
-}
-
-func (cmd *trackRepository) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(trackRepositoryCmdName, flag.ExitOnError)
-	fs.StringVar(&cmd.virtualStorage, paramVirtualStorage, "", "name of the repository's virtual storage")
-	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "relative path to the repository")
-	fs.StringVar(&cmd.authoritativeStorage, paramAuthoritativeStorage, "", "storage with the repository to consider as authoritative")
-	fs.BoolVar(&cmd.replicateImmediately, "replicate-immediately", false, "kick off a replication immediately")
-	fs.Usage = func() {
-		printfErr("Description:\n" +
-			"	This command adds a given repository to be tracked by Praefect.\n" +
-			"	It checks if the repository exists on disk on the authoritative storage,\n" +
-			"	and whether database records are absent from tracking the repository.\n" +
-			"	If -replicate-immediately is used, the command will attempt to replicate the repository to the secondaries.\n" +
-			"	Otherwise, replication jobs will be created and will be executed eventually by Praefect itself.\n")
-		fs.PrintDefaults()
+func trackRepositoryAction(appCtx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	if err != nil {
+		return err
 	}
-	return fs
-}
 
-func (cmd trackRepository) Exec(flags *flag.FlagSet, cfg config.Config) error {
-	switch {
-	case flags.NArg() > 0:
-		return unexpectedPositionalArgsError{Command: flags.Name()}
-	case cmd.virtualStorage == "":
-		return requiredParameterError(paramVirtualStorage)
-	case cmd.relativePath == "":
-		return requiredParameterError(paramRelativePath)
-	case cmd.authoritativeStorage == "":
-		if cfg.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
-			return requiredParameterError(paramAuthoritativeStorage)
+	virtualStorage := appCtx.String(paramVirtualStorage)
+	relativePath := appCtx.String(paramRelativePath)
+	authoritativeStorage := appCtx.String(paramAuthoritativeStorage)
+	replicateImmediately := appCtx.Bool("replicate-immediately")
+
+	if authoritativeStorage == "" {
+		if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
+			return glcli.RequiredFlagError(paramAuthoritativeStorage)
 		}
 	}
 
@@ -84,28 +102,23 @@ func (cmd trackRepository) Exec(flags *flag.FlagSet, cfg config.Config) error {
 
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	db, err := glsql.OpenDB(openDBCtx, cfg.DB)
+	db, err := glsql.OpenDB(openDBCtx, conf.DB)
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer func() { _ = db.Close() }()
 
-	return cmd.exec(ctx, db, cfg)
+	req := trackRepositoryRequest{
+		RelativePath:         relativePath,
+		AuthoritativeStorage: authoritativeStorage,
+		VirtualStorage:       virtualStorage,
+	}
+
+	logger = logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
+	return req.execRequest(ctx, db, conf, appCtx.App.Writer, logger, replicateImmediately)
 }
 
 const trackRepoErrorPrefix = "attempting to track repository in praefect database"
-
-func (cmd *trackRepository) exec(ctx context.Context, db *sql.DB, cfg config.Config) error {
-	logger := cmd.logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
-
-	req := trackRepositoryRequest{
-		RelativePath:         cmd.relativePath,
-		AuthoritativeStorage: cmd.authoritativeStorage,
-		VirtualStorage:       cmd.virtualStorage,
-	}
-
-	return req.execRequest(ctx, db, cfg, cmd.w, logger, cmd.replicateImmediately)
-}
 
 func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 	db *sql.DB,

@@ -39,7 +39,6 @@ func subcommands(logger *logrus.Entry) map[string]subcmd {
 		sqlMigrateStatusCmdName:     &sqlMigrateStatusSubcommand{},
 		setReplicationFactorCmdName: newSetReplicatioFactorSubcommand(os.Stdout),
 		removeRepositoryCmdName:     newRemoveRepository(logger, os.Stdout),
-		trackRepositoryCmdName:      newTrackRepository(logger, os.Stdout),
 		trackRepositoriesCmdName:    newTrackRepositories(logger, os.Stdout),
 		metadataCmdName:             newMetadataSubcommand(os.Stdout),
 		verifyCmdName:               newVerifySubcommand(os.Stdout),
