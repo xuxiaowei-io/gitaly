@@ -203,7 +203,7 @@ func TestUpdate_customHooks(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, "update", []byte(tc.hook))
 
 			var stdout, stderr bytes.Buffer
-			err = hookManager.UpdateHook(ctx, repo, tc.reference, tc.oldHash.String(), tc.newHash.String(), tc.env, &stdout, &stderr)
+			err = hookManager.UpdateHook(ctx, nil, repo, tc.reference, tc.oldHash.String(), tc.newHash.String(), tc.env, &stdout, &stderr)
 
 			if tc.expectedErr != "" {
 				require.Contains(t, err.Error(), tc.expectedErr)
@@ -263,7 +263,7 @@ func TestUpdate_quarantine(t *testing.T) {
 			require.NoError(t, err)
 
 			var stdout, stderr bytes.Buffer
-			require.NoError(t, hookManager.UpdateHook(ctx, repo, "refs/heads/master",
+			require.NoError(t, hookManager.UpdateHook(ctx, nil, repo, "refs/heads/master",
 				gittest.DefaultObjectHash.ZeroOID.String(), gittest.DefaultObjectHash.ZeroOID.String(), []string{env}, &stdout, &stderr))
 
 			if isQuarantined {

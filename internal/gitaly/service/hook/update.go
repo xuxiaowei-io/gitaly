@@ -30,6 +30,7 @@ func (s *server) UpdateHook(in *gitalypb.UpdateHookRequest, stream gitalypb.Hook
 
 	if err := s.manager.UpdateHook(
 		stream.Context(),
+		nil,
 		in.GetRepository(),
 		string(in.GetRef()),
 		in.GetOldValue(),

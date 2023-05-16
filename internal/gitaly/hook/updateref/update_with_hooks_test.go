@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
@@ -138,16 +139,16 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 	referenceTransactionCalls := 0
 	testCases := []struct {
 		desc                 string
-		preReceive           func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
-		postReceive          func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
-		update               func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error
+		preReceive           func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
+		postReceive          func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
+		update               func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error
 		referenceTransaction func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error
 		expectedErr          string
 		expectedRefDeletion  bool
 	}{
 		{
 			desc: "successful update",
-			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			preReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				changes, err := io.ReadAll(stdin)
 				require.NoError(t, err)
 				require.Equal(t, fmt.Sprintf("%s %s refs/heads/main\n", commitID, gittest.DefaultObjectHash.ZeroOID.String()), string(changes))
@@ -155,14 +156,14 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 				requirePayload(t, env)
 				return nil
 			},
-			update: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
+			update: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 				require.Equal(t, "refs/heads/main", ref)
 				require.Equal(t, commitID.String(), oldValue)
 				require.Equal(t, newValue, gittest.DefaultObjectHash.ZeroOID.String())
 				requirePayload(t, env)
 				return nil
 			},
-			postReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			postReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				changes, err := io.ReadAll(stdin)
 				require.NoError(t, err)
 				require.Equal(t, fmt.Sprintf("%s %s refs/heads/main\n", commitID.String(), gittest.DefaultObjectHash.ZeroOID.String()), string(changes))
@@ -190,7 +191,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		},
 		{
 			desc: "prereceive error",
-			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			preReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				_, err := io.Copy(stderr, strings.NewReader("prereceive failure"))
 				require.NoError(t, err)
 				return errors.New("ignored")
@@ -199,17 +200,17 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		},
 		{
 			desc: "prereceive error from GitLab API response",
-			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			preReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				return hook.NotAllowedError{Message: "GitLab: file is locked"}
 			},
 			expectedErr: "GitLab: file is locked",
 		},
 		{
 			desc: "update error",
-			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			preReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				return nil
 			},
-			update: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
+			update: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 				_, err := io.Copy(stderr, strings.NewReader("update failure"))
 				require.NoError(t, err)
 				return errors.New("ignored")
@@ -218,10 +219,10 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		},
 		{
 			desc: "reference-transaction error",
-			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			preReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				return nil
 			},
-			update: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
+			update: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 				return nil
 			},
 			referenceTransaction: func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
@@ -234,16 +235,16 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		},
 		{
 			desc: "post-receive custom hooks error is ignored",
-			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			preReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				return nil
 			},
-			update: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
+			update: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 				return nil
 			},
 			referenceTransaction: func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
 				return nil
 			},
-			postReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			postReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				_, err := io.Copy(stderr, strings.NewReader("post-receive failure"))
 				require.NoError(t, err)
 				return hook.NewCustomHookError(errors.New("ignored"))
@@ -252,16 +253,16 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		},
 		{
 			desc: "post-receive non-custom hooks error returned",
-			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			preReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				return nil
 			},
-			update: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
+			update: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 				return nil
 			},
 			referenceTransaction: func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
 				return nil
 			},
-			postReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			postReceive: func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				_, err := io.Copy(stderr, strings.NewReader("post-receive failure"))
 				require.NoError(t, err)
 				return errors.New("uh oh")
@@ -346,7 +347,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 	hookExecutions := make(map[string]int)
 	hookManager := hook.NewMockManager(t,
 		// The pre-receive hook is not expected to have the object in the normal repo.
-		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+		func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 			expectQuarantined(t, env, true)
 			testhelper.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
 			hookExecutions["prereceive"]++
@@ -354,7 +355,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 		},
 		// But the post-receive hook shall get the unquarantined repository as input, with
 		// objects already having been migrated into the target repo.
-		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+		func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 			expectQuarantined(t, env, false)
 			testhelper.ProtoEqual(t, repoProto, repo)
 			hookExecutions["postreceive"]++
@@ -364,7 +365,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 		// each reference that we're updating. As it is called immediately before the ref
 		// gets queued for update, objects must have already been migrated or otherwise
 		// updating the refs will fail due to missing objects.
-		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
+		func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 			expectQuarantined(t, env, false)
 			testhelper.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
 			hookExecutions["update"]++

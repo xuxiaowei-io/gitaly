@@ -59,13 +59,13 @@ func TestHookManager_stopCalled(t *testing.T) {
 	}
 
 	preReceiveFunc := func(t *testing.T) error {
-		return hookManager.PreReceiveHook(ctx, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), io.Discard, io.Discard)
+		return hookManager.PreReceiveHook(ctx, nil, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), io.Discard, io.Discard)
 	}
 	updateFunc := func(t *testing.T) error {
-		return hookManager.UpdateHook(ctx, repo, "ref", gittest.DefaultObjectHash.ZeroOID.String(), gittest.DefaultObjectHash.ZeroOID.String(), []string{hooksPayload}, io.Discard, io.Discard)
+		return hookManager.UpdateHook(ctx, nil, repo, "ref", gittest.DefaultObjectHash.ZeroOID.String(), gittest.DefaultObjectHash.ZeroOID.String(), []string{hooksPayload}, io.Discard, io.Discard)
 	}
 	postReceiveFunc := func(t *testing.T) error {
-		return hookManager.PostReceiveHook(ctx, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), io.Discard, io.Discard)
+		return hookManager.PostReceiveHook(ctx, nil, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), io.Discard, io.Discard)
 	}
 
 	for _, tc := range []struct {

@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -60,7 +61,7 @@ var (
 
 func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 	var verifyFunc func(tb testing.TB, pushOptions []string, stdin io.Reader)
-	verifyFuncProxy := func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	verifyFuncProxy := func(t *testing.T, ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		// We use a proxy func here as we need to provide the hookManager dependency while creating the service but we only
 		// know the commit IDs after the service is created. The proxy allows us to modify the verifyFunc after the service
 		// is already built.

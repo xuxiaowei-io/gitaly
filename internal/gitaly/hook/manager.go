@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -32,15 +33,15 @@ const (
 type Manager interface {
 	// PreReceiveHook executes the pre-receive Git hook and any installed custom hooks. stdin
 	// must contain all references to be updated and match the format specified in githooks(5).
-	PreReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
+	PreReceiveHook(ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
 
 	// PostReceiveHook executes the post-receive Git hook and any installed custom hooks. stdin
 	// must contain all references to be updated and match the format specified in githooks(5).
-	PostReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
+	PostReceiveHook(ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
 
 	// UpdateHook executes the update Git hook and any installed custom hooks for the reference
 	// `ref` getting updated from `oldValue` to `newValue`.
-	UpdateHook(ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error
+	UpdateHook(ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error
 
 	// ReferenceTransactionHook executes the reference-transaction Git hook. stdin must contain
 	// all references to be updated and match the format specified in githooks(5).

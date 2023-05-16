@@ -38,6 +38,7 @@ func (s *server) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer
 
 	if err := s.manager.PreReceiveHook(
 		stream.Context(),
+		nil,
 		repository,
 		firstRequest.GetGitPushOptions(),
 		firstRequest.GetEnvironmentVariables(),

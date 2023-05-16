@@ -222,7 +222,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	var stdout, stderr bytes.Buffer
-	if err := u.hookManager.PreReceiveHook(ctx, quarantinedRepo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
+	if err := u.hookManager.PreReceiveHook(ctx, tx, quarantinedRepo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
 		return fmt.Errorf("running pre-receive hooks: %w", wrapHookError(err, git.PreReceiveHook, stdout.String(), stderr.String()))
 	}
 
@@ -247,7 +247,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 		}
 	}
 
-	if err := u.hookManager.UpdateHook(ctx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
+	if err := u.hookManager.UpdateHook(ctx, tx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
 		return fmt.Errorf("running update hooks: %w", wrapHookError(err, git.UpdateHook, stdout.String(), stderr.String()))
 	}
 
@@ -336,7 +336,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 		return fmt.Errorf("executing committing reference-transaction hook: %w", err)
 	}
 
-	if err := u.hookManager.PostReceiveHook(ctx, repoProto, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
+	if err := u.hookManager.PostReceiveHook(ctx, tx, repoProto, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
 		// CustomHook errors are returned in case a custom hook has returned an error code.
 		// The post-receive hook has special semantics though. Quoting githooks(5):
 		//

@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"golang.org/x/sys/unix"
@@ -45,7 +46,7 @@ func (e CustomHookError) Unwrap() error {
 // 3. <custom_hooks_dir>/hooks/<hook_name>.d/* - global hooks
 //
 // Any files which are either not executable or have a trailing `~` are ignored.
-func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, hookName string) (customHooksExecutor, error) {
+func (m *GitLabHookManager) newCustomHooksExecutor(tx *gitaly.Transaction, repo *gitalypb.Repository, hookName string) (customHooksExecutor, error) {
 	repoPath, err := m.locator.GetRepoPath(repo)
 	if err != nil {
 		return nil, err

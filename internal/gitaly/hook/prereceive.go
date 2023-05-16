@@ -11,6 +11,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -62,7 +63,7 @@ func getRelativeObjectDirs(repoPath, gitObjectDir, gitAlternateObjectDirs string
 // PreReceiveHook will try to authenticate the changes against the GitLab API.
 // If successful, it will execute custom hooks with the given parameters, push
 // options and environment.
-func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {
 		return structerr.NewInternal("extracting hooks payload: %w", err)
@@ -75,7 +76,7 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 
 	// Only the primary should execute hooks and increment reference counters.
 	if isPrimary(payload) {
-		if err := m.preReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
+		if err := m.preReceiveHook(ctx, tx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
 			ctxlogrus.Extract(ctx).WithError(err).Warn("stopping transaction because pre-receive hook failed")
 
 			// If the pre-receive hook declines the push, then we need to stop any
@@ -91,7 +92,7 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 	return nil
 }
 
-func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, envs []string, changes []byte, stdout, stderr io.Writer) error {
+func (m *GitLabHookManager) preReceiveHook(ctx context.Context, tx *gitaly.Transaction, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, envs []string, changes []byte, stdout, stderr io.Writer) error {
 	repoPath, err := m.locator.GetRepoPath(repo)
 	if err != nil {
 		return structerr.NewInternal("getting repo path: %w", err)
@@ -161,7 +162,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 		}
 	}
 
-	executor, err := m.newCustomHooksExecutor(repo, "pre-receive")
+	executor, err := m.newCustomHooksExecutor(tx, repo, "pre-receive")
 	if err != nil {
 		return fmt.Errorf("creating custom hooks executor: %w", err)
 	}

@@ -165,7 +165,7 @@ func TestCustomHookPartialFailure(t *testing.T) {
 				locator: config.NewLocator(cfg),
 			}
 
-			caller, err := mgr.newCustomHooksExecutor(repo, tc.hook)
+			caller, err := mgr.newCustomHooksExecutor(nil, repo, tc.hook)
 			require.NoError(t, err)
 
 			var stdout, stderr bytes.Buffer
@@ -224,7 +224,7 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 		cfg:     cfg,
 		locator: config.NewLocator(cfg),
 	}
-	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "update")
+	hooksExecutor, err := mgr.newCustomHooksExecutor(nil, repo, "update")
 	require.NoError(t, err)
 
 	var stdout, stderr bytes.Buffer
@@ -297,7 +297,7 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 		cfg:     cfg,
 		locator: config.NewLocator(cfg),
 	}
-	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "update")
+	hooksExecutor, err := mgr.newCustomHooksExecutor(nil, repo, "update")
 	require.NoError(t, err)
 
 	var stdout, stderr bytes.Buffer
@@ -331,7 +331,7 @@ func TestMultilineStdin(t *testing.T) {
 		locator: config.NewLocator(cfg),
 	}
 
-	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "pre-receive")
+	hooksExecutor, err := mgr.newCustomHooksExecutor(nil, repo, "pre-receive")
 	require.NoError(t, err)
 
 	changes := `old1 new1 ref1
@@ -370,7 +370,7 @@ func TestMultipleScriptsStdin(t *testing.T) {
 		locator: config.NewLocator(cfg),
 	}
 
-	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "pre-receive")
+	hooksExecutor, err := mgr.newCustomHooksExecutor(nil, repo, "pre-receive")
 	require.NoError(t, err)
 
 	changes := "oldref11 newref00 ref123445"
@@ -399,7 +399,7 @@ func callAndVerifyHooks(t *testing.T, cfg config.Cfg, locator storage.Locator, r
 		locator: locator,
 	}
 
-	callHooks, err := mgr.newCustomHooksExecutor(repo, hookName)
+	callHooks, err := mgr.newCustomHooksExecutor(nil, repo, hookName)
 	require.NoError(t, err)
 
 	require.NoError(t, callHooks(ctx, args, env, bytes.NewBufferString(stdin), &stdout, &stderr))

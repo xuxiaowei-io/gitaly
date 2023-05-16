@@ -11,6 +11,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -106,7 +107,7 @@ func printAlert(m gitlab.PostReceiveMessage, w io.Writer) error {
 }
 
 //nolint:revive // This is unintentionally missing documentation.
-func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, tx *gitaly.Transaction, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {
 		return structerr.NewInternal("extracting hooks payload: %w", err)
@@ -118,7 +119,7 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 	}
 
 	if isPrimary(payload) {
-		if err := m.postReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
+		if err := m.postReceiveHook(ctx, tx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
 			ctxlogrus.Extract(ctx).WithError(err).Warn("stopping transaction because post-receive hook failed")
 
 			// If the post-receive hook declines the push, then we need to stop any
@@ -134,7 +135,7 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 	return nil
 }
 
-func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, env []string, stdin []byte, stdout, stderr io.Writer) error {
+func (m *GitLabHookManager) postReceiveHook(ctx context.Context, tx *gitaly.Transaction, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, env []string, stdin []byte, stdout, stderr io.Writer) error {
 	if len(stdin) == 0 {
 		return structerr.NewInternal("hook got no reference updates")
 	}
@@ -167,7 +168,7 @@ func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.Hoo
 		return errors.New("")
 	}
 
-	executor, err := m.newCustomHooksExecutor(repo, "post-receive")
+	executor, err := m.newCustomHooksExecutor(tx, repo, "post-receive")
 	if err != nil {
 		return structerr.NewInternal("creating custom hooks executor: %w", err)
 	}

@@ -173,7 +173,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(tc.hook))
 
 			var stdout, stderr bytes.Buffer
-			err = hookManager.PreReceiveHook(ctx, repo, tc.pushOptions, tc.env, strings.NewReader(tc.stdin), &stdout, &stderr)
+			err = hookManager.PreReceiveHook(ctx, nil, repo, tc.pushOptions, tc.env, strings.NewReader(tc.stdin), &stdout, &stderr)
 
 			if tc.expectedErr != "" {
 				require.Contains(t, err.Error(), tc.expectedErr)
@@ -236,7 +236,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 				gittest.DefaultObjectHash.ZeroOID, gittest.DefaultObjectHash.ZeroOID))
 
 			var stdout, stderr bytes.Buffer
-			require.NoError(t, hookManager.PreReceiveHook(ctx, repo, nil,
+			require.NoError(t, hookManager.PreReceiveHook(ctx, nil, repo, nil,
 				[]string{env}, stdin, &stdout, &stderr))
 
 			if isQuarantined {
@@ -396,7 +396,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte("#!/bin/sh\necho called\n"))
 
 			var stdout, stderr bytes.Buffer
-			err = hookManager.PreReceiveHook(ctx, repo, nil, tc.env, strings.NewReader(tc.changes), &stdout, &stderr)
+			err = hookManager.PreReceiveHook(ctx, nil, repo, nil, tc.env, strings.NewReader(tc.changes), &stdout, &stderr)
 
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)

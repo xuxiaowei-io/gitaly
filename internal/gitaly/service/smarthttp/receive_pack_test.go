@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
@@ -843,6 +844,7 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 		func(
 			t *testing.T,
 			ctx context.Context,
+			tx *gitaly.Transaction,
 			repo *gitalypb.Repository,
 			pushOptions, env []string,
 			stdin io.Reader, stdout, stderr io.Writer,

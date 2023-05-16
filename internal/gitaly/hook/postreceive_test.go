@@ -217,7 +217,7 @@ func TestPostReceive_customHook(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(tc.hook))
 
 			var stdout, stderr bytes.Buffer
-			err = hookManager.PostReceiveHook(ctx, repo, tc.pushOptions, tc.env, strings.NewReader(tc.stdin), &stdout, &stderr)
+			err = hookManager.PostReceiveHook(ctx, nil, repo, tc.pushOptions, tc.env, strings.NewReader(tc.stdin), &stdout, &stderr)
 
 			if tc.expectedErr != "" {
 				require.Contains(t, err.Error(), tc.expectedErr)
@@ -362,7 +362,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
 
 			var stdout, stderr bytes.Buffer
-			err = hookManager.PostReceiveHook(ctx, repo, tc.pushOptions, tc.env, strings.NewReader(tc.changes), &stdout, &stderr)
+			err = hookManager.PostReceiveHook(ctx, nil, repo, tc.pushOptions, tc.env, strings.NewReader(tc.changes), &stdout, &stderr)
 
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)
@@ -424,7 +424,7 @@ func TestPostReceive_quarantine(t *testing.T) {
 				gittest.DefaultObjectHash.ZeroOID, gittest.DefaultObjectHash.ZeroOID))
 
 			var stdout, stderr bytes.Buffer
-			require.NoError(t, hookManager.PostReceiveHook(ctx, repo, nil,
+			require.NoError(t, hookManager.PostReceiveHook(ctx, nil, repo, nil,
 				[]string{env}, stdin, &stdout, &stderr))
 
 			if isQuarantined {
