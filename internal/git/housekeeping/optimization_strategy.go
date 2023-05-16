@@ -62,16 +62,6 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		return false, RepackObjectsConfig{}
 	}
 
-	cfg := RepackObjectsConfig{
-		// We cannot write bitmaps when there are alternates as we don't have full closure
-		// of all objects in the packfile. This also does not currently work with multi pack
-		// indices.
-		WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
-		// We want to always update the multi-pack-index while we're already at it repacking
-		// some of the objects.
-		WriteMultiPackIndex: true,
-	}
-
 	// There is a bug in Git that causes geometric repacking to fail in some circumstances when
 	// the repository is connected to an object pool. While we're upstreaming the fix via
 	// https://gitlab.com/gitlab-org/git/-/issues/152 we thus disable geometric repacks in any
@@ -90,6 +80,54 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	if canUseGeometricRepacking && featureflag.GeometricRepacking.IsEnabled(ctx) {
 		nonCruftPackfilesCount := s.info.Packfiles.Count - s.info.Packfiles.CruftCount
 		timeSinceLastFullRepack := time.Since(s.info.Packfiles.LastFullRepack)
+
+		fullRepackCfg := RepackObjectsConfig{
+			// We use the full-with-unreachable strategy to also pack all unreachable
+			// objects into the packfile. This only happens for object pools though,
+			// as they should never delete objects.
+			Strategy: RepackObjectsStrategyFullWithUnreachable,
+			// We cannot write bitmaps when there are alternates as we don't have full
+			// closure of all objects in the packfile.
+			WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
+			// We rewrite all packfiles into a single one and thus change the layout
+			// that was indexed by the multi-pack-index. We thus need to update it, as
+			// well.
+			WriteMultiPackIndex: true,
+		}
+		if !s.info.IsObjectPool {
+			// When we don't have an object pool at hand we want to be able to expire
+			// unreachable objects. We thus use cruft packs with an expiry date.
+			fullRepackCfg.Strategy = RepackObjectsStrategyFullWithCruft
+			fullRepackCfg.CruftExpireBefore = s.expireBefore
+		}
+
+		geometricRepackCfg := RepackObjectsConfig{
+			Strategy: RepackObjectsStrategyGeometric,
+			// We cannot write bitmaps when there are alternates as we don't have full
+			// closure of all objects in the packfile.
+			WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
+			// We're rewriting packfiles that may be part of the multi-pack-index, so we
+			// do want to update it to reflect the new layout.
+			WriteMultiPackIndex: true,
+		}
+
+		// Incremental repacks only pack unreachable objects into a new pack. As we only
+		// perform this kind of repack in the case where the overall repository structure
+		// looks good to us we try to do use the least amount of resources to update them.
+		// We thus neither update the multi-pack-index nor do we update bitmaps.
+		incrementalRepackCfg := RepackObjectsConfig{
+			Strategy:            RepackObjectsStrategyIncrementalWithUnreachable,
+			WriteBitmap:         false,
+			WriteMultiPackIndex: false,
+		}
+
+		// When alternative object directories have been modified since our last full repack
+		// then we have likely joined an object pool since then. This means that we'll want
+		// to perform a full repack in order to deduplicate objects that are part of the
+		// object pool.
+		if s.info.Alternates.LastModified.After(s.info.Packfiles.LastFullRepack) {
+			return true, fullRepackCfg
+		}
 
 		// It is mandatory for us that we perform regular full repacks in repositories so
 		// that we can evict objects which are unreachable into a separate cruft pack. So in
@@ -118,30 +156,14 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		// islands into account we can get rid of this condition and only do geometric
 		// repacks.
 		if nonCruftPackfilesCount > 1 && timeSinceLastFullRepack > FullRepackCooldownPeriod {
-			if s.info.IsObjectPool {
-				// Using cruft packs would be pointless here as we don't ever want
-				// to expire unreachable objects. And we don't want to explode
-				// unreachable objects into loose objects either: for one that'd be
-				// inefficient, and second they'd only get soaked up by the next
-				// geometric repack anyway.
-				//
-				// So instead, we do a full repack that appends unreachable objects
-				// to the end of the new packfile.
-				cfg.Strategy = RepackObjectsStrategyFullWithUnreachable
-			} else {
-				cfg.Strategy = RepackObjectsStrategyFullWithCruft
-				cfg.CruftExpireBefore = s.expireBefore
-			}
-
-			return true, cfg
+			return true, fullRepackCfg
 		}
 
 		// In case both packfiles and loose objects are in a good state, but we don't yet
 		// have a multi-pack-index we perform an incremental repack to generate one. We need
 		// to have multi-pack-indices for the next heuristic, so it's bad if it was missing.
 		if !s.info.Packfiles.MultiPackIndex.Exists {
-			cfg.Strategy = RepackObjectsStrategyGeometric
-			return true, cfg
+			return true, geometricRepackCfg
 		}
 
 		// Last but not least, we also need to take into account whether new packfiles have
@@ -198,8 +220,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		untrackedPackfiles := s.info.Packfiles.Count - s.info.Packfiles.MultiPackIndex.PackfileCount
 
 		if untrackedPackfiles > uint64(actualLimit) {
-			cfg.Strategy = RepackObjectsStrategyGeometric
-			return true, cfg
+			return true, geometricRepackCfg
 		}
 
 		// If there are loose objects then we want to roll them up into a new packfile.
@@ -219,13 +240,50 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		// whether objects are reachable and we don't need to update any data structures
 		// that scale with the repository size.
 		if s.info.LooseObjects.Count > looseObjectLimit {
-			cfg.Strategy = RepackObjectsStrategyIncrementalWithUnreachable
-			cfg.WriteBitmap = false
-			cfg.WriteMultiPackIndex = false
-			return true, cfg
+			return true, incrementalRepackCfg
 		}
 
 		return false, RepackObjectsConfig{}
+	}
+
+	fullRepackCfg := RepackObjectsConfig{
+		// We use the full-with-unreachable strategy to also pack all unreachable objects
+		// into the packfile. This only happens for object pools though, as they should
+		// never delete objects.
+		//
+		// Note that this is quite inefficient, as all unreachable objects will be exploded
+		// into loose objects now. This is fixed in our geometric repacking strategy, where
+		// we append unreachable objects to the new pack.
+		Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
+		// We cannot write bitmaps when there are alternates as we don't have full closure
+		// of all objects in the packfile.
+		WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
+		// We want to always update the multi-pack-index while we're already at it repacking
+		// some of the objects.
+		WriteMultiPackIndex: true,
+	}
+	if !s.info.IsObjectPool {
+		// When we don't have an object pool at hand we want to be able to expire
+		// unreachable objects. We thus use cruft packs with an expiry date.
+		fullRepackCfg.Strategy = RepackObjectsStrategyFullWithCruft
+		fullRepackCfg.CruftExpireBefore = s.expireBefore
+	}
+
+	incrementalRepackCfg := RepackObjectsConfig{
+		Strategy: RepackObjectsStrategyIncremental,
+		// We cannot write bitmaps when there are alternates as we don't have full closure
+		// of all objects in the packfile.
+		WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
+		// We want to always update the multi-pack-index while we're already at it repacking
+		// some of the objects.
+		WriteMultiPackIndex: true,
+	}
+
+	// When alternative object directories have been modified since our last full repack then we
+	// have likely joined an object pool since then. This means that we'll want to perform a
+	// full repack in order to deduplicate objects that are part of the object pool.
+	if s.info.Alternates.LastModified.After(s.info.Packfiles.LastFullRepack) {
+		return true, fullRepackCfg
 	}
 
 	// Whenever we do an incremental repack we create a new packfile, and as a result Git may
@@ -268,22 +326,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 
 	if uint64(math.Max(lowerLimit,
 		math.Log(float64(s.info.Packfiles.Size/1024/1024))/math.Log(log))) <= s.info.Packfiles.Count {
-
-		// Object pools should neither have unreachable objects, nor should we ever try to
-		// delete any if there are some. So we disable cruft packs and expiration of them
-		// for them.
-		//
-		// Alternatively, we could enable writing cruft packs, but never expire the objects.
-		// This is left for another iteration though once we have determined that this is
-		// even necessary.
-		if !s.info.IsObjectPool {
-			cfg.Strategy = RepackObjectsStrategyFullWithCruft
-			cfg.CruftExpireBefore = s.expireBefore
-		} else {
-			cfg.Strategy = RepackObjectsStrategyFullWithLooseUnreachable
-		}
-
-		return true, cfg
+		return true, fullRepackCfg
 	}
 
 	// Most Git commands do not write packfiles directly, but instead write loose objects into
@@ -300,15 +343,13 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// In our case we typically want to ensure that our repositories are much better packed than
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
 	if s.info.LooseObjects.Count > looseObjectLimit {
-		cfg.Strategy = RepackObjectsStrategyIncremental
-		return true, cfg
+		return true, incrementalRepackCfg
 	}
 
 	// In case both packfiles and loose objects are in a good state, but we don't yet have a
 	// multi-pack-index we perform an incremental repack to generate one.
 	if !s.info.Packfiles.MultiPackIndex.Exists {
-		cfg.Strategy = RepackObjectsStrategyIncremental
-		return true, cfg
+		return true, incrementalRepackCfg
 	}
 
 	return false, RepackObjectsConfig{}

@@ -439,6 +439,49 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 				},
 			),
 		},
+		{
+			desc: "alternates modified after last full repack",
+			strategy: HeuristicalOptimizationStrategy{
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						Count: 1,
+						MultiPackIndex: stats.MultiPackIndexInfo{
+							Exists:        true,
+							PackfileCount: 1,
+						},
+						LastFullRepack: time.Now().Add(-1 * time.Hour),
+					},
+					Alternates: stats.AlternatesInfo{
+						LastModified: time.Now(),
+					},
+				},
+			},
+			expectedNeeded: true,
+			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyFullWithCruft,
+				WriteBitmap:         true,
+				WriteMultiPackIndex: true,
+			},
+		},
+		{
+			desc: "alternates modified before last full repack",
+			strategy: HeuristicalOptimizationStrategy{
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						Count: 1,
+						MultiPackIndex: stats.MultiPackIndexInfo{
+							Exists:        true,
+							PackfileCount: 1,
+						},
+						LastFullRepack: time.Now(),
+					},
+					Alternates: stats.AlternatesInfo{
+						LastModified: time.Now().Add(-1 * time.Hour),
+					},
+				},
+			},
+			expectedNeeded: false,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			repackNeeded, repackCfg := tc.strategy.ShouldRepackObjects(ctx)

@@ -460,13 +460,20 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
 	require.NoError(t, err)
 
-	linkRepoToPool := func(t *testing.T, repoPath, poolPath string) {
+	earlierDate := time.Date(2022, 12, 1, 0, 0, 0, 0, time.Local)
+	laterDate := time.Date(2022, 12, 1, 12, 0, 0, 0, time.Local)
+
+	linkRepoToPool := func(t *testing.T, repoPath, poolPath string, date time.Time) {
 		t.Helper()
+
+		alternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
+
 		require.NoError(t, os.WriteFile(
-			filepath.Join(repoPath, "objects", "info", "alternates"),
+			alternatesPath,
 			[]byte(filepath.Join(poolPath, "objects")),
 			perm.PrivateFile,
 		))
+		require.NoError(t, os.Chtimes(alternatesPath, date, date))
 	}
 
 	readPackfiles := func(t *testing.T, repoPath string) []string {
@@ -823,7 +830,8 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 					RelativePath:           gittest.NewObjectPoolName(t),
 				})
 
-				linkRepoToPool(t, repoPath, poolPath)
+				require.NoError(t, stats.UpdateFullRepackTimestamp(repoPath, laterDate))
+				linkRepoToPool(t, repoPath, poolPath, earlierDate)
 
 				return setupData{
 					repo: localrepo.NewTestRepo(t, cfg, repo),
@@ -849,7 +857,10 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				linkRepoToPool(t, repoPath, poolPath)
+
+				require.NoError(t, stats.UpdateFullRepackTimestamp(repoPath, laterDate))
+				linkRepoToPool(t, repoPath, poolPath, earlierDate)
+
 				gittest.WriteRef(t, cfg, repoPath, "refs/heads/some-branch", commitID)
 
 				return setupData{
@@ -874,7 +885,8 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				linkRepoToPool(t, repoPath, poolPath)
+				require.NoError(t, stats.UpdateFullRepackTimestamp(repoPath, laterDate))
+				linkRepoToPool(t, repoPath, poolPath, earlierDate)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
 
 				return setupData{
@@ -882,6 +894,46 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 					expectedMetrics: []metric{
 						{name: geometricIfSupported, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+				}
+			},
+		},
+		{
+			desc: "recently linked repository gets a full repack",
+			setup: func(t *testing.T, relativePath string) setupData {
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           gittest.NewObjectPoolName(t),
+				})
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				gittest.WriteCommit(t, cfg, repoPath)
+
+				// Pretend that the last full repack has happened before creating
+				// the gitalternates file. This should cause a full repack in order
+				// to deduplicate all objects.
+				require.NoError(t, stats.UpdateFullRepackTimestamp(repoPath, earlierDate))
+				linkRepoToPool(t, repoPath, poolPath, laterDate)
+
+				return setupData{
+					repo: localrepo.NewTestRepo(t, cfg, repo),
+					expectedMetrics: []metric{
+						{name: "packed_objects_full_with_cruft", status: "success", count: 1},
+						{name: "written_multi_pack_index", status: "success", count: 1},
+						{name: "total", status: "success", count: 1},
+					},
+					expectedMetricsForPool: []metric{
+						{name: func() string {
+							if gitVersion.GeometricRepackingSupportsAlternates() {
+								return geometricOrIncremental(ctx, "packed_objects_full_with_unreachable", "packed_objects_full_with_loose_unreachable")
+							}
+							return "packed_objects_full_with_loose_unreachable"
+						}(), status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
 					},
@@ -901,7 +953,8 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				linkRepoToPool(t, repoPath, poolPath)
+				require.NoError(t, stats.UpdateFullRepackTimestamp(repoPath, laterDate))
+				linkRepoToPool(t, repoPath, poolPath, earlierDate)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitID), gittest.WithBranch("some-branch"))
 
 				return setupData{
@@ -956,7 +1009,8 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				// past.
 				require.Equal(t, repoPackfiles, readPackfiles(t, poolPath))
 
-				linkRepoToPool(t, repoPath, poolPath)
+				require.NoError(t, stats.UpdateFullRepackTimestamp(repoPath, laterDate))
+				linkRepoToPool(t, repoPath, poolPath, earlierDate)
 
 				return setupData{
 					repo: localrepo.NewTestRepo(t, cfg, repo),
