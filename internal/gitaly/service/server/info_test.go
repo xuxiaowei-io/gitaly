@@ -3,6 +3,7 @@
 package server
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,11 +24,10 @@ import (
 )
 
 func TestGitalyServerInfo(t *testing.T) {
-	cfg := testcfg.Build(t)
-
-	cfg.Storages = append(cfg.Storages, config.Storage{Name: "broken", Path: "/does/not/exist"})
+	cfg := testcfg.Build(t, testcfg.WithStorages("default", "broken"))
 
 	addr := runServer(t, cfg, testserver.WithDisablePraefect())
+	require.NoError(t, os.RemoveAll(cfg.Storages[1].Path), "second storage needs to be invalid")
 
 	client := newServerClient(t, addr)
 	ctx := testhelper.Context(t)
