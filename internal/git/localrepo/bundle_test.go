@@ -2,6 +2,7 @@ package localrepo
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -109,6 +111,124 @@ func TestRepoCreateBundle(t *testing.T) {
 			}
 
 			require.Equal(t, tc.expectedRefs, refNames)
+		})
+	}
+}
+
+func TestRepo_FetchBundle(t *testing.T) {
+	t.Parallel()
+
+	createBundle := func(tb testing.TB, cfg config.Cfg, repoPath string) io.Reader {
+		tmp := testhelper.TempDir(tb)
+		bundlePath := filepath.Join(tmp, "test.bundle")
+		gittest.BundleRepo(t, cfg, repoPath, bundlePath)
+
+		bundle, err := os.Open(bundlePath)
+		require.NoError(t, err)
+		t.Cleanup(func() { testhelper.MustClose(t, bundle) })
+
+		return bundle
+	}
+
+	type testSetup struct {
+		reader          io.Reader
+		expectedHeadRef git.ReferenceName
+		expectedRefs    []git.Reference
+	}
+
+	for _, tc := range []struct {
+		desc                string
+		opts                *CreateBundleOpts
+		setup               func(t *testing.T, ctx context.Context, cfg config.Cfg, targetRepoPath string) testSetup
+		updateHead          bool
+		expectedErrAs       any
+		expectedErrContains string
+	}{
+		{
+			desc: "no HEAD update",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg, targetRepoPath string) testSetup {
+				_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch(git.DefaultBranch))
+
+				mainOid := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch(git.DefaultBranch))
+				featureOid := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("feature"), gittest.WithParents(mainOid))
+				gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+
+				return testSetup{
+					reader:          createBundle(t, cfg, sourceRepoPath),
+					expectedHeadRef: git.DefaultRef,
+					expectedRefs: []git.Reference{
+						git.NewReference(git.NewReferenceNameFromBranchName("feature"), featureOid.String()),
+						git.NewReference(git.DefaultRef, mainOid.String()),
+					},
+				}
+			},
+		},
+		{
+			desc:       "HEAD update",
+			updateHead: true,
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg, targetRepoPath string) testSetup {
+				_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch(git.DefaultBranch))
+
+				mainOid := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch(git.DefaultBranch))
+				featureOid := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("feature"), gittest.WithParents(mainOid))
+				gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+
+				return testSetup{
+					reader:          createBundle(t, cfg, sourceRepoPath),
+					expectedHeadRef: git.NewReferenceNameFromBranchName("feature"),
+					expectedRefs: []git.Reference{
+						git.NewReference(git.NewReferenceNameFromBranchName("feature"), featureOid.String()),
+						git.NewReference(git.DefaultRef, mainOid.String()),
+					},
+				}
+			},
+		},
+		{
+			desc: "empty bundle",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg, targetRepoPath string) testSetup {
+				return testSetup{reader: new(bytes.Reader)}
+			},
+			expectedErrAs:       FetchFailedError{},
+			expectedErrContains: "fetch bundle: exit status 128",
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testhelper.Context(t)
+			txManager := transaction.NewTrackingManager()
+			cfg, repo, repoPath := setupRepo(t)
+			data := tc.setup(t, ctx, cfg, repoPath)
+
+			err := repo.FetchBundle(ctx, txManager, data.reader, &FetchBundleOpts{
+				UpdateHead: tc.updateHead,
+			})
+			if tc.expectedErrAs != nil {
+				require.ErrorAs(t, err, &tc.expectedErrAs)
+			}
+			if tc.expectedErrContains != "" {
+				require.ErrorContains(t, err, tc.expectedErrContains)
+				return
+			}
+			require.NoError(t, err)
+
+			headRef, err := repo.GetDefaultBranch(ctx)
+			require.NoError(t, err)
+			require.Equal(t, data.expectedHeadRef, headRef)
+
+			refs, err := repo.GetReferences(ctx)
+			require.NoError(t, err)
+			require.Equal(t, data.expectedRefs, refs)
 		})
 	}
 }
