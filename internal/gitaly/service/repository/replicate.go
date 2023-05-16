@@ -224,7 +224,7 @@ func fetchInternalRemote(
 	if err := repo.FetchInternal(
 		ctx,
 		remoteRepoProto,
-		[]string{mirrorRefSpec},
+		[]string{git.MirrorRefSpec},
 		localrepo.FetchOpts{
 			Prune:  true,
 			Stderr: &stderr,

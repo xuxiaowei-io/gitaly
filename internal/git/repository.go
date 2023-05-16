@@ -20,6 +20,9 @@ const DefaultRef = ReferenceName("refs/heads/" + DefaultBranch)
 // legacy default.
 const LegacyDefaultRef = ReferenceName("refs/heads/master")
 
+// MirrorRefSpec is the refspec used when --mirror is specified on git clone.
+const MirrorRefSpec = "+refs/*:refs/*"
+
 var (
 	// ErrReferenceNotFound represents an error when a reference was not
 	// found.

@@ -65,7 +65,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 				git.Flag{Name: "--quiet"},
 				git.Flag{Name: "--atomic"},
 			},
-			Args: []string{bundlePath, "refs/*:refs/*"},
+			Args: []string{bundlePath, git.MirrorRefSpec},
 		}, git.WithStderr(&stderr), git.WithRefTxHook(repo))
 		if err != nil {
 			return structerr.NewInternal("spawning fetch: %w", err)

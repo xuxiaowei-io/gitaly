@@ -16,10 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
-const (
-	mirrorRefSpec = "+refs/*:refs/*"
-)
-
 func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
@@ -70,7 +66,7 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 
 	config := []git.ConfigPair{
 		{Key: "remote.inmemory.url", Value: bundlePath},
-		{Key: "remote.inmemory.fetch", Value: mirrorRefSpec},
+		{Key: "remote.inmemory.fetch", Value: git.MirrorRefSpec},
 	}
 	opts := localrepo.FetchOpts{
 		CommandOptions: []git.CmdOpt{git.WithConfigEnv(config...)},
