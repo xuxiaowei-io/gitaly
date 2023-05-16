@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service/info"
@@ -22,7 +24,7 @@ func TestMetadataSubcommand(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	tx := testdb.New(t).Begin(t)
-	defer tx.Rollback(t)
+	t.Cleanup(func() { tx.Rollback(t) })
 
 	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
 		"praefect": {"virtual-storage": {"primary", "secondary-1"}},
@@ -42,13 +44,34 @@ func TestMetadataSubcommand(t *testing.T) {
 	ln, clean := listenAndServe(t, []svcRegistrar{
 		registerPraefectInfoServer(info.NewServer(config.Config{}, rs, nil, nil, nil)),
 	})
-	defer clean()
+	t.Cleanup(clean)
+
+	conf := config.Config{
+		SocketPath: ln.Addr().String(),
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name: "vs-1",
+				Nodes: []*config.Node{
+					{
+						Storage: "storage-1",
+						Address: "tcp://1.2.3.4",
+					},
+				},
+			},
+		},
+	}
+	confPath := writeConfigToFile(t, conf)
 
 	for _, tc := range []struct {
 		desc  string
 		args  []string
 		error error
 	}{
+		{
+			desc:  "positional arguments",
+			args:  []string{"positional-arg"},
+			error: cli.Exit(unexpectedPositionalArgsError{Command: "metadata"}, 1),
+		},
 		{
 			desc:  "missing parameters fails",
 			error: errors.New("repository id or virtual storage and relative path required"),
@@ -87,14 +110,28 @@ func TestMetadataSubcommand(t *testing.T) {
 			args: []string{"-virtual-storage=virtual-storage", "-relative-path=relative-path"},
 		},
 	} {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			stdout := &bytes.Buffer{}
-			cmd := newMetadataSubcommand(stdout)
+			t.Parallel()
 
-			fs := cmd.FlagSet()
-			require.NoError(t, fs.Parse(tc.args))
-			err := cmd.Exec(fs, config.Config{SocketPath: ln.Addr().String()})
-			testhelper.RequireGrpcError(t, tc.error, err)
+			var stdout bytes.Buffer
+			app := cli.App{
+				Reader:          bytes.NewReader(nil),
+				Writer:          &stdout,
+				ErrWriter:       io.Discard,
+				HideHelpCommand: true,
+				Commands: []*cli.Command{
+					newMetadataCommand(),
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Value: confPath,
+					},
+				},
+			}
+			err := app.Run(append([]string{progname, "metadata"}, tc.args...))
+			require.Equal(t, tc.error, err)
 			if tc.error != nil {
 				return
 			}
