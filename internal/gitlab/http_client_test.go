@@ -60,6 +60,8 @@ func TestAccess_verifyParams(t *testing.T) {
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
 
+	certificate := testhelper.GenerateCertificate(t)
+
 	serverURL, cleanup := NewTestServer(t, TestServerOptions{
 		User:                        user,
 		Password:                    password,
@@ -73,9 +75,8 @@ func TestAccess_verifyParams(t *testing.T) {
 		GitObjectDir:                gitObjectDirFull,
 		GitAlternateObjectDirs:      gitAlternateObjectDirsFull,
 		RepoPath:                    repoPath,
-		ClientCACertPath:            "testdata/certs/server.crt",
-		ServerCertPath:              "testdata/certs/server.crt",
-		ServerKeyPath:               "testdata/certs/server.key",
+		ClientCertificate:           &certificate,
+		ServerCertificate:           &certificate,
 	})
 	defer cleanup()
 
@@ -87,12 +88,12 @@ func TestAccess_verifyParams(t *testing.T) {
 			HTTPSettings: config.HTTPSettings{
 				User:     user,
 				Password: password,
-				CAFile:   "testdata/certs/server.crt",
+				CAFile:   certificate.CertPath,
 			},
 		},
 		config.TLS{
-			CertPath: "testdata/certs/server.crt",
-			KeyPath:  "testdata/certs/server.key",
+			CertPath: certificate.CertPath,
+			KeyPath:  certificate.KeyPath,
 		},
 		prometheus.Config{},
 	)

@@ -117,3 +117,11 @@ func (c Certificate) CertPool(tb testing.TB) *x509.CertPool {
 	require.True(tb, pool.AppendCertsFromPEM(pem))
 	return pool
 }
+
+// Cert returns the parsed certificate.
+func (c Certificate) Cert(tb testing.TB) tls.Certificate {
+	tb.Helper()
+	cert, err := tls.LoadX509KeyPair(c.CertPath, c.KeyPath)
+	require.NoError(tb, err)
+	return cert
+}
