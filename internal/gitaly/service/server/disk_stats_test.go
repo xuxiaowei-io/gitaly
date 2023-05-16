@@ -4,10 +4,10 @@ package server
 
 import (
 	"math"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -15,11 +15,11 @@ import (
 )
 
 func TestStorageDiskStatistics(t *testing.T) {
-	cfg := testcfg.Build(t)
-
-	cfg.Storages = append(cfg.Storages, config.Storage{Name: "broken", Path: "/does/not/exist"})
+	cfg := testcfg.Build(t, testcfg.WithStorages("default", "broken"))
 
 	addr := runServer(t, cfg)
+	require.NoError(t, os.RemoveAll(cfg.Storages[1].Path), "second storage needs to be invalid")
+
 	client := newServerClient(t, addr)
 	ctx := testhelper.Context(t)
 

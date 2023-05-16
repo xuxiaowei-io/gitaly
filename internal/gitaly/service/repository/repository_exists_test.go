@@ -21,10 +21,10 @@ func TestRepositoryExists(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "other", "broken"))
 	cfg := cfgBuilder.Build(t)
 
-	require.NoError(t, os.RemoveAll(cfg.Storages[2].Path), "third storage needs to be invalid")
-
 	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
+
+	require.NoError(t, os.RemoveAll(cfg.Storages[2].Path), "third storage needs to be invalid")
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{})
 
