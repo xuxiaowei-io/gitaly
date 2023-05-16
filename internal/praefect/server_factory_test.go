@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"testing"
 	"time"
 
@@ -247,65 +246,54 @@ func TestServerFactory(t *testing.T) {
 		praefectServerFactory := NewServerFactory(conf, logger, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, registry, nil, nil, nil)
 		defer praefectServerFactory.Stop()
 
-		// start with tcp address
-		tcpListener, err := net.Listen(starter.TCP, "localhost:0")
-		require.NoError(t, err)
+		var healthClients []healthpb.HealthClient
+		for _, cfg := range []struct {
+			network, address string
+			secure           bool
+			dialOpts         []client.DialOption
+		}{
+			{
+				network: starter.TCP,
+				address: "localhost:0",
+				secure:  false,
+			},
+			{
+				network: starter.TCP,
+				address: "localhost:0",
+				secure:  true,
+				dialOpts: []client.DialOption{
+					client.WithTransportCredentials(certificate.TransportCredentials(t)),
+				},
+			},
+			{
+				network: starter.Unix,
+				address: testhelper.GetTemporaryGitalySocketFileName(t),
+				secure:  false,
+			},
+		} {
+			cfg := cfg
 
-		go func() { require.NoError(t, praefectServerFactory.Serve(tcpListener, false)) }()
+			listener, err := net.Listen(cfg.network, cfg.address)
+			require.NoError(t, err)
 
-		praefectTCPAddr, err := starter.ComposeEndpoint(tcpListener.Addr().Network(), tcpListener.Addr().String())
-		require.NoError(t, err)
+			go func() { require.NoError(t, praefectServerFactory.Serve(listener, cfg.secure)) }()
 
-		tcpCC, err := client.Dial(ctx, praefectTCPAddr)
-		require.NoError(t, err)
-		defer func() { require.NoError(t, tcpCC.Close()) }()
+			address, err := starter.ComposeEndpoint(listener.Addr().Network(), listener.Addr().String())
+			require.NoError(t, err)
 
-		tcpHealthClient := checkOwnRegisteredServices(t, ctx, tcpCC)
+			conn, err := client.Dial(ctx, address, cfg.dialOpts...)
+			require.NoError(t, err)
+			defer func() { require.NoError(t, conn.Close()) }()
 
-		// start with tls address
-		tlsListener, err := net.Listen(starter.TCP, "localhost:0")
-		require.NoError(t, err)
-
-		go func() { require.NoError(t, praefectServerFactory.Serve(tlsListener, true)) }()
-
-		creds := certificate.TransportCredentials(t)
-
-		praefectTLSAddr, err := starter.ComposeEndpoint(tlsListener.Addr().Network(), tlsListener.Addr().String())
-		require.NoError(t, err)
-
-		tlsCC, err := client.Dial(ctx, praefectTLSAddr, client.WithTransportCredentials(creds))
-		require.NoError(t, err)
-		defer func() { require.NoError(t, tlsCC.Close()) }()
-
-		tlsHealthClient := checkOwnRegisteredServices(t, ctx, tlsCC)
-
-		// start with socket address
-		socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-		defer func() { require.NoError(t, os.RemoveAll(socketPath)) }()
-		socketListener, err := net.Listen(starter.Unix, socketPath)
-		require.NoError(t, err)
-
-		go func() { require.NoError(t, praefectServerFactory.Serve(socketListener, false)) }()
-
-		praefectSocketAddr, err := starter.ComposeEndpoint(socketListener.Addr().Network(), socketListener.Addr().String())
-		require.NoError(t, err)
-
-		socketCC, err := client.Dial(ctx, praefectSocketAddr)
-		require.NoError(t, err)
-		defer func() { require.NoError(t, socketCC.Close()) }()
-
-		unixHealthClient := checkOwnRegisteredServices(t, ctx, socketCC)
+			healthClients = append(healthClients, checkOwnRegisteredServices(t, ctx, conn))
+		}
 
 		praefectServerFactory.GracefulStop()
 
-		_, err = tcpHealthClient.Check(ctx, nil)
-		require.Error(t, err)
-
-		_, err = tlsHealthClient.Check(ctx, nil)
-		require.Error(t, err)
-
-		_, err = unixHealthClient.Check(ctx, nil)
-		require.Error(t, err)
+		for _, healthClient := range healthClients {
+			_, err := healthClient.Check(ctx, nil)
+			require.Error(t, err)
+		}
 	})
 
 	t.Run("tls key path invalid", func(t *testing.T) {
