@@ -6,7 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )

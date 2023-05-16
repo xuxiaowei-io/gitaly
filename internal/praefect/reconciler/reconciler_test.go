@@ -9,8 +9,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
