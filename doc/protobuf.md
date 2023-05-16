@@ -14,6 +14,11 @@ in their respective subdirectories. The list of RPCs can be
 Run `make proto` from the root of the repository to regenerate the client
 libraries after updating .proto files.
 
+## Gitaly RPC documentation
+
+For documentation generated from the protobuf definitions (in `proto/` directory),
+see [Gitaly RPC documentation](https://gitlab-org.gitlab.io/gitaly/).
+
 See
 [`developers.google.com`](https://developers.google.com/protocol-buffers/docs/proto3)
 for documentation of the 'proto3' Protocol buffer specification
