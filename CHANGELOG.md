@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.11.4 (2023-05-16)
+
+No changes.
+
 ## 15.11.3 (2023-05-10)
 
 ### Security (1 change)
