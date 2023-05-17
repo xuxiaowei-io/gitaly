@@ -12,7 +12,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
+	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 )
