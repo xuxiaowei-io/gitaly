@@ -34,10 +34,10 @@ func newRemoveRepositoryCommand() *cli.Command {
 		Description: "This command removes all state associated with a given repository from the Gitaly Cluster.\n" +
 			"This includes both on-disk repositories on all relevant Gitaly nodes as well as any potential\n" +
 			"database state as tracked by Praefect, or optionally only database state.\n" +
-			"Runs in dry-run mode by default checks whether the repository exists" +
+			"Runs in dry-run mode by default, and checks whether the repository exists" +
 			"without actually removing it from the database and disk.\n" +
 			"When -apply is used, the repository will be removed from the database as well as\n" +
-			"the individual gitaly nodes on which they exist.\n" +
+			"the individual Gitaly nodes on which it exists.\n" +
 			"When -apply and -db-only are used, the repository will be removed from the\n" +
 			"database but left in-place on the gitaly nodes.",
 		HideHelpCommand: true,
