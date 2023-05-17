@@ -10,17 +10,6 @@
 //
 //	praefect -config PATH_TO_CONFIG sql-ping
 //
-// # SQL Migrate
-//
-// The subcommand "sql-migrate" will apply any outstanding SQL migrations.
-//
-//	praefect -config PATH_TO_CONFIG sql-migrate [-ignore-unknown=true|false]
-//
-// By default, the migration will ignore any unknown migrations that are
-// not known by the Praefect binary.
-//
-// "-ignore-unknown=false" will disable this behavior.
-//
 // The subcommand "sql-migrate-status" will show which SQL migrations have
 // been applied and which ones have not:
 //
@@ -81,6 +70,7 @@ func NewApp() *cli.App {
 			newTrackRepositoryCommand(),
 			newVerifyCommand(),
 			newMetadataCommand(),
+			newSQLMigrateCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
