@@ -57,13 +57,41 @@ type Handshaker interface {
 	ClientHandshake(credentials.TransportCredentials) credentials.TransportCredentials
 }
 
+type dialConfig struct {
+	handshaker Handshaker
+	grpcOpts   []grpc.DialOption
+}
+
+// DialOption is an option that can be passed to Dial.
+type DialOption func(*dialConfig)
+
+// WithHandshaker sets up the given handshaker so that it's passed as the transport credentials
+// which would be otherwise set. The transport credentials returned by handshaker are then set
+// instead.
+func WithHandshaker(handshaker Handshaker) DialOption {
+	return func(cfg *dialConfig) {
+		cfg.handshaker = handshaker
+	}
+}
+
+// WithGrpcOptions will set up the given gRPC dial options so that they will be used when calling
+// `grpc.DialContext()`.
+func WithGrpcOptions(opts []grpc.DialOption) DialOption {
+	return func(cfg *dialConfig) {
+		cfg.grpcOpts = opts
+	}
+}
+
 // Dial dials a Gitaly node serving at the given address. Dial is used by the public 'client' package
 // and the expected behavior is mostly documented there.
-//
-// If handshaker is provided, it's passed the transport credentials which would be otherwise set. The transport credentials
-// returned by handshaker are then set instead.
-func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, handshaker Handshaker) (*grpc.ClientConn, error) {
-	connOpts = cloneOpts(connOpts) // copy to avoid potentially mutating the backing array of the passed slice
+func Dial(ctx context.Context, rawAddress string, opts ...DialOption) (*grpc.ClientConn, error) {
+	var dialCfg dialConfig
+	for _, opt := range opts {
+		opt(&dialCfg)
+	}
+
+	// copy to avoid potentially mutating the backing array of the passed slice
+	connOpts := cloneOpts(dialCfg.grpcOpts)
 
 	var canonicalAddress string
 	var err error
@@ -121,12 +149,12 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, ha
 		)
 	}
 
-	if handshaker != nil {
+	if dialCfg.handshaker != nil {
 		if transportCredentials == nil {
 			transportCredentials = insecure.NewCredentials()
 		}
 
-		transportCredentials = handshaker.ClientHandshake(transportCredentials)
+		transportCredentials = dialCfg.handshaker.ClientHandshake(transportCredentials)
 	}
 
 	if transportCredentials == nil {

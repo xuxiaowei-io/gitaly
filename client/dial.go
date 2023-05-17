@@ -27,7 +27,7 @@ var DefaultDialOpts = []grpc.DialOption{}
 // connOpts should not contain `grpc.WithInsecure` as DialContext determines whether it is needed or not from the
 // scheme. `grpc.TransportCredentials` should not be provided either as those are handled internally as well.
 func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-	return client.Dial(ctx, rawAddress, connOpts, nil)
+	return client.Dial(ctx, rawAddress, client.WithGrpcOptions(connOpts))
 }
 
 // Dial calls DialContext with the provided arguments and context.Background. Refer to DialContext's documentation
@@ -42,7 +42,7 @@ func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, erro
 // sidechannels back to the client.
 func DialSidechannel(ctx context.Context, rawAddress string, sr *SidechannelRegistry, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
 	clientHandshaker := sidechannel.NewClientHandshaker(sr.logger, sr.registry)
-	return client.Dial(ctx, rawAddress, connOpts, clientHandshaker)
+	return client.Dial(ctx, rawAddress, client.WithGrpcOptions(connOpts), client.WithHandshaker(clientHandshaker))
 }
 
 // FailOnNonTempDialError helps to identify if remote listener is ready to accept new connections.

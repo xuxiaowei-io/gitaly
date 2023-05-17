@@ -46,7 +46,7 @@ func TestDial(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	t.Run("non-muxed conn", func(t *testing.T) {
-		nonMuxedConn, err := Dial(ctx, "tcp://"+ln.Addr().String(), nil, nil)
+		nonMuxedConn, err := Dial(ctx, "tcp://"+ln.Addr().String())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, nonMuxedConn.Close()) }()
 
@@ -56,7 +56,7 @@ func TestDial(t *testing.T) {
 
 	t.Run("muxed conn", func(t *testing.T) {
 		handshaker := backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() }, backchannel.DefaultConfiguration())
-		nonMuxedConn, err := Dial(ctx, "tcp://"+ln.Addr().String(), nil, handshaker)
+		nonMuxedConn, err := Dial(ctx, "tcp://"+ln.Addr().String(), WithHandshaker(handshaker))
 		require.NoError(t, err)
 		defer func() { require.NoError(t, nonMuxedConn.Close()) }()
 
