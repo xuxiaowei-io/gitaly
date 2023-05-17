@@ -18,7 +18,6 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
@@ -87,13 +86,7 @@ func TestParsePackObjectsArgs(t *testing.T) {
 
 func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	t.Parallel()
-
-	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRemoteIP,
-	).Run(t, runTestsWithRuntimeDir(
-		t,
-		testServerPackObjectsHookSeparateContextWithRuntimeDir,
-	))
+	runTestsWithRuntimeDir(t, testServerPackObjectsHookSeparateContextWithRuntimeDir)
 }
 
 func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx context.Context, runtimeDir string) {
@@ -218,13 +211,7 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx co
 
 func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 	t.Parallel()
-
-	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRemoteIP,
-	).Run(t, runTestsWithRuntimeDir(
-		t,
-		testServerPackObjectsHookUsesCache,
-	))
+	runTestsWithRuntimeDir(t, testServerPackObjectsHookUsesCache)
 }
 
 func testServerPackObjectsHookUsesCache(t *testing.T, ctx context.Context, runtimeDir string) {
@@ -438,13 +425,7 @@ func testServerPackObjectsHookUsesCache(t *testing.T, ctx context.Context, runti
 
 func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 	t.Parallel()
-
-	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRemoteIP,
-	).Run(t, runTestsWithRuntimeDir(
-		t,
-		testServerPackObjectsHookWithSidechannelWithRuntimeDir,
-	))
+	runTestsWithRuntimeDir(t, testServerPackObjectsHookWithSidechannelWithRuntimeDir)
 }
 
 func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx context.Context, runtimeDir string) {
@@ -693,13 +674,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 
 func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 	t.Parallel()
-
-	testhelper.NewFeatureSets(
-		featureflag.PackObjectsLimitingRemoteIP,
-	).Run(t, runTestsWithRuntimeDir(
-		t,
-		testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir,
-	))
+	runTestsWithRuntimeDir(t, testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir)
 }
 
 func testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir(t *testing.T, ctx context.Context, runtimeDir string) {
@@ -771,13 +746,6 @@ func setupSidechannel(t *testing.T, ctx context.Context, oid string) (context.Co
 
 func TestPackObjects_concurrencyLimit(t *testing.T) {
 	t.Parallel()
-
-	testhelper.NewFeatureSets(featureflag.PackObjectsLimitingRemoteIP).Run(t, testPackObjectsConcurrency)
-}
-
-func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	cfg := cfgWithCache(t, 0)
 
 	args := []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"}
@@ -833,7 +801,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
+			shouldLimit: true,
 		},
 		{
 			desc: "IP addresses including source port",
@@ -857,7 +825,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 					Args: args,
 				},
 			},
-			shouldLimit: featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx),
+			shouldLimit: true,
 		},
 		{
 			desc: "IPv4 loopback addresses",
@@ -957,6 +925,8 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+
 			ticker := helper.NewManualTicker()
 			monitor := limithandler.NewPackObjectsConcurrencyMonitor(
 				cfg.Prometheus.GRPCLatencyBuckets,

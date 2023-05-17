@@ -18,7 +18,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
@@ -64,31 +63,24 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 	}()
 
 	servedBytes, created, err := s.packObjectsCache.Fetch(ctx, cacheKey, output, func(w io.Writer) error {
-		// TODO: We now have three different concurrency strategies for pack-objects. All of
-		// them are guarded behind feature flags. This situation is because we wanted to verify
-		// and pick the most effective strategy. `PackObjectsLimiting.Key` config is ignored
-		// at this point. We will either checking it properly, or remove it when there is
-		// a conclusion on production.
-		if featureflag.PackObjectsLimitingRemoteIP.IsEnabled(ctx) && req.GetRemoteIp() != "" {
-			ipAddr := net.ParseIP(req.GetRemoteIp())
-			if ipAddr == nil {
-				// Best effort, maybe the remote IP includes source port
-				if ip, _, err := net.SplitHostPort(req.GetRemoteIp()); err == nil {
-					ipAddr = net.ParseIP(ip)
-				}
+		ipAddr := net.ParseIP(req.GetRemoteIp())
+		if ipAddr == nil {
+			// Best effort, maybe the remote IP includes source port
+			if ip, _, err := net.SplitHostPort(req.GetRemoteIp()); err == nil {
+				ipAddr = net.ParseIP(ip)
 			}
-			// Ignore loop-back IPs
-			if ipAddr != nil && !ipAddr.IsLoopback() {
-				return s.runPackObjectsLimited(
-					ctx,
-					w,
-					ipAddr.String(),
-					req,
-					args,
-					stdin,
-					cacheKey,
-				)
-			}
+		}
+		// Ignore loop-back IPs
+		if ipAddr != nil && !ipAddr.IsLoopback() {
+			return s.runPackObjectsLimited(
+				ctx,
+				w,
+				ipAddr.String(),
+				req,
+				args,
+				stdin,
+				cacheKey,
+			)
 		}
 
 		return s.runPackObjects(ctx, w, req, args, stdin, cacheKey)

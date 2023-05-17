@@ -1660,89 +1660,15 @@ func TestPackObjectsLimiting(t *testing.T) {
 	}
 }
 
-// This test uses (*testing.T).Setenv. Thus, it should not run in parallel.
 func TestPackObjectsLimiting_defaultPackObjectsLimiting(t *testing.T) {
-	testCases := []struct {
-		desc        string
-		envs        map[string]string
-		expectedCfg PackObjectsLimiting
-	}{
-		{
-			desc: "not relative envs are set",
-			expectedCfg: PackObjectsLimiting{
-				MaxConcurrency: 200,
-				MaxQueueWait:   0,
-				MaxQueueLength: 0,
-			},
-		},
-		{
-			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY is set",
-			envs: map[string]string{
-				"GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY": "100",
-			},
-			expectedCfg: PackObjectsLimiting{
-				MaxConcurrency: 100,
-				MaxQueueWait:   0,
-				MaxQueueLength: 0,
-			},
-		},
-		{
-			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY is invalid",
-			envs: map[string]string{
-				"GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY": "hello",
-			},
-			expectedCfg: PackObjectsLimiting{
-				MaxConcurrency: 200,
-				MaxQueueWait:   0,
-				MaxQueueLength: 0,
-			},
-		},
-		{
-			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH is set",
-			envs: map[string]string{
-				"GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH": "100",
-			},
-			expectedCfg: PackObjectsLimiting{
-				MaxConcurrency: 200,
-				MaxQueueWait:   0,
-				MaxQueueLength: 100,
-			},
-		},
-		{
-			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH is invalid",
-			envs: map[string]string{
-				"GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH": "hello",
-			},
-			expectedCfg: PackObjectsLimiting{
-				MaxConcurrency: 200,
-				MaxQueueWait:   0,
-				MaxQueueLength: 0,
-			},
-		},
-		{
-			desc: "GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY and GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH are bot set",
-			envs: map[string]string{
-				"GITALY_PACK_OBJECTS_LIMIT_MAX_QUEUE_LENGTH": "1",
-				"GITALY_PACK_OBJECTS_LIMIT_MAX_CONCURRENCY":  "2",
-			},
-			expectedCfg: PackObjectsLimiting{
-				MaxConcurrency: 2,
-				MaxQueueWait:   0,
-				MaxQueueLength: 1,
-			},
-		},
-	}
+	t.Parallel()
 
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			for key, value := range tc.envs {
-				t.Setenv(key, value)
-			}
-
-			cfg := defaultPackObjectsLimiting()
-			require.Equal(t, tc.expectedCfg, cfg)
-		})
-	}
+	cfg := defaultPackObjectsLimiting()
+	require.Equal(t, PackObjectsLimiting{
+		MaxConcurrency: 200,
+		MaxQueueWait:   0,
+		MaxQueueLength: 0,
+	}, cfg)
 }
 
 func TestPackObjectsLimiting_Validate(t *testing.T) {
