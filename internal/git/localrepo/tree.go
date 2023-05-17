@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // ObjectType is an Enum for the type of object of
@@ -37,6 +40,33 @@ func (e Entries) Less(i, j int) bool {
 	return e[i].Type < e[j].Type
 }
 
+// TreeEntriesByPath allows a slice of *TreeEntry to be sorted by Path
+type TreeEntriesByPath []*TreeEntry
+
+func (b TreeEntriesByPath) Len() int {
+	return len(b)
+}
+
+func (b TreeEntriesByPath) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b TreeEntriesByPath) Less(i, j int) bool {
+	iPath, jPath := b[i].Path, b[j].Path
+
+	// git has an edge case for subtrees where they are always appended with
+	// a '/'. See https://github.com/git/git/blob/v2.40.0/read-cache.c#L491
+	if b[i].Type == Tree {
+		iPath += "/"
+	}
+
+	if b[j].Type == Tree {
+		jPath += "/"
+	}
+
+	return iPath < jPath
+}
+
 // ToEnum translates a string representation of the object type into an
 // ObjectType enum.
 func ToEnum(s string) ObjectType {
@@ -49,19 +79,6 @@ func ToEnum(s string) ObjectType {
 		return Submodule
 	default:
 		return Unknown
-	}
-}
-
-func fromEnum(t ObjectType) string {
-	switch t {
-	case Tree:
-		return "tree"
-	case Blob:
-		return "blob"
-	case Submodule:
-		return "commit"
-	default:
-		return "unknown"
 	}
 }
 
@@ -84,50 +101,46 @@ func (t *TreeEntry) IsBlob() bool {
 
 // WriteTree writes a new tree object to the given path. This function does not verify whether OIDs
 // referred to by tree entries actually exist in the repository.
-func (repo *Repo) WriteTree(ctx context.Context, entries []TreeEntry) (git.ObjectID, error) {
+func (repo *Repo) WriteTree(ctx context.Context, entries []*TreeEntry) (git.ObjectID, error) {
 	var tree bytes.Buffer
-	for _, entry := range entries {
-		entryType := entry.Type
 
-		if entryType == Unknown {
-			switch entry.Mode {
-			case "100644":
-				fallthrough
-			case "100755":
-				fallthrough
-			case "120000":
-				entryType = Blob
-			case "040000":
-				entryType = Tree
-			case "160000":
-				entryType = Submodule
-			}
+	sort.Stable(TreeEntriesByPath(entries))
+
+	for _, entry := range entries {
+		mode := strings.TrimPrefix(entry.Mode, "0")
+		formattedEntry := fmt.Sprintf("%s %s\000", mode, entry.Path)
+
+		oidBytes, err := entry.OID.Bytes()
+		if err != nil {
+			return "", err
 		}
 
-		oid := entry.OID
-
-		formattedEntry := fmt.Sprintf("%s %s %s\t%s\000", entry.Mode, fromEnum(entryType), oid.String(), entry.Path)
 		if _, err := tree.WriteString(formattedEntry); err != nil {
+			return "", err
+		}
+
+		if _, err := tree.Write(oidBytes); err != nil {
 			return "", err
 		}
 	}
 
 	options := []git.Option{
-		git.Flag{Name: "-z"},
-		git.Flag{Name: "--missing"},
+		git.ValueFlag{Name: "-t", Value: "tree"},
+		git.Flag{Name: "-w"},
+		git.Flag{Name: "--stdin"},
 	}
 
 	var stdout, stderr bytes.Buffer
 	if err := repo.ExecAndWait(ctx,
 		git.Command{
-			Name:  "mktree",
+			Name:  "hash-object",
 			Flags: options,
 		},
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
 		git.WithStdin(&tree),
 	); err != nil {
-		return "", err
+		return "", structerr.New("%w", err).WithMetadata("stderr", stderr.String())
 	}
 
 	objectHash, err := repo.ObjectHash(ctx)
