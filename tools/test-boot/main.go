@@ -111,7 +111,7 @@ func spawnAndWait(ctx context.Context, gitalyBin, configPath, socketPath string)
 	}()
 
 	start := time.Now()
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 300; i++ {
 		ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 
 		conn, err := client.DialContext(ctx, "unix://"+socketPath, []grpc.DialOption{
