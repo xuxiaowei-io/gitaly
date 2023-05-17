@@ -1,4 +1,4 @@
-package structerr
+package testserver
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb/testproto"
 	"google.golang.org/grpc"
@@ -36,18 +37,18 @@ func TestInterceptedError(t *testing.T) {
 		},
 		{
 			desc:        "structured error",
-			err:         NewNotFound("not found"),
-			expectedErr: NewNotFound("not found"),
+			err:         structerr.NewNotFound("not found"),
+			expectedErr: structerr.NewNotFound("not found"),
 		},
 		{
 			desc:        "wrapped structured error",
-			err:         fmt.Errorf("wrapped: %w", NewNotFound("not found")),
-			expectedErr: fmt.Errorf("wrapped: %w", NewNotFound("not found")),
+			err:         fmt.Errorf("wrapped: %w", structerr.NewNotFound("not found")),
+			expectedErr: fmt.Errorf("wrapped: %w", structerr.NewNotFound("not found")),
 		},
 		{
 			desc: "metadata",
-			err:  NewNotFound("not found").WithMetadata("key", "value"),
-			expectedErr: NewNotFound("not found").WithDetail(
+			err:  structerr.NewNotFound("not found").WithMetadata("key", "value"),
+			expectedErr: structerr.NewNotFound("not found").WithDetail(
 				&testproto.ErrorMetadata{
 					Key:   []byte("key"),
 					Value: []byte("value"),
@@ -56,8 +57,8 @@ func TestInterceptedError(t *testing.T) {
 		},
 		{
 			desc: "wrapped error with metadata",
-			err:  fmt.Errorf("wrapped: %w", NewNotFound("not found").WithMetadata("key", "value")),
-			expectedErr: NewNotFound("wrapped: not found").WithDetail(
+			err:  fmt.Errorf("wrapped: %w", structerr.NewNotFound("not found").WithMetadata("key", "value")),
+			expectedErr: structerr.NewNotFound("wrapped: not found").WithDetail(
 				&testproto.ErrorMetadata{
 					Key:   []byte("key"),
 					Value: []byte("value"),
@@ -101,7 +102,7 @@ func TestFieldsProducer(t *testing.T) {
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						grpcmwlogrus.DefaultMessageProducer,
-						FieldsProducer,
+						structerr.FieldsProducer,
 					),
 				),
 			),
@@ -137,12 +138,12 @@ func TestFieldsProducer(t *testing.T) {
 		},
 		{
 			desc:        "structured error",
-			returnedErr: New("message"),
+			returnedErr: structerr.New("message"),
 			expectedErr: status.Error(codes.Unknown, "message"),
 		},
 		{
 			desc:        "structured error with metadata",
-			returnedErr: New("message").WithMetadata("key", "value"),
+			returnedErr: structerr.New("message").WithMetadata("key", "value"),
 			expectedErr: status.Error(codes.Unknown, "message"),
 			expectedMetadata: []map[string]any{
 				{
@@ -152,7 +153,7 @@ func TestFieldsProducer(t *testing.T) {
 		},
 		{
 			desc:        "structured error with nested metadata",
-			returnedErr: New("message: %w", New("nested").WithMetadata("nested", "value")).WithMetadata("key", "value"),
+			returnedErr: structerr.New("message: %w", structerr.New("nested").WithMetadata("nested", "value")).WithMetadata("key", "value"),
 			expectedErr: status.Error(codes.Unknown, "message: nested"),
 			expectedMetadata: []map[string]any{
 				{

@@ -121,7 +121,8 @@ func TestRepository_ObjectHash(t *testing.T) {
 
 				return setupData{
 					repo: repo,
-					expectedErr: structerr.NewInternal("detecting object hash: reading object format: exit status 128").WithInterceptedMetadata(
+					expectedErr: testhelper.WithInterceptedMetadata(
+						structerr.NewInternal("detecting object hash: reading object format: exit status 128"),
 						"stderr",
 						fmt.Sprintf("error: invalid value for 'extensions.objectformat': 'blake2b'\nfatal: bad config line 5 in file %s/%s\n", repoPath, "config"),
 					),

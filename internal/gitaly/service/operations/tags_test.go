@@ -188,8 +188,9 @@ func TestUserDeleteTag(t *testing.T) {
 					ExpectedOldOid: "io",
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "io", expected length %v, got 2`, gittest.DefaultObjectHash.EncodedLen())).
-				WithInterceptedMetadata("old_object_id", "io"),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "io", expected length %v, got 2`, gittest.DefaultObjectHash.EncodedLen())),
+				"old_object_id", "io"),
 			expectedTags: []string{"europa"},
 		},
 		{
@@ -206,8 +207,9 @@ func TestUserDeleteTag(t *testing.T) {
 					ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
-				WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+				"old_object_id", gittest.DefaultObjectHash.ZeroOID),
 			expectedTags: []string{"europa"},
 		},
 		{

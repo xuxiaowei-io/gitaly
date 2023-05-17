@@ -133,8 +133,9 @@ func TestUserMergeBranch(t *testing.T) {
 						Message:        []byte(data.message),
 						ExpectedOldOid: "foobar",
 					},
-					firstExpectedErr: structerr.NewInvalidArgument(fmt.Sprintf("invalid expected old object ID: invalid object ID: \"foobar\", expected length %v, got 6", gittest.DefaultObjectHash.EncodedLen())).
-						WithInterceptedMetadata("old_object_id", "foobar"),
+					firstExpectedErr: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument(fmt.Sprintf("invalid expected old object ID: invalid object ID: \"foobar\", expected length %v, got 6", gittest.DefaultObjectHash.EncodedLen())),
+						"old_object_id", "foobar"),
 				}
 			},
 		},
@@ -151,8 +152,9 @@ func TestUserMergeBranch(t *testing.T) {
 						Message:        []byte(data.message),
 						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
 					},
-					firstExpectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
-						WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
+					firstExpectedErr: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+						"old_object_id", gittest.DefaultObjectHash.ZeroOID),
 				}
 			},
 		},
@@ -1222,8 +1224,9 @@ func TestUserFFBranch(t *testing.T) {
 					},
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())).
-				WithInterceptedMetadata("old_object_id", "foobar"),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())),
+				"old_object_id", "foobar"),
 		},
 		{
 			desc: "valid SHA, but not existing expectedOldOID",
@@ -1244,8 +1247,9 @@ func TestUserFFBranch(t *testing.T) {
 					},
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
-				WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+				"old_object_id", gittest.DefaultObjectHash.ZeroOID),
 		},
 		{
 			desc: "expectedOldOID pointing to old commit",
