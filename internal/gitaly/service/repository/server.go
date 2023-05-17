@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -30,6 +31,7 @@ type server struct {
 	catfileCache        catfile.Cache
 	git2goExecutor      *git2go.Executor
 	housekeepingManager housekeeping.Manager
+	partitionManager    *gitaly.PartitionManager
 
 	licenseCache *unarycache.Cache[git.ObjectID, *gitalypb.FindLicenseResponse]
 }
@@ -44,6 +46,7 @@ func NewServer(
 	connsPool *client.Pool,
 	git2goExecutor *git2go.Executor,
 	housekeepingManager housekeeping.Manager,
+	partitionManager *gitaly.PartitionManager,
 ) gitalypb.RepositoryServiceServer {
 	return &server{
 		locator:             locator,
@@ -55,6 +58,7 @@ func NewServer(
 		catfileCache:        catfileCache,
 		git2goExecutor:      git2goExecutor,
 		housekeepingManager: housekeepingManager,
+		partitionManager:    partitionManager,
 
 		licenseCache: newLicenseCache(),
 	}

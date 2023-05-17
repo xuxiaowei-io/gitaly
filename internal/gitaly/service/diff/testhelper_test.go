@@ -49,6 +49,7 @@ func setupDiffServiceWithoutRepo(tb testing.TB, opt ...testserver.GitalyServerOp
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetPartitionManager(),
 		))
 	}, opt...)
 	cfg.SocketPath = addr

@@ -70,6 +70,7 @@ func runConflictsServer(tb testing.TB, cfg config.Cfg, hookManager hook.Manager)
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetPartitionManager(),
 		))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 			deps.GetLocator(),

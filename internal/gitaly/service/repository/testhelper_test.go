@@ -66,6 +66,7 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.Gita
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetPartitionManager(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()))
 		gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(

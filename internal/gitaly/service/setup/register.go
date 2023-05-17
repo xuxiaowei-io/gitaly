@@ -99,6 +99,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetConnsPool(),
 		deps.GetGit2goExecutor(),
 		deps.GetHousekeepingManager(),
+		deps.GetPartitionManager(),
 	))
 	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 		deps.GetLocator(),

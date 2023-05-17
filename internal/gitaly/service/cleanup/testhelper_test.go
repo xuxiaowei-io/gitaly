@@ -50,6 +50,7 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) string {
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetPartitionManager(),
 		))
 	})
 }

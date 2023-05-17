@@ -83,6 +83,7 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetPartitionManager(),
 		))
 	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
 }
