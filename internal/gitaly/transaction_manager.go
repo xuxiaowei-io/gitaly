@@ -93,6 +93,9 @@ func (index LogIndex) String() string {
 
 // ReferenceUpdate describes the state of a reference's old and new tip in an update.
 type ReferenceUpdate struct {
+	// Force indicates this is a forced reference update. If set, the reference is pointed
+	// to the new value regardless of the old value.
+	Force bool
 	// OldOID is the old OID the reference is expected to point to prior to updating it.
 	// If the reference does not point to the old value, the reference verification fails.
 	OldOID git.ObjectID
@@ -1027,7 +1030,7 @@ func packFilePathForLogIndex(repoPath string, index LogIndex) string {
 // It returns the write-ahead log entry for the transaction if it was successfully verified.
 func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) ([]*gitalypb.LogEntry_ReferenceUpdate, error) {
 	var referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate
-	for referenceName, tips := range transaction.referenceUpdates {
+	for referenceName, update := range transaction.referenceUpdates {
 		// 'git update-ref' doesn't ensure the loose references end up in the
 		// refs directory so we enforce that here.
 		if !strings.HasPrefix(referenceName.String(), "refs/") {
@@ -1043,33 +1046,35 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 			}
 		}
 
-		actualOldTip, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision())
-		if errors.Is(err, git.ErrReferenceNotFound) {
-			objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("object hash: %w", err)
+		if !update.Force {
+			actualOldTip, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision())
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("object hash: %w", err)
+				}
+
+				actualOldTip = objectHash.ZeroOID
+			} else if err != nil {
+				return nil, fmt.Errorf("resolve revision: %w", err)
 			}
 
-			actualOldTip = objectHash.ZeroOID
-		} else if err != nil {
-			return nil, fmt.Errorf("resolve revision: %w", err)
-		}
+			if update.OldOID != actualOldTip {
+				if transaction.skipVerificationFailures {
+					continue
+				}
 
-		if tips.OldOID != actualOldTip {
-			if transaction.skipVerificationFailures {
-				continue
-			}
-
-			return nil, ReferenceVerificationError{
-				ReferenceName: referenceName,
-				ExpectedOID:   tips.OldOID,
-				ActualOID:     actualOldTip,
+				return nil, ReferenceVerificationError{
+					ReferenceName: referenceName,
+					ExpectedOID:   update.OldOID,
+					ActualOID:     actualOldTip,
+				}
 			}
 		}
 
 		referenceUpdates = append(referenceUpdates, &gitalypb.LogEntry_ReferenceUpdate{
 			ReferenceName: []byte(referenceName),
-			NewOid:        []byte(tips.NewOID),
+			NewOid:        []byte(update.NewOID),
 		})
 	}
 
