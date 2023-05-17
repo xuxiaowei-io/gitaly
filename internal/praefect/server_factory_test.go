@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -197,7 +197,7 @@ func TestServerFactory(t *testing.T) {
 
 		creds := insecure.NewCredentials()
 
-		cc, err := client.Dial(praefectAddr, nil)
+		cc, err := client.Dial(ctx, praefectAddr)
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cc.Close()) }()
 		ctx := testhelper.Context(t)
@@ -256,7 +256,7 @@ func TestServerFactory(t *testing.T) {
 		praefectTCPAddr, err := starter.ComposeEndpoint(tcpListener.Addr().Network(), tcpListener.Addr().String())
 		require.NoError(t, err)
 
-		tcpCC, err := client.Dial(praefectTCPAddr, nil)
+		tcpCC, err := client.Dial(ctx, praefectTCPAddr)
 		require.NoError(t, err)
 		defer func() { require.NoError(t, tcpCC.Close()) }()
 
@@ -268,10 +268,12 @@ func TestServerFactory(t *testing.T) {
 
 		go func() { require.NoError(t, praefectServerFactory.Serve(tlsListener, true)) }()
 
-		praefectTLSAddr, err := starter.ComposeEndpoint(tcpListener.Addr().Network(), tcpListener.Addr().String())
+		creds := certificate.TransportCredentials(t)
+
+		praefectTLSAddr, err := starter.ComposeEndpoint(tlsListener.Addr().Network(), tlsListener.Addr().String())
 		require.NoError(t, err)
 
-		tlsCC, err := client.Dial(praefectTLSAddr, nil)
+		tlsCC, err := client.Dial(ctx, praefectTLSAddr, client.WithTransportCredentials(creds))
 		require.NoError(t, err)
 		defer func() { require.NoError(t, tlsCC.Close()) }()
 
@@ -288,7 +290,7 @@ func TestServerFactory(t *testing.T) {
 		praefectSocketAddr, err := starter.ComposeEndpoint(socketListener.Addr().Network(), socketListener.Addr().String())
 		require.NoError(t, err)
 
-		socketCC, err := client.Dial(praefectSocketAddr, nil)
+		socketCC, err := client.Dial(ctx, praefectSocketAddr)
 		require.NoError(t, err)
 		defer func() { require.NoError(t, socketCC.Close()) }()
 
