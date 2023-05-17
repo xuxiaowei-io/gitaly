@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -99,7 +100,7 @@ func spawnAndWait(gitalyBin, configPath, socketPath string) (returnedError error
 	}
 
 	defer func() {
-		_ = cmd.Process.Kill()
+		_ = cmd.Process.Signal(syscall.SIGTERM)
 		_ = cmd.Wait()
 		if returnedError != nil {
 			fmt.Fprintf(os.Stdout, "%s\n", stdout.String())
