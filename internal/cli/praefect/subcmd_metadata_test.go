@@ -23,44 +23,18 @@ func TestMetadataSubcommand(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	tx := testdb.New(t).Begin(t)
-	t.Cleanup(func() { tx.Rollback(t) })
+	db := testdb.New(t)
 
-	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
-		"praefect": {"virtual-storage": {"primary", "secondary-1"}},
-	})
-
-	rs := datastore.NewPostgresRepositoryStore(tx, map[string][]string{
+	rs := datastore.NewPostgresRepositoryStore(db, map[string][]string{
 		"virtual-storage": {"primary", "secondary-1", "secondary-2"},
 	})
 	require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage", "relative-path", "replica-path", "primary", []string{"secondary-1"}, []string{"secondary-2"}, true, true))
 	require.NoError(t, rs.IncrementGeneration(ctx, 1, "primary", nil))
 
-	_, err := tx.ExecContext(ctx, "UPDATE storage_repositories SET verified_at = $1 WHERE storage = 'primary'",
+	_, err := db.ExecContext(ctx, "UPDATE storage_repositories SET verified_at = $1 WHERE storage = 'primary'",
 		time.Date(2021, time.April, 1, 10, 4, 20, 64, time.UTC),
 	)
 	require.NoError(t, err)
-
-	ln, clean := listenAndServe(t, []svcRegistrar{
-		registerPraefectInfoServer(info.NewServer(config.Config{}, rs, nil, nil, nil)),
-	})
-	t.Cleanup(clean)
-
-	conf := config.Config{
-		SocketPath: ln.Addr().String(),
-		VirtualStorages: []*config.VirtualStorage{
-			{
-				Name: "vs-1",
-				Nodes: []*config.Node{
-					{
-						Storage: "storage-1",
-						Address: "tcp://1.2.3.4",
-					},
-				},
-			},
-		},
-	}
-	confPath := writeConfigToFile(t, conf)
 
 	for _, tc := range []struct {
 		desc  string
@@ -111,8 +85,45 @@ func TestMetadataSubcommand(t *testing.T) {
 		},
 	} {
 		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
+
+			// Healthiness can be flaky when not update in the same transaction as the
+			// actual query-under-test, so we create a new transaction here. We can't
+			// reuse the same transaction for all tests either as this has led to flaky
+			// tests when queries return an error.
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
+
+			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
+				"praefect": {"virtual-storage": {"primary", "secondary-1"}},
+			})
+
+			rs := datastore.NewPostgresRepositoryStore(tx, map[string][]string{
+				"virtual-storage": {"primary", "secondary-1", "secondary-2"},
+			})
+
+			ln, clean := listenAndServe(t, []svcRegistrar{
+				registerPraefectInfoServer(info.NewServer(config.Config{}, rs, nil, nil, nil)),
+			})
+			t.Cleanup(clean)
+
+			conf := config.Config{
+				SocketPath: ln.Addr().String(),
+				VirtualStorages: []*config.VirtualStorage{
+					{
+						Name: "vs-1",
+						Nodes: []*config.Node{
+							{
+								Storage: "storage-1",
+								Address: "tcp://1.2.3.4",
+							},
+						},
+					},
+				},
+			}
+			confPath := writeConfigToFile(t, conf)
 
 			var stdout bytes.Buffer
 			app := cli.App{
