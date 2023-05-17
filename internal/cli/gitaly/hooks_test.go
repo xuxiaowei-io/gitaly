@@ -74,7 +74,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 				}, repo
 			},
 			hooks:       &bytes.Buffer{},
-			expectedErr: "Required flag \"c\" not set\n",
+			expectedErr: "Required flag \"config\" not set\n",
 		},
 		{
 			desc: "missing storage flag and config has multiple storages",
