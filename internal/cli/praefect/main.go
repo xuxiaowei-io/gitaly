@@ -71,6 +71,7 @@ func NewApp() *cli.App {
 			newVerifyCommand(),
 			newMetadataCommand(),
 			newSQLMigrateCommand(),
+			newRemoveRepositoryCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
