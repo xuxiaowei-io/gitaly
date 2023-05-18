@@ -1,5 +1,69 @@
 # Gitaly changelog
 
+## 16.0.0 (2023-05-18)
+
+### Added (2 changes)
+
+- [operations: Implement SHA256 support for tag handling RPCs](gitlab-org/gitaly@a6e7a8beb3afc3527cf82b20cb0f0391670daf1d) ([merge request](gitlab-org/gitaly!5787))
+- [Makefile: Add target for building proto docs](gitlab-org/gitaly@c3cfa022559599f6f5f683934457e1812b868b1a) ([merge request](gitlab-org/gitaly!5770))
+
+### Fixed (11 changes)
+
+- [hook: Stop overmatching hooks errors](gitlab-org/gitaly@95867547ac0760f2bb2041552de6f49de654bbbc) ([merge request](gitlab-org/gitaly!5781))
+- [housekeeping: Deduplicate objects when alternates change](gitlab-org/gitaly@edf2fb58ac1f2aeea0d4a8f51dac8b2130f80e22) ([merge request](gitlab-org/gitaly!5776))
+- [git/stats: Fix handling of empty and commented gitalternates](gitlab-org/gitaly@75573dee99b3a12c0b97407080cd1aa77e589729) ([merge request](gitlab-org/gitaly!5775))
+- [praefect/router: Fix creation of repos with additional referenced repo](gitlab-org/gitaly@41c10e01f9e4eb2e72b35eefa12b03fbb60df904) ([merge request](gitlab-org/gitaly!5741))
+- [Remove uncessary fields from pack-objects cache key computation](gitlab-org/gitaly@d571a232f2f44414e8f08d80163006ab2e0db53f) ([merge request](gitlab-org/gitaly!5716))
+- [coordinator: Reject routing mutators with different repo storages](gitlab-org/gitaly@7c8bd8efa52b22ed411db0542f239dedcda7bf6d) ([merge request](gitlab-org/gitaly!5688))
+- [coordinator: Reject rewriting messages with different storages](gitlab-org/gitaly@aa2e0e902dcbb4c083d11ed3777dd46ec7ea4ace) ([merge request](gitlab-org/gitaly!5688))
+- [protoregistry: Fix segmentation fault with unset `oneOf` fields](gitlab-org/gitaly@9e37ed826fc556aac783677c703f6f4bba3864f1) ([merge request](gitlab-org/gitaly!5683))
+- [git: Include backported geometric-repacking patches](gitlab-org/gitaly@e80bf49739dbf9c8443050806338fff891f483f8) ([merge request](gitlab-org/gitaly!5662))
+- [repository: Allow query with leading dash in SearchFilesByName](gitlab-org/gitaly@09b98225199b6348788e9fe2b309f2854a458e36) ([merge request](gitlab-org/gitaly!5665))
+- [repository: Allow query with leading dash in SearchFilesByContent](gitlab-org/gitaly@f396a69ea4616cbc126024de2d000a08c1284712) ([merge request](gitlab-org/gitaly!5665))
+
+### Changed (3 changes)
+
+- [protoregistry: Allow `additional_repository`s to be unset](gitlab-org/gitaly@be5e833546f172540b43ae7b3dc2e21d62866c1a) ([merge request](gitlab-org/gitaly!5683))
+- [git/housekeeping: Reenable geometric repacking with alternates](gitlab-org/gitaly@cd58197f53a12a834a792aee816d7b919319d4e7) ([merge request](gitlab-org/gitaly!5662))
+- [repoutil: Update full-repack timestamp when creating repositories](gitlab-org/gitaly@f692c8b9bb8b3ad933527c3cb33af429b0551db1) ([merge request](gitlab-org/gitaly!5653))
+
+### Removed (23 changes)
+
+- [ref: Remove deprecated FindAllTagNames RPC](gitlab-org/gitaly@a164256cf6d2737f63c36580865e7c0db8f6845a) ([merge request](gitlab-org/gitaly!5723))
+- [ref: Remove deprecated FindAllBranchNames RPC](gitlab-org/gitaly@8e7b5c4840a5031feacf65e759d10a34f5cfb390) ([merge request](gitlab-org/gitaly!5723))
+- [proto: Drop deprecated `http_host` field in FetchRemote RPC](gitlab-org/gitaly@3a59e721e457b8cdb8613ba8605218bd2f5f565e) ([merge request](gitlab-org/gitaly!5722))
+- [proto: Drop deprecated `http_host` field in CreateRepositoryFromSnapshot RPC](gitlab-org/gitaly@a92a2b2a776060e5f19a6226a84d183e17ca0b2e) ([merge request](gitlab-org/gitaly!5722))
+- [proto: Drop deprecated `http_host` field in CreateRepositoryFromURL RPC](gitlab-org/gitaly@d4612961aab7380ebe2352bcc734740fe3efc62c) ([merge request](gitlab-org/gitaly!5722))
+- [proto: Drop deprecated `http_host` field in UpdateRemoteMirror RPC](gitlab-org/gitaly@683ad3dfa5bdd206ee00cf48c6c1703cba906997) ([merge request](gitlab-org/gitaly!5722))
+- [proto: Drop deprecated `http_host` field in FindRemoteRootRef RPC](gitlab-org/gitaly@6fd80aade3214bad3bb74b8875a94a6b1ee6aec6) ([merge request](gitlab-org/gitaly!5722))
+- [proto: Drop root tree ID from TreeEntry message](gitlab-org/gitaly@88b8898ce969274b9304b6f5d287342509cd6bd2) ([merge request](gitlab-org/gitaly!5715))
+- [proto: Drop deprecated embedded errors in UserCherryPick](gitlab-org/gitaly@f6883fee0c749945e1e304c9697b58e977d3482f) ([merge request](gitlab-org/gitaly!5698))
+- [proto: Drop deprecated embedded errors in UserCreateBranch](gitlab-org/gitaly@36669f213d0562c5be8e3f6e5b7ad91915e29c9d) ([merge request](gitlab-org/gitaly!5698))
+- [proto: Drop deprecated embedded errors in UserCreateTag](gitlab-org/gitaly@bbe1bd68ab7ff824c0b80591bda13bcad9401a7f) ([merge request](gitlab-org/gitaly!5698))
+- [proto: Drop deprecated embedded errors in UserDeleteBranch](gitlab-org/gitaly@843235a5c3ae424d0e0854b2f9997bf370663b25) ([merge request](gitlab-org/gitaly!5698))
+- [proto: Remove deprecated ReduplicateRepository RPC](gitlab-org/gitaly@8cede3b61497d141c29f2e06d3beaad0be30bd47) ([merge request](gitlab-org/gitaly!5697))
+- [git: Unconditionally ignore gitconfig files](gitlab-org/gitaly@91a0ebe01b03c9aa97861f68bef0a0ab2a4f66ee) ([merge request](gitlab-org/gitaly!5679))
+- [global: Remove PackRefs RPC](gitlab-org/gitaly@c637148ff1e2e97d2ba5c17d1cfb4c8fdf669d33) ([merge request](gitlab-org/gitaly!5654))
+- [global: Remove WriteCommitGraph RPC](gitlab-org/gitaly@8b98d8f939a04f3f8b6baa88e629cda77c6bae65) ([merge request](gitlab-org/gitaly!5654))
+- [global: Remove GarbageCollect RPC](gitlab-org/gitaly@7609860b62463c255f223988bb2ba1b34a43f9b2) ([merge request](gitlab-org/gitaly!5654))
+- [global: Remove Cleanup RPC](gitlab-org/gitaly@4ae37c924bbbfe42c541cab7c72584cdadc46620) ([merge request](gitlab-org/gitaly!5654))
+- [global: Remove MidxRepack RPC](gitlab-org/gitaly@16b445f2305f8ee7456d8edef406d896a8330dd0) ([merge request](gitlab-org/gitaly!5654))
+- [global: Remove RepackFull RPC](gitlab-org/gitaly@a6e6c1e769f801ee8464f8a94ee8fc53a4c0607d) ([merge request](gitlab-org/gitaly!5654))
+- [global: Remove RepackIncremental RPC](gitlab-org/gitaly@59092094c09c5277cf81f29c2235f1f70413d311) ([merge request](gitlab-org/gitaly!5654))
+- [ruby: Remove all gem dependencies](gitlab-org/gitaly@bf524eed6cd2fbfda8faa50dd329b2cc58fd9bcc) ([merge request](gitlab-org/gitaly!5661))
+- [ruby: Remove sidecar code](gitlab-org/gitaly@0240f9429227e8703b15ac8a794cb3651dfc3629) ([merge request](gitlab-org/gitaly!5661))
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to security release v2.40.1.gl2 and v2.39.3.gl1](gitlab-org/gitaly@d717ce44e1f05ca64a73a947666ac3c75462ba32)
+
+### Performance (4 changes)
+
+- [objectpool: Enable rev-list based connectivity checks](gitlab-org/gitaly@d97a660412ad6869da17467576b6330263933ba4) ([merge request](gitlab-org/gitaly!5764))
+- [datastore: Fix locking of consistent storages cache being too broad](gitlab-org/gitaly@7aac7784034000876cf9031211b51ed8872dd5ad) ([merge request](gitlab-org/gitaly!5729))
+- [housekeeping: Default-enable geometric repacking](gitlab-org/gitaly@fdd48e61b990e7b1dd2389f6abfcfcf0c3004730) ([merge request](gitlab-org/gitaly!5745))
+- [git/housekeeping: Speed up packing loose objects](gitlab-org/gitaly@7cc6bc02975d025fc67df80a775305d12334ffdc) ([merge request](gitlab-org/gitaly!5660))
+
 ## 15.11.4 (2023-05-16)
 
 No changes.
