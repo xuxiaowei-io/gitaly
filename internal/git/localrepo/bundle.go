@@ -83,19 +83,9 @@ func (repo *Repo) FetchBundle(ctx context.Context, txManager transaction.Manager
 		opts = &FetchBundleOpts{}
 	}
 
-	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), repo.locator)
+	bundlePath, err := repo.createTempBundle(ctx, reader)
 	if err != nil {
-		return fmt.Errorf("fetch bundle: temp file: %w", err)
-	}
-
-	bundlePath := filepath.Join(tmpDir.Path(), "repo.bundle")
-	file, err := os.Create(bundlePath)
-	if err != nil {
-		return fmt.Errorf("fetch bundle: temp file: %w", err)
-	}
-
-	if _, err = io.Copy(file, reader); err != nil {
-		return fmt.Errorf("fetch bundle: temp file: %w", err)
+		return fmt.Errorf("fetch bundle: %w", err)
 	}
 
 	fetchConfig := []git.ConfigPair{
@@ -116,6 +106,33 @@ func (repo *Repo) FetchBundle(ctx context.Context, txManager transaction.Manager
 	}
 
 	return nil
+}
+
+// createTempBundle copies reader onto the filesystem so that a path can be
+// passed to git. git-fetch does not support streaming a bundle over a pipe.
+func (repo *Repo) createTempBundle(ctx context.Context, reader io.Reader) (bundlPath string, returnErr error) {
+	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), repo.locator)
+	if err != nil {
+		return "", fmt.Errorf("create temp bundle: %w", err)
+	}
+
+	bundlePath := filepath.Join(tmpDir.Path(), "repo.bundle")
+
+	file, err := os.Create(bundlePath)
+	if err != nil {
+		return "", fmt.Errorf("create temp bundle: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("create temp bundle: %w", err)
+		}
+	}()
+
+	if _, err = io.Copy(file, reader); err != nil {
+		return "", fmt.Errorf("create temp bundle: %w", err)
+	}
+
+	return bundlePath, nil
 }
 
 // updateHeadFromBundle updates HEAD from a bundle file
