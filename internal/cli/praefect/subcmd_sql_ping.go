@@ -1,25 +1,40 @@
 package praefect
 
 import (
-	"flag"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 )
 
-const (
-	sqlPingCmdName = "sql-ping"
-)
+const sqlPingCmdName = "sql-ping"
 
-type sqlPingSubcommand struct{}
-
-func (s *sqlPingSubcommand) FlagSet() *flag.FlagSet {
-	return flag.NewFlagSet(sqlPingCmdName, flag.ExitOnError)
+func newSQLPingCommand() *cli.Command {
+	return &cli.Command{
+		Name:            sqlPingCmdName,
+		Usage:           "checks reachability of the database",
+		Description:     "The subcommand checks if the database configured in the configuration file is reachable",
+		HideHelpCommand: true,
+		Action:          sqlPingAction,
+		Before: func(appCtx *cli.Context) error {
+			if appCtx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(appCtx)
+				return unexpectedPositionalArgsError{Command: appCtx.Command.Name}
+			}
+			return nil
+		},
+	}
 }
 
-func (s *sqlPingSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
-	const subCmd = progname + " " + sqlPingCmdName
+func sqlPingAction(appCtx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	if err != nil {
+		return err
+	}
+
+	subCmd := progname + " " + appCtx.Command.Name
 
 	db, clean, err := openDB(conf.DB)
 	if err != nil {
@@ -31,6 +46,6 @@ func (s *sqlPingSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error 
 		return fmt.Errorf("%s: fail: %w", subCmd, err)
 	}
 
-	fmt.Printf("%s: OK\n", subCmd)
+	fmt.Fprintf(appCtx.App.Writer, "%s: OK\n", subCmd)
 	return nil
 }
