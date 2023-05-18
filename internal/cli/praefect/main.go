@@ -64,6 +64,7 @@ func NewApp() *cli.App {
 			newVerifyCommand(),
 			newMetadataCommand(),
 			newSQLMigrateCommand(),
+			newSQLMigrateDownCommand(),
 			newRemoveRepositoryCommand(),
 			newSetReplicationFactorCommand(),
 			newSQLPingCommand(),
