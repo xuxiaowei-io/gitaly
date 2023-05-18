@@ -33,11 +33,10 @@ const (
 
 func subcommands(logger *logrus.Entry) map[string]subcmd {
 	return map[string]subcmd{
-		sqlPingCmdName:              &sqlPingSubcommand{},
-		sqlMigrateDownCmdName:       &sqlMigrateDownSubcommand{},
-		sqlMigrateStatusCmdName:     &sqlMigrateStatusSubcommand{},
-		setReplicationFactorCmdName: newSetReplicatioFactorSubcommand(os.Stdout),
-		trackRepositoriesCmdName:    newTrackRepositories(logger, os.Stdout),
+		sqlPingCmdName:           &sqlPingSubcommand{},
+		sqlMigrateDownCmdName:    &sqlMigrateDownSubcommand{},
+		sqlMigrateStatusCmdName:  &sqlMigrateStatusSubcommand{},
+		trackRepositoriesCmdName: newTrackRepositories(logger, os.Stdout),
 	}
 }
 

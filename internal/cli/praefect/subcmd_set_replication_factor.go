@@ -1,13 +1,11 @@
 package praefect
 
 import (
-	"context"
-	"flag"
 	"fmt"
-	"io"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -16,58 +14,86 @@ const (
 	paramReplicationFactor      = "replication-factor"
 )
 
-type setReplicationFactorSubcommand struct {
-	stdout            io.Writer
-	virtualStorage    string
-	relativePath      string
-	replicationFactor int
-}
-
-func newSetReplicatioFactorSubcommand(stdout io.Writer) *setReplicationFactorSubcommand {
-	return &setReplicationFactorSubcommand{stdout: stdout}
-}
-
-func (cmd *setReplicationFactorSubcommand) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(setReplicationFactorCmdName, flag.ContinueOnError)
-	fs.StringVar(&cmd.virtualStorage, paramVirtualStorage, "", "name of the repository's virtual storage")
-	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "repository to set the replication factor for")
-	fs.IntVar(&cmd.replicationFactor, paramReplicationFactor, -1, "desired replication factor")
-	return fs
-}
-
-func (cmd *setReplicationFactorSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) error {
-	if flags.NArg() > 0 {
-		return unexpectedPositionalArgsError{Command: flags.Name()}
-	} else if cmd.virtualStorage == "" {
-		return requiredParameterError(paramVirtualStorage)
-	} else if cmd.relativePath == "" {
-		return requiredParameterError(paramRelativePath)
-	} else if cmd.replicationFactor < 0 {
-		return requiredParameterError(paramReplicationFactor)
+func newSetReplicationFactorCommand() *cli.Command {
+	return &cli.Command{
+		Name:  setReplicationFactorCmdName,
+		Usage: "set a replication factor for a repository",
+		Description: "The set-replication-factor subcommand changes the replication factor for an existing repository.\n" +
+			"The subcommand assigns or unassigns host nodes from the repository to meet the set replication factor.\n" +
+			"The subcommand returns an error if you try to set a replication factor:\n\n" +
+			"- More than the storage node count in the virtual storage.\n" +
+			"- Less than one.\n\n" +
+			"The primary node isn't unassigned because:\n\n" +
+			"- It needs a copy of the repository to accept writes.\n" +
+			"- It is the first storage that gets assigned when setting a replication factor for a repository.\n\n" +
+			"Assignments of unconfigured storages are ignored. This might cause the actual replication factor\n" +
+			"to be higher than required if the replication factor is set during an upgrade of a Praefect node\n" +
+			"that does not yet know about a new node. Because assignments of unconfigured storages are ignored, the\n" +
+			"replication factor of repositories assigned to a storage node removed from the cluster is effectively\n" +
+			"decreased.",
+		HideHelpCommand: true,
+		Action:          setReplicationFactorAction,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     paramVirtualStorage,
+				Usage:    "name of the repository's virtual storage",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     paramRelativePath,
+				Usage:    "repository to set the replication factor for",
+				Required: true,
+			},
+			&cli.UintFlag{
+				Name:     paramReplicationFactor,
+				Usage:    "desired replication factor",
+				Required: true,
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
 	}
+}
 
-	nodeAddr, err := getNodeAddress(cfg)
+func setReplicationFactorAction(appCtx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, appCtx.String(configFlagName))
 	if err != nil {
 		return err
 	}
 
-	conn, err := subCmdDial(context.TODO(), nodeAddr, cfg.Auth.Token, defaultDialTimeout)
+	virtualStorage := appCtx.String(paramVirtualStorage)
+	relativePath := appCtx.String(paramRelativePath)
+	replicationFactor := appCtx.Uint(paramReplicationFactor)
+
+	nodeAddr, err := getNodeAddress(conf)
+	if err != nil {
+		return err
+	}
+
+	ctx := appCtx.Context
+	conn, err := subCmdDial(ctx, nodeAddr, conf.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("error dialing: %w", err)
 	}
 	defer conn.Close()
 
 	client := gitalypb.NewPraefectInfoServiceClient(conn)
-	resp, err := client.SetReplicationFactor(context.TODO(), &gitalypb.SetReplicationFactorRequest{
-		VirtualStorage:    cmd.virtualStorage,
-		RelativePath:      cmd.relativePath,
-		ReplicationFactor: int32(cmd.replicationFactor),
+	resp, err := client.SetReplicationFactor(ctx, &gitalypb.SetReplicationFactorRequest{
+		VirtualStorage:    virtualStorage,
+		RelativePath:      relativePath,
+		ReplicationFactor: int32(replicationFactor),
 	})
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(cmd.stdout, "current assignments: %v\n", strings.Join(resp.Storages, ", "))
+	fmt.Fprintf(appCtx.App.Writer, "current assignments: %v\n", strings.Join(resp.Storages, ", "))
 
 	return nil
 }

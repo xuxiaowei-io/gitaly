@@ -72,6 +72,7 @@ func NewApp() *cli.App {
 			newMetadataCommand(),
 			newSQLMigrateCommand(),
 			newRemoveRepositoryCommand(),
+			newSetReplicationFactorCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{

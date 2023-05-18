@@ -2,9 +2,12 @@ package praefect
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -28,23 +31,23 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 	}{
 		{
 			desc:  "unexpected positional arguments",
-			args:  []string{"positonal-arg"},
-			error: unexpectedPositionalArgsError{Command: "set-replication-factor"},
+			args:  []string{"-virtual-storage=virtual-storage", "-repository=relative-path", "-replication-factor=1", "positonal-arg"},
+			error: cli.Exit(unexpectedPositionalArgsError{Command: "set-replication-factor"}, 1),
 		},
 		{
 			desc:  "missing virtual-storage",
-			args:  []string{},
-			error: requiredParameterError("virtual-storage"),
+			args:  []string{"-repository=relative-path", "-replication-factor=1"},
+			error: errors.New(`Required flag "virtual-storage" not set`),
 		},
 		{
 			desc:  "missing repository",
-			args:  []string{"-virtual-storage=virtual-storage"},
-			error: requiredParameterError("repository"),
+			args:  []string{"-virtual-storage=virtual-storage", "-replication-factor=1"},
+			error: errors.New(`Required flag "repository" not set`),
 		},
 		{
 			desc:  "missing replication-factor",
 			args:  []string{"-virtual-storage=virtual-storage", "-repository=relative-path"},
-			error: requiredParameterError("replication-factor"),
+			error: errors.New(`Required flag "replication-factor" not set`),
 		},
 		{
 			desc:  "replication factor too small",
@@ -98,15 +101,41 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			)})
 			defer clean()
 
-			stdout := &bytes.Buffer{}
-			cmd := &setReplicationFactorSubcommand{stdout: stdout}
-			fs := cmd.FlagSet()
-			require.NoError(t, fs.Parse(tc.args))
-			err := cmd.Exec(fs, config.Config{
+			conf := config.Config{
 				SocketPath: ln.Addr().String(),
-			})
+				VirtualStorages: []*config.VirtualStorage{
+					{
+						Name: "praefect",
+						Nodes: []*config.Node{
+							{Storage: "storage", Address: "address"},
+						},
+					},
+				},
+				DB: testdb.GetConfig(t, db.Name),
+			}
+
+			confPath := writeConfigToFile(t, conf)
+			var stdout bytes.Buffer
+			app := cli.App{
+				Reader:          bytes.NewReader(nil),
+				Writer:          &stdout,
+				ErrWriter:       io.Discard,
+				HideHelpCommand: true,
+				Commands: []*cli.Command{
+					newSetReplicationFactorCommand(),
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Value: confPath,
+					},
+				},
+			}
+			err := app.Run(append([]string{progname, setReplicationFactorCmdName}, tc.args...))
 			testhelper.RequireGrpcError(t, tc.error, err)
-			require.Equal(t, tc.stdout, stdout.String())
+			if tc.stdout != "" {
+				require.Equal(t, tc.stdout, stdout.String())
+			}
 		})
 	}
 }
