@@ -545,6 +545,22 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 	}
 }
 
+func TestRepo_HeadReference(t *testing.T) {
+	ctx := testhelper.Context(t)
+	_, repo, _ := setupRepo(t)
+
+	referenceName, err := repo.HeadReference(ctx)
+	require.NoError(t, err)
+	require.Equal(t, git.DefaultRef, referenceName)
+
+	newDefaultBranch := git.ReferenceName("refs/heads/non-existent")
+	require.NoError(t, repo.SetDefaultBranch(ctx, &transaction.MockManager{}, newDefaultBranch))
+
+	referenceName, err = repo.HeadReference(ctx)
+	require.NoError(t, err)
+	require.Equal(t, newDefaultBranch, referenceName)
+}
+
 type blockingManager struct {
 	ch chan struct{}
 }
