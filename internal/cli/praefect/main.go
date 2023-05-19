@@ -3,13 +3,6 @@
 //
 // Additionally, praefect has subcommands for common tasks:
 //
-// # SQL Ping
-//
-// The subcommand "sql-ping" checks if the database configured in the config
-// file is reachable:
-//
-//	praefect -config PATH_TO_CONFIG sql-ping
-//
 // The subcommand "sql-migrate-status" will show which SQL migrations have
 // been applied and which ones have not:
 //
@@ -73,6 +66,7 @@ func NewApp() *cli.App {
 			newSQLMigrateCommand(),
 			newRemoveRepositoryCommand(),
 			newSetReplicationFactorCommand(),
+			newSQLPingCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
