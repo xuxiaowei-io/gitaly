@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -49,7 +49,7 @@ func TestPoolManager_Vote(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	registry := backchannel.NewRegistry()
-	backchannelConn, err := client.Dial(ctx, transactionServerAddr, nil, nil)
+	backchannelConn, err := client.Dial(ctx, transactionServerAddr)
 	require.NoError(t, err)
 	defer backchannelConn.Close()
 
@@ -178,7 +178,7 @@ func TestPoolManager_Stop(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	registry := backchannel.NewRegistry()
-	backchannelConn, err := client.Dial(ctx, transactionServerAddr, nil, nil)
+	backchannelConn, err := client.Dial(ctx, transactionServerAddr)
 	require.NoError(t, err)
 	defer backchannelConn.Close()
 

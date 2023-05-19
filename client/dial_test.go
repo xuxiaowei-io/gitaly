@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uber/jaeger-client-go"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
+	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v16/internal/x509"

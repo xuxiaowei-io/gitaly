@@ -28,8 +28,8 @@ func TestCreateFork_successful(t *testing.T) {
 	// certificates once. Changing injected certs during our tests is thus not going to fly well
 	// and would cause failure. We should eventually address this and provide better testing
 	// utilities around this, but now's not the time.
-	certFile, keyFile := testhelper.GenerateCerts(t)
-	t.Setenv(gitalyx509.SSLCertFile, certFile)
+	certificate := testhelper.GenerateCertificate(t)
+	t.Setenv(gitalyx509.SSLCertFile, certificate.CertPath)
 
 	for _, tt := range []struct {
 		name   string
@@ -52,8 +52,8 @@ func TestCreateFork_successful(t *testing.T) {
 			var client gitalypb.RepositoryServiceClient
 			if tt.secure {
 				cfg.TLS = config.TLS{
-					CertPath: certFile,
-					KeyPath:  keyFile,
+					CertPath: certificate.CertPath,
+					KeyPath:  certificate.KeyPath,
 				}
 				cfg.TLSListenAddr = "localhost:0"
 

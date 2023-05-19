@@ -12,7 +12,7 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
+	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"

@@ -23,12 +23,14 @@ func TestGitalyLFSSmudge(t *testing.T) {
 	cfg := testcfg.Build(t)
 	binary := testcfg.BuildGitalyLFSSmudge(t, cfg)
 
-	gitlabCfg, cleanup := runTestServer(t, defaultOptions)
+	opts := defaultOptions(t)
+
+	gitlabCfg, cleanup := runTestServer(t, opts)
 	defer cleanup()
 
 	tlsCfg := config.TLS{
-		CertPath: certPath,
-		KeyPath:  keyPath,
+		CertPath: opts.ServerCertificate.CertPath,
+		KeyPath:  opts.ServerCertificate.KeyPath,
 	}
 
 	marshalledGitlabCfg, err := json.Marshal(gitlabCfg)

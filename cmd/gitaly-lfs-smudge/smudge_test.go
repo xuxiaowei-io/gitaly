@@ -33,18 +33,19 @@ size 177735`
 	glRepository = "project-1"
 	secretToken  = "topsecret"
 	testData     = "hello world"
-	certPath     = "../../internal/gitlab/testdata/certs/server.crt"
-	keyPath      = "../../internal/gitlab/testdata/certs/server.key"
 )
 
-var defaultOptions = gitlab.TestServerOptions{
-	SecretToken:      secretToken,
-	LfsBody:          testData,
-	LfsOid:           lfsOid,
-	GlRepository:     glRepository,
-	ClientCACertPath: certPath,
-	ServerCertPath:   certPath,
-	ServerKeyPath:    keyPath,
+func defaultOptions(tb testing.TB) gitlab.TestServerOptions {
+	cert := testhelper.GenerateCertificate(tb)
+
+	return gitlab.TestServerOptions{
+		SecretToken:       secretToken,
+		LfsBody:           testData,
+		LfsOid:            lfsOid,
+		GlRepository:      glRepository,
+		ClientCertificate: &cert,
+		ServerCertificate: &cert,
+	}
 }
 
 func TestFilter_successful(t *testing.T) {
@@ -69,15 +70,17 @@ func TestFilter_successful(t *testing.T) {
 			var b bytes.Buffer
 			reader := strings.NewReader(tc.data)
 
-			gitlabCfg, cleanup := runTestServer(t, defaultOptions)
+			opts := defaultOptions(t)
+
+			gitlabCfg, cleanup := runTestServer(t, opts)
 			defer cleanup()
 
 			cfg := smudge.Config{
 				GlRepository: "project-1",
 				Gitlab:       gitlabCfg,
 				TLS: config.TLS{
-					CertPath: certPath,
-					KeyPath:  keyPath,
+					CertPath: opts.ServerCertificate.CertPath,
+					KeyPath:  opts.ServerCertificate.KeyPath,
 				},
 			}
 
@@ -107,21 +110,21 @@ func TestFilter_unsuccessful(t *testing.T) {
 			desc:          "bad LFS pointer",
 			data:          "test data",
 			setupCfg:      defaultConfig,
-			options:       defaultOptions,
+			options:       defaultOptions(t),
 			expectedError: false,
 		},
 		{
 			desc:          "invalid LFS pointer",
 			data:          invalidLfsPointer,
 			setupCfg:      defaultConfig,
-			options:       defaultOptions,
+			options:       defaultOptions(t),
 			expectedError: false,
 		},
 		{
 			desc:          "invalid LFS pointer with non-hex characters",
 			data:          invalidLfsPointerWithNonHex,
 			setupCfg:      defaultConfig,
-			options:       defaultOptions,
+			options:       defaultOptions(t),
 			expectedError: false,
 		},
 		{
@@ -132,7 +135,7 @@ func TestFilter_unsuccessful(t *testing.T) {
 				cfg.GlRepository = ""
 				return cfg
 			},
-			options:       defaultOptions,
+			options:       defaultOptions(t),
 			expectedError: true,
 		},
 		{
@@ -143,7 +146,7 @@ func TestFilter_unsuccessful(t *testing.T) {
 				cfg.Gitlab = config.Gitlab{}
 				return cfg
 			},
-			options:       defaultOptions,
+			options:       defaultOptions(t),
 			expectedError: true,
 		},
 		{
@@ -167,7 +170,7 @@ func TestFilter_unsuccessful(t *testing.T) {
 				cfg.TLS = config.TLS{CertPath: "fake-path", KeyPath: "not-real"}
 				return cfg
 			},
-			options:       defaultOptions,
+			options:       defaultOptions(t),
 			expectedError: true,
 		},
 	}
@@ -199,15 +202,17 @@ func TestProcess(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	gitlabCfg, cleanup := runTestServer(t, defaultOptions)
+	opts := defaultOptions(t)
+
+	gitlabCfg, cleanup := runTestServer(t, opts)
 	defer cleanup()
 
 	defaultSmudgeCfg := smudge.Config{
 		GlRepository: "project-1",
 		Gitlab:       gitlabCfg,
 		TLS: config.TLS{
-			CertPath: certPath,
-			KeyPath:  keyPath,
+			CertPath: opts.ServerCertificate.CertPath,
+			KeyPath:  opts.ServerCertificate.KeyPath,
 		},
 		DriverType: smudge.DriverTypeProcess,
 	}

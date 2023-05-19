@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/commit"
@@ -16,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -145,8 +145,8 @@ func newOperationClient(tb testing.TB, serverSocketPath string) (gitalypb.Operat
 	return gitalypb.NewOperationServiceClient(conn), conn
 }
 
-func newMuxedOperationClient(t *testing.T, ctx context.Context, serverSocketPath, authToken string, handshaker internalclient.Handshaker) gitalypb.OperationServiceClient {
-	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(authToken))}, handshaker)
+func newMuxedOperationClient(t *testing.T, ctx context.Context, serverSocketPath, authToken string, handshaker client.Handshaker) gitalypb.OperationServiceClient {
+	conn, err := client.Dial(ctx, serverSocketPath, client.WithGrpcOptions([]grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(authToken))}), client.WithHandshaker(handshaker))
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 	return gitalypb.NewOperationServiceClient(conn)

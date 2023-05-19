@@ -7,10 +7,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	gclient "gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/commit"
@@ -19,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/ssh"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -32,22 +31,25 @@ func TestMain(m *testing.M) {
 
 func newRepositoryClient(tb testing.TB, cfg config.Cfg, serverSocketPath string) gitalypb.RepositoryServiceClient {
 	connOpts := []grpc.DialOption{
-		internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
+		client.UnaryInterceptor(), client.StreamInterceptor(),
 	}
 	if cfg.Auth.Token != "" {
 		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
-	conn, err := gclient.Dial(serverSocketPath, connOpts)
+	conn, err := client.Dial(testhelper.Context(tb), serverSocketPath, client.WithGrpcOptions(connOpts))
 	require.NoError(tb, err)
 	tb.Cleanup(func() { require.NoError(tb, conn.Close()) })
 
 	return gitalypb.NewRepositoryServiceClient(conn)
 }
 
-func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg, serverSocketPath string, handshaker internalclient.Handshaker) gitalypb.RepositoryServiceClient {
-	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
-	}, handshaker)
+func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg, serverSocketPath string, handshaker client.Handshaker) gitalypb.RepositoryServiceClient {
+	conn, err := client.Dial(ctx, serverSocketPath,
+		client.WithGrpcOptions([]grpc.DialOption{
+			grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
+		}),
+		client.WithHandshaker(handshaker),
+	)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 	return gitalypb.NewRepositoryServiceClient(conn)

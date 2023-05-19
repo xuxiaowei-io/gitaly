@@ -6,13 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -86,8 +86,8 @@ func newMuxedSmartHTTPClient(t *testing.T, ctx context.Context, serverSocketPath
 	conn, err := client.Dial(
 		ctx,
 		serverSocketPath,
-		[]grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token))},
-		backchannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), serverFactory, backchannel.DefaultConfiguration()),
+		client.WithGrpcOptions([]grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token))}),
+		client.WithHandshaker(backchannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), serverFactory, backchannel.DefaultConfiguration())),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })

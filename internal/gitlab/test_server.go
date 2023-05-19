@@ -2,7 +2,6 @@ package gitlab
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -53,9 +52,8 @@ type TestServerOptions struct {
 	RepoPath                    string
 	RelativeURLRoot             string
 	GlRepository                string
-	ClientCACertPath            string // used to verify client certs are valid
-	ServerCertPath              string
-	ServerKeyPath               string
+	ClientCertificate           *testhelper.Certificate
+	ServerCertificate           *testhelper.Certificate
 }
 
 // NewTestServer returns a mock gitlab server that responds to the hook api endpoints
@@ -71,18 +69,14 @@ func NewTestServer(tb testing.TB, options TestServerOptions) (url string, cleanu
 	mux.Handle(prefix+"/lfs", http.HandlerFunc(handleLfs(tb, options)))
 
 	var tlsCfg *tls.Config
-	if options.ClientCACertPath != "" {
-		caCertPEM, err := os.ReadFile(options.ClientCACertPath)
-		require.NoError(tb, err)
+	if options.ClientCertificate != nil {
+		require.NotNil(tb, options.ServerCertificate)
 
-		certPool := x509.NewCertPool()
-		require.True(tb, certPool.AppendCertsFromPEM(caCertPEM))
-
-		serverCert, err := tls.LoadX509KeyPair(options.ServerCertPath, options.ServerKeyPath)
-		require.NoError(tb, err)
+		clientCertPool := options.ClientCertificate.CertPool(tb)
+		serverCert := options.ServerCertificate.Cert(tb)
 
 		tlsCfg = &tls.Config{
-			ClientCAs:    certPool,
+			ClientCAs:    clientCertPool,
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 			Certificates: []tls.Certificate{serverCert},
 			MinVersion:   tls.VersionTLS12,

@@ -91,15 +91,15 @@ func TestConnectivity(t *testing.T) {
 		{
 			name: "tls",
 			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
-				certFile, keyFile := testhelper.GenerateCerts(t)
-				t.Setenv(x509.SSLCertFile, certFile)
+				certificate := testhelper.GenerateCertificate(t)
+				t.Setenv(x509.SSLCertFile, certificate.CertPath)
 
 				cfg.TLSListenAddr = "localhost:0"
 				cfg.TLS = config.TLS{
-					CertPath: certFile,
-					KeyPath:  keyFile,
+					CertPath: certificate.CertPath,
+					KeyPath:  certificate.KeyPath,
 				}
-				return runGitaly(t, cfg), certFile
+				return runGitaly(t, cfg), certificate.CertPath
 			},
 		},
 	}

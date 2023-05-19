@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	"google.golang.org/grpc"

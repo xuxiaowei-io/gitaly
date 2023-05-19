@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
@@ -153,7 +153,7 @@ func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Regist
 		client.StreamInterceptor(),
 	}
 
-	return client.Dial(ctx, node.Address, dialOpts, handshaker)
+	return client.Dial(ctx, node.Address, client.WithGrpcOptions(dialOpts), client.WithHandshaker(handshaker))
 }
 
 // NewManager creates a new NodeMgr based on virtual storage configs

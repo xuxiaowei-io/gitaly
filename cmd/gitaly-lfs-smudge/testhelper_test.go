@@ -21,7 +21,14 @@ func runTestServer(t *testing.T, options gitlab.TestServerOptions) (config.Gitla
 
 	serverURL, serverCleanup := gitlab.NewTestServer(t, options)
 
-	c := config.Gitlab{URL: serverURL, SecretFile: secretFilePath, HTTPSettings: config.HTTPSettings{CAFile: certPath}}
+	var certPath string
+	if options.ServerCertificate != nil {
+		certPath = options.ServerCertificate.CertPath
+	}
+
+	c := config.Gitlab{URL: serverURL, SecretFile: secretFilePath, HTTPSettings: config.HTTPSettings{
+		CAFile: certPath,
+	}}
 
 	return c, func() {
 		serverCleanup()
