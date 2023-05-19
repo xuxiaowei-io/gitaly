@@ -164,8 +164,9 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'").
-				WithInterceptedMetadata("revision", "-not-a-rev"),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
+				"revision", "-not-a-rev"),
 		},
 		{
 			desc: "input with whitespace",
@@ -177,8 +178,9 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't contain whitespace").
-				WithInterceptedMetadata("revision", fmt.Sprintf("%s\n%s", commitID1, commitID2)),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("invalid revision: revision can't contain whitespace"),
+				"revision", fmt.Sprintf("%s\n%s", commitID1, commitID2)),
 		},
 		{
 			desc: "chunked invalid input",
@@ -195,8 +197,9 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'").
-				WithInterceptedMetadata("revision", "-not-a-rev"),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
+				"revision", "-not-a-rev"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

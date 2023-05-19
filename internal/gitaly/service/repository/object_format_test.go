@@ -151,7 +151,8 @@ func TestObjectFormat(t *testing.T) {
 					request: &gitalypb.ObjectFormatRequest{
 						Repository: repoProto,
 					},
-					expectedErr: structerr.NewInternal("detecting object hash: reading object format: exit status 128").WithInterceptedMetadata(
+					expectedErr: testhelper.WithInterceptedMetadata(
+						structerr.NewInternal("detecting object hash: reading object format: exit status 128"),
 						"stderr",
 						fmt.Sprintf("error: invalid value for 'extensions.objectformat': 'blake2b'\n"+
 							"fatal: bad config line 5 in file %s\n", filepath.Join(repoPath, "config"),

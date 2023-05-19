@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb/testproto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -289,17 +288,6 @@ func (e Error) WithMetadata(key string, value any) Error {
 		key: key, value: value,
 	})
 	return e
-}
-
-// WithInterceptedMetadata adds an additional metadata item to the Error in the form of an error
-// detail. Note that this is only intended to be used in the context of tests where we convert error
-// metadata into structured errors via the UnaryInterceptor and StreamInterceptor so that we can
-// test that metadata has been set as expected on the client-side of a gRPC call.
-func (e Error) WithInterceptedMetadata(key string, value any) Error {
-	return e.WithDetail(&testproto.ErrorMetadata{
-		Key:   []byte(key),
-		Value: []byte(fmt.Sprintf("%v", value)),
-	})
 }
 
 // Details returns the chain error details set by this and any wrapped Error. The returned array

@@ -1117,8 +1117,9 @@ func TestSuccessfulUserCommitFilesFilesRequest(t *testing.T) {
 			repoPath:       repoPath,
 			branchName:     "few-commits",
 			expectedOldOID: "foobar",
-			expectedError: structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())).
-				WithInterceptedMetadata("old_object_id", "foobar"),
+			expectedError: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())),
+				"old_object_id", "foobar"),
 		},
 		{
 			desc:           "existing repo and branch + valid expectedOldOID but invalid object",
@@ -1126,8 +1127,9 @@ func TestSuccessfulUserCommitFilesFilesRequest(t *testing.T) {
 			repoPath:       repoPath,
 			branchName:     "few-commits",
 			expectedOldOID: gittest.DefaultObjectHash.ZeroOID.String(),
-			expectedError: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
-				WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
+			expectedError: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+				"old_object_id", gittest.DefaultObjectHash.ZeroOID),
 		},
 		{
 			desc:           "existing repo and branch + incorrect expectedOldOID",

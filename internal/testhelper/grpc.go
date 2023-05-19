@@ -2,12 +2,15 @@ package testhelper
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb/testproto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -87,4 +90,15 @@ func MergeIncomingMetadata(ctx context.Context, md ...metadata.MD) context.Conte
 	}
 
 	return metadata.NewIncomingContext(ctx, metadata.Join(append(md, ctxmd)...))
+}
+
+// WithInterceptedMetadata adds an additional metadata item to the Error in the form of an error
+// detail. Note that this is only intended to be used in the context of tests where we convert error
+// metadata into structured errors via the StructErrUnaryInterceptor and StructErrStreamInterceptor so that we can
+// test that metadata has been set as expected on the client-side of a gRPC call.
+func WithInterceptedMetadata(err structerr.Error, key string, value any) structerr.Error {
+	return err.WithDetail(&testproto.ErrorMetadata{
+		Key:   []byte(key),
+		Value: []byte(fmt.Sprintf("%v", value)),
+	})
 }

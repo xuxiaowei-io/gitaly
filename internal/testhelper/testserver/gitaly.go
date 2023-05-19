@@ -33,7 +33,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
 	"google.golang.org/grpc"
@@ -165,8 +164,8 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 	// We set up the structerr interceptors so that any error metadata that gets set via
 	// `structerr.WithMetadata()` is not only logged, but also present in the error details.
 	serverOpts := []server.Option{
-		server.WithUnaryInterceptor(structerr.UnaryInterceptor),
-		server.WithStreamInterceptor(structerr.StreamInterceptor),
+		server.WithUnaryInterceptor(StructErrUnaryInterceptor),
+		server.WithStreamInterceptor(StructErrStreamInterceptor),
 	}
 
 	deps := gsd.createDependencies(tb, cfg)
