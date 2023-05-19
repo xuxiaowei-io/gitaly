@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -30,7 +31,7 @@ func TestWriteRef_successful(t *testing.T) {
 	testCases := []struct {
 		desc          string
 		req           *gitalypb.WriteRefRequest
-		expectedVotes int
+		expectedVotes []transaction.PhasedVote
 	}{
 		{
 			desc: "shell update HEAD to refs/heads/master",
@@ -39,7 +40,16 @@ func TestWriteRef_successful(t *testing.T) {
 				Ref:        []byte("HEAD"),
 				Revision:   []byte("refs/heads/master"),
 			},
-			expectedVotes: 2,
+			expectedVotes: []transaction.PhasedVote{
+				{
+					Phase: voting.Prepared,
+					Vote:  voting.Vote{0xac, 0xba, 0xef, 0x27, 0x5e, 0x46, 0xa7, 0xf1, 0x4c, 0x1e, 0xf4, 0x56, 0xff, 0xf2, 0xc8, 0xbb, 0xe8, 0xc8, 0x47, 0x24},
+				},
+				{
+					Phase: voting.Committed,
+					Vote:  voting.Vote{0xac, 0xba, 0xef, 0x27, 0x5e, 0x46, 0xa7, 0xf1, 0x4c, 0x1e, 0xf4, 0x56, 0xff, 0xf2, 0xc8, 0xbb, 0xe8, 0xc8, 0x47, 0x24},
+				},
+			},
 		},
 		{
 			desc: "shell update refs/heads/master",
@@ -48,7 +58,16 @@ func TestWriteRef_successful(t *testing.T) {
 				Ref:        []byte("refs/heads/master"),
 				Revision:   []byte("b83d6e391c22777fca1ed3012fce84f633d7fed0"),
 			},
-			expectedVotes: 2,
+			expectedVotes: []transaction.PhasedVote{
+				{
+					Phase: voting.Prepared,
+					Vote:  voting.Vote{0xd4, 0x6c, 0x98, 0x49, 0xde, 0x17, 0x55, 0xae, 0xb, 0x48, 0x7f, 0xac, 0x57, 0x77, 0x7d, 0xae, 0xb0, 0xf9, 0x64, 0x72},
+				},
+				{
+					Phase: voting.Committed,
+					Vote:  voting.Vote{0xd4, 0x6c, 0x98, 0x49, 0xde, 0x17, 0x55, 0xae, 0xb, 0x48, 0x7f, 0xac, 0x57, 0x77, 0x7d, 0xae, 0xb0, 0xf9, 0x64, 0x72},
+				},
+			},
 		},
 		{
 			desc: "shell update refs/heads/master w/ validation",
@@ -58,7 +77,16 @@ func TestWriteRef_successful(t *testing.T) {
 				Revision:    []byte("498214de67004b1da3d820901307bed2a68a8ef6"),
 				OldRevision: []byte("b83d6e391c22777fca1ed3012fce84f633d7fed0"),
 			},
-			expectedVotes: 2,
+			expectedVotes: []transaction.PhasedVote{
+				{
+					Phase: voting.Prepared,
+					Vote:  voting.Vote{0xcb, 0xfc, 0x7f, 0x79, 0x80, 0x7a, 0x33, 0x8e, 0xd5, 0x6a, 0xb7, 0x8e, 0x7f, 0xf8, 0xe, 0xf8, 0x8, 0xb5, 0x52, 0x1a},
+				},
+				{
+					Phase: voting.Committed,
+					Vote:  voting.Vote{0xcb, 0xfc, 0x7f, 0x79, 0x80, 0x7a, 0x33, 0x8e, 0xd5, 0x6a, 0xb7, 0x8e, 0x7f, 0xf8, 0xe, 0xf8, 0x8, 0xb5, 0x52, 0x1a},
+				},
+			},
 		},
 		{
 			desc: "race-free creation of reference",
@@ -68,7 +96,16 @@ func TestWriteRef_successful(t *testing.T) {
 				Revision:    []byte("498214de67004b1da3d820901307bed2a68a8ef6"),
 				OldRevision: []byte("0000000000000000000000000000000000000000"),
 			},
-			expectedVotes: 2,
+			expectedVotes: []transaction.PhasedVote{
+				{
+					Phase: voting.Prepared,
+					Vote:  voting.Vote{0xb0, 0xcc, 0xb4, 0x9a, 0x88, 0xc3, 0x67, 0x63, 0xd0, 0xfb, 0x94, 0xd5, 0x84, 0x43, 0x67, 0x18, 0x1e, 0xdb, 0xa0, 0x1e},
+				},
+				{
+					Phase: voting.Committed,
+					Vote:  voting.Vote{0xb0, 0xcc, 0xb4, 0x9a, 0x88, 0xc3, 0x67, 0x63, 0xd0, 0xfb, 0x94, 0xd5, 0x84, 0x43, 0x67, 0x18, 0x1e, 0xdb, 0xa0, 0x1e},
+				},
+			},
 		},
 		{
 			desc: "race-free delete of reference",
@@ -78,7 +115,16 @@ func TestWriteRef_successful(t *testing.T) {
 				Revision:    []byte("0000000000000000000000000000000000000000"),
 				OldRevision: []byte("498214de67004b1da3d820901307bed2a68a8ef6"),
 			},
-			expectedVotes: 2,
+			expectedVotes: []transaction.PhasedVote{
+				{
+					Phase: voting.Prepared,
+					Vote:  voting.Vote{0xa8, 0x2f, 0xc7, 0x22, 0xac, 0x82, 0xe1, 0x12, 0xb7, 0x78, 0xa6, 0x3f, 0xd6, 0x4b, 0x68, 0xc0, 0x12, 0xb6, 0x17, 0x8c},
+				},
+				{
+					Phase: voting.Committed,
+					Vote:  voting.Vote{0xa8, 0x2f, 0xc7, 0x22, 0xac, 0x82, 0xe1, 0x12, 0xb7, 0x78, 0xa6, 0x3f, 0xd6, 0x4b, 0x68, 0xc0, 0x12, 0xb6, 0x17, 0x8c},
+				},
+			},
 		},
 	}
 
@@ -92,7 +138,7 @@ func TestWriteRef_successful(t *testing.T) {
 			_, err = client.WriteRef(ctx, tc.req)
 			require.NoError(t, err)
 
-			require.Len(t, txManager.Votes(), tc.expectedVotes)
+			require.Equal(t, tc.expectedVotes, txManager.Votes())
 
 			if bytes.Equal(tc.req.Ref, []byte("HEAD")) {
 				content := testhelper.MustReadFile(t, filepath.Join(repoPath, "HEAD"))
