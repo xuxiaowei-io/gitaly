@@ -103,7 +103,7 @@ ifdef GITALY_TESTING_ENABLE_SHA256
 endif
 
 # protoc target
-PROTOC_VERSION      ?= v21.7
+PROTOC_VERSION      ?= v23.1
 PROTOC_REPO_URL     ?= https://github.com/protocolbuffers/protobuf
 PROTOC_SOURCE_DIR   ?= ${DEPENDENCY_DIR}/protobuf/source
 PROTOC_BUILD_DIR    ?= ${DEPENDENCY_DIR}/protobuf/build
