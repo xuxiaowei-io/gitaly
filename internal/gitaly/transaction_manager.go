@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
@@ -179,6 +180,10 @@ type Transaction struct {
 	defaultBranchUpdate      *DefaultBranchUpdate
 	customHooksUpdate        *CustomHooksUpdate
 	deleteRepository         bool
+	// requestContext is the context from goroutine that begun the transaction. This is the context that
+	// contains Praefect's transaction information if it exists. It's only capture the transaction
+	// information into the TransactionManager and should not be used for anything else.
+	requestContext context.Context
 }
 
 // Begin opens a new transaction. The caller must call either Commit or Rollback to release
@@ -212,7 +217,8 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 			CustomHookIndex: mgr.customHookIndex,
 			CustomHookPath:  customHookPathForLogIndex(mgr.repositoryPath, mgr.customHookIndex),
 		},
-		finished: make(chan struct{}),
+		finished:       make(chan struct{}),
+		requestContext: ctx,
 	}
 
 	// If there are no custom hooks stored through the WAL yet, then default to the custom hooks
@@ -473,6 +479,9 @@ type TransactionManager struct {
 	// the repository. It's keyed by the log index the transaction is waiting to be applied and the
 	// value is the resultChannel that is waiting the result.
 	awaitingTransactions map[LogIndex]resultChannel
+
+	// voteManager casts transactional votes to Praefect.
+	voteManager transaction.Manager
 }
 
 // repository is the localrepo interface used by TransactionManager.
@@ -484,10 +493,11 @@ type repository interface {
 	Quarantine(string) (*localrepo.Repo, error)
 	WalkUnreachableObjects(context.Context, io.Reader, io.Writer) error
 	PackObjects(context.Context, io.Reader, io.Writer) error
+	HeadReference(context.Context) (git.ReferenceName, error)
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
-func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, transactionFinalizer func()) *TransactionManager {
+func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, transactionFinalizer func(), voteManager transaction.Manager) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
 		ctx:                  ctx,
@@ -505,6 +515,7 @@ func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir 
 		stagingDirectory:     stagingDir,
 		transactionFinalizer: transactionFinalizer,
 		awaitingTransactions: make(map[LogIndex]resultChannel),
+		voteManager:          voteManager,
 	}
 }
 
@@ -684,7 +695,7 @@ func (mgr *TransactionManager) Run() (returnedErr error) {
 			continue
 		}
 
-		if err := mgr.processTransaction(); err != nil {
+		if err := mgr.processTransaction(mgr.ctx); err != nil {
 			return fmt.Errorf("process transaction: %w", err)
 		}
 	}
@@ -692,7 +703,7 @@ func (mgr *TransactionManager) Run() (returnedErr error) {
 
 // processTransaction waits for a transaction and processes it by verifying and
 // logging it.
-func (mgr *TransactionManager) processTransaction() (returnedErr error) {
+func (mgr *TransactionManager) processTransaction(ctx context.Context) (returnedErr error) {
 	var cleanUps []func() error
 	defer func() {
 		for _, cleanUp := range cleanUps {
@@ -774,13 +785,81 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			logEntry.RepositoryDeletion = &gitalypb.LogEntry_RepositoryDeletion{}
 		}
 
-		return mgr.appendLogEntry(nextLogIndex, logEntry)
+		if err := mgr.voteTransaction(ctx, voting.Prepared, transaction, logEntry); err != nil {
+			return fmt.Errorf("vote prepared: %w", err)
+		}
+
+		if err := mgr.appendLogEntry(nextLogIndex, logEntry); err != nil {
+			return fmt.Errorf("append log entry: %w", err)
+		}
+
+		if err := mgr.voteTransaction(ctx, voting.Committed, transaction, logEntry); err != nil {
+			return fmt.Errorf("vote committed: %w", err)
+		}
+
+		return nil
 	}(); err != nil {
 		transaction.result <- err
 		return nil
 	}
 
 	mgr.awaitingTransactions[mgr.appendedLogIndex] = transaction.result
+
+	return nil
+}
+
+// voteTransaction constructs a vote from the changes and casts the vote to Praefect if the request context
+// contained a Prafect transaction. The voting is not required by the TransactionManager itself and is purely
+// for backwards compatibility with Praefect's transactions when WAL is enabled.
+func (mgr *TransactionManager) voteTransaction(ctx context.Context, phase voting.Phase, tx *Transaction, logEntry *gitalypb.LogEntry) error {
+	hasher := voting.NewVoteHash()
+	if tx.defaultBranchUpdate != nil {
+		fmt.Fprintf(hasher, "ref: %s\n", tx.defaultBranchUpdate.Reference)
+	}
+
+	head, err := tx.stagingRepository.HeadReference(ctx)
+	if err != nil {
+		return fmt.Errorf("head reference: %w", err)
+	}
+
+	for _, loggedUpdate := range logEntry.ReferenceUpdates {
+		referenceName := git.ReferenceName(loggedUpdate.ReferenceName)
+		// The logged reference updates have been sorted but don't contain the old OIDs. Use the order
+		// in the log entry to access the updates so the voting happens in a deterministic order.
+		update := tx.referenceUpdates[referenceName]
+
+		oldOID := update.OldOID
+		if update.Force {
+			// Force updates have a zero OID as the old value in the reference transaction hook.
+			// Model the same behavior so the votes match.
+			objectHash, err := mgr.repository.ObjectHash(ctx)
+			if err != nil {
+				return fmt.Errorf("object hash: %w", err)
+			}
+
+			oldOID = objectHash.ZeroOID
+		}
+
+		fmt.Fprintf(hasher, "%s %s %s\n", oldOID, update.NewOID, referenceName)
+		if referenceName == head {
+			// When the reference pointed to by HEAD is updated, the reference transaction hook
+			// also prints a line updating HEAD. Print out a line for the HEAD here as well to ensure
+			// the vote matches what the reference transaction hook would produce.
+			//
+			// This is seemingly a bug as the reference transaction hook has been documented to
+			// not cover symbolic references: https://git-scm.com/docs/githooks#_reference_transaction
+			fmt.Fprintf(hasher, "%s %s %s\n", oldOID, update.NewOID, "HEAD")
+		}
+	}
+
+	vote, err := hasher.Vote()
+	if err != nil {
+		return fmt.Errorf("vote from hash: %w", err)
+	}
+
+	if err := transaction.VoteOnContext(tx.requestContext, mgr.voteManager, vote, phase); err != nil {
+		return fmt.Errorf("vote on context: %w", err)
+	}
 
 	return nil
 }
@@ -1078,7 +1157,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		})
 	}
 
-	// Sort the reference updates so the reference changes are always logged in a deterministic order.
+	// Sort the reference updates so the reference changes are always logged and voted in a deterministic order.
 	sort.Slice(referenceUpdates, func(i, j int) bool {
 		return bytes.Compare(
 			referenceUpdates[i].ReferenceName,

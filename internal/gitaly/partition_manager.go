@@ -15,6 +15,7 @@ import (
 	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -27,6 +28,8 @@ var ErrPartitionManagerStopped = errors.New("partition manager stopped")
 type PartitionManager struct {
 	// storages are the storages configured in this Gitaly server. The map is keyed by the storage name.
 	storages map[string]*storageManager
+	// voteManager casts transactional votes to Praefect.
+	voteManager transaction.Manager
 }
 
 // storageManager represents a single storage.
@@ -108,7 +111,7 @@ func (ptn *partition) stop() {
 }
 
 // NewPartitionManager returns a new PartitionManager.
-func NewPartitionManager(configuredStorages []config.Storage, localRepoFactory localrepo.Factory, logger logrus.FieldLogger) (*PartitionManager, error) {
+func NewPartitionManager(configuredStorages []config.Storage, localRepoFactory localrepo.Factory, logger logrus.FieldLogger, voteManager transaction.Manager) (*PartitionManager, error) {
 	storages := make(map[string]*storageManager, len(configuredStorages))
 	for _, storage := range configuredStorages {
 		repoFactory, err := localRepoFactory.ScopeByStorage(storage.Name)
@@ -151,7 +154,10 @@ func NewPartitionManager(configuredStorages []config.Storage, localRepoFactory l
 		}
 	}
 
-	return &PartitionManager{storages: storages}, nil
+	return &PartitionManager{
+		storages:    storages,
+		voteManager: voteManager,
+	}, nil
 }
 
 func stagingDirectoryPath(storagePath string) string {
@@ -191,7 +197,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, stagingDir, storageMgr.repoFactory, storageMgr.transactionFinalizerFactory(ptn))
+			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, stagingDir, storageMgr.repoFactory, storageMgr.transactionFinalizerFactory(ptn), pm.voteManager)
 			ptn.transactionManager = mgr
 
 			storageMgr.partitions[relativePath] = ptn

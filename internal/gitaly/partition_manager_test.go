@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -563,7 +564,7 @@ func TestPartitionManager(t *testing.T) {
 				)
 			}
 
-			partitionManager, err := NewPartitionManager(cfg.Storages, localRepoFactory, logrus.StandardLogger())
+			partitionManager, err := NewPartitionManager(cfg.Storages, localRepoFactory, logrus.StandardLogger(), &transaction.MockManager{})
 			require.NoError(t, err)
 			defer func() {
 				partitionManager.Stop()
