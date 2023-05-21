@@ -397,8 +397,8 @@ bench: ${BENCHMARK_REPO} prepare-tests
 
 .PHONY: test-with-praefect
 ## Run Go tests with Praefect.
-test-with-praefect: prepare-tests
-	${Q}GITALY_TEST_WITH_PRAEFECT=YesPlease $(call run_go_tests)
+test-with-praefect: export GITALY_TEST_WITH_PRAEFECT = YesPlease
+test-with-praefect: test-go
 
 .PHONY: race-go
 ## Run Go tests with race detection enabled.
