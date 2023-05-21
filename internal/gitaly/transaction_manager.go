@@ -521,6 +521,10 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 		return fmt.Errorf("setup staging repository: %w", err)
 	}
 
+	if err := mgr.stageHooks(ctx, transaction); err != nil {
+		return fmt.Errorf("stage hooks: %w", err)
+	}
+
 	if err := mgr.packObjects(ctx, transaction); err != nil {
 		return fmt.Errorf("pack objects: %w", err)
 	}
@@ -542,6 +546,30 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 	case <-mgr.stopCalled:
 		return ErrTransactionProcessingStopped
 	}
+}
+
+// stageHooks extracts the new hooks, if any, into <stagingDirectory>/custom_hooks. This is ensures the TAR
+// is valid prior to committing the transaction. The hooks files on the disk are also used to compute a vote
+// for Praefect.
+func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Transaction) error {
+	if transaction.customHooksUpdate == nil || len(transaction.customHooksUpdate.CustomHooksTAR) == 0 {
+		return nil
+	}
+
+	if err := transaction.initStagingDirectory(); err != nil {
+		return fmt.Errorf("init staging directory: %w", err)
+	}
+
+	if err := repoutil.ExtractHooks(
+		ctx,
+		bytes.NewReader(transaction.customHooksUpdate.CustomHooksTAR),
+		transaction.stagingDirectory,
+		false,
+	); err != nil {
+		return fmt.Errorf("extract hooks: %w", err)
+	}
+
+	return nil
 }
 
 // setupStagingRepository sets a repository that is used to stage the transaction. The staging repository
