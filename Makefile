@@ -380,8 +380,14 @@ test-gitaly-linters:
 
 .PHONY: test-go
 ## Run Go tests.
-test-go: prepare-tests
+test-go: override TEST_OPTIONS := ${TEST_OPTIONS} -coverprofile "${TEST_COVERAGE_DIR}/all.merged"
+test-go: prepare-tests ${GOCOVER_COBERTURA}
+	${Q}rm -rf "${TEST_COVERAGE_DIR}"
+	${Q}mkdir -p "${TEST_COVERAGE_DIR}"
 	${Q}$(call run_go_tests)
+	${Q}go tool cover -html  "${TEST_COVERAGE_DIR}/all.merged" -o "${TEST_COVERAGE_DIR}/all.html"
+	@ # sed is used below to convert file paths to repository root relative paths. See https://gitlab.com/gitlab-org/gitlab/-/issues/217664
+	${Q}${GOCOVER_COBERTURA} <"${TEST_COVERAGE_DIR}/all.merged" | sed 's;filename=\"$(shell go list -m)/;filename=\";g' >"${TEST_COVERAGE_DIR}/cobertura.xml"
 
 .PHONY: debug-test-go
 ## Run Go tests in delve debugger.
@@ -461,14 +467,7 @@ clean:
 
 .PHONY: cover
 ## Generate coverage report via Go tests.
-cover: override TEST_OPTIONS  := ${TEST_OPTIONS} -coverprofile "${TEST_COVERAGE_DIR}/all.merged"
-cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
-	${Q}rm -rf "${TEST_COVERAGE_DIR}"
-	${Q}mkdir -p "${TEST_COVERAGE_DIR}"
-	${Q}$(call run_go_tests)
-	${Q}go tool cover -html  "${TEST_COVERAGE_DIR}/all.merged" -o "${TEST_COVERAGE_DIR}/all.html"
-	@ # sed is used below to convert file paths to repository root relative paths. See https://gitlab.com/gitlab-org/gitlab/-/issues/217664
-	${Q}${GOCOVER_COBERTURA} <"${TEST_COVERAGE_DIR}/all.merged" | sed 's;filename=\"$(shell go list -m)/;filename=\";g' >"${TEST_COVERAGE_DIR}/cobertura.xml"
+cover: test-go
 	${Q}echo ""
 	${Q}echo "=====> Total test coverage: <====="
 	${Q}echo ""
