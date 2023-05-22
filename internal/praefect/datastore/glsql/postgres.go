@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/migrations"
@@ -79,7 +79,7 @@ func DSN(db config.DB, direct bool) string {
 		{"sslcert", sslCertVal},
 		{"sslkey", sslKeyVal},
 		{"sslrootcert", sslRootCertVal},
-		{"prefer_simple_protocol", "true"},
+		{"default_query_exec_mode", "simple_protocol"},
 	} {
 		if len(kv.value) == 0 {
 			continue
