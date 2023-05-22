@@ -1048,8 +1048,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-						HookIndex: 1,
+						ReadIndex:       1,
+						CustomHookIndex: 1,
 					},
 				},
 				Commit{
@@ -1148,8 +1148,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-						HookIndex: 1,
+						ReadIndex:       1,
+						CustomHookIndex: 1,
 					},
 				},
 				Commit{
@@ -1159,8 +1159,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 3,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 2,
-						HookIndex: 2,
+						ReadIndex:       2,
+						CustomHookIndex: 2,
 					},
 				},
 				StopManager{},
@@ -1168,8 +1168,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 4,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 2,
-						HookIndex: 2,
+						ReadIndex:       2,
+						CustomHookIndex: 2,
 					},
 				},
 			},
@@ -1824,8 +1824,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 3,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-						HookIndex: 1,
+						ReadIndex:       1,
+						CustomHookIndex: 1,
 					},
 				},
 				Commit{
@@ -1837,8 +1837,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 4,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 2,
-						HookIndex: 1,
+						ReadIndex:       2,
+						CustomHookIndex: 1,
 					},
 				},
 				Rollback{
@@ -1847,8 +1847,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 5,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 2,
-						HookIndex: 1,
+						ReadIndex:       2,
+						CustomHookIndex: 1,
 					},
 				},
 				Commit{
@@ -1861,8 +1861,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 6,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 3,
-						HookIndex: 3,
+						ReadIndex:       3,
+						CustomHookIndex: 3,
 					},
 				},
 			},
