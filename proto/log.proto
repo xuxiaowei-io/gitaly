@@ -35,6 +35,10 @@ message LogEntry {
     bytes custom_hooks_tar = 1;
   }
 
+  // RepositoryDeletion models a repository deletion.
+  message RepositoryDeletion {
+  }
+
   // reference_updates contains the reference updates this log
   // entry records. The logged reference updates have already passed
   // through verification and are applied without any further checks.
@@ -47,6 +51,8 @@ message LogEntry {
   // includes_pack denotes whether this log entry has a pack file associated
   // with it. The pack files are stored separately on the filesystem.
   bool includes_pack = 4;
+  // RepositoryDeletion, when set, indicates this log entry deletes the repository.
+  RepositoryDeletion repository_deletion = 5;
 }
 
 // LogIndex serializes a log index. It's used for storing a repository's
