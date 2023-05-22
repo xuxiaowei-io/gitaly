@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/containerd/cgroups"
+	"github.com/containerd/cgroups/v3/cgroup1"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -22,7 +22,7 @@ const cfsPeriodUs uint64 = 100000
 // CGroupV1Manager is the manager for cgroups v1
 type CGroupV1Manager struct {
 	cfg                        cgroupscfg.Config
-	hierarchy                  func() ([]cgroups.Subsystem, error)
+	hierarchy                  func() ([]cgroup1.Subsystem, error)
 	memoryReclaimAttemptsTotal *prometheus.GaugeVec
 	cpuUsage                   *prometheus.GaugeVec
 	cpuCFSPeriods              *prometheus.Desc
@@ -36,7 +36,7 @@ func newV1Manager(cfg cgroupscfg.Config, pid int) *CGroupV1Manager {
 	return &CGroupV1Manager{
 		cfg: cfg,
 		pid: pid,
-		hierarchy: func() ([]cgroups.Subsystem, error) {
+		hierarchy: func() ([]cgroup1.Subsystem, error) {
 			return defaultSubsystems(cfg.Mountpoint)
 		},
 		memoryReclaimAttemptsTotal: prometheus.NewGaugeVec(
@@ -99,10 +99,10 @@ func (cg *CGroupV1Manager) Setup() error {
 		parentResources.Memory = &specs.LinuxMemory{Limit: &cg.cfg.MemoryBytes}
 	}
 
-	if _, err := cgroups.New(
-		cg.hierarchy,
-		cgroups.StaticPath(cg.currentProcessCgroup()),
+	if _, err := cgroup1.New(
+		cgroup1.StaticPath(cg.currentProcessCgroup()),
 		&parentResources,
+		cgroup1.WithHiearchy(cg.hierarchy),
 	); err != nil {
 		return fmt.Errorf("failed creating parent cgroup: %w", err)
 	}
@@ -125,10 +125,10 @@ func (cg *CGroupV1Manager) Setup() error {
 	}
 
 	for i := 0; i < int(cg.cfg.Repositories.Count); i++ {
-		if _, err := cgroups.New(
-			cg.hierarchy,
-			cgroups.StaticPath(cg.repoPath(i)),
+		if _, err := cgroup1.New(
+			cgroup1.StaticPath(cg.repoPath(i)),
 			&reposResources,
+			cgroup1.WithHiearchy(cg.hierarchy),
 		); err != nil {
 			return fmt.Errorf("failed creating repository cgroup: %w", err)
 		}
@@ -169,12 +169,15 @@ func (cg *CGroupV1Manager) AddCommand(
 }
 
 func (cg *CGroupV1Manager) addToCgroup(pid int, cgroupPath string) error {
-	control, err := cgroups.Load(cg.hierarchy, cgroups.StaticPath(cgroupPath))
+	control, err := cgroup1.Load(
+		cgroup1.StaticPath(cgroupPath),
+		cgroup1.WithHiearchy(cg.hierarchy),
+	)
 	if err != nil {
 		return fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
 	}
 
-	if err := control.Add(cgroups.Process{Pid: pid}); err != nil {
+	if err := control.Add(cgroup1.Process{Pid: pid}); err != nil {
 		// Command could finish so quickly before we can add it to a cgroup, so
 		// we don't consider it an error.
 		if strings.Contains(err.Error(), "no such process") {
@@ -195,9 +198,9 @@ func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
 	for i := 0; i < int(cg.cfg.Repositories.Count); i++ {
 		repoPath := cg.repoPath(i)
 		logger := log.Default().WithField("cgroup_path", repoPath)
-		control, err := cgroups.Load(
-			cg.hierarchy,
-			cgroups.StaticPath(repoPath),
+		control, err := cgroup1.Load(
+			cgroup1.StaticPath(repoPath),
+			cgroup1.WithHiearchy(cg.hierarchy),
 		)
 		if err != nil {
 			logger.WithError(err).Warn("unable to load cgroup controller")
@@ -270,7 +273,10 @@ func (cg *CGroupV1Manager) Describe(ch chan<- *prometheus.Desc) {
 func (cg *CGroupV1Manager) Cleanup() error {
 	processCgroupPath := cg.currentProcessCgroup()
 
-	control, err := cgroups.Load(cg.hierarchy, cgroups.StaticPath(processCgroupPath))
+	control, err := cgroup1.Load(
+		cgroup1.StaticPath(processCgroupPath),
+		cgroup1.WithHiearchy(cg.hierarchy),
+	)
 	if err != nil {
 		return fmt.Errorf("failed loading cgroup %s: %w", processCgroupPath, err)
 	}
@@ -290,10 +296,10 @@ func (cg *CGroupV1Manager) currentProcessCgroup() string {
 	return config.GetGitalyProcessTempDir(cg.cfg.HierarchyRoot, cg.pid)
 }
 
-func defaultSubsystems(root string) ([]cgroups.Subsystem, error) {
-	subsystems := []cgroups.Subsystem{
-		cgroups.NewMemory(root, cgroups.OptionalSwap()),
-		cgroups.NewCpu(root),
+func defaultSubsystems(root string) ([]cgroup1.Subsystem, error) {
+	subsystems := []cgroup1.Subsystem{
+		cgroup1.NewMemory(root, cgroup1.OptionalSwap()),
+		cgroup1.NewCpu(root),
 	}
 
 	return subsystems, nil

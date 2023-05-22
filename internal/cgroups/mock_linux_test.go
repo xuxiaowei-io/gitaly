@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/containerd/cgroups"
+	"github.com/containerd/cgroups/v3/cgroup1"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -33,7 +33,7 @@ import (
 
 type mockCgroup struct {
 	root       string
-	subsystems []cgroups.Subsystem
+	subsystems []cgroup1.Subsystem
 }
 
 func newMock(t *testing.T) *mockCgroup {
@@ -54,7 +54,7 @@ func newMock(t *testing.T) *mockCgroup {
 	}
 }
 
-func (m *mockCgroup) hierarchy() ([]cgroups.Subsystem, error) {
+func (m *mockCgroup) hierarchy() ([]cgroup1.Subsystem, error) {
 	return m.subsystems, nil
 }
 
