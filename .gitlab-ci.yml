@@ -440,6 +440,23 @@ secret_detection:
       when: never
     - *rules_should_test
 
+build-proto-gem:
+  needs: []
+  image: ruby:3.0
+  stage: publish
+  before_script: []
+  variables:
+    BUILD_GEM_OPTIONS: --skip-verify-tag
+  script:
+    - make build-proto-gem
+  rules:
+    - when: manual
+      allow_failure: true
+  artifacts:
+    paths:
+      - _build/gitaly.gem
+    expire_in: 1 month
+
 publish-proto-gem:
   needs: []
   image: ruby:3.0
