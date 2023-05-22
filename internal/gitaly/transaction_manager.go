@@ -2,6 +2,7 @@ package gitaly
 
 import (
 	"bytes"
+	"container/list"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -23,13 +24,22 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 )
 
-// ErrTransactionProcessingStopped is returned when the TransactionManager stops processing transactions.
-var ErrTransactionProcessingStopped = errors.New("transaction processing stopped")
+var (
+	// ErrRepositoryNotFound is returned when the repository doesn't exist.
+	ErrRepositoryNotFound = structerr.NewNotFound("repository not found")
+	// ErrTransactionProcessingStopped is returned when the TransactionManager stops processing transactions.
+	ErrTransactionProcessingStopped = errors.New("transaction processing stopped")
+	// errInitializationFailed is returned when the TransactionManager failed to initialize successfully.
+	errInitializationFailed = errors.New("initializing transaction processing failed")
+	// errNotDirectory is returned when the repository's path doesn't point to a directory
+	errNotDirectory = errors.New("repository's path didn't point to a directory")
+)
 
 // InvalidReferenceFormatError is returned when a reference name was invalid.
 type InvalidReferenceFormatError struct {
@@ -133,6 +143,13 @@ type Transaction struct {
 	// from the client goroutine to the TransactionManager.Run() goroutine, and the client goroutine must
 	// not do any modifications to the state of the transcation anymore to avoid races.
 	admitted bool
+	// finish cleans up the transaction releasing the resources associated with it. It must be called
+	// once the transaction is done with.
+	finish func() error
+	// finished is closed when the transaction has been finished. This enables waiting on transactions
+	// to finish where needed.
+	finished chan struct{}
+
 	// initStagingDirectory is called to lazily initialize the staging directory when it is
 	// needed.
 	initStagingDirectory func() error
@@ -156,6 +173,7 @@ type Transaction struct {
 	referenceUpdates         ReferenceUpdates
 	defaultBranchUpdate      *DefaultBranchUpdate
 	customHooksUpdate        *CustomHooksUpdate
+	deleteRepository         bool
 }
 
 // Begin opens a new transaction. The caller must call either Commit or Rollback to release
@@ -163,16 +181,24 @@ type Transaction struct {
 //
 // The returned Transaction's read snapshot includes all writes that were committed prior to the
 // Begin call. Begin blocks until the committed writes have been applied to the repository.
-func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) {
+func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
 	// and the log indexes are loaded.
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-mgr.initialized:
+		if !mgr.initializationSuccessful {
+			return nil, errInitializationFailed
+		}
 	}
 
-	mgr.mutex.RLock()
+	mgr.mutex.Lock()
+	if !mgr.repositoryExists {
+		mgr.mutex.Unlock()
+		return nil, ErrRepositoryNotFound
+	}
+
 	txn := &Transaction{
 		commit:   mgr.commit,
 		finalize: mgr.transactionFinalizer,
@@ -180,10 +206,13 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 			ReadIndex: mgr.appendedLogIndex,
 			HookIndex: mgr.hookIndex,
 		},
+		finished: make(chan struct{}),
 	}
 
+	openTransactionElement := mgr.openTransactions.PushBack(txn)
+
 	readReady := mgr.applyNotifications[txn.snapshot.ReadIndex]
-	mgr.mutex.RUnlock()
+	mgr.mutex.Unlock()
 	if readReady == nil {
 		// The snapshot log entry is already applied if there is no notification channel for it.
 		// If so, the transaction is ready to begin immediately.
@@ -201,6 +230,30 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 		return nil
 	}
 
+	txn.finish = func() error {
+		defer close(txn.finished)
+
+		mgr.mutex.Lock()
+		mgr.openTransactions.Remove(openTransactionElement)
+		mgr.mutex.Unlock()
+
+		if txn.stagingDirectory != "" {
+			if err := os.RemoveAll(txn.stagingDirectory); err != nil {
+				return fmt.Errorf("remove staging directory: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	defer func() {
+		if returnedErr != nil {
+			// finish can't return an error as the staging directory isn't yet created, and won't
+			// be attempted to be deleted.
+			_ = txn.finish()
+		}
+	}()
+
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -217,7 +270,7 @@ func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
 	defer func() {
 		txn.finalize()
 
-		if err := txn.cleanUnadmitted(); err != nil && returnedErr == nil {
+		if err := txn.finishUnadmitted(); err != nil && returnedErr == nil {
 			returnedErr = err
 		}
 	}()
@@ -228,29 +281,18 @@ func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
 // Rollback releases resources associated with the transaction without performing any changes.
 func (txn *Transaction) Rollback() error {
 	defer txn.finalize()
-	return txn.cleanUnadmitted()
+	return txn.finishUnadmitted()
 }
 
-// cleanUnadmitted cleans up after the transaction if it wasn't yet admitted. If the transaction was admitted,
+// finishUnadmitted cleans up after the transaction if it wasn't yet admitted. If the transaction was admitted,
 // the Transaction is being processed by TransactionManager. The clean up responsibility moves there as well
 // to avoid races.
-func (txn *Transaction) cleanUnadmitted() error {
+func (txn *Transaction) finishUnadmitted() error {
 	if txn.admitted {
 		return nil
 	}
 
-	return txn.clean()
-}
-
-// clean cleans up the resources associated with the transaction.
-func (txn *Transaction) clean() error {
-	if txn.stagingDirectory != "" {
-		if err := os.RemoveAll(txn.stagingDirectory); err != nil {
-			return fmt.Errorf("remove staging directory: %w", err)
-		}
-	}
-
-	return nil
+	return txn.finish()
 }
 
 // Snapshot returns the details of the Transaction's read snapshot.
@@ -273,6 +315,11 @@ func (txn *Transaction) SkipVerificationFailures() {
 // multiple times, only the changes from the latest invocation take place.
 func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
 	txn.referenceUpdates = updates
+}
+
+// DeleteRepository deletes the repository when the transaction is committed.
+func (txn *Transaction) DeleteRepository() {
+	txn.deleteRepository = true
 }
 
 // QuarantineDirectory returns an absolute path to the transaction's quarantine directory. The quarantine directory
@@ -370,6 +417,9 @@ type TransactionManager struct {
 	// Gitaly starts.
 	stagingDirectory string
 
+	// repositoryExists marks whether the repository exists or not. The repository may not exist if it has
+	// never been created, or if it has been deleted.
+	repositoryExists bool
 	// repository is the repository this TransactionManager is acting on.
 	repository repository
 	// repositoryPath is the path to the repository this TransactionManager is acting on.
@@ -381,13 +431,19 @@ type TransactionManager struct {
 	// admissionQueue is where the incoming writes are waiting to be admitted to the transaction
 	// manager.
 	admissionQueue chan *Transaction
+	// openTransactions contains all transactions that have been begun but not yet committed or rolled back.
+	// The transactions are ordered from the oldest to the newest.
+	openTransactions *list.List
 
 	// initialized is closed when the manager has been initialized. It's used to block new transactions
 	// from beginning prior to the manager having initialized its runtime state on start up.
 	initialized chan struct{}
+	// initializationSuccessful is set if the TransactionManager initialized successfully. If it didn't,
+	// transactions will fail to begin.
+	initializationSuccessful bool
 	// mutex guards access to applyNotifications and appendedLogIndex. These fields are accessed by both
 	// Run and Begin which are ran in different goroutines.
-	mutex sync.RWMutex
+	mutex sync.Mutex
 	// applyNotifications stores channels that are closed when a log entry is applied. These
 	// are used to block transactions from beginning before their snapshot is ready.
 	applyNotifications map[LogIndex]chan struct{}
@@ -431,6 +487,7 @@ func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir 
 		relativePath:         relativePath,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
+		openTransactions:     list.New(),
 		initialized:          make(chan struct{}),
 		applyNotifications:   make(map[LogIndex]chan struct{}),
 		stagingDirectory:     stagingDir,
@@ -636,10 +693,10 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	var transaction *Transaction
 	select {
 	case transaction = <-mgr.admissionQueue:
-		// The Transaction does not clean up itself anymore once it has been admitted for
+		// The Transaction does not finish itself anymore once it has been admitted for
 		// processing. This avoids the Transaction concurrently removing the staged state
-		// while the manager is still operating on it. We thus need to defer its clean up.
-		cleanUps = append(cleanUps, transaction.clean)
+		// while the manager is still operating on it. We thus need to defer its finishing.
+		cleanUps = append(cleanUps, transaction.finish)
 	case <-mgr.ctx.Done():
 	}
 
@@ -650,6 +707,10 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	}
 
 	if err := func() (commitErr error) {
+		if !mgr.repositoryExists {
+			return ErrRepositoryNotFound
+		}
+
 		logEntry := &gitalypb.LogEntry{}
 
 		var err error
@@ -673,8 +734,8 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 				CustomHooksTar: transaction.customHooksUpdate.CustomHooksTAR,
 			}
 		}
-		nextLogIndex := mgr.appendedLogIndex + 1
 
+		nextLogIndex := mgr.appendedLogIndex + 1
 		if transaction.includesPack {
 			logEntry.IncludesPack = true
 
@@ -697,6 +758,10 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			}
 		}
 
+		if transaction.deleteRepository {
+			logEntry.RepositoryDeletion = &gitalypb.LogEntry_RepositoryDeletion{}
+		}
+
 		return mgr.appendLogEntry(nextLogIndex, logEntry)
 	}(); err != nil {
 		transaction.result <- err
@@ -715,10 +780,6 @@ func (mgr *TransactionManager) Stop() { mgr.stop() }
 // indexes and initializes the notification channels that synchronize transaction beginning with log entry applying.
 func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	defer close(mgr.initialized)
-
-	if err := mgr.createDirectories(); err != nil {
-		return fmt.Errorf("create directories: %w", err)
-	}
 
 	var appliedLogIndex gitalypb.LogIndex
 	if err := mgr.readKey(keyAppliedLogIndex(mgr.relativePath), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
@@ -753,6 +814,16 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		return fmt.Errorf("determine appended log index: %w", err)
 	}
 
+	if err := mgr.determineRepositoryExistence(); err != nil {
+		return fmt.Errorf("determine repository existence: %w", err)
+	}
+
+	if mgr.repositoryExists {
+		if err := mgr.createDirectories(); err != nil {
+			return fmt.Errorf("create directories: %w", err)
+		}
+	}
+
 	var err error
 	mgr.hookIndex, err = mgr.determineHookIndex(ctx, mgr.appendedLogIndex, mgr.appliedLogIndex)
 	if err != nil {
@@ -769,6 +840,44 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		return fmt.Errorf("remove stale packs: %w", err)
 	}
 
+	mgr.initializationSuccessful = true
+
+	return nil
+}
+
+// determineRepositoryExistence determines whether the repository exists or not by looking
+// at whether the directory exists and whether there is a deletion request logged.
+func (mgr *TransactionManager) determineRepositoryExistence() error {
+	stat, err := os.Stat(mgr.repositoryPath)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("stat repository directory: %w", err)
+		}
+	}
+
+	if stat != nil {
+		if !stat.IsDir() {
+			return errNotDirectory
+		}
+
+		mgr.repositoryExists = true
+	}
+
+	// Check whether the last log entry is a repository deletion. If so,
+	// the repository has been deleted but the deletion wasn't yet applied.
+	// The deletion is the last entry always as no further writes are
+	// accepted if the repository doesn't exist.
+	if mgr.appliedLogIndex < mgr.appendedLogIndex {
+		logEntry, err := mgr.readLogEntry(mgr.appendedLogIndex)
+		if err != nil {
+			return fmt.Errorf("read log entry: %w", err)
+		}
+
+		if logEntry.RepositoryDeletion != nil {
+			mgr.repositoryExists = false
+		}
+	}
+
 	return nil
 }
 
@@ -781,6 +890,11 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 //     to see which are the latest.
 //  3. If we found no hooks in the log nor in the repository, there are no hooks configured.
 func (mgr *TransactionManager) determineHookIndex(ctx context.Context, appendedIndex, appliedIndex LogIndex) (LogIndex, error) {
+	if !mgr.repositoryExists {
+		// If the repository doesn't exist, then there are no hooks either.
+		return 0, nil
+	}
+
 	for i := appendedIndex; appliedIndex < i; i-- {
 		logEntry, err := mgr.readLogEntry(i)
 		if err != nil {
@@ -1055,6 +1169,10 @@ func (mgr *TransactionManager) appendLogEntry(nextLogIndex LogIndex, logEntry *g
 		mgr.hookIndex = nextLogIndex
 	}
 	mgr.applyNotifications[nextLogIndex] = make(chan struct{})
+	if logEntry.RepositoryDeletion != nil {
+		mgr.repositoryExists = false
+		mgr.hookIndex = 0
+	}
 	mgr.mutex.Unlock()
 
 	return nil
@@ -1067,27 +1185,36 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 		return fmt.Errorf("read log entry: %w", err)
 	}
 
-	if logEntry.IncludesPack {
-		if err := mgr.applyPackFile(ctx, logIndex); err != nil {
-			return fmt.Errorf("apply pack file: %w", err)
+	if logEntry.RepositoryDeletion != nil {
+		// If the repository is being deleted, just delete it without any other changes given
+		// they'd all be removed anyway. Reapplying the other changes after a crash would also
+		// not work if the repository was successfully deleted before the crash.
+		if err := mgr.applyRepositoryDeletion(ctx, logIndex); err != nil {
+			return fmt.Errorf("apply repository deletion: %w", err)
 		}
-	}
+	} else {
+		if logEntry.IncludesPack {
+			if err := mgr.applyPackFile(ctx, logIndex); err != nil {
+				return fmt.Errorf("apply pack file: %w", err)
+			}
+		}
 
-	updater, err := mgr.prepareReferenceTransaction(ctx, logEntry.ReferenceUpdates, mgr.repository)
-	if err != nil {
-		return fmt.Errorf("perpare reference transaction: %w", err)
-	}
+		updater, err := mgr.prepareReferenceTransaction(ctx, logEntry.ReferenceUpdates, mgr.repository)
+		if err != nil {
+			return fmt.Errorf("prepare reference transaction: %w", err)
+		}
 
-	if err := updater.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
-	}
+		if err := updater.Commit(); err != nil {
+			return fmt.Errorf("commit transaction: %w", err)
+		}
 
-	if err := mgr.updateDefaultBranch(ctx, logEntry.DefaultBranchUpdate); err != nil {
-		return fmt.Errorf("writing default branch: %w", err)
-	}
+		if err := mgr.updateDefaultBranch(ctx, logEntry.DefaultBranchUpdate); err != nil {
+			return fmt.Errorf("writing default branch: %w", err)
+		}
 
-	if err := mgr.applyCustomHooks(ctx, logIndex, logEntry.CustomHooksUpdate); err != nil {
-		return fmt.Errorf("apply custom hooks: %w", err)
+		if err := mgr.applyCustomHooks(ctx, logIndex, logEntry.CustomHooksUpdate); err != nil {
+			return fmt.Errorf("apply custom hooks: %w", err)
+		}
 	}
 
 	if err := mgr.storeAppliedLogIndex(logIndex); err != nil {
@@ -1117,6 +1244,73 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 	if resultChan, ok := mgr.awaitingTransactions[logIndex]; ok {
 		resultChan <- nil
 		delete(mgr.awaitingTransactions, logIndex)
+	}
+
+	return nil
+}
+
+// applyRepositoryDeletion deletes the repository.
+//
+// Given how the repositories are laid out in the storage, we currently can't support MVCC for them.
+// This is because there is only ever a single instance of a given repository.  We have to wait for all
+// of the readers to finish before we can delete the repository as otherwise the readers could fail in
+// unexpected ways and it would be an isolation violation. Repository deletions thus block before all
+// transaction with an older read snapshot are done with the repository.
+func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, index LogIndex) error {
+	for {
+		mgr.mutex.Lock()
+		oldestElement := mgr.openTransactions.Front()
+		mgr.mutex.Unlock()
+		if oldestElement == nil {
+			// If there are no open transactions, the deletion can proceed as there are
+			// no readers.
+			//
+			// Any new transaction would have the deletion in their snapshot, and are waiting
+			// for it to be applied prior to beginning.
+			break
+		}
+
+		oldestTransaction := oldestElement.Value.(*Transaction)
+		if oldestTransaction.snapshot.ReadIndex >= index {
+			// If the oldest transaction is reading at this or later log index, it already has the deletion
+			// in its snapshot, and is waiting for it to be applied. Proceed with the deletion as there
+			// are no readers with the pre-deletion state in the snapshot.
+			break
+		}
+
+		for {
+			select {
+			case <-oldestTransaction.finished:
+				// The oldest transaction finished. Proceed to check the second oldest open transaction.
+			case transaction := <-mgr.admissionQueue:
+				// The oldest transaction could also be waiting to commit. Since the Run goroutine is
+				// blocked here waiting for the transaction to finish, the write would never be admitted
+				// for processing, leading to a deadlock. Since the repository was deleted, the only correct
+				// outcome for the transaction would be to receive a not found error. Admit the transaction,
+				// and finish it with the correct result so we can unblock the deletion.
+				transaction.result <- ErrRepositoryNotFound
+				if err := transaction.finish(); err != nil {
+					return fmt.Errorf("finish transaction: %w", err)
+				}
+
+				continue
+			case <-ctx.Done():
+			}
+
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+
+			break
+		}
+	}
+
+	if err := os.RemoveAll(mgr.repositoryPath); err != nil {
+		return fmt.Errorf("remove repository: %w", err)
+	}
+
+	if err := safe.NewSyncer().Sync(filepath.Dir(mgr.repositoryPath)); err != nil {
+		return fmt.Errorf("sync: %w", err)
 	}
 
 	return nil
