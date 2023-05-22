@@ -7,7 +7,7 @@ replace github.com/go-enry/go-license-detector/v4 => github.com/gl-gitaly/go-lic
 
 require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230518184743-7afd39499903
-	github.com/beevik/ntp v0.3.2
+	github.com/beevik/ntp v0.3.3
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups v1.1.0
 	github.com/dgraph-io/badger/v3 v3.2103.5
