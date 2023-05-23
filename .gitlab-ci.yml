@@ -20,6 +20,7 @@ variables:
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
   GO_VERSION: "1.19"
+  RUBY_VERSION: "3.1"
   RUST_VERSION: "1.65"
   POSTGRES_VERSION: "12-alpine"
   PGBOUNCER_VERSION: "1.17.0"
@@ -440,7 +441,7 @@ secret_detection:
 
 build-proto-gem:
   needs: []
-  image: ruby:3.0
+  image: ruby:${RUBY_VERSION}
   stage: publish
   before_script: []
   variables:
@@ -457,7 +458,7 @@ build-proto-gem:
 
 publish-proto-gem:
   needs: []
-  image: ruby:3.0
+  image: ruby:${RUBY_VERSION}
   stage: publish
   before_script: []
   script:
