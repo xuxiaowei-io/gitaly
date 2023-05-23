@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/dgraph-io/badger/v3"
@@ -13,6 +15,8 @@ import (
 	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
@@ -21,29 +25,66 @@ var ErrPartitionManagerStopped = errors.New("partition manager stopped")
 
 // PartitionManager is responsible for managing the lifecycle of each TransactionManager.
 type PartitionManager struct {
-	// mu is the mutex to synchronize access to the partitions.
+	// storages are the storages configured in this Gitaly server. The map is keyed by the storage name.
+	storages map[string]*storageManager
+}
+
+// storageManager represents a single storage.
+type storageManager struct {
+	// mu synchronizes access to the fields of storageManager.
 	mu sync.Mutex
-	// db is the handle to the key-value store used for storing the write-ahead log related state.
-	// It is used to create each transaction manager.
-	db *badger.DB
-	// partitions contains all the active partitions for which there are pending transactions.
-	// Each repository can have up to one partition.
-	partitions map[string]*partition
-	// localRepoFactory is used by PartitionManager to construct `localrepo.Repo`.
-	localRepoFactory localrepo.Factory
-	// logger handles all logging for PartitionManager.
+	// logger handles all logging for storageManager.
 	logger logrus.FieldLogger
-	// stopped tracks whether the PartitionManager has been stopped. If the manager is stopped,
-	// no new transactions are allowed to begin.
-	stopped bool
-	// partitionsWG keeps track of running partitions.
-	partitionsWG sync.WaitGroup
+	// path is the absolute path to the storage's root.
+	path string
+	// repoFactory is a factory type that builds localrepo instances for this storage.
+	repoFactory localrepo.StorageScopedFactory
 	// stagingDirectory is the directory where all of the TransactionManager staging directories
 	// should be created.
 	stagingDirectory string
-	// storages are the storages configured in this Gitaly server. They are keyed by the name and the
-	// value is the storage's path.
-	storages map[string]string
+	// stopped tracks whether the storageManager has been stopped. If it is stopped,
+	// no new transactions are allowed to begin.
+	stopped bool
+	// db is the handle to the key-value store used for storing the storage's database state.
+	database *badger.DB
+	// partitions contains all the active partitions. Each repository can have up to one partition.
+	partitions map[string]*partition
+	// activePartitions keeps track of active partitions.
+	activePartitions sync.WaitGroup
+}
+
+func (sm *storageManager) stop() {
+	sm.mu.Lock()
+	// Mark the storage as stopped so no new transactions can begin anymore. This
+	// also means no more partitions are spawned.
+	sm.stopped = true
+	for _, ptn := range sm.partitions {
+		// Stop all partitions.
+		ptn.stop()
+	}
+	sm.mu.Unlock()
+
+	// Wait for all partitions to finish.
+	sm.activePartitions.Wait()
+
+	if err := sm.database.Close(); err != nil {
+		sm.logger.WithError(err).Error("failed closing storage's database")
+	}
+}
+
+// transactionFinalizerFactory is executed when a transaction completes. The pending transaction counter
+// for the partition is decremented by one and TransactionManager stopped if there are no longer
+// any pending transactions.
+func (sm *storageManager) transactionFinalizerFactory(ptn *partition) func() {
+	return func() {
+		sm.mu.Lock()
+		defer sm.mu.Unlock()
+
+		ptn.pendingTransactionCount--
+		if ptn.pendingTransactionCount == 0 {
+			ptn.stop()
+		}
+	}
 }
 
 // partition contains the transaction manager and tracks the number of in-flight transactions for the partition.
@@ -60,95 +101,124 @@ type partition struct {
 	pendingTransactionCount uint
 }
 
-// NewPartitionManager returns a new PartitionManager.
-func NewPartitionManager(db *badger.DB, storages []config.Storage, localRepoFactory localrepo.Factory, logger logrus.FieldLogger, stagingDir string) *PartitionManager {
-	storagesMap := make(map[string]string, len(storages))
-	for _, storage := range storages {
-		storagesMap[storage.Name] = storage.Path
-	}
-
-	return &PartitionManager{
-		db:               db,
-		partitions:       make(map[string]*partition),
-		localRepoFactory: localRepoFactory,
-		logger:           logger,
-		stagingDirectory: stagingDir,
-		storages:         storagesMap,
-	}
+// stop stops the partition's transaction manager.
+func (ptn *partition) stop() {
+	ptn.shuttingDown = true
+	ptn.transactionManager.Stop()
 }
 
-// getPartitionKey returns a partitions's key.
-func getPartitionKey(storageName, relativePath string) string {
-	return storageName + ":" + relativePath
+// NewPartitionManager returns a new PartitionManager.
+func NewPartitionManager(configuredStorages []config.Storage, localRepoFactory localrepo.Factory, logger logrus.FieldLogger) (*PartitionManager, error) {
+	storages := make(map[string]*storageManager, len(configuredStorages))
+	for _, storage := range configuredStorages {
+		repoFactory, err := localRepoFactory.ScopeByStorage(storage.Name)
+		if err != nil {
+			return nil, fmt.Errorf("scope by storage: %w", err)
+		}
+
+		stagingDir := stagingDirectoryPath(storage.Path)
+		// Remove a possible already existing staging directory as it may contain stale files
+		// if the previous process didn't shutdown gracefully.
+		if err := os.RemoveAll(stagingDir); err != nil {
+			return nil, fmt.Errorf("failed clearing storage's staging directory: %w", err)
+		}
+
+		if err := os.Mkdir(stagingDir, perm.PrivateDir); err != nil {
+			return nil, fmt.Errorf("create storage's staging directory: %w", err)
+		}
+
+		databaseDir := filepath.Join(storage.Path, "database")
+		if err := os.Mkdir(databaseDir, perm.PrivateDir); err != nil && !errors.Is(err, fs.ErrExist) {
+			return nil, fmt.Errorf("create storage's database directory: %w", err)
+		}
+
+		if err := safe.NewSyncer().SyncHierarchy(storage.Path, "database"); err != nil {
+			return nil, fmt.Errorf("sync database directory: %w", err)
+		}
+
+		db, err := OpenDatabase(databaseDir)
+		if err != nil {
+			return nil, fmt.Errorf("create storage's database directory: %w", err)
+		}
+
+		storages[storage.Name] = &storageManager{
+			logger:           logger.WithField("storage", storage.Name),
+			path:             storage.Path,
+			repoFactory:      repoFactory,
+			stagingDirectory: stagingDir,
+			database:         db,
+			partitions:       map[string]*partition{},
+		}
+	}
+
+	return &PartitionManager{storages: storages}, nil
+}
+
+func stagingDirectoryPath(storagePath string) string {
+	return filepath.Join(storagePath, "staging")
 }
 
 // Begin gets the TransactionManager for the specified repository and starts a Transaction. If a
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
 func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Transaction, error) {
-	storagePath, ok := pm.storages[repo.GetStorageName()]
+	storageMgr, ok := pm.storages[repo.GetStorageName()]
 	if !ok {
 		return nil, structerr.NewNotFound("unknown storage: %q", repo.GetStorageName())
 	}
 
-	relativePath, err := storage.ValidateRelativePath(storagePath, repo.GetRelativePath())
+	relativePath, err := storage.ValidateRelativePath(storageMgr.path, repo.GetRelativePath())
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}
 
-	partitionKey := getPartitionKey(repo.GetStorageName(), relativePath)
-
 	for {
-		pm.mu.Lock()
-		if pm.stopped {
-			pm.mu.Unlock()
+		storageMgr.mu.Lock()
+		if storageMgr.stopped {
+			storageMgr.mu.Unlock()
 			return nil, ErrPartitionManagerStopped
 		}
 
-		ptn, ok := pm.partitions[partitionKey]
+		ptn, ok := storageMgr.partitions[relativePath]
 		if !ok {
 			ptn = &partition{
 				shutdown: make(chan struct{}),
 			}
 
-			stagingDir, err := os.MkdirTemp(pm.stagingDirectory, "")
+			stagingDir, err := os.MkdirTemp(storageMgr.stagingDirectory, "")
 			if err != nil {
-				pm.mu.Unlock()
+				storageMgr.mu.Unlock()
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			storageScopedFactory, err := pm.localRepoFactory.ScopeByStorage(repo.GetStorageName())
-			if err != nil {
-				pm.mu.Unlock()
-				return nil, fmt.Errorf("scope by storage: %w", err)
-			}
-
-			mgr := NewTransactionManager(pm.db, storagePath, relativePath, stagingDir, storageScopedFactory, pm.transactionFinalizerFactory(ptn))
+			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, stagingDir, storageMgr.repoFactory, storageMgr.transactionFinalizerFactory(ptn))
 			ptn.transactionManager = mgr
 
-			pm.partitions[partitionKey] = ptn
+			storageMgr.partitions[relativePath] = ptn
 
-			pm.partitionsWG.Add(1)
+			storageMgr.activePartitions.Add(1)
 			go func() {
+				logger := storageMgr.logger.WithField("partition", relativePath)
+
 				if err := mgr.Run(); err != nil {
-					pm.logger.WithError(err).Error("partition failed")
+					logger.WithError(err).Error("partition failed")
 				}
 
 				// In the event that TransactionManager stops running, a new TransactionManager will
 				// need to be started in order to continue processing transactions. The partition is
 				// deleted allowing the next transaction for the repository to create a new partition
 				// and TransactionManager.
-				pm.mu.Lock()
-				delete(pm.partitions, partitionKey)
-				pm.mu.Unlock()
+				storageMgr.mu.Lock()
+				delete(storageMgr.partitions, relativePath)
+				storageMgr.mu.Unlock()
 
 				close(ptn.shutdown)
 
 				if err := os.RemoveAll(stagingDir); err != nil {
-					pm.logger.WithError(err).Error("failed removing partition's staging directory")
+					logger.WithError(err).Error("failed removing partition's staging directory")
 				}
 
-				pm.partitionsWG.Done()
+				storageMgr.activePartitions.Done()
 			}()
 		}
 
@@ -157,7 +227,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 			// used. The lock is released while waiting for the partition to complete shutdown as to
 			// not block other partitions from processing transactions. Once shutdown is complete, a
 			// new attempt is made to get a valid partition.
-			pm.mu.Unlock()
+			storageMgr.mu.Unlock()
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
@@ -168,7 +238,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 		}
 
 		ptn.pendingTransactionCount++
-		pm.mu.Unlock()
+		storageMgr.mu.Unlock()
 
 		transaction, err := ptn.transactionManager.Begin(ctx)
 		if err != nil {
@@ -176,7 +246,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 			// inflight. A transaction failing does not necessarily mean the transaction manager has
 			// stopped running. Consequently, if there are no other pending transactions the partition
 			// should be stopped.
-			pm.transactionFinalizerFactory(ptn)()
+			storageMgr.transactionFinalizerFactory(ptn)()
 
 			return nil, err
 		}
@@ -185,40 +255,17 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 	}
 }
 
-// Stop stops transaction processing for all running transaction managers and waits for shutdown
-// completion.
+// Stop stops transaction processing for all storages and waits for shutdown completion.
 func (pm *PartitionManager) Stop() {
-	pm.mu.Lock()
-	// Mark the PartitionManager as stopped so no new transactions can begin anymore. This
-	// also means no more partitions are spawned.
-	pm.stopped = true
-	for _, ptn := range pm.partitions {
-		// Stop all partitions.
-		ptn.stop()
+	var activeStorages sync.WaitGroup
+	for _, storageMgr := range pm.storages {
+		activeStorages.Add(1)
+		storageMgr := storageMgr
+		go func() {
+			storageMgr.stop()
+			activeStorages.Done()
+		}()
 	}
-	pm.mu.Unlock()
 
-	// Wait for all goroutines to complete.
-	pm.partitionsWG.Wait()
-}
-
-// stop stops the partition's transaction manager.
-func (ptn *partition) stop() {
-	ptn.shuttingDown = true
-	ptn.transactionManager.Stop()
-}
-
-// transactionFinalizerFactory is executed when a transaction completes. The pending transaction counter
-// for the partition is decremented by one and TransactionManager stopped if there are no longer
-// any pending transactions.
-func (pm *PartitionManager) transactionFinalizerFactory(ptn *partition) func() {
-	return func() {
-		pm.mu.Lock()
-		defer pm.mu.Unlock()
-
-		ptn.pendingTransactionCount--
-		if ptn.pendingTransactionCount == 0 {
-			ptn.stop()
-		}
-	}
+	activeStorages.Wait()
 }
