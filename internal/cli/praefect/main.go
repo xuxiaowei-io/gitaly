@@ -61,6 +61,7 @@ func NewApp() *cli.App {
 			newListStoragesCommand(),
 			newListUntrackedRepositoriesCommand(),
 			newTrackRepositoryCommand(),
+			newTrackRepositoriesCommand(),
 			newVerifyCommand(),
 			newMetadataCommand(),
 			newSQLPingCommand(),

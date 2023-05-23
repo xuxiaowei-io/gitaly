@@ -32,9 +32,7 @@ const (
 )
 
 func subcommands(logger *logrus.Entry) map[string]subcmd {
-	return map[string]subcmd{
-		trackRepositoriesCmdName: newTrackRepositories(logger, os.Stdout),
-	}
+	return map[string]subcmd{}
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.
