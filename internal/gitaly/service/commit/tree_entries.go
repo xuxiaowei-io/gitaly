@@ -84,6 +84,12 @@ func (s *server) sendTreeEntries(
 
 	var objectReader catfile.ObjectContentReader
 
+	// While both repo.ReadTree and catfile.TreeEntries do this internally, in the case
+	// of non-recursive path, we do repo.ResolveRevision, which could fail because of this.
+	if path == "." {
+		path = ""
+	}
+
 	// When we want to do a recursive listing, then it's a _lot_ more efficient to let
 	// git-ls-tree(1) handle this for us. In theory, we'd also want to do this for the
 	// non-recursive case. But in practice, we must populate a so-called "flat path" when doing
@@ -145,6 +151,15 @@ func (s *server) sendTreeEntries(
 	} else {
 		var err error
 		var cancel func()
+
+		// In the recursive section we use repo.ReadTree which has a similar check, when
+		// we merge the two we can get rid of this check.
+		if _, err := repo.ResolveRevision(ctx, git.Revision(revision+":"+path)); err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return nil
+			}
+			return err
+		}
 
 		objectReader, cancel, err = s.catfileCache.ObjectReader(stream.Context(), repo)
 		if err != nil {
