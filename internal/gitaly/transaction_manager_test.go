@@ -2629,6 +2629,91 @@ func TestTransactionManager(t *testing.T) {
 				RepositoryDoesntExist: true,
 			},
 		},
+		{
+			desc: "forced reference creation succeeds",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				Commit{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {Force: true, NewOID: setup.Commits.First.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "forced reference update succeeds",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {Force: true, NewOID: setup.Commits.Second.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+			},
+		},
+		{
+			desc: "forced reference deletion succeeds",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {Force: true, NewOID: setup.ObjectHash.ZeroOID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -2657,7 +2742,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						tc.referenceName: {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+						tc.referenceName: {Force: true, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: err,
 				},
