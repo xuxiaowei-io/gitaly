@@ -58,7 +58,7 @@ Most users won't install Gitaly on its own. It is already included in
 Gitaly requires Go 1.18 or Go 1.19.7. Run `make` to compile the executables
 required by Gitaly.
 
-Gitaly uses `git`. Versions `2.38.0` and newer are supported.
+Gitaly uses `git`. Versions `2.40.0` and newer are supported.
 
 ## Configuration
 
