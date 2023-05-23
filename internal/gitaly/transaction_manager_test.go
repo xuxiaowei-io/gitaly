@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -1048,8 +1049,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-						HookIndex: 1,
+						ReadIndex:       1,
+						CustomHookIndex: 1,
 					},
 				},
 				Commit{
@@ -1148,8 +1149,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-						HookIndex: 1,
+						ReadIndex:       1,
+						CustomHookIndex: 1,
 					},
 				},
 				Commit{
@@ -1159,8 +1160,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 3,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 2,
-						HookIndex: 2,
+						ReadIndex:       2,
+						CustomHookIndex: 2,
 					},
 				},
 				StopManager{},
@@ -1168,8 +1169,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 4,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 2,
-						HookIndex: 2,
+						ReadIndex:       2,
+						CustomHookIndex: 2,
 					},
 				},
 			},
@@ -1824,8 +1825,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 3,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-						HookIndex: 1,
+						ReadIndex:       1,
+						CustomHookIndex: 1,
 					},
 				},
 				Commit{
@@ -1837,8 +1838,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 4,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 2,
-						HookIndex: 1,
+						ReadIndex:       2,
+						CustomHookIndex: 1,
 					},
 				},
 				Rollback{
@@ -1847,8 +1848,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 5,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 2,
-						HookIndex: 1,
+						ReadIndex:       2,
+						CustomHookIndex: 1,
 					},
 				},
 				Commit{
@@ -1861,8 +1862,8 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 6,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex: 3,
-						HookIndex: 3,
+						ReadIndex:       3,
+						CustomHookIndex: 3,
 					},
 				},
 			},
@@ -2855,7 +2856,13 @@ func TestTransactionManager(t *testing.T) {
 					transaction, err := transactionManager.Begin(beginCtx)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
-						require.Equal(t, step.ExpectedSnapshot, transaction.Snapshot())
+						expectedSnapshot := step.ExpectedSnapshot
+						expectedSnapshot.CustomHookPath = filepath.Join(repoPath, repoutil.CustomHooksDir)
+						if expectedSnapshot.CustomHookIndex > 0 {
+							expectedSnapshot.CustomHookPath = customHookPathForLogIndex(repoPath, expectedSnapshot.CustomHookIndex)
+						}
+
+						require.Equal(t, expectedSnapshot, transaction.Snapshot())
 					}
 					openTransactions[step.TransactionID] = transaction
 				case Commit:
