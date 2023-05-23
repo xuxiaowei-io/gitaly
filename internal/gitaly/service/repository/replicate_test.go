@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -29,172 +31,393 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
-func TestReplicateRepository_success(t *testing.T) {
+func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
 	cfg := cfgBuilder.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg)
+	repoClient, serverSocketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	type setupData struct {
+		source              *gitalypb.Repository
+		target              *gitalypb.Repository
+		expectedObjects     []string
+		expectedCustomHooks []string
+		expectedError       error
+	}
 
-	// create a loose object to ensure snapshot replication is used
-	blobData, err := text.RandomHex(10)
-	require.NoError(t, err)
-	blobID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewBuffer([]byte(blobData))},
-		"-C", repoPath, "hash-object", "-w", "--stdin",
-	))
+	setupSourceAndTarget := func(t *testing.T, createTarget bool) (*gitalypb.Repository, string, *gitalypb.Repository, string) {
+		t.Helper()
 
-	// write info attributes
-	attrFilePath := filepath.Join(repoPath, "info", "attributes")
-	require.NoError(t, os.MkdirAll(filepath.Dir(attrFilePath), perm.SharedDir))
-	attrData := []byte("*.pbxproj binary\n")
-	require.NoError(t, os.WriteFile(attrFilePath, attrData, perm.SharedFile))
+		source, sourcePath := gittest.CreateRepository(t, ctx, cfg)
+		gittest.WriteCommit(t, cfg, sourcePath, gittest.WithMessage("init"), gittest.WithBranch("main"))
 
-	// Write a modified gitconfig
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")
-	configData := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
-	require.Contains(t, string(configData), "[please]\n\treplicate = me\n")
-
-	targetRepo := proto.Clone(repo).(*gitalypb.Repository)
-	targetRepo.StorageName = cfg.Storages[1].Name
-
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
-
-	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: targetRepo,
-		Source:     repo,
-	})
-
-	require.NoError(t, err)
-
-	targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
-	gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
-
-	replicatedAttrFilePath := filepath.Join(targetRepoPath, "info", "attributes")
-	replicatedAttrData := testhelper.MustReadFile(t, replicatedAttrFilePath)
-	require.Equal(t, string(attrData), string(replicatedAttrData), "info/attributes files must match")
-
-	replicatedConfigPath := filepath.Join(targetRepoPath, "config")
-	replicatedConfigData := testhelper.MustReadFile(t, replicatedConfigPath)
-	require.Equal(t, string(configData), string(replicatedConfigData), "config files must match")
-
-	// create another branch
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
-	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: targetRepo,
-		Source:     repo,
-	})
-	require.NoError(t, err)
-	require.Equal(t,
-		gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
-		gittest.Exec(t, cfg, "-C", targetRepoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
-	)
-
-	// if an unreachable object has been replicated, that means snapshot replication was used
-	gittest.Exec(t, cfg, "-C", targetRepoPath, "cat-file", "-p", blobID)
-}
-
-func TestReplicateRepository_hiddenRefs(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
-	cfg := cfgBuilder.Build(t)
-
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalySSH(t, cfg)
-
-	client, serverSocketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = serverSocketPath
-
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
-
-	t.Run("initial seeding", func(t *testing.T) {
-		sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-
-		// Create a bunch of internal references, regardless of whether we classify them as hidden
-		// or read-only. We should be able to replicate all of them.
-		var expectedRefs []string
-		for refPrefix := range git.InternalRefPrefixes {
-			commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents(), gittest.WithMessage(refPrefix))
-			gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
-			expectedRefs = append(expectedRefs, fmt.Sprintf("%s commit\t%s", commitID, refPrefix+"1"))
+		var target *gitalypb.Repository
+		var targetPath string
+		if createTarget {
+			target, targetPath = gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				RelativePath: source.GetRelativePath(),
+				Storage:      cfg.Storages[1],
+			})
+		} else {
+			target = proto.Clone(source).(*gitalypb.Repository)
+			target.StorageName = cfg.Storages[1].Name
+			targetPath = filepath.Join(cfg.Storages[1].Path, target.RelativePath)
 		}
 
-		targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
-		targetRepo.StorageName = cfg.Storages[1].Name
+		return source, sourcePath, target, targetPath
+	}
 
-		_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
-			Repository: targetRepo,
-			Source:     sourceRepo,
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "replicate config",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+
+				// Write a modified Git config file to the source repository to verify it is
+				// getting created in the target repository as expected.
+				gittest.Exec(t, cfg, "-C", sourcePath, "config", "please.replicate", "me")
+
+				return setupData{
+					source: source,
+					target: target,
+				}
+			},
+		},
+		{
+			desc: "replicate info attributes",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+
+				// Write an info attributes file to the source repository to verify it is getting
+				// created in the target repository as expected.
+				attrFilePath := filepath.Join(sourcePath, "info", "attributes")
+				require.NoError(t, os.MkdirAll(filepath.Dir(attrFilePath), perm.SharedDir))
+				attributesData := []byte("*.pbxproj binary\n")
+				require.NoError(t, os.WriteFile(attrFilePath, attributesData, perm.SharedFile))
+
+				return setupData{
+					source: source,
+					target: target,
+				}
+			},
+		},
+		{
+			desc: "replicate branch",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+
+				// Create a new branch that only exists in the source repository to verify that it
+				// is getting created in the target repository as expected.
+				gittest.WriteCommit(t, cfg, sourcePath, gittest.WithBranch("branch"))
+
+				return setupData{
+					source: source,
+					target: target,
+				}
+			},
+		},
+		{
+			desc: "replicate unreachable object with snapshot-base replication",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+
+				// Create a loose object in the source repository to verify that it is getting
+				// created in the target repository as expected. This ensures that snapshot
+				// replication is being used.
+				blobData, err := text.RandomHex(10)
+				require.NoError(t, err)
+				blobID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewBuffer([]byte(blobData))},
+					"-C", sourcePath, "hash-object", "-w", "--stdin",
+				))
+
+				return setupData{
+					source:          source,
+					target:          target,
+					expectedObjects: []string{blobID},
+				}
+			},
+		},
+		{
+			desc: "replicate custom hooks",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+
+				// Set up custom hooks in source repository to verify that the hooks are getting
+				// created in the target repository as expected.
+				hooks := testhelper.MustCreateCustomHooksTar(t)
+				require.NoError(t, repoutil.ExtractHooks(ctx, hooks, sourcePath, false))
+
+				return setupData{
+					source:              source,
+					target:              target,
+					expectedCustomHooks: []string{"/pre-commit", "/pre-push", "/pre-receive"},
+				}
+			},
+		},
+		{
+			desc: "replicate internal references to new target",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+
+				// Create internal references in the source repository to verify that they are
+				// getting created in the newly created target repository as expected. Regardless of
+				// whether we classify them as hidden or read-only, we should be able to replicate
+				// all of them.
+				for refPrefix := range git.InternalRefPrefixes {
+					_ = gittest.WriteCommit(t, cfg, sourcePath, gittest.WithParents(), gittest.WithMessage(refPrefix), gittest.WithReference(refPrefix+"1"))
+				}
+
+				return setupData{
+					source: source,
+					target: target,
+				}
+			},
+		},
+		{
+			desc: "replicate internal references to existing target",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, targetPath := setupSourceAndTarget(t, true)
+
+				// Create the same commit in both repositories so that they're in a known-good
+				// state.
+				sourceCommitID := gittest.WriteCommit(t, cfg, sourcePath, gittest.WithParents(), gittest.WithMessage("base"), gittest.WithBranch("main"))
+				targetCommitID := gittest.WriteCommit(t, cfg, targetPath, gittest.WithParents(), gittest.WithMessage("base"), gittest.WithBranch("main"))
+				require.Equal(t, sourceCommitID, targetCommitID)
+
+				// Create internal references in the source repository to verify that they are
+				// getting created in the existing target repository as expected. Regardless of
+				// whether we classify them as hidden or read-only, we should be able to replicate
+				// all of them.
+				for refPrefix := range git.InternalRefPrefixes {
+					gittest.WriteCommit(t, cfg, sourcePath, gittest.WithParents(), gittest.WithMessage(refPrefix), gittest.WithReference(refPrefix+"1"))
+				}
+
+				return setupData{
+					source: source,
+					target: target,
+				}
+			},
+		},
+		{
+			desc: "empty target repository",
+			setup: func(t *testing.T) setupData {
+				source, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				// Set up a request with no target repository specified to verify that validation
+				// fails and the RPC returns an error as expected.
+				return setupData{
+					source: source,
+					target: nil,
+					expectedError: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						gitalyerrors.ErrEmptyRepository.Error(),
+						fmt.Sprintf("repo scoped: %s", gitalyerrors.ErrEmptyRepository.Error()),
+					)),
+				}
+			},
+		},
+		{
+			desc: "empty source repository",
+			setup: func(t *testing.T) setupData {
+				// Set up a request with no source repository specified to verify that validation
+				// fails and the RPC returns an error as expected.
+				return setupData{
+					source: nil,
+					target: &gitalypb.Repository{
+						StorageName:  cfg.Storages[1].Name,
+						RelativePath: "/ab/cd/abcdef1234",
+					},
+					expectedError: structerr.NewInvalidArgument("source repository cannot be empty"),
+				}
+			},
+		},
+		{
+			desc: "target and source repository have same storage",
+			setup: func(t *testing.T) setupData {
+				// Set up a request with a source and target repository that share the same storage
+				// to verify that validation fails and the RPC returns an error as expected.
+				source, _ := gittest.CreateRepository(t, ctx, cfg)
+				target := proto.Clone(source).(*gitalypb.Repository)
+
+				return setupData{
+					source:        source,
+					target:        target,
+					expectedError: structerr.NewInvalidArgument("repository and source have the same storage"),
+				}
+			},
+		},
+		{
+			desc: "invalid target repository",
+			setup: func(t *testing.T) setupData {
+				source, _, target, targetPath := setupSourceAndTarget(t, true)
+
+				// Delete Git data to make target repository invalid to verify that replication
+				// proceeds and the invalid target repository is overwritten. No error is expected
+				// since the RPC is still able to successfully replicate.
+				for _, path := range []string{"refs", "objects", "HEAD"} {
+					require.NoError(t, os.RemoveAll(filepath.Join(targetPath, path)))
+				}
+
+				return setupData{
+					source: source,
+					target: target,
+				}
+			},
+		},
+		{
+			desc: "invalid source repository",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+
+				// Delete Git data to make the source repository invalid to verify that repository
+				// validation fails on the source and the RPC returns an error as expected.
+				for _, path := range []string{"refs", "objects", "HEAD"} {
+					require.NoError(t, os.RemoveAll(filepath.Join(sourcePath, path)))
+				}
+
+				return setupData{
+					source:        source,
+					target:        target,
+					expectedError: ErrInvalidSourceRepository,
+				}
+			},
+		},
+		{
+			desc: "invalid source and target repository",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, targetPath := setupSourceAndTarget(t, true)
+
+				// Delete Git data to make the source and target repositories invalid to verify that
+				// repository validation fails and the RPC returns an error as expected.
+				for _, repoPath := range []string{sourcePath, targetPath} {
+					for _, path := range []string{"refs", "objects", "HEAD"} {
+						require.NoError(t, os.RemoveAll(filepath.Join(repoPath, path)))
+					}
+				}
+
+				return setupData{
+					source:        source,
+					target:        target,
+					expectedError: ErrInvalidSourceRepository,
+				}
+			},
+		},
+		{
+			desc: "fail to fetch source repository",
+			setup: func(t *testing.T) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, true)
+
+				// Corrupt the repository by writing garbage into HEAD to verify the RPC fails to
+				// fetch the source repository and returns an error as expected.
+				require.NoError(t, os.WriteFile(filepath.Join(sourcePath, "HEAD"), []byte("garbage"), perm.PublicFile))
+
+				return setupData{
+					source:        source,
+					target:        target,
+					expectedError: structerr.NewInternal("replicating repository: synchronizing references: fetch internal remote: exit status 128"),
+				}
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			ctx := testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+			_, err := repoClient.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
+				Repository: setup.target,
+				Source:     setup.source,
+			})
+
+			// Verify error matches expected test case state.
+			expectedStatus := status.Convert(setup.expectedError)
+			actualStatus := status.Convert(err)
+
+			// It is possible for the returned error to contain metadata that is difficult to assert
+			// equivalency. For this reason, only the status code and error message are verified.
+			require.Equal(t, expectedStatus.Code(), actualStatus.Code())
+			require.Equal(t, expectedStatus.Message(), actualStatus.Message())
+			if err != nil {
+				return
+			}
+
+			sourcePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, setup.source))
+			targetPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, setup.target))
+
+			// Verify target repository connectivity.
+			gittest.Exec(t, cfg, "-C", targetPath, "fsck")
+
+			// Verify Git config matches.
+			require.Equal(t,
+				testhelper.MustReadFile(t, filepath.Join(sourcePath, "config")),
+				testhelper.MustReadFile(t, filepath.Join(targetPath, "config")),
+				"config file must match",
+			)
+
+			// Verify info attributes matches.
+			sourceAttributesData, err := os.ReadFile(filepath.Join(sourcePath, "info", "attributes"))
+			if err != nil {
+				require.ErrorIs(t, err, os.ErrNotExist)
+			}
+
+			require.Equal(t,
+				string(sourceAttributesData),
+				string(testhelper.MustReadFile(t, filepath.Join(targetPath, "info", "attributes"))),
+				"info/attributes file must match",
+			)
+
+			// Verify custom hooks replicated.
+			var targetHooks []string
+			targetHooksPath := filepath.Join(targetPath, repoutil.CustomHooksDir)
+			require.NoError(t, filepath.WalkDir(targetHooksPath, func(path string, entry fs.DirEntry, err error) error {
+				if os.IsNotExist(err) {
+					return nil
+				}
+				require.NoError(t, err)
+
+				trimmedPath := strings.TrimPrefix(path, targetHooksPath)
+				if trimmedPath != "" {
+					targetHooks = append(targetHooks, trimmedPath)
+				}
+
+				return nil
+			}))
+			require.ElementsMatch(t, setup.expectedCustomHooks, targetHooks)
+
+			// Verify refs replicated.
+			require.Equal(t,
+				gittest.Exec(t, cfg, "-C", sourcePath, "show-ref", "--head"),
+				gittest.Exec(t, cfg, "-C", targetPath, "show-ref", "--head"),
+			)
+
+			// Verify objects replicated.
+			for _, oid := range setup.expectedObjects {
+				gittest.Exec(t, cfg, "-C", targetPath, "cat-file", "-p", oid)
+			}
 		})
-		require.NoError(t, err)
-
-		targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
-		require.ElementsMatch(t, expectedRefs, strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")), "\n"))
-
-		// Perform another sanity-check to verify that source and target repository have the
-		// same references now.
-		require.Equal(t,
-			text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "for-each-ref")),
-			text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")),
-		)
-	})
-
-	t.Run("incremental replication", func(t *testing.T) {
-		sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-		targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			RelativePath: sourceRepo.GetRelativePath(),
-			Storage:      cfg.Storages[1],
-		})
-
-		// Create the same commit in both repositories so that they're in a known-good
-		// state.
-		sourceCommitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents(), gittest.WithMessage("base"), gittest.WithBranch("main"))
-		targetCommitID := gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithParents(), gittest.WithMessage("base"), gittest.WithBranch("main"))
-		require.Equal(t, sourceCommitID, targetCommitID)
-
-		// Create the internal references now.
-		for refPrefix := range git.InternalRefPrefixes {
-			commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents(), gittest.WithMessage(refPrefix))
-			gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
-		}
-
-		// And now replicate the with the new internal references having been created.
-		// Because the target repository exists already we'll do a fetch instead of
-		// replicating via an archive.
-		_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
-			Repository: targetRepo,
-			Source:     sourceRepo,
-		})
-
-		require.NoError(t, err)
-
-		// Verify that the references for both repositories match.
-		require.Equal(t,
-			text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "for-each-ref")),
-			text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")),
-		)
-	})
+	}
 }
 
 func TestReplicateRepository_transactional(t *testing.T) {
@@ -308,254 +531,6 @@ func TestReplicateRepository_transactional(t *testing.T) {
 	require.Equal(t, expectedVotes, votes)
 }
 
-func TestReplicateRepositoryInvalidArguments(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	testCases := []struct {
-		description   string
-		input         *gitalypb.ReplicateRepositoryRequest
-		expectedError string
-	}{
-		{
-			description: "everything correct",
-			input: &gitalypb.ReplicateRepositoryRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "praefect-internal-0",
-					RelativePath: "/ab/cd/abcdef1234",
-				},
-				Source: &gitalypb.Repository{
-					StorageName:  "praefect-internal-1",
-					RelativePath: "/ab/cd/abcdef1234",
-				},
-			},
-			expectedError: "",
-		},
-		{
-			description: "empty repository",
-			input: &gitalypb.ReplicateRepositoryRequest{
-				Repository: nil,
-				Source: &gitalypb.Repository{
-					StorageName:  "praefect-internal-1",
-					RelativePath: "/ab/cd/abcdef1234",
-				},
-			},
-			expectedError: "empty Repository",
-		},
-		{
-			description: "empty source",
-			input: &gitalypb.ReplicateRepositoryRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "praefect-internal-0",
-					RelativePath: "/ab/cd/abcdef1234",
-				},
-				Source: nil,
-			},
-			expectedError: testhelper.GitalyOrPraefect(
-				"source repository cannot be empty",
-				"repo scoped: invalid Repository",
-			),
-		},
-		{
-			description: "source and repository have the same storage",
-			input: &gitalypb.ReplicateRepositoryRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "praefect-internal-0",
-					RelativePath: "/ab/cd/abcdef1234",
-				},
-				Source: &gitalypb.Repository{
-					StorageName:  "praefect-internal-0",
-					RelativePath: "/ab/cd/abcdef1234",
-				},
-			},
-			expectedError: testhelper.GitalyOrPraefect(
-				"repository and source have the same storage",
-				"repo scoped: invalid Repository",
-			),
-		},
-	}
-
-	_, client := setupRepositoryServiceWithoutRepo(t)
-
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			_, err := client.ReplicateRepository(ctx, tc.input)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
-			require.Contains(t, err.Error(), tc.expectedError)
-		})
-	}
-}
-
-func TestReplicateRepository_BadRepository(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	for _, tc := range []struct {
-		desc          string
-		invalidSource bool
-		invalidTarget bool
-		error         func(testing.TB, error)
-	}{
-		{
-			desc:          "target invalid",
-			invalidTarget: true,
-		},
-		{
-			desc:          "source invalid",
-			invalidSource: true,
-			error: func(tb testing.TB, actual error) {
-				if testhelper.IsPraefectEnabled() {
-					// ReplicateRepository uses RepositoryExists to check whether the source repository exists on the target
-					// Gitaly. Gitaly returns NotFound if accessing a corrupt repository. Praefect relies on the metadata
-					// and returns that the repository still exists, causing this test to hit a different code path and diverge
-					// in behavior.
-					require.ErrorContains(t, actual, "synchronizing gitattributes: GetRepoPath: not a git repository: ")
-					return
-				}
-
-				testhelper.RequireGrpcError(tb, ErrInvalidSourceRepository, actual)
-			},
-		},
-		{
-			desc:          "both invalid",
-			invalidSource: true,
-			invalidTarget: true,
-			error: func(tb testing.TB, actual error) {
-				testhelper.RequireGrpcError(tb, ErrInvalidSourceRepository, actual)
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
-			cfg := cfgBuilder.Build(t)
-
-			testcfg.BuildGitalyHooks(t, cfg)
-			testcfg.BuildGitalySSH(t, cfg)
-
-			client, serverSocketPath := runRepositoryService(t, cfg)
-			cfg.SocketPath = serverSocketPath
-
-			sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
-			targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Storage:      cfg.Storages[1],
-				RelativePath: sourceRepo.RelativePath,
-			})
-
-			var invalidRepos []*gitalypb.Repository
-			if tc.invalidSource {
-				invalidRepos = append(invalidRepos, sourceRepo)
-			}
-			if tc.invalidTarget {
-				invalidRepos = append(invalidRepos, targetRepo)
-			}
-
-			locator := config.NewLocator(cfg)
-			for _, invalidRepo := range invalidRepos {
-				storagePath, err := locator.GetStorageByName(invalidRepo.StorageName)
-				require.NoError(t, err)
-
-				invalidRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(t, ctx, cfg, invalidRepo))
-				// delete git data so make the repo invalid
-				for _, path := range []string{"refs", "objects", "HEAD"} {
-					require.NoError(t, os.RemoveAll(filepath.Join(invalidRepoPath, path)))
-				}
-			}
-
-			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
-
-			_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
-				Repository: targetRepo,
-				Source:     sourceRepo,
-			})
-			if tc.error != nil {
-				tc.error(t, err)
-				return
-			}
-
-			require.NoError(t, err)
-			gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
-		})
-	}
-}
-
-func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t, testcfg.WithStorages("default", "replica"))
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalySSH(t, cfg)
-
-	client, socketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = socketPath
-
-	targetRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Storage: cfg.Storages[1],
-	})
-
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Storage: cfg.Storages[0],
-	})
-
-	// We corrupt the repository by writing garbage into HEAD.
-	require.NoError(t, os.WriteFile(filepath.Join(sourceRepoPath, "HEAD"), []byte("garbage"), perm.PublicFile))
-
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
-
-	_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: targetRepo,
-		Source:     sourceRepo,
-	})
-
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "fetch: exit status 128")
-}
-
-// gitalySSHParams contains parameters used to exec 'gitaly-ssh' binary.
-type gitalySSHParams struct {
-	arguments   []string
-	environment []string
-}
-
-// listenGitalySSHCalls creates a script that intercepts 'gitaly-ssh' binary calls.
-// It replaces 'gitaly-ssh' with a interceptor script that calls actual binary after flushing env var and
-// arguments used for the binary invocation. That information will be returned back to the caller
-// after invocation of the returned anonymous function.
-func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams {
-	t.Helper()
-
-	require.NotEmpty(t, conf.BinDir)
-	initialPath := conf.BinaryPath("gitaly-ssh")
-	updatedPath := initialPath + "-actual"
-	require.NoError(t, os.Rename(initialPath, updatedPath))
-
-	tmpDir := testhelper.TempDir(t)
-
-	script := fmt.Sprintf(`#!/usr/bin/env bash
-
-		# To omit possible problem with parallel run and a race for the file creation with '>'
-		# this option is used, please checkout https://mywiki.wooledge.org/NoClobber for more details.
-		set -eo noclobber
-
-		env >%[1]q/environment
-		echo "$@" >%[1]q/arguments
-
-		exec %[2]q "$@"`, tmpDir, updatedPath)
-	require.NoError(t, os.WriteFile(initialPath, []byte(script), perm.SharedExecutable))
-
-	return func() gitalySSHParams {
-		arguments := testhelper.MustReadFile(t, filepath.Join(tmpDir, "arguments"))
-		environment := testhelper.MustReadFile(t, filepath.Join(tmpDir, "environment"))
-		return gitalySSHParams{
-			arguments:   strings.Split(string(arguments), " "),
-			environment: strings.Split(string(environment), "\n"),
-		}
-	}
-}
-
 func TestFetchInternalRemote_successful(t *testing.T) {
 	t.Parallel()
 
@@ -656,51 +631,47 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 		RelativePath: "does-not-exist.git",
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "fatal: Could not read from remote repository")
+	require.Contains(t, err.Error(), "exit status 128")
 }
 
-func TestReplicateRepository_hooks(t *testing.T) {
-	t.Parallel()
+// gitalySSHParams contains parameters used to exec 'gitaly-ssh' binary.
+type gitalySSHParams struct {
+	arguments   []string
+	environment []string
+}
 
-	ctx := testhelper.Context(t)
+// listenGitalySSHCalls creates a script that intercepts 'gitaly-ssh' binary calls.
+// It replaces 'gitaly-ssh' with a interceptor script that calls actual binary after flushing env var and
+// arguments used for the binary invocation. That information will be returned back to the caller
+// after invocation of the returned anonymous function.
+func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams {
+	t.Helper()
 
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
-	cfg := cfgBuilder.Build(t)
+	require.NotEmpty(t, conf.BinDir)
+	initialPath := conf.BinaryPath("gitaly-ssh")
+	updatedPath := initialPath + "-actual"
+	require.NoError(t, os.Rename(initialPath, updatedPath))
 
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalySSH(t, cfg)
+	tmpDir := testhelper.TempDir(t)
 
-	service, serverSocketPath := runRepositoryService(t, cfg, testserver.WithDisablePraefect())
-	cfg.SocketPath = serverSocketPath
+	script := fmt.Sprintf(`#!/usr/bin/env bash
 
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{})
+		# To omit possible problem with parallel run and a race for the file creation with '>'
+		# this option is used, please checkout https://mywiki.wooledge.org/NoClobber for more details.
+		set -eo noclobber
 
-	// Add custom hooks to source repository.
-	archivePath := mustCreateCustomHooksArchive(t, ctx, []testFile{
-		{name: "pre-commit.sample", content: "foo", mode: 0o755},
-		{name: "pre-push.sample", content: "bar", mode: 0o755},
-	}, repoutil.CustomHooksDir)
+		env >%[1]q/environment
+		echo "$@" >%[1]q/arguments
 
-	hooks, err := os.Open(archivePath)
-	require.NoError(t, err)
+		exec %[2]q "$@"`, tmpDir, updatedPath)
+	require.NoError(t, os.WriteFile(initialPath, []byte(script), perm.SharedExecutable))
 
-	err = repoutil.ExtractHooks(ctx, hooks, sourceRepoPath, false)
-	require.NoError(t, err)
-
-	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
-	targetRepo.StorageName = cfg.Storages[1].Name
-
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
-
-	_, err = service.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: targetRepo,
-		Source:     sourceRepo,
-	})
-	require.NoError(t, err)
-
-	targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
-	targetHooksPath := filepath.Join(targetRepoPath, repoutil.CustomHooksDir)
-
-	// Make sure target repo contains replicated custom hooks from source repository.
-	require.FileExists(t, filepath.Join(targetHooksPath, "pre-push.sample"))
+	return func() gitalySSHParams {
+		arguments := testhelper.MustReadFile(t, filepath.Join(tmpDir, "arguments"))
+		environment := testhelper.MustReadFile(t, filepath.Join(tmpDir, "environment"))
+		return gitalySSHParams{
+			arguments:   strings.Split(string(arguments), " "),
+			environment: strings.Split(string(environment), "\n"),
+		}
+	}
 }
