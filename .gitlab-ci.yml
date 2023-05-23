@@ -173,7 +173,7 @@ build:
     matrix:
       - GO_VERSION: [ "1.18", "1.19" ]
         TEST_BOOT_ARGS: "--bundled-git"
-      - GIT_VERSION: "v2.38.0"
+      - GIT_VERSION: "v2.40.0"
 
 build:binaries:
   needs: []
@@ -210,7 +210,7 @@ test:
       # We also verify that things work as expected with a non-bundled Git
       # version matching our minimum required Git version.
       - TEST_TARGET: test
-        GIT_VERSION: "v2.38.0"
+        GIT_VERSION: "v2.40.0"
       # Execute tests with our minimum required Postgres version, as well. If
       # the minimum version changes, please change this to the new minimum
       # version. Furthermore, please make sure to update the minimum required
