@@ -461,14 +461,6 @@ notice: ${SOURCE_DIR}/NOTICE
 clean:
 	rm -rf ${BUILD_DIR}
 
-.PHONY: cover
-## Generate coverage report via Go tests.
-cover: test-go
-	${Q}echo ""
-	${Q}echo "=====> Total test coverage: <====="
-	${Q}echo ""
-	${Q}go tool cover -func "${TEST_COVERAGE_DIR}/all.merged"
-
 .PHONY: proto
 ## Regenerate protobuf definitions.
 proto: SHARED_PROTOC_OPTS = --plugin=${PROTOC_GEN_GO} --plugin=${PROTOC_GEN_GO_GRPC} --plugin=${PROTOC_GEN_GITALY_PROTOLIST} --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative
