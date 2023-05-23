@@ -1,30 +1,47 @@
 package praefect
 
 import (
-	"flag"
-	"os"
 	"sort"
 
 	"github.com/olekukonko/tablewriter"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 )
 
 const sqlMigrateStatusCmdName = "sql-migrate-status"
 
-type sqlMigrateStatusSubcommand struct{}
-
-func (s *sqlMigrateStatusSubcommand) FlagSet() *flag.FlagSet {
-	return flag.NewFlagSet(sqlMigrateStatusCmdName, flag.ExitOnError)
+func newSQLMigrateStatusCommand() *cli.Command {
+	return &cli.Command{
+		Name:  sqlMigrateStatusCmdName,
+		Usage: "shows applied database migrations",
+		Description: "The commands prints a table of the migration identifiers applied to the database\n" +
+			"with the timestamp for each when it was applied.",
+		HideHelpCommand: true,
+		Action:          sqlMigrateStatusAction,
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit(unexpectedPositionalArgsError{Command: ctx.Command.Name}, 1)
+			}
+			return nil
+		},
+	}
 }
 
-func (s *sqlMigrateStatusSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
+func sqlMigrateStatusAction(appCtx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	if err != nil {
+		return err
+	}
+
 	migrations, err := datastore.MigrateStatus(conf)
 	if err != nil {
 		return err
 	}
 
-	table := tablewriter.NewWriter(os.Stdout)
+	table := tablewriter.NewWriter(appCtx.App.Writer)
 	table.SetHeader([]string{"Migration", "Applied"})
 	table.SetColWidth(60)
 

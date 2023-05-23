@@ -63,11 +63,12 @@ func NewApp() *cli.App {
 			newTrackRepositoryCommand(),
 			newVerifyCommand(),
 			newMetadataCommand(),
+			newSQLPingCommand(),
 			newSQLMigrateCommand(),
 			newSQLMigrateDownCommand(),
+			newSQLMigrateStatusCommand(),
 			newRemoveRepositoryCommand(),
 			newSetReplicationFactorCommand(),
-			newSQLPingCommand(),
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
