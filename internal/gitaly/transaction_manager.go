@@ -122,9 +122,11 @@ type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
 type Snapshot struct {
 	// ReadIndex is the index of the log entry this Transaction is reading the data at.
 	ReadIndex LogIndex
-	// HookIndex is index of the hooks on the disk that are included in this Transactions's snapshot
-	// and were the latest on the read index.
-	HookIndex LogIndex
+	// CustomHookIndex is index of the custom hooks on the disk that are included in this Transactions's
+	// snapshot and were the latest on the read index.
+	CustomHookIndex LogIndex
+	// CustomHookPath is an absolute filesystem path to the custom hooks in this snapshot.
+	CustomHookPath string
 }
 
 // Transaction is a unit-of-work that contains reference changes to perform on the repository.
@@ -203,10 +205,17 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 		commit:   mgr.commit,
 		finalize: mgr.transactionFinalizer,
 		snapshot: Snapshot{
-			ReadIndex: mgr.appendedLogIndex,
-			HookIndex: mgr.hookIndex,
+			ReadIndex:       mgr.appendedLogIndex,
+			CustomHookIndex: mgr.customHookIndex,
+			CustomHookPath:  customHookPathForLogIndex(mgr.repositoryPath, mgr.customHookIndex),
 		},
 		finished: make(chan struct{}),
+	}
+
+	// If there are no custom hooks stored through the WAL yet, then default to the custom hooks
+	// that may already exist in the repository for backwards compatibility.
+	if txn.snapshot.CustomHookIndex == 0 {
+		txn.snapshot.CustomHookPath = filepath.Join(mgr.repositoryPath, repoutil.CustomHooksDir)
 	}
 
 	openTransactionElement := mgr.openTransactions.PushBack(txn)
@@ -348,10 +357,10 @@ func (txn *Transaction) SetDefaultBranch(new git.ReferenceName) {
 }
 
 // SetCustomHooks sets the custom hooks as part of the transaction. If SetCustomHooks is called multiple
-// times, only the changes from the latest invocation take place. The hooks are extracted as is and are
-// not validated. Setting a nil hooksTAR removes the hooks from the repository.
-func (txn *Transaction) SetCustomHooks(hooksTAR []byte) {
-	txn.customHooksUpdate = &CustomHooksUpdate{CustomHooksTAR: hooksTAR}
+// times, only the changes from the latest invocation take place. The custom hooks are extracted as is and
+// are not validated. Setting a nil hooksTAR removes the hooks from the repository.
+func (txn *Transaction) SetCustomHooks(customHooksTAR []byte) {
+	txn.customHooksUpdate = &CustomHooksUpdate{CustomHooksTAR: customHooksTAR}
 }
 
 // packFilePath returns the path to this transaction's pack file.
@@ -451,8 +460,8 @@ type TransactionManager struct {
 	appendedLogIndex LogIndex
 	// appliedLogIndex holds the index of the last log entry applied to the repository
 	appliedLogIndex LogIndex
-	// hookIndex stores the log index of the latest committed hooks in the repository.
-	hookIndex LogIndex
+	// customHookIndex stores the log index of the latest committed custom custom hooks in the repository.
+	customHookIndex LogIndex
 
 	// transactionFinalizer executes when a transaction is completed.
 	transactionFinalizer func()
@@ -825,7 +834,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	}
 
 	var err error
-	mgr.hookIndex, err = mgr.determineHookIndex(ctx, mgr.appendedLogIndex, mgr.appliedLogIndex)
+	mgr.customHookIndex, err = mgr.determineCustomHookIndex(ctx, mgr.appendedLogIndex, mgr.appliedLogIndex)
 	if err != nil {
 		return fmt.Errorf("determine hook index: %w", err)
 	}
@@ -881,15 +890,16 @@ func (mgr *TransactionManager) determineRepositoryExistence() error {
 	return nil
 }
 
-// determineHookIndex determines the latest hooks in the repository.
+// determineCustomHookIndex determines the latest custom hooks in the repository.
 //
 //  1. First we iterate through the unapplied log in reverse order. The first log entry that
-//     contains custom hooks must have the latest hooks since it is the latest log entry.
+//     contains custom hooks must have the latest custom hooks since it is the latest log entry.
 //  2. If we don't find any custom hooks in the log, the latest hooks could have been applied
-//     to the repository already and the log entry pruned away. Look at the hooks on the disk
-//     to see which are the latest.
-//  3. If we found no hooks in the log nor in the repository, there are no hooks configured.
-func (mgr *TransactionManager) determineHookIndex(ctx context.Context, appendedIndex, appliedIndex LogIndex) (LogIndex, error) {
+//     to the repository already and the log entry pruned away. Look at the custom hooks on the
+//     disk to see which are the latest.
+//  3. If we found no custom hooks in the log nor in the repository, there are no custom hooks
+//     configured.
+func (mgr *TransactionManager) determineCustomHookIndex(ctx context.Context, appendedIndex, appliedIndex LogIndex) (LogIndex, error) {
 	if !mgr.repositoryExists {
 		// If the repository doesn't exist, then there are no hooks either.
 		return 0, nil
@@ -1166,12 +1176,12 @@ func (mgr *TransactionManager) appendLogEntry(nextLogIndex LogIndex, logEntry *g
 	mgr.mutex.Lock()
 	mgr.appendedLogIndex = nextLogIndex
 	if logEntry.CustomHooksUpdate != nil {
-		mgr.hookIndex = nextLogIndex
+		mgr.customHookIndex = nextLogIndex
 	}
 	mgr.applyNotifications[nextLogIndex] = make(chan struct{})
 	if logEntry.RepositoryDeletion != nil {
 		mgr.repositoryExists = false
-		mgr.hookIndex = 0
+		mgr.customHookIndex = 0
 	}
 	mgr.mutex.Unlock()
 
@@ -1328,22 +1338,19 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, logIndex LogIn
 	return mgr.repository.UnpackObjects(ctx, packFile)
 }
 
-// applyCustomHooks applies the custom hooks to the repository from the log entry. The hooks are stored
-// at `<repo>/wal/hooks/<log_index>`. The hooks are fsynced prior to returning so it is safe to delete
+// applyCustomHooks applies the custom hooks to the repository from the log entry. The custom hooks are stored
+// at `<repo>/wal/hooks/<log_index>`. The custom hooks are fsynced prior to returning so it is safe to delete
 // the log entry afterwards.
 func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex LogIndex, update *gitalypb.LogEntry_CustomHooksUpdate) error {
 	if update == nil {
 		return nil
 	}
 
-	syncer := safe.NewSyncer()
-
-	hooksPath := filepath.Join("wal", "hooks")
-	targetDirectory := filepath.Join(mgr.repositoryPath, hooksPath, logIndex.String())
+	targetDirectory := customHookPathForLogIndex(mgr.repositoryPath, logIndex)
 	if err := os.Mkdir(targetDirectory, fs.ModePerm); err != nil {
 		// The target directory may exist if we previously tried to extract the
-		// hooks there. TAR overwrites existing files and the hooks files are
-		// guaranteed to be the same as this is the same log entry.
+		// custom hooks there. TAR overwrites existing files and the custom hooks
+		// files are guaranteed to be the same as this is the same log entry.
 		if !errors.Is(err, fs.ErrExist) {
 			return fmt.Errorf("create directory: %w", err)
 		}
@@ -1353,17 +1360,24 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		return fmt.Errorf("extract hooks: %w", err)
 	}
 
+	syncer := safe.NewSyncer()
 	// TAR doesn't sync the extracted files so do it manually here.
 	if err := syncer.SyncRecursive(targetDirectory); err != nil {
 		return fmt.Errorf("sync hooks: %w", err)
 	}
 
 	// Sync the parent directory as well.
-	if err := syncer.Sync(filepath.Join(mgr.repositoryPath, hooksPath)); err != nil {
+	if err := syncer.SyncParent(targetDirectory); err != nil {
 		return fmt.Errorf("sync hook directory: %w", err)
 	}
 
 	return nil
+}
+
+// customHookPathForLogIndex returns the filesystem paths where the custom hooks
+// for the given log index are stored.
+func customHookPathForLogIndex(repositoryPath string, logIndex LogIndex) string {
+	return filepath.Join(repositoryPath, "wal", "hooks", logIndex.String())
 }
 
 // deleteLogEntry deletes the log entry at the given index from the log.
