@@ -5,9 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
 )
 
 // ErrEmptyBundle is returned when the bundle to be created would have been empty.
@@ -63,4 +67,119 @@ func (repo *Repo) CreateBundle(ctx context.Context, out io.Writer, opts *CreateB
 	}
 
 	return nil
+}
+
+// FetchBundleOpts are optional configurations used when fetching from a bundle.
+type FetchBundleOpts struct {
+	// UpdateHead updates HEAD based on the HEAD object ID in the bundle file,
+	// if available.
+	UpdateHead bool
+}
+
+// FetchBundle fetches references from a bundle. Refs will be mirrored to the
+// repository with the refspec "+refs/*:refs/*".
+func (repo *Repo) FetchBundle(ctx context.Context, txManager transaction.Manager, reader io.Reader, opts *FetchBundleOpts) error {
+	if opts == nil {
+		opts = &FetchBundleOpts{}
+	}
+
+	bundlePath, err := repo.createTempBundle(ctx, reader)
+	if err != nil {
+		return fmt.Errorf("fetch bundle: %w", err)
+	}
+
+	fetchConfig := []git.ConfigPair{
+		{Key: "remote.inmemory.url", Value: bundlePath},
+		{Key: "remote.inmemory.fetch", Value: git.MirrorRefSpec},
+	}
+	fetchOpts := FetchOpts{
+		CommandOptions: []git.CmdOpt{git.WithConfigEnv(fetchConfig...)},
+	}
+	if err := repo.FetchRemote(ctx, "inmemory", fetchOpts); err != nil {
+		return fmt.Errorf("fetch bundle: %w", err)
+	}
+
+	if opts.UpdateHead {
+		if err := repo.updateHeadFromBundle(ctx, txManager, bundlePath); err != nil {
+			return fmt.Errorf("fetch bundle: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// createTempBundle copies reader onto the filesystem so that a path can be
+// passed to git. git-fetch does not support streaming a bundle over a pipe.
+func (repo *Repo) createTempBundle(ctx context.Context, reader io.Reader) (bundlPath string, returnErr error) {
+	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), repo.locator)
+	if err != nil {
+		return "", fmt.Errorf("create temp bundle: %w", err)
+	}
+
+	bundlePath := filepath.Join(tmpDir.Path(), "repo.bundle")
+
+	file, err := os.Create(bundlePath)
+	if err != nil {
+		return "", fmt.Errorf("create temp bundle: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("create temp bundle: %w", err)
+		}
+	}()
+
+	if _, err = io.Copy(file, reader); err != nil {
+		return "", fmt.Errorf("create temp bundle: %w", err)
+	}
+
+	return bundlePath, nil
+}
+
+// updateHeadFromBundle updates HEAD from a bundle file
+func (repo *Repo) updateHeadFromBundle(ctx context.Context, txManager transaction.Manager, bundlePath string) error {
+	head, err := repo.findBundleHead(ctx, bundlePath)
+	if err != nil {
+		return fmt.Errorf("update head from bundle: %w", err)
+	}
+	if head == nil {
+		return nil
+	}
+
+	branch, err := repo.GuessHead(ctx, *head)
+	if err != nil {
+		return fmt.Errorf("update head from bundle: %w", err)
+	}
+
+	if err := repo.SetDefaultBranch(ctx, txManager, branch); err != nil {
+		return fmt.Errorf("update head from bundle: %w", err)
+	}
+	return nil
+}
+
+// findBundleHead tries to extract HEAD and its target from a bundle. Returns
+// nil when HEAD is not found.
+func (repo *Repo) findBundleHead(ctx context.Context, bundlePath string) (*git.Reference, error) {
+	cmd, err := repo.Exec(ctx, git.Command{
+		Name:   "bundle",
+		Action: "list-heads",
+		Args:   []string{bundlePath, "HEAD"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("find bundle HEAD: %w", err)
+	}
+	decoder := git.NewShowRefDecoder(cmd)
+	for {
+		var ref git.Reference
+		err := decoder.Decode(&ref)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("find bundle HEAD: %w", err)
+		}
+		if ref.Name != "HEAD" {
+			continue
+		}
+		return &ref, nil
+	}
+	return nil, nil
 }
