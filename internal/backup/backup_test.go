@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -94,8 +95,10 @@ func TestManager_Create(t *testing.T) {
 				storageLocator := config.NewLocator(cfg)
 				gitCmdFactory := gittest.NewCommandFactory(tb, cfg)
 				catfileCache := catfile.NewCache(cfg)
+				tb.Cleanup(catfileCache.Stop)
+				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, backupID)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, backupID)
 			},
 		},
 	} {
@@ -243,8 +246,10 @@ func TestManager_Create_incremental(t *testing.T) {
 				storageLocator := config.NewLocator(cfg)
 				gitCmdFactory := gittest.NewCommandFactory(tb, cfg)
 				catfileCache := catfile.NewCache(cfg)
+				tb.Cleanup(catfileCache.Stop)
+				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, backupID)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, backupID)
 			},
 		},
 	} {

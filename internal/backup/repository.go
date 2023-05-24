@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -157,14 +158,23 @@ func (rr *remoteRepository) newRefClient() gitalypb.RefServiceClient {
 }
 
 type localRepository struct {
-	locator storage.Locator
-	repo    *localrepo.Repo
+	locator       storage.Locator
+	gitCmdFactory git.CommandFactory
+	txManager     transaction.Manager
+	repo          *localrepo.Repo
 }
 
-func newLocalRepository(locator storage.Locator, repo *localrepo.Repo) *localRepository {
+func newLocalRepository(
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	txManager transaction.Manager,
+	repo *localrepo.Repo,
+) *localRepository {
 	return &localRepository{
-		locator: locator,
-		repo:    repo,
+		locator:       locator,
+		gitCmdFactory: gitCmdFactory,
+		txManager:     txManager,
+		repo:          repo,
 	}
 }
 

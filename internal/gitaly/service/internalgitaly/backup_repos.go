@@ -37,7 +37,7 @@ func (s server) BackupRepos(stream gitalypb.InternalGitaly_BackupReposServer) er
 		return structerr.NewInvalidArgument("backup repos: resolve locator: %w", err)
 	}
 
-	manager := backup.NewManagerLocal(sink, locator, s.locator, s.gitCmdFactory, s.catfileCache, backupID)
+	manager := backup.NewManagerLocal(sink, locator, s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, backupID)
 	pipeline := backup.NewLoggingPipeline(ctxlogrus.Extract(ctx))
 
 	for {
