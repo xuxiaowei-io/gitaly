@@ -3,7 +3,7 @@ module gitlab.com/gitlab-org/gitaly/v16
 go 1.18
 
 // It is a temporary solution, please see https://gitlab.com/gitlab-org/gitaly/-/issues/4423 for details.
-replace github.com/go-enry/go-license-detector/v4 => github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20221011194415-18a439e5437c
+replace github.com/go-enry/go-license-detector/v4 => github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20230524080836-4cc9a3796917
 
 require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230518184743-7afd39499903
