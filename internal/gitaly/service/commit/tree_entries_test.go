@@ -242,6 +242,161 @@ func TestGetTreeEntries(t *testing.T) {
 			},
 		},
 		{
+			desc: "path resolves outside the repo",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    "README.md",
+						Content: "something with spaces in between",
+					}),
+				)
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID.String()),
+						Path:       []byte("./.."),
+					},
+				}
+			},
+		},
+		{
+			desc: "path contains relative path syntax ..",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					}),
+				}))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID.String()),
+						Path:       []byte("./folder/.."),
+					},
+				}
+			},
+		},
+		{
+			desc: "path contains relative path syntax ./",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "test.txt", Mode: "100644", Content: "test"},
+					}),
+				}))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID.String()),
+						Path:       []byte("./folder/test.txt"),
+					},
+				}
+			},
+		},
+		{
+			desc: "path with .. in request raises no errors",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("test"))
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "test.txt", Mode: "100644", OID: blobID},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					OID:  treeID,
+					Mode: "040000",
+					Path: "a..b",
+				}))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID.String()),
+						Path:       []byte("a..b"),
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       blobID.String(),
+							Path:      []byte("a..b/test.txt"),
+							Mode:      0o100644,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("a..b/test.txt"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "path is .",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "test.txt", Mode: "100644", Content: "test"},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					OID:  treeID,
+					Mode: "040000",
+					Path: "folder",
+				}))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID.String()),
+						// when path is ".", we resolve it to ""
+						Path: []byte("."),
+					},
+					expectedTreeEntries: []*gitalypb.TreeEntry{
+						{
+							Oid:       treeID.String(),
+							Path:      []byte("folder"),
+							Type:      gitalypb.TreeEntry_TREE,
+							Mode:      0o40000,
+							CommitOid: commitID.String(),
+							FlatPath:  []byte("folder"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "absolute path is used",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "test.txt", Mode: "100644", Content: "test"},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+					OID:  treeID,
+					Mode: "040000",
+					Path: "folder",
+				}))
+
+				return setupData{
+					request: &gitalypb.GetTreeEntriesRequest{
+						Repository: repo,
+						Revision:   []byte(commitID.String()),
+						Path:       []byte(repoPath + "folder"),
+					},
+				}
+			},
+		},
+		{
 			desc: "deeply nested flat path",
 			setup: func(t *testing.T) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
