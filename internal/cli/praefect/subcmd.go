@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 	"time"
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
@@ -36,7 +36,7 @@ func getNodeAddress(cfg config.Config) (string, error) {
 	}
 }
 
-func openDB(conf config.DB) (*sql.DB, func(), error) {
+func openDB(conf config.DB, errOut io.Writer) (*sql.DB, func(), error) {
 	ctx := context.Background()
 
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -48,15 +48,11 @@ func openDB(conf config.DB) (*sql.DB, func(), error) {
 
 	clean := func() {
 		if err := db.Close(); err != nil {
-			printfErr("sql close: %v\n", err)
+			fmt.Fprintf(errOut, "sql close: %v\n", err)
 		}
 	}
 
 	return db, clean, nil
-}
-
-func printfErr(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, a...)
 }
 
 func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
