@@ -1,6 +1,6 @@
 module gitlab.com/gitlab-org/gitaly/tools/go-licenses
 
-go 1.17
+go 1.19
 
 require github.com/google/go-licenses v1.6.0
 

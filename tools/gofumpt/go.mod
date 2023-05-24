@@ -1,6 +1,6 @@
 module gitlab.com/gitlab-org/gitaly/tools/gofumpt
 
-go 1.17
+go 1.19
 
 require mvdan.cc/gofumpt v0.5.0
 
