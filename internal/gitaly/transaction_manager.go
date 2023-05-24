@@ -428,6 +428,8 @@ type TransactionManager struct {
 	// left around after crashes. The files are temporary and any leftover files are expected to be cleaned up when
 	// Gitaly starts.
 	stagingDirectory string
+	// commandFactory is used to spawn git commands without a repository.
+	commandFactory git.CommandFactory
 
 	// repositoryExists marks whether the repository exists or not. The repository may not exist if it has
 	// never been created, or if it has been deleted.
@@ -487,13 +489,14 @@ type repository interface {
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
-func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, transactionFinalizer func()) *TransactionManager {
+func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, cmdFactory git.CommandFactory, transactionFinalizer func()) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
 		ctx:                  ctx,
 		stopCalled:           ctx.Done(),
 		runDone:              make(chan struct{}),
 		stop:                 cancel,
+		commandFactory:       cmdFactory,
 		repository:           repositoryFactory.Build(relativePath),
 		repositoryPath:       filepath.Join(storagePath, relativePath),
 		relativePath:         relativePath,

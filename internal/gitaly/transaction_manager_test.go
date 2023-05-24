@@ -131,6 +131,7 @@ func TestTransactionManager(t *testing.T) {
 
 	type testSetup struct {
 		Config            config.Cfg
+		CommandFactory    git.CommandFactory
 		RepositoryFactory localrepo.StorageScopedFactory
 		ObjectHash        git.ObjectHash
 		NonExistentOID    git.ObjectID
@@ -194,6 +195,7 @@ func TestTransactionManager(t *testing.T) {
 		return testSetup{
 			Config:            cfg,
 			ObjectHash:        objectHash,
+			CommandFactory:    cmdFactory,
 			RepositoryFactory: repositoryFactory,
 			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
@@ -2853,7 +2855,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -2894,7 +2896,7 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
 						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
@@ -3241,7 +3243,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, noopTransactionFinalizer)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, cmdFactory, noopTransactionFinalizer)
 				managers = append(managers, manager)
 
 				managerWG.Add(1)
