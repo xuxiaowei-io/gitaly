@@ -199,10 +199,6 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	}
 
 	mgr.mutex.Lock()
-	if !mgr.repositoryExists {
-		mgr.mutex.Unlock()
-		return nil, ErrRepositoryNotFound
-	}
 
 	txn := &Transaction{
 		commit:   mgr.commit,
@@ -224,6 +220,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	openTransactionElement := mgr.openTransactions.PushBack(txn)
 
 	readReady := mgr.applyNotifications[txn.snapshot.ReadIndex]
+	repositoryExists := mgr.repositoryExists
 	mgr.mutex.Unlock()
 	if readReady == nil {
 		// The snapshot log entry is already applied if there is no notification channel for it.
@@ -272,6 +269,10 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	case <-mgr.ctx.Done():
 		return nil, ErrTransactionProcessingStopped
 	case <-readReady:
+		if !repositoryExists {
+			return nil, ErrRepositoryNotFound
+		}
+
 		return txn, nil
 	}
 }
