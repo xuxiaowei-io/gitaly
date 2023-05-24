@@ -612,6 +612,7 @@ func TestExecCommandFactory_config(t *testing.T) {
 		"core.usereplacerefs=false",
 		"core.fsync=objects,derived-metadata,reference",
 		"core.fsyncmethod=fsync",
+		"core.packedrefstimeout=10000",
 	}
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)

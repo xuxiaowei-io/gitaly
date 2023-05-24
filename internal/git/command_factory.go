@@ -595,6 +595,21 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// likelihood of repository corruption in case the server crashes.
 		{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
 		{Key: "core.fsyncMethod", Value: "fsync"},
+
+		// When deleting references, Git needs to rewrite the `packed-refs` file to evict
+		// the reference from it. In order to not race with concurrent writers it thus needs
+		// to lock the file for concurrent access. This lock is thus a shared resource, and
+		// in high-activity repositories we see a lot of contention around this lock: for
+		// once because we typically have many writes there, but second because these repos
+		// tend to have many references and thus rewriting the `packed-refs` file takes
+		// proportionally longer.
+		//
+		// Git has a default timeout of 1 second to try and lock the file. In practice
+		// though we see that this is not sufficient, and epsecially the `DeleteRefs` RPC is
+		// erroring out very frequently. We thus increase the timeout to 10 seconds. While
+		// comparatively high, context cancellation would still cause us to exit early in
+		// case the caller doesn't want to wait this long.
+		{Key: "core.packedRefsTimeout", Value: "10000"},
 	}
 
 	return config, nil
