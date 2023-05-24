@@ -448,8 +448,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 			expectedState: StateAssertion{
-				DefaultBranch: "refs/heads/parent",
-				References:    []git.Reference{{Name: "refs/heads/parent", Target: setup.Commits.First.OID.String()}},
+				References: []git.Reference{{Name: "refs/heads/parent", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
@@ -522,8 +521,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 			expectedState: StateAssertion{
-				DefaultBranch: "refs/heads/parent/child",
-				References:    []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
+				References: []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
@@ -3053,7 +3051,12 @@ func TestTransactionManager(t *testing.T) {
 			if !tc.expectedState.RepositoryDoesntExist {
 				require.DirExists(t, repoPath)
 				RequireReferences(t, ctx, repo, tc.expectedState.References)
-				RequireDefaultBranch(t, ctx, repo, tc.expectedState.DefaultBranch)
+
+				expectedDefaultBranch := git.DefaultRef
+				if tc.expectedState.DefaultBranch != "" {
+					expectedDefaultBranch = tc.expectedState.DefaultBranch
+				}
+				RequireDefaultBranch(t, ctx, repo, expectedDefaultBranch)
 
 				expectedDirectory := tc.expectedState.Directory
 				if expectedDirectory == nil {
