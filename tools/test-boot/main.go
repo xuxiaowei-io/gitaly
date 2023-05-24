@@ -2,15 +2,20 @@ package main
 
 import (
 	"bytes"
-	"flag"
+	"context"
 	"fmt"
-	"net"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
+
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"google.golang.org/grpc"
 )
 
 type gitalyConfig struct {
@@ -41,33 +46,6 @@ dir = "{{.GitlabShellDir}}"
 [gitlab]
 url = 'http://gitlab_url'
 `
-
-func parseArgs() (string, bool, error) {
-	useBundledGit := flag.Bool("bundled-git", false, "Set up Gitaly with bundled Git binaries")
-	notUseBundledGit := flag.Bool("no-bundled-git", false, "Set up Gitaly without bundled Git binaries")
-
-	flag.Parse()
-	if flag.NArg() == 0 {
-		usage()
-		return "", false, fmt.Errorf("gitaly source directory not provided")
-	}
-	if flag.NArg() > 1 {
-		usage()
-		return "", false, fmt.Errorf("extra arguments")
-	}
-
-	if *useBundledGit && *notUseBundledGit {
-		usage()
-		return "", false, fmt.Errorf("use either --bundled-git or --no-bundled-git, not both")
-	}
-
-	gitalyDir, err := filepath.Abs(flag.Args()[0])
-	if err != nil {
-		return "", false, fmt.Errorf("failed to parse dir %v: %w", flag.Args()[0], err)
-	}
-
-	return gitalyDir, *useBundledGit, nil
-}
 
 func checkVersion(gitalyDir, gitalyBin string) error {
 	versionCmd := exec.Command(gitalyBin, "-version")
@@ -113,8 +91,8 @@ func writeGitalyConfig(path string, params gitalyConfig) error {
 	return nil
 }
 
-func spawnAndWait(gitalyBin, configPath, socketPath string) (returnedError error) {
-	cmd := exec.Command(gitalyBin, configPath)
+func spawnAndWait(ctx context.Context, gitalyBin, configPath, socketPath string) (returnedError error) {
+	cmd := exec.CommandContext(ctx, gitalyBin, configPath)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -124,7 +102,7 @@ func spawnAndWait(gitalyBin, configPath, socketPath string) (returnedError error
 	}
 
 	defer func() {
-		_ = cmd.Process.Kill()
+		_ = cmd.Process.Signal(syscall.SIGTERM)
 		_ = cmd.Wait()
 		if returnedError != nil {
 			fmt.Fprintf(os.Stdout, "%s\n", stdout.String())
@@ -133,16 +111,23 @@ func spawnAndWait(gitalyBin, configPath, socketPath string) (returnedError error
 	}()
 
 	start := time.Now()
-	for i := 0; i < 100; i++ {
-		conn, err := net.Dial("unix", socketPath)
-		if err == nil {
-			fmt.Printf("\n\nconnection established after %v\n\n", time.Since(start))
-			conn.Close()
-			return nil
+	for i := 0; i < 300; i++ {
+		ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+
+		conn, err := client.DialContext(ctx, "unix://"+socketPath, []grpc.DialOption{
+			grpc.WithBlock(),
+		})
+
+		cancel()
+
+		if err != nil {
+			fmt.Printf(".")
+			continue
 		}
 
-		fmt.Printf(".")
-		time.Sleep(100 * time.Millisecond)
+		fmt.Printf("\n\nconnection established after %v\n\n", time.Since(start))
+		conn.Close()
+		return nil
 	}
 
 	fmt.Println("")
@@ -150,12 +135,12 @@ func spawnAndWait(gitalyBin, configPath, socketPath string) (returnedError error
 	return fmt.Errorf("failed to connect to gitaly after %v", time.Since(start))
 }
 
-func testBoot() error {
-	gitalyDir, useBundledGit, err := parseArgs()
-	if err != nil {
-		return err
-	}
+func testBoot(appCtx *cli.Context) error {
+	ctx := appCtx.Context
 
+	useBundledGit := appCtx.Bool("bundled-git")
+
+	gitalyDir := appCtx.String("gitaly-directory")
 	buildDir := filepath.Join(gitalyDir, "_build")
 	binDir := filepath.Join(buildDir, "bin")
 
@@ -173,6 +158,9 @@ func testBoot() error {
 	if err != nil {
 		return fmt.Errorf("create temp directory: %w", err)
 	}
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
 	if err := os.Mkdir(gitlabShellDir, 0o755); err != nil {
@@ -200,20 +188,40 @@ func testBoot() error {
 		return nil
 	}
 
-	if err := spawnAndWait(gitalyBin, configPath, socketPath); err != nil {
+	if err := spawnAndWait(ctx, gitalyBin, configPath, socketPath); err != nil {
 		return err
 	}
 	return nil
 }
 
 func main() {
-	if err := testBoot(); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-}
+	app := cli.App{
+		Name:            "test-boot",
+		Usage:           "smoke-test the bootup process of Gitaly",
+		Action:          testBoot,
+		HideHelpCommand: true,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "bundled-git",
+				Usage: "Set up Gitaly with bundled Git binaries",
+			},
+			&cli.PathFlag{
+				Name:  "gitaly-directory",
+				Usage: "Path of the Gitaly directory.",
+				Value: ".",
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			if ctx.Args().Present() {
+				_ = cli.ShowSubcommandHelp(ctx)
+				return cli.Exit("this command does not accept positional arguments", 1)
+			}
 
-func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [options] <GITALY_DIR>\n", filepath.Base(os.Args[0]))
-	fmt.Fprintf(os.Stderr, "  --[no-]bundled-git    Set up Gitaly with bundled Git binaries\n\n")
+			return nil
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }

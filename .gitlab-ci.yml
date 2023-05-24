@@ -175,7 +175,7 @@ build:
     # for our "test" targets, which also run unprivileged.
     - install --directory --owner=${TEST_UID} --group=${TEST_UID} _build
     - setpriv --reuid=${TEST_UID} --regid=${TEST_UID} --clear-groups --no-new-privs make build $(test "${GIT_VERSION}" = default && echo build-bundled-git || echo build-git)
-    - go run ./tools/test-boot ${TEST_BOOT_ARGS} .
+    - go run ./tools/test-boot ${TEST_BOOT_ARGS}
   parallel:
     matrix:
       - GO_VERSION: [ "1.18", "1.19" ]
