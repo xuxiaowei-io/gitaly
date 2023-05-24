@@ -15,8 +15,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sort"
-	"strings"
 
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
@@ -80,7 +78,6 @@ func NewApp() *cli.App {
 				Usage: "load configuration from `FILE`",
 			},
 		},
-		CustomAppHelpTemplate: helpTextTemplate(),
 	}
 }
 
@@ -99,23 +96,4 @@ func mustProvideConfigFlag(ctx *cli.Context, command string) string {
 	}
 
 	return pathToConfigFile
-}
-
-func helpTextTemplate() string {
-	var cmds []string
-	for k := range subcommands(nil) {
-		cmds = append(cmds, k)
-	}
-	sort.Strings(cmds)
-
-	// Because not all sub-commands are registered with the new approach they won't be shown
-	// with the -help. To have them in the output we inject a simple list of their names into
-	// the template to have them presented.
-	return strings.Replace(
-		cli.AppHelpTemplate,
-		`COMMANDS:{{template "visibleCommandCategoryTemplate" .}}{{end}}`,
-		`COMMANDS:{{template "visibleCommandCategoryTemplate" .}}{{end}}`+
-			"\n   "+strings.Join(cmds, "\n   "),
-		1,
-	)
 }

@@ -4,13 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
-	"os/signal"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -19,52 +16,12 @@ import (
 	"google.golang.org/grpc"
 )
 
-type subcmd interface {
-	FlagSet() *flag.FlagSet
-	Exec(flags *flag.FlagSet, config config.Config) error
-}
-
 const (
 	defaultDialTimeout        = 10 * time.Second
 	paramVirtualStorage       = "virtual-storage"
 	paramRelativePath         = "repository"
 	paramAuthoritativeStorage = "authoritative-storage"
 )
-
-func subcommands(logger *logrus.Entry) map[string]subcmd {
-	return map[string]subcmd{}
-}
-
-// subCommand returns an exit code, to be fed into os.Exit.
-func subCommand(conf config.Config, logger *logrus.Entry, arg0 string, argRest []string) int {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
-	go func() {
-		<-interrupt
-		os.Exit(130) // indicates program was interrupted
-	}()
-
-	subcmd, ok := subcommands(logger)[arg0]
-	if !ok {
-		printfErr("%s: unknown subcommand: %q\n", progname, arg0)
-		return 1
-	}
-
-	flags := subcmd.FlagSet()
-
-	if err := flags.Parse(argRest); err != nil {
-		printfErr("%s\n", err)
-		return 1
-	}
-
-	if err := subcmd.Exec(flags, conf); err != nil {
-		printfErr("%s\n", err)
-		return 1
-	}
-
-	return 0
-}
 
 func getNodeAddress(cfg config.Config) (string, error) {
 	switch {
