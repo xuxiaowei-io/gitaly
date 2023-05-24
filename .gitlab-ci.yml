@@ -213,7 +213,7 @@ test:
       # using bundled Git binaries.
       - GO_VERSION: [ "1.18", "1.19" ]
         TEST_TARGET: test
-      - TEST_TARGET: [ test-with-praefect, race-go ]
+      - TEST_TARGET: [ test-with-praefect, race-go, test-wal, test-with-praefect-wal]
       # We also verify that things work as expected with a non-bundled Git
       # version matching our minimum required Git version.
       - TEST_TARGET: test

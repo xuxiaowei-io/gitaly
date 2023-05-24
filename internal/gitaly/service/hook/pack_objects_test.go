@@ -746,7 +746,6 @@ func setupSidechannel(t *testing.T, ctx context.Context, oid string) (context.Co
 
 func TestPackObjects_concurrencyLimit(t *testing.T) {
 	t.Parallel()
-	cfg := cfgWithCache(t, 0)
 
 	args := []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"}
 
@@ -926,6 +925,7 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
+			cfg := cfgWithCache(t, 0)
 
 			ticker := helper.NewManualTicker()
 			monitor := limithandler.NewPackObjectsConcurrencyMonitor(
