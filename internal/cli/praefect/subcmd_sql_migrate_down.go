@@ -1,39 +1,52 @@
 package praefect
 
 import (
-	"errors"
-	"flag"
 	"fmt"
 	"strconv"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 )
 
 const sqlMigrateDownCmdName = "sql-migrate-down"
 
-type sqlMigrateDownSubcommand struct {
-	force bool
+func newSQLMigrateDownCommand() *cli.Command {
+	return &cli.Command{
+		Name:  sqlMigrateDownCmdName,
+		Usage: "applies revert SQL migrations",
+		Description: "The sql-migrate-down subcommand applies revert migrations to the configured database.\n" +
+			"It accepts a single argument - amount of migrations to revert.",
+		HideHelpCommand: true,
+		Action:          sqlMigrateDownAction,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "f",
+				Usage: "apply down-migrations",
+			},
+		},
+		Before: func(appCtx *cli.Context) error {
+			if appCtx.Args().Len() == 0 {
+				_ = cli.ShowSubcommandHelp(appCtx)
+				return fmt.Errorf("%s requires a single positional argument", appCtx.Command.Name)
+			}
+			if appCtx.Args().Len() > 1 {
+				_ = cli.ShowSubcommandHelp(appCtx)
+				return fmt.Errorf("%s accepts only single positional argument", appCtx.Command.Name)
+			}
+			return nil
+		},
+	}
 }
 
-func (s *sqlMigrateDownSubcommand) FlagSet() *flag.FlagSet {
-	flags := flag.NewFlagSet(sqlMigrateDownCmdName, flag.ExitOnError)
-	flags.Usage = func() {
-		flag.PrintDefaults()
-		printfErr("  MAX_MIGRATIONS\n")
-		printfErr("\tNumber of migrations to roll back\n")
-	}
-	flags.BoolVar(&s.force, "f", false, "apply down-migrations (default is dry run)")
-	return flags
-}
-
-func (s *sqlMigrateDownSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
-	if flags.NArg() != 1 {
-		flags.Usage()
-		return errors.New("invalid usage")
+func sqlMigrateDownAction(appCtx *cli.Context) error {
+	logger := log.Default()
+	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	if err != nil {
+		return err
 	}
 
-	maxMigrations, err := strconv.Atoi(flags.Arg(0))
+	maxMigrations, err := strconv.Atoi(appCtx.Args().First())
 	if err != nil {
 		return err
 	}
@@ -42,13 +55,13 @@ func (s *sqlMigrateDownSubcommand) Exec(flags *flag.FlagSet, conf config.Config)
 		return fmt.Errorf("number of migrations to roll back must be 1 or more")
 	}
 
-	if s.force {
+	if appCtx.Bool("f") {
 		n, err := datastore.MigrateDown(conf, maxMigrations)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("OK (applied %d \"down\" migrations)\n", n)
+		fmt.Fprintf(appCtx.App.Writer, "OK (applied %d \"down\" migrations)\n", n)
 		return nil
 	}
 
@@ -57,11 +70,11 @@ func (s *sqlMigrateDownSubcommand) Exec(flags *flag.FlagSet, conf config.Config)
 		return err
 	}
 
-	fmt.Printf("DRY RUN -- would roll back:\n\n")
+	fmt.Fprintf(appCtx.App.Writer, "DRY RUN -- would roll back:\n\n")
 	for _, id := range planned {
-		fmt.Printf("- %s\n", id)
+		fmt.Fprintf(appCtx.App.Writer, "- %s\n", id)
 	}
-	fmt.Printf("\nTo apply these migrations run with -f\n")
+	fmt.Fprintf(appCtx.App.Writer, "\nTo apply these migrations run with -f\n")
 
 	return nil
 }
