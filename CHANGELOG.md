@@ -68,6 +68,10 @@ No changes.
 - [housekeeping: Default-enable geometric repacking](gitlab-org/gitaly@fdd48e61b990e7b1dd2389f6abfcfcf0c3004730) ([merge request](gitlab-org/gitaly!5745))
 - [git/housekeeping: Speed up packing loose objects](gitlab-org/gitaly@7cc6bc02975d025fc67df80a775305d12334ffdc) ([merge request](gitlab-org/gitaly!5660))
 
+## 15.11.6 (2023-05-24)
+
+No changes.
+
 ## 15.11.5 (2023-05-19)
 
 No changes.
