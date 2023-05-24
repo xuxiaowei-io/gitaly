@@ -19,7 +19,7 @@ variables:
   CACHE_PREFIX: "debian-${DEBIAN_VERSION}"
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
-  GO_VERSION: "1.19"
+  GO_VERSION: "1.20"
   RUBY_VERSION: "3.1"
   RUST_VERSION: "1.65"
   POSTGRES_VERSION: "12-alpine"
@@ -178,7 +178,7 @@ build:
     - go run ./tools/test-boot ${TEST_BOOT_ARGS}
   parallel:
     matrix:
-      - GO_VERSION: [ "1.18", "1.19" ]
+      - GO_VERSION: [ "1.19", "1.20" ]
         TEST_BOOT_ARGS: "--bundled-git"
       - GIT_VERSION: "v2.40.0"
 
@@ -203,7 +203,7 @@ build:binaries:
     expire_in: 6 months
   parallel:
     matrix:
-      - GO_VERSION: [ "1.18", "1.19" ]
+      - GO_VERSION: [ "1.19", "1.20" ]
 
 test:
   <<: *test_definition
@@ -211,7 +211,7 @@ test:
     matrix:
       # The following jobs all test with our default Git version, which is
       # using bundled Git binaries.
-      - GO_VERSION: [ "1.18", "1.19" ]
+      - GO_VERSION: [ "1.19", "1.20" ]
         TEST_TARGET: test
       - TEST_TARGET: [ test-with-praefect, race-go, test-wal, test-with-praefect-wal]
       # We also verify that things work as expected with a non-bundled Git
@@ -311,7 +311,7 @@ test:fips:
     matrix:
       - TEST_TARGET: [ test, test-with-praefect ]
         FIPS_MODE: "YesPlease"
-        GO_VERSION: ["1.18", "1.19"]
+        GO_VERSION: ["1.19"]
   rules:
     # Automatically run the job when the FIPS label is set.
     - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
