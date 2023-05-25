@@ -174,6 +174,35 @@ func (rr *remoteRepository) Create(ctx context.Context) error {
 	return nil
 }
 
+// FetchBundle fetches references from a bundle. Refs will be mirrored to the
+// repository.
+func (rr *remoteRepository) FetchBundle(ctx context.Context, reader io.Reader) error {
+	repoClient := rr.newRepoClient()
+	stream, err := repoClient.FetchBundle(ctx)
+	if err != nil {
+		return fmt.Errorf("remote repository: fetch bundle: %w", err)
+	}
+	request := &gitalypb.FetchBundleRequest{Repository: rr.repo, UpdateHead: true}
+	bundle := streamio.NewWriter(func(p []byte) error {
+		request.Data = p
+		if err := stream.Send(request); err != nil {
+			return err
+		}
+
+		// Only set `Repository` on the first `Send` of the stream
+		request = &gitalypb.FetchBundleRequest{}
+
+		return nil
+	})
+	if _, err := io.Copy(bundle, reader); err != nil {
+		return fmt.Errorf("remote repository: fetch bundle: %w", err)
+	}
+	if _, err = stream.CloseAndRecv(); err != nil {
+		return fmt.Errorf("remote repository: fetch bundle: %w", err)
+	}
+	return nil
+}
+
 func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
 	return gitalypb.NewRepositoryServiceClient(rr.conn)
 }
@@ -289,6 +318,18 @@ func (r *localRepository) Create(ctx context.Context) error {
 		func(repository *gitalypb.Repository) error { return nil },
 	); err != nil {
 		return fmt.Errorf("local repository: create: %w", err)
+	}
+	return nil
+}
+
+// FetchBundle fetches references from a bundle. Refs will be mirrored to the
+// repository.
+func (r *localRepository) FetchBundle(ctx context.Context, reader io.Reader) error {
+	err := r.repo.FetchBundle(ctx, r.txManager, reader, &localrepo.FetchBundleOpts{
+		UpdateHead: true,
+	})
+	if err != nil {
+		return fmt.Errorf("local repository: fetch bundle: %w", err)
 	}
 	return nil
 }

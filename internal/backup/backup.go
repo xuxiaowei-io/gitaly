@@ -87,6 +87,9 @@ type Repository interface {
 	Remove(ctx context.Context) error
 	// Create creates the repository.
 	Create(ctx context.Context) error
+	// FetchBundle fetches references from a bundle. Refs will be mirrored to
+	// the repository.
+	FetchBundle(ctx context.Context, reader io.Reader) error
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -276,7 +279,7 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 	}
 
 	for _, step := range backup.Steps {
-		if err := mgr.restoreBundle(ctx, step.BundlePath, req.Server, req.Repository); err != nil {
+		if err := mgr.restoreBundle(ctx, repo, step.BundlePath); err != nil {
 			if step.SkippableOnNotFound && errors.Is(err, ErrDoesntExist) {
 				// For compatibility with existing backups we need to make sure the
 				// repository exists even if there's no bundle for project
@@ -425,37 +428,14 @@ func (s *createBundleFromRefListSender) Send() error {
 	return s.stream.Send(&s.chunk)
 }
 
-func (mgr *Manager) restoreBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+func (mgr *Manager) restoreBundle(ctx context.Context, repo Repository, path string) error {
 	reader, err := mgr.sink.GetReader(ctx, path)
 	if err != nil {
-		return fmt.Errorf("restore bundle: %w", err)
+		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
 	defer reader.Close()
 
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return fmt.Errorf("restore bundle: %q: %w", path, err)
-	}
-	stream, err := repoClient.FetchBundle(ctx)
-	if err != nil {
-		return fmt.Errorf("restore bundle: %q: %w", path, err)
-	}
-	request := &gitalypb.FetchBundleRequest{Repository: repo, UpdateHead: true}
-	bundle := streamio.NewWriter(func(p []byte) error {
-		request.Data = p
-		if err := stream.Send(request); err != nil {
-			return err
-		}
-
-		// Only set `Repository` on the first `Send` of the stream
-		request = &gitalypb.FetchBundleRequest{}
-
-		return nil
-	})
-	if _, err := io.Copy(bundle, reader); err != nil {
-		return fmt.Errorf("restore bundle: %q: %w", path, err)
-	}
-	if _, err = stream.CloseAndRecv(); err != nil {
+	if err := repo.FetchBundle(ctx, reader); err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
 	return nil
