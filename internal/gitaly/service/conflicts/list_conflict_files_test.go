@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -24,11 +23,7 @@ type conflictFile struct {
 func TestListConflictFiles(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ListConflictFilesMergeTree).Run(t, testListConflictFiles)
-}
-
-func testListConflictFiles(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	type setupData struct {
 		request       *gitalypb.ListConflictFilesRequest
@@ -308,37 +303,28 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 					AllowTreeConflicts: true,
 				}
 
-				expectedFiles := []*conflictFile{
-					{
-						Header: &gitalypb.ConflictFileHeader{
-							CommitOid:    ourCommitID.String(),
-							OurPath:      []byte("a"),
-							OurMode:      int32(0o100644),
-							AncestorPath: []byte("a"),
-						},
-						Content: []byte("<<<<<<< a\nmango\n=======\n>>>>>>> \n"),
-					},
-					{
-						Header: &gitalypb.ConflictFileHeader{
-							CommitOid:    ourCommitID.String(),
-							TheirPath:    []byte("b"),
-							AncestorPath: []byte("b"),
-						},
-						Content: []byte("<<<<<<< \n=======\npeach\n>>>>>>> b\n"),
-					},
-				}
-
-				// When using git-merge-tree(1), deleted files don't contain conflict markers.
-				// Whereas if you see above, Git2Go contains conflict markers.
-				if featureflag.ListConflictFilesMergeTree.IsEnabled(ctx) {
-					expectedFiles[0].Content = []byte("mango")
-					expectedFiles[1].Content = []byte("peach")
-				}
-
 				return setupData{
-					client:        client,
-					request:       request,
-					expectedFiles: expectedFiles,
+					client:  client,
+					request: request,
+					expectedFiles: []*conflictFile{
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid:    ourCommitID.String(),
+								OurPath:      []byte("a"),
+								OurMode:      int32(0o100644),
+								AncestorPath: []byte("a"),
+							},
+							Content: []byte("<<<<<<< a\nmango\n=======\n>>>>>>> \n"),
+						},
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid:    ourCommitID.String(),
+								TheirPath:    []byte("b"),
+								AncestorPath: []byte("b"),
+							},
+							Content: []byte("<<<<<<< \n=======\npeach\n>>>>>>> b\n"),
+						},
+					},
 				}
 			},
 		},
