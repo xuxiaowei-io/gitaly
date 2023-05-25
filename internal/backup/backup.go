@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -90,6 +89,8 @@ type Repository interface {
 	// FetchBundle fetches references from a bundle. Refs will be mirrored to
 	// the repository.
 	FetchBundle(ctx context.Context, reader io.Reader) error
+	// SetCustomHooks updates the custom hooks for the repository.
+	SetCustomHooks(ctx context.Context, reader io.Reader) error
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -298,7 +299,7 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 				return fmt.Errorf("manager: %w: %s", ErrSkipped, err.Error())
 			}
 		}
-		if err := mgr.restoreCustomHooks(ctx, step.CustomHooksPath, req.Server, req.Repository); err != nil {
+		if err := mgr.restoreCustomHooks(ctx, repo, step.CustomHooksPath); err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	}
@@ -456,7 +457,7 @@ func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path 
 	return nil
 }
 
-func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+func (mgr *Manager) restoreCustomHooks(ctx context.Context, repo Repository, path string) error {
 	reader, err := mgr.sink.GetReader(ctx, path)
 	if err != nil {
 		if errors.Is(err, ErrDoesntExist) {
@@ -466,31 +467,7 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server 
 	}
 	defer reader.Close()
 
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
-	}
-	stream, err := repoClient.SetCustomHooks(ctx)
-	if err != nil {
-		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
-	}
-
-	request := &gitalypb.SetCustomHooksRequest{Repository: repo}
-	bundle := streamio.NewWriter(func(p []byte) error {
-		request.Data = p
-		if err := stream.Send(request); err != nil {
-			return err
-		}
-
-		// Only set `Repository` on the first `Send` of the stream
-		request = &gitalypb.SetCustomHooksRequest{}
-
-		return nil
-	})
-	if _, err := io.Copy(bundle, reader); err != nil {
-		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
-	}
-	if _, err = stream.CloseAndRecv(); err != nil {
+	if err := repo.SetCustomHooks(ctx, reader); err != nil {
 		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
 	}
 	return nil

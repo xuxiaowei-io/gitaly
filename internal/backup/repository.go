@@ -203,6 +203,35 @@ func (rr *remoteRepository) FetchBundle(ctx context.Context, reader io.Reader) e
 	return nil
 }
 
+// SetCustomHooks updates the custom hooks for the repository.
+func (rr *remoteRepository) SetCustomHooks(ctx context.Context, reader io.Reader) error {
+	repoClient := rr.newRepoClient()
+	stream, err := repoClient.SetCustomHooks(ctx)
+	if err != nil {
+		return fmt.Errorf("remote repository: set custom hooks: %w", err)
+	}
+
+	request := &gitalypb.SetCustomHooksRequest{Repository: rr.repo}
+	bundle := streamio.NewWriter(func(p []byte) error {
+		request.Data = p
+		if err := stream.Send(request); err != nil {
+			return err
+		}
+
+		// Only set `Repository` on the first `Send` of the stream
+		request = &gitalypb.SetCustomHooksRequest{}
+
+		return nil
+	})
+	if _, err := io.Copy(bundle, reader); err != nil {
+		return fmt.Errorf("remote repository: set custom hooks: %w", err)
+	}
+	if _, err = stream.CloseAndRecv(); err != nil {
+		return fmt.Errorf("remote repository: set custom hooks: %w", err)
+	}
+	return nil
+}
+
 func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
 	return gitalypb.NewRepositoryServiceClient(rr.conn)
 }
@@ -330,6 +359,20 @@ func (r *localRepository) FetchBundle(ctx context.Context, reader io.Reader) err
 	})
 	if err != nil {
 		return fmt.Errorf("local repository: fetch bundle: %w", err)
+	}
+	return nil
+}
+
+// SetCustomHooks updates the custom hooks for the repository.
+func (r *localRepository) SetCustomHooks(ctx context.Context, reader io.Reader) error {
+	if err := repoutil.SetCustomHooks(
+		ctx,
+		r.locator,
+		r.txManager,
+		reader,
+		r.repo,
+	); err != nil {
+		return fmt.Errorf("local repository: set custom hooks: %w", err)
 	}
 	return nil
 }
