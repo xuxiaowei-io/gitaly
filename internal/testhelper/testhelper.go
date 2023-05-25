@@ -194,8 +194,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
 	// Randomly enable the use of the catfile cache in localrepo.ReadObject.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LocalrepoReadObjectCached, rnd.Int()%2 == 0)
-	// Randomly enable the use of the catfile cache in localrepo.ReadObject.
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.FixRoutingWithAdditionalRepository, rnd.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)
