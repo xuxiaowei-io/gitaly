@@ -35,6 +35,12 @@ var (
 	ErrRepositoryNotFound = structerr.NewNotFound("repository not found")
 	// ErrTransactionProcessingStopped is returned when the TransactionManager stops processing transactions.
 	ErrTransactionProcessingStopped = errors.New("transaction processing stopped")
+	// ErrTransactionAlreadyCommitted is returned when attempting to rollback or commit a transaction that
+	// already had commit called on it.
+	ErrTransactionAlreadyCommitted = errors.New("transaction already committed")
+	// ErrTransactionAlreadyRollbacked is returned when attempting to rollback or commit a transaction that
+	// already had rollback called on it.
+	ErrTransactionAlreadyRollbacked = errors.New("transaction already rollbacked")
 	// errInitializationFailed is returned when the TransactionManager failed to initialize successfully.
 	errInitializationFailed = errors.New("initializing transaction processing failed")
 	// errNotDirectory is returned when the repository's path doesn't point to a directory
@@ -132,8 +138,22 @@ type Snapshot struct {
 	CustomHookPath string
 }
 
+type transactionState int
+
+const (
+	// transactionStateOpen indicates the transaction is open, and hasn't been committed or rolled back yet.
+	transactionStateOpen = transactionState(iota)
+	// transactionStateRollback indicates the transaction has been rolled back.
+	transactionStateRollback
+	// transactionStateCommit indicates the transaction has already been committed.
+	transactionStateCommit
+)
+
 // Transaction is a unit-of-work that contains reference changes to perform on the repository.
 type Transaction struct {
+	// state records whether the transaction is still open. Transaction is open until either Commit()
+	// or Rollback() is called on it.
+	state transactionState
 	// commit commits the Transaction through the TransactionManager.
 	commit func(context.Context, *Transaction) error
 	// finalize decrements the active transaction count on the partition in the PartitionManager. This is
@@ -276,9 +296,27 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	}
 }
 
+func (txn *Transaction) updateState(newState transactionState) error {
+	switch txn.state {
+	case transactionStateOpen:
+		txn.state = newState
+		return nil
+	case transactionStateRollback:
+		return ErrTransactionAlreadyRollbacked
+	case transactionStateCommit:
+		return ErrTransactionAlreadyCommitted
+	default:
+		return fmt.Errorf("unknown transaction state: %q", txn.state)
+	}
+}
+
 // Commit performs the changes. If no error is returned, the transaction was successful and the changes
 // have been performed. If an error was returned, the transaction may or may not be persisted.
 func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
+	if err := txn.updateState(transactionStateCommit); err != nil {
+		return err
+	}
+
 	defer func() {
 		txn.finalize()
 
@@ -292,6 +330,10 @@ func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
 
 // Rollback releases resources associated with the transaction without performing any changes.
 func (txn *Transaction) Rollback() error {
+	if err := txn.updateState(transactionStateRollback); err != nil {
+		return err
+	}
+
 	defer txn.finalize()
 	return txn.finishUnadmitted()
 }

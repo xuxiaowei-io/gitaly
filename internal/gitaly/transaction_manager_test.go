@@ -311,6 +311,8 @@ func TestTransactionManager(t *testing.T) {
 	type Rollback struct {
 		// TransactionID identifies the transaction to rollback.
 		TransactionID int
+		// ExpectedError is the error that is expected to be returned when rolling back the transaction.
+		ExpectedError error
 	}
 
 	// Prune prunes all unreferenced objects from the repository.
@@ -2714,6 +2716,60 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "transaction rollbacked after already being rollbacked",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				Rollback{},
+				Rollback{
+					ExpectedError: ErrTransactionAlreadyRollbacked,
+				},
+			},
+		},
+		{
+			desc: "transaction rollbacked after already being committed",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				Commit{},
+				Rollback{
+					ExpectedError: ErrTransactionAlreadyCommitted,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "transaction committed after already being committed",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				Commit{},
+				Commit{
+					ExpectedError: ErrTransactionAlreadyCommitted,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "transaction committed after already being rollbacked",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				Rollback{},
+				Commit{
+					ExpectedError: ErrTransactionAlreadyRollbacked,
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -3032,7 +3088,7 @@ func TestTransactionManager(t *testing.T) {
 					}
 				case Rollback:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction rollbacked before beginning it")
-					require.NoError(t, openTransactions[step.TransactionID].Rollback())
+					require.Equal(t, step.ExpectedError, openTransactions[step.TransactionID].Rollback())
 				case Prune:
 					gittest.Exec(t, setup.Config, "-C", repoPath, "prune")
 					require.ElementsMatch(t, step.ExpectedObjects, gittest.ListObjects(t, setup.Config, repoPath))
