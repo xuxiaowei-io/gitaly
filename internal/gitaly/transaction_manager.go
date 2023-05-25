@@ -1141,7 +1141,15 @@ func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, def
 		return nil
 	}
 
-	return mgr.repository.SetDefaultBranch(ctx, nil, git.ReferenceName(defaultBranch.ReferenceName))
+	var stderr bytes.Buffer
+	if err := mgr.repository.ExecAndWait(ctx, git.Command{
+		Name: "symbolic-ref",
+		Args: []string{"HEAD", string(defaultBranch.ReferenceName)},
+	}, git.WithStderr(&stderr), git.WithDisabledHooks()); err != nil {
+		return structerr.New("exec symbolic-ref: %w", err).WithMetadata("stderr", stderr.String())
+	}
+
+	return nil
 }
 
 // prepareReferenceTransaction prepares a reference transaction with `git update-ref`. It leaves committing
