@@ -354,6 +354,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		var err error
 		partitionManager, err = gitaly.NewPartitionManager(
 			cfg.Storages,
+			gsd.gitCmdFactory,
 			localrepo.NewFactory(gsd.locator, gsd.gitCmdFactory, gsd.catfileCache),
 			gsd.logger,
 		)

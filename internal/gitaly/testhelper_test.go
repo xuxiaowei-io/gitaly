@@ -74,7 +74,7 @@ func RequireReferences(tb testing.TB, ctx context.Context, repo *localrepo.Repo,
 func RequireDefaultBranch(tb testing.TB, ctx context.Context, repo *localrepo.Repo, expectedDefaultBranch git.ReferenceName) {
 	tb.Helper()
 
-	actualDefaultBranch, err := repo.GetDefaultBranch(ctx)
+	actualDefaultBranch, err := repo.HeadReference(ctx)
 	require.NoError(tb, err)
 	require.Equal(tb, expectedDefaultBranch, actualDefaultBranch)
 }

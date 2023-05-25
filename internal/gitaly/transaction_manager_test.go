@@ -131,6 +131,7 @@ func TestTransactionManager(t *testing.T) {
 
 	type testSetup struct {
 		Config            config.Cfg
+		CommandFactory    git.CommandFactory
 		RepositoryFactory localrepo.StorageScopedFactory
 		ObjectHash        git.ObjectHash
 		NonExistentOID    git.ObjectID
@@ -194,6 +195,7 @@ func TestTransactionManager(t *testing.T) {
 		return testSetup{
 			Config:            cfg,
 			ObjectHash:        objectHash,
+			CommandFactory:    cmdFactory,
 			RepositoryFactory: repositoryFactory,
 			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
@@ -448,8 +450,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 			expectedState: StateAssertion{
-				DefaultBranch: "refs/heads/parent",
-				References:    []git.Reference{{Name: "refs/heads/parent", Target: setup.Commits.First.OID.String()}},
+				References: []git.Reference{{Name: "refs/heads/parent", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
@@ -522,8 +523,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 			expectedState: StateAssertion{
-				DefaultBranch: "refs/heads/parent/child",
-				References:    []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
+				References: []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
@@ -1641,10 +1641,9 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/../main",
 					},
-					// For branch updates, we don't really verify the refname schematics, we take a shortcut
-					// and rely on it being either a verified new reference name or a reference name which
-					// exists on the repo already.
-					ExpectedError: git.ErrReferenceNotFound,
+					ExpectedError: InvalidReferenceFormatError{
+						ReferenceName: "refs/heads/../main",
+					},
 				},
 			},
 		},
@@ -1658,12 +1657,28 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
-						Reference: "refs/heads/yoda",
+						Reference: "refs/heads/non-existent",
 					},
-					// For branch updates, we don't really verify the refname schematics, we take a shortcut
-					// and rely on it being either a verified new reference name or a reference name which
-					// exists on the repo already.
-					ExpectedError: git.ErrReferenceNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/non-existent",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "update default branch to point non-refs prefixed reference",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				Commit{
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "other/non-existent",
+					},
+					ExpectedError: InvalidReferenceFormatError{ReferenceName: "other/non-existent"},
 				},
 			},
 		},
@@ -1695,17 +1710,15 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					ExpectedError: ReferenceToBeDeletedError{ReferenceName: "refs/heads/branch2"},
 				},
 			},
 			expectedState: StateAssertion{
-				DefaultBranch: "refs/heads/main",
+				DefaultBranch: "refs/heads/branch2",
 				References: []git.Reference{
-					{Name: "refs/heads/branch2", Target: setup.Commits.First.OID.String()},
 					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
@@ -2855,7 +2868,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -2896,7 +2909,7 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, noopTransactionFinalizer)
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
 						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
@@ -3053,7 +3066,12 @@ func TestTransactionManager(t *testing.T) {
 			if !tc.expectedState.RepositoryDoesntExist {
 				require.DirExists(t, repoPath)
 				RequireReferences(t, ctx, repo, tc.expectedState.References)
-				RequireDefaultBranch(t, ctx, repo, tc.expectedState.DefaultBranch)
+
+				expectedDefaultBranch := git.DefaultRef
+				if tc.expectedState.DefaultBranch != "" {
+					expectedDefaultBranch = tc.expectedState.DefaultBranch
+				}
+				RequireDefaultBranch(t, ctx, repo, expectedDefaultBranch)
 
 				expectedDirectory := tc.expectedState.Directory
 				if expectedDirectory == nil {
@@ -3238,7 +3256,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, noopTransactionFinalizer)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, cmdFactory, noopTransactionFinalizer)
 				managers = append(managers, manager)
 
 				managerWG.Add(1)

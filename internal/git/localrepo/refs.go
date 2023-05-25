@@ -337,7 +337,7 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 		return branches[0].Name, nil
 	}
 
-	headReference, err := repo.headReference(ctx)
+	headReference, err := repo.HeadReference(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -371,7 +371,8 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 	return branches[0].Name, nil
 }
 
-func (repo *Repo) headReference(ctx context.Context) (git.ReferenceName, error) {
+// HeadReference returns the current value of HEAD.
+func (repo *Repo) HeadReference(ctx context.Context) (git.ReferenceName, error) {
 	cmd, err := repo.Exec(ctx, git.Command{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD"},

@@ -67,17 +67,6 @@ func (err ReferenceVerificationError) Error() string {
 	return fmt.Sprintf("expected %q to point to %q but it pointed to %q", err.ReferenceName, err.ExpectedOID, err.ActualOID)
 }
 
-// ReferenceToBeDeletedError is returned when the reference used is scheduled to be deleted.
-type ReferenceToBeDeletedError struct {
-	// ReferenceName is the name of the reference that is scheduled to be deleted.
-	ReferenceName git.ReferenceName
-}
-
-// Error returns the formatted error string.
-func (err ReferenceToBeDeletedError) Error() string {
-	return fmt.Sprintf("reference %q is scheduled to be deleted", err.ReferenceName)
-}
-
 // LogIndex points to a specific position in a repository's write-ahead log.
 type LogIndex uint64
 
@@ -428,6 +417,8 @@ type TransactionManager struct {
 	// left around after crashes. The files are temporary and any leftover files are expected to be cleaned up when
 	// Gitaly starts.
 	stagingDirectory string
+	// commandFactory is used to spawn git commands without a repository.
+	commandFactory git.CommandFactory
 
 	// repositoryExists marks whether the repository exists or not. The repository may not exist if it has
 	// never been created, or if it has been deleted.
@@ -487,13 +478,14 @@ type repository interface {
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
-func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, transactionFinalizer func()) *TransactionManager {
+func NewTransactionManager(db *badger.DB, storagePath, relativePath, stagingDir string, repositoryFactory localrepo.StorageScopedFactory, cmdFactory git.CommandFactory, transactionFinalizer func()) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
 		ctx:                  ctx,
 		stopCalled:           ctx.Done(),
 		runDone:              make(chan struct{}),
 		stop:                 cancel,
+		commandFactory:       cmdFactory,
 		repository:           repositoryFactory.Build(relativePath),
 		repositoryPath:       filepath.Join(storagePath, relativePath),
 		relativePath:         relativePath,
@@ -1033,8 +1025,8 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 	for referenceName, update := range transaction.referenceUpdates {
 		// 'git update-ref' doesn't ensure the loose references end up in the
 		// refs directory so we enforce that here.
-		if !strings.HasPrefix(referenceName.String(), "refs/") {
-			return nil, InvalidReferenceFormatError{ReferenceName: referenceName}
+		if err := verifyReferencePrefix(referenceName); err != nil {
+			return nil, fmt.Errorf("verify reference prefix: %w", err)
 		}
 
 		// We'll later implement reference format verification in Gitaly. update-ref reports errors with these characters
@@ -1093,6 +1085,17 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 	return referenceUpdates, nil
 }
 
+// verifyReferencePrefix verifies the reference is prefixed with `refs/`. This prevents writing references
+// anywhere except the `refs/` directory. Otherwise the references could be written to arbitrary directories
+// and files in the repository.
+func verifyReferencePrefix(referenceName git.ReferenceName) error {
+	if !strings.HasPrefix(referenceName.String(), "refs/") {
+		return InvalidReferenceFormatError{ReferenceName: referenceName}
+	}
+
+	return nil
+}
+
 // vefifyReferencesWithGit verifies the reference updates with git by preparing reference transaction. This ensures
 // the updates will go through when they are being applied in the log. This also catches any invalid reference names
 // and file/directory conflicts with Git's loose reference storage which can occur with references like
@@ -1113,36 +1116,40 @@ func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, refe
 func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, transaction *Transaction) error {
 	referenceName := transaction.defaultBranchUpdate.Reference
 
-	// Check the transaction reference updates, to see if the refname exists, if we find it here
-	// we don't have to invoke git to do a refname check.
-	if refUpdate, ok := transaction.referenceUpdates[referenceName]; ok {
-		objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
-		if err != nil {
-			return fmt.Errorf("obtaining object hash: %w", err)
-		}
-
-		// reference is scheduled to be deleted
-		if refUpdate.NewOID == objectHash.ZeroOID {
-			return ReferenceToBeDeletedError{ReferenceName: referenceName}
-		}
-
-		return nil
+	// CheckRefFormat below ensures that the reference is in a subdirectory, and can't for example be
+	// `<repo>/HEAD`. It doesn't verify the reference is within the `refs/` directory though, so do it
+	// manually here.
+	if err := verifyReferencePrefix(referenceName); err != nil {
+		return fmt.Errorf("verify reference prefix: %w", err)
 	}
 
-	if _, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision()); err != nil {
-		return fmt.Errorf("cannot resolve default branch update: %w", err)
+	valid, err := git.CheckRefFormat(ctx, mgr.commandFactory, referenceName.String())
+	if err != nil {
+		return fmt.Errorf("checking ref format: %w", err)
+	}
+
+	if !valid {
+		return InvalidReferenceFormatError{ReferenceName: referenceName}
 	}
 
 	return nil
 }
 
-// updateDefaultBranch sets the default branch using localrepo.SetDefaultBranch if there is adequate datprovided.
-func (mgr *TransactionManager) updateDefaultBranch(ctx context.Context, defaultBranch *gitalypb.LogEntry_DefaultBranchUpdate) error {
+// applyDefaultBranchUpdate applies the default branch update to the repository from the log entry.
+func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, defaultBranch *gitalypb.LogEntry_DefaultBranchUpdate) error {
 	if defaultBranch == nil {
 		return nil
 	}
 
-	return mgr.repository.SetDefaultBranch(ctx, nil, git.ReferenceName(defaultBranch.ReferenceName))
+	var stderr bytes.Buffer
+	if err := mgr.repository.ExecAndWait(ctx, git.Command{
+		Name: "symbolic-ref",
+		Args: []string{"HEAD", string(defaultBranch.ReferenceName)},
+	}, git.WithStderr(&stderr), git.WithDisabledHooks()); err != nil {
+		return structerr.New("exec symbolic-ref: %w", err).WithMetadata("stderr", stderr.String())
+	}
+
+	return nil
 }
 
 // prepareReferenceTransaction prepares a reference transaction with `git update-ref`. It leaves committing
@@ -1223,7 +1230,7 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 			return fmt.Errorf("commit transaction: %w", err)
 		}
 
-		if err := mgr.updateDefaultBranch(ctx, logEntry.DefaultBranchUpdate); err != nil {
+		if err := mgr.applyDefaultBranchUpdate(ctx, logEntry.DefaultBranchUpdate); err != nil {
 			return fmt.Errorf("writing default branch: %w", err)
 		}
 

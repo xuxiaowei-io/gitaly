@@ -563,7 +563,7 @@ func TestPartitionManager(t *testing.T) {
 				)
 			}
 
-			partitionManager, err := NewPartitionManager(cfg.Storages, localRepoFactory, logrus.StandardLogger())
+			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, localRepoFactory, logrus.StandardLogger())
 			require.NoError(t, err)
 			defer func() {
 				partitionManager.Stop()
