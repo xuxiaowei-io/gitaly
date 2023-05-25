@@ -165,6 +165,15 @@ func (rr *remoteRepository) Remove(ctx context.Context) error {
 	return nil
 }
 
+// Create creates the repository.
+func (rr *remoteRepository) Create(ctx context.Context) error {
+	repoClient := rr.newRepoClient()
+	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: rr.repo}); err != nil {
+		return fmt.Errorf("remote repository: create: %w", err)
+	}
+	return nil
+}
+
 func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
 	return gitalypb.NewRepositoryServiceClient(rr.conn)
 }
@@ -265,6 +274,21 @@ func (r *localRepository) Remove(ctx context.Context) error {
 		return nil
 	case err != nil:
 		return fmt.Errorf("local repository: remove: %w", err)
+	}
+	return nil
+}
+
+// Create creates the repository.
+func (r *localRepository) Create(ctx context.Context) error {
+	if err := repoutil.Create(
+		ctx,
+		r.locator,
+		r.gitCmdFactory,
+		r.txManager,
+		r.repo,
+		func(repository *gitalypb.Repository) error { return nil },
+	); err != nil {
+		return fmt.Errorf("local repository: create: %w", err)
 	}
 	return nil
 }

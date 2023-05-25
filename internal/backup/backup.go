@@ -85,6 +85,8 @@ type Repository interface {
 	// Remove removes the repository. Does not return an error if the
 	// repository cannot be found.
 	Remove(ctx context.Context) error
+	// Create creates the repository.
+	Create(ctx context.Context) error
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -269,7 +271,7 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if err := mgr.createRepository(ctx, req.Server, req.Repository); err != nil {
+	if err := repo.Create(ctx); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
@@ -312,17 +314,6 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 		return fmt.Errorf("set context server info: %w", err)
 	}
 
-	return nil
-}
-
-func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return fmt.Errorf("create repository: %w", err)
-	}
-	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo}); err != nil {
-		return fmt.Errorf("create repository: %w", err)
-	}
 	return nil
 }
 
