@@ -144,7 +144,10 @@ func (s *repositoryStates) addPackRefsInhibitor(ctx context.Context, repoPath st
 		select {
 		case <-ctx.Done():
 			return false, nil, ctx.Err()
-		case <-state.packRefsDone:
+		case <-packRefsDone:
+			// We don't use state.packRefsDone, cause there is possibility that it is set
+			// to `nil` by the cleanup function after running `git-pack-refs(1)`.
+			//
 			// We obtain a lock and continue the loop here to avoid a race wherein another
 			// goroutine has invoked git-pack-refs(1). By continuing the loop and checking
 			// the value of packRefsDone, we can avoid that scenario.
