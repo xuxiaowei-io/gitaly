@@ -1135,8 +1135,8 @@ func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, tr
 	return nil
 }
 
-// updateDefaultBranch sets the default branch using localrepo.SetDefaultBranch if there is adequate datprovided.
-func (mgr *TransactionManager) updateDefaultBranch(ctx context.Context, defaultBranch *gitalypb.LogEntry_DefaultBranchUpdate) error {
+// applyDefaultBranchUpdate applies the default branch update to the repository from the log entry.
+func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, defaultBranch *gitalypb.LogEntry_DefaultBranchUpdate) error {
 	if defaultBranch == nil {
 		return nil
 	}
@@ -1222,7 +1222,7 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 			return fmt.Errorf("commit transaction: %w", err)
 		}
 
-		if err := mgr.updateDefaultBranch(ctx, logEntry.DefaultBranchUpdate); err != nil {
+		if err := mgr.applyDefaultBranchUpdate(ctx, logEntry.DefaultBranchUpdate); err != nil {
 			return fmt.Errorf("writing default branch: %w", err)
 		}
 
