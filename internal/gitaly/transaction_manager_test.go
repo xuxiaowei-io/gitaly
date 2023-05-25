@@ -338,6 +338,8 @@ func TestTransactionManager(t *testing.T) {
 		Directory testhelper.DirectoryState
 		// Objects are the objects that are expected to exist in the repository.
 		Objects []git.ObjectID
+		// LegacyHooks is the expected content of `<repo>/custom_hooks` directory.
+		LegacyHooks testhelper.DirectoryState
 	}
 
 	// steps defines execution steps in a test. Each test case can define multiple steps to exercise
@@ -1075,6 +1077,9 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 					"/wal/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				},
+				LegacyHooks: testhelper.DirectoryState{
+					"/custom_hooks": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+				},
 			},
 		},
 		{
@@ -1118,6 +1123,15 @@ func TestTransactionManager(t *testing.T) {
 					},
 					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+				},
+				LegacyHooks: testhelper.DirectoryState{
+					"/custom_hooks": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/custom_hooks/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
+					},
+					"/custom_hooks/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/custom_hooks/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 				},
 			},
 		},
@@ -1190,6 +1204,9 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 					"/wal/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/packs":                            {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				},
+				LegacyHooks: testhelper.DirectoryState{
+					"/custom_hooks": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 				},
 			},
 		},
@@ -1887,6 +1904,9 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 					"/wal/hooks/3":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				},
+				LegacyHooks: testhelper.DirectoryState{
+					"/custom_hooks": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 				},
 			},
 		},
@@ -3067,6 +3087,7 @@ func TestTransactionManager(t *testing.T) {
 				}
 
 				testhelper.RequireDirectoryState(t, repoPath, "wal", expectedDirectory)
+				testhelper.RequireDirectoryState(t, repoPath, repoutil.CustomHooksDir, tc.expectedState.LegacyHooks)
 
 				expectedObjects := tc.expectedState.Objects
 				if expectedObjects == nil {
