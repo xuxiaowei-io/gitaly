@@ -133,6 +133,10 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 		locator:  locator,
 		backupID: backupID,
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
+			if err := setContextServerInfo(ctx, &server, repo.GetStorageName()); err != nil {
+				return nil, err
+			}
+
 			conn, err := pool.Dial(ctx, server.Address, server.Token)
 			if err != nil {
 				return nil, err
@@ -201,10 +205,6 @@ type CreateRequest struct {
 
 // Create creates a repository backup.
 func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
-	if err := setContextServerInfo(ctx, &req.Server, req.Repository.GetStorageName()); err != nil {
-		return fmt.Errorf("manager: %w", err)
-	}
-
 	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -257,10 +257,6 @@ type RestoreRequest struct {
 
 // Restore restores a repository from a backup.
 func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
-	if err := setContextServerInfo(ctx, &req.Server, req.Repository.GetStorageName()); err != nil {
-		return fmt.Errorf("manager: %w", err)
-	}
-
 	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
