@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgtype"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/migrations"
@@ -79,7 +79,7 @@ func DSN(db config.DB, direct bool) string {
 		{"sslcert", sslCertVal},
 		{"sslkey", sslKeyVal},
 		{"sslrootcert", sslRootCertVal},
-		{"prefer_simple_protocol", "true"},
+		{"default_query_exec_mode", "simple_protocol"},
 	} {
 		if len(kv.value) == 0 {
 			continue
@@ -253,26 +253,30 @@ func coalesceInt(values ...int) int {
 
 // StringArray is a wrapper that provides a helper methods.
 type StringArray struct {
-	pgtype.TextArray
+	array []pgtype.Text
 }
 
 // Slice converts StringArray into a slice of strings.
 // The array element considered to be a valid string if it is not a null.
-func (sa StringArray) Slice() []string {
-	if sa.Status != pgtype.Present {
+func (sa *StringArray) Slice() []string {
+	if sa.array == nil {
 		return nil
 	}
 
-	res := make([]string, 0, len(sa.Elements))
-	if sa.Status == pgtype.Present {
-		for _, e := range sa.Elements {
-			if e.Status != pgtype.Present {
-				continue
-			}
-			res = append(res, e.String)
+	res := make([]string, 0, len(sa.array))
+	for _, e := range sa.array {
+		if !e.Valid {
+			continue
 		}
+		res = append(res, e.String)
 	}
+
 	return res
+}
+
+// Scan implements the `sql.Scanner` interface for the string array.
+func (sa *StringArray) Scan(src any) error {
+	return pgtype.NewMap().SQLScanner(&sa.array).Scan(src)
 }
 
 // errorCondition is a checker of the additional conditions of an error.

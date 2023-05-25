@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -108,7 +108,7 @@ func TestDSN(t *testing.T) {
 		direct bool
 		out    string
 	}{
-		{desc: "empty", in: config.DB{}, out: "prefer_simple_protocol=true"},
+		{desc: "empty", in: config.DB{}, out: "default_query_exec_mode=simple_protocol"},
 		{
 			desc: "proxy connection",
 			in: config.DB{
@@ -123,7 +123,7 @@ func TestDSN(t *testing.T) {
 				SSLRootCert: "/path/to/root-cert",
 			},
 			direct: false,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert default_query_exec_mode=simple_protocol`,
 		},
 		{
 			desc: "direct connection with different host and port",
@@ -141,7 +141,7 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert default_query_exec_mode=simple_protocol`,
 		},
 		{
 			desc: "direct connection with dbname",
@@ -160,7 +160,7 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production_sp sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production_sp sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert default_query_exec_mode=simple_protocol`,
 		},
 		{
 			desc: "direct connection with exactly the same parameters",
@@ -177,7 +177,7 @@ func TestDSN(t *testing.T) {
 				SessionPooled: config.DBConnection{},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert default_query_exec_mode=simple_protocol`,
 		},
 		{
 			desc: "direct connection with completely different parameters",
@@ -204,14 +204,14 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=6432 host=2.3.4.5 user=praefect_sp password=secret-sp dbname=praefect_production_sp sslmode=prefer sslcert=/path/to/sp/cert sslkey=/path/to/sp/key sslrootcert=/path/to/sp/root-cert prefer_simple_protocol=true`,
+			out:    `port=6432 host=2.3.4.5 user=praefect_sp password=secret-sp dbname=praefect_production_sp sslmode=prefer sslcert=/path/to/sp/cert sslkey=/path/to/sp/key sslrootcert=/path/to/sp/root-cert default_query_exec_mode=simple_protocol`,
 		},
 		{
 			desc: "with spaces and quotes",
 			in: config.DB{
 				Password: "secret foo'bar",
 			},
-			out: `password=secret\ foo\'bar prefer_simple_protocol=true`,
+			out: `password=secret\ foo\'bar default_query_exec_mode=simple_protocol`,
 		},
 	}
 
