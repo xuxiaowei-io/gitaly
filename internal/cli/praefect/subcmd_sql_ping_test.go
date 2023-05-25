@@ -1,13 +1,11 @@
 package praefect
 
 import (
-	"bytes"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
 )
@@ -56,30 +54,13 @@ func TestSQLPingSubcommand(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			var stdout bytes.Buffer
-			var stderr bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       &stderr,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newSQLPingCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: tc.confPath(t),
-					},
-				},
-			}
-			err := app.Run(append([]string{progname, sqlPingCmdName}, tc.args...))
+			stdout, stderr, err := runApp(append([]string{"-config", tc.confPath(t), sqlPingCmdName}, tc.args...))
+			assert.Empty(t, stderr)
 			if tc.expectedErr != nil {
 				require.EqualError(t, err, tc.expectedErr.Error())
 			}
-			assert.Empty(t, stderr.String())
 			if tc.expectedOutput != "" {
-				assert.Equal(t, tc.expectedOutput, stdout.String())
+				assert.Equal(t, tc.expectedOutput, stdout)
 			}
 		})
 	}

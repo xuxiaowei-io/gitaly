@@ -181,39 +181,35 @@ Checking check 3...Failed (warning) error: i failed but not too badly
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			var stdout bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       io.Discard,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newCheckCommand(tc.checks),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
+			var stdout, stderr bytes.Buffer
+			app := NewApp()
+			app.Writer = &stdout
+			app.ErrWriter = &stderr
+			for i, cmd := range app.Commands {
+				if cmd.Name == "check" {
+					app.Commands[i] = newCheckCommand(tc.checks)
+					break
+				}
 			}
 
 			t.Run("quiet", func(t *testing.T) {
 				stdout.Reset()
-				err := app.Run(append([]string{progname, "check", "-q"}, tc.args...))
+				err := app.Run(append([]string{progname, "-config", confPath, "check", "-q"}, tc.args...))
 				assert.Equal(t, tc.expectedError, err)
 				if len(tc.args) == 0 {
 					assert.Equal(t, tc.expectedQuietOutput, stdout.String())
 				}
+				assert.Empty(t, stderr)
 			})
 
 			t.Run("normal", func(t *testing.T) {
 				stdout.Reset()
-				err := app.Run(append([]string{progname, "check"}, tc.args...))
+				err := app.Run(append([]string{progname, "-config", confPath, "check"}, tc.args...))
 				assert.Equal(t, tc.expectedError, err)
 				if len(tc.args) == 0 {
 					assert.Equal(t, tc.expectedOutput, stdout.String())
 				}
+				assert.Empty(t, stderr)
 			})
 		})
 	}

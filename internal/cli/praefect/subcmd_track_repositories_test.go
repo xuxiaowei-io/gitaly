@@ -1,7 +1,6 @@
 package praefect
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -105,30 +103,6 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 	repositoryStore := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 	assignmentStore := datastore.NewAssignmentStore(db, conf.StorageNames())
 
-	exeSubCmd := func(t *testing.T, args []string) (string, error) {
-		t.Helper()
-		var stdout bytes.Buffer
-		var stderr bytes.Buffer
-		app := cli.App{
-			Reader:          bytes.NewReader(nil),
-			Writer:          &stdout,
-			ErrWriter:       &stderr,
-			HideHelpCommand: true,
-			Commands: []*cli.Command{
-				newTrackRepositoriesCommand(),
-			},
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:  "config",
-					Value: confPath,
-				},
-			},
-		}
-		err := app.Run(append([]string{progname, trackRepositoriesCmdName}, args...))
-		assert.Empty(t, stderr.String())
-		return stdout.String(), err
-	}
-
 	t.Run("ok", func(t *testing.T) {
 		testCases := []struct {
 			desc           string
@@ -180,7 +154,8 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 				}
 				require.NoError(t, input.Close())
 
-				stdout, err := exeSubCmd(t, tc.args(inputPath))
+				stdout, stderr, err := runApp(append([]string{"-config", confPath, trackRepositoriesCmdName}, tc.args(inputPath)...))
+				assert.Empty(t, stderr)
 				require.NoError(t, err)
 				assert.Contains(t, stdout, tc.expectedOutput)
 
@@ -320,7 +295,8 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 				if tc.args != nil {
 					args = tc.args(inputPath)
 				}
-				stdout, err := exeSubCmd(t, args)
+				stdout, stderr, err := runApp(append([]string{"-config", confPath, trackRepositoriesCmdName}, args...))
+				assert.Empty(t, stderr)
 				require.Error(t, err)
 
 				if tc.expectedOutput != "" {

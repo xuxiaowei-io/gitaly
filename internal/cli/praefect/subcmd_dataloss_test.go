@@ -1,10 +1,9 @@
 package praefect
 
 import (
-	"bytes"
-	"io"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -179,28 +178,12 @@ Virtual storage: virtual-storage-2
 			cfg.VirtualStorages = tc.virtualStorages
 			confPath := writeConfigToFile(t, cfg)
 
-			var stdout bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       io.Discard,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newDatalossCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
-			}
-
-			err := app.Run(append([]string{progname, "dataloss"}, tc.args...))
+			stdout, stderr, err := runApp(append([]string{"-config", confPath, "dataloss"}, tc.args...))
 			require.Equal(t, tc.error, err, err)
 			if tc.error == nil {
-				require.Equal(t, tc.output, stdout.String())
+				require.Equal(t, tc.output, stdout)
 			}
+			assert.Empty(t, stderr)
 		})
 	}
 }

@@ -1,11 +1,10 @@
 package praefect
 
 import (
-	"bytes"
 	"errors"
-	"io"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
@@ -115,26 +114,11 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			}
 
 			confPath := writeConfigToFile(t, conf)
-			var stdout bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       io.Discard,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newSetReplicationFactorCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
-			}
-			err := app.Run(append([]string{progname, setReplicationFactorCmdName}, tc.args...))
+			stdout, stderr, err := runApp(append([]string{"-config", confPath, setReplicationFactorCmdName}, tc.args...))
+			assert.Empty(t, stderr)
 			testhelper.RequireGrpcError(t, tc.error, err)
 			if tc.stdout != "" {
-				require.Equal(t, tc.stdout, stdout.String())
+				require.Equal(t, tc.stdout, stdout)
 			}
 		})
 	}
