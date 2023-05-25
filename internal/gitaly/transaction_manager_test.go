@@ -1641,10 +1641,9 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/../main",
 					},
-					// For branch updates, we don't really verify the refname schematics, we take a shortcut
-					// and rely on it being either a verified new reference name or a reference name which
-					// exists on the repo already.
-					ExpectedError: git.ErrReferenceNotFound,
+					ExpectedError: InvalidReferenceFormatError{
+						ReferenceName: "refs/heads/../main",
+					},
 				},
 			},
 		},
@@ -1658,12 +1657,28 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					DefaultBranchUpdate: &DefaultBranchUpdate{
-						Reference: "refs/heads/yoda",
+						Reference: "refs/heads/non-existent",
 					},
-					// For branch updates, we don't really verify the refname schematics, we take a shortcut
-					// and rely on it being either a verified new reference name or a reference name which
-					// exists on the repo already.
-					ExpectedError: git.ErrReferenceNotFound,
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/non-existent",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "update default branch to point non-refs prefixed reference",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				Commit{
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "other/non-existent",
+					},
+					ExpectedError: InvalidReferenceFormatError{ReferenceName: "other/non-existent"},
 				},
 			},
 		},
@@ -1695,17 +1710,15 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					ExpectedError: ReferenceToBeDeletedError{ReferenceName: "refs/heads/branch2"},
 				},
 			},
 			expectedState: StateAssertion{
-				DefaultBranch: "refs/heads/main",
+				DefaultBranch: "refs/heads/branch2",
 				References: []git.Reference{
-					{Name: "refs/heads/branch2", Target: setup.Commits.First.OID.String()},
 					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 				},
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 			},
 		},
