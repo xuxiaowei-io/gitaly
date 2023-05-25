@@ -15,8 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -84,6 +82,9 @@ type Repository interface {
 	GetCustomHooks(ctx context.Context, out io.Writer) error
 	// CreateBundle fetches a bundle that contains refs matching patterns.
 	CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error
+	// Remove removes the repository. Does not return an error if the
+	// repository cannot be found.
+	Remove(ctx context.Context) error
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -254,7 +255,12 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
+	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
+	if err := repo.Remove(ctx); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
@@ -280,7 +286,7 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 					return nil
 				}
 
-				if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
+				if err := repo.Remove(ctx); err != nil {
 					return fmt.Errorf("manager: remove on skipped: %w", err)
 				}
 
@@ -306,21 +312,6 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 		return fmt.Errorf("set context server info: %w", err)
 	}
 
-	return nil
-}
-
-func (mgr *Manager) removeRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return fmt.Errorf("remove repository: %w", err)
-	}
-	_, err = repoClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
-	switch {
-	case status.Code(err) == codes.NotFound:
-		return nil
-	case err != nil:
-		return fmt.Errorf("remove repository: %w", err)
-	}
 	return nil
 }
 

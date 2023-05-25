@@ -149,6 +149,22 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 	return nil
 }
 
+// Remove removes the repository. Does not return an error if the repository
+// cannot be found.
+func (rr *remoteRepository) Remove(ctx context.Context) error {
+	repoClient := rr.newRepoClient()
+	_, err := repoClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
+		Repository: rr.repo,
+	})
+	switch {
+	case status.Code(err) == codes.NotFound:
+		return nil
+	case err != nil:
+		return fmt.Errorf("remote repository: remove: %w", err)
+	}
+	return nil
+}
+
 func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
 	return gitalypb.NewRepositoryServiceClient(rr.conn)
 }
@@ -237,5 +253,18 @@ func (r *localRepository) CreateBundle(ctx context.Context, out io.Writer, patte
 		return fmt.Errorf("local repository: create bundle: %w", err)
 	}
 
+	return nil
+}
+
+// Remove removes the repository. Does not return an error if the repository
+// cannot be found.
+func (r *localRepository) Remove(ctx context.Context) error {
+	err := repoutil.Remove(ctx, r.locator, r.txManager, r.repo)
+	switch {
+	case status.Code(err) == codes.NotFound:
+		return nil
+	case err != nil:
+		return fmt.Errorf("local repository: remove: %w", err)
+	}
 	return nil
 }
