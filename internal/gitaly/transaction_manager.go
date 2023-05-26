@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -153,9 +154,9 @@ type Transaction struct {
 	// quarantineDirectory is the directory within the stagingDirectory where the new objects of the
 	// transaction are quarantined.
 	quarantineDirectory string
-	// includesPack is set if a pack file has been computed for the transaction and should be
-	// logged.
-	includesPack bool
+	// packPrefix contains the prefix (`pack-<digest>`) of the transaction's pack if the transaction
+	// had objects to log.
+	packPrefix string
 	// stagingRepository is a repository that is used to stage the transaction. If there are quarantined
 	// objects, it has the quarantine applied so the objects are available for verification and packing.
 	stagingRepository repository
@@ -556,6 +557,10 @@ func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, trans
 	return nil
 }
 
+// packPrefixRegexp matches the output of `git index-pack` where it
+// prints the packs prefix in the format `pack <digest>`.
+var packPrefixRegexp = regexp.MustCompile(`^pack\t([0-9a-f]+)\n$`)
+
 // packObjects packs the objects included in the transaction into a single pack file that is ready
 // for logging. The pack file includes all unreachable objects that are about to be made reachable.
 func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Transaction) error {
@@ -582,8 +587,6 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		// No need to pack objects if there are no changes that can introduce new objects.
 		return nil
 	}
-
-	transaction.includesPack = true
 
 	objectsReader, objectsWriter := io.Pipe()
 
@@ -622,13 +625,34 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 			return fmt.Errorf("create wal files directory: %w", err)
 		}
 
-		var stderr bytes.Buffer
+		// index-pack places the pack and the index into the repository's object directory. The
+		// staging repository is configured with a quarantine so we execute it there.
+		var stdout, stderr bytes.Buffer
 		if err := transaction.stagingRepository.ExecAndWait(ctx, git.Command{
 			Name:  "index-pack",
 			Flags: []git.Option{git.Flag{Name: "--stdin"}},
-			Args:  []string{packFilePath(transaction.walFilesPath())},
-		}, git.WithStdin(packReader), git.WithStderr(&stderr)); err != nil {
+		}, git.WithStdin(packReader), git.WithStdout(&stdout), git.WithStderr(&stderr)); err != nil {
 			return structerr.New("index pack: %w", err).WithMetadata("stderr", stderr.String())
+		}
+
+		matches := packPrefixRegexp.FindStringSubmatch(stdout.String())
+		if len(matches) != 2 {
+			return structerr.New("unexpected index-pack output").WithMetadata("stdout", stdout.String())
+		}
+
+		// Move the files from the quarantine to the wal-files directory so they'll get logged as part
+		// of the directory.
+		packPrefix := fmt.Sprintf("pack-%s", matches[1])
+		for _, fileName := range []string{
+			packPrefix + ".pack",
+			packPrefix + ".idx",
+		} {
+			if err := os.Rename(
+				filepath.Join(transaction.quarantineDirectory, "pack", fileName),
+				filepath.Join(transaction.walFilesPath(), fileName),
+			); err != nil {
+				return fmt.Errorf("move file: %w", err)
+			}
 		}
 
 		// Sync the files and the directory entries so everything is flushed to the disk prior
@@ -637,6 +661,8 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		if err := safe.NewSyncer().SyncRecursive(transaction.walFilesPath()); err != nil {
 			return fmt.Errorf("sync recursive: %w", err)
 		}
+
+		transaction.packPrefix = packPrefix
 
 		return nil
 	})
@@ -755,8 +781,8 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 		}
 
 		nextLogIndex := mgr.appendedLogIndex + 1
-		if transaction.includesPack {
-			logEntry.IncludesPack = true
+		if transaction.packPrefix != "" {
+			logEntry.PackPrefix = transaction.packPrefix
 
 			removeFiles, err := mgr.storeWALFiles(mgr.ctx, nextLogIndex, transaction)
 			cleanUps = append(cleanUps, func() error {
@@ -1238,8 +1264,8 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 			return fmt.Errorf("apply repository deletion: %w", err)
 		}
 	} else {
-		if logEntry.IncludesPack {
-			if err := mgr.applyPackFile(ctx, logIndex); err != nil {
+		if logEntry.PackPrefix != "" {
+			if err := mgr.applyPackFile(ctx, logEntry.PackPrefix, logIndex); err != nil {
 				return fmt.Errorf("apply pack file: %w", err)
 			}
 		}
@@ -1362,15 +1388,33 @@ func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, inde
 }
 
 // applyPackFile unpacks the objects from the pack file into the repository if the log entry
-// has an associated pack file.
-func (mgr *TransactionManager) applyPackFile(ctx context.Context, logIndex LogIndex) error {
-	packFile, err := os.Open(packFilePath(walFilesPathForLogIndex(mgr.repositoryPath, logIndex)))
-	if err != nil {
-		return fmt.Errorf("open pack file: %w", err)
-	}
-	defer packFile.Close()
+// has an associated pack file. This is done by hard linking the pack and index from the
+// log into the repository's object directory.
+func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix string, logIndex LogIndex) error {
+	packDirectory := filepath.Join(mgr.repositoryPath, "objects", "pack")
+	for _, fileName := range []string{
+		packPrefix + ".pack",
+		packPrefix + ".idx",
+	} {
+		if err := os.Link(
+			filepath.Join(walFilesPathForLogIndex(mgr.repositoryPath, logIndex), fileName),
+			filepath.Join(packDirectory, fileName),
+		); err != nil {
+			if !errors.Is(err, fs.ErrExist) {
+				return fmt.Errorf("link file: %w", err)
+			}
 
-	return mgr.repository.UnpackObjects(ctx, packFile)
+			// The file already existing means that we've already linked it in place or a repack
+			// has resulted in the exact same file. No need to do anything about it.
+		}
+	}
+
+	// Sync the new directory entries created.
+	if err := safe.NewSyncer().Sync(packDirectory); err != nil {
+		return fmt.Errorf("sync: %w", err)
+	}
+
+	return nil
 }
 
 // applyCustomHooks applies the custom hooks to the repository from the log entry. The custom hooks are stored

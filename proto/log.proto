@@ -48,9 +48,9 @@ message LogEntry {
   DefaultBranchUpdate default_branch_update = 2;
   // CustomHooksUpdate contains the custom hooks to set in the repository.
   CustomHooksUpdate custom_hooks_update = 3;
-  // includes_pack denotes whether this log entry has a pack file associated
-  // with it. The pack files are stored separately on the filesystem.
-  bool includes_pack = 4;
+  // pack_prefix contains the prefix (`pack-<digest>`) of the pack and its index.
+  // If pack_prefix is empty, the log entry has no associated pack.
+  string pack_prefix = 4;
   // RepositoryDeletion, when set, indicates this log entry deletes the repository.
   RepositoryDeletion repository_deletion = 5;
 }
