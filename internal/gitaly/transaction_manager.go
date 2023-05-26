@@ -601,34 +601,44 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		return nil
 	})
 
+	packReader, packWriter := io.Pipe()
 	group.Go(func() (returnedErr error) {
-		defer func() { objectsReader.CloseWithError(returnedErr) }()
+		defer func() {
+			objectsReader.CloseWithError(returnedErr)
+			packWriter.CloseWithError(returnedErr)
+		}()
+
+		if err := transaction.stagingRepository.PackObjects(ctx, objectsReader, packWriter); err != nil {
+			return fmt.Errorf("pack objects: %w", err)
+		}
+
+		return nil
+	})
+
+	group.Go(func() (returnedErr error) {
+		defer packReader.CloseWithError(returnedErr)
 
 		if err := os.Mkdir(transaction.walFilesPath(), perm.PrivateDir); err != nil {
 			return fmt.Errorf("create wal files directory: %w", err)
 		}
 
-		destinationFile, err := os.OpenFile(
-			packFilePath(transaction.walFilesPath()),
-			os.O_WRONLY|os.O_CREATE|os.O_EXCL,
-			perm.PrivateFile,
-		)
-		if err != nil {
-			return fmt.Errorf("open file: %w", err)
-		}
-		defer destinationFile.Close()
-
-		if err := transaction.stagingRepository.PackObjects(ctx, objectsReader, destinationFile); err != nil {
-			return fmt.Errorf("pack objects: %w", err)
+		var stderr bytes.Buffer
+		if err := transaction.stagingRepository.ExecAndWait(ctx, git.Command{
+			Name:  "index-pack",
+			Flags: []git.Option{git.Flag{Name: "--stdin"}},
+			Args:  []string{packFilePath(transaction.walFilesPath())},
+		}, git.WithStdin(packReader), git.WithStderr(&stderr)); err != nil {
+			return structerr.New("index pack: %w", err).WithMetadata("stderr", stderr.String())
 		}
 
-		// Sync the contents of the pack so they are flushed to disk prior to the transaction
-		// being admitted for processing.
-		if err := destinationFile.Sync(); err != nil {
-			return fmt.Errorf("sync pack: %w", err)
+		// Sync the files and the directory entries so everything is flushed to the disk prior
+		// to moving on to committing the log entry. This way we only have to flush the directory
+		// move when we move the staged files into the log.
+		if err := safe.NewSyncer().SyncRecursive(transaction.walFilesPath()); err != nil {
+			return fmt.Errorf("sync recursive: %w", err)
 		}
 
-		return destinationFile.Close()
+		return nil
 	})
 
 	return group.Wait()
