@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
@@ -307,7 +306,7 @@ func (r *PerRepositoryRouter) assignRepositoryToNodes(
 	replicationFactor := r.defaultReplicationFactors[virtualStorage]
 
 	switch {
-	case featureflag.FixRoutingWithAdditionalRepository.IsEnabled(ctx) && additionalRepoMetadata != nil:
+	case additionalRepoMetadata != nil:
 		// RPCs that create repositories can have an additional repository. This repository
 		// is used as additional input and is expected to be directly accessible on the
 		// target node, or otherwise we wouldn't have to resolve its relative path.
