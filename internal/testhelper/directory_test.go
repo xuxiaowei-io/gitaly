@@ -144,7 +144,8 @@ func TestRequireDirectoryState(t *testing.T) {
 				"/assertion-root/parsed-file": {
 					Mode:    umask.Mask(perm.PrivateFile),
 					Content: "parsed content",
-					ParseContent: func(tb testing.TB, content []byte) any {
+					ParseContent: func(tb testing.TB, path string, content []byte) any {
+						require.Equal(t, filepath.Join(rootDir, "/assertion-root/parsed-file"), path)
 						return "parsed content"
 					},
 				},

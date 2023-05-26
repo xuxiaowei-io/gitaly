@@ -93,7 +93,7 @@ func packFileDirectoryEntry(cfg config.Cfg, expectedObjects []git.ObjectID) test
 	return testhelper.DirectoryEntry{
 		Mode:    perm.PrivateFile,
 		Content: expectedObjects,
-		ParseContent: func(tb testing.TB, content []byte) any {
+		ParseContent: func(tb testing.TB, path string, content []byte) any {
 			tb.Helper()
 
 			tempDir := tb.TempDir()
