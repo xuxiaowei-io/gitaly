@@ -355,9 +355,10 @@ func (txn *Transaction) SetCustomHooks(customHooksTAR []byte) {
 	txn.customHooksUpdate = &CustomHooksUpdate{CustomHooksTAR: customHooksTAR}
 }
 
-// packFilePath returns the path to this transaction's pack file.
-func (txn *Transaction) packFilePath() string {
-	return filepath.Join(txn.stagingDirectory, "transaction.pack")
+// walFilesPath returns the path to the directory where this transaction is staging the files that will
+// be logged alongside the transaction's log entry.
+func (txn *Transaction) walFilesPath() string {
+	return filepath.Join(txn.stagingDirectory, "wal-files")
 }
 
 // TransactionManager is responsible for transaction management of a single repository. Each repository has
@@ -603,8 +604,12 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 	group.Go(func() (returnedErr error) {
 		defer func() { objectsReader.CloseWithError(returnedErr) }()
 
+		if err := os.Mkdir(transaction.walFilesPath(), perm.PrivateDir); err != nil {
+			return fmt.Errorf("create wal files directory: %w", err)
+		}
+
 		destinationFile, err := os.OpenFile(
-			transaction.packFilePath(),
+			packFilePath(transaction.walFilesPath()),
 			os.O_WRONLY|os.O_CREATE|os.O_EXCL,
 			perm.PrivateFile,
 		)
@@ -743,22 +748,22 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 		if transaction.includesPack {
 			logEntry.IncludesPack = true
 
-			removePack, err := mgr.storePackFile(mgr.ctx, nextLogIndex, transaction)
+			removeFiles, err := mgr.storeWALFiles(mgr.ctx, nextLogIndex, transaction)
 			cleanUps = append(cleanUps, func() error {
-				// The transaction's pack file might have been moved in to place at <repo>/wal/packs/<log_index>.pack.
-				// If anything fails before the transaction is committed, the pack file must be removed as otherwise
-				// it would occupy the pack file slot of the next log entry. If this can't be done, the TransactionManager
-				// will exit with an error. The pack file will be cleaned up on restart and no further processing is
+				// The transaction's files might have been moved successfully in to the log.
+				// If anything fails before the transaction is committed, the files must be removed as otherwise
+				// they would occupy the slot of the next log entry. If this can't be done, the TransactionManager
+				// will exit with an error. The files will be cleaned up on restart and no further processing is
 				// allowed until that happens.
 				if commitErr != nil {
-					return removePack()
+					return removeFiles()
 				}
 
 				return nil
 			})
 
 			if err != nil {
-				return fmt.Errorf("store pack file: %w", err)
+				return fmt.Errorf("store wal files: %w", err)
 			}
 		}
 
@@ -840,7 +845,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		mgr.applyNotifications[i] = make(chan struct{})
 	}
 
-	if err := mgr.removeStalePackFiles(mgr.ctx, mgr.appendedLogIndex); err != nil {
+	if err := mgr.removeStaleWALFiles(mgr.ctx, mgr.appendedLogIndex); err != nil {
 		return fmt.Errorf("remove stale packs: %w", err)
 	}
 
@@ -958,14 +963,14 @@ func (mgr *TransactionManager) createDirectories() error {
 	return nil
 }
 
-// removeStalePackFiles removes pack files from the log directory that have no associated log entry.
-// Such packs can be left around if a transaction's pack file was moved in place successfully
+// removeStaleWALFiles removes files from the log directory that have no associated log entry.
+// Such files can be left around if transaction's files were moved in place successfully
 // but the manager was interrupted before successfully persisting the log entry itself.
-func (mgr *TransactionManager) removeStalePackFiles(ctx context.Context, appendedIndex LogIndex) error {
+func (mgr *TransactionManager) removeStaleWALFiles(ctx context.Context, appendedIndex LogIndex) error {
 	// Log entries are appended one by one to the log. If a write is interrupted, the only possible stale
 	// pack would be for the next log index. Remove the pack if it exists.
-	possibleStalePackPath := packFilePathForLogIndex(mgr.repositoryPath, appendedIndex+1)
-	if err := os.Remove(possibleStalePackPath); err != nil {
+	possibleStaleFilesPath := walFilesPathForLogIndex(mgr.repositoryPath, appendedIndex+1)
+	if _, err := os.Stat(possibleStaleFilesPath); err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("remove: %w", err)
 		}
@@ -973,31 +978,35 @@ func (mgr *TransactionManager) removeStalePackFiles(ctx context.Context, appende
 		return nil
 	}
 
+	if err := os.RemoveAll(possibleStaleFilesPath); err != nil {
+		return fmt.Errorf("remove all: %w", err)
+	}
+
 	// Sync the parent directory to flush the file deletion.
-	if err := safe.NewSyncer().Sync(filepath.Dir(possibleStalePackPath)); err != nil {
+	if err := safe.NewSyncer().SyncParent(possibleStaleFilesPath); err != nil {
 		return fmt.Errorf("sync: %w", err)
 	}
 
 	return nil
 }
 
-// storePackFile moves the transaction's pack file from the object directory to its destination in the log.
-// It returns a function, even on errors, that must be called to clean up the pack file committing the log entry
+// storeWALFiles moves the transaction's logged files from the staging directory to their destination in the log.
+// It returns a function, even on errors, that must be called to clean up the files if committing the log entry
 // fails.
-func (mgr *TransactionManager) storePackFile(ctx context.Context, index LogIndex, transaction *Transaction) (func() error, error) {
-	removePack := func() error { return nil }
+func (mgr *TransactionManager) storeWALFiles(ctx context.Context, index LogIndex, transaction *Transaction) (func() error, error) {
+	removeFiles := func() error { return nil }
 
-	destinationPath := packFilePathForLogIndex(mgr.repositoryPath, index)
+	destinationPath := walFilesPathForLogIndex(mgr.repositoryPath, index)
 	if err := os.Rename(
-		transaction.packFilePath(),
+		transaction.walFilesPath(),
 		destinationPath,
 	); err != nil {
-		return removePack, fmt.Errorf("move pack file: %w", err)
+		return removeFiles, fmt.Errorf("move wal files: %w", err)
 	}
 
-	removePack = func() error {
+	removeFiles = func() error {
 		if err := os.Remove(destinationPath); err != nil {
-			return fmt.Errorf("remove pack file: %w", err)
+			return fmt.Errorf("remove wal files: %w", err)
 		}
 
 		return nil
@@ -1005,16 +1014,20 @@ func (mgr *TransactionManager) storePackFile(ctx context.Context, index LogIndex
 
 	// Sync the parent directory. The pack's contents are synced when the pack file is computed.
 	if err := safe.NewSyncer().Sync(filepath.Dir(destinationPath)); err != nil {
-		return removePack, fmt.Errorf("sync: %w", err)
+		return removeFiles, fmt.Errorf("sync: %w", err)
 	}
 
-	return removePack, nil
+	return removeFiles, nil
 }
 
-// packFilePathForLogIndex returns a log entry's pack file's absolute path in a given
-// a repository path.
-func packFilePathForLogIndex(repoPath string, index LogIndex) string {
-	return filepath.Join(repoPath, "wal", "packs", index.String()+".pack")
+// walFilesPathForLogIndex returns an absolute path to a given log entry's WAL files.
+func walFilesPathForLogIndex(repoPath string, index LogIndex) string {
+	return filepath.Join(repoPath, "wal", "packs", index.String())
+}
+
+// packFilePath returns a log entry's pack file's absolute path in the wal files directory.
+func packFilePath(walFiles string) string {
+	return filepath.Join(walFiles, "transaction.pack")
 }
 
 // verifyReferences verifies that the references in the transaction apply on top of the already accepted
@@ -1341,7 +1354,7 @@ func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, inde
 // applyPackFile unpacks the objects from the pack file into the repository if the log entry
 // has an associated pack file.
 func (mgr *TransactionManager) applyPackFile(ctx context.Context, logIndex LogIndex) error {
-	packFile, err := os.Open(packFilePathForLogIndex(mgr.repositoryPath, logIndex))
+	packFile, err := os.Open(packFilePath(walFilesPathForLogIndex(mgr.repositoryPath, logIndex)))
 	if err != nil {
 		return fmt.Errorf("open pack file: %w", err)
 	}
