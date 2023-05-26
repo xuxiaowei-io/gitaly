@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package main
 
 import (
@@ -134,7 +132,6 @@ func TestHooksPrePostWithSymlinkedStoragePath(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -153,7 +150,6 @@ func TestHooksPrePostReceive(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -314,7 +310,8 @@ func testHooksUpdate(t *testing.T, ctx context.Context, cfg config.Cfg, glValues
 		SkipCreationViaService: true,
 	})
 
-	refval, oldval, newval := "refval", strings.Repeat("a", 40), strings.Repeat("b", 40)
+	hashLen := gittest.DefaultObjectHash.EncodedLen()
+	refval, oldval, newval := "refval", strings.Repeat("a", hashLen), strings.Repeat("b", hashLen)
 
 	// Write a custom update hook that dumps all arguments seen by the hook...
 	customHookArgsPath := filepath.Join(testhelper.TempDir(t), "containsarguments")
@@ -367,7 +364,6 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	gitalyHooksPath := testcfg.BuildGitalyHooks(t, cfg)
@@ -484,7 +480,6 @@ func TestHooksNotAllowed(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	gitalyHooksPath := testcfg.BuildGitalyHooks(t, cfg)
@@ -608,7 +603,6 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	logger, hook := test.NewNullLogger()
@@ -696,7 +690,6 @@ func TestGitalyServerReturnsError(t *testing.T) {
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
 			})
 
 			runHookServiceWithMockServer(t, cfg, &hookMockServer{
@@ -801,8 +794,8 @@ remote: error executing git hook
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
 			})
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("initial commit"))
 
 			testcfg.BuildGitalyHooks(t, cfg)
 			testcfg.BuildGitalySSH(t, cfg)
