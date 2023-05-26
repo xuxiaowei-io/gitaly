@@ -39,6 +39,10 @@ const (
 	// of gitaly.
 	SharedFile fs.FileMode = 0o644
 
+	// SharedReadOnlyFile is the permission given for a read only file that may also
+	// be read outside of Gitaly.
+	SharedReadOnlyFile fs.FileMode = 0o444
+
 	// PublicFile is the permission given for a file that may be read or
 	// written outside of gitaly.
 	PublicFile fs.FileMode = 0o666
