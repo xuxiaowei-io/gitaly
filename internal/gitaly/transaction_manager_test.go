@@ -81,7 +81,7 @@ func writePack(tb testing.TB, cfg config.Cfg, packFile []byte, destinationPack s
 
 // packFileDirectoryEntry returns a DirectoryEntry that parses content as a pack file and asserts that the
 // set of objects in the pack file matches the expected objects.
-func packFileDirectoryEntry(cfg config.Cfg, mode fs.FileMode, expectedObjects []git.ObjectID) testhelper.DirectoryEntry {
+func packFileDirectoryEntry(cfg config.Cfg, expectedObjects []git.ObjectID) testhelper.DirectoryEntry {
 	sortObjects := func(objects []git.ObjectID) {
 		sort.Slice(objects, func(i, j int) bool {
 			return objects[i] < objects[j]
@@ -91,7 +91,7 @@ func packFileDirectoryEntry(cfg config.Cfg, mode fs.FileMode, expectedObjects []
 	sortObjects(expectedObjects)
 
 	return testhelper.DirectoryEntry{
-		Mode:    mode,
+		Mode:    perm.PrivateFile,
 		Content: expectedObjects,
 		ParseContent: func(tb testing.TB, content []byte) any {
 			tb.Helper()
@@ -1946,7 +1946,6 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/packs/1.pack": packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2043,7 +2042,6 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/packs/1.pack": packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2052,7 +2050,6 @@ func TestTransactionManager(t *testing.T) {
 					),
 					"/wal/packs/3.pack": packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.Commits.Second.OID,
 							setup.Commits.Third.OID,
@@ -2109,7 +2106,6 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/packs/1.pack": packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2187,7 +2183,6 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/packs/1.pack": packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2264,7 +2259,6 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/packs/1.pack": packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2338,7 +2332,6 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/wal/packs/1.pack": packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
