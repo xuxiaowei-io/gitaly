@@ -165,9 +165,6 @@ type Transaction struct {
 	// to finish where needed.
 	finished chan struct{}
 
-	// initStagingDirectory is called to lazily initialize the staging directory when it is
-	// needed.
-	initStagingDirectory func() error
 	// stagingDirectory is the directory where the transaction stages its files prior
 	// to them being logged. It is cleaned up when the transaction finishes.
 	stagingDirectory string
@@ -240,16 +237,6 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 		close(readReady)
 	}
 
-	txn.initStagingDirectory = func() error {
-		stagingDirectory, err := os.MkdirTemp(mgr.stagingDirectory, "")
-		if err != nil {
-			return fmt.Errorf("mkdir temp: %w", err)
-		}
-
-		txn.stagingDirectory = stagingDirectory
-		return nil
-	}
-
 	txn.finish = func() error {
 		defer close(txn.finished)
 
@@ -282,6 +269,12 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	case <-readReady:
 		if !repositoryExists {
 			return nil, ErrRepositoryNotFound
+		}
+
+		var err error
+		txn.stagingDirectory, err = os.MkdirTemp(mgr.stagingDirectory, "")
+		if err != nil {
+			return nil, fmt.Errorf("mkdir temp: %w", err)
 		}
 
 		return txn, nil
@@ -373,10 +366,6 @@ func (txn *Transaction) DeleteRepository() {
 // is a Git object directory where the new objects introduced in the transaction must be written. The quarantined
 // objects needed by the updated reference tips will be included in the transaction.
 func (txn *Transaction) QuarantineDirectory() (string, error) {
-	if err := txn.initStagingDirectory(); err != nil {
-		return "", fmt.Errorf("init staging directory: %w", err)
-	}
-
 	quarantineDirectory := filepath.Join(txn.stagingDirectory, "quarantine")
 	if err := os.MkdirAll(filepath.Join(quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
 		return "", fmt.Errorf("create quarantine directory: %w", err)
@@ -593,10 +582,6 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Transaction) error {
 	if transaction.customHooksUpdate == nil || len(transaction.customHooksUpdate.CustomHooksTAR) == 0 {
 		return nil
-	}
-
-	if err := transaction.initStagingDirectory(); err != nil {
-		return fmt.Errorf("init staging directory: %w", err)
 	}
 
 	if err := repoutil.ExtractHooks(

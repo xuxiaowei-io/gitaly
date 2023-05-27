@@ -1256,6 +1256,9 @@ func TestTransactionManager(t *testing.T) {
 						CustomHookIndex: 2,
 					},
 				},
+				Rollback{
+					TransactionID: 4,
+				},
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
@@ -1964,6 +1967,12 @@ func TestTransactionManager(t *testing.T) {
 						ReadIndex:       3,
 						CustomHookIndex: 3,
 					},
+				},
+				Rollback{
+					TransactionID: 5,
+				},
+				Rollback{
+					TransactionID: 6,
 				},
 			},
 			expectedState: StateAssertion{
@@ -3065,8 +3074,13 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory, noopTransactionFinalizer)
+					// The PartitionManager deletes and recreates the staging directory prior to starting a TransactionManager
+					// to clean up any stale state leftover by crashes. Do that here as well so the tests don't fail if we don't
+					// finish transactions after crash simulations.
+					require.NoError(t, os.RemoveAll(stagingDir))
+					require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory, noopTransactionFinalizer)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
 						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
