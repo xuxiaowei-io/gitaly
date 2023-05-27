@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger/v4"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -255,9 +256,9 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 
 	defer func() {
 		if returnedErr != nil {
-			// finish can't return an error as the staging directory isn't yet created, and won't
-			// be attempted to be deleted.
-			_ = txn.finish()
+			if err := txn.finish(); err != nil {
+				ctxlogrus.Extract(ctx).WithError(err).Error("failed finishing unsuccessful transaction begin")
+			}
 		}
 	}()
 
@@ -275,6 +276,11 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 		txn.stagingDirectory, err = os.MkdirTemp(mgr.stagingDirectory, "")
 		if err != nil {
 			return nil, fmt.Errorf("mkdir temp: %w", err)
+		}
+
+		txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
+		if err := os.MkdirAll(filepath.Join(txn.quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
+			return nil, fmt.Errorf("create quarantine directory: %w", err)
 		}
 
 		return txn, nil
@@ -360,20 +366,6 @@ func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
 // DeleteRepository deletes the repository when the transaction is committed.
 func (txn *Transaction) DeleteRepository() {
 	txn.deleteRepository = true
-}
-
-// QuarantineDirectory returns an absolute path to the transaction's quarantine directory. The quarantine directory
-// is a Git object directory where the new objects introduced in the transaction must be written. The quarantined
-// objects needed by the updated reference tips will be included in the transaction.
-func (txn *Transaction) QuarantineDirectory() (string, error) {
-	quarantineDirectory := filepath.Join(txn.stagingDirectory, "quarantine")
-	if err := os.MkdirAll(filepath.Join(quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
-		return "", fmt.Errorf("create quarantine directory: %w", err)
-	}
-
-	txn.quarantineDirectory = quarantineDirectory
-
-	return quarantineDirectory, nil
 }
 
 // SetDefaultBranch sets the default branch as part of the transaction. If SetDefaultBranch is called
@@ -599,19 +591,12 @@ func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Tran
 // setupStagingRepository sets a repository that is used to stage the transaction. The staging repository
 // has the quarantine applied so the objects are available for packing and verifying the references.
 func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, transaction *Transaction) error {
-	// If the repository exists, we use it for staging the transaction.
-	transaction.stagingRepository = mgr.repository
-
-	// If the transaction has a quarantine directory, we must use it when staging the pack
-	// file and verifying the references so the objects are available.
-	if transaction.quarantineDirectory != "" {
-		quarantinedRepo, err := transaction.stagingRepository.Quarantine(transaction.quarantineDirectory)
-		if err != nil {
-			return fmt.Errorf("quarantine: %w", err)
-		}
-
-		transaction.stagingRepository = quarantinedRepo
+	quarantinedRepo, err := mgr.repository.Quarantine(transaction.quarantineDirectory)
+	if err != nil {
+		return fmt.Errorf("quarantine: %w", err)
 	}
+
+	transaction.stagingRepository = quarantinedRepo
 
 	return nil
 }
@@ -620,10 +605,46 @@ func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, trans
 // prints the packs prefix in the format `pack <digest>`.
 var packPrefixRegexp = regexp.MustCompile(`^pack\t([0-9a-f]+)\n$`)
 
+// shouldPackObjects checks whether the quarantine directory has any non-default content in it.
+// If so, this signifies objects were written into it and we should pack them.
+func shouldPackObjects(quarantineDirectory string) (bool, error) {
+	errHasNewContent := errors.New("new content found")
+
+	// The quarantine directory itself and the pack directory within it are created when the transaction
+	// begins. These don't signify new content so we ignore them.
+	preExistingDirs := map[string]struct{}{
+		quarantineDirectory:                        {},
+		filepath.Join(quarantineDirectory, "pack"): {},
+	}
+	if err := filepath.Walk(quarantineDirectory, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if _, ok := preExistingDirs[path]; ok {
+			// The pre-existing directories don't signal any new content to pack.
+			return nil
+		}
+
+		// Use an error sentinel to cancel the walk as soon as new content has been found.
+		return errHasNewContent
+	}); err != nil {
+		if errors.Is(err, errHasNewContent) {
+			return true, nil
+		}
+
+		return false, fmt.Errorf("check for objects: %w", err)
+	}
+
+	return false, nil
+}
+
 // packObjects packs the objects included in the transaction into a single pack file that is ready
 // for logging. The pack file includes all unreachable objects that are about to be made reachable.
 func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Transaction) error {
-	if transaction.quarantineDirectory == "" {
+	if shouldPack, err := shouldPackObjects(transaction.quarantineDirectory); err != nil {
+		return fmt.Errorf("should pack objects: %w", err)
+	} else if !shouldPack {
 		return nil
 	}
 

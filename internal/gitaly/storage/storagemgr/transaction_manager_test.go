@@ -3155,12 +3155,9 @@ func TestTransactionManager(t *testing.T) {
 					}
 
 					if step.QuarantinedPacks != nil {
-						quarantineDirectory, err := transaction.QuarantineDirectory()
-						require.NoError(t, err)
-
 						for _, dir := range []string{
 							transaction.stagingDirectory,
-							quarantineDirectory,
+							transaction.quarantineDirectory,
 						} {
 							const expectedPerm = perm.PrivateDir
 							stat, err := os.Stat(dir)
@@ -3171,7 +3168,7 @@ func TestTransactionManager(t *testing.T) {
 						}
 
 						for i, pack := range step.QuarantinedPacks {
-							writePack(t, setup.Config, pack, filepath.Join(quarantineDirectory, "pack", fmt.Sprintf("%d.pack", i)))
+							writePack(t, setup.Config, pack, filepath.Join(transaction.quarantineDirectory, "pack", fmt.Sprintf("%d.pack", i)))
 						}
 
 					}
