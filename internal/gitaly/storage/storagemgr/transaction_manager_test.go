@@ -2639,31 +2639,19 @@ func TestTransactionManager(t *testing.T) {
 						CustomHooksTAR: validCustomHooks(t),
 					},
 				},
-				// Transaction 2 is not isolated from the changes made by transaction 1. It sees the committed
-				// changes immediately.
+				// Transaction 2 is isolated from the changes made by transaction 1. It does not see the
+				// committed changes.
 				RepositoryAssertion{
 					TransactionID: 2,
 					Repositories: RepositoryStates{
 						relativePath: {
 							DefaultBranch: "refs/heads/main",
-							References: []git.Reference{
-								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-							},
 							Objects: []git.ObjectID{
 								setup.ObjectHash.EmptyTreeOID,
 								setup.Commits.First.OID,
 								setup.Commits.Second.OID,
 								setup.Commits.Third.OID,
 								setup.Commits.Diverging.OID,
-							},
-							CustomHooks: testhelper.DirectoryState{
-								"/": {Mode: fs.ModeDir | perm.PrivateDir},
-								"/pre-receive": {
-									Mode:    umask.Mask(fs.ModePerm),
-									Content: []byte("hook content"),
-								},
-								"/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 							},
 						},
 					},
@@ -3920,6 +3908,236 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "transactions are snapshot isolated from concurrent updates",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/new-head",
+					},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					QuarantinedPacks: [][]byte{setup.Commits.First.Pack},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex:       1,
+						CustomHookIndex: 1,
+					},
+				},
+				// This transaction was started before the commit, so it should see the original state.
+				RepositoryAssertion{
+					TransactionID: 1,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/main",
+						},
+					},
+				},
+				// This transaction was started after the commit, so it should see the new state.
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/new-head",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+							CustomHooks: testhelper.DirectoryState{
+								"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/pre-receive": {
+									Mode:    umask.Mask(fs.ModePerm),
+									Content: []byte("hook content"),
+								},
+								"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							},
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 1,
+				},
+				Rollback{
+					TransactionID: 3,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":        {Mode: fs.ModeDir | perm.PrivateDir},
+					"/hooks":   {Mode: fs.ModeDir | perm.PrivateDir},
+					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/hooks/1/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
+					},
+					"/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					"/wal":                              {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":                            {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx":                indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.rev":                reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+				},
+
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/new-head",
+						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "transactions are snapshot isolated from concurrent deletions",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/new-head",
+					},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					QuarantinedPacks: [][]byte{setup.Commits.First.Pack},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex:       1,
+						CustomHookIndex: 1,
+					},
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex:       1,
+						CustomHookIndex: 1,
+					},
+				},
+				AsyncDeletion{
+					TransactionID: 2,
+				},
+				// This transaction was started before the deletion, so it should see the old state regardless
+				// of the repository being deleted.
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/new-head",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+							CustomHooks: testhelper.DirectoryState{
+								"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/pre-receive": {
+									Mode:    umask.Mask(fs.ModePerm),
+									Content: []byte("hook content"),
+								},
+								"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							},
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 3,
+				},
+				Begin{
+					TransactionID: 4,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 2,
+					},
+				},
+				RepositoryAssertion{
+					TransactionID: 4,
+					Repositories:  RepositoryStates{},
+				},
+				Rollback{
+					TransactionID: 4,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/hooks":   {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/hooks/1/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
+					},
+					"/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+				},
+				Repositories: RepositoryStates{},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -4177,6 +4395,7 @@ func TestTransactionManager(t *testing.T) {
 						rewrittenRepo := setup.RepositoryFactory.Build(
 							transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
 						)
+
 						for _, pack := range step.QuarantinedPacks {
 							require.NoError(t, rewrittenRepo.UnpackObjects(ctx, bytes.NewReader(pack)))
 						}
@@ -4254,11 +4473,15 @@ func TestTransactionManager(t *testing.T) {
 					transaction := openTransactions[step.TransactionID]
 
 					RequireRepositories(t, ctx, setup.Config,
-						storagePath,
+						// Assert the contents of the transaction's snapshot.
+						filepath.Join(setup.Config.Storages[0].Path, transaction.snapshotBaseRelativePath),
 						// Rewrite all of the repositories to point to their snapshots.
 						func(relativePath string) *localrepo.Repo {
 							return setup.RepositoryFactory.Build(
-								transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
+								transaction.RewriteRepository(&gitalypb.Repository{
+									StorageName:  setup.Config.Storages[0].Name,
+									RelativePath: relativePath,
+								}),
 							)
 						}, step.Repositories)
 				default:
