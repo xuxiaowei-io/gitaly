@@ -3266,10 +3266,14 @@ func TestTransactionManager(t *testing.T) {
 							)
 						}
 
+						rewrittenRepo := transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository))
+						// The quarantined object directories in *gitalypb.Repository are relative paths from repository
+						// root to the quarantine directory. Since we are manually writing the packs in place, we must
+						// join it with the repository's path first. Our Git helpers generally handle this for us.
+						quarantineDir := filepath.Join(repoPath, rewrittenRepo.GitObjectDirectory)
 						for i, pack := range step.QuarantinedPacks {
-							writePack(t, setup.Config, pack, filepath.Join(transaction.quarantineDirectory, "pack", fmt.Sprintf("%d.pack", i)))
+							writePack(t, setup.Config, pack, filepath.Join(quarantineDir, "pack", fmt.Sprintf("%d.pack", i)))
 						}
-
 					}
 
 					if step.DeleteRepository {

@@ -288,6 +288,16 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	}
 }
 
+// RewriteRepository returns a copy of the repository that has been set up to correctly access the
+// transaction's repository.
+func (txn *Transaction) RewriteRepository(repo *gitalypb.Repository) *gitalypb.Repository {
+	rewritten := proto.Clone(repo).(*gitalypb.Repository)
+	rewritten.RelativePath = txn.stagingRepository.GetRelativePath()
+	rewritten.GitObjectDirectory = txn.stagingRepository.GetGitObjectDirectory()
+	rewritten.GitAlternateObjectDirectories = txn.stagingRepository.GetGitAlternateObjectDirectories()
+	return rewritten
+}
+
 func (txn *Transaction) updateState(newState transactionState) error {
 	switch txn.state {
 	case transactionStateOpen:
