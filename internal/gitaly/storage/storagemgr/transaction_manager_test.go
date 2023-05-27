@@ -155,7 +155,7 @@ func TestTransactionManager(t *testing.T) {
 	type testSetup struct {
 		Config            config.Cfg
 		CommandFactory    git.CommandFactory
-		RepositoryFactory localrepo.StorageScopedFactory
+		RepositoryFactory localrepo.Factory
 		ObjectHash        git.ObjectHash
 		NonExistentOID    git.ObjectID
 		Commits           testCommits
@@ -210,16 +210,11 @@ func TestTransactionManager(t *testing.T) {
 			return pack.Bytes()
 		}
 
-		repositoryFactory, err := localrepo.NewFactory(
-			locator, cmdFactory, catfileCache,
-		).ScopeByStorage(cfg.Storages[0].Name)
-		require.NoError(t, err)
-
 		return testSetup{
 			Config:            cfg,
 			ObjectHash:        objectHash,
 			CommandFactory:    cmdFactory,
-			RepositoryFactory: repositoryFactory,
+			RepositoryFactory: localrepo.NewFactory(locator, cmdFactory, catfileCache),
 			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
 				First: testCommit{
@@ -3015,7 +3010,10 @@ func TestTransactionManager(t *testing.T) {
 			// Setup the repository with the exact same state as what was used to build the test cases.
 			setup := setupTest(t, relativePath)
 
-			repo := setup.RepositoryFactory.Build(relativePath)
+			storageScopedFactory, err := setup.RepositoryFactory.ScopeByStorage(setup.Config.Storages[0].Name)
+			require.NoError(t, err)
+			repo := storageScopedFactory.Build(relativePath)
+
 			repoPath, err := repo.Path()
 			require.NoError(t, err)
 
@@ -3033,7 +3031,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -3080,7 +3078,7 @@ func TestTransactionManager(t *testing.T) {
 					require.NoError(t, os.RemoveAll(stagingDir))
 					require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory, noopTransactionFinalizer)
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory, noopTransactionFinalizer)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
 						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
@@ -3167,13 +3165,11 @@ func TestTransactionManager(t *testing.T) {
 							)
 						}
 
-						rewrittenRepo := transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository))
-						// The quarantined object directories in *gitalypb.Repository are relative paths from repository
-						// root to the quarantine directory. Since we are manually writing the packs in place, we must
-						// join it with the repository's path first. Our Git helpers generally handle this for us.
-						quarantineDir := filepath.Join(repoPath, rewrittenRepo.GitObjectDirectory)
-						for i, pack := range step.QuarantinedPacks {
-							writePack(t, setup.Config, pack, filepath.Join(quarantineDir, "pack", fmt.Sprintf("%d.pack", i)))
+						rewrittenRepo := setup.RepositoryFactory.Build(
+							transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
+						)
+						for _, pack := range step.QuarantinedPacks {
+							require.NoError(t, rewrittenRepo.UnpackObjects(ctx, bytes.NewReader(pack)))
 						}
 					}
 
