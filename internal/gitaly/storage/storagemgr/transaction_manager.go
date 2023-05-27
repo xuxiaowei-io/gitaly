@@ -280,6 +280,10 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 			return nil, fmt.Errorf("create quarantine directory: %w", err)
 		}
 
+		if err := mgr.setupStagingRepository(ctx, txn); err != nil {
+			return nil, fmt.Errorf("setup staging repository: %w", err)
+		}
+
 		return txn, nil
 	}
 }
@@ -535,10 +539,6 @@ type resultChannel chan error
 // commit queues the transaction for processing and returns once the result has been determined.
 func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transaction) error {
 	transaction.result = make(resultChannel, 1)
-
-	if err := mgr.setupStagingRepository(ctx, transaction); err != nil {
-		return fmt.Errorf("setup staging repository: %w", err)
-	}
 
 	if err := mgr.stageHooks(ctx, transaction); err != nil {
 		return fmt.Errorf("stage hooks: %w", err)
