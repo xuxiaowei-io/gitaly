@@ -43,14 +43,7 @@ func UploadPack(ctx context.Context, conn *grpc.ClientConn, stdin io.Reader, std
 
 // UploadPackWithSidechannel proxies an SSH git-upload-pack (git fetch)
 // session to Gitaly using a sidechannel for the raw data transfer.
-func UploadPackWithSidechannel(
-	ctx context.Context,
-	conn *grpc.ClientConn,
-	reg *SidechannelRegistry,
-	stdin io.Reader,
-	stdout, stderr io.Writer,
-	req *gitalypb.SSHUploadPackWithSidechannelRequest,
-) (int32, error) {
+func UploadPackWithSidechannel(ctx context.Context, conn *grpc.ClientConn, reg *SidechannelRegistry, stdin io.Reader, stdout, stderr io.Writer, req *gitalypb.SSHUploadPackWithSidechannelRequest) (*gitalypb.SSHUploadPackWithSidechannelResponse, int32, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -63,13 +56,14 @@ func UploadPackWithSidechannel(
 	}()
 
 	sshClient := gitalypb.NewSSHServiceClient(conn)
-	if _, err := sshClient.SSHUploadPackWithSidechannel(ctx, req); err != nil {
-		return 0, err
+	resp, err := sshClient.SSHUploadPackWithSidechannel(ctx, req)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	if err := wt.Close(); err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 
-	return 0, nil
+	return resp, 0, nil
 }

@@ -191,6 +191,7 @@ type ConflictFile struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to ConflictFilePayload:
+	//
 	//	*ConflictFile_Header
 	//	*ConflictFile_Content
 	ConflictFilePayload isConflictFile_ConflictFilePayload `protobuf_oneof:"conflict_file_payload"`
@@ -455,6 +456,7 @@ type ResolveConflictsRequest struct {
 	// requests must be FilesJson requests.
 	//
 	// Types that are assignable to ResolveConflictsRequestPayload:
+	//
 	//	*ResolveConflictsRequest_Header
 	//	*ResolveConflictsRequest_FilesJson
 	ResolveConflictsRequestPayload isResolveConflictsRequest_ResolveConflictsRequestPayload `protobuf_oneof:"resolve_conflicts_request_payload"`

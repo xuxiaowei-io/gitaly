@@ -56,7 +56,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		return stream.Send(&gitalypb.SSHUploadPackResponse{Stderr: p})
 	})
 
-	if status, err := s.sshUploadPack(ctx, req, stdin, stdout, stderr); err != nil {
+	if _, status, err := s.sshUploadPack(ctx, req, stdin, stdout, stderr); err != nil {
 		if errSend := stream.Send(&gitalypb.SSHUploadPackResponse{
 			ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
 		}); errSend != nil {
@@ -75,7 +75,7 @@ type sshUploadPackRequest interface {
 	GetGitProtocol() string
 }
 
-func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequest, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequest, stdin io.Reader, stdout, stderr io.Writer) (negotiation stats.PackfileNegotiation, exitCode int, err error) {
 	ctx, cancelCtx := context.WithCancel(rpcContext)
 	defer cancelCtx()
 
@@ -86,14 +86,14 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 	repo := req.GetRepository()
 	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
-		return 0, err
+		return
 	}
 
 	git.WarnIfTooManyBitmaps(ctx, s.locator, repo.StorageName, repoPath)
 
 	config, err := git.ConvertConfigOptions(req.GetGitConfigOptions())
 	if err != nil {
-		return 0, err
+		return
 	}
 
 	var wg sync.WaitGroup
@@ -112,12 +112,13 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 			pr.Close()
 		}()
 
-		stats, err := stats.ParsePackfileNegotiation(pr)
-		if err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Debug("failed parsing packfile negotiation")
+		var errIgnore error
+		negotiation, errIgnore = stats.ParsePackfileNegotiation(pr)
+		if errIgnore != nil {
+			ctxlogrus.Extract(ctx).WithError(errIgnore).Debug("failed parsing packfile negotiation")
 			return
 		}
-		stats.UpdateMetrics(s.packfileNegotiationMetrics)
+		negotiation.UpdateMetrics(s.packfileNegotiationMetrics)
 	}()
 
 	commandOpts := []git.CmdOpt{
@@ -134,7 +135,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		Args: []string{repoPath},
 	}, commandOpts...)
 	if err != nil {
-		return 0, err
+		return stats.PackfileNegotiation{}, 0, err
 	}
 
 	timeoutTicker := s.uploadPackRequestTimeoutTickerFactory()
@@ -147,7 +148,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 	// use-after-check attacks.
 	go monitor.Monitor(ctx, pktline.PktDone(), timeoutTicker, cancelCtx)
 
-	if err := cmd.Wait(); err != nil {
+	if err = cmd.Wait(); err != nil {
 		status, _ := command.ExitStatus(err)
 
 		// When waiting for the packfile negotiation to end times out we'll cancel the local
@@ -159,7 +160,8 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		// We thus need to special-case the situation where we cancel our own context in
 		// order to provide that information and return a proper gRPC error code.
 		if ctx.Err() != nil && rpcContext.Err() == nil {
-			return status, structerr.NewDeadlineExceeded("waiting for packfile negotiation: %w", ctx.Err())
+			exitCode, err = status, structerr.NewDeadlineExceeded("waiting for packfile negotiation: %w", ctx.Err())
+			return
 		}
 
 		// A common error case is that the client is terminating the request prematurely,
@@ -172,15 +174,18 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		// Note that we're being quite strict with how we match the error for now. We may
 		// have to make it more lenient in case we see that this doesn't catch all cases.
 		if stderrBuilder.String() == "fatal: the remote end hung up unexpectedly\n" {
-			return status, structerr.NewCanceled("user canceled the fetch")
+			exitCode, err = status, structerr.NewCanceled("user canceled the fetch")
+			return
 		}
 
-		return status, fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())
+		exitCode, err = status, fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())
+		fmt.Println(err)
+		return
 	}
 
 	ctxlogrus.Extract(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
 
-	return 0, nil
+	return
 }
 
 func validateFirstUploadPackRequest(req *gitalypb.SSHUploadPackRequest) error {
@@ -212,12 +217,24 @@ func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb
 	sidebandWriter := pktline.NewSidebandWriter(conn)
 	stdout := sidebandWriter.Writer(stream.BandStdout)
 	stderr := sidebandWriter.Writer(stream.BandStderr)
-	if _, err := s.sshUploadPack(ctx, req, conn, stdout, stderr); err != nil {
+	stats, _, err := s.sshUploadPack(ctx, req, conn, stdout, stderr)
+	if err != nil {
 		return nil, structerr.NewInternal("%w", err)
 	}
 	if err := conn.Close(); err != nil {
 		return nil, structerr.NewInternal("close sidechannel: %w", err)
 	}
 
-	return &gitalypb.SSHUploadPackWithSidechannelResponse{}, nil
+	return &gitalypb.SSHUploadPackWithSidechannelResponse{
+		Stats: &gitalypb.Stats{
+			PayloadSize: stats.PayloadSize,
+			Packets:     int64(stats.Packets),
+			Caps:        stats.Caps,
+			Wants:       int64(stats.Wants),
+			Haves:       int64(stats.Haves),
+			Shallows:    int64(stats.Shallows),
+			Deepen:      stats.Deepen,
+			Filter:      stats.Filter,
+		},
+	}, nil
 }

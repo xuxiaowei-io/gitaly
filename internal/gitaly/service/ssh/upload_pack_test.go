@@ -196,7 +196,13 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{},
+			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{
+				Stats: &gitalypb.Stats{
+					Packets: 2,
+					Caps:    []string{"multi_ack"},
+					Wants:   1,
+				},
+			},
 		},
 		{
 			desc: "successful clone with protocol v2",
@@ -217,7 +223,12 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{},
+			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{
+				Stats: &gitalypb.Stats{
+					Packets: 5,
+					Wants:   1,
+				},
+			},
 		},
 		{
 			desc: "client talks protocol v0 but v2 is requested",
@@ -310,7 +321,9 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				require.NoError(t, clientConn.CloseWrite())
 				return nil
 			},
-			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{},
+			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{
+				Stats: &gitalypb.Stats{},
+			},
 		},
 		{
 			desc: "short write",
@@ -414,6 +427,10 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 			response, err := client.SSHUploadPackWithSidechannel(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			if tc.expectedResponse != nil && response != nil {
+				// The payload size is not deterministic(it's a different value in local-test end ci-test), so we set it to the expected value.
+				tc.expectedResponse.Stats.PayloadSize = response.Stats.PayloadSize
+			}
 			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}

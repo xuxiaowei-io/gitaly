@@ -90,6 +90,7 @@ type LoadBalancingConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Policy:
+	//
 	//	*LoadBalancingConfig_PickFirst
 	//	*LoadBalancingConfig_RoundRobin
 	Policy isLoadBalancingConfig_Policy `protobuf_oneof:"policy"`

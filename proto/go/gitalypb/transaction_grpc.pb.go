@@ -29,9 +29,9 @@ type RefTransactionClient interface {
 	//
 	// This RPC may return one of the following error codes:
 	//
-	// - `NotFound` in case the transaction could not be found.
-	// - `Canceled` in case the transaction has been canceled before quorum was
-	//   reached.
+	//   - `NotFound` in case the transaction could not be found.
+	//   - `Canceled` in case the transaction has been canceled before quorum was
+	//     reached.
 	VoteTransaction(ctx context.Context, in *VoteTransactionRequest, opts ...grpc.CallOption) (*VoteTransactionResponse, error)
 	// StopTransaction gracefully stops a transaction. This RPC can be used if
 	// only a subset of nodes executes specific code which may cause the
@@ -41,9 +41,9 @@ type RefTransactionClient interface {
 	//
 	// This RPC may return one of the following error codes:
 	//
-	// - `NotFound` in case the transaction could not be found.
-	// - `Canceled` in case the transaction has been canceled before quorum was
-	//   reached.
+	//   - `NotFound` in case the transaction could not be found.
+	//   - `Canceled` in case the transaction has been canceled before quorum was
+	//     reached.
 	StopTransaction(ctx context.Context, in *StopTransactionRequest, opts ...grpc.CallOption) (*StopTransactionResponse, error)
 }
 
@@ -84,9 +84,9 @@ type RefTransactionServer interface {
 	//
 	// This RPC may return one of the following error codes:
 	//
-	// - `NotFound` in case the transaction could not be found.
-	// - `Canceled` in case the transaction has been canceled before quorum was
-	//   reached.
+	//   - `NotFound` in case the transaction could not be found.
+	//   - `Canceled` in case the transaction has been canceled before quorum was
+	//     reached.
 	VoteTransaction(context.Context, *VoteTransactionRequest) (*VoteTransactionResponse, error)
 	// StopTransaction gracefully stops a transaction. This RPC can be used if
 	// only a subset of nodes executes specific code which may cause the
@@ -96,9 +96,9 @@ type RefTransactionServer interface {
 	//
 	// This RPC may return one of the following error codes:
 	//
-	// - `NotFound` in case the transaction could not be found.
-	// - `Canceled` in case the transaction has been canceled before quorum was
-	//   reached.
+	//   - `NotFound` in case the transaction could not be found.
+	//   - `Canceled` in case the transaction has been canceled before quorum was
+	//     reached.
 	StopTransaction(context.Context, *StopTransactionRequest) (*StopTransactionResponse, error)
 	mustEmbedUnimplementedRefTransactionServer()
 }

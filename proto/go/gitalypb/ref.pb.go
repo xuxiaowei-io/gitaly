@@ -704,6 +704,7 @@ type FindTagError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
+	//
 	//	*FindTagError_TagNotFound
 	Error isFindTagError_Error `protobuf_oneof:"error"`
 }
@@ -1443,6 +1444,7 @@ type DeleteRefsError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
+	//
 	//	*DeleteRefsError_InvalidFormat
 	//	*DeleteRefsError_ReferencesLocked
 	Error isDeleteRefsError_Error `protobuf_oneof:"error"`
