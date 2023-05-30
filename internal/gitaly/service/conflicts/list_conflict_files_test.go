@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -24,11 +23,7 @@ type conflictFile struct {
 func TestListConflictFiles(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ListConflictFilesMergeTree).Run(t, testListConflictFiles)
-}
-
-func testListConflictFiles(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	type setupData struct {
 		request       *gitalypb.ListConflictFilesRequest
@@ -85,45 +80,6 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 							Content: []byte("<<<<<<< b\nbanana\n=======\npeach\n>>>>>>> b\n"),
 						},
 					},
-				}
-			},
-		},
-		{
-			"conflict in submodules commits are not handled",
-			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
-				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
-				_, subRepoPath := gittest.CreateRepository(tb, ctx, cfg)
-
-				subCommitID := gittest.WriteCommit(t, cfg, subRepoPath)
-				ourCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
-					gittest.TreeEntry{
-						Mode:    "100644",
-						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
-					},
-					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
-				))
-
-				newSubCommitID := gittest.WriteCommit(t, cfg, subRepoPath)
-				theirCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
-					gittest.TreeEntry{
-						Mode:    "100644",
-						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
-					},
-					gittest.TreeEntry{OID: newSubCommitID, Mode: "160000", Path: "sub"},
-				))
-
-				request := &gitalypb.ListConflictFilesRequest{
-					Repository:     repo,
-					OurCommitOid:   ourCommitID.String(),
-					TheirCommitOid: theirCommitID.String(),
-				}
-
-				return setupData{
-					client:  client,
-					request: request,
 				}
 			},
 		},
@@ -347,37 +303,28 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 					AllowTreeConflicts: true,
 				}
 
-				expectedFiles := []*conflictFile{
-					{
-						Header: &gitalypb.ConflictFileHeader{
-							CommitOid:    ourCommitID.String(),
-							OurPath:      []byte("a"),
-							OurMode:      int32(0o100644),
-							AncestorPath: []byte("a"),
-						},
-						Content: []byte("<<<<<<< a\nmango\n=======\n>>>>>>> \n"),
-					},
-					{
-						Header: &gitalypb.ConflictFileHeader{
-							CommitOid:    ourCommitID.String(),
-							TheirPath:    []byte("b"),
-							AncestorPath: []byte("b"),
-						},
-						Content: []byte("<<<<<<< \n=======\npeach\n>>>>>>> b\n"),
-					},
-				}
-
-				// When using git-merge-tree(1), deleted files don't contain conflict markers.
-				// Whereas if you see above, Git2Go contains conflict markers.
-				if featureflag.ListConflictFilesMergeTree.IsEnabled(ctx) {
-					expectedFiles[0].Content = []byte("mango")
-					expectedFiles[1].Content = []byte("peach")
-				}
-
 				return setupData{
-					client:        client,
-					request:       request,
-					expectedFiles: expectedFiles,
+					client:  client,
+					request: request,
+					expectedFiles: []*conflictFile{
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid:    ourCommitID.String(),
+								OurPath:      []byte("a"),
+								OurMode:      int32(0o100644),
+								AncestorPath: []byte("a"),
+							},
+							Content: []byte("<<<<<<< a\nmango\n=======\n>>>>>>> \n"),
+						},
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid:    ourCommitID.String(),
+								TheirPath:    []byte("b"),
+								AncestorPath: []byte("b"),
+							},
+							Content: []byte("<<<<<<< \n=======\npeach\n>>>>>>> b\n"),
+						},
+					},
 				}
 			},
 		},
@@ -534,9 +481,7 @@ func getConflictFiles(t *testing.T, c gitalypb.ConflictsService_ListConflictFile
 	}
 
 	// Append leftover file
-	if currentFile != nil {
-		files = append(files, currentFile)
-	}
+	files = append(files, currentFile)
 
 	return files, nil
 }
