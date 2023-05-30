@@ -21,10 +21,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -404,6 +407,30 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create reference",
 			steps: steps{
 				StartManager{},
+				Begin{},
+				Commit{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				DefaultBranch: "refs/heads/main",
+				References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "create reference with existing reference lock",
+			steps: steps{
+				StartManager{
+					ModifyRepository: func(_ testing.TB, repoPath string) {
+						err := os.WriteFile(fmt.Sprintf("%s/refs/heads/main.lock", repoPath), []byte{}, 0o666)
+						require.NoError(t, err)
+					},
+				},
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
@@ -2864,11 +2891,14 @@ func TestTransactionManager(t *testing.T) {
 			stagingDir := t.TempDir()
 			storagePath := setup.Config.Storages[0].Path
 
+			txManager := transaction.NewManager(setup.Config, backchannel.NewRegistry())
+			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, txManager)
+
 			var (
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory, noopTransactionFinalizer)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -2909,10 +2939,11 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.RepositoryFactory, setup.CommandFactory, noopTransactionFinalizer)
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory, noopTransactionFinalizer)
+
 					installHooks(t, transactionManager, database, hooks{
-						beforeReadLogEntry:    step.Hooks.BeforeApplyLogEntry,
-						beforeResolveRevision: step.Hooks.BeforeAppendLogEntry,
+						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
+						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
 						beforeDeferredStop: func(hookContext) {
 							if step.Hooks.WaitForTransactionsWhenStopping {
 								inflightTransactions.Wait()
@@ -3215,6 +3246,9 @@ func BenchmarkTransactionManager(b *testing.B) {
 			require.NoError(b, err)
 			defer testhelper.MustClose(b, database)
 
+			txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
+
 			var (
 				// managerWG records the running TransactionManager.Run goroutines.
 				managerWG sync.WaitGroup
@@ -3256,7 +3290,8 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), repositoryFactory, cmdFactory, noopTransactionFinalizer)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), cmdFactory, housekeepingManager, repositoryFactory, noopTransactionFinalizer)
+
 				managers = append(managers, manager)
 
 				managerWG.Add(1)

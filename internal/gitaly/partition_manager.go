@@ -12,6 +12,7 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -30,6 +31,8 @@ type PartitionManager struct {
 	storages map[string]*storageManager
 	// commandFactory is passed as a dependency to the constructed TransactionManagers.
 	commandFactory git.CommandFactory
+	// housekeepingManager access to the housekeeping.Manager.
+	housekeepingManager housekeeping.Manager
 }
 
 // storageManager represents a single storage.
@@ -111,7 +114,13 @@ func (ptn *partition) stop() {
 }
 
 // NewPartitionManager returns a new PartitionManager.
-func NewPartitionManager(configuredStorages []config.Storage, cmdFactory git.CommandFactory, localRepoFactory localrepo.Factory, logger logrus.FieldLogger) (*PartitionManager, error) {
+func NewPartitionManager(
+	configuredStorages []config.Storage,
+	cmdFactory git.CommandFactory,
+	housekeepingManager housekeeping.Manager,
+	localRepoFactory localrepo.Factory,
+	logger logrus.FieldLogger,
+) (*PartitionManager, error) {
 	storages := make(map[string]*storageManager, len(configuredStorages))
 	for _, storage := range configuredStorages {
 		repoFactory, err := localRepoFactory.ScopeByStorage(storage.Name)
@@ -154,7 +163,7 @@ func NewPartitionManager(configuredStorages []config.Storage, cmdFactory git.Com
 		}
 	}
 
-	return &PartitionManager{storages: storages, commandFactory: cmdFactory}, nil
+	return &PartitionManager{storages: storages, commandFactory: cmdFactory, housekeepingManager: housekeepingManager}, nil
 }
 
 func stagingDirectoryPath(storagePath string) string {
@@ -194,7 +203,8 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Tran
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, stagingDir, storageMgr.repoFactory, pm.commandFactory, storageMgr.transactionFinalizerFactory(ptn))
+			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, stagingDir, pm.commandFactory, pm.housekeepingManager, storageMgr.repoFactory, storageMgr.transactionFinalizerFactory(ptn))
+
 			ptn.transactionManager = mgr
 
 			storageMgr.partitions[relativePath] = ptn

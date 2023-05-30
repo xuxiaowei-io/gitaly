@@ -19,6 +19,8 @@ type Manager interface {
 	// OptimizeRepository optimizes the repository's data structures such that it can be more
 	// efficiently served.
 	OptimizeRepository(context.Context, *localrepo.Repo, ...OptimizeRepositoryOption) error
+	// AddPackRefsInhibitor allows clients to block housekeeping from running git-pack-refs(1).
+	AddPackRefsInhibitor(ctx context.Context, repoPath string) (bool, func(), error)
 }
 
 // repositoryState holds the housekeeping state for individual repositories. This structure can be
@@ -142,7 +144,10 @@ func (s *repositoryStates) addPackRefsInhibitor(ctx context.Context, repoPath st
 		select {
 		case <-ctx.Done():
 			return false, nil, ctx.Err()
-		case <-state.packRefsDone:
+		case <-packRefsDone:
+			// We don't use state.packRefsDone, cause there is possibility that it is set
+			// to `nil` by the cleanup function after running `git-pack-refs(1)`.
+			//
 			// We obtain a lock and continue the loop here to avoid a race wherein another
 			// goroutine has invoked git-pack-refs(1). By continuing the loop and checking
 			// the value of packRefsDone, we can avoid that scenario.
@@ -310,4 +315,11 @@ func (m *RepositoryManager) Collect(metrics chan<- prometheus.Metric) {
 	m.dataStructureCount.Collect(metrics)
 	m.dataStructureSize.Collect(metrics)
 	m.dataStructureTimeSinceLastOptimization.Collect(metrics)
+}
+
+// AddPackRefsInhibitor exposes the internal function addPackRefsInhibitor on the
+// RepositoryManager level. This can then be used by other clients to block housekeeping
+// from running git-pack-refs(1).
+func (m *RepositoryManager) AddPackRefsInhibitor(ctx context.Context, repoPath string) (successful bool, _ func(), err error) {
+	return m.repositoryStates.addPackRefsInhibitor(ctx, repoPath)
 }

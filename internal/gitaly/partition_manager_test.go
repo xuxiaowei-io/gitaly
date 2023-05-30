@@ -12,9 +12,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -563,8 +566,12 @@ func TestPartitionManager(t *testing.T) {
 				)
 			}
 
-			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, localRepoFactory, logrus.StandardLogger())
+			txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
+
+			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, logrus.StandardLogger())
 			require.NoError(t, err)
+
 			defer func() {
 				partitionManager.Stop()
 				for _, storage := range cfg.Storages {
