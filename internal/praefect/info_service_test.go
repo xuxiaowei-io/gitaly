@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package praefect
 
 import (
@@ -126,7 +124,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 		// The helper was implemented with the test server in mind. Here we need use the virtual storage's name
 		// as the storage and the path of the storage we want to modify the replica in.
 		gconfig.Cfg{Storages: []gconfig.Storage{{Name: virtualStorage, Path: cfgs[1].Storages[0].Path}}},
-		gittest.CreateRepositoryConfig{Seed: gittest.SeedGitLabTest, ClientConn: cc},
+		gittest.CreateRepositoryConfig{ClientConn: cc},
 	)
 
 	// create a commit in the second replica so we can check that its checksum is different than the primary

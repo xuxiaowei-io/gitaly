@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package praefect
 
 import (
@@ -2093,7 +2091,6 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	for _, tc := range []struct {

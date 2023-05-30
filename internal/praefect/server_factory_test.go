@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package praefect
 
 import (
@@ -13,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
@@ -20,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
@@ -48,8 +46,8 @@ func TestServerFactory(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	revision := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	certificate := testhelper.GenerateCertificate(t)
 
@@ -74,7 +72,6 @@ func TestServerFactory(t *testing.T) {
 	}
 
 	repo.StorageName = conf.VirtualStorages[0].Name // storage must be re-written to virtual to be properly redirected by praefect
-	revision := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	logger := testhelper.NewDiscardingLogEntry(t)
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
@@ -117,7 +114,7 @@ func TestServerFactory(t *testing.T) {
 			Revision:   []byte(revision),
 		})
 		require.NoError(t, err)
-		require.Equal(t, revision, resp.Commit.Id)
+		require.Equal(t, revision.String(), resp.Commit.Id)
 	}
 
 	checkSidechannelGitaly := func(t *testing.T, ctx context.Context, addr string, creds credentials.TransportCredentials) {
@@ -141,14 +138,10 @@ func TestServerFactory(t *testing.T) {
 
 		var pack []byte
 		ctx, waiter := sidechannel.RegisterSidechannel(ctx, registry, func(conn *sidechannel.ClientConn) error {
-			// 1e292f8fedd741b75372e19097c76d327140c312 is refs/heads/master of the test repo
-			const message = `003cwant 1e292f8fedd741b75372e19097c76d327140c312 ofs-delta
-00000009done
-`
+			gittest.WritePktlinef(t, conn, "want %s ofs-delta", revision)
+			gittest.WritePktlineFlush(t, conn)
+			gittest.WritePktlineString(t, conn, "done")
 
-			if _, err := io.WriteString(conn, message); err != nil {
-				return err
-			}
 			if err := conn.CloseWrite(); err != nil {
 				return err
 			}
