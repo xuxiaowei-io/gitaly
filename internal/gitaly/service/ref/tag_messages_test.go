@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
@@ -20,13 +18,17 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize)
 
-	tag1ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-1", "master", gittest.WriteTagConfig{Message: message1})
-	tag2ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-2", "master~", gittest.WriteTagConfig{Message: message2})
+	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("big-tag-1"))
+	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("big-tag-2"))
+	tag1ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-1", commit1.Revision(), gittest.WriteTagConfig{Message: message1})
+	tag2ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-2", commit2.Revision(), gittest.WriteTagConfig{Message: message2})
 
 	request := &gitalypb.GetTagMessagesRequest{
 		Repository: repo,

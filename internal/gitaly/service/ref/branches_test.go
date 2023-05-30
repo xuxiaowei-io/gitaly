@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
@@ -7,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -15,29 +14,27 @@ import (
 )
 
 func TestSuccessfulFindBranchRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg, client := setupRefServiceWithoutRepo(t)
 
-	cfg, repoProto, _, client := setupRefService(t, ctx)
-
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	branchesByName := make(map[git.ReferenceName]*gitalypb.Branch)
-	for branchName, revision := range map[git.ReferenceName]git.Revision{
-		"refs/heads/branch":            "refs/heads/master~0",
-		"refs/heads/heads/branch":      "refs/heads/master~1",
-		"refs/heads/refs/heads/branch": "refs/heads/master~2",
+	for _, branchName := range []string{
+		"refs/heads/branch",
+		"refs/heads/heads/branch",
+		"refs/heads/refs/heads/branch",
 	} {
-		oid, err := repo.ResolveRevision(ctx, revision)
+		oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference(branchName), gittest.WithMessage(branchName))
+
+		commit, err := repo.ReadCommit(ctx, oid.Revision())
 		require.NoError(t, err)
 
-		err = repo.UpdateRef(ctx, branchName, oid, "")
-		require.NoError(t, err)
-
-		commit, err := repo.ReadCommit(ctx, branchName.Revision())
-		require.NoError(t, err)
-
-		branchesByName[branchName] = &gitalypb.Branch{
-			Name:         []byte(branchName.String()[len("refs/heads/"):]),
+		branchesByName[git.ReferenceName(branchName)] = &gitalypb.Branch{
+			Name:         []byte(branchName[len("refs/heads/"):]),
 			TargetCommit: commit,
 		}
 	}
@@ -84,8 +81,11 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 }
 
 func TestFailedFindBranchRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
 		desc        string
