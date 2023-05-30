@@ -188,10 +188,6 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	}
 
 	mgr.mutex.Lock()
-	if !mgr.repositoryExists {
-		mgr.mutex.Unlock()
-		return nil, ErrRepositoryNotFound
-	}
 
 	txn := &Transaction{
 		commit:   mgr.commit,
@@ -213,6 +209,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	openTransactionElement := mgr.openTransactions.PushBack(txn)
 
 	readReady := mgr.applyNotifications[txn.snapshot.ReadIndex]
+	repositoryExists := mgr.repositoryExists
 	mgr.mutex.Unlock()
 	if readReady == nil {
 		// The snapshot log entry is already applied if there is no notification channel for it.
@@ -261,6 +258,10 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	case <-mgr.ctx.Done():
 		return nil, ErrTransactionProcessingStopped
 	case <-readReady:
+		if !repositoryExists {
+			return nil, ErrRepositoryNotFound
+		}
+
 		return txn, nil
 	}
 }
@@ -513,6 +514,10 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 		return fmt.Errorf("setup staging repository: %w", err)
 	}
 
+	if err := mgr.stageHooks(ctx, transaction); err != nil {
+		return fmt.Errorf("stage hooks: %w", err)
+	}
+
 	if err := mgr.packObjects(ctx, transaction); err != nil {
 		return fmt.Errorf("pack objects: %w", err)
 	}
@@ -534,6 +539,30 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 	case <-mgr.stopCalled:
 		return ErrTransactionProcessingStopped
 	}
+}
+
+// stageHooks extracts the new hooks, if any, into <stagingDirectory>/custom_hooks. This is ensures the TAR
+// is valid prior to committing the transaction. The hooks files on the disk are also used to compute a vote
+// for Praefect.
+func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Transaction) error {
+	if transaction.customHooksUpdate == nil || len(transaction.customHooksUpdate.CustomHooksTAR) == 0 {
+		return nil
+	}
+
+	if err := transaction.initStagingDirectory(); err != nil {
+		return fmt.Errorf("init staging directory: %w", err)
+	}
+
+	if err := repoutil.ExtractHooks(
+		ctx,
+		bytes.NewReader(transaction.customHooksUpdate.CustomHooksTAR),
+		transaction.stagingDirectory,
+		false,
+	); err != nil {
+		return fmt.Errorf("extract hooks: %w", err)
+	}
+
+	return nil
 }
 
 // setupStagingRepository sets a repository that is used to stage the transaction. The staging repository

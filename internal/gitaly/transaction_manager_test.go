@@ -287,7 +287,9 @@ func TestTransactionManager(t *testing.T) {
 		// Context is the context to use for the Commit call.
 		Context context.Context
 		// ExpectedError is the error that is expected to be returned when committing the transaction.
-		ExpectedError error
+		// If ExpectedError is a function with signature func(tb testing.TB, actualErr error), it is
+		// ran instead to asser the error.
+		ExpectedError any
 
 		// SkipVerificationFailures sets the verification failure handling for this commit.
 		SkipVerificationFailures bool
@@ -1101,6 +1103,24 @@ func TestTransactionManager(t *testing.T) {
 					"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 					"/wal/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				},
+			},
+		},
+		{
+			desc: "rejects invalid custom hooks",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: []byte("corrupted tar"),
+					},
+					ExpectedError: func(tb testing.TB, actualErr error) {
+						require.ErrorContains(tb, actualErr, "stage hooks: extract hooks: waiting for tar command completion: exit status")
+					},
 				},
 			},
 		},
@@ -2912,7 +2932,7 @@ func TestTransactionManager(t *testing.T) {
 				t.Helper()
 
 				transactionManager.Stop()
-				managerRunning, err = checkManagerError(t, managerErr, transactionManager)
+				managerRunning, err = checkManagerError(t, ctx, managerErr, transactionManager)
 				require.NoError(t, err)
 				require.False(t, managerRunning)
 			}
@@ -2972,7 +2992,7 @@ func TestTransactionManager(t *testing.T) {
 					stopManager()
 				case AssertManager:
 					require.True(t, managerRunning, "test error: manager must be running for syncing")
-					managerRunning, err = checkManagerError(t, managerErr, transactionManager)
+					managerRunning, err = checkManagerError(t, ctx, managerErr, transactionManager)
 					require.ErrorIs(t, err, step.ExpectedError)
 				case Begin:
 					require.NotContains(t, openTransactions, step.TransactionID, "test error: transaction id reused in begin")
@@ -3045,7 +3065,17 @@ func TestTransactionManager(t *testing.T) {
 						commitCtx = step.Context
 					}
 
-					require.ErrorIs(t, transaction.Commit(commitCtx), step.ExpectedError)
+					commitErr := transaction.Commit(commitCtx)
+					switch expectedErr := step.ExpectedError.(type) {
+					case func(testing.TB, error):
+						expectedErr(t, commitErr)
+					case error:
+						require.ErrorIs(t, commitErr, expectedErr)
+					case nil:
+						require.NoError(t, commitErr)
+					default:
+						t.Fatalf("unexpected error type: %T", expectedErr)
+					}
 				case AsyncDeletion:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction committed before beginning it")
 
@@ -3088,7 +3118,7 @@ func TestTransactionManager(t *testing.T) {
 			}
 
 			if managerRunning {
-				managerRunning, err = checkManagerError(t, managerErr, transactionManager)
+				managerRunning, err = checkManagerError(t, ctx, managerErr, transactionManager)
 				require.NoError(t, err)
 			}
 
@@ -3139,7 +3169,7 @@ func TestTransactionManager(t *testing.T) {
 	}
 }
 
-func checkManagerError(t *testing.T, managerErrChannel chan error, mgr *TransactionManager) (bool, error) {
+func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan error, mgr *TransactionManager) (bool, error) {
 	t.Helper()
 
 	testTransaction := &Transaction{
@@ -3170,6 +3200,19 @@ func checkManagerError(t *testing.T, managerErrChannel chan error, mgr *Transact
 		select {
 		case err := <-testTransaction.result:
 			require.Error(t, err, "test transaction is expected to error out")
+
+			// Begin a transaction to wait until the manager has applied all log entries currently
+			// committed. This ensures the disk state assertions run with all log entries fully applied
+			// to the repository.
+			if tx, err := mgr.Begin(ctx); err != nil {
+				// Since we already verified the manager was running by it processing the test transaction,
+				// the Begin call should succeed. The only expected error would be ErrRepositoryNotFound
+				// if the repository was deleted.
+				require.ErrorIs(t, err, ErrRepositoryNotFound)
+			} else {
+				require.NoError(t, tx.Rollback())
+			}
+
 			return true, nil
 		case managerErr, closeChannel = <-managerErrChannel:
 		}
