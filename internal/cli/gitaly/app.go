@@ -18,9 +18,10 @@ func init() {
 // NewApp returns a new gitaly app.
 func NewApp() *cli.App {
 	return &cli.App{
-		Name:    "gitaly",
-		Usage:   "a git server",
-		Version: version.GetVersionString("Gitaly"),
+		Name:        "gitaly",
+		Usage:       "a Git RPC service",
+		Description: "Gitaly is a Git RPC service for handling Git calls.",
+		Version:     version.GetVersionString("Gitaly"),
 		// serveAction is also here in the root to keep the CLI backwards compatible
 		// with the previous way to launch Gitaly with just `gitaly <configfile>`. We
 		// may want to deprecate this eventually.
