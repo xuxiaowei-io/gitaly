@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -240,7 +238,8 @@ func TestSetCustomHooks_corruptTar(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, repo, _, client := setupRepositoryService(t, ctx)
+			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 			writer, closeStream := tc.streamWriter(t, ctx, repo, client)
 
 			archivePath := mustCreateCorruptHooksArchive(t)
