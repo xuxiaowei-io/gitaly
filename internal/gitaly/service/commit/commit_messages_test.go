@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
@@ -20,7 +18,9 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
@@ -62,7 +62,7 @@ func TestFailedGetCommitMessagesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, _, _, client := setupCommitServiceWithRepo(t, ctx)
+	_, client := setupCommitService(t, ctx)
 
 	testCases := []struct {
 		desc    string
