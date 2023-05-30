@@ -975,8 +975,8 @@ github.com/git-lfs/pktline v0.0.0-20210330133718-06e9096e2825 h1:riQhgheTL7tMF4d
 github.com/git-lfs/pktline v0.0.0-20210330133718-06e9096e2825/go.mod h1:fenKRzpXDjNpsIBhuhUzvjCKlDjKam0boRAenTE0Q6A=
 github.com/git-lfs/wildmatch/v2 v2.0.1 h1:Ds+aobrV5bK0wStILUOn9irllPyf9qrFETbKzwzoER8=
 github.com/git-lfs/wildmatch/v2 v2.0.1/go.mod h1:EVqonpk9mXbREP3N8UkwoWdrF249uHpCUo5CPXY81gw=
-github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20230217131025-5f34a24251ba h1:YrwUTuHtD2UELScdDM4fbX6Zv+XXfYN1v57++uVYyv8=
-github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20230217131025-5f34a24251ba/go.mod h1:GQ4fTuYONdIld5zIpcOd0hbfZIfZnZmrR5m86NH8pKU=
+github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20230524080836-4cc9a3796917 h1:liuaGhgkXR2wY2qz3uQqjEjjFxMcbWrCuPNCru1D/pM=
+github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20230524080836-4cc9a3796917/go.mod h1:YVJKPE01WQNjN/bdM6V0I/9KxvwEAAv0Ef9pi92K6w0=
 github.com/gliderlabs/ssh v0.2.2 h1:6zsha5zo/TWhRhwqCD3+EarCAgZ2yN28ipRnGPnwkI0=
 github.com/gliderlabs/ssh v0.2.2/go.mod h1:U7qILu1NlMHj9FlMhZLlkCdDnU1DBEAqr0aevW3Awn0=
 github.com/go-enry/go-enry/v2 v2.8.4 h1:QrY3hx/RiqCJJRbdU0MOcjfTM1a586J0WSooqdlJIhs=
