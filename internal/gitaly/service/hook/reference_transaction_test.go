@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
@@ -161,9 +159,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithBackchannelRegistry(registry))
 			ctx := testhelper.Context(t)
 
-			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,

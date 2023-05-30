@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
@@ -37,8 +35,11 @@ func TestUpdateInvalidArgument(t *testing.T) {
 }
 
 func TestUpdate_CustomHooks(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupHookService(t, ctx)
+	cfg, client := setupHookService(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
@@ -62,8 +63,8 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	req := gitalypb.UpdateHookRequest{
 		Repository:           repo,
 		Ref:                  []byte("master"),
-		OldValue:             strings.Repeat("a", 40),
-		NewValue:             strings.Repeat("b", 40),
+		OldValue:             strings.Repeat("a", gittest.DefaultObjectHash.EncodedLen()),
+		NewValue:             strings.Repeat("b", gittest.DefaultObjectHash.EncodedLen()),
 		EnvironmentVariables: envVars,
 	}
 

@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
@@ -95,15 +93,14 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx co
 
 	ctx1, cancel := context.WithCancel(ctx)
 	defer cancel()
-	repo, repoPath := gittest.CreateRepository(t, ctx1, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx1, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	req := &gitalypb.PackObjectsHookWithSidechannelRequest{
 		Repository: repo,
 		Args:       []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"},
 	}
-	const stdin = "3dd08961455abf80ef9115f4afdc1c6f968b503c\n--not\n\n"
+	stdin := commitID.String() + "\n--not\n\n"
 
 	start1 := make(chan struct{})
 	start2 := make(chan struct{})
@@ -355,9 +352,8 @@ func testServerPackObjectsHookUsesCache(t *testing.T, ctx context.Context, runti
 				s.packObjectsCache = tlc
 			}})
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 			doRequest := func(request *gitalypb.PackObjectsHookWithSidechannelRequest) {
 				var stdout []byte
@@ -367,7 +363,7 @@ func testServerPackObjectsHookUsesCache(t *testing.T, ctx context.Context, runti
 						RuntimeDir: runtimeDir,
 					},
 					func(c *net.UnixConn) error {
-						if _, err := io.WriteString(c, "3dd08961455abf80ef9115f4afdc1c6f968b503c\n--not\n\n"); err != nil {
+						if _, err := io.WriteString(c, commitID.String()+"\n--not\n\n"); err != nil {
 							return err
 						}
 						if err := c.CloseWrite(); err != nil {
@@ -429,25 +425,54 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 }
 
 func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx context.Context, runtimeDir string) {
-	testCases := []struct {
-		desc  string
-		stdin string
-		args  []string
-	}{
-		{
-			desc:  "clone 1 branch",
-			stdin: "3dd08961455abf80ef9115f4afdc1c6f968b503c\n--not\n\n",
-			args:  []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"},
-		},
-		{
-			desc:  "shallow clone 1 branch",
-			stdin: "--shallow 1e292f8fedd741b75372e19097c76d327140c312\n1e292f8fedd741b75372e19097c76d327140c312\n--not\n\n",
-			args:  []string{"--shallow-file", "", "pack-objects", "--revs", "--thin", "--stdout", "--shallow", "--progress", "--delta-base-offset", "--include-tag"},
-		},
+	t.Parallel()
+
+	type setupData struct {
+		repo     *gitalypb.Repository
+		repoPath string
+		args     []string
+		stdin    string
 	}
 
-	for _, tc := range testCases {
+	for _, tc := range []struct {
+		desc  string
+		setup func(*testing.T, context.Context, config.Cfg) setupData
+	}{
+		{
+			desc: "clone 1 branch",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+
+				return setupData{
+					repo:     repo,
+					repoPath: repoPath,
+					stdin:    oid.String() + "\n--not\n\n",
+					args:     []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"},
+				}
+			},
+		},
+		{
+			desc: "shallow clone 1 branch",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				secondCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit), gittest.WithBranch("branch"))
+
+				return setupData{
+					repo:     repo,
+					repoPath: repoPath,
+					stdin:    fmt.Sprintf("--shallow %[1]s\n%[1]s\n--not\n\n", secondCommit),
+					args:     []string{"--shallow-file", "", "pack-objects", "--revs", "--thin", "--stdout", "--shallow", "--progress", "--delta-base-offset", "--include-tag"},
+				}
+			},
+		},
+	} {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			cfg := cfgWithCache(t, 0)
 
 			logger, hook := test.NewNullLogger()
@@ -460,9 +485,8 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx co
 				testserver.WithLogger(logger),
 				testserver.WithConcurrencyTracker(concurrencyTracker),
 			)
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+
+			setup := tc.setup(t, ctx, cfg)
 
 			var packets []string
 			ctx, wt, err := hookPkg.SetupSidechannel(
@@ -471,7 +495,7 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx co
 					RuntimeDir: runtimeDir,
 				},
 				func(c *net.UnixConn) error {
-					if _, err := io.WriteString(c, tc.stdin); err != nil {
+					if _, err := io.WriteString(c, setup.stdin); err != nil {
 						return err
 					}
 					if err := c.CloseWrite(); err != nil {
@@ -492,8 +516,8 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx co
 			defer conn.Close()
 
 			_, err = client.PackObjectsHookWithSidechannel(ctx, &gitalypb.PackObjectsHookWithSidechannelRequest{
-				Repository: repo,
-				Args:       tc.args,
+				Repository: setup.repo,
+				Args:       setup.args,
 			})
 			require.NoError(t, err)
 
@@ -517,7 +541,7 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx co
 				t,
 				cfg,
 				gittest.ExecConfig{Stdin: bytes.NewReader(packdata)},
-				"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
+				"-C", setup.repoPath, "index-pack", "--stdin", "--fix-thin",
 			)
 
 			entry := hook.LastEntry()
@@ -630,9 +654,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 	cfg.SocketPath = runHooksServer(t, cfg, nil)
 	ctx := testhelper.Context(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
 		desc        string

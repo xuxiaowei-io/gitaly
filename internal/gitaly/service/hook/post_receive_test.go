@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
@@ -28,8 +26,10 @@ import (
 )
 
 func TestPostReceiveInvalidArgument(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, _, _, client := setupHookService(t, ctx)
+	_, client := setupHookService(t)
 
 	stream, err := client.PostReceiveHook(ctx)
 	require.NoError(t, err)
@@ -69,7 +69,6 @@ func TestHooksMissingStdin(t *testing.T) {
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
 			})
 
 			c := gitlab.TestServerOptions{
@@ -199,7 +198,6 @@ To create a merge request for okay, visit:
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
 			})
 
 			tempDir := testhelper.TempDir(t)
