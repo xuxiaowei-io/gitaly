@@ -103,23 +103,26 @@ func (*conflictsSubcommand) conflicts(request git2go.ConflictsCommand) git2go.Co
 func Merge(repo *git.Repository, conflict git.IndexConflict) (*git.MergeFileResult, error) {
 	var ancestor, our, their git.MergeFileInput
 
-	for entry, input := range map[*git.IndexEntry]*git.MergeFileInput{
-		conflict.Ancestor: &ancestor,
-		conflict.Our:      &our,
-		conflict.Their:    &their,
+	for _, val := range []struct {
+		entry *git.IndexEntry
+		input *git.MergeFileInput
+	}{
+		{conflict.Ancestor, &ancestor},
+		{conflict.Our, &our},
+		{conflict.Their, &their},
 	} {
-		if entry == nil {
+		if val.entry == nil {
 			continue
 		}
 
-		blob, err := repo.LookupBlob(entry.Id)
+		blob, err := repo.LookupBlob(val.entry.Id)
 		if err != nil {
 			return nil, structerr.NewFailedPrecondition("could not get conflicting blob: %w", err)
 		}
 
-		input.Path = entry.Path
-		input.Mode = uint(entry.Mode)
-		input.Contents = blob.Contents()
+		val.input.Path = val.entry.Path
+		val.input.Mode = uint(val.entry.Mode)
+		val.input.Contents = blob.Contents()
 	}
 
 	merge, err := git.MergeFile(ancestor, our, their, nil)
