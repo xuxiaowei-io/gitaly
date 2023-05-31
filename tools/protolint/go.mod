@@ -1,6 +1,6 @@
 module gitlab.com/gitlab-org/gitaly/tools/protolint
 
-go 1.17
+go 1.19
 
 require github.com/yoheimuta/protolint v0.43.2
 

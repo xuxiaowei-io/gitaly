@@ -1,6 +1,6 @@
 module proto_gen_doc
 
-go 1.17
+go 1.19
 
 require github.com/pseudomuto/protoc-gen-doc v1.5.1
 

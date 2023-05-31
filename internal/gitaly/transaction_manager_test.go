@@ -3093,17 +3093,9 @@ func TestTransactionManager(t *testing.T) {
 					// The transactions generally don't block each other due to MVCC. Repository deletions are not yet managed via MVCC
 					// and thus block until all other transactions with an older snapshot are finished. In order to test transactions with
 					// concurrent repository deletions, we have to commit the deletions asynchronously. We peek here at the internals to
-					// determine that the deletion has actually committed, and is waiting for application to ensure the commit order is always
+					// determine that the deletion has actually been admitted, and is waiting for application to ensure the commit order is always
 					// as expected by the test.
-					<-transactionManager.initialized
-					for {
-						transactionManager.mutex.Lock()
-						if transactionManager.appliedLogIndex < transactionManager.appendedLogIndex {
-							transactionManager.mutex.Unlock()
-							break
-						}
-						transactionManager.mutex.Unlock()
-					}
+					<-transaction.admitted
 				case Rollback:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction rollbacked before beginning it")
 					require.NoError(t, openTransactions[step.TransactionID].Rollback())

@@ -1,6 +1,6 @@
 module gitlab.com/gitlab-org/gitaly/tools/protoc-gen-go-grpc
 
-go 1.17
+go 1.19
 
 require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
