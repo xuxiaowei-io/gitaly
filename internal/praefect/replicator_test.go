@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package praefect
 
 import (
@@ -48,7 +46,6 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	primaryCfg := testcfg.Build(t, testcfg.WithStorages("primary"))
 	testRepoProto, testRepoPath := gittest.CreateRepository(t, ctx, primaryCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -264,14 +261,12 @@ func TestConfirmReplication(t *testing.T) {
 
 	testRepoA, testRepoAPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	srvSocketPath := testserver.RunGitalyServer(t, cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	testRepoB, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	connOpts := []grpc.DialOption{
@@ -334,7 +329,6 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	primaryCfg := testcfg.Build(t, testcfg.WithStorages("default"))
 	testRepo, _ := gittest.CreateRepository(t, ctx, primaryCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 	primaryAddr := testserver.RunGitalyServer(t, primaryCfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
@@ -448,7 +442,6 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 	testRepo, _ := gittest.CreateRepository(t, ctx, primaryCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	backupCfg := testcfg.Build(t, testcfg.WithStorages("backup"))

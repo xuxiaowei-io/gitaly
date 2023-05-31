@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package middleware
 
 import (
@@ -100,7 +98,6 @@ func TestStreamInterceptor(t *testing.T) {
 	cfg := testcfg.Build(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	for i := 0; i < threshold; i++ {

@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
@@ -57,14 +55,18 @@ func TestDeleteRefs_successful(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-delete/b", "1b12f15a11fc6e62177bef08f47bc7b5ce50b141")
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/keep/c", "498214de67004b1da3d820901307bed2a68a8ef6")
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-keep/d", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
+			for _, ref := range []string{
+				"refs/heads/master",
+				"refs/delete/a",
+				"refs/also-delete/b",
+				"refs/keep/c",
+				"refs/also-keep/d",
+			} {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(ref), gittest.WithReference(ref))
+			}
+
 			gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "refs/delete/symbolic-a", "refs/delete/a")
 			gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "refs/delete/symbolic-c", "refs/keep/c")
 
@@ -151,9 +153,9 @@ func TestDeleteRefs_transaction(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+
 			txManager.Reset()
 
 			tc.request.Repository = repo
@@ -171,7 +173,8 @@ func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	request := &gitalypb.DeleteRefsRequest{
 		Repository: repo,
@@ -197,7 +200,11 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	oldValue := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	newValue := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("new"))
 
 	request := &gitalypb.DeleteRefsRequest{
 		Repository: repoProto,
@@ -205,8 +212,6 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 	}
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	oldValue, err := repo.ResolveRevision(ctx, git.Revision("refs/heads/master"))
-	require.NoError(t, err)
 
 	updater, err := updateref.New(ctx, repo)
 	require.NoError(t, err)
@@ -215,7 +220,7 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update(
 		git.ReferenceName("refs/heads/master"),
-		"0b4bc9a49b562e85de7cc9e834518ea6828729b9",
+		newValue,
 		oldValue,
 	))
 	require.NoError(t, updater.Prepare())
@@ -237,9 +242,10 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 
 func TestDeleteRefs_validation(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRefService(t, ctx)
+	ctx := testhelper.Context(t)
+	cfg, client := setupRefServiceWithoutRepo(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
 		desc        string

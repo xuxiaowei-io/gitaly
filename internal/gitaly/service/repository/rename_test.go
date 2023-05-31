@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -9,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -23,7 +20,9 @@ func TestRenameRepositorySuccess(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, originalRepo, originalPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	originalRepo, originalPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, originalPath)
 
 	const targetPath = "a-new-location"
 	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
@@ -55,8 +54,8 @@ func TestRenameRepositorySuccess(t *testing.T) {
 
 	require.DirExists(t, newDirectory)
 	require.True(t, storage.IsGitDirectory(newDirectory), "moved Git repository has been corrupted")
-	// ensure the git directory that got renamed contains a sha in the seed repo
-	gittest.RequireObjectExists(t, cfg, newDirectory, git.ObjectID("913c66a37b4a45b9769037c55c2d238bd0942d2e"))
+	// ensure the git directory that got renamed contains the original commit.
+	gittest.RequireObjectExists(t, cfg, newDirectory, commitID)
 }
 
 func TestRenameRepositoryDestinationExists(t *testing.T) {
@@ -66,18 +65,11 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	existingDestinationRepo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "repository-1"}
-	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: existingDestinationRepo})
-	require.NoError(t, err)
-
-	renamedRepo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "repository-2"}
-	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: renamedRepo})
-	require.NoError(t, err)
-
-	destinationRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, existingDestinationRepo))
+	existingDestinationRepo, destinationRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, destinationRepoPath)
+	renamedRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	_, err = client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
+	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
 		Repository:   renamedRepo,
 		RelativePath: existingDestinationRepo.RelativePath,
 	})
@@ -92,7 +84,8 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	_, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	storagePath := strings.TrimSuffix(repoPath, "/"+repo.RelativePath)
 
 	testCases := []struct {

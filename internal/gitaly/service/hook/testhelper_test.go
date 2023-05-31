@@ -1,12 +1,8 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
-	"context"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -23,7 +19,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupHookService(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.HookServiceClient) {
+func setupHookService(tb testing.TB) (config.Cfg, gitalypb.HookServiceClient) {
 	tb.Helper()
 
 	cfg := testcfg.Build(tb)
@@ -31,11 +27,7 @@ func setupHookService(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb
 	client, conn := newHooksClient(tb, cfg.SocketPath)
 	tb.Cleanup(func() { conn.Close() })
 
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	return cfg, repo, repoPath, client
+	return cfg, client
 }
 
 func newHooksClient(tb testing.TB, serverSocketPath string) (gitalypb.HookServiceClient, *grpc.ClientConn) {

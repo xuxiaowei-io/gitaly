@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
@@ -20,7 +18,7 @@ func TestServer_ListRefs(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, _, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -255,8 +253,11 @@ func TestServer_ListRefs(t *testing.T) {
 
 func TestListRefs_validate(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
 	for _, tc := range []struct {
 		desc        string
 		req         *gitalypb.ListRefsRequest

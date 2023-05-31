@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package praefect
 
 import (
@@ -20,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -505,7 +504,6 @@ func TestRemoveRepository(t *testing.T) {
 		gitalyCfgs[i] = testcfg.Build(t, testcfg.WithStorages(name))
 		repos[i], _ = gittest.CreateRepository(t, ctx, gitalyCfgs[i], gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
-			Seed:                   gittest.SeedGitLabTest,
 			RelativePath:           t.Name(),
 		})
 
@@ -820,10 +818,10 @@ func TestProxyWrites(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	rs := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
@@ -1016,7 +1014,6 @@ func TestErrorThreshold(t *testing.T) {
 
 			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
 			})
 
 			node := nodeMgr.Nodes()["default"][0]

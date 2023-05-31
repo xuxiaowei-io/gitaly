@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -48,14 +46,15 @@ func TestGetConfig(t *testing.T) {
 	}
 
 	t.Run("normal repo", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
-		})
+		repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 		config, err := getConfig(t, client, repo)
 		require.NoError(t, err)
 
-		expectedConfig := "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n"
+		expectedConfig := gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n",
+			"sha256": "[core]\n\trepositoryformatversion = 1\n\tfilemode = true\n\tbare = true\n[extensions]\n\tobjectformat = sha256\n",
+		})
 
 		if runtime.GOOS == "darwin" {
 			expectedConfig = expectedConfig + "\tignorecase = true\n\tprecomposeunicode = true\n"
@@ -64,9 +63,7 @@ func TestGetConfig(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
-		})
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 		configPath := filepath.Join(repoPath, "config")
 		require.NoError(t, os.Remove(configPath))

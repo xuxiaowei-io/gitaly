@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
@@ -32,7 +30,7 @@ import (
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, _, _, client := setupHookService(t, ctx)
+	_, client := setupHookService(t)
 
 	stream, err := client.PreReceiveHook(ctx)
 	require.NoError(t, err)
@@ -93,7 +91,6 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	gitObjectDirRel := "git/object/dir"
@@ -263,9 +260,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			ctx := testhelper.Context(t)
-			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 			client, conn := newHooksClient(t, cfg.SocketPath)
 			defer conn.Close()
@@ -330,9 +325,7 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 	cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 	ctx := testhelper.Context(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	customHookReturnCode := int32(128)
 	customHookReturnMsg := "custom hook error"
@@ -467,9 +460,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			ctx := testhelper.Context(t)
-			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/usr/bin/env bash\nexit %d", tc.hookExitCode)))
 
