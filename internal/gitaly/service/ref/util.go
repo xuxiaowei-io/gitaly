@@ -21,43 +21,6 @@ func parseRef(ref []byte, length int) ([][]byte, error) {
 	return elements, nil
 }
 
-func buildLocalBranch(name []byte, target *gitalypb.GitCommit) *gitalypb.FindLocalBranchResponse {
-	response := &gitalypb.FindLocalBranchResponse{
-		Name: name,
-	}
-
-	if target == nil {
-		return response
-	}
-
-	response.Commit = target
-
-	// all code below exists for compatibility and must be removed after
-	// https://gitlab.com/gitlab-org/gitlab/issues/205685
-	response.CommitId = target.Id
-	response.CommitSubject = target.Subject
-
-	if author := target.Author; author != nil {
-		response.CommitAuthor = &gitalypb.FindLocalBranchCommitAuthor{
-			Name:     author.Name,
-			Email:    author.Email,
-			Date:     author.Date,
-			Timezone: author.Timezone,
-		}
-	}
-
-	if committer := target.Committer; committer != nil {
-		response.CommitCommitter = &gitalypb.FindLocalBranchCommitAuthor{
-			Name:     committer.Name,
-			Email:    committer.Email,
-			Date:     committer.Date,
-			Timezone: committer.Timezone,
-		}
-	}
-
-	return response
-}
-
 func buildAllBranchesBranch(ctx context.Context, objectReader catfile.ObjectContentReader, elements [][]byte) (*gitalypb.FindAllBranchesResponse_Branch, error) {
 	target, err := catfile.GetCommit(ctx, objectReader, git.Revision(elements[1]))
 	if err != nil {
