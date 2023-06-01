@@ -111,6 +111,7 @@ func BuildBinary(tb testing.TB, targetDir, sourcePath string) string {
 		cmd := exec.Command(
 			"go",
 			"build",
+			"-cover",
 			"-buildvcs=false",
 			"-tags", strings.Join(buildTags, ","),
 			"-ldflags", fmt.Sprintf("-X %s/version.version=%s", testhelper.PkgPath("internal"), version.GetVersion()),

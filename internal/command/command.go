@@ -84,6 +84,8 @@ var (
 		"LD_LIBRARY_PATH",
 		"TZ",
 
+		"GOCOVERDIR",
+
 		// Export git tracing variables for easier debugging
 		"GIT_TRACE",
 		"GIT_TRACE_PACK_ACCESS",
