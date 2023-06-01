@@ -15,10 +15,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
+	"golang.org/x/exp/slices"
 )
 
 func init() {
@@ -37,6 +39,8 @@ const (
 
 // NewApp returns a new praefect app.
 func NewApp() *cli.App {
+	interrupt := make(chan os.Signal, 1)
+
 	return &cli.App{
 		Name:    progname,
 		Usage:   "a gitaly proxy",
@@ -77,6 +81,29 @@ func NewApp() *cli.App {
 				Name:  configFlagName,
 				Usage: "load configuration from `FILE`",
 			},
+		},
+		Before: func(appCtx *cli.Context) error {
+			// Praefect service manages os.Interrupt on its own, by making a "table-flip".
+			// That is why the signal listening is omitted if there are no arguments passed
+			// (old-fashioned method of starting Praefect service) or 'serve' sub-command
+			// is invoked. Other sub-commands require signal to be properly handled.
+			args := appCtx.Args().Slice()
+			if len(args) == 0 || slices.Contains(args, "serve") {
+				return nil
+			}
+
+			signal.Notify(interrupt, os.Interrupt)
+			go func() {
+				if _, ok := <-interrupt; ok {
+					os.Exit(130) // indicates program was interrupted
+				}
+			}()
+
+			return nil
+		},
+		After: func(*cli.Context) error {
+			close(interrupt)
+			return nil
 		},
 	}
 }
