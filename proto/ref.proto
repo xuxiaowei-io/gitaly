@@ -11,7 +11,15 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // RefService is a service that provides RPCs to list and modify Git references.
 service RefService {
 
-  // This comment is left unintentionally blank.
+  // FindDefaultBranchName looks up the default branch reference name. Unless
+  // otherwise specified the following heuristic is used:
+  //
+  // 1. If there are no branches, return an empty string.
+  // 2. If there is only one branch, return the only branch.
+  // 3. If a branch exists that matches HEAD, return the HEAD reference name.
+  // 4. If a branch exists named refs/heads/main, return refs/heads/main.
+  // 5. If a branch exists named refs/heads/master, return refs/heads/master.
+  // 6. Return the first branch (as per default ordering by git).
   rpc FindDefaultBranchName(FindDefaultBranchNameRequest) returns (FindDefaultBranchNameResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -128,15 +136,18 @@ service RefService {
 
 }
 
-// This comment is left unintentionally blank.
+// FindDefaultBranchNameRequest is the request for the FindDefaultBranchName RPC.
 message FindDefaultBranchNameRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository to find the default branch from.
   Repository repository = 1 [(target_repository)=true];
+  // HeadOnly when true will determine the default branch using HEAD only
+  // instead of using the heuristic. The returned reference may not exist.
+  bool head_only = 2;
 }
 
-// This comment is left unintentionally blank.
+// FindDefaultBranchNameRequest is the response for the FindDefaultBranchName RPC.
 message FindDefaultBranchNameResponse {
-  // This comment is left unintentionally blank.
+  // Name is the fully qualified default branch name.
   bytes name = 1;
 }
 
