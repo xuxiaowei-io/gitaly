@@ -156,9 +156,9 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	patterns := []string{"refs/heads", "refs/remotes"}
 
 	if in.MergedOnly {
-		defaultBranch, err := repo.GetDefaultBranch(stream.Context())
+		defaultBranch, err := repo.HeadReference(stream.Context())
 		if err != nil {
-			return fmt.Errorf("default branch name: %w", err)
+			return fmt.Errorf("head reference: %w", err)
 		}
 
 		args = append(args, git.Flag{Name: fmt.Sprintf("--merged=%s", defaultBranch.String())})
