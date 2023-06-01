@@ -89,6 +89,53 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			"Lists the expected conflict files with short OIDs",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "apple"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "banana"},
+				))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "peach"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String()[:5],
+					TheirCommitOid: theirCommitID.String()[:5],
+				}
+
+				return setupData{
+					client:  client,
+					request: request,
+					expectedFiles: []*conflictFile{
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid: ourCommitID.String()[:5],
+								TheirPath: []byte("a"),
+								OurPath:   []byte("a"),
+								OurMode:   int32(0o100644),
+							},
+							Content: []byte("<<<<<<< a\napple\n=======\nmango\n>>>>>>> a\n"),
+						},
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid: ourCommitID.String()[:5],
+								TheirPath: []byte("b"),
+								OurPath:   []byte("b"),
+								OurMode:   int32(0o100644),
+							},
+							Content: []byte("<<<<<<< b\nbanana\n=======\npeach\n>>>>>>> b\n"),
+						},
+					},
+				}
+			},
+		},
+		{
 			"conflict in submodules commits are not handled",
 			func(tb testing.TB, ctx context.Context) setupData {
 				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
