@@ -9,8 +9,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
@@ -205,7 +205,7 @@ func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.Repository
 
 func (c *ProcessCache) getOrCreateProcess(
 	ctx context.Context,
-	repo repository.GitRepo,
+	repo storage.Repository,
 	processes *processes,
 	create func(context.Context) (cacheable, error),
 	spanName string,
@@ -343,7 +343,7 @@ type key struct {
 	repoAltDir  string
 }
 
-func newCacheKey(sessionID string, repo repository.GitRepo) (key, bool) {
+func newCacheKey(sessionID string, repo storage.Repository) (key, bool) {
 	if sessionID == "" {
 		return key{}, false
 	}

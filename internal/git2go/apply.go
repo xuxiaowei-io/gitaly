@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
 // ErrMergeConflict is returned when there is a merge conflict.
@@ -73,7 +73,7 @@ func (iter *slicePatchIterator) Err() error { return nil }
 
 // Apply applies the provided patches and returns the OID of the commit with the patches
 // applied.
-func (b *Executor) Apply(ctx context.Context, repo repository.GitRepo, params ApplyParams) (git.ObjectID, error) {
+func (b *Executor) Apply(ctx context.Context, repo storage.Repository, params ApplyParams) (git.ObjectID, error) {
 	reader, writer := io.Pipe()
 	defer writer.Close()
 

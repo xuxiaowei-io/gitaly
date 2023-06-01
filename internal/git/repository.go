@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
 // DefaultBranch is the default reference written to HEAD when a repository is created
@@ -54,7 +54,7 @@ type Repository interface {
 // RepositoryExecutor is an interface which allows execution of Git commands in a specific
 // repository.
 type RepositoryExecutor interface {
-	repository.GitRepo
+	storage.Repository
 	Exec(ctx context.Context, cmd Command, opts ...CmdOpt) (*command.Command, error)
 	ExecAndWait(ctx context.Context, cmd Command, opts ...CmdOpt) error
 	GitVersion(ctx context.Context) (Version, error)

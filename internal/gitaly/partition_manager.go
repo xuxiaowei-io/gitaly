@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -173,7 +172,7 @@ func stagingDirectoryPath(storagePath string) string {
 // Begin gets the TransactionManager for the specified repository and starts a Transaction. If a
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
-func (pm *PartitionManager) Begin(ctx context.Context, repo repo.GitRepo) (*Transaction, error) {
+func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) (*Transaction, error) {
 	storageMgr, ok := pm.storages[repo.GetStorageName()]
 	if !ok {
 		return nil, structerr.NewNotFound("unknown storage: %q", repo.GetStorageName())

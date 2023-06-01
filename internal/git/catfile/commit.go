@@ -8,8 +8,8 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trailerparser"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -28,7 +28,7 @@ func GetCommit(ctx context.Context, objectReader ObjectContentReader, revision g
 func GetCommitWithTrailers(
 	ctx context.Context,
 	gitCmdFactory git.CommandFactory,
-	repo repository.GitRepo,
+	repo storage.Repository,
 	objectReader ObjectContentReader,
 	revision git.Revision,
 ) (*gitalypb.GitCommit, error) {
@@ -67,7 +67,7 @@ func GetCommitWithTrailers(
 }
 
 // GetCommitMessage looks up a commit message and returns it in its entirety.
-func GetCommitMessage(ctx context.Context, objectReader ObjectContentReader, repo repository.GitRepo, revision git.Revision) ([]byte, error) {
+func GetCommitMessage(ctx context.Context, objectReader ObjectContentReader, repo storage.Repository, revision git.Revision) ([]byte, error) {
 	obj, err := objectReader.Object(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err

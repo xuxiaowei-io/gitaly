@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
@@ -39,7 +38,7 @@ type configLocator struct {
 // the `GetRepoPathOption` produced by `WithRepositoryVerificationSkipped()`, this validation
 // will be skipped. The errors returned are gRPC errors with relevant error codes and should be
 // passed back to gRPC without further decoration.
-func (l *configLocator) GetRepoPath(repo repository.GitRepo, opts ...storage.GetRepoPathOption) (string, error) {
+func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.GetRepoPathOption) (string, error) {
 	var cfg storage.GetRepoPathConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -60,7 +59,7 @@ func (l *configLocator) GetRepoPath(repo repository.GitRepo, opts ...storage.Get
 // GetPath returns the path of the repo passed as first argument. An error is
 // returned when either the storage can't be found or the path includes
 // constructs trying to perform directory traversal.
-func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
+func (l *configLocator) GetPath(repo storage.Repository) (string, error) {
 	storagePath, err := l.GetStorageByName(repo.GetStorageName())
 	if err != nil {
 		return "", err

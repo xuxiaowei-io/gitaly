@@ -14,8 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -44,7 +44,7 @@ func TestPartitionManager(t *testing.T) {
 		// ctx is the context used when `Begin()` gets invoked.
 		ctx context.Context
 		// repo is the repository that the transaction belongs to.
-		repo repo.GitRepo
+		repo storage.Repository
 		// expectedState contains the partitions by their storages and their pending transaction count at
 		// the end of the step.
 		expectedState map[string]map[string]uint
@@ -137,7 +137,7 @@ func TestPartitionManager(t *testing.T) {
 		require.Equal(t, expectedState, actualState)
 	}
 
-	setupRepository := func(t *testing.T, cfg config.Cfg, storage config.Storage) repo.GitRepo {
+	setupRepository := func(t *testing.T, cfg config.Cfg, storage config.Storage) storage.Repository {
 		t.Helper()
 
 		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{

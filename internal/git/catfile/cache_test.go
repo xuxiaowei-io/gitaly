@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -386,7 +386,7 @@ func requireProcessesValid(t *testing.T, p *processes) {
 	}
 }
 
-func mustCreateCacheable(t *testing.T, cfg config.Cfg, repo repository.GitRepo) (cacheable, func()) {
+func mustCreateCacheable(t *testing.T, cfg config.Cfg, repo storage.Repository) (cacheable, func()) {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
@@ -397,7 +397,7 @@ func mustCreateCacheable(t *testing.T, cfg config.Cfg, repo repository.GitRepo) 
 	return batch, cancel
 }
 
-func mustCreateKey(t *testing.T, sessionID string, repo repository.GitRepo) key {
+func mustCreateKey(t *testing.T, sessionID string, repo storage.Repository) key {
 	t.Helper()
 
 	key, cacheable := newCacheKey(sessionID, repo)

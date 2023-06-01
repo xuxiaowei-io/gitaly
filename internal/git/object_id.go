@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"hash"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -98,7 +98,7 @@ func ObjectHashByProto(format gitalypb.ObjectFormat) (ObjectHash, error) {
 }
 
 // DetectObjectHash detects the object-hash used by the given repository.
-func DetectObjectHash(ctx context.Context, gitCmdFactory CommandFactory, repository repository.GitRepo) (ObjectHash, error) {
+func DetectObjectHash(ctx context.Context, gitCmdFactory CommandFactory, repository storage.Repository) (ObjectHash, error) {
 	var stdout, stderr bytes.Buffer
 
 	revParseCmd, err := gitCmdFactory.New(ctx, repository, Command{

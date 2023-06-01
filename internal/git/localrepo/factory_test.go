@@ -31,8 +31,8 @@ func TestFactory(t *testing.T) {
 				RelativePath: "relative-path-1",
 			})
 
-			require.Equal(t, "non-existent", repo.GitRepo.GetStorageName())
-			require.Equal(t, "relative-path-1", repo.GitRepo.GetRelativePath())
+			require.Equal(t, "non-existent", repo.GetStorageName())
+			require.Equal(t, "relative-path-1", repo.GetRelativePath())
 		})
 	})
 
@@ -48,15 +48,15 @@ func TestFactory(t *testing.T) {
 			require.NoError(t, err)
 
 			repo1 := scopedFactory1.Build("relative-path-1")
-			require.Equal(t, "storage-1", repo1.GitRepo.GetStorageName())
-			require.Equal(t, "relative-path-1", repo1.GitRepo.GetRelativePath())
+			require.Equal(t, "storage-1", repo1.GetStorageName())
+			require.Equal(t, "relative-path-1", repo1.GetRelativePath())
 
 			scopedFactory2, err := factory.ScopeByStorage("storage-2")
 			require.NoError(t, err)
 
 			repo2 := scopedFactory2.Build("relative-path-2")
-			require.Equal(t, "storage-2", repo2.GitRepo.GetStorageName())
-			require.Equal(t, "relative-path-2", repo2.GitRepo.GetRelativePath())
+			require.Equal(t, "storage-2", repo2.GetStorageName())
+			require.Equal(t, "relative-path-2", repo2.GetRelativePath())
 		})
 	})
 }

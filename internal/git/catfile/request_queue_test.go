@@ -454,7 +454,7 @@ func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string)
 		return script
 	})
 	repoExecutor := repoExecutor{
-		GitRepo:       repo,
+		Repository:    repo,
 		gitCmdFactory: commandFactory,
 	}
 
@@ -479,7 +479,7 @@ func newInterceptedInfoQueue(t *testing.T, ctx context.Context, script string) (
 		return script
 	})
 	repoExecutor := repoExecutor{
-		GitRepo:       repo,
+		Repository:    repo,
 		gitCmdFactory: commandFactory,
 	}
 

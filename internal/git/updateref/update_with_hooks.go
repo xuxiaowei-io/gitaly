@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -303,6 +302,6 @@ func (u *UpdaterWithHooks) UpdateReference(
 	return nil
 }
 
-func (u *UpdaterWithHooks) localrepo(repo repository.GitRepo) *localrepo.Repo {
+func (u *UpdaterWithHooks) localrepo(repo storage.Repository) *localrepo.Repo {
 	return localrepo.New(u.locator, u.gitCmdFactory, u.catfileCache, repo)
 }

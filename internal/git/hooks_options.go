@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
@@ -31,7 +31,7 @@ func WithDisabledHooks() CmdOpt {
 // WithRefTxHook returns an option that populates the safe command with the
 // environment variables necessary to properly execute a reference hook for
 // repository changes that may possibly update references
-func WithRefTxHook(repo repository.GitRepo) CmdOpt {
+func WithRefTxHook(repo storage.Repository) CmdOpt {
 	return func(ctx context.Context, cfg config.Cfg, gitCmdFactory CommandFactory, cc *cmdCfg) error {
 		if repo == nil {
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
@@ -40,7 +40,7 @@ func WithRefTxHook(repo repository.GitRepo) CmdOpt {
 		// The reference-transaction hook does not need any project-specific information
 		// about the repository. So in order to make the hook usable by sites which do not
 		// have a project repository available (e.g. object pools), this function accepts a
-		// `repository.GitRepo` and just creates an ad-hoc proto repo.
+		// `storage.Repository` and just creates an ad-hoc proto repo.
 		if err := cc.configureHooks(ctx, &gitalypb.Repository{
 			StorageName:                   repo.GetStorageName(),
 			GitAlternateObjectDirectories: repo.GetGitAlternateObjectDirectories(),

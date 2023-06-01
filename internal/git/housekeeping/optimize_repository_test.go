@@ -19,10 +19,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -37,7 +37,7 @@ type errorInjectingCommandFactory struct {
 
 func (f errorInjectingCommandFactory) New(
 	ctx context.Context,
-	repo repository.GitRepo,
+	repo storage.Repository,
 	cmd git.Command,
 	opts ...git.CmdOpt,
 ) (*command.Command, error) {
@@ -55,7 +55,7 @@ type blockingCommandFactory struct {
 
 func (f *blockingCommandFactory) New(
 	ctx context.Context,
-	repo repository.GitRepo,
+	repo storage.Repository,
 	cmd git.Command,
 	opts ...git.CmdOpt,
 ) (*command.Command, error) {
@@ -1211,7 +1211,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		manager.optimizeFunc = func(_ context.Context, _ *RepositoryManager, repo *localrepo.Repo, _ OptimizationStrategy) error {
 			reposOptimized[repo.GetRelativePath()] = struct{}{}
 
-			if repo.GitRepo.GetRelativePath() == repoFirst.GetRelativePath() {
+			if repo.GetRelativePath() == repoFirst.GetRelativePath() {
 				reqReceivedCh <- struct{}{}
 				ch <- struct{}{}
 			}

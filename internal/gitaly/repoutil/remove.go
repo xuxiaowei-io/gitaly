@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -22,7 +21,7 @@ func Remove(
 	ctx context.Context,
 	locator storage.Locator,
 	txManager transaction.Manager,
-	repository repository.GitRepo,
+	repository storage.Repository,
 ) error {
 	path, err := locator.GetPath(repository)
 	if err != nil {
@@ -99,7 +98,7 @@ func Remove(
 func voteOnAction(
 	ctx context.Context,
 	txManager transaction.Manager,
-	repo repository.GitRepo,
+	repo storage.Repository,
 	phase voting.Phase,
 ) error {
 	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction) error {

@@ -12,8 +12,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
@@ -304,7 +304,7 @@ func performRepack(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 }
 
 // GetRepackGitConfig returns configuration suitable for Git commands which write new packfiles.
-func GetRepackGitConfig(ctx context.Context, repo repository.GitRepo, bitmap bool) []git.ConfigPair {
+func GetRepackGitConfig(ctx context.Context, repo storage.Repository, bitmap bool) []git.ConfigPair {
 	config := []git.ConfigPair{
 		{Key: "repack.useDeltaIslands", Value: "true"},
 		{Key: "repack.writeBitmaps", Value: strconv.FormatBool(bitmap)},
