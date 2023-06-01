@@ -19,98 +19,81 @@ func TestDerivePoolPath(t *testing.T) {
 	require.Equal(t, "@cluster/pools/d4/73/2", storage.DerivePoolPath(2))
 }
 
-func TestIsPraefectPoolRepository(t *testing.T) {
+func TestIsPoolRepository(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
-		desc       string
-		repo       *gitalypb.Repository
-		isPoolPath bool
+		desc               string
+		repo               *gitalypb.Repository
+		isPraefectPoolPath bool
+		isRailsPoolPath    bool
 	}{
 		{
-			desc:       "missing repository",
-			isPoolPath: false,
+			desc:               "missing repository",
+			isPraefectPoolPath: false,
+			isRailsPoolPath:    false,
 		},
 		{
 			desc: "empty string",
 			repo: &gitalypb.Repository{
 				RelativePath: "",
 			},
-			isPoolPath: false,
+			isPraefectPoolPath: false,
+			isRailsPoolPath:    false,
 		},
 		{
 			desc: "praefect pool path",
 			repo: &gitalypb.Repository{
 				RelativePath: storage.DerivePoolPath(1),
 			},
-			isPoolPath: true,
+			isPraefectPoolPath: true,
+			isRailsPoolPath:    false,
 		},
 		{
 			desc: "praefect replica path",
 			repo: &gitalypb.Repository{
 				RelativePath: storage.DeriveReplicaPath(1),
 			},
+			isPraefectPoolPath: false,
+			isRailsPoolPath:    false,
 		},
 		{
 			desc: "rails pool path",
 			repo: &gitalypb.Repository{
 				RelativePath: gittest.NewObjectPoolName(t),
 			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.isPoolPath, storage.IsPraefectPoolRepository(tc.repo))
-		})
-	}
-}
-
-func TestIsPoolRepository(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		desc       string
-		repo       *gitalypb.Repository
-		isPoolPath bool
-	}{
-		{
-			desc: "rails pool directory",
-			repo: &gitalypb.Repository{
-				RelativePath: gittest.NewObjectPoolName(t),
-			},
-			isPoolPath: true,
-		},
-		{
-			desc: "praefect pool path",
-			repo: &gitalypb.Repository{
-				RelativePath: storage.DerivePoolPath(1),
-			},
-			isPoolPath: true,
-		},
-		{
-			desc: "praefect replica path",
-			repo: &gitalypb.Repository{
-				RelativePath: storage.DeriveReplicaPath(1),
-			},
-		},
-		{
-			desc: "missing repository",
-		},
-		{
-			desc: "empty repository",
-			repo: &gitalypb.Repository{},
+			isPraefectPoolPath: false,
+			isRailsPoolPath:    true,
 		},
 		{
 			desc: "rails path first to subdirs dont match full hash",
 			repo: &gitalypb.Repository{
 				RelativePath: "@pools/aa/bb/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.git",
 			},
+			isPraefectPoolPath: false,
+			isRailsPoolPath:    false,
 		},
 		{
 			desc: "normal repos dont match",
 			repo: &gitalypb.Repository{
 				RelativePath: "@hashed/" + gittest.NewRepositoryName(t),
 			},
+			isPraefectPoolPath: false,
+			isRailsPoolPath:    false,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.isPoolPath, storage.IsPoolRepository(tc.repo))
+			t.Run("Praefect", func(t *testing.T) {
+				require.Equal(t, tc.isPraefectPoolPath, storage.IsPraefectPoolRepository(tc.repo))
+			})
+
+			t.Run("Rails", func(t *testing.T) {
+				require.Equal(t, tc.isRailsPoolPath, storage.IsRailsPoolRepository(tc.repo))
+			})
+
+			t.Run("generic", func(t *testing.T) {
+				require.Equal(t, tc.isRailsPoolPath || tc.isPraefectPoolPath, storage.IsPoolRepository(tc.repo))
+			})
 		})
 	}
 }
