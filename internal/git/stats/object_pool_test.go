@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -26,14 +26,14 @@ func TestIsPoolRepository(t *testing.T) {
 		{
 			desc: "praefect pool path",
 			repo: &gitalypb.Repository{
-				RelativePath: praefectutil.DerivePoolPath(1),
+				RelativePath: storage.DerivePoolPath(1),
 			},
 			isPoolPath: true,
 		},
 		{
 			desc: "praefect replica path",
 			repo: &gitalypb.Repository{
-				RelativePath: praefectutil.DeriveReplicaPath(1),
+				RelativePath: storage.DeriveReplicaPath(1),
 			},
 		},
 		{

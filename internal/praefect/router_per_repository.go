@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -461,12 +461,12 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", err)
 	}
 
-	replicaPath := praefectutil.DeriveReplicaPath(id)
+	replicaPath := storage.DeriveReplicaPath(id)
 	if stats.IsRailsPoolRepository(&gitalypb.Repository{
 		StorageName:  virtualStorage,
 		RelativePath: relativePath,
 	}) {
-		replicaPath = praefectutil.DerivePoolPath(id)
+		replicaPath = storage.DerivePoolPath(id)
 	}
 
 	return RepositoryMutatorRoute{

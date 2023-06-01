@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/archive"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -135,7 +135,7 @@ func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation
 	// conflicts even with Praefect in front of it.
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		RelativePath: praefectutil.DeriveReplicaPath(1),
+		RelativePath: storage.DeriveReplicaPath(1),
 		Seed:         gittest.SeedGitLabTest,
 	})
 

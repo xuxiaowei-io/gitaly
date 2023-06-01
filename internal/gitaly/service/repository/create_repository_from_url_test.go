@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -125,7 +125,7 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 			cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 			importedRepo := &gitalypb.Repository{
-				RelativePath: praefectutil.DeriveReplicaPath(1),
+				RelativePath: storage.DeriveReplicaPath(1),
 				StorageName:  cfg.Storages[0].Name,
 			}
 			importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())

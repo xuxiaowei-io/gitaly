@@ -1,4 +1,4 @@
-package praefectutil
+package storage
 
 import (
 	"crypto/sha256"
@@ -6,16 +6,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
-// poolPathPrefix is the prefix directory where Praefect places object pools.
-const poolPathPrefix = "@cluster/pools/"
+// praefectPoolPathPrefix is the prefix directory where Praefect places object pools.
+const praefectPoolPathPrefix = "@cluster/pools/"
 
-// IsPoolRepository returns whether the repository is a Praefect generated object pool repository.
-func IsPoolRepository(repo storage.Repository) bool {
-	return strings.HasPrefix(repo.GetRelativePath(), poolPathPrefix)
+// IsPraefectPoolRepository returns whether the repository is a Praefect generated object pool repository.
+func IsPraefectPoolRepository(repo Repository) bool {
+	return strings.HasPrefix(repo.GetRelativePath(), praefectPoolPathPrefix)
 }
 
 // DeriveReplicaPath derives a repository's disk storage path from its repository ID. The repository ID
@@ -31,7 +29,7 @@ func DeriveReplicaPath(repositoryID int64) string {
 // have a different directory prefix from other repositories so Gitaly can identify them in OptimizeRepository
 // and avoid pruning them.
 func DerivePoolPath(repositoryID int64) string {
-	return deriveDiskPath(poolPathPrefix, repositoryID)
+	return deriveDiskPath(praefectPoolPathPrefix, repositoryID)
 }
 
 func deriveDiskPath(prefixDir string, repositoryID int64) string {

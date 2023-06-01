@@ -1,24 +1,25 @@
-package praefectutil
+package storage_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func TestDeriveReplicaPath(t *testing.T) {
-	require.Equal(t, "@cluster/repositories/6b/86/1", DeriveReplicaPath(1))
-	require.Equal(t, "@cluster/repositories/d4/73/2", DeriveReplicaPath(2))
+	require.Equal(t, "@cluster/repositories/6b/86/1", storage.DeriveReplicaPath(1))
+	require.Equal(t, "@cluster/repositories/d4/73/2", storage.DeriveReplicaPath(2))
 }
 
 func TestDerivePoolPath(t *testing.T) {
-	require.Equal(t, "@cluster/pools/6b/86/1", DerivePoolPath(1))
-	require.Equal(t, "@cluster/pools/d4/73/2", DerivePoolPath(2))
+	require.Equal(t, "@cluster/pools/6b/86/1", storage.DerivePoolPath(1))
+	require.Equal(t, "@cluster/pools/d4/73/2", storage.DerivePoolPath(2))
 }
 
-func TestIsPoolRepository(t *testing.T) {
+func TestIsPraefectPoolRepository(t *testing.T) {
 	for _, tc := range []struct {
 		desc       string
 		repo       *gitalypb.Repository
@@ -38,14 +39,14 @@ func TestIsPoolRepository(t *testing.T) {
 		{
 			desc: "praefect pool path",
 			repo: &gitalypb.Repository{
-				RelativePath: DerivePoolPath(1),
+				RelativePath: storage.DerivePoolPath(1),
 			},
 			isPoolPath: true,
 		},
 		{
 			desc: "praefect replica path",
 			repo: &gitalypb.Repository{
-				RelativePath: DeriveReplicaPath(1),
+				RelativePath: storage.DeriveReplicaPath(1),
 			},
 		},
 		{
@@ -56,7 +57,7 @@ func TestIsPoolRepository(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.isPoolPath, IsPoolRepository(tc.repo))
+			require.Equal(t, tc.isPoolPath, storage.IsPraefectPoolRepository(tc.repo))
 		})
 	}
 }
