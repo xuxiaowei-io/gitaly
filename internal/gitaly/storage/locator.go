@@ -17,6 +17,12 @@ type Repository interface {
 	GetGitAlternateObjectDirectories() []string
 }
 
+// RepoPathEqual compares if two repositories are in the same location
+func RepoPathEqual(a, b Repository) bool {
+	return a.GetStorageName() == b.GetStorageName() &&
+		a.GetRelativePath() == b.GetRelativePath()
+}
+
 // Locator allows to get info about location of the repository or storage at the local file system.
 type Locator interface {
 	// GetRepoPath returns the full path of the repository referenced by an RPC Repository message.

@@ -8,6 +8,59 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
+func TestRepoPathEqual(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		desc  string
+		a, b  *gitalypb.Repository
+		equal bool
+	}{
+		{
+			desc: "equal",
+			a: &gitalypb.Repository{
+				StorageName:  "default",
+				RelativePath: "repo.git",
+			},
+			b: &gitalypb.Repository{
+				StorageName:  "default",
+				RelativePath: "repo.git",
+			},
+			equal: true,
+		},
+		{
+			desc: "different storage",
+			a: &gitalypb.Repository{
+				StorageName:  "default",
+				RelativePath: "repo.git",
+			},
+			b: &gitalypb.Repository{
+				StorageName:  "storage2",
+				RelativePath: "repo.git",
+			},
+			equal: false,
+		},
+		{
+			desc: "different path",
+			a: &gitalypb.Repository{
+				StorageName:  "default",
+				RelativePath: "repo.git",
+			},
+			b: &gitalypb.Repository{
+				StorageName:  "default",
+				RelativePath: "repo2.git",
+			},
+			equal: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert.Equal(t, tc.equal, RepoPathEqual(tc.a, tc.b))
+		})
+	}
+}
+
 func TestValidateRelativePath(t *testing.T) {
 	for _, tc := range []struct {
 		path    string

@@ -9,7 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -49,7 +49,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	// are local. We can thus optimize and locally resolve the reference
 	// instead of using an RPC call. We also know that we can always skip
 	// the fetch as the object will be available.
-	if helper.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
+	if storage.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
 		var err error
 
 		sourceOid, err = targetRepo.ResolveRevision(ctx, git.Revision(req.GetSourceBranch()))
