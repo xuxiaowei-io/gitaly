@@ -97,7 +97,7 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 
-	gotDefaultBranch, err := importedRepo.GetDefaultBranch(ctx)
+	gotDefaultBranch, err := importedRepo.HeadReference(ctx)
 	require.NoError(t, err)
 	require.Equal(t, wantDefaultBranch, gotDefaultBranch.String())
 }

@@ -509,7 +509,7 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 		{
 			desc:        "unknown ref",
 			ref:         "refs/heads/non_existent_ref",
-			expectedRef: git.LegacyDefaultRef,
+			expectedRef: "refs/heads/non_existent_ref",
 		},
 	}
 	for _, tc := range testCases {
@@ -525,7 +525,7 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 
 			require.NoError(t, repo.SetDefaultBranch(ctx, txManager, tc.ref))
 
-			newRef, err := repo.GetDefaultBranch(ctx)
+			newRef, err := repo.HeadReference(ctx)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.expectedRef, newRef)
@@ -593,7 +593,7 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 	t.Run("HEAD is locked by another process", func(t *testing.T) {
 		_, repo, _ := setupRepo(t)
 
-		ref, err := repo.GetDefaultBranch(ctx)
+		ref, err := repo.HeadReference(ctx)
 		require.NoError(t, err)
 
 		path, err := repo.Path()
@@ -604,7 +604,7 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 		err = repo.SetDefaultBranch(ctx, &transaction.MockManager{}, "refs/heads/branch")
 		require.ErrorIs(t, err, safe.ErrFileAlreadyLocked)
 
-		refAfter, err := repo.GetDefaultBranch(ctx)
+		refAfter, err := repo.HeadReference(ctx)
 		require.NoError(t, err)
 		require.Equal(t, ref, refAfter)
 	})
