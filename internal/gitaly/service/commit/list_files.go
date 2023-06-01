@@ -31,7 +31,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 
 	revision := string(in.GetRevision())
 	if len(revision) == 0 {
-		defaultBranch, err := repo.GetDefaultBranch(stream.Context())
+		defaultBranch, err := repo.HeadReference(stream.Context())
 		if err != nil {
 			return structerr.NewNotFound("revision not found %q", revision)
 		}

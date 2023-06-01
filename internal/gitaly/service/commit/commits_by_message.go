@@ -54,7 +54,7 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 
 	revision := in.GetRevision()
 	if len(revision) == 0 {
-		defaultBranch, err := repo.GetDefaultBranch(ctx)
+		defaultBranch, err := repo.HeadReference(ctx)
 		if err != nil {
 			return err
 		}

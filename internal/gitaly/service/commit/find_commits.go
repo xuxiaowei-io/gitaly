@@ -42,12 +42,10 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 
 	repo := s.localrepo(req.GetRepository())
 
-	// Use Gitaly's default branch lookup function because that is already
-	// migrated.
 	if revision := req.Revision; len(revision) == 0 && !req.GetAll() {
-		defaultBranch, err := repo.GetDefaultBranch(ctx)
+		defaultBranch, err := repo.HeadReference(ctx)
 		if err != nil {
-			return structerr.NewInternal("defaultBranchName: %w", err)
+			return structerr.NewInternal("default branch: %w", err)
 		}
 		req.Revision = []byte(defaultBranch)
 	}

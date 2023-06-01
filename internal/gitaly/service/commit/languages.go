@@ -38,7 +38,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 
 	revision := string(req.Revision)
 	if revision == "" {
-		defaultBranch, err := repo.GetDefaultBranch(ctx)
+		defaultBranch, err := repo.HeadReference(ctx)
 		if err != nil {
 			return nil, err
 		}
