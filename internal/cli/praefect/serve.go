@@ -56,6 +56,10 @@ func newServeCommand() *cli.Command {
 }
 
 func serveAction(ctx *cli.Context) error {
+	if ctx.Args().Present() {
+		return unexpectedPositionalArgsError{Command: ctx.Command.Name}
+	}
+
 	logger := log.Default()
 	// The ctx.Command.Name can't be used here because if `praefect -config FILE` is used
 	// it will be set to 'praefect' instead of 'serve'.
