@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
@@ -462,7 +461,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 	}
 
 	replicaPath := storage.DeriveReplicaPath(id)
-	if stats.IsRailsPoolRepository(&gitalypb.Repository{
+	if storage.IsRailsPoolRepository(&gitalypb.Repository{
 		StorageName:  virtualStorage,
 		RelativePath: relativePath,
 	}) {

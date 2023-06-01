@@ -1065,7 +1065,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 			require.Equal(t, setup.expectedErr, err)
 
 			expectedMetrics := setup.expectedMetrics
-			if stats.IsPoolRepository(setup.repo) && setup.expectedMetricsForPool != nil {
+			if storage.IsPoolRepository(setup.repo) && setup.expectedMetricsForPool != nil {
 				expectedMetrics = setup.expectedMetricsForPool
 			}
 

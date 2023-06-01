@@ -16,6 +16,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
 const (
@@ -151,7 +152,7 @@ func RepositoryInfoForRepository(repo *localrepo.Repo) (RepositoryInfo, error) {
 		return RepositoryInfo{}, err
 	}
 
-	info.IsObjectPool = IsPoolRepository(repo)
+	info.IsObjectPool = storage.IsPoolRepository(repo)
 
 	info.LooseObjects, err = LooseObjectsInfoForRepository(repo, time.Now().Add(StaleObjectsGracePeriod))
 	if err != nil {

@@ -311,7 +311,7 @@ func GetRepackGitConfig(ctx context.Context, repo storage.Repository, bitmap boo
 		{Key: "pack.writeBitmapLookupTable", Value: "true"},
 	}
 
-	if stats.IsPoolRepository(repo) {
+	if storage.IsPoolRepository(repo) {
 		config = append(config,
 			git.ConfigPair{Key: "pack.island", Value: git.ObjectPoolRefNamespace + "/he(a)ds"},
 			git.ConfigPair{Key: "pack.island", Value: git.ObjectPoolRefNamespace + "/t(a)gs"},
