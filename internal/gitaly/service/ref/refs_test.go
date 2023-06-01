@@ -53,6 +53,25 @@ func TestFindDefaultBranchName(t *testing.T) {
 			expectedName: git.DefaultRef,
 		},
 		{
+			desc: "successful, HEAD only",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference(git.DefaultRef.String()))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference(git.LegacyDefaultRef.String()), gittest.WithParents(oid))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("apple"), gittest.WithParents(oid))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("banana"), gittest.WithParents(oid))
+
+				return setupData{
+					request: &gitalypb.FindDefaultBranchNameRequest{
+						Repository: repo,
+						HeadOnly:   true,
+					},
+				}
+			},
+			expectedName: git.DefaultRef,
+		},
+		{
 			desc: "successful, single branch",
 			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -66,6 +85,22 @@ func TestFindDefaultBranchName(t *testing.T) {
 				}
 			},
 			expectedName: "refs/heads/banana",
+		},
+		{
+			desc: "successful, single branch, HEAD only",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("banana"))
+
+				return setupData{
+					request: &gitalypb.FindDefaultBranchNameRequest{
+						Repository: repo,
+						HeadOnly:   true,
+					},
+				}
+			},
+			expectedName: git.DefaultRef,
 		},
 		{
 			desc: "successful, updated default",
@@ -99,6 +134,20 @@ func TestFindDefaultBranchName(t *testing.T) {
 			},
 		},
 		{
+			desc: "empty repository, HEAD only",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.FindDefaultBranchNameRequest{
+						Repository: repo,
+						HeadOnly:   true,
+					},
+				}
+			},
+			expectedName: git.DefaultRef,
+		},
+		{
 			desc: "repository not provided",
 			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
 				return setupData{
@@ -118,7 +167,7 @@ func TestFindDefaultBranchName(t *testing.T) {
 						Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
 					},
 					expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-						`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
+						`get default branch: GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
 						`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
 					)),
 				}
@@ -134,7 +183,7 @@ func TestFindDefaultBranchName(t *testing.T) {
 						Repository: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
 					},
 					expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-						`GetStorageByName: no such storage: "invalid"`,
+						`get default branch: GetStorageByName: no such storage: "invalid"`,
 						"repo scoped: invalid Repository",
 					)),
 				}

@@ -76,11 +76,18 @@ func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDef
 	}
 	repo := s.localrepo(repository)
 
-	defaultBranch, err := repo.GetDefaultBranch(ctx)
-	if err != nil {
-		return nil, structerr.NewInternal("%w", err)
+	if in.GetHeadOnly() {
+		head, err := repo.HeadReference(ctx)
+		if err != nil {
+			return nil, structerr.NewInternal("head reference: %w", err)
+		}
+		return &gitalypb.FindDefaultBranchNameResponse{Name: []byte(head)}, nil
 	}
 
+	defaultBranch, err := repo.GetDefaultBranch(ctx)
+	if err != nil {
+		return nil, structerr.NewInternal("get default branch: %w", err)
+	}
 	return &gitalypb.FindDefaultBranchNameResponse{Name: []byte(defaultBranch)}, nil
 }
 
