@@ -389,10 +389,14 @@ func TestPackRefsIfNeeded(t *testing.T) {
 				b.block["pack-refs"] = ch
 
 				return setupData{
-					refsShouldBePacked: true,
+					// addPackRefsInhibitor cancels the context of the git-pack-refs(1)
+					refsShouldBePacked: false,
 					shouldPackReferences: func(_ context.Context) bool {
 						return true
 					},
+					errExpected: fmt.Errorf("packing refs: %w, stderr: %q",
+						fmt.Errorf("getting Git version: %w",
+							fmt.Errorf("spawning version command: %w", context.Canceled)), ""),
 				}
 			},
 		},

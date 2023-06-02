@@ -287,7 +287,7 @@ func (m *RepositoryManager) packRefsIfNeeded(ctx context.Context, repo *localrep
 	}
 
 	// If there are any inhibitors, we don't run git-pack-refs(1).
-	ok, cleanup := m.repositoryStates.tryRunningPackRefs(path)
+	ok, ctx, cleanup := m.repositoryStates.tryRunningPackRefs(ctx, path)
 	if !ok {
 		return false, nil
 	}

@@ -32,6 +32,9 @@ type repositoryState struct {
 	// packRefsDone is a channel used to denote when the ongoing (if any) call to packRefsIfNeeded
 	// is completed.
 	packRefsDone chan struct{}
+	// packRefsCancel is the context cancellation function which can be used to cancel any
+	// running git-pack-refs(1).
+	packRefsCancel context.CancelFunc
 	// packRefsInhibitors keeps a count of the number of inhibitors on running packRefsIfNeeded.
 	packRefsInhibitors int32
 	// isRunning is used to indicate if housekeeping is running.
@@ -139,6 +142,12 @@ func (s *repositoryStates) addPackRefsInhibitor(ctx context.Context, repoPath st
 			break
 		}
 
+		// Instead of waiting for git-pack-refs to finish, we ask it to
+		// stop.
+		if state.packRefsCancel != nil {
+			state.packRefsCancel()
+		}
+
 		state.Unlock()
 
 		select {
@@ -174,7 +183,7 @@ func (s *repositoryStates) addPackRefsInhibitor(ctx context.Context, repoPath st
 // is at least one inhibitors then we return false. If there are no inhibitors, we setup the `packRefsDone`
 // channel to denote when `git-pack-refs(1)` finishes, this is handled when the caller calls the
 // cleanup function returned by this function.
-func (s *repositoryStates) tryRunningPackRefs(repoPath string) (successful bool, _ func()) {
+func (s *repositoryStates) tryRunningPackRefs(ctx context.Context, repoPath string) (successful bool, _ context.Context, _ func()) {
 	state, cleanup := s.getState(repoPath)
 	defer func() {
 		if !successful {
@@ -186,12 +195,15 @@ func (s *repositoryStates) tryRunningPackRefs(repoPath string) (successful bool,
 	defer state.Unlock()
 
 	if state.packRefsInhibitors > 0 || state.packRefsDone != nil {
-		return false, nil
+		return false, ctx, nil
 	}
 
 	state.packRefsDone = make(chan struct{})
 
-	return true, func() {
+	ctx, cancel := context.WithCancel(ctx)
+	state.packRefsCancel = cancel
+
+	return true, ctx, func() {
 		defer cleanup()
 
 		state.Lock()
@@ -199,6 +211,7 @@ func (s *repositoryStates) tryRunningPackRefs(repoPath string) (successful bool,
 
 		close(state.packRefsDone)
 		state.packRefsDone = nil
+		state.packRefsCancel = nil
 	}
 }
 
