@@ -151,6 +151,9 @@ var commandDescriptions = map[string]commandDescription{
 	"hash-object": {
 		flags: scNoRefUpdates,
 	},
+	"index-pack": {
+		flags: scNoRefUpdates | scNoEndOfOptions,
+	},
 	"init": {
 		flags: scNoRefUpdates,
 		opts: []GlobalOption{

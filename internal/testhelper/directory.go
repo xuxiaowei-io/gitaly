@@ -20,10 +20,10 @@ type DirectoryEntry struct {
 	Mode fs.FileMode
 	// Content contains the file content if this is a regular file.
 	Content any
-	// ParseContent is a function that receives the file's actual content and
-	// returns it parsed into the expected form. The returned value is ultimately
+	// ParseContent is a function that receives the file's absolute path, actual content
+	// and returns it parsed into the expected form. The returned value is ultimately
 	// asserted for equality with the Content.
-	ParseContent func(tb testing.TB, content []byte) any
+	ParseContent func(tb testing.TB, path string, content []byte) any
 }
 
 // DirectoryState models the contents of a directory. The key is relative of the entry in
@@ -65,7 +65,7 @@ func RequireDirectoryState(tb testing.TB, rootDirectory, relativeDirectory strin
 
 			actualEntry.Content = content
 			if expectedEntry, ok := expected[trimmedPath]; ok && expectedEntry.ParseContent != nil {
-				actualEntry.Content = expectedEntry.ParseContent(tb, content)
+				actualEntry.Content = expectedEntry.ParseContent(tb, path, content)
 			}
 		}
 

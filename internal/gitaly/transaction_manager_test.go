@@ -84,7 +84,7 @@ func writePack(tb testing.TB, cfg config.Cfg, packFile []byte, destinationPack s
 
 // packFileDirectoryEntry returns a DirectoryEntry that parses content as a pack file and asserts that the
 // set of objects in the pack file matches the expected objects.
-func packFileDirectoryEntry(cfg config.Cfg, mode fs.FileMode, expectedObjects []git.ObjectID) testhelper.DirectoryEntry {
+func packFileDirectoryEntry(cfg config.Cfg, expectedObjects []git.ObjectID) testhelper.DirectoryEntry {
 	sortObjects := func(objects []git.ObjectID) {
 		sort.Slice(objects, func(i, j int) bool {
 			return objects[i] < objects[j]
@@ -94,9 +94,9 @@ func packFileDirectoryEntry(cfg config.Cfg, mode fs.FileMode, expectedObjects []
 	sortObjects(expectedObjects)
 
 	return testhelper.DirectoryEntry{
-		Mode:    mode,
+		Mode:    perm.SharedReadOnlyFile,
 		Content: expectedObjects,
-		ParseContent: func(tb testing.TB, content []byte) any {
+		ParseContent: func(tb testing.TB, path string, content []byte) any {
 			tb.Helper()
 
 			tempDir := tb.TempDir()
@@ -110,6 +110,26 @@ func packFileDirectoryEntry(cfg config.Cfg, mode fs.FileMode, expectedObjects []
 			sortObjects(actualObjects)
 
 			return actualObjects
+		},
+	}
+}
+
+// indexFileDirectoryEntry returns a DirectoryEntry that asserts the given pack file index is valid.
+func indexFileDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
+	return testhelper.DirectoryEntry{
+		Mode: perm.SharedReadOnlyFile,
+		ParseContent: func(tb testing.TB, path string, content []byte) any {
+			tb.Helper()
+
+			// Verify the index is valid.
+			//
+			// -C filepath.Dir ensures the command runs in the tested repository, not in the developer's
+			// Gitaly repository. Otherwise the hash algorithm in use would be derived from there which
+			// would break tests.
+			gittest.Exec(tb, cfg, "-C", filepath.Dir(path), "verify-pack", "-v", path)
+
+			// As we already verified the index is valid, we don't care about the actual contents.
+			return nil
 		},
 	}
 }
@@ -1988,12 +2008,19 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs/1.pack": packFileDirectoryEntry(
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.idx",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
+					}): packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2085,21 +2112,35 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs/1.pack": packFileDirectoryEntry(
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-4274682fcb6a4dbb1a59ba7dd8577402e61ccbd2.idx",
+						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-4274682fcb6a4dbb1a59ba7dd8577402e61ccbd2.pack",
+						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.pack",
+					}): packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
 							setup.Commits.Second.OID,
 						},
 					),
-					"/wal/packs/3.pack": packFileDirectoryEntry(
+					"/wal/packs/3": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/3/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-d8f8b445de2d8e0164e38e669c904aaaebb55ecc.idx",
+						git.ObjectHashSHA256.Format: "pack-eb1f9d6108dede6b5b0b934e5a4871d8ed49692c7024df15cff7da78a81315d6.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/3/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-d8f8b445de2d8e0164e38e669c904aaaebb55ecc.pack",
+						git.ObjectHashSHA256.Format: "pack-eb1f9d6108dede6b5b0b934e5a4871d8ed49692c7024df15cff7da78a81315d6.pack",
+					}): packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.Commits.Second.OID,
 							setup.Commits.Third.OID,
@@ -2151,12 +2192,19 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs/1.pack": packFileDirectoryEntry(
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.idx",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
+					}): packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2229,12 +2277,19 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs/1.pack": packFileDirectoryEntry(
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.idx",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
+					}): packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2306,12 +2361,19 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs/1.pack": packFileDirectoryEntry(
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.idx",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
+					}): packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2380,12 +2442,19 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/wal":       {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal/packs/1.pack": packFileDirectoryEntry(
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.idx",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
+					}): packFileDirectoryEntry(
 						setup.Config,
-						umask.Mask(perm.PrivateFile),
 						[]git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -2405,7 +2474,7 @@ func TestTransactionManager(t *testing.T) {
 					//
 					// The Manager starts up and we expect the pack file to be gone at the end of the test.
 					ModifyRepository: func(tb testing.TB, repoPath string) {
-						packFilePath := packFilePathForLogIndex(repoPath, 1)
+						packFilePath := packFilePath(walFilesPathForLogIndex(repoPath, 1))
 						require.NoError(t, os.MkdirAll(filepath.Dir(packFilePath), fs.ModePerm))
 						require.NoError(t, os.WriteFile(
 							packFilePath,
@@ -3100,7 +3169,12 @@ func TestTransactionManager(t *testing.T) {
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction rollbacked before beginning it")
 					require.NoError(t, openTransactions[step.TransactionID].Rollback())
 				case Prune:
+					// Repack all objects into a single pack and remove all other packs to remove all
+					// unreachable objects from the packs.
+					gittest.Exec(t, setup.Config, "-C", repoPath, "repack", "-ad")
+					// Prune all unreachable loose objects in the repository.
 					gittest.Exec(t, setup.Config, "-C", repoPath, "prune")
+
 					require.ElementsMatch(t, step.ExpectedObjects, gittest.ListObjects(t, setup.Config, repoPath))
 				case RemoveRepository:
 					require.NoError(t, os.RemoveAll(repoPath))
