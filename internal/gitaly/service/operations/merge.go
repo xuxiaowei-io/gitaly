@@ -130,7 +130,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return structerr.NewNotFound("%w", err)
 			}
-			return structerr.NewInternal("branch resolution failed: %w", err)
+			return structerr.NewInternal("branch resolution: %w", err)
 		}
 	}
 
@@ -170,7 +170,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 				)
 		}
 
-		return structerr.NewInternal("unknown merge error: %w", err)
+		return structerr.NewInternal("merge: %w", err)
 	}
 
 	mergeOID, err := git.ObjectHashSHA1.FromHex(mergeCommitID)
@@ -238,7 +238,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			)
 		}
 
-		return structerr.NewInternal("target update failed: %w", err)
+		return structerr.NewInternal("target update: %w", err)
 	}
 
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{
