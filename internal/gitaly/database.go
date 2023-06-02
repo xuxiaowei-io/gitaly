@@ -1,7 +1,7 @@
 package gitaly
 
 import (
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 )
 
 // OpenDatabase opens a new database handle to a database at the given path.

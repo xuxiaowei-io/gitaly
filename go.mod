@@ -10,7 +10,7 @@ require (
 	github.com/beevik/ntp v0.3.3
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups/v3 v3.0.1
-	github.com/dgraph-io/badger/v3 v3.2103.5
+	github.com/dgraph-io/badger/v4 v4.1.0
 	github.com/getsentry/sentry-go v0.20.0
 	github.com/git-lfs/git-lfs/v3 v3.3.0
 	github.com/go-enry/go-enry/v2 v2.8.4
@@ -92,7 +92,6 @@ require (
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
-	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/client9/reopen v1.0.0 // indirect
 	github.com/cloudflare/circl v1.2.0 // indirect
