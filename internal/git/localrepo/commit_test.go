@@ -2,28 +2,46 @@ package localrepo
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/packet"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gpg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
-func TestWriteCommit(t *testing.T) {
-	t.Helper()
+//go:generate rm -rf testdata/gpg-keys testdata/signing_gpg_key testdata/signing_gpg_key.pub
+//go:generate mkdir -p testdata/gpg-keys
+//go:generate chmod 0700 testdata/gpg-keys
+//go:generate gpg --homedir testdata/gpg-keys --generate-key --batch testdata/genkey.in
+//go:generate gpg --homedir testdata/gpg-keys --export --output testdata/signing_gpg_key.pub
+//go:generate gpg --homedir testdata/gpg-keys --export-secret-keys --output testdata/signing_gpg_key
 
+func TestWriteCommit(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GPGSigning).Run(t, testWriteCommit)
+}
+
+func testWriteCommit(t *testing.T, ctx context.Context) {
+	t.Helper()
 	cfg := testcfg.Build(t)
-	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
+
+	testcfg.BuildGitalyGPG(t, cfg)
+
 	repo := NewTestRepo(t, cfg, repoProto)
 
 	blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("something"))
@@ -184,6 +202,7 @@ func TestWriteCommit(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			oid, err := repo.WriteCommit(ctx, tc.cfg)
+
 			require.Equal(t, tc.expectedError, err)
 			if err != nil {
 				return
@@ -200,11 +219,59 @@ func TestWriteCommit(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("signed", func(tb *testing.T) {
+		if !featureflag.GPGSigning.IsEnabled(ctx) {
+			tb.Skip()
+		}
+
+		cfg := WriteCommitConfig{
+			TreeID:         treeA.OID,
+			AuthorName:     gittest.DefaultCommitterName,
+			AuthorEmail:    gittest.DefaultCommitterMail,
+			CommitterName:  gittest.DefaultCommitterName,
+			CommitterEmail: gittest.DefaultCommitterMail,
+			AuthorDate:     gittest.DefaultCommitTime,
+			CommitterDate:  gittest.DefaultCommitTime,
+			Message:        "my custom message",
+			SigningKey:     "testdata/signing_gpg_key",
+		}
+
+		oid, err := repo.WriteCommit(ctx, cfg)
+		require.Nil(t, err)
+
+		commit, err := repo.ReadCommit(ctx, git.Revision(oid))
+		require.NoError(t, err)
+
+		require.Equal(t, gittest.DefaultCommitAuthor, commit.Author)
+		require.Equal(t, "my custom message", string(commit.Body))
+
+		data, err := repo.ReadObject(ctx, oid)
+		require.NoError(t, err)
+
+		gpgsig, dataWithoutGpgSig := gpg.ExtractSignature(t, ctx, data)
+
+		pubKey := testhelper.MustReadFile(tb, "testdata/signing_gpg_key.pub")
+		keyring, err := openpgp.ReadKeyRing(bytes.NewReader(pubKey))
+		require.NoError(tb, err)
+
+		_, err = openpgp.CheckArmoredDetachedSignature(
+			keyring,
+			strings.NewReader(dataWithoutGpgSig),
+			strings.NewReader(gpgsig),
+			&packet.Config{},
+		)
+		require.NoError(tb, err)
+	})
 }
 
 func TestWriteCommit_validation(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GPGSigning).Run(t, testWriteCommitValidation)
+}
+
+func testWriteCommitValidation(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
-	ctx := testhelper.Context(t)
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,

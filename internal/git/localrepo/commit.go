@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -44,6 +45,7 @@ type WriteCommitConfig struct {
 	TreeEntries        []TreeEntry
 	TreeID             git.ObjectID
 	AlternateObjectDir string
+	SigningKey         string
 }
 
 func validateWriteCommitConfig(cfg WriteCommitConfig) error {
@@ -121,16 +123,25 @@ func (repo *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.O
 
 	var stdout, stderr bytes.Buffer
 
+	opts := []git.CmdOpt{
+		git.WithStdout(&stdout),
+		git.WithStderr(&stderr),
+		git.WithStdin(strings.NewReader(cfg.Message)),
+		git.WithEnv(env...),
+	}
+
+	if featureflag.GPGSigning.IsEnabled(ctx) && cfg.SigningKey != "" {
+		flags = append(flags, git.Flag{Name: "--gpg-sign=" + cfg.SigningKey})
+		opts = append(opts, git.WithGitalyGPG())
+	}
+
 	if err := repo.ExecAndWait(ctx,
 		git.Command{
 			Name:  "commit-tree",
 			Flags: flags,
 			Args:  commitArgs,
 		},
-		git.WithStdout(&stdout),
-		git.WithStderr(&stderr),
-		git.WithStdin(strings.NewReader(cfg.Message)),
-		git.WithEnv(env...),
+		opts...,
 	); err != nil {
 		if strings.Contains(stderr.String(), "name consists only of disallowed characters") {
 			return "", ErrDisallowedCharacters
