@@ -121,6 +121,11 @@ var (
 	ErrAbsolutePath = errors.New("path is absolute")
 	// ErrEmptyPath indicates the path is an absolute path
 	ErrEmptyPath = errors.New("path is empty")
+	// ErrDisallowedPath indicates the path is invalid
+	ErrDisallowedPath = errors.New("disallowed path")
+	// ErrDisallowedCharacters indicates the name and/or email contains disallowed
+	// characters
+	ErrDisallowedCharacters = errors.New("disallowed characters")
 )
 
 func validateFileCreationPath(path string) (string, error) {
@@ -136,6 +141,10 @@ func validateFileCreationPath(path string) (string, error) {
 
 	if path == "." {
 		return "", ErrEmptyPath
+	}
+
+	if before, _, _ := strings.Cut(path, "/"); before == ".git" {
+		return "", ErrDisallowedPath
 	}
 
 	return path, nil
@@ -592,6 +601,10 @@ func (t *TreeEntry) Write(
 
 	treeOID, err := repo.writeEntries(ctx, t.Entries)
 	if err != nil {
+		if strings.Contains(err.Error(), "name consists only of disallowed characters") {
+			return ErrDisallowedCharacters
+		}
+
 		return fmt.Errorf("writing tree: %w", err)
 	}
 
