@@ -112,8 +112,8 @@ func (s *server) conflictFilesWithGitMergeTree(
 	// Git2Go conflict markers have filenames and git-merge-tree(1) has commit OIDs,
 	// to keep the content the same, we replace commit OID with filenames.
 	replaceOids := func(conflict *conflictHeader, chunk []byte) []byte {
-		chunk = bytes.ReplaceAll(chunk, []byte(request.OurCommitOid), []byte(conflict.ourPath))
-		chunk = bytes.ReplaceAll(chunk, []byte(request.TheirCommitOid), []byte(conflict.theirPath))
+		chunk = bytes.ReplaceAll(chunk, []byte(ours), []byte(conflict.ourPath))
+		chunk = bytes.ReplaceAll(chunk, []byte(theirs), []byte(conflict.theirPath))
 
 		return chunk
 	}
