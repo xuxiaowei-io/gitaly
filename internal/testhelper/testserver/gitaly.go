@@ -3,6 +3,7 @@ package testserver
 import (
 	"context"
 	"net"
+	"net/http"
 	"os"
 	"testing"
 
@@ -204,9 +205,22 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 
 	secure := cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != ""
 
-	externalServer, err := serverFactory.CreateExternal(secure, serverOpts...)
-	require.NoError(tb, err)
-	tb.Cleanup(externalServer.Stop)
+	var externalServer *grpc.Server
+	var httpServer *http.Server
+	var err error
+
+	if gsd.useHTTP2 {
+		externalServer, httpServer, err = serverFactory.CreateHTTP2External(secure, serverOpts...)
+		require.NoError(tb, err)
+		tb.Cleanup(func() {
+			externalServer.GracefulStop()
+			httpServer.Shutdown(testhelper.Context(tb))
+		})
+	} else {
+		externalServer, err = serverFactory.CreateExternal(secure, serverOpts...)
+		require.NoError(tb, err)
+		tb.Cleanup(externalServer.Stop)
+	}
 
 	registrar(externalServer, deps)
 	registerHealthServerIfNotRegistered(externalServer)
@@ -232,7 +246,14 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 	}
 
 	go func() {
-		assert.NoError(tb, externalServer.Serve(listener), "failure to serve external gRPC")
+		if gsd.useHTTP2 {
+			err := httpServer.Serve(listener)
+			if err != http.ErrServerClosed {
+				assert.NoError(tb, err, "failure to serve external gRPC")
+			}
+		} else {
+			assert.NoError(tb, externalServer.Serve(listener), "failure to serve external gRPC")
+		}
 	}()
 
 	ctx := testhelper.Context(tb)
@@ -268,6 +289,7 @@ type gitalyServerDeps struct {
 	git2goExecutor                *git2go.Executor
 	updaterWithHooks              *updateref.UpdaterWithHooks
 	housekeepingManager           housekeeping.Manager
+	useHTTP2                      bool
 }
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
@@ -484,6 +506,14 @@ func WithPackObjectsLimiter(limiter *limithandler.ConcurrencyLimiter) GitalyServ
 func WithHousekeepingManager(manager housekeeping.Manager) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.housekeepingManager = manager
+		return deps
+	}
+}
+
+// WithHTTP2 starts Gitaly server using HTTP2 server
+func WithHTTP2() GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.useHTTP2 = true
 		return deps
 	}
 }

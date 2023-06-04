@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backoff"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/dnsresolver"
+	_ "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/encoding"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"

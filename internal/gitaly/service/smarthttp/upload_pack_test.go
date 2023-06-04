@@ -11,6 +11,9 @@ import (
 	"sync"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v16/streamio"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
@@ -33,22 +36,23 @@ const (
 )
 
 type (
-	requestMaker func(t *testing.T, ctx context.Context, serverSocketPath, token string, in *gitalypb.PostUploadPackWithSidechannelRequest, body io.Reader) (*bytes.Buffer, error)
+	requestMaker func(t *testing.T, ctx context.Context, serverSocketPath, token string, in postUploadPackRequest, body io.Reader) (*bytes.Buffer, error)
 )
 
 func runTestWithAndWithoutConfigOptions(
 	t *testing.T,
-	tf func(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option),
+	tf func(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt),
 	makeRequest requestMaker,
-	opts ...testcfg.Option,
+	opts []testcfg.Option,
+	serverOpts []testserver.GitalyServerOpt,
 ) {
 	ctx := testhelper.Context(t)
 
-	t.Run("no config options", func(t *testing.T) { tf(t, ctx, makeRequest) })
+	t.Run("no config options", func(t *testing.T) { tf(t, ctx, makeRequest, []testcfg.Option{}, serverOpts) })
 
 	if len(opts) > 0 {
 		t.Run("with config options", func(t *testing.T) {
-			tf(t, ctx, makeRequest, opts...)
+			tf(t, ctx, makeRequest, opts, serverOpts)
 		})
 	}
 }
@@ -56,15 +60,29 @@ func runTestWithAndWithoutConfigOptions(
 func TestServer_PostUploadWithChannel(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUpload, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUpload, makePostUploadPackWithSidechannelRequest,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{},
+	)
 }
 
-func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadV3(t *testing.T) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUpload, makePostUploadPackV3,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{testserver.WithHTTP2()},
+	)
+}
+
+func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	cfg := testcfg.Build(t, opts...)
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
-	cfg.SocketPath = runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
+	cfg.SocketPath = startSmartHTTPServerWithOptions(t, cfg, []ServerOpt{WithPackfileNegotiationMetrics(negotiationMetrics)}, serverOpts).Address()
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -101,10 +119,24 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 func TestServer_PostUploadPackSidechannel_gitConfigOptions(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitConfigOptions, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackGitConfigOptions, makePostUploadPackWithSidechannelRequest,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{},
+	)
 }
 
-func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadPackV3_gitConfigOptions(t *testing.T) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackGitConfigOptions, makePostUploadPackV3,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{testserver.WithHTTP2()},
+	)
+}
+
+func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	testhelper.SkipQuarantinedTest(
 		t,
 		"https://gitlab.com/gitlab-org/gitaly/-/issues/5027",
@@ -114,7 +146,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 	cfg := testcfg.Build(t, opts...)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = startSmartHTTPServerWithOptions(t, cfg, []ServerOpt{}, serverOpts).Address()
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -170,15 +202,29 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 func TestServer_PostUploadPackWithSidechannel_gitProtocol(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitProtocol, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackGitProtocol, makePostUploadPackWithSidechannelRequest,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{},
+	)
 }
 
-func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadPackV3_gitProtocol(t *testing.T) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackGitProtocol, makePostUploadPackV3,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{testserver.WithHTTP2()},
+	)
+}
+
+func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	cfg := testcfg.Build(t, opts...)
 	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
-	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, append(serverOpts,
 		testserver.WithGitCommandFactory(protocolDetectingFactory),
-	})
+	))
 	cfg.SocketPath = server.Address()
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -207,12 +253,26 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 func TestServer_PostUploadPackWithSidechannel_suppressDeepenExitError(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackSuppressDeepenExitError, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackSuppressDeepenExitError, makePostUploadPackWithSidechannelRequest,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{},
+	)
 }
 
-func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadPackV3_suppressDeepenExitError(t *testing.T) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackSuppressDeepenExitError, makePostUploadPackV3,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{testserver.WithHTTP2()},
+	)
+}
+
+func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	cfg := testcfg.Build(t, opts...)
-	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = startSmartHTTPServerWithOptions(t, cfg, nil, serverOpts).Address()
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
@@ -232,10 +292,17 @@ func TestServer_PostUploadPackWithSidechannel_usesPackObjectsHook(t *testing.T) 
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	testServerPostUploadPackUsesPackObjectsHook(t, ctx, makePostUploadPackWithSidechannelRequest)
+	testServerPostUploadPackUsesPackObjectsHook(t, ctx, makePostUploadPackWithSidechannelRequest, nil, nil)
 }
 
-func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadPackV3_usesPackObjectsHook(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	testServerPostUploadPackUsesPackObjectsHook(t, ctx, makePostUploadPackV3, nil, []testserver.GitalyServerOpt{testserver.WithHTTP2()})
+}
+
+func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	cfg := testcfg.Build(t, append(opts, testcfg.WithPackObjectsCacheEnabled())...)
 	cfg.BinDir = testhelper.TempDir(t)
 
@@ -252,7 +319,7 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 	// transferred back.
 	testhelper.WriteExecutable(t, cfg.BinaryPath("gitaly-hooks"), []byte(hookScript))
 
-	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = startSmartHTTPServerWithOptions(t, cfg, nil, serverOpts).Address()
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	oldHead := gittest.WriteCommit(t, cfg, repoPath)
@@ -276,14 +343,28 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 func TestServer_PostUploadPack_validation(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackValidation, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackValidation, makePostUploadPackWithSidechannelRequest,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{},
+	)
 }
 
-func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadPackV3_validation(t *testing.T) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackValidation, makePostUploadPackV3,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{testserver.WithHTTP2()},
+	)
+}
+
+func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t, opts...)
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	serverSocketPath := startSmartHTTPServerWithOptions(t, cfg, nil, serverOpts).Address()
 	cfg.SocketPath = serverSocketPath
 
 	for _, tc := range []struct {
@@ -320,12 +401,26 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 func TestServer_PostUploadPackSidechannel_validation(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackWithSideChannelValidation, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackWithSideChannelValidation, makePostUploadPackWithSidechannelRequest,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{},
+	)
 }
 
-func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadPackV3(t *testing.T) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackWithSideChannelValidation, makePostUploadPackV3,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{testserver.WithHTTP2()},
+	)
+}
+
+func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	cfg := testcfg.Build(t, opts...)
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	serverSocketPath := startSmartHTTPServerWithOptions(t, cfg, nil, serverOpts).Address()
 
 	for _, tc := range []struct {
 		desc        string
@@ -398,15 +493,29 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 func TestServer_PostUploadPackWithSidechannel_partialClone(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackPartialClone, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackPartialClone, makePostUploadPackWithSidechannelRequest,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{},
+	)
 }
 
-func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadPackV3_partialClone(t *testing.T) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(
+		t, testServerPostUploadPackPartialClone, makePostUploadPackV3,
+		[]testcfg.Option{testcfg.WithPackObjectsCacheEnabled()},
+		[]testserver.GitalyServerOpt{testserver.WithHTTP2()},
+	)
+}
+
+func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	cfg := testcfg.Build(t, opts...)
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
-	cfg.SocketPath = runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
+	cfg.SocketPath = startSmartHTTPServerWithOptions(t, cfg, []ServerOpt{WithPackfileNegotiationMetrics(negotiationMetrics)}, serverOpts).Address()
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -451,12 +560,19 @@ func TestServer_PostUploadPackWithSidechannel_allowAnySHA1InWant(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	testServerPostUploadPackAllowAnySHA1InWant(t, ctx, makePostUploadPackWithSidechannelRequest)
+	testServerPostUploadPackAllowAnySHA1InWant(t, ctx, makePostUploadPackWithSidechannelRequest, nil, nil)
 }
 
-func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func TestServer_PostUploadPackV3_allowAnySHA1InWant(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	testServerPostUploadPackAllowAnySHA1InWant(t, ctx, makePostUploadPackV3, nil, []testserver.GitalyServerOpt{testserver.WithHTTP2()})
+}
+
+func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Context, makeRequest requestMaker, opts []testcfg.Option, serverOpts []testserver.GitalyServerOpt) {
 	cfg := testcfg.Build(t, opts...)
-	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = startSmartHTTPServerWithOptions(t, cfg, nil, serverOpts).Address()
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -499,7 +615,7 @@ func dialSmartHTTPServerWithSidechannel(t *testing.T, serverSocketPath, token st
 	return conn
 }
 
-func makePostUploadPackWithSidechannelRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, in *gitalypb.PostUploadPackWithSidechannelRequest, body io.Reader) (*bytes.Buffer, error) {
+func makePostUploadPackWithSidechannelRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, in postUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {
 	t.Helper()
 
 	registry := sidechannel.NewRegistry()
@@ -548,4 +664,66 @@ func makePostUploadPackWithSidechannelRequest(t *testing.T, ctx context.Context,
 	}
 
 	return responseBuffer, err
+}
+
+func makePostUploadPackV3(t *testing.T, ctx context.Context, serverSocketPath, token string, in postUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {
+	t.Helper()
+
+	conn, err := grpc.Dial(
+		serverSocketPath,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.CallContentSubtype("raw")),
+	)
+	require.NoError(t, err)
+
+	client := gitalypb.NewSmartHTTPServiceClient(conn)
+	defer testhelper.MustClose(t, conn)
+
+	stream, err := client.PostUploadPackV3(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var firstRequest []byte
+	if firstRequest, err = proto.Marshal(&gitalypb.PostUploadPackV3Request{
+		Repository:       in.GetRepository(),
+		GitConfigOptions: in.GetGitConfigOptions(),
+		GitProtocol:      in.GetGitProtocol(),
+	}); err != nil {
+		return nil, err
+	}
+	if err = stream.SendMsg(firstRequest); err != nil {
+		return nil, err
+	}
+
+	responseBuffer := &bytes.Buffer{}
+	stdin := streamio.NewReader(func() ([]byte, error) {
+		var stdinBuffer []byte
+		err := stream.RecvMsg(&stdinBuffer)
+		if err != nil {
+			return nil, err
+		}
+		return stdinBuffer, err
+	})
+	stdout := streamio.NewWriter(func(p []byte) error {
+		return stream.SendMsg(p)
+	})
+
+	errC := make(chan error, 1)
+	go func() {
+		_, err := io.CopyBuffer(responseBuffer, stdin, make([]byte, 64*1024))
+		errC <- err
+	}()
+
+	if body != nil {
+		if _, err = io.CopyBuffer(stdout, body, make([]byte, 64*1024)); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return nil, err
+	}
+
+	return responseBuffer, <-errC
 }

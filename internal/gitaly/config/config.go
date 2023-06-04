@@ -93,6 +93,7 @@ type Cfg struct {
 	SocketPath             string              `toml:"socket_path,omitempty" json:"socket_path" split_words:"true"`
 	ListenAddr             string              `toml:"listen_addr,omitempty" json:"listen_addr" split_words:"true"`
 	TLSListenAddr          string              `toml:"tls_listen_addr,omitempty" json:"tls_listen_addr" split_words:"true"`
+	PackServerListenAddr   string              `toml:"pack_server_listen_addr,omitempty" json:"pack_server_listen_addr" split_words:"true"`
 	PrometheusListenAddr   string              `toml:"prometheus_listen_addr,omitempty" json:"prometheus_listen_addr" split_words:"true"`
 	BinDir                 string              `toml:"bin_dir,omitempty" json:"bin_dir"`
 	RuntimeDir             string              `toml:"runtime_dir,omitempty" json:"runtime_dir"`

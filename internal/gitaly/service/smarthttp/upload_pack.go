@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v16/streamio"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -15,6 +18,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
+
+type postUploadPackRequest interface {
+	GetRepository() *gitalypb.Repository
+	GetGitConfigOptions() []string
+	GetGitProtocol() string
+}
 
 func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (*gitalypb.PostUploadPackWithSidechannelResponse, error) {
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
@@ -28,15 +37,84 @@ func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalyp
 	}
 	defer conn.Close()
 
-	if err := s.runUploadPack(ctx, req, repoPath, gitConfig, conn, conn); err != nil {
+	proxy := func(cmd *command.Command) (int64, error) {
+		return io.CopyBuffer(conn, cmd, make([]byte, 64*1024))
+	}
+	if err := s.runUploadPack(ctx, req, repoPath, gitConfig, conn, proxy); err != nil {
 		return nil, structerr.NewInternal("running upload-pack: %w", err)
 	}
-
 	if err := conn.Close(); err != nil {
 		return nil, structerr.NewInternal("close sidechannel connection: %w", err)
 	}
 
 	return &gitalypb.PostUploadPackWithSidechannelResponse{}, nil
+}
+
+func (s *server) PostUploadPackV3(stream gitalypb.SmartHTTPService_PostUploadPackV3Server) error {
+	ctx := stream.Context()
+
+	var req gitalypb.PostUploadPackV3Request
+	var firstRequest []byte
+	// First request contains Repository only
+	if err := stream.RecvMsg(&firstRequest); err != nil {
+		return err
+	}
+	if err := proto.Unmarshal(firstRequest, &req); err != nil {
+		return err
+	}
+
+	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, &req)
+	if err != nil {
+		return structerr.NewInvalidArgument("%w", err)
+	}
+
+	stdin := streamio.NewReader(func() ([]byte, error) {
+		var stdinBuffer []byte
+		err := stream.RecvMsg(&stdinBuffer)
+		if err != nil {
+			return nil, err
+		}
+		return stdinBuffer, err
+	})
+
+	var totalBytes int64
+	var recentBytes int
+	const maxBufferSize = 1024 * 1024
+	bufferSize := 64 * 1024
+	copyBuffer := make([]byte, bufferSize)
+	proxy := func(cmd *command.Command) (int64, error) {
+		for {
+			read, err := cmd.Read(copyBuffer[recentBytes:])
+			if err != nil {
+				if err == io.EOF {
+					if recentBytes > 0 {
+						return totalBytes, stream.SendMsg(copyBuffer[:recentBytes])
+					}
+					return totalBytes, nil
+				}
+				return totalBytes, err
+			}
+			totalBytes += int64(read)
+			recentBytes += read
+			if recentBytes == bufferSize {
+				if err := stream.SendMsg(copyBuffer); err != nil {
+					return totalBytes, err
+				}
+				bufferSize *= 2
+				if bufferSize > maxBufferSize {
+					bufferSize = maxBufferSize
+				}
+				copyBuffer = make([]byte, bufferSize)
+				recentBytes = 0
+			}
+		}
+	}
+
+	if err := s.runUploadPack(ctx, &req, repoPath, gitConfig, stdin, proxy); err != nil {
+		return structerr.NewInternal("running upload-pack: %w", err)
+	}
+
+	return nil
 }
 
 type statsCollector struct {
@@ -72,7 +150,7 @@ func (s *server) runStatsCollector(ctx context.Context, r io.Reader) (io.Reader,
 	return io.TeeReader(r, pw), sc
 }
 
-func (s *server) validateUploadPackRequest(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (string, []git.ConfigPair, error) {
+func (s *server) validateUploadPackRequest(ctx context.Context, req postUploadPackRequest) (string, []git.ConfigPair, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
 		return "", nil, err
@@ -92,7 +170,7 @@ func (s *server) validateUploadPackRequest(ctx context.Context, req *gitalypb.Po
 	return repoPath, config, nil
 }
 
-func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest, repoPath string, gitConfig []git.ConfigPair, stdin io.Reader, stdout io.Writer) error {
+func (s *server) runUploadPack(ctx context.Context, req postUploadPackRequest, repoPath string, gitConfig []git.ConfigPair, stdin io.Reader, proxy func(*command.Command) (int64, error)) error {
 	h := sha1.New()
 
 	stdin = io.TeeReader(stdin, h)
@@ -115,8 +193,7 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 		return structerr.NewUnavailable("spawning upload-pack: %w", err)
 	}
 
-	// Use a custom buffer size to minimize the number of system calls.
-	respBytes, err := io.CopyBuffer(stdout, cmd, make([]byte, 64*1024))
+	respBytes, err := proxy(cmd)
 	if err != nil {
 		return structerr.NewUnavailable("copying stdout from upload-pack: %w", err)
 	}

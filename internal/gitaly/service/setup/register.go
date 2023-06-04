@@ -156,3 +156,19 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	reflection.Register(srv)
 	grpcprometheus.Register(srv)
 }
+
+func RegisterPackDependencies(srv *grpc.Server, deps *service.Dependencies) {
+	gitalypb.RegisterSmartHTTPServiceServer(srv, smarthttp.NewServer(
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetTxManager(),
+		deps.GetDiskCache(),
+		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
+	))
+	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetTxManager(),
+		ssh.WithPackfileNegotiationMetrics(sshPackfileNegotiationMetrics),
+	))
+}

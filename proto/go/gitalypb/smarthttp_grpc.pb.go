@@ -32,6 +32,7 @@ type SmartHTTPServiceClient interface {
 	InfoRefsReceivePack(ctx context.Context, in *InfoRefsRequest, opts ...grpc.CallOption) (SmartHTTPService_InfoRefsReceivePackClient, error)
 	// Request and response body for POST /upload-pack using sidechannel protocol
 	PostUploadPackWithSidechannel(ctx context.Context, in *PostUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*PostUploadPackWithSidechannelResponse, error)
+	PostUploadPackV3(ctx context.Context, opts ...grpc.CallOption) (SmartHTTPService_PostUploadPackV3Client, error)
 	// Request and response body for POST /receive-pack
 	PostReceivePack(ctx context.Context, opts ...grpc.CallOption) (SmartHTTPService_PostReceivePackClient, error)
 }
@@ -117,8 +118,39 @@ func (c *smartHTTPServiceClient) PostUploadPackWithSidechannel(ctx context.Conte
 	return out, nil
 }
 
+func (c *smartHTTPServiceClient) PostUploadPackV3(ctx context.Context, opts ...grpc.CallOption) (SmartHTTPService_PostUploadPackV3Client, error) {
+	stream, err := c.cc.NewStream(ctx, &SmartHTTPService_ServiceDesc.Streams[2], "/gitaly.SmartHTTPService/PostUploadPackV3", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &smartHTTPServicePostUploadPackV3Client{stream}
+	return x, nil
+}
+
+type SmartHTTPService_PostUploadPackV3Client interface {
+	Send(*PostUploadPackV3Request) error
+	Recv() (*PostReceivePackResponse, error)
+	grpc.ClientStream
+}
+
+type smartHTTPServicePostUploadPackV3Client struct {
+	grpc.ClientStream
+}
+
+func (x *smartHTTPServicePostUploadPackV3Client) Send(m *PostUploadPackV3Request) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *smartHTTPServicePostUploadPackV3Client) Recv() (*PostReceivePackResponse, error) {
+	m := new(PostReceivePackResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *smartHTTPServiceClient) PostReceivePack(ctx context.Context, opts ...grpc.CallOption) (SmartHTTPService_PostReceivePackClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SmartHTTPService_ServiceDesc.Streams[2], "/gitaly.SmartHTTPService/PostReceivePack", opts...)
+	stream, err := c.cc.NewStream(ctx, &SmartHTTPService_ServiceDesc.Streams[3], "/gitaly.SmartHTTPService/PostReceivePack", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +194,7 @@ type SmartHTTPServiceServer interface {
 	InfoRefsReceivePack(*InfoRefsRequest, SmartHTTPService_InfoRefsReceivePackServer) error
 	// Request and response body for POST /upload-pack using sidechannel protocol
 	PostUploadPackWithSidechannel(context.Context, *PostUploadPackWithSidechannelRequest) (*PostUploadPackWithSidechannelResponse, error)
+	PostUploadPackV3(SmartHTTPService_PostUploadPackV3Server) error
 	// Request and response body for POST /receive-pack
 	PostReceivePack(SmartHTTPService_PostReceivePackServer) error
 	mustEmbedUnimplementedSmartHTTPServiceServer()
@@ -179,6 +212,9 @@ func (UnimplementedSmartHTTPServiceServer) InfoRefsReceivePack(*InfoRefsRequest,
 }
 func (UnimplementedSmartHTTPServiceServer) PostUploadPackWithSidechannel(context.Context, *PostUploadPackWithSidechannelRequest) (*PostUploadPackWithSidechannelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PostUploadPackWithSidechannel not implemented")
+}
+func (UnimplementedSmartHTTPServiceServer) PostUploadPackV3(SmartHTTPService_PostUploadPackV3Server) error {
+	return status.Errorf(codes.Unimplemented, "method PostUploadPackV3 not implemented")
 }
 func (UnimplementedSmartHTTPServiceServer) PostReceivePack(SmartHTTPService_PostReceivePackServer) error {
 	return status.Errorf(codes.Unimplemented, "method PostReceivePack not implemented")
@@ -256,6 +292,32 @@ func _SmartHTTPService_PostUploadPackWithSidechannel_Handler(srv interface{}, ct
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SmartHTTPService_PostUploadPackV3_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SmartHTTPServiceServer).PostUploadPackV3(&smartHTTPServicePostUploadPackV3Server{stream})
+}
+
+type SmartHTTPService_PostUploadPackV3Server interface {
+	Send(*PostReceivePackResponse) error
+	Recv() (*PostUploadPackV3Request, error)
+	grpc.ServerStream
+}
+
+type smartHTTPServicePostUploadPackV3Server struct {
+	grpc.ServerStream
+}
+
+func (x *smartHTTPServicePostUploadPackV3Server) Send(m *PostReceivePackResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *smartHTTPServicePostUploadPackV3Server) Recv() (*PostUploadPackV3Request, error) {
+	m := new(PostUploadPackV3Request)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func _SmartHTTPService_PostReceivePack_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(SmartHTTPServiceServer).PostReceivePack(&smartHTTPServicePostReceivePackServer{stream})
 }
@@ -304,6 +366,12 @@ var SmartHTTPService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "InfoRefsReceivePack",
 			Handler:       _SmartHTTPService_InfoRefsReceivePack_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "PostUploadPackV3",
+			Handler:       _SmartHTTPService_PostUploadPackV3_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 		{
 			StreamName:    "PostReceivePack",

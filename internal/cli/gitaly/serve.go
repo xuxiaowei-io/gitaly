@@ -3,6 +3,7 @@ package gitaly
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime/debug"
 	"time"
@@ -307,6 +308,25 @@ func run(cfg config.Cfg) error {
 	concurrencyTracker := hook.NewConcurrencyTracker()
 	prometheus.MustRegister(concurrencyTracker)
 
+	createServiceDependencies := func() *service.Dependencies {
+		return &service.Dependencies{
+			Cfg:                           cfg,
+			GitalyHookManager:             hookManager,
+			TransactionManager:            transactionManager,
+			StorageLocator:                locator,
+			ClientPool:                    conns,
+			GitCmdFactory:                 gitCmdFactory,
+			CatfileCache:                  catfileCache,
+			DiskCache:                     diskCache,
+			PackObjectsCache:              streamCache,
+			PackObjectsConcurrencyTracker: concurrencyTracker,
+			PackObjectsLimiter:            packObjectsLimiter,
+			Git2goExecutor:                git2goExecutor,
+			UpdaterWithHooks:              updaterWithHooks,
+			HousekeepingManager:           housekeepingManager,
+		}
+	}
+
 	for _, c := range []starter.Config{
 		{Name: starter.Unix, Addr: cfg.SocketPath, HandoverOnUpgrade: true},
 		{Name: starter.Unix, Addr: cfg.InternalSocketPath(), HandoverOnUpgrade: false},
@@ -330,23 +350,37 @@ func run(cfg config.Cfg) error {
 			}
 		}
 
-		setup.RegisterAll(srv, &service.Dependencies{
-			Cfg:                           cfg,
-			GitalyHookManager:             hookManager,
-			TransactionManager:            transactionManager,
-			StorageLocator:                locator,
-			ClientPool:                    conns,
-			GitCmdFactory:                 gitCmdFactory,
-			CatfileCache:                  catfileCache,
-			DiskCache:                     diskCache,
-			PackObjectsCache:              streamCache,
-			PackObjectsConcurrencyTracker: concurrencyTracker,
-			PackObjectsLimiter:            packObjectsLimiter,
-			Git2goExecutor:                git2goExecutor,
-			UpdaterWithHooks:              updaterWithHooks,
-			HousekeepingManager:           housekeepingManager,
-		})
+		setup.RegisterAll(srv, createServiceDependencies())
 		b.RegisterStarter(starter.New(c, srv))
+	}
+
+	if addr := cfg.PackServerListenAddr; addr != "" {
+		for _, c := range []starter.Config{
+			// TODO: Handle TLS later
+			{Name: starter.TCP, Addr: cfg.PackServerListenAddr, HandoverOnUpgrade: true},
+			// TODO: Add internal socket here
+		} {
+			if c.Addr == "" {
+				continue
+			}
+
+			var srv *grpc.Server
+			var httpSrv *http.Server
+			if c.HandoverOnUpgrade {
+				srv, httpSrv, err = gitalyServerFactory.CreateHTTP2External(c.IsSecure())
+				if err != nil {
+					return fmt.Errorf("create external gRPC server: %w", err)
+				}
+			} else {
+				srv, httpSrv, err = gitalyServerFactory.CreateHTTP2Internal()
+				if err != nil {
+					return fmt.Errorf("create internal gRPC server: %w", err)
+				}
+			}
+
+			setup.RegisterPackDependencies(srv, createServiceDependencies())
+			b.RegisterStarter(starter.New(c, httpSrv))
+		}
 	}
 
 	if addr := cfg.PrometheusListenAddr; addr != "" {
@@ -406,5 +440,5 @@ func run(cfg config.Cfg) error {
 	gracefulStopTicker := helper.NewTimerTicker(cfg.GracefulRestartTimeout.Duration())
 	defer gracefulStopTicker.Stop()
 
-	return b.Wait(gracefulStopTicker, gitalyServerFactory.GracefulStop)
+	return b.Wait(gracefulStopTicker, func() { gitalyServerFactory.GracefulStop() })
 }

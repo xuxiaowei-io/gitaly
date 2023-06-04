@@ -35,6 +35,12 @@ service SmartHTTPService {
     };
   }
 
+  rpc PostUploadPackV3(stream PostUploadPackV3Request) returns (stream PostReceivePackResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   // Request and response body for POST /receive-pack
   rpc PostReceivePack(stream PostReceivePackRequest) returns (stream PostReceivePackResponse) {
     option (op_type) = {
@@ -71,7 +77,23 @@ message PostUploadPackWithSidechannelRequest {
 }
 
 // This comment is left unintentionally blank.
+message PostUploadPackV3Request {
+  // repository should only be present in the first message of the stream
+  Repository repository = 1 [(target_repository)=true];
+  // Parameters to use with git -c (key=value pairs)
+  repeated string git_config_options = 2;
+  // Git protocol version
+  string git_protocol = 3;
+  bytes data = 4;
+}
+
+// This comment is left unintentionally blank.
 message PostUploadPackWithSidechannelResponse {
+}
+
+// This comment is left unintentionally blank.
+message PostUploadPackV3Response {
+  bytes data = 1;
 }
 
 // This comment is left unintentionally blank.

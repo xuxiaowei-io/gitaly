@@ -1,12 +1,17 @@
 package server
 
 import (
+	"net/http"
 	"sync"
+
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	_ "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/encoding"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"google.golang.org/grpc"
 )
@@ -96,4 +101,40 @@ func (s *GitalyServerFactory) CreateInternal(opts ...Option) (*grpc.Server, erro
 
 	s.internalServers = append(s.internalServers, server)
 	return server, nil
+}
+
+// CreateHTTP2Internal creates a new internal gRPC server using native Go's HTTP2 stack
+func (s *GitalyServerFactory) CreateHTTP2Internal(opts ...Option) (*grpc.Server, *http.Server, error) {
+	server, err := s.New(false, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	s.internalServers = append(s.internalServers, server)
+	return s.createInsecureHTTP2Server(server, err)
+}
+
+// CreateHTTP2External creates a new external gRPC server using native Go's HTTP2 stack
+func (s *GitalyServerFactory) CreateHTTP2External(secure bool, opts ...Option) (*grpc.Server, *http.Server, error) {
+	server, err := s.New(secure, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	s.externalServers = append(s.externalServers, server)
+	// TODO: Handle secure HTTP2 server
+	return s.createInsecureHTTP2Server(server, err)
+}
+
+func (s *GitalyServerFactory) createInsecureHTTP2Server(server *grpc.Server, err error) (*grpc.Server, *http.Server, error) {
+	httpSrv := &http.Server{}
+	http2Srv := &http2.Server{
+		MaxReadFrameSize:         128 * 1024,
+		MaxUploadBufferPerStream: 16 * 1024 * 1024,
+	}
+	if err := http2.ConfigureServer(httpSrv, http2Srv); err != nil {
+		return nil, nil, err
+	}
+	httpSrv.Handler = h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server.ServeHTTP(w, r)
+	}), http2Srv)
+	return server, httpSrv, err
 }
