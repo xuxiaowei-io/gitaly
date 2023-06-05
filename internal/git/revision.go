@@ -8,6 +8,7 @@ import (
 type validateRevisionConfig struct {
 	allowEmpty              bool
 	allowPathScopedRevision bool
+	allowPseudoRevisions    bool
 }
 
 // ValidateRevisionOption is an option that can be passed to ValidateRevision.
@@ -30,12 +31,39 @@ func AllowPathScopedRevision() ValidateRevisionOption {
 	}
 }
 
+// AllowPseudoRevision changes ValidateRevision to allow pseudo-revisions understood by
+// git-rev-list(1). This includes options like `--all`, `--not`, `--branches` or `--glob`.
+func AllowPseudoRevision() ValidateRevisionOption {
+	return func(cfg *validateRevisionConfig) {
+		cfg.allowPseudoRevisions = true
+	}
+}
+
 // ValidateRevision checks if a revision looks valid. The default behaviour can be changed by
 // passing ValidateRevisionOptions.
 func ValidateRevision(revision []byte, opts ...ValidateRevisionOption) error {
 	var cfg validateRevisionConfig
 	for _, opt := range opts {
 		opt(&cfg)
+	}
+
+	if cfg.allowPseudoRevisions {
+		switch {
+		case bytes.Equal(revision, []byte("--all")):
+			return nil
+		case bytes.Equal(revision, []byte("--not")):
+			return nil
+		case bytes.Equal(revision, []byte("--branches")):
+			return nil
+		case bytes.Equal(revision, []byte("--tags")):
+			return nil
+		case bytes.HasPrefix(revision, []byte("--branches=")):
+			return nil
+		case bytes.HasPrefix(revision, []byte("--tags=")):
+			return nil
+		case bytes.HasPrefix(revision, []byte("--glob=")):
+			return nil
+		}
 	}
 
 	if bytes.HasPrefix(revision, []byte("-")) {

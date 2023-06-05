@@ -104,6 +104,68 @@ func TestValidateRevision(t *testing.T) {
 				AllowPathScopedRevision(),
 			},
 		},
+		{
+			desc:        "disallowed pseudo-revision",
+			revision:    "--all",
+			expectedErr: fmt.Errorf("revision can't start with '-'"),
+		},
+		{
+			desc:     "--all",
+			revision: "--all",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+		},
+		{
+			desc:     "--not",
+			revision: "--not",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+		},
+		{
+			desc:     "--branches",
+			revision: "--branches",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+		},
+		{
+			desc:     "--tags",
+			revision: "--tags",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+		},
+		{
+			desc:     "--branches=master",
+			revision: "--branches=master",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+		},
+		{
+			desc:     "--tags=v*",
+			revision: "--tags=v*",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+		},
+		{
+			desc:     "--glob without pattern is refused",
+			revision: "--glob",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+			expectedErr: fmt.Errorf("revision can't start with '-'"),
+		},
+		{
+			desc:     "--glob=refs/heads/*",
+			revision: "--glob=refs/heads/*",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.Equal(t, tc.expectedErr, ValidateRevision([]byte(tc.revision), tc.opts...))
