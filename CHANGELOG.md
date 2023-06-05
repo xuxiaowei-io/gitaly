@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.11.7 (2023-06-05)
+
+### Fixed (1 change)
+
+- [Remove uncessary fields from pack-objects cache key computation](gitlab-org/security/gitaly@1f68b9291d86d7969f94f6ce713cb975a5325264)
+
 ## 15.11.6 (2023-05-24)
 
 No changes.
