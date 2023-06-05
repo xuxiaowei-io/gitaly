@@ -1,9 +1,7 @@
 package praefect
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -239,26 +237,11 @@ func TestRemoveRepositorySubcommand(t *testing.T) {
 			}
 			repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 			replicaPath := gittest.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
-			var stdout bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       io.Discard,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newRemoveRepositoryCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
-			}
-			err := app.Run(append([]string{progname, "remove-repository"}, tc.args(t, repo, replicaPath)...))
+			stdout, stderr, err := runApp(append([]string{"-config", confPath, "remove-repository"}, tc.args(t, repo, replicaPath)...))
+			assert.Empty(t, stderr)
 			tc.assertError(t, err, repo, replicaPath)
 			if tc.assertOutput != nil {
-				tc.assertOutput(t, stdout.String(), repo)
+				tc.assertOutput(t, stdout, repo)
 			}
 		})
 	}
@@ -267,25 +250,10 @@ func TestRemoveRepositorySubcommand(t *testing.T) {
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 		g2Srv.Shutdown()
 		replicaPath := gittest.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
-		var stdout bytes.Buffer
-		app := cli.App{
-			Reader:          bytes.NewReader(nil),
-			Writer:          &stdout,
-			ErrWriter:       io.Discard,
-			HideHelpCommand: true,
-			Commands: []*cli.Command{
-				newRemoveRepositoryCommand(),
-			},
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:  "config",
-					Value: confPath,
-				},
-			},
-		}
-		err := app.Run(append([]string{progname, "remove-repository"}, "-virtual-storage", repo.StorageName, "-repository", repo.RelativePath, "-apply"))
+		stdout, stderr, err := runApp([]string{"-config", confPath, "remove-repository", "-virtual-storage", repo.StorageName, "-repository", repo.RelativePath, "-apply"})
+		assert.Empty(t, stderr)
 		require.NoError(t, err)
-		assert.Contains(t, stdout.String(), "Repository removal completed.")
+		assert.Contains(t, stdout, "Repository removal completed.")
 		require.NoDirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
 		require.DirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
 		require.False(t, repositoryExists(t, repo))

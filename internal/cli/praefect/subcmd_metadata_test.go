@@ -1,13 +1,12 @@
 package praefect
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -125,23 +124,8 @@ func TestMetadataSubcommand(t *testing.T) {
 			}
 			confPath := writeConfigToFile(t, conf)
 
-			var stdout bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       io.Discard,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newMetadataCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
-			}
-			err := app.Run(append([]string{progname, "metadata"}, tc.args...))
+			stdout, stderr, err := runApp(append([]string{"-config", confPath, "metadata"}, tc.args...))
+			assert.Empty(t, stderr)
 			require.Equal(t, tc.error, err)
 			if tc.error != nil {
 				return
@@ -172,7 +156,7 @@ Replicas:
   Healthy: false
   Valid Primary: false
   Verified At: unverified
-`, stdout.String())
+`, stdout)
 		})
 	}
 }

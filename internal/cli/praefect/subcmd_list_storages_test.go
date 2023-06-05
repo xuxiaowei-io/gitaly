@@ -2,10 +2,10 @@ package praefect
 
 import (
 	"bytes"
-	"io"
 	"testing"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -117,27 +117,6 @@ func TestListStoragesSubcommand(t *testing.T) {
 		},
 	}
 
-	exec := func(confPath string, args []string) (string, error) {
-		var stdout bytes.Buffer
-		app := cli.App{
-			Reader:          bytes.NewReader(nil),
-			Writer:          &stdout,
-			ErrWriter:       io.Discard,
-			HideHelpCommand: true,
-			Commands: []*cli.Command{
-				newListStoragesCommand(),
-			},
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:  "config",
-					Value: confPath,
-				},
-			},
-		}
-		err := app.Run(append([]string{progname, "list-storages"}, args...))
-		return stdout.String(), err
-	}
-
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			var expectedOutput bytes.Buffer
@@ -161,7 +140,8 @@ func TestListStoragesSubcommand(t *testing.T) {
 				VirtualStorages: tc.virtualStorages,
 			}
 			confPath := writeConfigToFile(t, conf)
-			stdout, err := exec(confPath, tc.args)
+			stdout, stderr, err := runApp(append([]string{"-config", confPath, "list-storages"}, tc.args...))
+			assert.Empty(t, stderr)
 			require.NoError(t, err)
 			require.Equal(t, expectedOutput.String(), stdout)
 		})
@@ -189,13 +169,15 @@ func TestListStoragesSubcommand(t *testing.T) {
 		confPath := writeConfigToFile(t, conf)
 
 		t.Run("virtual storage arg matches no virtual storages", func(t *testing.T) {
-			stdout, err := exec(confPath, []string{"-virtual-storage", "vs-2"})
+			stdout, stderr, err := runApp([]string{"-config", confPath, "list-storages", "-virtual-storage", "vs-2"})
+			assert.Empty(t, stderr)
 			require.NoError(t, err)
 			require.Equal(t, "No virtual storages named vs-2.\n", stdout)
 		})
 
 		t.Run("positional arguments", func(t *testing.T) {
-			_, err := exec(confPath, []string{"-virtual-storage", "vs-1", "positional-arg"})
+			_, stderr, err := runApp([]string{"-config", confPath, "list-storages", "-virtual-storage", "vs-1", "positional-arg"})
+			assert.Empty(t, stderr)
 			require.Equal(t, cli.Exit(unexpectedPositionalArgsError{Command: "list-storages"}, 1), err)
 		})
 	})

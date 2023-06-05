@@ -1,7 +1,6 @@
 package praefect
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,28 +42,11 @@ func TestSQLMigrateStatusSubcommand(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			var stdout bytes.Buffer
-			var stderr bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       &stderr,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newSQLMigrateStatusCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
-			}
-			err := app.Run(append([]string{progname, sqlMigrateStatusCmdName}, tc.args...))
+			stdout, stderr, err := runApp(append([]string{"-config", confPath, sqlMigrateStatusCmdName}, tc.args...))
+			assert.Empty(t, stderr)
 			require.Equal(t, tc.expectedErr, err)
-			assert.Empty(t, stderr.String())
 			for _, expectedOut := range tc.expectedOuts {
-				assert.Contains(t, stdout.String(), expectedOut)
+				assert.Contains(t, stdout, expectedOut)
 			}
 		})
 	}

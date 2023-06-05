@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -148,6 +149,89 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 	return nil
 }
 
+// Remove removes the repository. Does not return an error if the repository
+// cannot be found.
+func (rr *remoteRepository) Remove(ctx context.Context) error {
+	repoClient := rr.newRepoClient()
+	_, err := repoClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
+		Repository: rr.repo,
+	})
+	switch {
+	case status.Code(err) == codes.NotFound:
+		return nil
+	case err != nil:
+		return fmt.Errorf("remote repository: remove: %w", err)
+	}
+	return nil
+}
+
+// Create creates the repository.
+func (rr *remoteRepository) Create(ctx context.Context) error {
+	repoClient := rr.newRepoClient()
+	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: rr.repo}); err != nil {
+		return fmt.Errorf("remote repository: create: %w", err)
+	}
+	return nil
+}
+
+// FetchBundle fetches references from a bundle. Refs will be mirrored to the
+// repository.
+func (rr *remoteRepository) FetchBundle(ctx context.Context, reader io.Reader) error {
+	repoClient := rr.newRepoClient()
+	stream, err := repoClient.FetchBundle(ctx)
+	if err != nil {
+		return fmt.Errorf("remote repository: fetch bundle: %w", err)
+	}
+	request := &gitalypb.FetchBundleRequest{Repository: rr.repo, UpdateHead: true}
+	bundle := streamio.NewWriter(func(p []byte) error {
+		request.Data = p
+		if err := stream.Send(request); err != nil {
+			return err
+		}
+
+		// Only set `Repository` on the first `Send` of the stream
+		request = &gitalypb.FetchBundleRequest{}
+
+		return nil
+	})
+	if _, err := io.Copy(bundle, reader); err != nil {
+		return fmt.Errorf("remote repository: fetch bundle: %w", err)
+	}
+	if _, err = stream.CloseAndRecv(); err != nil {
+		return fmt.Errorf("remote repository: fetch bundle: %w", err)
+	}
+	return nil
+}
+
+// SetCustomHooks updates the custom hooks for the repository.
+func (rr *remoteRepository) SetCustomHooks(ctx context.Context, reader io.Reader) error {
+	repoClient := rr.newRepoClient()
+	stream, err := repoClient.SetCustomHooks(ctx)
+	if err != nil {
+		return fmt.Errorf("remote repository: set custom hooks: %w", err)
+	}
+
+	request := &gitalypb.SetCustomHooksRequest{Repository: rr.repo}
+	bundle := streamio.NewWriter(func(p []byte) error {
+		request.Data = p
+		if err := stream.Send(request); err != nil {
+			return err
+		}
+
+		// Only set `Repository` on the first `Send` of the stream
+		request = &gitalypb.SetCustomHooksRequest{}
+
+		return nil
+	})
+	if _, err := io.Copy(bundle, reader); err != nil {
+		return fmt.Errorf("remote repository: set custom hooks: %w", err)
+	}
+	if _, err = stream.CloseAndRecv(); err != nil {
+		return fmt.Errorf("remote repository: set custom hooks: %w", err)
+	}
+	return nil
+}
+
 func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
 	return gitalypb.NewRepositoryServiceClient(rr.conn)
 }
@@ -157,14 +241,23 @@ func (rr *remoteRepository) newRefClient() gitalypb.RefServiceClient {
 }
 
 type localRepository struct {
-	locator storage.Locator
-	repo    *localrepo.Repo
+	locator       storage.Locator
+	gitCmdFactory git.CommandFactory
+	txManager     transaction.Manager
+	repo          *localrepo.Repo
 }
 
-func newLocalRepository(locator storage.Locator, repo *localrepo.Repo) *localRepository {
+func newLocalRepository(
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	txManager transaction.Manager,
+	repo *localrepo.Repo,
+) *localRepository {
 	return &localRepository{
-		locator: locator,
-		repo:    repo,
+		locator:       locator,
+		gitCmdFactory: gitCmdFactory,
+		txManager:     txManager,
+		repo:          repo,
 	}
 }
 
@@ -227,5 +320,59 @@ func (r *localRepository) CreateBundle(ctx context.Context, out io.Writer, patte
 		return fmt.Errorf("local repository: create bundle: %w", err)
 	}
 
+	return nil
+}
+
+// Remove removes the repository. Does not return an error if the repository
+// cannot be found.
+func (r *localRepository) Remove(ctx context.Context) error {
+	err := repoutil.Remove(ctx, r.locator, r.txManager, r.repo)
+	switch {
+	case status.Code(err) == codes.NotFound:
+		return nil
+	case err != nil:
+		return fmt.Errorf("local repository: remove: %w", err)
+	}
+	return nil
+}
+
+// Create creates the repository.
+func (r *localRepository) Create(ctx context.Context) error {
+	if err := repoutil.Create(
+		ctx,
+		r.locator,
+		r.gitCmdFactory,
+		r.txManager,
+		r.repo,
+		func(repository *gitalypb.Repository) error { return nil },
+	); err != nil {
+		return fmt.Errorf("local repository: create: %w", err)
+	}
+	return nil
+}
+
+// FetchBundle fetches references from a bundle. Refs will be mirrored to the
+// repository.
+func (r *localRepository) FetchBundle(ctx context.Context, reader io.Reader) error {
+	err := r.repo.FetchBundle(ctx, r.txManager, reader, &localrepo.FetchBundleOpts{
+		UpdateHead: true,
+	})
+	if err != nil {
+		return fmt.Errorf("local repository: fetch bundle: %w", err)
+	}
+	return nil
+}
+
+// SetCustomHooks updates the custom hooks for the repository.
+func (r *localRepository) SetCustomHooks(ctx context.Context, reader io.Reader) error {
+	if err := repoutil.SetCustomHooks(
+		ctx,
+		r.locator,
+		r.txManager,
+		reader,
+		r.repo,
+	); err != nil {
+		return fmt.Errorf("local repository: set custom hooks: %w", err)
+	}
 	return nil
 }

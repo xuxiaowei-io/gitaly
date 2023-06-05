@@ -37,17 +37,14 @@ func (s server) BackupRepos(stream gitalypb.InternalGitaly_BackupReposServer) er
 		return structerr.NewInvalidArgument("backup repos: resolve locator: %w", err)
 	}
 
-	manager := backup.NewManagerLocal(sink, locator, s.locator, s.gitCmdFactory, s.catfileCache, backupID)
+	manager := backup.NewManagerLocal(sink, locator, s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, backupID)
 	pipeline := backup.NewLoggingPipeline(ctxlogrus.Extract(ctx))
 
 	for {
 		for _, repo := range request.GetRepositories() {
 			pipeline.Handle(ctx, backup.NewCreateCommand(
 				manager,
-				// ServerInfo will be removed once restore methods are added to
-				// backup.Repository. Even though it is unused it must be
-				// non-zero so that storage.ExtractGitalyServer is not called.
-				storage.ServerInfo{Address: "unused"},
+				storage.ServerInfo{},
 				repo,
 				false,
 			))

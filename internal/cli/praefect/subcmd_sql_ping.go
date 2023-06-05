@@ -36,7 +36,7 @@ func sqlPingAction(appCtx *cli.Context) error {
 
 	subCmd := progname + " " + appCtx.Command.Name
 
-	db, clean, err := openDB(conf.DB)
+	db, clean, err := openDB(conf.DB, appCtx.App.ErrWriter)
 	if err != nil {
 		return err
 	}

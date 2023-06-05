@@ -1,15 +1,14 @@
 package praefect
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
@@ -86,50 +85,31 @@ func TestListUntrackedRepositoriesCommand(t *testing.T) {
 		time.Now().Add(-(timeDelta+1*time.Second)),
 		time.Now().Add(-(timeDelta+1*time.Second))))
 
-	newApp := func() (cli.App, *bytes.Buffer) {
-		var stdout bytes.Buffer
-		return cli.App{
-			Reader:          bytes.NewReader(nil),
-			Writer:          &stdout,
-			ErrWriter:       io.Discard,
-			HideHelpCommand: true,
-			Commands: []*cli.Command{
-				newListUntrackedRepositoriesCommand(),
-			},
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:  "config",
-					Value: confPath,
-				},
-			},
-		}, &stdout
-	}
-
 	t.Run("positional arguments", func(t *testing.T) {
-		app, _ := newApp()
-		err := app.Run([]string{progname, "list-untracked-repositories", "positional-arg"})
+		stdout, stderr, err := runApp([]string{"-config", confPath, "list-untracked-repositories", "positional-arg"})
 		require.Equal(t, cli.Exit(unexpectedPositionalArgsError{Command: "list-untracked-repositories"}, 1), err)
+		assert.NotEmpty(t, stdout, "the help text should be printed")
+		assert.Empty(t, stderr)
 	})
 
 	t.Run("default flag values used", func(t *testing.T) {
-		app, stdout := newApp()
-		err := app.Run([]string{progname, "list-untracked-repositories"})
+		stdout, stderr, err := runApp([]string{"-config", confPath, "list-untracked-repositories"})
 		require.NoError(t, err)
-		require.Empty(t, stdout.String())
+		assert.Empty(t, stdout)
+		assert.Empty(t, stderr)
 	})
 
 	t.Run("passed flag values used", func(t *testing.T) {
-		app, stdout := newApp()
-		err := app.Run([]string{progname, "list-untracked-repositories", "-older-than", timeDelta.String(), "-delimiter", "~"})
+		stdout, stderr, err := runApp([]string{"-config", confPath, "list-untracked-repositories", "-older-than", timeDelta.String(), "-delimiter", "~"})
 		require.NoError(t, err)
-
+		assert.Empty(t, stderr)
 		exp := []string{
 			"The following repositories were found on disk, but missing from the tracking database:",
 			fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo1.RelativePath),
 			fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo2.RelativePath),
 			"", // an empty extra element required as each line ends with "delimiter" and strings.Split returns all parts
 		}
-		elems := strings.Split(stdout.String(), "~")
+		elems := strings.Split(stdout, "~")
 		require.Len(t, elems, len(exp)-1)
 		elems = append(elems[1:], strings.Split(elems[0], "\n")...)
 		require.ElementsMatch(t, exp, elems)

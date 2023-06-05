@@ -1,14 +1,13 @@
 package praefect
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -136,27 +135,11 @@ func TestSubCmdDialNodes(t *testing.T) {
 			resp = tt.resp
 			confPath := writeConfigToFile(t, tt.conf)
 
-			var stdout bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       io.Discard,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newDialNodesCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
-			}
-
-			err := app.Run(append([]string{progname, "dial-nodes", "-timeout", time.Second.String()}, tt.args...))
+			stdout, stderr, err := runApp(append([]string{"-config", confPath, "dial-nodes", "-timeout", time.Second.String()}, tt.args...))
+			assert.Empty(t, stderr)
 			if tt.errMsg == "" {
 				require.NoError(t, err)
-				require.Equal(t, tt.logs, stdout.String())
+				require.Equal(t, tt.logs, stdout)
 				return
 			}
 

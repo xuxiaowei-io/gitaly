@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"os"
 	"runtime/debug"
 	"time"
 
@@ -47,26 +46,21 @@ func newServeCommand() *cli.Command {
 		Usage:           "launch the server daemon",
 		Action:          serveAction,
 		HideHelpCommand: true,
+		Before: func(context *cli.Context) error {
+			if context.Args().Present() {
+				return unexpectedPositionalArgsError{Command: context.Command.Name}
+			}
+			return nil
+		},
 	}
 }
 
 func serveAction(ctx *cli.Context) error {
-	logger := log.Default()
-	// In order to support execution of all sub-commands not yet migrated to use a new cli
-	// implementation the invocation is done manually here.
-	subCmd := ctx.Args().First()
-	if subCmd != "" {
-		// It doesn't make difference if we provide command name to the invocation below
-		// or not as there won't be any output printed, because sub-commands are not yet
-		// registered.
-		pathToConfigFile := mustProvideConfigFlag(ctx, "")
-		conf, err := getConfig(logger, pathToConfigFile)
-		if err != nil {
-			return err
-		}
-		os.Exit(subCommand(conf, logger, subCmd, ctx.Args().Slice()[1:]))
+	if ctx.Args().Present() {
+		return unexpectedPositionalArgsError{Command: ctx.Command.Name}
 	}
 
+	logger := log.Default()
 	// The ctx.Command.Name can't be used here because if `praefect -config FILE` is used
 	// it will be set to 'praefect' instead of 'serve'.
 	pathToConfigFile := mustProvideConfigFlag(ctx, "serve")
