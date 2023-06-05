@@ -1,15 +1,12 @@
 package praefect
 
 import (
-	"bytes"
-	"io"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -104,27 +101,6 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 		true,
 	))
 
-	runCmd := func(t *testing.T, args []string) (string, error) {
-		var stdout bytes.Buffer
-		app := cli.App{
-			Reader:          bytes.NewReader(nil),
-			Writer:          &stdout,
-			ErrWriter:       io.Discard,
-			HideHelpCommand: true,
-			Commands: []*cli.Command{
-				newTrackRepositoryCommand(),
-			},
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:  "config",
-					Value: confPath,
-				},
-			},
-		}
-		err := app.Run(append([]string{progname, trackRepositoryCmdName}, args...))
-		return stdout.String(), err
-	}
-
 	t.Run("fails", func(t *testing.T) {
 		for _, tc := range []struct {
 			name     string
@@ -171,7 +147,8 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				_, err := runCmd(t, tc.args)
+				_, stderr, err := runApp(append([]string{"-config", confPath, trackRepositoryCmdName}, tc.args...))
+				assert.Empty(t, stderr)
 				require.EqualError(t, err, tc.errorMsg)
 			})
 		}
@@ -245,7 +222,8 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 				if tc.replicateImmediately {
 					args = append(args, "-replicate-immediately")
 				}
-				stdout, err := runCmd(t, args)
+				stdout, stderr, err := runApp(append([]string{"-config", confPath, trackRepositoryCmdName}, args...))
+				assert.Empty(t, stderr)
 				require.NoError(t, err)
 
 				as := datastore.NewAssignmentStore(db, conf.StorageNames())
@@ -288,7 +266,9 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
 		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
 
-		_, err := runCmd(t, []string{
+		_, _, err := runApp([]string{
+			"-config", confPath,
+			trackRepositoryCmdName,
 			"-virtual-storage", virtualStorageName,
 			"-repository", relativePath,
 			"-authoritative-storage", authoritativeStorage,
@@ -296,12 +276,15 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 		require.NoError(t, err)
 		// running the command twice means we try creating the replication event
 		// again, which should log the duplicate but not break the flow.
-		stdout, err := runCmd(t, []string{
+		stdout, stderr, err := runApp([]string{
+			"-config", confPath,
+			trackRepositoryCmdName,
 			"-virtual-storage", virtualStorageName,
 			"-repository", relativePath,
 			"-authoritative-storage", authoritativeStorage,
 		})
 		require.NoError(t, err)
+		assert.Empty(t, stderr)
 		assert.Contains(t, stdout, "replication event queue already has similar entry: replication event \"\" -> \"praefect\" -> \"gitaly-2\" -> \"path/to/test/repo_3\" already exists.")
 	})
 }

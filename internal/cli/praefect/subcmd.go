@@ -4,13 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
-	"os"
-	"os/signal"
+	"io"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -19,54 +16,12 @@ import (
 	"google.golang.org/grpc"
 )
 
-type subcmd interface {
-	FlagSet() *flag.FlagSet
-	Exec(flags *flag.FlagSet, config config.Config) error
-}
-
 const (
 	defaultDialTimeout        = 10 * time.Second
 	paramVirtualStorage       = "virtual-storage"
 	paramRelativePath         = "repository"
 	paramAuthoritativeStorage = "authoritative-storage"
 )
-
-func subcommands(logger *logrus.Entry) map[string]subcmd {
-	return map[string]subcmd{
-		trackRepositoriesCmdName: newTrackRepositories(logger, os.Stdout),
-	}
-}
-
-// subCommand returns an exit code, to be fed into os.Exit.
-func subCommand(conf config.Config, logger *logrus.Entry, arg0 string, argRest []string) int {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
-	go func() {
-		<-interrupt
-		os.Exit(130) // indicates program was interrupted
-	}()
-
-	subcmd, ok := subcommands(logger)[arg0]
-	if !ok {
-		printfErr("%s: unknown subcommand: %q\n", progname, arg0)
-		return 1
-	}
-
-	flags := subcmd.FlagSet()
-
-	if err := flags.Parse(argRest); err != nil {
-		printfErr("%s\n", err)
-		return 1
-	}
-
-	if err := subcmd.Exec(flags, conf); err != nil {
-		printfErr("%s\n", err)
-		return 1
-	}
-
-	return 0
-}
 
 func getNodeAddress(cfg config.Config) (string, error) {
 	switch {
@@ -81,7 +36,7 @@ func getNodeAddress(cfg config.Config) (string, error) {
 	}
 }
 
-func openDB(conf config.DB) (*sql.DB, func(), error) {
+func openDB(conf config.DB, errOut io.Writer) (*sql.DB, func(), error) {
 	ctx := context.Background()
 
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -93,15 +48,11 @@ func openDB(conf config.DB) (*sql.DB, func(), error) {
 
 	clean := func() {
 		if err := db.Close(); err != nil {
-			printfErr("sql close: %v\n", err)
+			fmt.Fprintf(errOut, "sql close: %v\n", err)
 		}
 	}
 
 	return db, clean, nil
-}
-
-func printfErr(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, a...)
 }
 
 func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {

@@ -1,7 +1,6 @@
 package praefect
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
 
@@ -77,29 +76,11 @@ func TestSubCmdSqlMigrate(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			testdb.SetMigrations(t, db, cfg, tc.up)
-
-			var stdout bytes.Buffer
-			var stderr bytes.Buffer
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          &stdout,
-				ErrWriter:       &stderr,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newSQLMigrateCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
-			}
-			err := app.Run(append([]string{progname, sqlMigrateCmdName, "-ignore-unknown"}, tc.args...))
+			stdout, stderr, err := runApp(append([]string{"-config", confPath, sqlMigrateCmdName, "-ignore-unknown"}, tc.args...))
+			assert.Empty(t, stderr)
 			require.Equal(t, tc.expectedErr, err)
-			assert.Empty(t, stderr.String())
 			for _, out := range tc.expectedOutput {
-				assert.Contains(t, stdout.String(), out)
+				assert.Contains(t, stdout, out)
 			}
 		})
 	}

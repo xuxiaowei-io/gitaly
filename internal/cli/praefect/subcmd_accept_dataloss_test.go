@@ -1,13 +1,10 @@
 package praefect
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service/info"
@@ -138,23 +135,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			app := cli.App{
-				Reader:          bytes.NewReader(nil),
-				Writer:          io.Discard,
-				ErrWriter:       io.Discard,
-				HideHelpCommand: true,
-				Commands: []*cli.Command{
-					newAcceptDatalossCommand(),
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "config",
-						Value: confPath,
-					},
-				},
-			}
-
-			err := app.Run(append([]string{progname, "accept-dataloss"}, tc.args...))
+			_, _, err := runApp(append([]string{"-config", confPath, "accept-dataloss"}, tc.args...))
 			tc.matchError(t, err)
 
 			for storage, expected := range tc.expectedGenerations {

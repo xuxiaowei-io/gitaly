@@ -1,6 +1,7 @@
 package praefect
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -67,4 +68,14 @@ func listenAndServe(tb testing.TB, svcs []svcRegistrar) (net.Listener, testhelpe
 		err := <-errCh
 		require.NoErrorf(tb, err, "error while stopping server: %q", err)
 	}
+}
+
+func runApp(args []string) (string, string, error) {
+	var stdout, stderr bytes.Buffer
+	app := NewApp()
+	app.Writer = &stdout
+	app.ErrWriter = &stderr
+	app.Reader = bytes.NewReader(nil)
+	err := app.Run(append([]string{progname}, args...))
+	return stdout.String(), stderr.String(), err
 }
