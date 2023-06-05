@@ -338,6 +338,43 @@ func TestReplicateRepository(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "fsck disabled for fetch",
+			setup: func(t *testing.T) setupData {
+				// To validate that fsck is disabled, `git-fetch(1)` must be used to replicate
+				// objects in the source repository. If the target repository already exists prior
+				// to replication, snapshot replication is skipped ensuring all necessary objects in
+				// the source repository are replicated to the target via `git-fetch(1)`.
+				source, sourcePath, target, _ := setupSourceAndTarget(t, true)
+
+				// Write a tree into the source repository that's known-broken. For this object to
+				// be fetched into the target repository `fsck` must be disabled.
+				treeID := gittest.WriteTree(t, cfg, sourcePath, []gittest.TreeEntry{
+					{Content: "content", Path: "dup", Mode: "100644"},
+					{Content: "content", Path: "dup", Mode: "100644"},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, sourcePath,
+					gittest.WithParents(),
+					gittest.WithBranch("main"),
+					gittest.WithTree(treeID),
+				)
+
+				// Verify that the broken tree is indeed in the source repository and that it is
+				// reported as broken by git-fsck(1).
+				var stderr bytes.Buffer
+				fsckCmd := gittest.NewCommand(t, cfg, "-C", sourcePath, "fsck")
+				fsckCmd.Stderr = &stderr
+				require.Error(t, fsckCmd.Run())
+				require.Equal(t, fmt.Sprintf("error in tree %s: duplicateEntries: contains duplicate file entries\n", treeID), stderr.String())
+
+				return setupData{
+					source:          source,
+					target:          target,
+					expectedObjects: []string{treeID.String(), commitID.String()},
+				}
+			},
+		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
@@ -367,7 +404,7 @@ func TestReplicateRepository(t *testing.T) {
 			targetPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, setup.target))
 
 			// Verify target repository connectivity.
-			gittest.Exec(t, cfg, "-C", targetPath, "fsck")
+			gittest.Exec(t, cfg, "-C", targetPath, "rev-list", "--objects", "--all")
 
 			// Verify Git config matches.
 			require.Equal(t,
