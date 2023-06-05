@@ -6,7 +6,8 @@ import (
 )
 
 type validateRevisionConfig struct {
-	allowEmpty bool
+	allowEmpty              bool
+	allowPathScopedRevision bool
 }
 
 // ValidateRevisionOption is an option that can be passed to ValidateRevision.
@@ -20,6 +21,15 @@ func AllowEmptyRevision() ValidateRevisionOption {
 	}
 }
 
+// AllowPathScopedRevision changes ValidateRevision to allow path-scoped revisions like
+// `HEAD:README.md`. Note that path-scoped revisions may contain any character except for NUL bytes.
+// Most importantly, a path-scoped revision may contain newlines.
+func AllowPathScopedRevision() ValidateRevisionOption {
+	return func(cfg *validateRevisionConfig) {
+		cfg.allowPathScopedRevision = true
+	}
+}
+
 // ValidateRevision checks if a revision looks valid. The default behaviour can be changed by
 // passing ValidateRevisionOptions.
 func ValidateRevision(revision []byte, opts ...ValidateRevisionOption) error {
@@ -28,17 +38,24 @@ func ValidateRevision(revision []byte, opts ...ValidateRevisionOption) error {
 		opt(&cfg)
 	}
 
-	if !cfg.allowEmpty && len(revision) == 0 {
-		return fmt.Errorf("empty revision")
-	}
 	if bytes.HasPrefix(revision, []byte("-")) {
 		return fmt.Errorf("revision can't start with '-'")
 	}
-	if bytes.ContainsAny(revision, " \t\n\r") {
-		return fmt.Errorf("revision can't contain whitespace")
-	}
 	if bytes.Contains(revision, []byte("\x00")) {
 		return fmt.Errorf("revision can't contain NUL")
+	}
+
+	if cfg.allowPathScopedRevision {
+		// We don't need to validate the path component, if any, given that it may contain
+		// all bytes except for the NUL byte which we already checked for above.
+		revision, _, _ = bytes.Cut(revision, []byte(":"))
+	}
+
+	if !cfg.allowEmpty && len(revision) == 0 {
+		return fmt.Errorf("empty revision")
+	}
+	if bytes.ContainsAny(revision, " \t\n\r") {
+		return fmt.Errorf("revision can't contain whitespace")
 	}
 	if bytes.Contains(revision, []byte(":")) {
 		return fmt.Errorf("revision can't contain ':'")

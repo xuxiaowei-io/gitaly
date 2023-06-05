@@ -65,14 +65,44 @@ func TestValidateRevision(t *testing.T) {
 			expectedErr: fmt.Errorf("revision can't contain NUL"),
 		},
 		{
-			desc:        "colon",
-			revision:    "foo/bar:baz",
-			expectedErr: fmt.Errorf("revision can't contain ':'"),
-		},
-		{
 			desc:        "backslash",
 			revision:    "foo\\bar\\baz",
 			expectedErr: fmt.Errorf("revision can't contain '\\'"),
+		},
+		{
+			desc:        "path-scoped revisions refused by default",
+			revision:    "refs/heads/main:path",
+			expectedErr: fmt.Errorf("revision can't contain ':'"),
+		},
+		{
+			desc:     "path-scoped revision allowed with option",
+			revision: "refs/heads/main:path",
+			opts: []ValidateRevisionOption{
+				AllowPathScopedRevision(),
+			},
+		},
+		{
+			desc:     "path-scoped revision does not allow newline in revision",
+			revision: "refs/heads\nmain:path",
+			opts: []ValidateRevisionOption{
+				AllowPathScopedRevision(),
+			},
+			expectedErr: fmt.Errorf("revision can't contain whitespace"),
+		},
+		{
+			desc:     "path-scoped revision must not be empty",
+			revision: ":path",
+			opts: []ValidateRevisionOption{
+				AllowPathScopedRevision(),
+			},
+			expectedErr: fmt.Errorf("empty revision"),
+		},
+		{
+			desc:     "path-scoped path may contain arbitrary characters",
+			revision: "refs/heads/main:path\n\t\r :\\",
+			opts: []ValidateRevisionOption{
+				AllowPathScopedRevision(),
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
