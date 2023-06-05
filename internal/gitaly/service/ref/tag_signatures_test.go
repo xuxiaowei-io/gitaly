@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -48,14 +49,17 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc:        "missing revisions",
 			revisions:   []string{},
-			expectedErr: status.Error(codes.InvalidArgument, "missing revisions"),
+			expectedErr: structerr.NewInvalidArgument("missing revisions"),
 		},
 		{
 			desc: "invalid revision",
 			revisions: []string{
 				"--foobar",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "invalid revision: \"--foobar\""),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
+				"revision", "--foobar",
+			),
 		},
 		{
 			desc: "unknown id",

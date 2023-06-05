@@ -2,10 +2,9 @@ package ref
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -25,8 +24,8 @@ func verifyGetTagSignaturesRequest(req *gitalypb.GetTagSignaturesRequest) error 
 	}
 
 	for _, revision := range req.GetTagRevisions() {
-		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
-			return fmt.Errorf("invalid revision: %q", revision)
+		if err := git.ValidateRevision([]byte(revision), git.AllowPseudoRevision()); err != nil {
+			return structerr.NewInvalidArgument("invalid revision: %w", err).WithMetadata("revision", revision)
 		}
 	}
 	return nil
