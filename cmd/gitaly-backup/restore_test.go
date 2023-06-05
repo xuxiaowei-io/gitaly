@@ -76,7 +76,7 @@ func TestRestoreSubcommand(t *testing.T) {
 	require.NoError(t, fs.Parse([]string{"-path", path, "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
 		cmd.Run(ctx, &stdin, io.Discard),
-		"restore: pipeline: 1 failures encountered:\n - invalid: manager: remove repository: could not dial source: invalid connection string: \"invalid\"\n")
+		"restore: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
 
 	require.NoDirExists(t, existRepoPath)
 

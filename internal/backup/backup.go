@@ -12,10 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/v16/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -83,6 +81,16 @@ type Repository interface {
 	GetCustomHooks(ctx context.Context, out io.Writer) error
 	// CreateBundle fetches a bundle that contains refs matching patterns.
 	CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error
+	// Remove removes the repository. Does not return an error if the
+	// repository cannot be found.
+	Remove(ctx context.Context) error
+	// Create creates the repository.
+	Create(ctx context.Context) error
+	// FetchBundle fetches references from a bundle. Refs will be mirrored to
+	// the repository.
+	FetchBundle(ctx context.Context, reader io.Reader) error
+	// SetCustomHooks updates the custom hooks for the repository.
+	SetCustomHooks(ctx context.Context, reader io.Reader) error
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -125,6 +133,10 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 		locator:  locator,
 		backupID: backupID,
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
+			if err := setContextServerInfo(ctx, &server, repo.GetStorageName()); err != nil {
+				return nil, err
+			}
+
 			conn, err := pool.Dial(ctx, server.Address, server.Token)
 			if err != nil {
 				return nil, err
@@ -136,7 +148,15 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 }
 
 // NewManagerLocal creates and returns a *Manager instance for operating on local repositories.
-func NewManagerLocal(sink Sink, locator Locator, storageLocator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, backupID string) *Manager {
+func NewManagerLocal(
+	sink Sink,
+	locator Locator,
+	storageLocator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	catfileCache catfile.Cache,
+	txManager transaction.Manager,
+	backupID string,
+) *Manager {
 	return &Manager{
 		sink:     sink,
 		conns:    nil, // Will be removed once the restore operations are part of the Repository interface.
@@ -145,7 +165,7 @@ func NewManagerLocal(sink Sink, locator Locator, storageLocator storage.Locator,
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
 			localRepo := localrepo.New(storageLocator, gitCmdFactory, catfileCache, repo)
 
-			return newLocalRepository(storageLocator, localRepo), nil
+			return newLocalRepository(storageLocator, gitCmdFactory, txManager, localRepo), nil
 		},
 	}
 }
@@ -185,10 +205,6 @@ type CreateRequest struct {
 
 // Create creates a repository backup.
 func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
-	if err := setContextServerInfo(ctx, &req.Server, req.Repository.GetStorageName()); err != nil {
-		return fmt.Errorf("manager: %w", err)
-	}
-
 	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -241,11 +257,12 @@ type RestoreRequest struct {
 
 // Restore restores a repository from a backup.
 func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
-	if err := setContextServerInfo(ctx, &req.Server, req.Repository.GetStorageName()); err != nil {
+	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
+	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
+	if err := repo.Remove(ctx); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
@@ -254,12 +271,12 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if err := mgr.createRepository(ctx, req.Server, req.Repository); err != nil {
+	if err := repo.Create(ctx); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
 	for _, step := range backup.Steps {
-		if err := mgr.restoreBundle(ctx, step.BundlePath, req.Server, req.Repository); err != nil {
+		if err := mgr.restoreBundle(ctx, repo, step.BundlePath); err != nil {
 			if step.SkippableOnNotFound && errors.Is(err, ErrDoesntExist) {
 				// For compatibility with existing backups we need to make sure the
 				// repository exists even if there's no bundle for project
@@ -271,14 +288,14 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 					return nil
 				}
 
-				if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
+				if err := repo.Remove(ctx); err != nil {
 					return fmt.Errorf("manager: remove on skipped: %w", err)
 				}
 
 				return fmt.Errorf("manager: %w: %s", ErrSkipped, err.Error())
 			}
 		}
-		if err := mgr.restoreCustomHooks(ctx, step.CustomHooksPath, req.Server, req.Repository); err != nil {
+		if err := mgr.restoreCustomHooks(ctx, repo, step.CustomHooksPath); err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	}
@@ -297,32 +314,6 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 		return fmt.Errorf("set context server info: %w", err)
 	}
 
-	return nil
-}
-
-func (mgr *Manager) removeRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return fmt.Errorf("remove repository: %w", err)
-	}
-	_, err = repoClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
-	switch {
-	case status.Code(err) == codes.NotFound:
-		return nil
-	case err != nil:
-		return fmt.Errorf("remove repository: %w", err)
-	}
-	return nil
-}
-
-func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return fmt.Errorf("create repository: %w", err)
-	}
-	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo}); err != nil {
-		return fmt.Errorf("create repository: %w", err)
-	}
 	return nil
 }
 
@@ -434,37 +425,14 @@ func (s *createBundleFromRefListSender) Send() error {
 	return s.stream.Send(&s.chunk)
 }
 
-func (mgr *Manager) restoreBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+func (mgr *Manager) restoreBundle(ctx context.Context, repo Repository, path string) error {
 	reader, err := mgr.sink.GetReader(ctx, path)
 	if err != nil {
-		return fmt.Errorf("restore bundle: %w", err)
+		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
 	defer reader.Close()
 
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return fmt.Errorf("restore bundle: %q: %w", path, err)
-	}
-	stream, err := repoClient.FetchBundle(ctx)
-	if err != nil {
-		return fmt.Errorf("restore bundle: %q: %w", path, err)
-	}
-	request := &gitalypb.FetchBundleRequest{Repository: repo, UpdateHead: true}
-	bundle := streamio.NewWriter(func(p []byte) error {
-		request.Data = p
-		if err := stream.Send(request); err != nil {
-			return err
-		}
-
-		// Only set `Repository` on the first `Send` of the stream
-		request = &gitalypb.FetchBundleRequest{}
-
-		return nil
-	})
-	if _, err := io.Copy(bundle, reader); err != nil {
-		return fmt.Errorf("restore bundle: %q: %w", path, err)
-	}
-	if _, err = stream.CloseAndRecv(); err != nil {
+	if err := repo.FetchBundle(ctx, reader); err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
 	return nil
@@ -485,7 +453,7 @@ func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path 
 	return nil
 }
 
-func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+func (mgr *Manager) restoreCustomHooks(ctx context.Context, repo Repository, path string) error {
 	reader, err := mgr.sink.GetReader(ctx, path)
 	if err != nil {
 		if errors.Is(err, ErrDoesntExist) {
@@ -495,31 +463,7 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server 
 	}
 	defer reader.Close()
 
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
-	}
-	stream, err := repoClient.SetCustomHooks(ctx)
-	if err != nil {
-		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
-	}
-
-	request := &gitalypb.SetCustomHooksRequest{Repository: repo}
-	bundle := streamio.NewWriter(func(p []byte) error {
-		request.Data = p
-		if err := stream.Send(request); err != nil {
-			return err
-		}
-
-		// Only set `Repository` on the first `Send` of the stream
-		request = &gitalypb.SetCustomHooksRequest{}
-
-		return nil
-	})
-	if _, err := io.Copy(bundle, reader); err != nil {
-		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
-	}
-	if _, err = stream.CloseAndRecv(); err != nil {
+	if err := repo.SetCustomHooks(ctx, reader); err != nil {
 		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
 	}
 	return nil

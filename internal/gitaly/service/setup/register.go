@@ -149,6 +149,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
+		deps.GetTxManager(),
 	))
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
