@@ -195,6 +195,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// Randomly enable the use of the catfile cache in localrepo.ReadObject.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LocalrepoReadObjectCached, rnd.Int()%2 == 0)
 
+	// Randomly enable either Git v2.40 or Git v2.41.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GitV241, rnd.Int()%2 == 0)
+
 	for _, opt := range opts {
 		ctx = opt(ctx)
 	}
