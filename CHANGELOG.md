@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 16.0.2 (2023-06-05)
+
+No changes.
+
 ## 16.0.1 (2023-05-22)
 
 No changes.
@@ -67,6 +71,12 @@ No changes.
 - [datastore: Fix locking of consistent storages cache being too broad](gitlab-org/gitaly@7aac7784034000876cf9031211b51ed8872dd5ad) ([merge request](gitlab-org/gitaly!5729))
 - [housekeeping: Default-enable geometric repacking](gitlab-org/gitaly@fdd48e61b990e7b1dd2389f6abfcfcf0c3004730) ([merge request](gitlab-org/gitaly!5745))
 - [git/housekeeping: Speed up packing loose objects](gitlab-org/gitaly@7cc6bc02975d025fc67df80a775305d12334ffdc) ([merge request](gitlab-org/gitaly!5660))
+
+## 15.11.7 (2023-06-05)
+
+### Fixed (1 change)
+
+- [Remove uncessary fields from pack-objects cache key computation](gitlab-org/security/gitaly@1f68b9291d86d7969f94f6ce713cb975a5325264)
 
 ## 15.11.6 (2023-05-24)
 
@@ -147,6 +157,10 @@ No changes.
 ### Other (1 change)
 
 - [Do not store unique fetches in pack-objects cache](gitlab-org/gitaly@a630cfa64f4bc3c9e21c5f37d9826c9a9c89a483) ([merge request](gitlab-org/gitaly!5540))
+
+## 15.10.8 (2023-06-05)
+
+No changes.
 
 ## 15.10.7 (2023-05-10)
 
