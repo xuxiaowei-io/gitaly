@@ -11,12 +11,20 @@ func TestValidateRevision(t *testing.T) {
 	for _, tc := range []struct {
 		desc        string
 		revision    string
+		opts        []ValidateRevisionOption
 		expectedErr error
 	}{
 		{
 			desc:        "empty revision",
 			revision:    "",
 			expectedErr: fmt.Errorf("empty revision"),
+		},
+		{
+			desc:     "empty revision with allowed empty revisions",
+			revision: "",
+			opts: []ValidateRevisionOption{
+				AllowEmptyRevision(),
+			},
 		},
 		{
 			desc:     "valid revision",
@@ -68,15 +76,7 @@ func TestValidateRevision(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.expectedErr, ValidateRevision([]byte(tc.revision)))
-
-			// `ValidateRevision()` and `ValidateRevisionAllowEmpty()` behave the same,
-			// except in the case where the revision is empty. In that case, the latter
-			// does not return an error.
-			if tc.revision == "" {
-				tc.expectedErr = nil
-			}
-			require.Equal(t, tc.expectedErr, ValidateRevisionAllowEmpty([]byte(tc.revision)))
+			require.Equal(t, tc.expectedErr, ValidateRevision([]byte(tc.revision), tc.opts...))
 		})
 	}
 }

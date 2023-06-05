@@ -27,7 +27,7 @@ func validateFindCommitsRequest(in *gitalypb.FindCommitsRequest) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
-	if err := git.ValidateRevisionAllowEmpty(in.GetRevision()); err != nil {
+	if err := git.ValidateRevision(in.GetRevision(), git.AllowEmptyRevision()); err != nil {
 		return err
 	}
 	return nil

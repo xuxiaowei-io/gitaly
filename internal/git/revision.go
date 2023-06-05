@@ -5,8 +5,30 @@ import (
 	"fmt"
 )
 
-func validateRevision(revision []byte, allowEmpty bool) error {
-	if !allowEmpty && len(revision) == 0 {
+type validateRevisionConfig struct {
+	allowEmpty bool
+}
+
+// ValidateRevisionOption is an option that can be passed to ValidateRevision.
+type ValidateRevisionOption func(cfg *validateRevisionConfig)
+
+// AllowEmptyRevision changes ValidateRevision to not return an error in case the specified
+// revision is empty.
+func AllowEmptyRevision() ValidateRevisionOption {
+	return func(cfg *validateRevisionConfig) {
+		cfg.allowEmpty = true
+	}
+}
+
+// ValidateRevision checks if a revision looks valid. The default behaviour can be changed by
+// passing ValidateRevisionOptions.
+func ValidateRevision(revision []byte, opts ...ValidateRevisionOption) error {
+	var cfg validateRevisionConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	if !cfg.allowEmpty && len(revision) == 0 {
 		return fmt.Errorf("empty revision")
 	}
 	if bytes.HasPrefix(revision, []byte("-")) {
@@ -24,16 +46,6 @@ func validateRevision(revision []byte, allowEmpty bool) error {
 	if bytes.Contains(revision, []byte("\\")) {
 		return fmt.Errorf("revision can't contain '\\'")
 	}
+
 	return nil
-}
-
-// ValidateRevisionAllowEmpty checks if a revision looks valid, but allows
-// empty strings
-func ValidateRevisionAllowEmpty(revision []byte) error {
-	return validateRevision(revision, true)
-}
-
-// ValidateRevision checks if a revision looks valid
-func ValidateRevision(revision []byte) error {
-	return validateRevision(revision, false)
 }
