@@ -778,12 +778,6 @@ remote: error executing git hook
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testhelper.SkipQuarantinedTest(t,
-				"https://gitlab.com/gitlab-org/gitaly/-/issues/5105",
-				"TestGitalyServerReturnsError_packObjects/resource_exhausted_with_LimitError_detail",
-				"TestGitalyServerReturnsError_packObjects/resource_exhausted_without_LimitError_detail",
-			)
-
 			logDir := testhelper.TempDir(t)
 
 			ctx := testhelper.Context(t)
@@ -837,6 +831,7 @@ remote: error executing git hook
 			require.NotEmpty(t, hookLogs)
 			require.Contains(t, hookLogs, tc.expectedLogs)
 			require.Contains(t, hookLogs, fmt.Sprintf("correlation_id=%s", correlationID))
+			require.Empty
 		})
 	}
 }
