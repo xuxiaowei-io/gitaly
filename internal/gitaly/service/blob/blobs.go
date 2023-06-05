@@ -3,10 +3,9 @@ package blob
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -26,8 +25,8 @@ func verifyListBlobsRequest(req *gitalypb.ListBlobsRequest) error {
 		return errors.New("missing revisions")
 	}
 	for _, revision := range req.Revisions {
-		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
-			return fmt.Errorf("invalid revision: %q", revision)
+		if err := git.ValidateRevision([]byte(revision), git.AllowPathScopedRevision(), git.AllowPseudoRevision()); err != nil {
+			return structerr.NewInvalidArgument("invalid revision: %w", err).WithMetadata("revision", revision)
 		}
 	}
 	return nil

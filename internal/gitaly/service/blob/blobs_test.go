@@ -10,11 +10,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -64,14 +63,17 @@ func TestListBlobs(t *testing.T) {
 		{
 			desc:        "missing revisions",
 			revisions:   []string{},
-			expectedErr: status.Error(codes.InvalidArgument, "missing revisions"),
+			expectedErr: structerr.NewInvalidArgument("missing revisions"),
 		},
 		{
 			desc: "invalid revision",
 			revisions: []string{
 				"--foobar",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "invalid revision: \"--foobar\""),
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
+				"revision", "--foobar",
+			),
 		},
 		{
 			desc: "single blob",
