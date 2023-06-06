@@ -33,6 +33,14 @@ import (
 // ErrInvalidSourceRepository is returned when attempting to replicate from an invalid source repository.
 var ErrInvalidSourceRepository = status.Error(codes.NotFound, "invalid source repository")
 
+// ReplicateRepository replicates data from a source repository to target repository. On the target
+// repository, this operation ensures synchronization of the following components:
+//
+// - Git config
+// - Git attributes
+// - Custom Git hooks,
+// - References and objects
+// - (Optional) Object deduplication network membership
 func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
 	if err := validateReplicateRepository(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)

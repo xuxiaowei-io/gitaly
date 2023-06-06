@@ -143,7 +143,14 @@ type RepositoryServiceClient interface {
 	RemoveRepository(ctx context.Context, in *RemoveRepositoryRequest, opts ...grpc.CallOption) (*RemoveRepositoryResponse, error)
 	// This comment is left unintentionally blank.
 	RenameRepository(ctx context.Context, in *RenameRepositoryRequest, opts ...grpc.CallOption) (*RenameRepositoryResponse, error)
-	// This comment is left unintentionally blank.
+	// ReplicateRepository replicates data from a source repository to target repository. On the
+	// target repository, this operation ensures synchronization of the following components:
+	//
+	// - Git config
+	// - Git attributes
+	// - Custom Git hooks,
+	// - References and objects
+	// - (Optional) Object deduplication network membership
 	ReplicateRepository(ctx context.Context, in *ReplicateRepositoryRequest, opts ...grpc.CallOption) (*ReplicateRepositoryResponse, error)
 	// OptimizeRepository performs all maintenance tasks in a repository to keep
 	// it in an efficient state. It cleans up stale data, repacks objects,
@@ -1096,7 +1103,14 @@ type RepositoryServiceServer interface {
 	RemoveRepository(context.Context, *RemoveRepositoryRequest) (*RemoveRepositoryResponse, error)
 	// This comment is left unintentionally blank.
 	RenameRepository(context.Context, *RenameRepositoryRequest) (*RenameRepositoryResponse, error)
-	// This comment is left unintentionally blank.
+	// ReplicateRepository replicates data from a source repository to target repository. On the
+	// target repository, this operation ensures synchronization of the following components:
+	//
+	// - Git config
+	// - Git attributes
+	// - Custom Git hooks,
+	// - References and objects
+	// - (Optional) Object deduplication network membership
 	ReplicateRepository(context.Context, *ReplicateRepositoryRequest) (*ReplicateRepositoryResponse, error)
 	// OptimizeRepository performs all maintenance tasks in a repository to keep
 	// it in an efficient state. It cleans up stale data, repacks objects,
