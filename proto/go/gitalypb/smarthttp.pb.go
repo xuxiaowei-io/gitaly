@@ -20,17 +20,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// InfoRefsRequest is a request for the InfoRefsUploadPack and InfoRefsUploadPack rpcs.
 type InfoRefsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository on which to operate.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Parameters to use with git -c (key=value pairs)
+	// GitConfigOptions are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,2,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
-	// Git protocol version
+	// GitProtocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,3,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
 }
 
@@ -87,13 +87,15 @@ func (x *InfoRefsRequest) GetGitProtocol() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// InfoRefsResponse is the response of InfoRefsUploadPack and InfoRefsUploadPack rpcs.
+// It is used to provide the client with the servers advertised refs.
 type InfoRefsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Data is the raw data copied from the stdout of git-upload-pack(1) or
+	// git-receive-pack(1) when used with the `--advertise-refs` flag.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -136,17 +138,17 @@ func (x *InfoRefsResponse) GetData() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// PostUploadPackWithSidechannelRequest is the request for the PostUploadPackWithSidechannel rpc.
 type PostUploadPackWithSidechannelRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository should only be present in the first message of the stream
+	// Repository is the repository on which to operate.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Parameters to use with git -c (key=value pairs)
+	// GitConfigOptions are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,2,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
-	// Git protocol version
+	// GitProtocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,3,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
 }
 
@@ -203,7 +205,9 @@ func (x *PostUploadPackWithSidechannelRequest) GetGitProtocol() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// PostUploadPackWithSidechannelResponse is the response for the PostUploadPackWithSidechannel rpc.
+// This is an empty response since the raw data is transferred to the client via the sidechannel
+// exclusively.
 type PostUploadPackWithSidechannelResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -242,26 +246,30 @@ func (*PostUploadPackWithSidechannelResponse) Descriptor() ([]byte, []int) {
 	return file_smarthttp_proto_rawDescGZIP(), []int{3}
 }
 
-// This comment is left unintentionally blank.
+// PostReceivePackRequest is the request for the PostReceivePack rpc. It is a stream used to
+// transfer the raw data from the client to the servers stdin of git-receive-pack(1) process.
 type PostReceivePackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository should only be present in the first message of the stream
+	// Repository is the repository on which to operate.
+	// It should only be present in the first message of the stream.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Raw data to be copied to stdin of 'git receive-pack'
+	// Data is the raw data to be copied to stdin of 'git receive-pack'.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// gl_id, gl_repository, and gl_username become env variables, used by the Git {pre,post}-receive
-	// hooks. They should only be present in the first message of the stream.
+	// GlID is the GitLab ID of the user. This is used by Git {pre,post}-receive hooks.
+	// It should only be present in the first message of the stream.
 	GlId string `protobuf:"bytes,3,opt,name=gl_id,json=glId,proto3" json:"gl_id,omitempty"`
-	// This comment is left unintentionally blank.
+	// GlRepository refers to the GitLab repository. This is used by Git {pre,post}-receive hooks.
+	// It should only be present in the first message of the stream.
 	GlRepository string `protobuf:"bytes,4,opt,name=gl_repository,json=glRepository,proto3" json:"gl_repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// GlID is the GitLab Username of the user. This is used by Git {pre,post}-receive hooks.
+	// It should only be present in the first message of the stream.
 	GlUsername string `protobuf:"bytes,5,opt,name=gl_username,json=glUsername,proto3" json:"gl_username,omitempty"`
-	// Git protocol version
+	// GitProtocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,6,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
-	// Parameters to use with git -c (key=value pairs)
+	// GitConfigOptions are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,7,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
 }
 
@@ -346,13 +354,14 @@ func (x *PostReceivePackRequest) GetGitConfigOptions() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// PostReceivePackResponse is the response for the PostReceivePack rpc. It is a stream used to
+// transfer the raw data from the stdout of git-receive-pack(1) from the server to the client.
 type PostReceivePackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Raw data from stdout of 'git receive-pack'
+	// Data is the raw data from the stdout of 'git receive-pack'.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 

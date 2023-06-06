@@ -22,17 +22,26 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SmartHTTPServiceClient interface {
-	// The response body for GET /info/refs?service=git-upload-pack
-	// Will be invoked when the user executes a `git fetch`, meaning the server
-	// will upload the packs to that user. The user doesn't upload new objects.
+	// InfoRefsUploadPack provides the response for GET /info/refs?service=git-upload-pack.
+	// It is invoked when the client fetches packs from the server, meaning the server will
+	// upload the packs to that client. The client doesn't upload new objects. This is used
+	// to advertise the references available on the server to the client via
+	// git-upload-pack(1)'s `--advertise-refs` option.
 	InfoRefsUploadPack(ctx context.Context, in *InfoRefsRequest, opts ...grpc.CallOption) (SmartHTTPService_InfoRefsUploadPackClient, error)
-	// The response body for GET /info/refs?service=git-receive-pack
-	// Will be invoked when the user executes a `git push`, but only advertises
-	// references to the user.
+	// InfoRefsReceivePack provides the response for GET /info/refs?service=git-receive-pack.
+	// It is invoked when the client pushes packs to the server, meaning the server
+	// will fetch the packs from the client. This is used to advertise the references
+	// available on the server to the client via git-receive-pack(1)'s `--advertise-refs`
+	// option.
 	InfoRefsReceivePack(ctx context.Context, in *InfoRefsRequest, opts ...grpc.CallOption) (SmartHTTPService_InfoRefsReceivePackClient, error)
-	// Request and response body for POST /upload-pack using sidechannel protocol
+	// PostUploadPackWithSidechannel provides the response for POST /upload-pack. It
+	// used to transfer pack files from the server to the client via sidechannels. This
+	// is invoked when the client executes `git fetch`.
+	//
+	// More info on sidechannels: https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/sidechannel.md
 	PostUploadPackWithSidechannel(ctx context.Context, in *PostUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*PostUploadPackWithSidechannelResponse, error)
-	// Request and response body for POST /receive-pack
+	// PostReceivePack provides the response for POST /receive-pack. It used to transfer
+	// pack files from the client to the server. This is invoked when the client executes `git push`.
 	PostReceivePack(ctx context.Context, opts ...grpc.CallOption) (SmartHTTPService_PostReceivePackClient, error)
 }
 
@@ -152,17 +161,26 @@ func (x *smartHTTPServicePostReceivePackClient) Recv() (*PostReceivePackResponse
 // All implementations must embed UnimplementedSmartHTTPServiceServer
 // for forward compatibility
 type SmartHTTPServiceServer interface {
-	// The response body for GET /info/refs?service=git-upload-pack
-	// Will be invoked when the user executes a `git fetch`, meaning the server
-	// will upload the packs to that user. The user doesn't upload new objects.
+	// InfoRefsUploadPack provides the response for GET /info/refs?service=git-upload-pack.
+	// It is invoked when the client fetches packs from the server, meaning the server will
+	// upload the packs to that client. The client doesn't upload new objects. This is used
+	// to advertise the references available on the server to the client via
+	// git-upload-pack(1)'s `--advertise-refs` option.
 	InfoRefsUploadPack(*InfoRefsRequest, SmartHTTPService_InfoRefsUploadPackServer) error
-	// The response body for GET /info/refs?service=git-receive-pack
-	// Will be invoked when the user executes a `git push`, but only advertises
-	// references to the user.
+	// InfoRefsReceivePack provides the response for GET /info/refs?service=git-receive-pack.
+	// It is invoked when the client pushes packs to the server, meaning the server
+	// will fetch the packs from the client. This is used to advertise the references
+	// available on the server to the client via git-receive-pack(1)'s `--advertise-refs`
+	// option.
 	InfoRefsReceivePack(*InfoRefsRequest, SmartHTTPService_InfoRefsReceivePackServer) error
-	// Request and response body for POST /upload-pack using sidechannel protocol
+	// PostUploadPackWithSidechannel provides the response for POST /upload-pack. It
+	// used to transfer pack files from the server to the client via sidechannels. This
+	// is invoked when the client executes `git fetch`.
+	//
+	// More info on sidechannels: https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/sidechannel.md
 	PostUploadPackWithSidechannel(context.Context, *PostUploadPackWithSidechannelRequest) (*PostUploadPackWithSidechannelResponse, error)
-	// Request and response body for POST /receive-pack
+	// PostReceivePack provides the response for POST /receive-pack. It used to transfer
+	// pack files from the client to the server. This is invoked when the client executes `git push`.
 	PostReceivePack(SmartHTTPService_PostReceivePackServer) error
 	mustEmbedUnimplementedSmartHTTPServiceServer()
 }
