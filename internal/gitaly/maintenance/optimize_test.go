@@ -10,8 +10,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	repo "gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
@@ -22,11 +22,11 @@ import (
 
 type mockOptimizer struct {
 	t      testing.TB
-	actual []repo.GitRepo
+	actual []storage.Repository
 	cfg    config.Cfg
 }
 
-func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, repository repo.GitRepo) error {
+func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, repository storage.Repository) error {
 	mo.actual = append(mo.actual, repository)
 	l := config.NewLocator(mo.cfg)
 	gitCmdFactory := gittest.NewCommandFactory(mo.t, mo.cfg)

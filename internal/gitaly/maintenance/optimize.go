@@ -11,7 +11,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
@@ -69,14 +68,14 @@ func shuffledStoragesCopy(randSrc *rand.Rand, storages []config.Storage) []confi
 
 // Optimizer knows how to optimize a repository
 type Optimizer interface {
-	OptimizeRepository(context.Context, repository.GitRepo) error
+	OptimizeRepository(context.Context, storage.Repository) error
 }
 
 // OptimizerFunc is an adapter to allow the use of an ordinary function as an Optimizer
-type OptimizerFunc func(context.Context, repository.GitRepo) error
+type OptimizerFunc func(context.Context, storage.Repository) error
 
 // OptimizeRepository calls o(ctx, repo)
-func (o OptimizerFunc) OptimizeRepository(ctx context.Context, repo repository.GitRepo) error {
+func (o OptimizerFunc) OptimizeRepository(ctx context.Context, repo storage.Repository) error {
 	return o(ctx, repo)
 }
 

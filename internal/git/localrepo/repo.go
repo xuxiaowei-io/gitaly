@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -24,7 +23,7 @@ import (
 
 // Repo represents a local Git repository.
 type Repo struct {
-	repository.GitRepo
+	storage.Repository
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
@@ -35,9 +34,9 @@ type Repo struct {
 }
 
 // New creates a new Repo from its protobuf representation.
-func New(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo repository.GitRepo) *Repo {
+func New(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo storage.Repository) *Repo {
 	return &Repo{
-		GitRepo:       repo,
+		Repository:    repo,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
@@ -47,9 +46,9 @@ func New(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache
 // Quarantine return the repository quarantined. The quarantine directory becomes the repository's
 // main object directory and the original object directory is configured as an alternate.
 func (repo *Repo) Quarantine(quarantineDirectory string) (*Repo, error) {
-	pbRepo, ok := repo.GitRepo.(*gitalypb.Repository)
+	pbRepo, ok := repo.Repository.(*gitalypb.Repository)
 	if !ok {
-		return nil, fmt.Errorf("unexpected repository type %t", repo.GitRepo)
+		return nil, fmt.Errorf("unexpected repository type %t", repo.Repository)
 	}
 
 	repoPath, err := repo.Path()
@@ -72,7 +71,7 @@ func (repo *Repo) Quarantine(quarantineDirectory string) (*Repo, error) {
 
 // NewTestRepo constructs a Repo. It is intended as a helper function for tests which assembles
 // dependencies ad-hoc from the given config.
-func NewTestRepo(tb testing.TB, cfg config.Cfg, repo repository.GitRepo, factoryOpts ...git.ExecCommandFactoryOption) *Repo {
+func NewTestRepo(tb testing.TB, cfg config.Cfg, repo storage.Repository, factoryOpts ...git.ExecCommandFactoryOption) *Repo {
 	tb.Helper()
 
 	if cfg.SocketPath != testcfg.UnconfiguredSocketPath {

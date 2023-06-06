@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -125,7 +125,7 @@ type CommitCommand struct {
 
 // Commit builds a commit from the actions, writes it to the object database and
 // returns its object id.
-func (b *Executor) Commit(ctx context.Context, repo repository.GitRepo, c CommitCommand) (git.ObjectID, error) {
+func (b *Executor) Commit(ctx context.Context, repo storage.Repository, c CommitCommand) (git.ObjectID, error) {
 	c.SigningKey = b.signingKey
 
 	return b.runWithGob(ctx, repo, "commit", c)

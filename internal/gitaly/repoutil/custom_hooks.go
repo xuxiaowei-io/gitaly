@@ -15,7 +15,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -37,7 +36,7 @@ func GetCustomHooks(
 	ctx context.Context,
 	locator storage.Locator,
 	writer io.Writer,
-	repo repository.GitRepo,
+	repo storage.Repository,
 ) error {
 	repoPath, err := locator.GetRepoPath(repo)
 	if err != nil {
@@ -108,7 +107,7 @@ func SetCustomHooks(
 	locator storage.Locator,
 	txManager transaction.Manager,
 	reader io.Reader,
-	repo repository.GitRepo,
+	repo storage.Repository,
 ) error {
 	repoPath, err := locator.GetRepoPath(repo)
 	if err != nil {

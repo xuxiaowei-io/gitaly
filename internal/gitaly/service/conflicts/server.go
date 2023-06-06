@@ -5,7 +5,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
@@ -45,6 +44,6 @@ func NewServer(
 	}
 }
 
-func (s *server) localrepo(repo repository.GitRepo) *localrepo.Repo {
+func (s *server) localrepo(repo storage.Repository) *localrepo.Repo {
 	return localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repo)
 }

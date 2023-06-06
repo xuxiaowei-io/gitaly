@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/alternates"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	glog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -50,7 +49,7 @@ func NewExecutor(cfg config.Cfg, gitCmdFactory git.CommandFactory, locator stora
 	}
 }
 
-func (b *Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Reader, subcmd string, args ...string) (*bytes.Buffer, error) {
+func (b *Executor) run(ctx context.Context, repo storage.Repository, stdin io.Reader, subcmd string, args ...string) (*bytes.Buffer, error) {
 	repoPath, err := b.locator.GetRepoPath(repo)
 	if err != nil {
 		return nil, fmt.Errorf("gitaly-git2go: %w", err)
@@ -105,7 +104,7 @@ func (b *Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Re
 
 // runWithGob runs the specified gitaly-git2go cmd with the request gob-encoded
 // as input and returns the commit ID as string or an error.
-func (b *Executor) runWithGob(ctx context.Context, repo repository.GitRepo, cmd string, request interface{}) (git.ObjectID, error) {
+func (b *Executor) runWithGob(ctx context.Context, repo storage.Repository, cmd string, request interface{}) (git.ObjectID, error) {
 	input := &bytes.Buffer{}
 	if err := gob.NewEncoder(input).Encode(request); err != nil {
 		return "", fmt.Errorf("%s: %w", cmd, err)

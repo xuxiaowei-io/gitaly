@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
 // RevertCommand contains parameters required to execute a revert via gitaly-git2go.
@@ -31,7 +31,7 @@ type RevertCommand struct {
 }
 
 // Revert reverts a commit via gitaly-git2go.
-func (b *Executor) Revert(ctx context.Context, repo repository.GitRepo, r RevertCommand) (git.ObjectID, error) {
+func (b *Executor) Revert(ctx context.Context, repo storage.Repository, r RevertCommand) (git.ObjectID, error) {
 	r.SigningKey = b.signingKey
 
 	return b.runWithGob(ctx, repo, "revert", r)

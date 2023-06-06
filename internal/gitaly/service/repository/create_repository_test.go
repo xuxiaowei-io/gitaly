@@ -12,10 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -204,7 +204,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 		// Praefect in front of it, we'll use the next replica path Praefect will assign in
 		// order to ensure this repository creation conflicts even with Praefect in front of
 		// it.
-		RelativePath: praefectutil.DeriveReplicaPath(1),
+		RelativePath: storage.DeriveReplicaPath(1),
 	})
 
 	for _, tc := range []struct {

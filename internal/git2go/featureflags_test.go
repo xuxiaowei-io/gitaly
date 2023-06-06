@@ -11,13 +11,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
-func (b *Executor) FeatureFlags(ctx context.Context, repo repository.GitRepo) ([]FeatureFlag, error) {
+func (b *Executor) FeatureFlags(ctx context.Context, repo storage.Repository) ([]FeatureFlag, error) {
 	output, err := b.run(ctx, repo, nil, "feature-flags")
 	if err != nil {
 		return nil, err

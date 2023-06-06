@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
 // Error strings present in the legacy Ruby implementation
@@ -49,7 +49,7 @@ type SubmoduleResult struct {
 }
 
 // Submodule attempts to commit the request submodule change
-func (b *Executor) Submodule(ctx context.Context, repo repository.GitRepo, s SubmoduleCommand) (SubmoduleResult, error) {
+func (b *Executor) Submodule(ctx context.Context, repo storage.Repository, s SubmoduleCommand) (SubmoduleResult, error) {
 	s.SigningKey = b.signingKey
 
 	if err := s.verify(); err != nil {

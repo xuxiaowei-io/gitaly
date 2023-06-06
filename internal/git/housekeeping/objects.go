@@ -12,8 +12,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
@@ -304,14 +304,14 @@ func performRepack(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 }
 
 // GetRepackGitConfig returns configuration suitable for Git commands which write new packfiles.
-func GetRepackGitConfig(ctx context.Context, repo repository.GitRepo, bitmap bool) []git.ConfigPair {
+func GetRepackGitConfig(ctx context.Context, repo storage.Repository, bitmap bool) []git.ConfigPair {
 	config := []git.ConfigPair{
 		{Key: "repack.useDeltaIslands", Value: "true"},
 		{Key: "repack.writeBitmaps", Value: strconv.FormatBool(bitmap)},
 		{Key: "pack.writeBitmapLookupTable", Value: "true"},
 	}
 
-	if stats.IsPoolRepository(repo) {
+	if storage.IsPoolRepository(repo) {
 		config = append(config,
 			git.ConfigPair{Key: "pack.island", Value: git.ObjectPoolRefNamespace + "/he(a)ds"},
 			git.ConfigPair{Key: "pack.island", Value: git.ObjectPoolRefNamespace + "/t(a)gs"},

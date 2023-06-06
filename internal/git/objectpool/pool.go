@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -58,7 +57,7 @@ func FromProto(
 		return nil, err
 	}
 
-	if !stats.IsPoolRepository(proto.GetRepository()) {
+	if !storage.IsPoolRepository(proto.GetRepository()) {
 		// When creating repositories in the ObjectPool service we will first create the
 		// repository in a temporary directory. So we need to check whether the path we see
 		// here is in such a temporary directory and let it pass.

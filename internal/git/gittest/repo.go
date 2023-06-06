@@ -14,8 +14,8 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -238,7 +238,7 @@ type GetReplicaPathConfig struct {
 // run with Praefect in front of it. This is necessary if the test creates a repository
 // through Praefect and peeks into the filesystem afterwards. Conn should be pointing to
 // Praefect.
-func GetReplicaPath(tb testing.TB, ctx context.Context, cfg config.Cfg, repo repository.GitRepo, opts ...GetReplicaPathConfig) string {
+func GetReplicaPath(tb testing.TB, ctx context.Context, cfg config.Cfg, repo storage.Repository, opts ...GetReplicaPathConfig) string {
 	require.Less(tb, len(opts), 2, "you must either pass no or exactly one option")
 
 	var opt GetReplicaPathConfig
@@ -255,7 +255,7 @@ func GetReplicaPath(tb testing.TB, ctx context.Context, cfg config.Cfg, repo rep
 	return getReplicaPath(tb, ctx, conn, repo)
 }
 
-func getReplicaPath(tb testing.TB, ctx context.Context, conn *grpc.ClientConn, repo repository.GitRepo) string {
+func getReplicaPath(tb testing.TB, ctx context.Context, conn *grpc.ClientConn, repo storage.Repository) string {
 	metadata, err := gitalypb.NewPraefectInfoServiceClient(conn).GetRepositoryMetadata(
 		ctx, &gitalypb.GetRepositoryMetadataRequest{
 			Query: &gitalypb.GetRepositoryMetadataRequest_Path_{

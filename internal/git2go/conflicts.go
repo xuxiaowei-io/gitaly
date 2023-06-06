@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -67,7 +67,7 @@ type ConflictsResult struct {
 }
 
 // Conflicts performs a merge via gitaly-git2go and returns all resulting conflicts.
-func (b *Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c ConflictsCommand) (ConflictsResult, error) {
+func (b *Executor) Conflicts(ctx context.Context, repo storage.Repository, c ConflictsCommand) (ConflictsResult, error) {
 	if err := c.verify(); err != nil {
 		return ConflictsResult{}, fmt.Errorf("conflicts: %w: %s", ErrInvalidArgument, err.Error())
 	}

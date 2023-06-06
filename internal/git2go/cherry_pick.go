@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
 // CherryPickCommand contains parameters to perform a cherry-pick.
@@ -31,7 +31,7 @@ type CherryPickCommand struct {
 }
 
 // CherryPick performs a cherry-pick via gitaly-git2go.
-func (b *Executor) CherryPick(ctx context.Context, repo repository.GitRepo, m CherryPickCommand) (git.ObjectID, error) {
+func (b *Executor) CherryPick(ctx context.Context, repo storage.Repository, m CherryPickCommand) (git.ObjectID, error) {
 	m.SigningKey = b.signingKey
 
 	return b.runWithGob(ctx, repo, "cherry-pick", m)

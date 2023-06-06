@@ -7,9 +7,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 )
+
+// Repository represents a storage-scoped repository.
+type Repository interface {
+	GetStorageName() string
+	GetRelativePath() string
+	GetGitObjectDirectory() string
+	GetGitAlternateObjectDirectories() []string
+}
+
+// RepoPathEqual compares if two repositories are in the same location
+func RepoPathEqual(a, b Repository) bool {
+	return a.GetStorageName() == b.GetStorageName() &&
+		a.GetRelativePath() == b.GetRelativePath()
+}
 
 // Locator allows to get info about location of the repository or storage at the local file system.
 type Locator interface {
@@ -18,11 +30,11 @@ type Locator interface {
 	// the `GetRepoPathOption` produced by `WithRepositoryVerificationSkipped()`, this validation
 	// will be skipped. The errors returned are gRPC errors with relevant error codes and should be
 	// passed back to gRPC without further decoration.
-	GetRepoPath(repo repository.GitRepo, opts ...GetRepoPathOption) (string, error)
+	GetRepoPath(repo Repository, opts ...GetRepoPathOption) (string, error)
 	// GetPath returns the path of the repo passed as first argument. An error is
 	// returned when either the storage can't be found or the path includes
 	// constructs trying to perform directory traversal.
-	GetPath(repo repository.GitRepo) (string, error)
+	GetPath(repo Repository) (string, error)
 	// GetStorageByName will return the path for the storage, which is fetched by
 	// its key. An error is return if it cannot be found.
 	GetStorageByName(storageName string) (string, error)
@@ -99,7 +111,7 @@ func IsGitDirectory(dir string) bool {
 // us to verify that a given quarantine object directory indeed belongs to the repository at hand.
 // Ideally, this function would directly be located in the quarantine module, but this is not
 // possible due to cyclic dependencies.
-func QuarantineDirectoryPrefix(repo repository.GitRepo) string {
+func QuarantineDirectoryPrefix(repo Repository) string {
 	hash := [20]byte{}
 	if repo != nil {
 		hash = sha1.Sum([]byte(repo.GetRelativePath()))

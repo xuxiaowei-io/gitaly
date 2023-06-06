@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -241,7 +241,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 				// assign in order to ensure this repository creation conflicts even with Praefect in front of it.
 				// As the source repository created in the setup is the first one, this would get the repository
 				// ID 2.
-				RelativePath: praefectutil.DeriveReplicaPath(2),
+				RelativePath: storage.DeriveReplicaPath(2),
 				StorageName:  repo.StorageName,
 			}
 

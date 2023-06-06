@@ -7,7 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -17,7 +17,7 @@ func LastCommitForPath(
 	ctx context.Context,
 	gitCmdFactory git.CommandFactory,
 	objectReader catfile.ObjectContentReader,
-	repo repository.GitRepo,
+	repo storage.Repository,
 	revision git.Revision,
 	path string,
 	options *gitalypb.GlobalOptions,
@@ -41,7 +41,7 @@ func LastCommitForPath(
 }
 
 // GitLogCommand returns a Command that executes git log with the given the arguments
-func GitLogCommand(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, revisions []git.Revision, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) (*command.Command, error) {
+func GitLogCommand(ctx context.Context, gitCmdFactory git.CommandFactory, repo storage.Repository, revisions []git.Revision, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) (*command.Command, error) {
 	args := make([]string, len(revisions))
 	for i, revision := range revisions {
 		args[i] = revision.String()

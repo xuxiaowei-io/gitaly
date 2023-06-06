@@ -7,8 +7,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
 var _ git.CommandFactory = &CountingCommandFactory{}
@@ -49,7 +49,7 @@ func (f *CountingCommandFactory) ResetCount() {
 }
 
 // New creates a new git command and increments the command counter
-func (f *CountingCommandFactory) New(ctx context.Context, repo repository.GitRepo, sc git.Command, opts ...git.CmdOpt) (*command.Command, error) {
+func (f *CountingCommandFactory) New(ctx context.Context, repo storage.Repository, sc git.Command, opts ...git.CmdOpt) (*command.Command, error) {
 	f.m.Lock()
 	defer f.m.Unlock()
 	f.counts[sc.Name]++

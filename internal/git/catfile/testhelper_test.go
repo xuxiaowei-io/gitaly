@@ -11,8 +11,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -24,19 +24,19 @@ func TestMain(m *testing.M) {
 }
 
 type repoExecutor struct {
-	repository.GitRepo
+	storage.Repository
 	gitCmdFactory git.CommandFactory
 }
 
-func newRepoExecutor(t *testing.T, cfg config.Cfg, repo repository.GitRepo) git.RepositoryExecutor {
+func newRepoExecutor(t *testing.T, cfg config.Cfg, repo storage.Repository) git.RepositoryExecutor {
 	return &repoExecutor{
-		GitRepo:       repo,
+		Repository:    repo,
 		gitCmdFactory: gittest.NewCommandFactory(t, cfg),
 	}
 }
 
 func (e *repoExecutor) Exec(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) (*command.Command, error) {
-	return e.gitCmdFactory.New(ctx, e.GitRepo, cmd, opts...)
+	return e.gitCmdFactory.New(ctx, e.Repository, cmd, opts...)
 }
 
 func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) error {

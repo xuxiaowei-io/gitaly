@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
 	"google.golang.org/grpc"
@@ -727,7 +727,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:       1,
-					ReplicaPath:        praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:        storage.DeriveReplicaPath(1),
 					Primary:            RouterNode{Storage: "primary", Connection: primaryConn},
 					ReplicationTargets: []string{"secondary-1", "secondary-2"},
 				},
@@ -743,7 +743,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
-					ReplicaPath:  praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:  storage.DeriveReplicaPath(1),
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries: []RouterNode{
 						{Storage: "secondary-1", Connection: secondary1Conn},
@@ -762,7 +762,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
-					ReplicaPath:  praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:  storage.DeriveReplicaPath(1),
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries: []RouterNode{
 						{Storage: "secondary-1", Connection: secondary1Conn},
@@ -782,7 +782,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
-					ReplicaPath:  praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:  storage.DeriveReplicaPath(1),
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 				},
 			),
@@ -799,13 +799,13 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
-					ReplicaPath:  praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:  storage.DeriveReplicaPath(1),
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:  []RouterNode{{Storage: "secondary-1", Connection: secondary1Conn}},
 				},
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
-					ReplicaPath:  praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:  storage.DeriveReplicaPath(1),
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:  []RouterNode{{Storage: "secondary-2", Connection: secondary1Conn}},
 				},
@@ -823,7 +823,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:       1,
-					ReplicaPath:        praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:        storage.DeriveReplicaPath(1),
 					Primary:            RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:        []RouterNode{{Storage: "secondary-1", Connection: secondary1Conn}},
 					ReplicationTargets: []string{"secondary-2"},
@@ -876,7 +876,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:          1,
-					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:           storage.DeriveReplicaPath(1),
 					AdditionalReplicaPath: "something",
 					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
 				},
@@ -893,7 +893,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:          1,
-					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:           storage.DeriveReplicaPath(1),
 					AdditionalReplicaPath: "something",
 					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
 				},
@@ -913,7 +913,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:          1,
-					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:           storage.DeriveReplicaPath(1),
 					AdditionalReplicaPath: "something",
 					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries: []RouterNode{
@@ -937,7 +937,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:          1,
-					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:           storage.DeriveReplicaPath(1),
 					AdditionalReplicaPath: "something",
 					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:           []RouterNode{{Storage: "secondary-2", Connection: secondary2Conn}},
@@ -964,7 +964,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:          1,
-					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:           storage.DeriveReplicaPath(1),
 					AdditionalReplicaPath: "something",
 					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:           []RouterNode{{Storage: "secondary-2", Connection: secondary2Conn}},
@@ -988,7 +988,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			expectedRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:          1,
-					ReplicaPath:           praefectutil.DeriveReplicaPath(1),
+					ReplicaPath:           storage.DeriveReplicaPath(1),
 					AdditionalReplicaPath: "something",
 					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries: []RouterNode{

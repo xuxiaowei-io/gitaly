@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/conflict"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
 // ResolveCommand contains arguments to perform a merge commit and resolve any
@@ -27,7 +27,7 @@ type ResolveResult struct {
 }
 
 // Resolve will attempt merging and resolving conflicts for the provided request
-func (b *Executor) Resolve(ctx context.Context, repo repository.GitRepo, r ResolveCommand) (ResolveResult, error) {
+func (b *Executor) Resolve(ctx context.Context, repo storage.Repository, r ResolveCommand) (ResolveResult, error) {
 	r.SigningKey = b.signingKey
 
 	if err := r.verify(); err != nil {

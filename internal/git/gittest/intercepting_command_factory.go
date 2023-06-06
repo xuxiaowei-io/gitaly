@@ -8,8 +8,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -106,7 +106,7 @@ func NewInterceptingCommandFactory(
 }
 
 // New creates a new Git command for the given repository using the intercepting script.
-func (f *InterceptingCommandFactory) New(ctx context.Context, repo repository.GitRepo, sc git.Command, opts ...git.CmdOpt) (*command.Command, error) {
+func (f *InterceptingCommandFactory) New(ctx context.Context, repo storage.Repository, sc git.Command, opts ...git.CmdOpt) (*command.Command, error) {
 	return f.interceptingCommandFactory.New(ctx, repo, sc, append(
 		opts, git.WithEnv(f.realCommandFactory.GetExecutionEnvironment(ctx).EnvironmentVariables...),
 	)...)
