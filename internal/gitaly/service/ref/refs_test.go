@@ -30,9 +30,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc         string
-		setup        func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData
-		expectedName git.ReferenceName
+		desc             string
+		setup            func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData
+		expectedResponse *gitalypb.FindDefaultBranchNameResponse
 	}{
 		{
 			desc: "successful",
@@ -50,7 +50,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 					},
 				}
 			},
-			expectedName: git.DefaultRef,
+			expectedResponse: &gitalypb.FindDefaultBranchNameResponse{
+				Name: []byte(git.DefaultRef),
+			},
 		},
 		{
 			desc: "successful, HEAD only",
@@ -69,7 +71,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 					},
 				}
 			},
-			expectedName: git.DefaultRef,
+			expectedResponse: &gitalypb.FindDefaultBranchNameResponse{
+				Name: []byte(git.DefaultRef),
+			},
 		},
 		{
 			desc: "successful, single branch",
@@ -84,7 +88,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 					},
 				}
 			},
-			expectedName: "refs/heads/banana",
+			expectedResponse: &gitalypb.FindDefaultBranchNameResponse{
+				Name: []byte("refs/heads/banana"),
+			},
 		},
 		{
 			desc: "successful, single branch, HEAD only",
@@ -100,7 +106,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 					},
 				}
 			},
-			expectedName: git.DefaultRef,
+			expectedResponse: &gitalypb.FindDefaultBranchNameResponse{
+				Name: []byte(git.DefaultRef),
+			},
 		},
 		{
 			desc: "successful, updated default",
@@ -119,7 +127,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 					},
 				}
 			},
-			expectedName: "refs/heads/banana",
+			expectedResponse: &gitalypb.FindDefaultBranchNameResponse{
+				Name: []byte("refs/heads/banana"),
+			},
 		},
 		{
 			desc: "empty repository",
@@ -131,6 +141,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 						Repository: repo,
 					},
 				}
+			},
+			expectedResponse: &gitalypb.FindDefaultBranchNameResponse{
+				Name: []byte{},
 			},
 		},
 		{
@@ -145,7 +158,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 					},
 				}
 			},
-			expectedName: git.DefaultRef,
+			expectedResponse: &gitalypb.FindDefaultBranchNameResponse{
+				Name: []byte(git.DefaultRef),
+			},
 		},
 		{
 			desc: "repository not provided",
@@ -200,7 +215,7 @@ func TestFindDefaultBranchName(t *testing.T) {
 
 			response, err := client.FindDefaultBranchName(ctx, data.request)
 			testhelper.RequireGrpcError(t, data.expectedErr, err)
-			require.Equal(t, tc.expectedName, git.ReferenceName(response.GetName()))
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
 }
