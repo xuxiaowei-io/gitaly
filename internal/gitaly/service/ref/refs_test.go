@@ -29,6 +29,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 		expectedErr error
 	}
 
+	ctx := testhelper.Context(t)
+	cfg, client := setupRefServiceWithoutRepo(t)
+
 	for _, tc := range []struct {
 		desc             string
 		setup            func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData
@@ -209,8 +212,6 @@ func TestFindDefaultBranchName(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := testhelper.Context(t)
-			cfg, client := setupRefServiceWithoutRepo(t)
 			data := tc.setup(t, ctx, cfg)
 
 			response, err := client.FindDefaultBranchName(ctx, data.request)
