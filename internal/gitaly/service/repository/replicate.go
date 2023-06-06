@@ -238,6 +238,10 @@ func fetchInternalRemote(
 			Stderr: &stderr,
 			CommandOptions: []git.CmdOpt{
 				git.WithConfig(git.ConfigPair{Key: "fetch.negotiationAlgorithm", Value: "skipping"}),
+				// Disable the consistency checks of objects fetched into the replicated repository.
+				// These fetched objects come from preexisting internal sources, thus it would be
+				// problematic for the fetch to fail consistency checks due to altered requirements.
+				git.WithConfig(git.ConfigPair{Key: "fetch.fsckObjects", Value: "false"}),
 			},
 		},
 	); err != nil {
