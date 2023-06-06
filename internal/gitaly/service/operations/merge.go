@@ -441,6 +441,35 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, structerr.NewInternal("could not read target reference: %w", err)
 	}
 
+	// Rebase if requested. This makes the merge like a "semi-linear" merge,
+	// i.e. a fast-forward with a merge commit.
+	if request.Rebase {
+		committer := git2go.NewSignature(string(request.User.Name), string(request.User.Email), time.Now())
+		if request.Timestamp != nil {
+			committer.When = request.Timestamp.AsTime()
+		}
+
+		newrev, err := s.git2goExecutor.Rebase(ctx, repo, git2go.RebaseCommand{
+			Repository:       repoPath,
+			Committer:        committer,
+			CommitID:         sourceOID,
+			UpstreamCommitID: oid,
+			SkipEmptyCommits: true,
+		})
+
+		if err != nil {
+			var conflictErr git2go.ConflictingFilesError
+			if errors.As(err, &conflictErr) {
+				return nil, structerr.NewFailedPrecondition("rebase conflict: %w", err)
+			}
+
+			return nil, structerr.NewInternal("rebasing commits: %w", err)
+		}
+
+		oid = newrev
+		sourceOID = newrev
+	}
+
 	// Now, we create the merge commit...
 	merge, err := s.git2goExecutor.Merge(ctx, repo, git2go.MergeCommand{
 		Repository:     repoPath,

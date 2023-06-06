@@ -444,6 +444,9 @@ message UserMergeToRefRequest {
   // timestamp is the optional timestamp to use for the merge commit. If it's
   // not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 9;
+  // When true, performs a rebase of source_sha on top of first_parent_ref prior
+  // to the merge. This is often called a semi-linear merge.
+  bool rebase = 10;
 }
 
 // This comment is left unintentionally blank.
