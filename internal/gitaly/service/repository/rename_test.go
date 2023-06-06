@@ -53,7 +53,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	}
 
 	require.DirExists(t, newDirectory)
-	require.True(t, storage.IsGitDirectory(newDirectory), "moved Git repository has been corrupted")
+	require.NoError(t, storage.ValidateRepository(newDirectory), "moved Git repository has been corrupted")
 	// ensure the git directory that got renamed contains the original commit.
 	gittest.RequireObjectExists(t, cfg, newDirectory, commitID)
 }

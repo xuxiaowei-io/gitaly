@@ -68,11 +68,13 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 
 	repoPath := filepath.Join(storagePath, relativePath)
 
-	if cfg.SkipRepositoryVerification || storage.IsGitDirectory(repoPath) {
-		return repoPath, nil
+	if !cfg.SkipRepositoryVerification {
+		if err := storage.ValidateRepository(repoPath); err != nil {
+			return "", structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
+		}
 	}
 
-	return "", structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
+	return repoPath, nil
 }
 
 // GetStorageByName will return the path for the storage, which is fetched by

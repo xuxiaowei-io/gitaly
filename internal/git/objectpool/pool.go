@@ -117,7 +117,7 @@ func (o *ObjectPool) IsValid() bool {
 		return false
 	}
 
-	return storage.IsGitDirectory(path)
+	return storage.ValidateRepository(path) == nil
 }
 
 // Remove will remove the pool, and all its contents without preparing and/or
@@ -220,7 +220,7 @@ func objectPathRelativeToStorage(locator storage.Locator, storageName, path, rep
 
 	poolObjectDirFullPath := filepath.Join(objectDirPath, path)
 
-	if !storage.IsGitDirectory(filepath.Dir(poolObjectDirFullPath)) {
+	if storage.ValidateRepository(filepath.Dir(poolObjectDirFullPath)) != nil {
 		return "", ErrInvalidPoolRepository
 	}
 

@@ -572,7 +572,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	<-replMgrDone
 
 	require.NoDirExists(t, fullNewPath1, "repository must be moved from %q to the new location", fullNewPath1)
-	require.True(t, storage.IsGitDirectory(fullNewPath2), "repository must exist at new last RenameRepository location")
+	require.NoError(t, storage.ValidateRepository(fullNewPath2), "repository must exist at new last RenameRepository location")
 }
 
 func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {

@@ -188,8 +188,8 @@ func TestRemoveRepositorySubcommand(t *testing.T) {
 				require.NoError(t, err)
 				require.False(t, repositoryExists(t, repo))
 				// Repo is still present on-disk on the Gitaly nodes.
-				require.True(t, storage.IsGitDirectory(filepath.Join(g1Cfg.Storages[0].Path, replicaPath)))
-				require.True(t, storage.IsGitDirectory(filepath.Join(g2Cfg.Storages[0].Path, replicaPath)))
+				require.NoError(t, storage.ValidateRepository(filepath.Join(g1Cfg.Storages[0].Path, replicaPath)))
+				require.NoError(t, storage.ValidateRepository(filepath.Join(g2Cfg.Storages[0].Path, replicaPath)))
 			},
 			assertOutput: func(t *testing.T, out string, repo *gitalypb.Repository) {
 				assert.Contains(t, out, "Repository found in the database.\n")

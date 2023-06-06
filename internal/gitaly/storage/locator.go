@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // RepositoryNotFoundError is returned when attempting to operate on a repository that does not
@@ -37,6 +39,10 @@ var (
 	// ErrRepositoryAlreadyExists is returned when attempting to create a repository that
 	// already exists.
 	ErrRepositoryAlreadyExists = errors.New("repository already exists")
+
+	// ErrRepositoryNotValid is returned when operating on a path that is not a valid Git
+	// repository.
+	ErrRepositoryNotValid = errors.New("repository not valid")
 
 	// ErrRelativePathEscapesRoot is returned when a relative path is passed that escapes the
 	// storage's root directory.
@@ -107,16 +113,32 @@ func ValidateRelativePath(rootDir, relativePath string) (string, error) {
 	return filepath.Rel(rootDir, absPath)
 }
 
-// IsGitDirectory checks if the directory passed as first argument looks like
-// a valid git directory.
-func IsGitDirectory(dir string) bool {
-	if dir == "" {
-		return false
+// ValidateRepository validates whether the given path points to a valid Git repository. This
+// function returns:
+//
+// - ErrRepositoryNotExist when the path cannot be found.
+// - ErrRepositoryNotValid when the repository is not a valid Git repository.
+// - An unspecified error when stat(3P)ing files fails due to other reasons.
+func ValidateRepository(path string) error {
+	if path == "" {
+		return structerr.NewInvalidArgument("repository path is empty")
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return structerr.NewNotFound("%w", ErrRepositoryNotFound).WithMetadata("repository_path", path)
+		}
+
+		return structerr.New("statting repository: %w", err).WithMetadata("repository_path", path)
 	}
 
 	for _, element := range []string{"objects", "refs", "HEAD"} {
-		if _, err := os.Stat(filepath.Join(dir, element)); err != nil {
-			return false
+		if _, err := os.Stat(filepath.Join(path, element)); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return structerr.NewFailedPrecondition("%w: %q does not exist", ErrRepositoryNotValid, element).WithMetadata("repository_path", path)
+			}
+
+			return structerr.New("statting %q: %w", element, err).WithMetadata("repository_path", path)
 		}
 	}
 
@@ -128,9 +150,9 @@ func IsGitDirectory(dir string) bool {
 	// git gc runs for a long time while keeping open the packed-refs file.
 	// Running stat() on the file causes the kernel to revalidate the cached
 	// directory entry. We don't actually care if this file exists.
-	_, _ = os.Stat(filepath.Join(dir, "packed-refs"))
+	_, _ = os.Stat(filepath.Join(path, "packed-refs"))
 
-	return true
+	return nil
 }
 
 // QuarantineDirectoryPrefix returns a prefix for use in the temporary directory. The prefix is

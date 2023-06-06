@@ -50,7 +50,7 @@ func walkStorage(ctx context.Context, storagePath string, stream gitalypb.Intern
 			// keep walking
 		}
 
-		if storage.IsGitDirectory(path) {
+		if storage.ValidateRepository(path) == nil {
 			relPath, err := filepath.Rel(storagePath, path)
 			if err != nil {
 				return err
