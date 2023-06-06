@@ -320,7 +320,7 @@ test:fips:
 test:macos:
   image: macos-12-xcode-14
   tags:
-    - shared-macos-amd64
+    - saas-macos-medium-m1
   needs: []
   allow_failure: true
   stage: test
