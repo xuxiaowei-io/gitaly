@@ -263,7 +263,7 @@ func newLocalRepository(
 
 // IsEmpty returns true if the repository has no branches.
 func (r *localRepository) IsEmpty(ctx context.Context) (bool, error) {
-	path, err := r.locator.GetPath(r.repo)
+	path, err := r.locator.GetRepoPath(r.repo, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return false, fmt.Errorf("local repository: is empty: %w", err)
 	}

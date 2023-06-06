@@ -13,7 +13,7 @@ func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryEx
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
-	path, err := s.locator.GetPath(in.Repository)
+	path, err := s.locator.GetRepoPath(in.Repository, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return nil, err
 	}

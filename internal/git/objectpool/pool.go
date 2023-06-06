@@ -52,7 +52,7 @@ func FromProto(
 	housekeepingManager housekeeping.Manager,
 	proto *gitalypb.ObjectPool,
 ) (*ObjectPool, error) {
-	poolPath, err := locator.GetPath(proto.GetRepository())
+	poolPath, err := locator.GetRepoPath(proto.GetRepository(), storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return nil, err
 	}

@@ -39,7 +39,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	repoPath, err := s.locator.GetPath(in.GetRepository())
+	repoPath, err := s.locator.GetRepoPath(in.GetRepository(), storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return nil, structerr.NewInternal("%w", err)
 	}
@@ -190,7 +190,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 		}),
 	)
 
-	targetPath, err := s.locator.GetPath(target)
+	targetPath, err := s.locator.GetRepoPath(target, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return fmt.Errorf("target path: %w", err)
 	}

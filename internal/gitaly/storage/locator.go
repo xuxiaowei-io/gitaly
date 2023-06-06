@@ -31,10 +31,6 @@ type Locator interface {
 	// will be skipped. The errors returned are gRPC errors with relevant error codes and should be
 	// passed back to gRPC without further decoration.
 	GetRepoPath(repo Repository, opts ...GetRepoPathOption) (string, error)
-	// GetPath returns the path of the repo passed as first argument. An error is
-	// returned when either the storage can't be found or the path includes
-	// constructs trying to perform directory traversal.
-	GetPath(repo Repository) (string, error)
 	// GetStorageByName will return the path for the storage, which is fetched by
 	// its key. An error is return if it cannot be found.
 	GetStorageByName(storageName string) (string, error)

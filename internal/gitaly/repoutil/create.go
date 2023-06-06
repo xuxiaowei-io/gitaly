@@ -69,7 +69,7 @@ func Create(
 	seedRepository func(repository *gitalypb.Repository) error,
 	options ...CreateOption,
 ) error {
-	targetPath, err := locator.GetPath(repository)
+	targetPath, err := locator.GetRepoPath(repository, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return structerr.NewInvalidArgument("locate repository: %w", err)
 	}

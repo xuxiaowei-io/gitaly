@@ -44,22 +44,6 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 		opt(&cfg)
 	}
 
-	repoPath, err := l.GetPath(repo)
-	if err != nil {
-		return "", err
-	}
-
-	if cfg.SkipRepositoryVerification || storage.IsGitDirectory(repoPath) {
-		return repoPath, nil
-	}
-
-	return "", structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
-}
-
-// GetPath returns the path of the repo passed as first argument. An error is
-// returned when either the storage can't be found or the path includes
-// constructs trying to perform directory traversal.
-func (l *configLocator) GetPath(repo storage.Repository) (string, error) {
 	storagePath, err := l.GetStorageByName(repo.GetStorageName())
 	if err != nil {
 		return "", err
@@ -82,7 +66,13 @@ func (l *configLocator) GetPath(repo storage.Repository) (string, error) {
 		return "", structerr.NewInvalidArgument("GetRepoPath: %w", err)
 	}
 
-	return filepath.Join(storagePath, relativePath), nil
+	repoPath := filepath.Join(storagePath, relativePath)
+
+	if cfg.SkipRepositoryVerification || storage.IsGitDirectory(repoPath) {
+		return repoPath, nil
+	}
+
+	return "", structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
 }
 
 // GetStorageByName will return the path for the storage, which is fetched by

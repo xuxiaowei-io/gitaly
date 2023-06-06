@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -82,7 +83,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 	}
 
 	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, req.GetRepository(), func(repo *gitalypb.Repository) error {
-		targetPath, err := s.locator.GetPath(repo)
+		targetPath, err := s.locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 		if err != nil {
 			return fmt.Errorf("getting temporary repository path: %w", err)
 		}

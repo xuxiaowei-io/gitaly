@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -24,7 +25,7 @@ func TestLock(t *testing.T) {
 		RelativePath: gittest.NewRepositoryName(t),
 	}
 
-	repoPath, err := locator.GetPath(repo)
+	repoPath, err := locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 	require.NoError(t, err)
 
 	unlock, err := Lock(ctx, locator, repo)

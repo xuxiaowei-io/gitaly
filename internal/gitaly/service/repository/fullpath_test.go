@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -63,7 +64,7 @@ func TestSetFullPath(t *testing.T) {
 			RelativePath: "/path/to/repo.git",
 			StorageName:  cfg.Storages[0].Name,
 		}
-		repoPath, err := config.NewLocator(cfg).GetPath(repo)
+		repoPath, err := config.NewLocator(cfg).GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 		require.NoError(t, err)
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
@@ -169,7 +170,7 @@ func TestFullPath(t *testing.T) {
 			RelativePath: "/path/to/repo.git",
 			StorageName:  cfg.Storages[0].Name,
 		}
-		repoPath, err := config.NewLocator(cfg).GetPath(repo)
+		repoPath, err := config.NewLocator(cfg).GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 		require.NoError(t, err)
 
 		response, err := client.FullPath(ctx, &gitalypb.FullPathRequest{

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -24,7 +25,7 @@ func TestNewRepositorySuccess(t *testing.T) {
 	require.Equal(t, cfg.Storages[0].Name, repo.StorageName)
 	require.Contains(t, repo.RelativePath, tmpRootPrefix)
 
-	calculatedPath, err := locator.GetPath(repo)
+	calculatedPath, err := locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 	require.NoError(t, err)
 	require.Equal(t, tempDir.Path(), calculatedPath)
 
