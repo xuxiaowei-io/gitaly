@@ -130,7 +130,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return structerr.NewNotFound("%w", err)
 			}
-			return structerr.NewInternal("%w", err)
+			return structerr.NewInternal("branch resolution: %w", err)
 		}
 	}
 
@@ -139,23 +139,22 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	mergeCommitID, mergeErr := s.merge(ctx, quarantineRepo,
+	mergeCommitID, err := s.merge(ctx, quarantineRepo,
 		string(firstRequest.User.Name),
 		string(firstRequest.User.Email),
 		authorDate,
 		string(firstRequest.Message),
 		revision.String(),
 		firstRequest.CommitId)
-
-	if mergeErr != nil {
+	if err != nil {
 		var conflictErr *localrepo.MergeTreeConflictError
-		if errors.As(mergeErr, &conflictErr) {
+		if errors.As(err, &conflictErr) {
 			conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFileInfo))
 			for _, conflictingFileInfo := range conflictErr.ConflictingFileInfo {
 				conflictingFiles = append(conflictingFiles, []byte(conflictingFileInfo.FileName))
 			}
 
-			return structerr.NewFailedPrecondition("merging commits: %w", mergeErr).
+			return structerr.NewFailedPrecondition("merging commits: %w", err).
 				WithDetail(
 					&gitalypb.UserMergeBranchError{
 						Error: &gitalypb.UserMergeBranchError_MergeConflict{
@@ -171,7 +170,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 				)
 		}
 
-		return structerr.NewInternal("%w", err)
+		return structerr.NewInternal("merge: %w", err)
 	}
 
 	mergeOID, err := git.ObjectHashSHA1.FromHex(mergeCommitID)
@@ -239,7 +238,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			)
 		}
 
-		return structerr.NewInternal("%w", err)
+		return structerr.NewInternal("target update: %w", err)
 	}
 
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{
