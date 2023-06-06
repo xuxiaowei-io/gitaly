@@ -9,6 +9,40 @@ import (
 	"strings"
 )
 
+// RepositoryNotFoundError is returned when attempting to operate on a repository that does not
+// exist in the virtual storage.
+type RepositoryNotFoundError struct {
+	virtualStorage string
+	relativePath   string
+}
+
+// NewRepositoryNotFoundError returns a new repository not found error for the given repository.
+func NewRepositoryNotFoundError(virtualStorage string, relativePath string) error {
+	return RepositoryNotFoundError{virtualStorage: virtualStorage, relativePath: relativePath}
+}
+
+// Error returns the error message.
+func (err RepositoryNotFoundError) Error() string {
+	return fmt.Sprintf("repository %q/%q not found", err.virtualStorage, err.relativePath)
+}
+
+var (
+	// ErrRepositoryNotFound is returned when operating on a repository that doesn't exist.
+	//
+	// This somewhat duplicates the above RepositoryNotFoundError but doesn't specify which
+	// repository was not found. With repository IDs in use, the virtual storage and relative
+	// path won't be available everywhere anymore.
+	ErrRepositoryNotFound = errors.New("repository not found")
+
+	// ErrRepositoryAlreadyExists is returned when attempting to create a repository that
+	// already exists.
+	ErrRepositoryAlreadyExists = errors.New("repository already exists")
+
+	// ErrRelativePathEscapesRoot is returned when a relative path is passed that escapes the
+	// storage's root directory.
+	ErrRelativePathEscapesRoot = errors.New("relative path escapes root directory")
+)
+
 // Repository represents a storage-scoped repository.
 type Repository interface {
 	GetStorageName() string
@@ -60,9 +94,6 @@ func WithRepositoryVerificationSkipped() GetRepoPathOption {
 		cfg.SkipRepositoryVerification = true
 	}
 }
-
-//nolint:revive // This is unintentionally missing documentation.
-var ErrRelativePathEscapesRoot = errors.New("relative path escapes root directory")
 
 // ValidateRelativePath validates a relative path by joining it with rootDir and verifying the result
 // is either rootDir or a path within rootDir. Returns clean relative path from rootDir to relativePath

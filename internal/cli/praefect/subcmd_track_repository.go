@@ -12,10 +12,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	glcli "gitlab.com/gitlab-org/gitaly/v16/internal/cli"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
@@ -275,7 +275,7 @@ func (req *trackRepositoryRequest) trackRepository(
 ) (int64, error) {
 	repositoryID, err := ds.ReserveRepositoryID(ctx, req.VirtualStorage, req.RelativePath)
 	if err != nil {
-		if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
+		if errors.Is(err, storage.ErrRepositoryAlreadyExists) {
 			fmt.Fprintf(w, "repository is already tracked in praefect database")
 			return 0, nil
 		}

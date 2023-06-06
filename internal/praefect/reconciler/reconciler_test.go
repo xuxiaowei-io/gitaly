@@ -9,10 +9,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -1041,7 +1041,7 @@ func TestReconciler(t *testing.T) {
 				var err error
 				existing.Job.RepositoryID, err = rs.GetRepositoryID(ctx, existing.Job.VirtualStorage, existing.Job.RelativePath)
 				if err != nil {
-					require.Equal(t, commonerr.NewRepositoryNotFoundError(existing.Job.VirtualStorage, existing.Job.RelativePath), err)
+					require.Equal(t, storage.NewRepositoryNotFoundError(existing.Job.VirtualStorage, existing.Job.RelativePath), err)
 				}
 
 				var id int64
@@ -1099,7 +1099,7 @@ func TestReconciler(t *testing.T) {
 				for i, job := range jobs {
 					id, err := rs.GetRepositoryID(ctx, job.VirtualStorage, job.RelativePath)
 					if err != nil {
-						require.Equal(t, commonerr.NewRepositoryNotFoundError(job.VirtualStorage, job.RelativePath), err)
+						require.Equal(t, storage.NewRepositoryNotFoundError(job.VirtualStorage, job.RelativePath), err)
 					}
 
 					jobs[i].RepositoryID = id

@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -476,7 +476,7 @@ func TestPerRepositoryElector(t *testing.T) {
 			desc: "repository does not exist",
 			steps: steps{
 				{
-					error:          commonerr.ErrRepositoryNotFound,
+					error:          storage.ErrRepositoryNotFound,
 					primary:        noPrimary(),
 					noBlockedQuery: true,
 				},
@@ -514,7 +514,7 @@ func TestPerRepositoryElector(t *testing.T) {
 			for _, event := range tc.existingJobs {
 				repositoryID, err := rs.GetRepositoryID(ctx, event.Job.VirtualStorage, event.Job.RelativePath)
 				if err != nil {
-					require.Equal(t, commonerr.NewRepositoryNotFoundError(event.Job.VirtualStorage, event.Job.RelativePath), err)
+					require.Equal(t, storage.NewRepositoryNotFoundError(event.Job.VirtualStorage, event.Job.RelativePath), err)
 				}
 
 				event.Job.RepositoryID = repositoryID

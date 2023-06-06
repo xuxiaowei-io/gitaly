@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -841,7 +840,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			primaryPick:               0,
 			repositoryExists:          true,
 			expectedPrimaryCandidates: []int{3},
-			expectedErr:               fmt.Errorf("reserve repository id: %w", commonerr.ErrRepositoryAlreadyExists),
+			expectedErr:               fmt.Errorf("reserve repository id: %w", storage.ErrRepositoryAlreadyExists),
 		},
 		{
 			desc:                   "additional repository doesn't exist",
