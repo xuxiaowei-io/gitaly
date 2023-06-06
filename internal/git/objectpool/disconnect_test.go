@@ -3,6 +3,7 @@ package objectpool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -164,6 +165,29 @@ func TestDisconnect(t *testing.T) {
 			},
 		},
 		{
+			desc: "Git alternates with comments",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repo, _ := setupRepoWithObjectPool(t, ctx)
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
+				// A Git alternates file may contain comments, it is important that the alternate
+				// file is parsed correctly to not include comments. Comments are added to the
+				// repositories alternate file to validate that it does not cause errors.
+				altInfo, err := stats.AlternatesInfoForRepository(repoPath)
+				require.NoError(t, err)
+				altObjectDir := fmt.Sprintf("# foo\n%s\n# bar\n", altInfo.ObjectDirectories[0])
+
+				altPath, err := repo.InfoAlternatesPath()
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(altPath, []byte(altObjectDir), perm.SharedFile))
+
+				return setupData{
+					repository: repo,
+				}
+			},
+		},
+		{
 			desc: "multiple Git alternates",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				// If the Git alternates file contains multiple entries, the repository fails to be
@@ -172,7 +196,7 @@ func TestDisconnect(t *testing.T) {
 
 				return setupData{
 					repository:    setupRepoWithAlternates(t, ctx, altContents),
-					expectedError: &invalidAlternatesError{altContents: []byte(altContents)},
+					expectedError: errors.New("multiple alternate object directories"),
 				}
 			},
 		},
@@ -202,7 +226,7 @@ func TestDisconnect(t *testing.T) {
 
 				return setupData{
 					repository:    setupRepoWithAlternates(t, ctx, altContents),
-					expectedError: &invalidAlternatesError{altContents: []byte(altContents)},
+					expectedError: errors.New("alternate object entry is not a directory"),
 				}
 			},
 		},

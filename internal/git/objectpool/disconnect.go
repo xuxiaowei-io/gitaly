@@ -2,6 +2,7 @@ package objectpool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 )
@@ -34,45 +36,45 @@ func Disconnect(ctx context.Context, repo *localrepo.Repo) error {
 		return err
 	}
 
-	altFile, err := repo.InfoAlternatesPath()
+	altInfo, err := stats.AlternatesInfoForRepository(repoPath)
 	if err != nil {
 		return err
 	}
 
-	altContents, err := os.ReadFile(altFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-
-		return err
+	// If the repository does not have an alternates file or if alternate file does not contain
+	// object directories, there is not an object pool repository to disconnect from and no need to
+	// continue.
+	if !altInfo.Exists || len(altInfo.ObjectDirectories) == 0 {
+		return nil
 	}
 
-	altDir := strings.TrimSpace(string(altContents))
-	if strings.Contains(altDir, "\n") {
-		return &invalidAlternatesError{altContents: altContents}
+	// A repository should only ever be linked to a single alternate object directory. If the
+	// repository links to multiple object directories, the repository is in an invalid state.
+	if len(altInfo.ObjectDirectories) > 1 {
+		return errors.New("multiple alternate object directories")
 	}
 
-	if !filepath.IsAbs(altDir) {
-		altDir = filepath.Join(repoPath, "objects", altDir)
-	}
-
-	stat, err := os.Stat(altDir)
+	// If the alternate object directory entry does not exist on disk, the repository's Git
+	// alternates file is in an invalid state.
+	altObjectDir := altInfo.ObjectDirectories[0]
+	altObjectDirStats, err := os.Stat(altObjectDir)
 	if err != nil {
 		return err
 	}
 
-	if !stat.IsDir() {
-		return &invalidAlternatesError{altContents: altContents}
+	// If the alternate object directory is not a directory, the repository's Git alternates file is
+	// in an invalid state.
+	if !altObjectDirStats.IsDir() {
+		return errors.New("alternate object entry is not a directory")
 	}
 
-	objectFiles, err := findObjectFiles(altDir)
+	objectFiles, err := findObjectFiles(altObjectDir)
 	if err != nil {
 		return err
 	}
 
 	for _, path := range objectFiles {
-		source := filepath.Join(altDir, path)
+		source := filepath.Join(altObjectDir, path)
 		target := filepath.Join(repoPath, "objects", path)
 
 		if err := os.MkdirAll(filepath.Dir(target), perm.SharedDir); err != nil {
@@ -88,20 +90,17 @@ func Disconnect(ctx context.Context, repo *localrepo.Repo) error {
 		}
 	}
 
+	altFile, err := repo.InfoAlternatesPath()
+	if err != nil {
+		return err
+	}
+
 	backupFile, err := newBackupFile(altFile)
 	if err != nil {
 		return err
 	}
 
 	return removeAlternatesIfOk(ctx, repo, altFile, backupFile)
-}
-
-type invalidAlternatesError struct {
-	altContents []byte
-}
-
-func (e *invalidAlternatesError) Error() string {
-	return fmt.Sprintf("invalid content in objects/info/alternates: %q", e.altContents)
 }
 
 func findObjectFiles(altDir string) ([]string, error) {
