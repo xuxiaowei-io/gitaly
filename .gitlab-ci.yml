@@ -336,12 +336,15 @@ test:macos:
     # This is required to fix inconsistent deployment targets across CGo and
     # libgit2.
     MACOSX_DEPLOYMENT_TARGET: "12.0"
-    PGDATA: /tmp/postgres
+    PGDATA: /Volumes/RAMDisk/postgres
     PGHOST: localhost
     PGUSER: gitlab
+    TEST_TMP_DIR: /Volumes/RAMDisk
     # Disable code coverage generation as it is too slow on macOS.
     TEST_WITH_COVERAGE: ""
   before_script:
+    # Create a 2GB RAM disk to speed up our tests.
+    - sudo diskutil apfs create $(hdiutil attach -nomount ram://4194304) RAMDisk
     - brew uninstall go
     - brew install cmake go@${GO_VERSION}
     # Older Go versions may be keg-only and thus aren't linked into `PATH` by
