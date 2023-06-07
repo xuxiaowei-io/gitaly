@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -23,7 +25,12 @@ import (
 func TestGetTreeEntries(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.GetTreeEntriesStructuredErrors).Run(t, testGetTreeEntries)
+}
+
+func testGetTreeEntries(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	cfg.SocketPath = startTestServices(t, cfg)
@@ -166,12 +173,23 @@ func TestGetTreeEntries(t *testing.T) {
 					}),
 				}))
 
+				var expectedErr error = structerr.NewInvalidArgument("empty Path")
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("empty path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_Path{
+							Path: &gitalypb.PathError{
+								ErrorType: gitalypb.PathError_ERROR_TYPE_EMPTY_PATH,
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
 						Revision:   []byte(commitID),
 					},
-					expectedErr: structerr.NewInvalidArgument("empty Path"),
+					expectedErr: expectedErr,
 				}
 			},
 		},
@@ -251,12 +269,24 @@ func TestGetTreeEntries(t *testing.T) {
 					}),
 				)
 
+				var expectedErr error
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+							ResolveTree: &gitalypb.ResolveRevisionError{
+								Revision: []byte(commitID),
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
 						Revision:   []byte(commitID.String()),
 						Path:       []byte("./.."),
 					},
+					expectedErr: expectedErr,
 				}
 			},
 		},
@@ -271,12 +301,24 @@ func TestGetTreeEntries(t *testing.T) {
 					}),
 				}))
 
+				var expectedErr error
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+							ResolveTree: &gitalypb.ResolveRevisionError{
+								Revision: []byte(commitID),
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
 						Revision:   []byte(commitID.String()),
 						Path:       []byte("./folder/.."),
 					},
+					expectedErr: expectedErr,
 				}
 			},
 		},
@@ -291,12 +333,24 @@ func TestGetTreeEntries(t *testing.T) {
 					}),
 				}))
 
+				var expectedErr error
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+							ResolveTree: &gitalypb.ResolveRevisionError{
+								Revision: []byte(commitID),
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
 						Revision:   []byte(commitID.String()),
 						Path:       []byte("./folder/test.txt"),
 					},
+					expectedErr: expectedErr,
 				}
 			},
 		},
@@ -384,12 +438,24 @@ func TestGetTreeEntries(t *testing.T) {
 					Path: "folder",
 				}))
 
+				var expectedErr error
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+							ResolveTree: &gitalypb.ResolveRevisionError{
+								Revision: []byte(commitID),
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
 						Revision:   []byte(commitID.String()),
 						Path:       []byte(repoPath + "folder"),
 					},
+					expectedErr: expectedErr,
 				}
 			},
 		},
@@ -763,12 +829,24 @@ func TestGetTreeEntries(t *testing.T) {
 					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
 				))
 
+				var expectedErr error
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+							ResolveTree: &gitalypb.ResolveRevisionError{
+								Revision: []byte(commitID),
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
 						Revision:   []byte(commitID),
 						Path:       []byte("does-not-exist"),
 					},
+					expectedErr: expectedErr,
 				}
 			},
 		},
@@ -787,6 +865,17 @@ func TestGetTreeEntries(t *testing.T) {
 					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
 				))
 
+				var expectedErr error
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+							ResolveTree: &gitalypb.ResolveRevisionError{
+								Revision: []byte(commitID),
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
@@ -794,6 +883,7 @@ func TestGetTreeEntries(t *testing.T) {
 						Path:       []byte("does-not-exist"),
 						Recursive:  true,
 					},
+					expectedErr: expectedErr,
 				}
 			},
 		},
@@ -812,12 +902,24 @@ func TestGetTreeEntries(t *testing.T) {
 					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
 				))
 
+				var expectedErr error
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+							ResolveTree: &gitalypb.ResolveRevisionError{
+								Revision: []byte("does-not-exist"),
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
 						Revision:   []byte("does-not-exist"),
 						Path:       []byte("."),
 					},
+					expectedErr: expectedErr,
 				}
 			},
 		},
@@ -836,6 +938,17 @@ func TestGetTreeEntries(t *testing.T) {
 					gittest.TreeEntry{OID: folderOID, Mode: "040000", Path: "foo"},
 				))
 
+				var expectedErr error
+				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
+					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+							ResolveTree: &gitalypb.ResolveRevisionError{
+								Revision: []byte("does-not-exist"),
+							},
+						},
+					})
+				}
+
 				return setupData{
 					request: &gitalypb.GetTreeEntriesRequest{
 						Repository: repo,
@@ -843,6 +956,7 @@ func TestGetTreeEntries(t *testing.T) {
 						Path:       []byte("."),
 						Recursive:  true,
 					},
+					expectedErr: expectedErr,
 				}
 			},
 		},
