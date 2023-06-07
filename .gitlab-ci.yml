@@ -8,7 +8,7 @@ stages:
 default:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images/debian-${DEBIAN_VERSION}-golang-${GO_VERSION}-rust-${RUST_VERSION}:git-2.36
   tags:
-    - gitlab-org
+    - saas-linux-large-amd64
   interruptible: true
 
 variables:
