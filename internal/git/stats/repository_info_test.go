@@ -145,6 +145,7 @@ func TestLogObjectInfo(t *testing.T) {
 					filepath.Join(repoPath2, "/objects"),
 				},
 				LastModified: alternatesStat.ModTime(),
+				repoPath:     targetRepoPath,
 			},
 		}, repoInfo)
 	})
@@ -310,6 +311,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 								alternatePath,
 							},
 							LastModified: date,
+							repoPath:     repoPath,
 						},
 					},
 				}
@@ -464,6 +466,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 								alternatePath,
 							},
 							LastModified: date,
+							repoPath:     repoPath,
 						},
 					},
 				}
@@ -481,6 +484,72 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			repoInfo, err := RepositoryInfoForRepository(repo)
 			require.Equal(t, setup.expectedError, err)
 			require.Equal(t, setup.expectedInfo, repoInfo)
+		})
+	}
+}
+
+func TestAlternatesInfo_AbsoluteObjectDirectories(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc            string
+		altDirs         []string
+		expectedAltDirs []string
+	}{
+		{
+			desc:            "empty alt info",
+			altDirs:         []string{},
+			expectedAltDirs: []string{},
+		},
+		{
+			desc:            "single relative path",
+			altDirs:         []string{"../../../../path/to/different/repo"},
+			expectedAltDirs: []string{"/path/to/different/repo"},
+		},
+		{
+			desc: "multiple relative paths",
+			altDirs: []string{
+				"../../../../path/to/different/repo",
+				"foo/bar",
+			},
+			expectedAltDirs: []string{
+				"/path/to/different/repo",
+				"/path/to/repo/objects/foo/bar",
+			},
+		},
+		{
+			desc:            "single absolute path",
+			altDirs:         []string{"/path/to/different/repo"},
+			expectedAltDirs: []string{"/path/to/different/repo"},
+		},
+		{
+			desc:            "multiple absolute paths",
+			altDirs:         []string{"/foo", "/bar"},
+			expectedAltDirs: []string{"/foo", "/bar"},
+		},
+		{
+			desc: "relative and absolute paths",
+			altDirs: []string{
+				"../../../../path/to/different/repo",
+				"/foo/bar",
+			},
+			expectedAltDirs: []string{
+				"/path/to/different/repo",
+				"/foo/bar",
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			altInfo := AlternatesInfo{
+				Exists:            true,
+				ObjectDirectories: tc.altDirs,
+				repoPath:          "/path/to/repo",
+			}
+
+			require.Equal(t, tc.expectedAltDirs, altInfo.AbsoluteObjectDirectories())
 		})
 	}
 }
@@ -550,6 +619,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 					expectedInfo: AlternatesInfo{
 						Exists:       true,
 						LastModified: date,
+						repoPath:     repoPath,
 					},
 				}
 			},
@@ -568,6 +638,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 							"/absolute",
 						},
 						LastModified: date,
+						repoPath:     repoPath,
 					},
 				}
 			},
@@ -586,6 +657,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 							"/absolute",
 						},
 						LastModified: date,
+						repoPath:     repoPath,
 					},
 				}
 			},
@@ -599,11 +671,10 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 				return setupData{
 					repoPath: repoPath,
 					expectedInfo: AlternatesInfo{
-						Exists: true,
-						ObjectDirectories: []string{
-							filepath.Join(cfg.Storages[0].Path, "@pools", "foo", "bar"),
-						},
-						LastModified: date,
+						Exists:            true,
+						ObjectDirectories: []string{"../../../../../@pools/foo/bar"},
+						LastModified:      date,
+						repoPath:          repoPath,
 					},
 				}
 			},
@@ -620,9 +691,10 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 						Exists: true,
 						ObjectDirectories: []string{
 							"/absolute",
-							filepath.Join(cfg.Storages[0].Path, "@pools", "foo", "bar"),
+							"../../../../../@pools/foo/bar",
 						},
 						LastModified: date,
+						repoPath:     repoPath,
 					},
 				}
 			},
@@ -642,6 +714,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 							"/second",
 						},
 						LastModified: date,
+						repoPath:     repoPath,
 					},
 				}
 			},
@@ -661,6 +734,7 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 							"/second",
 						},
 						LastModified: date,
+						repoPath:     repoPath,
 					},
 				}
 			},

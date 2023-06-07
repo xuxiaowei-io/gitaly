@@ -56,7 +56,7 @@ func Disconnect(ctx context.Context, repo *localrepo.Repo) error {
 
 	// If the alternate object directory entry does not exist on disk, the repository's Git
 	// alternates file is in an invalid state.
-	altObjectDir := altInfo.ObjectDirectories[0]
+	altObjectDir := altInfo.AbsoluteObjectDirectories()[0]
 	altObjectDirStats, err := os.Stat(altObjectDir)
 	if err != nil {
 		return err
