@@ -2,8 +2,6 @@ package commit
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -22,8 +20,8 @@ func verifyListCommitsRequest(request *gitalypb.ListCommitsRequest) error {
 		return errors.New("missing revisions")
 	}
 	for _, revision := range request.Revisions {
-		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
-			return fmt.Errorf("invalid revision: %q", revision)
+		if err := git.ValidateRevision([]byte(revision), git.AllowPseudoRevision()); err != nil {
+			return structerr.NewInvalidArgument("invalid revision: %w", err).WithMetadata("revision", revision)
 		}
 	}
 	return nil

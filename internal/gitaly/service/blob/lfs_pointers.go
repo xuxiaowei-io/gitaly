@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -36,8 +35,8 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 		return structerr.NewInvalidArgument("missing revisions")
 	}
 	for _, revision := range in.Revisions {
-		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
-			return structerr.NewInvalidArgument("invalid revision: %q", revision)
+		if err := git.ValidateRevision([]byte(revision), git.AllowPathScopedRevision(), git.AllowPseudoRevision()); err != nil {
+			return structerr.NewInvalidArgument("invalid revision: %w", err).WithMetadata("revision", revision)
 		}
 	}
 

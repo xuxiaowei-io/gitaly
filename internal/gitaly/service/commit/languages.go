@@ -23,7 +23,7 @@ func (s *server) validateCommitLanguagesRequest(req *gitalypb.CommitLanguagesReq
 	if err := service.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
-	if err := git.ValidateRevisionAllowEmpty(req.Revision); err != nil {
+	if err := git.ValidateRevision(req.Revision, git.AllowEmptyRevision()); err != nil {
 		return err
 	}
 	return nil

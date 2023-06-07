@@ -74,7 +74,7 @@ func validateCommitsByMessageRequest(in *gitalypb.CommitsByMessageRequest) error
 		return err
 	}
 
-	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
+	if err := git.ValidateRevision(in.Revision, git.AllowEmptyRevision()); err != nil {
 		return err
 	}
 

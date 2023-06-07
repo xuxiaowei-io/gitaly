@@ -19,9 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 )
 
 func TestListLFSPointers(t *testing.T) {
@@ -43,12 +41,15 @@ func TestListLFSPointers(t *testing.T) {
 		{
 			desc:        "missing revisions",
 			revs:        []string{},
-			expectedErr: status.Error(codes.InvalidArgument, "missing revisions"),
+			expectedErr: structerr.NewInvalidArgument("missing revisions"),
 		},
 		{
-			desc:        "invalid revision",
-			revs:        []string{"-dashed"},
-			expectedErr: status.Error(codes.InvalidArgument, "invalid revision: \"-dashed\""),
+			desc: "invalid revision",
+			revs: []string{"-dashed"},
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
+				"revision", "-dashed",
+			),
 		},
 		{
 			desc: "object IDs",

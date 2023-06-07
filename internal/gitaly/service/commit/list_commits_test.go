@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -338,12 +339,15 @@ func TestListCommits_verify(t *testing.T) {
 		{
 			desc:        "no revisions",
 			req:         &gitalypb.ListCommitsRequest{Repository: repo},
-			expectedErr: status.Error(codes.InvalidArgument, "missing revisions"),
+			expectedErr: structerr.NewInvalidArgument("missing revisions"),
 		},
 		{
-			desc:        "invalid revision",
-			req:         &gitalypb.ListCommitsRequest{Repository: repo, Revisions: []string{"asdf", "-invalid"}},
-			expectedErr: status.Error(codes.InvalidArgument, `invalid revision: "-invalid"`),
+			desc: "invalid revision",
+			req:  &gitalypb.ListCommitsRequest{Repository: repo, Revisions: []string{"asdf", "-invalid"}},
+			expectedErr: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
+				"revision", "-invalid",
+			),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

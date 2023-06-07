@@ -63,7 +63,7 @@ func validateListFilesRequest(in *gitalypb.ListFilesRequest) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
-	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
+	if err := git.ValidateRevision(in.Revision, git.AllowEmptyRevision()); err != nil {
 		return err
 	}
 	return nil
