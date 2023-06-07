@@ -8,10 +8,8 @@ import (
 	"io"
 	"unicode/utf8"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -37,16 +35,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		return structerr.NewFailedPrecondition("could not lookup 'their' OID: %w", err)
 	}
 
-	repoPath, err := s.locator.GetRepoPath(request.Repository, storage.WithRepositoryVerificationSkipped())
-	if err != nil {
-		return err
-	}
-
-	if featureflag.ListConflictFilesMergeTree.IsEnabled(ctx) {
-		return s.conflictFilesWithGitMergeTree(ctx, request, stream, ours, theirs, repo)
-	}
-
-	return s.conflictFilesWithGit2Go(ctx, request, stream, ours, theirs, repo, repoPath)
+	return s.conflictFilesWithGitMergeTree(ctx, request, stream, ours, theirs, repo)
 }
 
 func (s *server) conflictFilesWithGitMergeTree(
@@ -200,101 +189,6 @@ func (s *server) conflictFilesWithGitMergeTree(
 			Files: conflictFiles,
 		}); err != nil {
 			return structerr.NewInternal("error streaming conflict files: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func (s *server) conflictFilesWithGit2Go(
-	ctx context.Context,
-	request *gitalypb.ListConflictFilesRequest,
-	stream gitalypb.ConflictsService_ListConflictFilesServer,
-	ours, theirs git.ObjectID,
-	repo *localrepo.Repo,
-	repoPath string,
-) error {
-	conflicts, err := s.git2goExecutor.Conflicts(ctx, repo, git2go.ConflictsCommand{
-		Repository: repoPath,
-		Ours:       ours.String(),
-		Theirs:     theirs.String(),
-	})
-	if err != nil {
-		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return structerr.NewInvalidArgument("%w", err)
-		}
-		return structerr.NewInternal("%w", err)
-	}
-
-	var conflictFiles []*gitalypb.ConflictFile
-	msgSize := 0
-
-	for _, conflict := range conflicts.Conflicts {
-		if !request.AllowTreeConflicts && (conflict.Their.Path == "" || conflict.Our.Path == "") {
-			return structerr.NewFailedPrecondition("conflict side missing")
-		}
-
-		if !utf8.Valid(conflict.Content) {
-			return structerr.NewFailedPrecondition("unsupported encoding")
-		}
-
-		conflictFiles = append(conflictFiles, &gitalypb.ConflictFile{
-			ConflictFilePayload: &gitalypb.ConflictFile_Header{
-				Header: &gitalypb.ConflictFileHeader{
-					CommitOid:    request.OurCommitOid,
-					TheirPath:    []byte(conflict.Their.Path),
-					OurPath:      []byte(conflict.Our.Path),
-					AncestorPath: []byte(conflict.Ancestor.Path),
-					OurMode:      conflict.Our.Mode,
-				},
-			},
-		})
-
-		contentReader := bytes.NewReader(conflict.Content)
-		for {
-			chunk := make([]byte, streamio.WriteBufferSize-msgSize)
-			bytesRead, err := contentReader.Read(chunk)
-			if err != nil && err != io.EOF {
-				return structerr.NewInternal("%w", err)
-			}
-
-			if bytesRead > 0 {
-				conflictFiles = append(conflictFiles, &gitalypb.ConflictFile{
-					ConflictFilePayload: &gitalypb.ConflictFile_Content{
-						Content: chunk[:bytesRead],
-					},
-				})
-			}
-
-			if err == io.EOF {
-				break
-			}
-
-			// We don't send a message for each chunk because the content of
-			// a file may be smaller than the size limit, which means we can
-			// keep adding data to the message
-			msgSize += bytesRead
-			if msgSize < streamio.WriteBufferSize {
-				continue
-			}
-
-			if err := stream.Send(&gitalypb.ListConflictFilesResponse{
-				Files: conflictFiles,
-			}); err != nil {
-				return structerr.NewInternal("%w", err)
-			}
-
-			conflictFiles = conflictFiles[:0]
-			msgSize = 0
-		}
-	}
-
-	// Send leftover data, if any
-	if len(conflictFiles) > 0 {
-		if err := stream.Send(&gitalypb.ListConflictFilesResponse{
-			Files: conflictFiles,
-		}); err != nil {
-			return structerr.NewInternal("%w", err)
 		}
 	}
 

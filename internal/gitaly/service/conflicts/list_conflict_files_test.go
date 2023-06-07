@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -25,11 +24,7 @@ type conflictFile struct {
 func TestListConflictFiles(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ListConflictFilesMergeTree).Run(t, testListConflictFiles)
-}
-
-func testListConflictFiles(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	type setupData struct {
 		request       *gitalypb.ListConflictFilesRequest
@@ -177,15 +172,10 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 					TheirCommitOid: theirCommitID.String(),
 				}
 
-				expectedErr := structerr.NewFailedPrecondition("could not get conflicting blob: object not found - no match for id (%s)", subCommitID)
-				if featureflag.ListConflictFilesMergeTree.IsEnabled(ctx) {
-					expectedErr = structerr.NewFailedPrecondition("getting objectreader: object not found")
-				}
-
 				return setupData{
 					client:        client,
 					request:       request,
-					expectedError: expectedErr,
+					expectedError: structerr.NewFailedPrecondition("getting objectreader: object not found"),
 				}
 			},
 		},
@@ -409,37 +399,28 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 					AllowTreeConflicts: true,
 				}
 
-				expectedFiles := []*conflictFile{
-					{
-						Header: &gitalypb.ConflictFileHeader{
-							CommitOid:    ourCommitID.String(),
-							OurPath:      []byte("a"),
-							OurMode:      int32(0o100644),
-							AncestorPath: []byte("a"),
-						},
-						Content: []byte("<<<<<<< a\nmango\n=======\n>>>>>>> \n"),
-					},
-					{
-						Header: &gitalypb.ConflictFileHeader{
-							CommitOid:    ourCommitID.String(),
-							TheirPath:    []byte("b"),
-							AncestorPath: []byte("b"),
-						},
-						Content: []byte("<<<<<<< \n=======\npeach\n>>>>>>> b\n"),
-					},
-				}
-
-				// When using git-merge-tree(1), deleted files don't contain conflict markers.
-				// Whereas if you see above, Git2Go contains conflict markers.
-				if featureflag.ListConflictFilesMergeTree.IsEnabled(ctx) {
-					expectedFiles[0].Content = []byte("mango")
-					expectedFiles[1].Content = []byte("peach")
-				}
-
 				return setupData{
-					client:        client,
-					request:       request,
-					expectedFiles: expectedFiles,
+					client:  client,
+					request: request,
+					expectedFiles: []*conflictFile{
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid:    ourCommitID.String(),
+								OurPath:      []byte("a"),
+								OurMode:      int32(0o100644),
+								AncestorPath: []byte("a"),
+							},
+							Content: []byte("mango"),
+						},
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid:    ourCommitID.String(),
+								TheirPath:    []byte("b"),
+								AncestorPath: []byte("b"),
+							},
+							Content: []byte("peach"),
+						},
+					},
 				}
 			},
 		},
