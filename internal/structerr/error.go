@@ -10,9 +10,12 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-type metadataItem struct {
-	key   string
-	value any
+// MetadataItem is an item that associated a metadata key with an arbitrary value.
+type MetadataItem struct {
+	// Key is the key of the metadata item that will be used as the logging key.
+	Key string
+	// Value is the value of the metadata item that will be formatted as the logging value.
+	Value any
 }
 
 // Error is a structured error that contains additional details.
@@ -23,7 +26,7 @@ type Error struct {
 	// metadata is the array of metadata items added to this error. Note that we explicitly
 	// don't use a map here so that we don't have any allocation overhead here in the general
 	// case where there is no metadata.
-	metadata []metadataItem
+	metadata []MetadataItem
 }
 
 type grpcStatuser interface {
@@ -262,8 +265,8 @@ func (e Error) Metadata() map[string]any {
 
 	for _, err := range e.errorChain() {
 		for _, m := range err.metadata {
-			if _, exists := result[m.key]; !exists {
-				result[m.key] = m.value
+			if _, exists := result[m.Key]; !exists {
+				result[m.Key] = m.Value
 			}
 		}
 	}
@@ -277,15 +280,15 @@ func (e Error) Metadata() map[string]any {
 func (e Error) WithMetadata(key string, value any) Error {
 	for i, metadataItem := range e.metadata {
 		// In case the key already exists we override it.
-		if metadataItem.key == key {
-			e.metadata[i].value = value
+		if metadataItem.Key == key {
+			e.metadata[i].Value = value
 			return e
 		}
 	}
 
 	// Otherwise we append a new metadata item.
-	e.metadata = append(e.metadata, metadataItem{
-		key: key, value: value,
+	e.metadata = append(e.metadata, MetadataItem{
+		Key: key, Value: value,
 	})
 	return e
 }

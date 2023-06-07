@@ -342,8 +342,8 @@ func TestError_Metadata(t *testing.T) {
 		require.Equal(t, Error{
 			err:  errors.New("message"),
 			code: codes.Unknown,
-			metadata: []metadataItem{
-				{key: "key", value: "value"},
+			metadata: []MetadataItem{
+				{Key: "key", Value: "value"},
 			},
 		}, err)
 		require.Equal(t, map[string]any{
@@ -356,9 +356,9 @@ func TestError_Metadata(t *testing.T) {
 		require.Equal(t, Error{
 			err:  errors.New("message"),
 			code: codes.Unknown,
-			metadata: []metadataItem{
-				{key: "first", value: 1},
-				{key: "second", value: 2},
+			metadata: []MetadataItem{
+				{Key: "first", Value: 1},
+				{Key: "second", Value: 2},
 			},
 		}, err)
 		require.Equal(t, map[string]any{
@@ -372,8 +372,8 @@ func TestError_Metadata(t *testing.T) {
 		require.Equal(t, Error{
 			err:  errors.New("message"),
 			code: codes.Unknown,
-			metadata: []metadataItem{
-				{key: "first", value: "overridden"},
+			metadata: []MetadataItem{
+				{Key: "first", Value: "overridden"},
 			},
 		}, err)
 		require.Equal(t, map[string]any{
@@ -387,8 +387,8 @@ func TestError_Metadata(t *testing.T) {
 		require.Equal(t, Error{
 			err:  fmt.Errorf("top-level: %w", nestedErr),
 			code: codes.Unknown,
-			metadata: []metadataItem{
-				{key: "toplevel", value: "value"},
+			metadata: []MetadataItem{
+				{Key: "toplevel", Value: "value"},
 			},
 		}, toplevelErr)
 		require.Equal(t, map[string]any{
@@ -403,8 +403,8 @@ func TestError_Metadata(t *testing.T) {
 		require.Equal(t, Error{
 			err:  fmt.Errorf("top-level: %w", nestedErr),
 			code: codes.Unknown,
-			metadata: []metadataItem{
-				{key: "key", value: "top-level"},
+			metadata: []MetadataItem{
+				{Key: "key", Value: "top-level"},
 			},
 		}, toplevelErr)
 		require.Equal(t, map[string]any{
@@ -418,8 +418,8 @@ func TestError_Metadata(t *testing.T) {
 		require.Equal(t, Error{
 			err:  fmt.Errorf("top-level: %w", nestedErr),
 			code: codes.Unknown,
-			metadata: []metadataItem{
-				{key: "toplevel", value: "overridden"},
+			metadata: []MetadataItem{
+				{Key: "toplevel", Value: "overridden"},
 			},
 		}, toplevelErr)
 		require.Equal(t, map[string]any{
@@ -436,8 +436,8 @@ func TestError_Metadata(t *testing.T) {
 		require.Equal(t, Error{
 			err:  fmt.Errorf("top: %w", midlevelErr),
 			code: codes.Unknown,
-			metadata: []metadataItem{
-				{key: "toplevel", value: "value"},
+			metadata: []MetadataItem{
+				{Key: "toplevel", Value: "value"},
 			},
 		}, toplevelErr)
 		require.Equal(t, map[string]any{
