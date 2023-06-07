@@ -97,11 +97,6 @@ ifdef FIPS_MODE
     export GITALY_TESTING_ENABLE_FIPS := YesPlease
 endif
 
-ifdef GITALY_TESTING_ENABLE_SHA256
-    SERVER_BUILD_TAGS := ${SERVER_BUILD_TAGS},gitaly_test_sha256
-    GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},gitaly_test_sha256
-endif
-
 # protoc target
 PROTOC_VERSION      ?= v23.1
 PROTOC_REPO_URL     ?= https://github.com/protocolbuffers/protobuf
@@ -355,6 +350,13 @@ else
 prepare-tests: ${DEPENDENCY_DIR}/git-distribution/git
 
 export GITALY_TESTING_GIT_BINARY ?= ${DEPENDENCY_DIR}/git-distribution/bin-wrappers/git
+endif
+
+## Enable testing with the SHA256 object format.
+TEST_WITH_SHA256 ?=
+ifdef TEST_WITH_SHA256
+    SERVER_BUILD_TAGS := ${SERVER_BUILD_TAGS},gitaly_test_sha256
+    GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},gitaly_test_sha256
 endif
 
 .PHONY: prepare-tests

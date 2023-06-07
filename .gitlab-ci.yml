@@ -286,7 +286,7 @@ test:sha256:
   parallel:
     matrix:
       - TEST_TARGET: [ test, test-with-praefect ]
-        GITALY_TESTING_ENABLE_SHA256: "YesPlease"
+        TEST_WITH_SHA256: "YesPlease"
   rules:
     - *rules_should_test
 
