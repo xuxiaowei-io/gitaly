@@ -343,6 +343,8 @@ test:macos:
     # Disable code coverage generation as it is too slow on macOS.
     TEST_WITH_COVERAGE: ""
   before_script:
+    # Disable Gatekeeper to speed up spawning executables.
+    - sudo spctl --master-disable
     # Create a 2GB RAM disk to speed up our tests.
     - sudo diskutil apfs create $(hdiutil attach -nomount ram://4194304) RAMDisk
     - brew uninstall go
