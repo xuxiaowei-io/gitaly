@@ -339,6 +339,8 @@ test:macos:
     PGDATA: /tmp/postgres
     PGHOST: localhost
     PGUSER: gitlab
+    # Disable code coverage generation as it is too slow on macOS.
+    TEST_WITH_COVERAGE: ""
   before_script:
     - brew uninstall go
     - brew install cmake go@${GO_VERSION}
