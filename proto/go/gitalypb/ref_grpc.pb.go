@@ -22,7 +22,15 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RefServiceClient interface {
-	// This comment is left unintentionally blank.
+	// FindDefaultBranchName looks up the default branch reference name. Unless
+	// otherwise specified the following heuristic is used:
+	//
+	// 1. If there are no branches, return an empty string.
+	// 2. If there is only one branch, return the only branch.
+	// 3. If a branch exists that matches HEAD, return the HEAD reference name.
+	// 4. If a branch exists named refs/heads/main, return refs/heads/main.
+	// 5. If a branch exists named refs/heads/master, return refs/heads/master.
+	// 6. Return the first branch (as per default ordering by git).
 	FindDefaultBranchName(ctx context.Context, in *FindDefaultBranchNameRequest, opts ...grpc.CallOption) (*FindDefaultBranchNameResponse, error)
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(ctx context.Context, in *FindLocalBranchesRequest, opts ...grpc.CallOption) (RefService_FindLocalBranchesClient, error)
@@ -418,7 +426,15 @@ func (c *refServiceClient) FindRefsByOID(ctx context.Context, in *FindRefsByOIDR
 // All implementations must embed UnimplementedRefServiceServer
 // for forward compatibility
 type RefServiceServer interface {
-	// This comment is left unintentionally blank.
+	// FindDefaultBranchName looks up the default branch reference name. Unless
+	// otherwise specified the following heuristic is used:
+	//
+	// 1. If there are no branches, return an empty string.
+	// 2. If there is only one branch, return the only branch.
+	// 3. If a branch exists that matches HEAD, return the HEAD reference name.
+	// 4. If a branch exists named refs/heads/main, return refs/heads/main.
+	// 5. If a branch exists named refs/heads/master, return refs/heads/master.
+	// 6. Return the first branch (as per default ordering by git).
 	FindDefaultBranchName(context.Context, *FindDefaultBranchNameRequest) (*FindDefaultBranchNameResponse, error)
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(*FindLocalBranchesRequest, RefService_FindLocalBranchesServer) error
