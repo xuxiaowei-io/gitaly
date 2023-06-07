@@ -102,3 +102,17 @@ func WithInterceptedMetadata(err structerr.Error, key string, value any) structe
 		Value: []byte(fmt.Sprintf("%v", value)),
 	})
 }
+
+// WithInterceptedMetadataItems adds multiple metadata items to the Error. It behaves as if
+// WithInterceptedMetadata was called with each of the key-value items separately.
+func WithInterceptedMetadataItems(err structerr.Error, items ...structerr.MetadataItem) structerr.Error {
+	for _, item := range items {
+		err = WithInterceptedMetadata(err, item.Key, item.Value)
+	}
+	return err
+}
+
+// ToInterceptedMetadata converts error metadata to intercepted error details.
+func ToInterceptedMetadata(err structerr.Error) structerr.Error {
+	return WithInterceptedMetadataItems(err, err.MetadataItems()...)
+}

@@ -3,6 +3,7 @@ package structerr
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -274,6 +275,23 @@ func (e Error) Metadata() map[string]any {
 	return result
 }
 
+// MetadataItems returns a copy of all metadata items added to this error. This function has the
+// same semantics as `Metadata()`. The results are sorted by their metadata key.
+func (e Error) MetadataItems() []MetadataItem {
+	metadata := e.Metadata()
+
+	items := make([]MetadataItem, 0, len(metadata))
+	for key, value := range metadata {
+		items = append(items, MetadataItem{Key: key, Value: value})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Key < items[j].Key
+	})
+
+	return items
+}
+
 // WithMetadata adds an additional metadata item to the Error. The metadata has the intent to
 // provide more context around errors to the consumer of the Error. Calling this function multiple
 // times with the same key will override any previous values.
@@ -290,6 +308,15 @@ func (e Error) WithMetadata(key string, value any) Error {
 	e.metadata = append(e.metadata, MetadataItem{
 		Key: key, Value: value,
 	})
+	return e
+}
+
+// WithMetadataItems is a convenience function to append multiple metadata items to an error. It
+// behaves the same as if `WithMetadata()` was called for each of the items separately.
+func (e Error) WithMetadataItems(items ...MetadataItem) Error {
+	for _, item := range items {
+		e = e.WithMetadata(item.Key, item.Value)
+	}
 	return e
 }
 
