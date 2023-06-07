@@ -155,7 +155,12 @@ func TestInfoRefsUploadPack_validate(t *testing.T) {
 				testhelper.WithInterceptedMetadata(
 					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound), "repository_path", filepath.Join(cfg.Storages[0].Path, "doesnt/exist"),
 				),
-				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "doesnt/exist"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"accessor call: route repository accessor: consistent storages: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt/exist"),
+					),
+				),
 			),
 		},
 	} {
@@ -345,7 +350,12 @@ func TestInfoRefsReceivePack_validate(t *testing.T) {
 					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "testdata/scratch/another_repo"),
 				),
-				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "testdata/scratch/another_repo"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"accessor call: route repository accessor: consistent storages: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "testdata/scratch/another_repo"),
+					),
+				),
 			),
 		},
 	} {

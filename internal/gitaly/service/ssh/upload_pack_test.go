@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -490,12 +491,15 @@ func TestUploadPack_validation(t *testing.T) {
 				},
 				Stdin: []byte("Fail"),
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
-				}
-				return structerr.NewInvalidArgument("non-empty stdin in first request")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("non-empty stdin in first request"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"accessor call: route repository accessor: consistent storages: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/to/repo"),
+					),
+				),
+			),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

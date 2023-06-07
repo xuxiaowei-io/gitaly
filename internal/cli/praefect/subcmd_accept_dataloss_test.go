@@ -121,7 +121,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 		{
 			desc:                "non-existent repository",
 			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "non-existent", "-authoritative-storage", "test-physical-storage-2"},
-			matchError:          matchErrorMsg(`set authoritative storage: rpc error: code = InvalidArgument desc = repository "non-existent" does not exist on virtual storage "test-virtual-storage-1"`),
+			matchError:          matchErrorMsg(`set authoritative storage: rpc error: code = InvalidArgument desc = repository does not exist on virtual storage`),
 			expectedGenerations: startingGenerations,
 		},
 		{

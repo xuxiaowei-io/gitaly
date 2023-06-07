@@ -7,23 +7,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
-// RepositoryNotFoundError is returned when attempting to operate on a repository that does not
-// exist in the virtual storage.
-type RepositoryNotFoundError struct {
-	virtualStorage string
-	relativePath   string
-}
-
-// NewRepositoryNotFoundError returns a new repository not found error for the given repository.
-func NewRepositoryNotFoundError(virtualStorage string, relativePath string) error {
-	return RepositoryNotFoundError{virtualStorage: virtualStorage, relativePath: relativePath}
-}
-
-// Error returns the error message.
-func (err RepositoryNotFoundError) Error() string {
-	return fmt.Sprintf("repository %q/%q not found", err.virtualStorage, err.relativePath)
+// NewRepositoryNotFoundError returns a new error that wraps ErrRepositoryNotFound. The virtual
+// storage and relative path are appended as error metadata.
+func NewRepositoryNotFoundError(storageName string, relativePath string) error {
+	return structerr.NewNotFound("%w", ErrRepositoryNotFound).WithMetadataItems(
+		structerr.MetadataItem{Key: "storage_name", Value: storageName},
+		structerr.MetadataItem{Key: "relative_path", Value: relativePath},
+	)
 }
 
 var (

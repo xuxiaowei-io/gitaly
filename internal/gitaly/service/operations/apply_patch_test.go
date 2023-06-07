@@ -93,7 +93,12 @@ To restore the original branch and stop patching, run "git am --abort".
 				testhelper.WithInterceptedMetadata(
 					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound), "repository_path", filepath.Join(cfg.Storages[0].Path, "doesnt-exist"),
 				),
-				structerr.NewNotFound("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "doesnt-exist"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"mutator call: route repository mutator: get repository id: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist"),
+					),
+				),
 			),
 		},
 		{

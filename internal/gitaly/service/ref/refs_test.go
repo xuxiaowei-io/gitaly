@@ -191,7 +191,12 @@ func TestFindDefaultBranchName(t *testing.T) {
 							structerr.NewNotFound("get default branch: %w", storage.ErrRepositoryNotFound),
 							"repository_path", filepath.Join(cfg.Storages[0].Path, "made/up/path"),
 						),
-						structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "made/up/path"),
+						testhelper.ToInterceptedMetadata(
+							structerr.New(
+								"accessor call: route repository accessor: consistent storages: %w",
+								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path"),
+							),
+						),
 					),
 				}
 			},
@@ -493,7 +498,12 @@ func TestFindLocalBranches_validate(t *testing.T) {
 					structerr.NewNotFound("creating object reader: %w", storage.ErrRepositoryNotFound),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "made/up/path"),
 				),
-				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "made/up/path"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"accessor call: route repository accessor: consistent storages: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path"),
+					),
+				),
 			),
 		},
 		{
