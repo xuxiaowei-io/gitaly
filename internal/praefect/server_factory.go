@@ -32,6 +32,7 @@ func NewServerFactory(
 	conns Connections,
 	primaryGetter PrimaryGetter,
 	checks []service.CheckFunc,
+	opts ...ServerOption,
 ) *ServerFactory {
 	return &ServerFactory{
 		conf:            conf,
@@ -46,6 +47,7 @@ func NewServerFactory(
 		conns:           conns,
 		primaryGetter:   primaryGetter,
 		checks:          checks,
+		opts:            opts,
 	}
 }
 
@@ -65,6 +67,7 @@ type ServerFactory struct {
 	conns            Connections
 	primaryGetter    PrimaryGetter
 	checks           []service.CheckFunc
+	opts             []ServerOption
 }
 
 // Serve starts serving on the provided listener with newly created grpc.Server
@@ -136,6 +139,7 @@ func (s *ServerFactory) createGRPC(creds credentials.TransportCredentials) *grpc
 		s.primaryGetter,
 		creds,
 		s.checks,
+		s.opts...,
 	)
 }
 
