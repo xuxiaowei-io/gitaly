@@ -7,6 +7,46 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
+)
+
+// RepositoryNotFoundError is returned when attempting to operate on a repository that does not
+// exist in the virtual storage.
+type RepositoryNotFoundError struct {
+	virtualStorage string
+	relativePath   string
+}
+
+// NewRepositoryNotFoundError returns a new repository not found error for the given repository.
+func NewRepositoryNotFoundError(virtualStorage string, relativePath string) error {
+	return RepositoryNotFoundError{virtualStorage: virtualStorage, relativePath: relativePath}
+}
+
+// Error returns the error message.
+func (err RepositoryNotFoundError) Error() string {
+	return fmt.Sprintf("repository %q/%q not found", err.virtualStorage, err.relativePath)
+}
+
+var (
+	// ErrRepositoryNotFound is returned when operating on a repository that doesn't exist.
+	//
+	// This somewhat duplicates the above RepositoryNotFoundError but doesn't specify which
+	// repository was not found. With repository IDs in use, the virtual storage and relative
+	// path won't be available everywhere anymore.
+	ErrRepositoryNotFound = errors.New("repository not found")
+
+	// ErrRepositoryAlreadyExists is returned when attempting to create a repository that
+	// already exists.
+	ErrRepositoryAlreadyExists = errors.New("repository already exists")
+
+	// ErrRepositoryNotValid is returned when operating on a path that is not a valid Git
+	// repository.
+	ErrRepositoryNotValid = errors.New("repository not valid")
+
+	// ErrRelativePathEscapesRoot is returned when a relative path is passed that escapes the
+	// storage's root directory.
+	ErrRelativePathEscapesRoot = errors.New("relative path escapes root directory")
 )
 
 // Repository represents a storage-scoped repository.
@@ -31,10 +71,6 @@ type Locator interface {
 	// will be skipped. The errors returned are gRPC errors with relevant error codes and should be
 	// passed back to gRPC without further decoration.
 	GetRepoPath(repo Repository, opts ...GetRepoPathOption) (string, error)
-	// GetPath returns the path of the repo passed as first argument. An error is
-	// returned when either the storage can't be found or the path includes
-	// constructs trying to perform directory traversal.
-	GetPath(repo Repository) (string, error)
 	// GetStorageByName will return the path for the storage, which is fetched by
 	// its key. An error is return if it cannot be found.
 	GetStorageByName(storageName string) (string, error)
@@ -65,9 +101,6 @@ func WithRepositoryVerificationSkipped() GetRepoPathOption {
 	}
 }
 
-//nolint:revive // This is unintentionally missing documentation.
-var ErrRelativePathEscapesRoot = errors.New("relative path escapes root directory")
-
 // ValidateRelativePath validates a relative path by joining it with rootDir and verifying the result
 // is either rootDir or a path within rootDir. Returns clean relative path from rootDir to relativePath
 // or an ErrRelativePathEscapesRoot if the resulting path is not contained within rootDir.
@@ -80,16 +113,32 @@ func ValidateRelativePath(rootDir, relativePath string) (string, error) {
 	return filepath.Rel(rootDir, absPath)
 }
 
-// IsGitDirectory checks if the directory passed as first argument looks like
-// a valid git directory.
-func IsGitDirectory(dir string) bool {
-	if dir == "" {
-		return false
+// ValidateRepository validates whether the given path points to a valid Git repository. This
+// function returns:
+//
+// - ErrRepositoryNotExist when the path cannot be found.
+// - ErrRepositoryNotValid when the repository is not a valid Git repository.
+// - An unspecified error when stat(3P)ing files fails due to other reasons.
+func ValidateRepository(path string) error {
+	if path == "" {
+		return structerr.NewInvalidArgument("repository path is empty")
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return structerr.NewNotFound("%w", ErrRepositoryNotFound).WithMetadata("repository_path", path)
+		}
+
+		return structerr.New("statting repository: %w", err).WithMetadata("repository_path", path)
 	}
 
 	for _, element := range []string{"objects", "refs", "HEAD"} {
-		if _, err := os.Stat(filepath.Join(dir, element)); err != nil {
-			return false
+		if _, err := os.Stat(filepath.Join(path, element)); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return structerr.NewFailedPrecondition("%w: %q does not exist", ErrRepositoryNotValid, element).WithMetadata("repository_path", path)
+			}
+
+			return structerr.New("statting %q: %w", element, err).WithMetadata("repository_path", path)
 		}
 	}
 
@@ -101,9 +150,9 @@ func IsGitDirectory(dir string) bool {
 	// git gc runs for a long time while keeping open the packed-refs file.
 	// Running stat() on the file causes the kernel to revalidate the cached
 	// directory entry. We don't actually care if this file exists.
-	_, _ = os.Stat(filepath.Join(dir, "packed-refs"))
+	_, _ = os.Stat(filepath.Join(path, "packed-refs"))
 
-	return true
+	return nil
 }
 
 // QuarantineDirectoryPrefix returns a prefix for use in the temporary directory. The prefix is

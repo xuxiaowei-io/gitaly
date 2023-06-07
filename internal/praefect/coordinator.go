@@ -12,11 +12,11 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/metrics"
@@ -263,11 +263,11 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	}
 
 	if err != nil {
-		if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
+		if errors.As(err, new(storage.RepositoryNotFoundError)) {
 			return nil, structerr.NewNotFound("%w", err)
 		}
 
-		if errors.Is(err, commonerr.ErrRepositoryNotFound) {
+		if errors.Is(err, storage.ErrRepositoryNotFound) {
 			return nil, structerr.NewNotFound("%w", err)
 		}
 
@@ -407,7 +407,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 		// ReplicateRepository RPC should also be able to replicate if repository ID already exists in Praefect.
 		if call.fullMethodName == "/gitaly.RepositoryService/ReplicateRepository" &&
-			errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
+			errors.Is(err, storage.ErrRepositoryAlreadyExists) {
 			change = datastore.UpdateRepo
 			route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
 		}
@@ -702,7 +702,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 				return nil, structerr.NewInvalidArgument("%w", err)
 			}
 
-			if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
+			if errors.Is(err, storage.ErrRepositoryAlreadyExists) {
 				return nil, structerr.NewAlreadyExists("%w", err)
 			}
 

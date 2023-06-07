@@ -84,7 +84,7 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NoError(t, err)
 
 	importedRepo := localrepo.NewTestRepo(t, cfg, importedRepoProto)
-	importedRepoPath, err := locator.GetPath(gittest.RewrittenRepository(t, ctx, cfg, importedRepoProto))
+	importedRepoPath, err := locator.GetRepoPath(gittest.RewrittenRepository(t, ctx, cfg, importedRepoProto), storage.WithRepositoryVerificationSkipped())
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.RemoveAll(importedRepoPath)) }()
 

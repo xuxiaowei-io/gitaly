@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -364,10 +365,13 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: "path/not/exist",
 				},
 			},
-			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
-				fmt.Sprintf(`GetRepoPath: not a git repository: "%s/path/not/exist"`, cfg.Storages[0].Path),
-				`routing repository maintenance: getting repository metadata: repository not found`,
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "path/not/exist"),
+				),
+				structerr.NewNotFound("routing repository maintenance: getting repository metadata: %w", storage.ErrRepositoryNotFound),
+			),
 		},
 		{
 			desc: "invalid optimization strategy",

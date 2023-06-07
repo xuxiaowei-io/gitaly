@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -37,7 +38,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		return structerr.NewFailedPrecondition("could not lookup 'their' OID: %w", err)
 	}
 
-	repoPath, err := s.locator.GetPath(request.Repository)
+	repoPath, err := s.locator.GetRepoPath(request.Repository, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return err
 	}

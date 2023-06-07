@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -127,7 +128,7 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 	}
 
 	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, repository, func(repo *gitalypb.Repository) error {
-		path, err := s.locator.GetPath(repo)
+		path, err := s.locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 		if err != nil {
 			return structerr.NewInternal("getting repo path: %w", err)
 		}

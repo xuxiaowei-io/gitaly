@@ -6,7 +6,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -59,13 +58,13 @@ func RenameRepositoryHandler(virtualStoragesNames []string, rs datastore.Reposit
 			req.GetRepository().GetRelativePath(),
 			req.GetRelativePath(),
 		); err != nil {
-			if errors.Is(err, commonerr.ErrRepositoryNotFound) {
+			if errors.Is(err, storage.ErrRepositoryNotFound) {
 				return structerr.NewNotFound(
 					`GetRepoPath: not a git repository: "%s/%s"`,
 					req.GetRepository().GetStorageName(),
 					req.GetRepository().GetRelativePath(),
 				)
-			} else if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
+			} else if errors.Is(err, storage.ErrRepositoryAlreadyExists) {
 				return structerr.NewAlreadyExists("target repo exists already")
 			}
 

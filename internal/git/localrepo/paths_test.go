@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -44,7 +45,7 @@ func TestRepo_Path(t *testing.T) {
 		require.NoError(t, os.RemoveAll(repoPath))
 
 		_, err := repo.Path()
-		require.Equal(t, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath), err)
+		require.Equal(t, structerr.NewNotFound("%w", storage.ErrRepositoryNotFound).WithMetadata("repository_path", repoPath), err)
 	})
 
 	t.Run("non-git repository", func(t *testing.T) {
@@ -59,7 +60,7 @@ func TestRepo_Path(t *testing.T) {
 		require.NoError(t, os.MkdirAll(repoPath, perm.PublicDir))
 
 		_, err := repo.Path()
-		require.Equal(t, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath), err)
+		require.Equal(t, structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, "objects").WithMetadata("repository_path", repoPath), err)
 	})
 }
 

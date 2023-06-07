@@ -25,10 +25,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
@@ -303,7 +303,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 					request: &gitalypb.UserCreateTagRequest{
 						Repository: targetRepo,
 					},
-					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
 				}
 			},
 		},
@@ -334,7 +334,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
 						fmt.Errorf("resolve additional replica path: %w",
 							fmt.Errorf("get additional repository id: %w",
-								commonerr.NewRepositoryNotFoundError(additionalRepo.StorageName, additionalRepo.RelativePath),
+								storage.NewRepositoryNotFoundError(additionalRepo.StorageName, additionalRepo.RelativePath),
 							),
 						),
 					)),
@@ -696,7 +696,7 @@ func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
 	router := mockRouter{
 		// Simulate scenario where target repository already exists and error is returned.
 		routeRepositoryCreation: func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
-			return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", commonerr.ErrRepositoryAlreadyExists)
+			return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", storage.ErrRepositoryAlreadyExists)
 		},
 		// Pass through normally to handle route creation.
 		routeRepositoryMutator: func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
@@ -1086,10 +1086,10 @@ func TestStreamDirectorAccessor(t *testing.T) {
 			desc: "repository not found",
 			router: mockRouter{
 				routeRepositoryAccessorFunc: func(_ context.Context, virtualStorage, relativePath string, _ bool) (RepositoryAccessorRoute, error) {
-					return RepositoryAccessorRoute{}, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+					return RepositoryAccessorRoute{}, storage.NewRepositoryNotFoundError(virtualStorage, relativePath)
 				},
 			},
-			error: structerr.NewNotFound("%w", fmt.Errorf("accessor call: route repository accessor: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
+			error: structerr.NewNotFound("%w", fmt.Errorf("accessor call: route repository accessor: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

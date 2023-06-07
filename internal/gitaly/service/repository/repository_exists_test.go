@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -113,7 +114,10 @@ func TestRepositoryExists(t *testing.T) {
 					return nil
 				}
 
-				return status.Errorf(codes.NotFound, "GetPath: does not exist: stat %s: no such file or directory", cfg.Storages[2].Path)
+				return testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("storage does not exist"),
+					"storage_path", cfg.Storages[2].Path,
+				)
 			}(),
 		},
 	}
@@ -121,7 +125,7 @@ func TestRepositoryExists(t *testing.T) {
 	for _, tc := range queries {
 		t.Run(tc.desc, func(t *testing.T) {
 			response, err := client.RepositoryExists(ctx, tc.request)
-			testhelper.ProtoEqual(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			if err != nil {
 				// Ignore the response message if there was an error
 				return

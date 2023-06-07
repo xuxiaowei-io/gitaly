@@ -23,7 +23,7 @@ func Remove(
 	txManager transaction.Manager,
 	repository storage.Repository,
 ) error {
-	path, err := locator.GetPath(repository)
+	path, err := locator.GetRepoPath(repository, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return structerr.NewInternal("%w", err)
 	}

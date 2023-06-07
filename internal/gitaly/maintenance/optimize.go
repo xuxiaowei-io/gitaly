@@ -148,7 +148,7 @@ func walkReposShuffled(
 			return err
 		}
 
-		if !fi.IsDir() || !storage.IsGitDirectory(path) {
+		if !fi.IsDir() || storage.ValidateRepository(path) != nil {
 			continue
 		}
 		walker.skipDir()

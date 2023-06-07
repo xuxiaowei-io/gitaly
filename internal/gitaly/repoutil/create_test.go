@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -333,7 +334,7 @@ func TestCreate(t *testing.T) {
 				ctx = peer.NewContext(ctx, &peer.Peer{})
 			}
 
-			repoPath, err := locator.GetPath(repo)
+			repoPath, err := locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 			require.NoError(t, err)
 
 			if tc.setup != nil {
@@ -349,7 +350,7 @@ func TestCreate(t *testing.T) {
 				require.Equal(t, repo.StorageName, tempRepo.StorageName)
 				require.True(t, strings.HasPrefix(tempRepo.RelativePath, "+gitaly/tmp/repo"))
 
-				tempRepoPath, err := locator.GetPath(tempRepo)
+				tempRepoPath, err := locator.GetRepoPath(tempRepo, storage.WithRepositoryVerificationSkipped())
 				require.NoError(t, err)
 
 				if tc.seed != nil {
@@ -365,7 +366,7 @@ func TestCreate(t *testing.T) {
 
 			var tempRepoPath string
 			if tempRepo != nil {
-				tempRepoPath, err = locator.GetPath(tempRepo)
+				tempRepoPath, err = locator.GetRepoPath(tempRepo, storage.WithRepositoryVerificationSkipped())
 				require.NoError(t, err)
 			}
 

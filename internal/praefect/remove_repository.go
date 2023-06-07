@@ -9,7 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -63,9 +63,9 @@ func removeRepositoryHandler(rs datastore.RepositoryStore, conns Connections, pa
 		virtualStorage := repo.StorageName
 		replicaPath, storages, err := rs.DeleteRepository(ctx, virtualStorage, repo.RelativePath)
 		if err != nil {
-			if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
+			if errors.As(err, new(storage.RepositoryNotFoundError)) {
 				if errorOnNotFound {
-					if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
+					if errors.As(err, new(storage.RepositoryNotFoundError)) {
 						return structerr.NewNotFound("repository does not exist")
 					}
 				}

@@ -797,7 +797,7 @@ func TestUploadPack_gitFailure(t *testing.T) {
 
 	client := newSSHClient(t, cfg.SocketPath)
 
-	// Writing an invalid config will allow repo to pass the `IsGitDirectory` check but still
+	// Writing an invalid config will allow repo to pass the `ValidateRepository` check but still
 	// trigger an error when git tries to access the repo.
 	require.NoError(t, os.WriteFile(filepath.Join(repoPath, "config"), []byte("Not a valid gitconfig"), perm.SharedFile))
 

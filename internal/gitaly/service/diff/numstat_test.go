@@ -4,10 +4,13 @@ package diff
 
 import (
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -144,10 +147,13 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 			repo:          &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar.git"`,
-				`accessor call: route repository accessor: consistent storages: repository "default"/"bar.git" not found`,
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar.git"),
+				),
+				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "bar.git"),
+			),
 		},
 		{
 			desc:          "storage not found",

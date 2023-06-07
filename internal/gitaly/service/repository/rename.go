@@ -9,6 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -38,7 +39,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	targetPath, err := s.locator.GetPath(targetRepo)
+	targetPath, err := s.locator.GetRepoPath(targetRepo, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}

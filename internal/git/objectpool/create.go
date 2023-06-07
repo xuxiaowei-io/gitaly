@@ -32,7 +32,7 @@ func Create(
 	proto *gitalypb.ObjectPool,
 	sourceRepo *localrepo.Repo,
 ) (*ObjectPool, error) {
-	objectPoolPath, err := locator.GetPath(proto.GetRepository())
+	objectPoolPath, err := locator.GetRepoPath(proto.GetRepository(), storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -149,9 +150,12 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "objects")))
 
 				return &gitalypb.FindRefsByOIDRequest{
-					Repository: repo,
-					Oid:        oid.String(),
-				}, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
+						Repository: repo,
+						Oid:        oid.String(),
+					}, testhelper.WithInterceptedMetadata(
+						structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, "objects"),
+						"repository_path", repoPath,
+					)
 			},
 		},
 		{
@@ -162,9 +166,12 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				require.NoError(t, os.RemoveAll(repoPath))
 
 				return &gitalypb.FindRefsByOIDRequest{
-					Repository: repo,
-					Oid:        oid.String(),
-				}, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
+						Repository: repo,
+						Oid:        oid.String(),
+					}, testhelper.WithInterceptedMetadata(
+						structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+						"repository_path", repoPath,
+					)
 			},
 		},
 		{

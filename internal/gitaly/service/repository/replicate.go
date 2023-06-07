@@ -39,12 +39,12 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	repoPath, err := s.locator.GetPath(in.GetRepository())
+	repoPath, err := s.locator.GetRepoPath(in.GetRepository(), storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return nil, structerr.NewInternal("%w", err)
 	}
 
-	if !storage.IsGitDirectory(repoPath) {
+	if err := storage.ValidateRepository(repoPath); err != nil {
 		if err = s.create(ctx, in, repoPath); err != nil {
 			if errors.Is(err, ErrInvalidSourceRepository) {
 				return nil, ErrInvalidSourceRepository
@@ -175,11 +175,18 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	// platforms.
 	firstBytes, err := stream.Recv()
 	if err != nil {
-		if structerr.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:") {
+		switch {
+		case structerr.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:"):
+			// The error condition exists for backwards compatibility purposes, only,
+			// and can be removed in the next release.
 			return ErrInvalidSourceRepository
+		case structerr.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), storage.ErrRepositoryNotFound.Error()):
+			return ErrInvalidSourceRepository
+		case structerr.GRPCCode(err) == codes.FailedPrecondition && strings.Contains(err.Error(), storage.ErrRepositoryNotValid.Error()):
+			return ErrInvalidSourceRepository
+		default:
+			return fmt.Errorf("first snapshot read: %w", err)
 		}
-
-		return fmt.Errorf("first snapshot read: %w", err)
 	}
 
 	snapshotReader := io.MultiReader(
@@ -190,7 +197,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 		}),
 	)
 
-	targetPath, err := s.locator.GetPath(target)
+	targetPath, err := s.locator.GetRepoPath(target, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return fmt.Errorf("target path: %w", err)
 	}

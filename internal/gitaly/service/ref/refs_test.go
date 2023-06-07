@@ -5,6 +5,7 @@ package ref
 import (
 	"context"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -184,10 +186,13 @@ func TestFindDefaultBranchName(t *testing.T) {
 					request: &gitalypb.FindDefaultBranchNameRequest{
 						Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
 					},
-					expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-						`get default branch: GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
-						`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						testhelper.WithInterceptedMetadata(
+							structerr.NewNotFound("get default branch: %w", storage.ErrRepositoryNotFound),
+							"repository_path", filepath.Join(cfg.Storages[0].Path, "made/up/path"),
+						),
+						structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "made/up/path"),
+					),
 				}
 			},
 		},
@@ -483,10 +488,13 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "repository doesn't exist on disk",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-				`creating object reader: GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
-				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("creating object reader: %w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "made/up/path"),
+				),
+				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "made/up/path"),
+			),
 		},
 		{
 			desc: "unknown storage",

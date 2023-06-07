@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/ssh"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -186,7 +187,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 		require.Error(t, err)
 		require.IsType(t, err, localrepo.FetchFailedError{})
 
-		expectedMsg := "GetRepoPath: not a git repository"
+		expectedMsg := storage.ErrRepositoryNotFound.Error()
 		if testhelper.IsPraefectEnabled() {
 			expectedMsg = `repository \"default\"/\"does/not/exist\" not found`
 		}

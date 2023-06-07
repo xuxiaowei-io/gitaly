@@ -2,6 +2,7 @@ package gitaly
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/fs"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -116,7 +118,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedErr: testhelper.GitalyOrPraefect(
-				"getting repo path: GetRepoPath: not a git repository:",
+				fmt.Sprintf("getting repo path: %s", storage.ErrRepositoryNotFound),
 				"rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: repository \"default\"/\"non-existent\" not found\n",
 			),
 		},
