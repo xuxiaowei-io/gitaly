@@ -101,6 +101,7 @@ workflow:
     TEST_JSON_REPORT: "${CI_PROJECT_DIR}/_build/reports/test-report.json"
     TEST_LOG_DIR: "${CI_PROJECT_DIR}/_build/reports/test-logs"
     TEST_OPTIONS: "-count=1 -timeout=20m" # a number of tests may exceed the default 10m
+    TEST_WITH_COVERAGE: YesPlease
   before_script: &test_before_script
     - go version
   script:
