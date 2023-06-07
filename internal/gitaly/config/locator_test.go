@@ -1,12 +1,9 @@
 package config_test
 
 import (
-	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -62,28 +59,25 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 			expErr: structerr.NewInvalidArgument(`GetStorageByName: no such storage: "invalid"`),
 		},
 		{
-			desc: "storage doesn't exist on disk",
-			repo: &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
-			expErr: structerr.NewNotFound(`GetPath: does not exist: %w`, &fs.PathError{
-				Op:   "stat",
-				Path: cfg.Storages[1].Path,
-				Err:  syscall.ENOENT,
-			}),
+			desc:   "storage doesn't exist on disk",
+			repo:   &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
+			expErr: structerr.NewNotFound("storage does not exist").WithMetadata("storage_path", cfg.Storages[1].Path),
 		},
 		{
 			desc:   "relative path is empty",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: ""},
-			expErr: structerr.NewInvalidArgument("GetPath: relative path missing"),
+			expErr: structerr.NewInvalidArgument("relative path is not set"),
 		},
 		{
 			desc:   "unknown relative path",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "invalid"},
-			expErr: structerr.NewNotFound(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, "invalid")),
+			expErr: structerr.NewNotFound("%w", storage.ErrRepositoryNotFound).WithMetadata("repository_path", filepath.Join(cfg.Storages[0].Path, "invalid")),
 		},
 		{
-			desc:   "path exists but not a git repository",
-			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: notRepositoryFolder},
-			expErr: structerr.NewNotFound(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, notRepositoryFolder)),
+			desc: "path exists but not a git repository",
+			repo: &gitalypb.Repository{StorageName: storageName, RelativePath: notRepositoryFolder},
+			expErr: structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, "objects").
+				WithMetadata("repository_path", filepath.Join(cfg.Storages[0].Path, notRepositoryFolder)),
 		},
 		{
 			desc:    "unknown relative path without repo verification",
@@ -100,7 +94,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "relative path escapes parent folder",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "../.."},
-			expErr: structerr.NewInvalidArgument(`GetRepoPath: %w`, fmt.Errorf("relative path escapes root directory")),
+			expErr: structerr.NewInvalidArgument("%w", storage.ErrRelativePathEscapesRoot).WithMetadata("relative_path", "../.."),
 		},
 		{
 			desc:    "proper repository path",

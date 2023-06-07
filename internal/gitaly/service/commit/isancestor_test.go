@@ -10,7 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -60,10 +62,13 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/fake-path"`,
-				`accessor call: route repository accessor: consistent storages: repository "default"/"fake-path" not found`,
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "fake-path"),
+				),
+				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "fake-path"),
+			),
 		},
 	}
 

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -64,7 +65,7 @@ func TestFindLicense_successful(t *testing.T) {
 			setup: func(t *testing.T, repoPath string) {
 				require.NoError(t, os.RemoveAll(repoPath))
 			},
-			errorContains: "GetRepoPath: not a git repository",
+			errorContains: storage.ErrRepositoryNotFound.Error(),
 		},
 		{
 			desc: "empty if no license file in repo",

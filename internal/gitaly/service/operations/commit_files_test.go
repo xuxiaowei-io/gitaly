@@ -1693,7 +1693,7 @@ func TestUserCommitFilesFailsIfRepositoryMissing(t *testing.T) {
 		require.Contains(t, err.Error(), "mutator call: route repository mutator: get repository id")
 		require.Contains(t, err.Error(), "not found")
 	} else {
-		require.Contains(t, err.Error(), "GetRepoPath: not a git repository")
+		require.Contains(t, err.Error(), "repository not found")
 	}
 }
 

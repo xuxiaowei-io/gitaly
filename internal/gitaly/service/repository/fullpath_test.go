@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -64,8 +63,6 @@ func TestSetFullPath(t *testing.T) {
 			RelativePath: "/path/to/repo.git",
 			StorageName:  cfg.Storages[0].Name,
 		}
-		repoPath, err := config.NewLocator(cfg).GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
-		require.NoError(t, err)
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
 			Repository: repo,
@@ -74,7 +71,7 @@ func TestSetFullPath(t *testing.T) {
 
 		require.Nil(t, response)
 
-		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = setting config: GetRepoPath: not a git repository: %q", repoPath)
+		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = setting config: %s", storage.ErrRepositoryNotFound)
 		if testhelper.IsPraefectEnabled() {
 			expectedErr = `rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: repository "default"/"/path/to/repo.git" not found`
 		}
@@ -170,15 +167,13 @@ func TestFullPath(t *testing.T) {
 			RelativePath: "/path/to/repo.git",
 			StorageName:  cfg.Storages[0].Name,
 		}
-		repoPath, err := config.NewLocator(cfg).GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
-		require.NoError(t, err)
 
 		response, err := client.FullPath(ctx, &gitalypb.FullPathRequest{
 			Repository: repo,
 		})
 		require.Nil(t, response)
 
-		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = fetch config: GetRepoPath: not a git repository: %q", repoPath)
+		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = fetch config: %s", storage.ErrRepositoryNotFound)
 		if testhelper.IsPraefectEnabled() {
 			expectedErr = `rpc error: code = NotFound desc = accessor call: route repository accessor: consistent storages: repository "default"/"/path/to/repo.git" not found`
 		}

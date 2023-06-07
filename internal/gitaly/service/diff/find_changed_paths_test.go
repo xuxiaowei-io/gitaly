@@ -1,13 +1,13 @@
 package diff
 
 import (
-	"fmt"
 	"io"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -970,10 +970,13 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repo not found",
 			repo:    &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar.git"},
 			commits: []string{newCommit.String(), oldCommit.String()},
-			err: structerr.NewNotFound(testhelper.GitalyOrPraefect(
-				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
-				`accessor call: route repository accessor: consistent storages: repository "default"/"bar.git" not found`,
-			)),
+			err: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar.git"),
+				),
+				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "bar.git"),
+			),
 		},
 		{
 			desc:    "Storage not found",

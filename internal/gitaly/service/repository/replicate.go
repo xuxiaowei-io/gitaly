@@ -175,11 +175,18 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	// platforms.
 	firstBytes, err := stream.Recv()
 	if err != nil {
-		if structerr.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:") {
+		switch {
+		case structerr.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:"):
+			// The error condition exists for backwards compatibility purposes, only,
+			// and can be removed in the next release.
 			return ErrInvalidSourceRepository
+		case structerr.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), storage.ErrRepositoryNotFound.Error()):
+			return ErrInvalidSourceRepository
+		case structerr.GRPCCode(err) == codes.FailedPrecondition && strings.Contains(err.Error(), storage.ErrRepositoryNotValid.Error()):
+			return ErrInvalidSourceRepository
+		default:
+			return fmt.Errorf("first snapshot read: %w", err)
 		}
-
-		return fmt.Errorf("first snapshot read: %w", err)
 	}
 
 	snapshotReader := io.MultiReader(

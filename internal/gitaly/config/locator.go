@@ -51,26 +51,26 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 
 	if _, err := os.Stat(storagePath); err != nil {
 		if os.IsNotExist(err) {
-			return "", structerr.NewNotFound("GetPath: does not exist: %w", err)
+			return "", structerr.NewNotFound("storage does not exist").WithMetadata("storage_path", storagePath)
 		}
-		return "", structerr.NewInternal("GetPath: storage path: %w", err)
+		return "", structerr.New("storage path: %w", err).WithMetadata("storage_path", storagePath)
 	}
 
 	relativePath := repo.GetRelativePath()
 	if len(relativePath) == 0 {
-		err := structerr.NewInvalidArgument("GetPath: relative path missing")
+		err := structerr.NewInvalidArgument("relative path is not set")
 		return "", err
 	}
 
 	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {
-		return "", structerr.NewInvalidArgument("GetRepoPath: %w", err)
+		return "", structerr.NewInvalidArgument("%w", err).WithMetadata("relative_path", relativePath)
 	}
 
 	repoPath := filepath.Join(storagePath, relativePath)
 
 	if !cfg.SkipRepositoryVerification {
 		if err := storage.ValidateRepository(repoPath); err != nil {
-			return "", structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
+			return "", err
 		}
 	}
 

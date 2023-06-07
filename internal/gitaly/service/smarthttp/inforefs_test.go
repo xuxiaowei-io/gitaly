@@ -18,7 +18,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -149,10 +151,12 @@ func TestInfoRefsUploadPack_validate(t *testing.T) {
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: "doesnt/exist",
 			}},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`,
-				`accessor call: route repository accessor: consistent storages: repository "default"/"doesnt/exist" not found`,
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound), "repository_path", filepath.Join(cfg.Storages[0].Path, "doesnt/exist"),
+				),
+				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "doesnt/exist"),
+			),
 		},
 	} {
 		_, err := makeInfoRefsUploadPackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, tc.req)
@@ -336,10 +340,13 @@ func TestInfoRefsReceivePack_validate(t *testing.T) {
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: "testdata/scratch/another_repo",
 			}},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/testdata/scratch/another_repo"`,
-				`accessor call: route repository accessor: consistent storages: repository "default"/"testdata/scratch/another_repo" not found`,
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "testdata/scratch/another_repo"),
+				),
+				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "testdata/scratch/another_repo"),
+			),
 		},
 	} {
 		_, err := makeInfoRefsReceivePackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, tc.req)

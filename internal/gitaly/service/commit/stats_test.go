@@ -3,12 +3,12 @@
 package commit
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -108,24 +108,13 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
-				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
-				"accessor call: route repository accessor: consistent storages: repository \"default\"/\"bar.git\" not found",
-			)),
-		},
-		{
-			desc: "repo not found",
-			request: &gitalypb.CommitStatsRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  repo.GetStorageName(),
-					RelativePath: "bar.git",
-				},
-				Revision: []byte("test-do-not-touch"),
-			},
-			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
-				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
-				"accessor call: route repository accessor: consistent storages: repository \"default\"/\"bar.git\" not found",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar.git"),
+				),
+				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "bar.git"),
+			),
 		},
 		{
 			desc: "storage not found",

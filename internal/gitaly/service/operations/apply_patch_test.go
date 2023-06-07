@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -87,13 +89,12 @@ To restore the original branch and stop patching, run "git am --abort".
 			desc:                  "non-existent repository",
 			targetBranch:          git.DefaultBranch,
 			nonExistentRepository: true,
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return status.Errorf(codes.NotFound, "mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "doesnt-exist")
-				}
-
-				return status.Errorf(codes.NotFound, "GetRepoPath: not a git repository: \"%s/%s\"", cfg.Storages[0].Path, "doesnt-exist")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound), "repository_path", filepath.Join(cfg.Storages[0].Path, "doesnt-exist"),
+				),
+				structerr.NewNotFound("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "doesnt-exist"),
+			),
 		},
 		{
 			desc: "creating the first branch does not work",

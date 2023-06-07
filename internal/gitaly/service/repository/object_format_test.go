@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -85,8 +86,9 @@ func TestObjectFormat(t *testing.T) {
 						},
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewNotFound(
-							"GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "nonexistent.git"),
+						testhelper.WithInterceptedMetadata(
+							structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+							"repository_path", filepath.Join(cfg.Storages[0].Path, "nonexistent.git"),
 						),
 						structerr.NewNotFound(
 							"accessor call: route repository accessor: consistent storages: repository %q/%q not found",

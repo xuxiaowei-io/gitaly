@@ -186,10 +186,13 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
-				fmt.Sprintf("create object reader: GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "path")),
-				fmt.Sprintf("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path"),
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("create object reader: repository not found"),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "path"),
+				),
+				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path"),
+			),
 		},
 		{
 			desc: "missing object ID",

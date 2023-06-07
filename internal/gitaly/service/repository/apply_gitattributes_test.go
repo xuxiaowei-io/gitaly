@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -268,10 +269,13 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				RelativePath: "bar",
 			},
 			revision: []byte("master"),
-			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
-				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar"`,
-				`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar"),
+				),
+				structerr.NewNotFound(`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`),
+			),
 		},
 		{
 			desc:        "no revision provided",

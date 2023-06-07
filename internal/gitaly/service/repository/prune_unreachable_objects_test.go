@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -43,7 +44,13 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
 			Repository: repo,
 		})
-		testhelper.RequireGrpcError(t, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath), err)
+		testhelper.RequireGrpcError(t,
+			testhelper.WithInterceptedMetadata(
+				structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+				"repository_path", repoPath,
+			),
+			err,
+		)
 	})
 
 	t.Run("empty repository", func(t *testing.T) {

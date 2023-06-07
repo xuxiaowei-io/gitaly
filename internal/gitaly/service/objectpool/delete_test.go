@@ -72,7 +72,10 @@ func TestDelete(t *testing.T) {
 			desc:         "path traversing fails",
 			relativePath: validPoolPath + "/../../../../..",
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("GetRepoPath: %w", storage.ErrRelativePathEscapesRoot),
+				testhelper.WithInterceptedMetadata(
+					structerr.NewInvalidArgument("%w", storage.ErrRelativePathEscapesRoot),
+					"relative_path", validPoolPath+"/../../../../..",
+				),
 				errInvalidPoolDir,
 			),
 		},

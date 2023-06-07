@@ -1,14 +1,13 @@
 package repository
 
 import (
-	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -85,8 +84,7 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	storagePath := strings.TrimSuffix(repoPath, "/"+repo.RelativePath)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
 		desc string
@@ -106,7 +104,13 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 		{
 			desc: "destination relative path contains path traversal",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: repo, RelativePath: "../usr/bin"},
-			exp:  status.Error(codes.InvalidArgument, "GetRepoPath: relative path escapes root directory"),
+			exp: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewInvalidArgument("%w", storage.ErrRelativePathEscapesRoot),
+					"relative_path", "../usr/bin",
+				),
+				structerr.NewInvalidArgument("GetRepoPath: %w", storage.ErrRelativePathEscapesRoot),
+			),
 		},
 		{
 			desc: "repository storage doesn't exist",
@@ -116,7 +120,13 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 		{
 			desc: "repository relative path doesn't exist",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "stub"}, RelativePath: "non-existent/directory"},
-			exp:  status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/stub"`, testhelper.GitalyOrPraefect(storagePath, repo.GetStorageName()))),
+			exp: testhelper.GitalyOrPraefect(
+				testhelper.WithInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					"repository_path", filepath.Join(cfg.Storages[0].Path, "stub"),
+				),
+				structerr.NewNotFound(`GetRepoPath: not a git repository: "%s/stub"`, repo.GetStorageName()),
+			),
 		},
 	}
 

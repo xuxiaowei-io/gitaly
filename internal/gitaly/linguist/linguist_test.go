@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -509,7 +510,7 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, git.ObjectID("b1bb1d1b0b1d1b00")
 			},
-			expectedErr: "GetRepoPath: not a git repository",
+			expectedErr: storage.ErrRepositoryNotFound.Error(),
 		},
 		{
 			desc: "missing commit",
