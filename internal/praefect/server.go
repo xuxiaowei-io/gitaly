@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/grpcstats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/panichandler"
@@ -31,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service/server"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -45,12 +47,17 @@ import (
 // NewBackchannelServerFactory returns a ServerFactory that serves the RefTransactionServer on the backchannel
 // connection.
 func NewBackchannelServerFactory(logger *logrus.Entry, refSvc gitalypb.RefTransactionServer, registry *sidechannel.Registry) backchannel.ServerFactory {
+	logMsgProducer := log.MessageProducer(
+		log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+		structerr.FieldsProducer,
+	)
+
 	return func() backchannel.Server {
 		lm := listenmux.New(insecure.NewCredentials())
 		lm.Register(sidechannel.NewServerHandshaker(registry))
 		srv := grpc.NewServer(
 			grpc.ChainUnaryInterceptor(
-				commonUnaryServerInterceptors(logger)...,
+				commonUnaryServerInterceptors(logger, logMsgProducer)...,
 			),
 			grpc.Creds(lm),
 		)
@@ -60,13 +67,17 @@ func NewBackchannelServerFactory(logger *logrus.Entry, refSvc gitalypb.RefTransa
 	}
 }
 
-func commonUnaryServerInterceptors(logger *logrus.Entry) []grpc.UnaryServerInterceptor {
+func commonUnaryServerInterceptors(logger *logrus.Entry, messageProducer grpcmwlogrus.MessageProducer) []grpc.UnaryServerInterceptor {
 	return []grpc.UnaryServerInterceptor{
 		grpcmwtags.UnaryServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 		metadatahandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
-		grpcmwlogrus.UnaryServerInterceptor(logger, grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
+		grpcmwlogrus.UnaryServerInterceptor(logger,
+			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
+			grpcmwlogrus.WithMessageProducer(messageProducer),
+			log.DeciderOption(),
+		),
 		sentryhandler.UnaryLogHandler,
 		statushandler.Unary, // Should be below LogHandler
 		grpctracing.UnaryServerTracingInterceptor(),
@@ -96,6 +107,11 @@ func NewGRPCServer(
 	checks []service.CheckFunc,
 	grpcOpts ...grpc.ServerOption,
 ) *grpc.Server {
+	logMsgProducer := log.MessageProducer(
+		log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+		structerr.FieldsProducer,
+	)
+
 	streamInterceptors := []grpc.StreamServerInterceptor{
 		grpcmwtags.StreamServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
@@ -103,7 +119,10 @@ func NewGRPCServer(
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
 		grpcmwlogrus.StreamServerInterceptor(logger,
-			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
+			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
+			grpcmwlogrus.WithMessageProducer(logMsgProducer),
+			log.DeciderOption(),
+		),
 		sentryhandler.StreamLogHandler,
 		statushandler.Stream, // Should be below LogHandler
 		grpctracing.StreamServerTracingInterceptor(),
@@ -115,10 +134,14 @@ func NewGRPCServer(
 
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(director)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
+		grpc.StatsHandler(log.PerRPCLogHandler{
+			Underlying:     &grpcstats.PayloadBytes{},
+			FieldProducers: []log.FieldsProducer{grpcstats.FieldsProducer},
+		}),
 		grpc.ChainStreamInterceptor(streamInterceptors...),
 		grpc.ChainUnaryInterceptor(
 			append(
-				commonUnaryServerInterceptors(logger),
+				commonUnaryServerInterceptors(logger, logMsgProducer),
 				middleware.MethodTypeUnaryInterceptor(registry),
 				auth.UnaryServerInterceptor(conf.Auth),
 			)...,
