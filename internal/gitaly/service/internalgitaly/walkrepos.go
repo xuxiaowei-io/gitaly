@@ -12,28 +12,24 @@ import (
 )
 
 func (s *server) WalkRepos(req *gitalypb.WalkReposRequest, stream gitalypb.InternalGitaly_WalkReposServer) error {
-	sPath, err := s.storagePath(req.GetStorageName())
-	if err != nil {
-		return err
-	}
-
-	if err := walkStorage(stream.Context(), sPath, stream); err != nil {
+	if err := walkStorage(stream.Context(), s.locator, req.GetStorageName(), stream); err != nil {
 		return structerr.NewInternal("%w", err)
 	}
 
 	return nil
 }
 
-func (s *server) storagePath(storageName string) (string, error) {
-	for _, storage := range s.storages {
-		if storage.Name == storageName {
-			return storage.Path, nil
-		}
+func walkStorage(
+	ctx context.Context,
+	locator storage.Locator,
+	storageName string,
+	stream gitalypb.InternalGitaly_WalkReposServer,
+) error {
+	storagePath, err := locator.GetStorageByName(storageName)
+	if err != nil {
+		return structerr.NewNotFound("looking up storage: %w", err)
 	}
-	return "", structerr.NewNotFound("storage name %q not found", storageName)
-}
 
-func walkStorage(ctx context.Context, storagePath string, stream gitalypb.InternalGitaly_WalkReposServer) error {
 	return filepath.Walk(storagePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
