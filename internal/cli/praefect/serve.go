@@ -403,6 +403,7 @@ func server(
 			nodeSet.Connections(),
 			primaryGetter,
 			service.ReadinessChecks(),
+			defaultServerOptions...,
 		)
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
