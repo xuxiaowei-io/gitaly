@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -1578,102 +1577,8 @@ func TestUserMergeToRef_conflicts(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	t.Run("allow conflicts to be merged with markers when modified on both sides", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", "modified-both-sides-conflict")
-		request.AllowConflicts = true
-
-		resp, err := client.UserMergeToRef(ctx, request)
-		require.NoError(t, err)
-
-		output := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "show", resp.CommitId))
-
-		markersRegexp := regexp.MustCompile(`(?s)\+<<<<<<< files\/ruby\/popen.rb.*?\+>>>>>>> files\/ruby\/popen.rb.*?\+<<<<<<< files\/ruby\/regex.rb.*?\+>>>>>>> files\/ruby\/regex.rb`)
-		require.Regexp(t, markersRegexp, output)
-	})
-
-	t.Run("allow conflicts to be merged with markers when modified on source and removed on target", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "eb227b3e214624708c474bdab7bde7afc17cefcc", "92417abf83b75e67b8ace920bc8e83e1986da4ac", "modified-source-removed-target-conflict")
-		request.AllowConflicts = true
-
-		resp, err := client.UserMergeToRef(ctx, request)
-		require.NoError(t, err)
-
-		output := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "show", resp.CommitId))
-
-		markersRegexp := regexp.MustCompile(`(?s)\+<<<<<<< \n.*?\+=======\n.*?\+>>>>>>> files/ruby/version_info.rb`)
-		require.Regexp(t, markersRegexp, output)
-	})
-
-	t.Run("allow conflicts to be merged with markers when removed on source and modified on target", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "92417abf83b75e67b8ace920bc8e83e1986da4ac", "eb227b3e214624708c474bdab7bde7afc17cefcc", "removed-source-modified-target-conflict")
-		request.AllowConflicts = true
-
-		resp, err := client.UserMergeToRef(ctx, request)
-		require.NoError(t, err)
-
-		output := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "show", resp.CommitId))
-
-		markersRegexp := regexp.MustCompile(`(?s)\+<<<<<<< files/ruby/version_info.rb.*?\+=======\n.*?\+>>>>>>> \z`)
-		require.Regexp(t, markersRegexp, output)
-	})
-
-	t.Run("allow conflicts to be merged with markers when both source and target added the same file", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "f0f390655872bb2772c85a0128b2fbc2d88670cb", "5b4bb08538b9249995b94aa69121365ba9d28082", "source-target-added-same-file-conflict")
-		request.AllowConflicts = true
-
-		resp, err := client.UserMergeToRef(ctx, request)
-		require.NoError(t, err)
-
-		output := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "show", resp.CommitId))
-
-		markersRegexp := regexp.MustCompile(`(?s)\+<<<<<<< NEW_FILE.md.*?\+=======\n.*?\+>>>>>>> NEW_FILE.md`)
-		require.Regexp(t, markersRegexp, output)
-	})
-
-	// Test cases below do not show any conflict markers because we don't try
-	// to merge the conflicts for these cases. We keep `Their` side of the
-	// conflict and ignore `Our` and `Ancestor` instead. This is because we want
-	// to show the `Their` side when we present the merge commit on the merge
-	// request diff.
-	t.Run("allow conflicts to be merged without markers when renamed on source and removed on target", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "3ac7abfb7621914e596d5bf369be8234b9086052", "renamed-source-removed-target")
-		request.AllowConflicts = true
-
-		resp, err := client.UserMergeToRef(ctx, request)
-		require.NoError(t, err)
-
-		output := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "show", resp.CommitId))
-
-		require.NotContains(t, output, "=======")
-	})
-
-	t.Run("allow conflicts to be merged without markers when removed on source and renamed on target", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "3ac7abfb7621914e596d5bf369be8234b9086052", "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "removed-source-renamed-target")
-		request.AllowConflicts = true
-
-		resp, err := client.UserMergeToRef(ctx, request)
-		require.NoError(t, err)
-
-		output := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "show", resp.CommitId))
-
-		require.NotContains(t, output, "=======")
-	})
-
-	t.Run("allow conflicts to be merged without markers when both source and target renamed the same file", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "fe6d6ff5812e7fb292168851dc0edfc6a0171909", "source-target-renamed-same-file")
-		request.AllowConflicts = true
-
-		resp, err := client.UserMergeToRef(ctx, request)
-		require.NoError(t, err)
-
-		output := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "show", resp.CommitId))
-
-		require.NotContains(t, output, "=======")
-	})
-
 	t.Run("disallow conflicts to be merged", func(t *testing.T) {
 		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", "disallowed-conflicts")
-		request.AllowConflicts = false
 
 		_, err := client.UserMergeToRef(ctx, request)
 		testhelper.RequireGrpcError(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)

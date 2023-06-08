@@ -441,16 +441,17 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	}
 
 	// Now, we create the merge commit...
-	merge, err := s.git2goExecutor.Merge(ctx, repo, git2go.MergeCommand{
-		Repository:     repoPath,
-		AuthorName:     string(request.User.Name),
-		AuthorMail:     string(request.User.Email),
-		AuthorDate:     authorDate,
-		Message:        string(request.Message),
-		Ours:           oid.String(),
-		Theirs:         sourceOID.String(),
-		AllowConflicts: request.AllowConflicts,
-	})
+	mergeCommitID, err := s.mergeWithGit2Go(
+		ctx,
+		repo,
+		repoPath,
+		string(request.User.Name),
+		string(request.User.Email),
+		authorDate,
+		string(request.Message),
+		oid.String(),
+		sourceOID.String(),
+	)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).WithFields(
 			logrus.Fields{
@@ -467,7 +468,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 			sourceOID, oid, string(request.TargetRef))
 	}
 
-	mergeOID, err := git.ObjectHashSHA1.FromHex(merge.CommitID)
+	mergeOID, err := git.ObjectHashSHA1.FromHex(mergeCommitID)
 	if err != nil {
 		return nil, structerr.NewInternal("parsing merge commit SHA: %w", err)
 	}
@@ -481,4 +482,31 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	return &gitalypb.UserMergeToRefResponse{
 		CommitId: mergeOID.String(),
 	}, nil
+}
+
+func (s *Server) mergeWithGit2Go(
+	ctx context.Context,
+	repo *localrepo.Repo,
+	repoPath string,
+	authorName string,
+	authorEmail string,
+	authorDate time.Time,
+	message string,
+	ours string,
+	theirs string,
+) (string, error) {
+	merge, err := s.git2goExecutor.Merge(ctx, repo, git2go.MergeCommand{
+		Repository: repoPath,
+		AuthorName: authorName,
+		AuthorMail: authorEmail,
+		AuthorDate: authorDate,
+		Message:    message,
+		Ours:       ours,
+		Theirs:     theirs,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return merge.CommitID, nil
 }
