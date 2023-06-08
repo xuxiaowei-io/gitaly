@@ -39,12 +39,12 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	repoPath, err := s.locator.GetRepoPath(in.GetRepository(), storage.WithRepositoryVerificationSkipped())
-	if err != nil {
-		return nil, structerr.NewInternal("%w", err)
-	}
+	if err := s.locator.ValidateRepository(in.GetRepository()); err != nil {
+		repoPath, err := s.locator.GetRepoPath(in.GetRepository(), storage.WithRepositoryVerificationSkipped())
+		if err != nil {
+			return nil, structerr.NewInternal("%w", err)
+		}
 
-	if err := s.locator.ValidateRepository(repoPath); err != nil {
 		if err = s.create(ctx, in, repoPath); err != nil {
 			if errors.Is(err, ErrInvalidSourceRepository) {
 				return nil, ErrInvalidSourceRepository

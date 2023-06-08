@@ -508,7 +508,6 @@ func TestProcessBacklog_Success(t *testing.T) {
 	fullNewPath1 := filepath.Join(backupCfg.Storages[0].Path, renameTo1)
 
 	renameTo2 := filepath.Join(renameTo1, "..", filepath.Base(testRepo.GetRelativePath())+"-mv2")
-	fullNewPath2 := filepath.Join(backupCfg.Storages[0].Path, renameTo2)
 
 	// Rename replication job
 	eventType2 := datastore.ReplicationEvent{
@@ -573,7 +572,10 @@ func TestProcessBacklog_Success(t *testing.T) {
 	<-replMgrDone
 
 	require.NoDirExists(t, fullNewPath1, "repository must be moved from %q to the new location", fullNewPath1)
-	require.NoError(t, backupLocator.ValidateRepository(fullNewPath2), "repository must exist at new last RenameRepository location")
+	require.NoError(t, backupLocator.ValidateRepository(&gitalypb.Repository{
+		StorageName:  backupCfg.Storages[0].Name,
+		RelativePath: renameTo2,
+	}), "repository must exist at new last RenameRepository location")
 }
 
 func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {

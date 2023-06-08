@@ -40,7 +40,20 @@ type configLocator struct {
 // - ErrRepositoryNotFound when the path cannot be found.
 // - ErrRepositoryNotValid when the repository is not a valid Git repository.
 // - An unspecified error when stat(3P)ing files fails due to other reasons.
-func (l *configLocator) ValidateRepository(path string) error {
+func (l *configLocator) ValidateRepository(repo storage.Repository) error {
+	storagePath, err := l.GetStorageByName(repo.GetStorageName())
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(storagePath); err != nil {
+		if os.IsNotExist(err) {
+			return structerr.NewNotFound("storage does not exist").WithMetadata("storage_path", storagePath)
+		}
+		return structerr.New("storage path: %w", err).WithMetadata("storage_path", storagePath)
+	}
+
+	path := filepath.Join(storagePath, repo.GetRelativePath())
 	if path == "" {
 		return structerr.NewInvalidArgument("repository path is empty")
 	}
@@ -109,15 +122,13 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 		return "", structerr.NewInvalidArgument("%w", err).WithMetadata("relative_path", relativePath)
 	}
 
-	repoPath := filepath.Join(storagePath, relativePath)
-
 	if !cfg.SkipRepositoryVerification {
-		if err := l.ValidateRepository(repoPath); err != nil {
+		if err := l.ValidateRepository(repo); err != nil {
 			return "", err
 		}
 	}
 
-	return repoPath, nil
+	return filepath.Join(storagePath, relativePath), nil
 }
 
 // GetStorageByName will return the path for the storage, which is fetched by

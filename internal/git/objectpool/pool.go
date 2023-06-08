@@ -114,12 +114,7 @@ func (o *ObjectPool) Exists() bool {
 
 // IsValid checks if a repository exists, and if its valid.
 func (o *ObjectPool) IsValid() bool {
-	path, err := o.Path()
-	if err != nil {
-		return false
-	}
-
-	return o.locator.ValidateRepository(path) == nil
+	return o.locator.ValidateRepository(o.Repo) == nil
 }
 
 // Remove will remove the pool, and all its contents without preparing and/or
@@ -168,15 +163,15 @@ func FromRepo(
 		return nil, err
 	}
 
-	if locator.ValidateRepository(filepath.Dir(absolutePoolObjectDirPath)) != nil {
-		return nil, ErrInvalidPoolRepository
-	}
-
 	objectPoolProto := &gitalypb.ObjectPool{
 		Repository: &gitalypb.Repository{
 			StorageName:  repo.GetStorageName(),
 			RelativePath: filepath.Dir(relativePoolObjectDirPath),
 		},
+	}
+
+	if locator.ValidateRepository(objectPoolProto.Repository) != nil {
+		return nil, ErrInvalidPoolRepository
 	}
 
 	return FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, objectPoolProto)

@@ -37,6 +37,7 @@ func TestRemoveRepositorySubcommand(t *testing.T) {
 	g2Srv := testserver.StartGitalyServer(t, g2Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	g1Locator := gitalycfg.NewLocator(g1Cfg)
+	g2Locator := gitalycfg.NewLocator(g2Cfg)
 
 	db := testdb.New(t)
 
@@ -189,8 +190,14 @@ func TestRemoveRepositorySubcommand(t *testing.T) {
 				require.NoError(t, err)
 				require.False(t, repositoryExists(t, repo))
 				// Repo is still present on-disk on the Gitaly nodes.
-				require.NoError(t, g1Locator.ValidateRepository(filepath.Join(g1Cfg.Storages[0].Path, replicaPath)))
-				require.NoError(t, g1Locator.ValidateRepository(filepath.Join(g2Cfg.Storages[0].Path, replicaPath)))
+				require.NoError(t, g1Locator.ValidateRepository(&gitalypb.Repository{
+					StorageName:  g1Cfg.Storages[0].Name,
+					RelativePath: replicaPath,
+				}))
+				require.NoError(t, g2Locator.ValidateRepository(&gitalypb.Repository{
+					StorageName:  g2Cfg.Storages[0].Name,
+					RelativePath: replicaPath,
+				}))
 			},
 			assertOutput: func(t *testing.T, out string, repo *gitalypb.Repository) {
 				assert.Contains(t, out, "Repository found in the database.\n")

@@ -64,7 +64,7 @@ func RepoPathEqual(a, b Repository) bool {
 // Locator allows to get info about location of the repository or storage at the local file system.
 type Locator interface {
 	// ValidateRepository validates whether the given repository is a valid Git repository.
-	ValidateRepository(path string) error
+	ValidateRepository(Repository) error
 	// GetRepoPath returns the full path of the repository referenced by an RPC Repository message.
 	// By default, it verifies that the path is an existing git directory. However, if invoked with
 	// the `GetRepoPathOption` produced by `WithRepositoryVerificationSkipped()`, this validation

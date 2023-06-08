@@ -46,12 +46,15 @@ func walkStorage(
 			// keep walking
 		}
 
-		if locator.ValidateRepository(path) == nil {
-			relPath, err := filepath.Rel(storagePath, path)
-			if err != nil {
-				return err
-			}
+		relPath, err := filepath.Rel(storagePath, path)
+		if err != nil {
+			return err
+		}
 
+		if locator.ValidateRepository(&gitalypb.Repository{
+			StorageName:  storageName,
+			RelativePath: relPath,
+		}) == nil {
 			gitDirInfo, err := os.Stat(path)
 			if err != nil {
 				return err
