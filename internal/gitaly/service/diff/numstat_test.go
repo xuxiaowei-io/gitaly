@@ -149,7 +149,7 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
+					structerr.NewNotFound("cmd: %w", storage.ErrRepositoryNotFound),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar.git"),
 				),
 				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "bar.git"),
@@ -161,7 +161,7 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "foo"`,
+				`cmd: GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
