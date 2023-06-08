@@ -79,8 +79,8 @@ message SSHUploadPackWithSidechannelRequest {
 
 // This comment is left unintentionally blank.
 message SSHUploadPackWithSidechannelResponse {
-  // Packfile negotiation.
-  Stats stats = 1;
+  // Packfile negotiation statistics.
+  PackfileNegotiationStatistics packfile_negotiation_statistics = 1;
 }
 
 // This comment is left unintentionally blank.

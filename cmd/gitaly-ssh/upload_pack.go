@@ -36,10 +36,10 @@ func uploadPack(ctx context.Context, conn *grpc.ClientConn, registry *client.Sid
 	return client.UploadPack(ctx, conn, os.Stdin, os.Stdout, os.Stderr, &request)
 }
 
-func uploadPackWithSidechannel(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (*gitalypb.SSHUploadPackWithSidechannelResponse, int32, error) {
+func uploadPackWithSidechannel(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
 	var request gitalypb.SSHUploadPackWithSidechannelRequest
 	if err := protojson.Unmarshal([]byte(req), &request); err != nil {
-		return nil, 0, fmt.Errorf("json unmarshal: %w", err)
+		return 0, fmt.Errorf("json unmarshal: %w", err)
 	}
 
 	request.GitConfigOptions = uploadPackConfig(request.GitConfigOptions)

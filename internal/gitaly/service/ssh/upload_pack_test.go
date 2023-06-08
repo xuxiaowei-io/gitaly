@@ -197,7 +197,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				return nil
 			},
 			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{
-				Stats: &gitalypb.Stats{
+				PackfileNegotiationStatistics: &gitalypb.PackfileNegotiationStatistics{
 					Packets: 2,
 					Caps:    []string{"multi_ack"},
 					Wants:   1,
@@ -224,7 +224,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				return nil
 			},
 			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{
-				Stats: &gitalypb.Stats{
+				PackfileNegotiationStatistics: &gitalypb.PackfileNegotiationStatistics{
 					Packets: 5,
 					Wants:   1,
 				},
@@ -322,7 +322,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				return nil
 			},
 			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{
-				Stats: &gitalypb.Stats{},
+				PackfileNegotiationStatistics: &gitalypb.PackfileNegotiationStatistics{},
 			},
 		},
 		{
@@ -429,7 +429,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			if tc.expectedResponse != nil && response != nil {
 				// The payload size is not deterministic(it's a different value in local-test end ci-test), so we set it to the expected value.
-				tc.expectedResponse.Stats.PayloadSize = response.Stats.PayloadSize
+				tc.expectedResponse.PackfileNegotiationStatistics.PayloadSize = response.PackfileNegotiationStatistics.PayloadSize
 			}
 			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})

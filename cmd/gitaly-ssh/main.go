@@ -53,10 +53,7 @@ func main() {
 	switch command {
 	case "upload-pack":
 		if useSidechannel() {
-			packer = func(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
-				_, exitStatus, err := uploadPackWithSidechannel(ctx, conn, registry, req)
-				return exitStatus, err
-			}
+			packer = uploadPackWithSidechannel
 		} else {
 			packer = uploadPack
 		}

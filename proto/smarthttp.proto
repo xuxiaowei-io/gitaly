@@ -86,8 +86,8 @@ message PostUploadPackWithSidechannelRequest {
 // This is an empty response since the raw data is transferred to the client via the sidechannel
 // exclusively.
 message PostUploadPackWithSidechannelResponse {
-  // Packfile negotiation.
-  Stats stats = 1;
+  // Packfile negotiation statistics.
+  PackfileNegotiationStatistics packfile_negotiation_statistics = 1;
 }
 
 // PostReceivePackRequest is the request for the PostReceivePack rpc. It is a stream used to

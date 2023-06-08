@@ -41,9 +41,23 @@ func UploadPack(ctx context.Context, conn *grpc.ClientConn, stdin io.Reader, std
 	}, stdout, stderr)
 }
 
-// UploadPackWithSidechannel proxies an SSH git-upload-pack (git fetch)
+// UploadPackResult wraps ExitCode and PackfileNegotiationStatistics.
+type UploadPackResult struct {
+	ExitCode                      int32
+	PackfileNegotiationStatistics *gitalypb.PackfileNegotiationStatistics
+}
+
+// UploadPackWithSidechannelWithResult proxies an SSH git-upload-pack (git fetch)
 // session to Gitaly using a sidechannel for the raw data transfer.
-func UploadPackWithSidechannel(ctx context.Context, conn *grpc.ClientConn, reg *SidechannelRegistry, stdin io.Reader, stdout, stderr io.Writer, req *gitalypb.SSHUploadPackWithSidechannelRequest) (*gitalypb.SSHUploadPackWithSidechannelResponse, int32, error) {
+func UploadPackWithSidechannelWithResult(
+	ctx context.Context,
+	conn *grpc.ClientConn,
+	reg *SidechannelRegistry,
+	stdin io.Reader,
+	stdout, stderr io.Writer,
+	req *gitalypb.SSHUploadPackWithSidechannelRequest,
+) (UploadPackResult, error) {
+	result := UploadPackResult{}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -58,12 +72,33 @@ func UploadPackWithSidechannel(ctx context.Context, conn *grpc.ClientConn, reg *
 	sshClient := gitalypb.NewSSHServiceClient(conn)
 	resp, err := sshClient.SSHUploadPackWithSidechannel(ctx, req)
 	if err != nil {
-		return nil, 0, err
+		return result, err
 	}
+	result.ExitCode = 0
+	result.PackfileNegotiationStatistics = resp.PackfileNegotiationStatistics
 
 	if err := wt.Close(); err != nil {
-		return nil, 0, err
+		return result, err
 	}
 
-	return resp, 0, nil
+	return result, nil
+}
+
+// UploadPackWithSidechannel proxies an SSH git-upload-pack (git fetch)
+// session to Gitaly using a sidechannel for the raw data transfer.
+// Deprecated: use UploadPackWithSidechannelWithResult instead.
+func UploadPackWithSidechannel(
+	ctx context.Context,
+	conn *grpc.ClientConn,
+	reg *SidechannelRegistry,
+	stdin io.Reader,
+	stdout, stderr io.Writer,
+	req *gitalypb.SSHUploadPackWithSidechannelRequest,
+) (int32, error) {
+	result, err := UploadPackWithSidechannelWithResult(ctx, conn, reg, stdin, stdout, stderr, req)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.ExitCode, err
 }
