@@ -196,7 +196,7 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 		{
 			desc:          "left commit not found",
 			repo:          repo,
-			leftCommitID:  "z4003da16c1c2c3fc4567700121b17bf8e591c6c",
+			leftCommitID:  "a4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			expectedErr:   status.Error(codes.Unavailable, "exit status 128"),
 		},
@@ -204,7 +204,7 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 			desc:          "right commit not found",
 			repo:          repo,
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			rightCommitID: "z4003da16c1c2c3fc4567700121b17bf8e591c6c",
+			rightCommitID: "a4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			expectedErr:   status.Error(codes.Unavailable, "exit status 128"),
 		},
 	}
