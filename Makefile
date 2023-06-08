@@ -97,11 +97,6 @@ ifdef FIPS_MODE
     export GITALY_TESTING_ENABLE_FIPS := YesPlease
 endif
 
-ifdef GITALY_TESTING_ENABLE_SHA256
-    SERVER_BUILD_TAGS := ${SERVER_BUILD_TAGS},gitaly_test_sha256
-    GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},gitaly_test_sha256
-endif
-
 # protoc target
 PROTOC_VERSION      ?= v23.1
 PROTOC_REPO_URL     ?= https://github.com/protocolbuffers/protobuf
@@ -357,6 +352,32 @@ prepare-tests: ${DEPENDENCY_DIR}/git-distribution/git
 export GITALY_TESTING_GIT_BINARY ?= ${DEPENDENCY_DIR}/git-distribution/bin-wrappers/git
 endif
 
+## Enable testing with the SHA256 object format.
+TEST_WITH_SHA256 ?=
+ifdef TEST_WITH_SHA256
+    SERVER_BUILD_TAGS := ${SERVER_BUILD_TAGS},gitaly_test_sha256
+    GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},gitaly_test_sha256
+endif
+
+## Enable generating test coverage.
+TEST_WITH_COVERAGE ?=
+ifdef TEST_WITH_COVERAGE
+override TEST_OPTIONS := ${TEST_OPTIONS} -coverprofile "${TEST_COVERAGE_DIR}/all.merged"
+prepare-tests: ${GOCOVER_COBERTURA} ${TEST_COVERAGE_DIR}
+
+.PHONY: ${TEST_COVERAGE_DIR}
+${TEST_COVERAGE_DIR}:
+	${Q}rm -rf "${TEST_COVERAGE_DIR}"
+	${Q}mkdir -p "${TEST_COVERAGE_DIR}"
+
+# sed is used below to convert file paths to repository root relative paths.
+# See https://gitlab.com/gitlab-org/gitlab/-/issues/217664
+run_go_tests += \
+	&& go tool cover -html  "${TEST_COVERAGE_DIR}/all.merged" -o "${TEST_COVERAGE_DIR}/all.html" \
+	&& ${GOCOVER_COBERTURA} <"${TEST_COVERAGE_DIR}/all.merged" | \
+	sed 's;filename=\"$(shell go list -m)/;filename=\";g' >"${TEST_COVERAGE_DIR}/cobertura.xml"
+endif
+
 .PHONY: prepare-tests
 prepare-tests: libgit2 prepare-test-repos ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
 	${Q}mkdir -p "$(dir ${TEST_JUNIT_REPORT})"
@@ -380,14 +401,8 @@ test-gitaly-linters:
 
 .PHONY: test-go
 ## Run Go tests.
-test-go: override TEST_OPTIONS := ${TEST_OPTIONS} -coverprofile "${TEST_COVERAGE_DIR}/all.merged"
 test-go: prepare-tests ${GOCOVER_COBERTURA}
-	${Q}rm -rf "${TEST_COVERAGE_DIR}"
-	${Q}mkdir -p "${TEST_COVERAGE_DIR}"
 	${Q}$(call run_go_tests)
-	${Q}go tool cover -html  "${TEST_COVERAGE_DIR}/all.merged" -o "${TEST_COVERAGE_DIR}/all.html"
-	@ # sed is used below to convert file paths to repository root relative paths. See https://gitlab.com/gitlab-org/gitlab/-/issues/217664
-	${Q}${GOCOVER_COBERTURA} <"${TEST_COVERAGE_DIR}/all.merged" | sed 's;filename=\"$(shell go list -m)/;filename=\";g' >"${TEST_COVERAGE_DIR}/cobertura.xml"
 
 .PHONY: debug-test-go
 ## Run Go tests in delve debugger.
