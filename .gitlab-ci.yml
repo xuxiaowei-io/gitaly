@@ -101,8 +101,13 @@ workflow:
     TEST_JSON_REPORT: "${CI_PROJECT_DIR}/_build/reports/test-report.json"
     TEST_LOG_DIR: "${CI_PROJECT_DIR}/_build/reports/test-logs"
     TEST_OPTIONS: "-count=1 -timeout=20m" # a number of tests may exceed the default 10m
+    TEST_TMP_DIR: "/tmp"
     TEST_WITH_COVERAGE: YesPlease
   before_script: &test_before_script
+    # Speed up test execution by writing test data into tmpfs instead of onto
+    # the underlying disk.
+    - chmod 1777 "${TEST_TMP_DIR}"
+    - mount none -t tmpfs -o size=2G "${TEST_TMP_DIR}"
     - go version
   script:
     # Create the build directory for the unprivileged user that we're running
@@ -305,9 +310,8 @@ test:fips:
     <<: *test_variables
     CACHE_PREFIX: ubi-${UBI_VERSION}
   before_script:
-    - test "$(cat /proc/sys/crypto/fips_enabled)" = "1" || (echo "System is not running in FIPS mode" && exit 1)
-    - chmod +t /tmp
     - *test_before_script
+    - test "$(cat /proc/sys/crypto/fips_enabled)" = "1" || (echo "System is not running in FIPS mode" && exit 1)
   parallel:
     matrix:
       - TEST_TARGET: [ test, test-with-praefect ]
