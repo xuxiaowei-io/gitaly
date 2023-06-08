@@ -43,10 +43,11 @@ linters:
 
 linters-settings:
   depguard:
-    list-type: blacklist
-    include-go-root: true
-    packages-with-error-message:
-      - io/ioutil: "ioutil is deprecated starting with Go 1.16"
+    rules:
+      main:
+        deny:
+          - pkg: "io/ioutil"
+            desc: "ioutil is deprecated starting with Go 1.16"
   errcheck:
     # The following are functions for which we are currently not consistently
     # checking returned errors. This is not intended as a list of known-okay
