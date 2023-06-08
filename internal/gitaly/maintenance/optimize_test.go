@@ -107,7 +107,7 @@ func TestOptimizeReposRandomly(t *testing.T) {
 				t:   t,
 				cfg: cfg,
 			}
-			walker := OptimizeReposRandomly(cfg.Storages, mo, ticker, rand.New(rand.NewSource(1)))
+			walker := OptimizeReposRandomly(cfg, mo, ticker, rand.New(rand.NewSource(1)))
 
 			require.NoError(t, walker(ctx, testhelper.NewDiscardingLogEntry(t), tc.storages))
 			require.ElementsMatch(t, tc.expected, mo.actual)

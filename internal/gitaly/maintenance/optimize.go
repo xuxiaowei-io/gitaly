@@ -87,7 +87,7 @@ func DailyOptimizationWorker(cfg config.Cfg, optimizer Optimizer) WorkerFunc {
 			l,
 			cfg.DailyMaintenance,
 			OptimizeReposRandomly(
-				cfg.Storages,
+				cfg,
 				optimizer,
 				helper.NewTimerTicker(1*time.Second),
 				rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -96,28 +96,23 @@ func DailyOptimizationWorker(cfg config.Cfg, optimizer Optimizer) WorkerFunc {
 	}
 }
 
-func optimizeRepoAtPath(ctx context.Context, l logrus.FieldLogger, s config.Storage, absPath string, o Optimizer) error {
-	relPath, err := filepath.Rel(s.Path, absPath)
-	if err != nil {
-		return err
-	}
-
-	repo := &gitalypb.Repository{
-		StorageName:  s.Name,
-		RelativePath: relPath,
-	}
-
+func optimizeRepo(
+	ctx context.Context,
+	l logrus.FieldLogger,
+	o Optimizer,
+	repo *gitalypb.Repository,
+) error {
 	start := time.Now()
 	logEntry := l.WithFields(map[string]interface{}{
-		"relative_path": relPath,
-		"storage":       s.Name,
+		"relative_path": repo.GetRelativePath(),
+		"storage":       repo.GetStorageName(),
 		"source":        "maintenance.daily",
 		"start_time":    start.UTC(),
 	})
 
 	ctx = ctxlogrus.ToContext(ctx, logEntry)
 
-	err = o.OptimizeRepository(ctx, repo)
+	err := o.OptimizeRepository(ctx, repo)
 	logEntry = logEntry.WithField("time_ms", time.Since(start).Milliseconds())
 
 	if err != nil {
@@ -148,7 +143,21 @@ func walkReposShuffled(
 			return err
 		}
 
-		if !fi.IsDir() || storage.ValidateRepository(path) != nil {
+		if !fi.IsDir() {
+			continue
+		}
+
+		relativeRepoPath, err := filepath.Rel(s.Path, path)
+		if err != nil {
+			return err
+		}
+
+		repo := &gitalypb.Repository{
+			StorageName:  s.Name,
+			RelativePath: relativeRepoPath,
+		}
+
+		if storage.ValidateRepository(path) != nil {
 			continue
 		}
 		walker.skipDir()
@@ -165,7 +174,7 @@ func walkReposShuffled(
 		// directory hierarchy takes some time, too, but it should be good enough for now.
 		ticker.Reset()
 
-		if err := optimizeRepoAtPath(ctx, l, s, path, o); err != nil {
+		if err := optimizeRepo(ctx, l, o, repo); err != nil {
 			return err
 		}
 	}
@@ -179,7 +188,7 @@ func walkReposShuffled(
 //
 // Any errors during the optimization will be logged. Any other errors will be returned and cause
 // the walk to end prematurely.
-func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, ticker helper.Ticker, rand *rand.Rand) StoragesJob {
+func OptimizeReposRandomly(cfg config.Cfg, optimizer Optimizer, ticker helper.Ticker, rand *rand.Rand) StoragesJob {
 	return func(ctx context.Context, l logrus.FieldLogger, enabledStorageNames []string) error {
 		enabledNames := map[string]struct{}{}
 		for _, sName := range enabledStorageNames {
@@ -191,7 +200,7 @@ func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, ticke
 		ticker.Reset()
 		defer ticker.Stop()
 
-		for _, storage := range shuffledStoragesCopy(rand, storages) {
+		for _, storage := range shuffledStoragesCopy(rand, cfg.Storages) {
 			if _, ok := enabledNames[storage.Name]; !ok {
 				continue // storage not enabled
 			}
