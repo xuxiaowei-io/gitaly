@@ -188,162 +188,187 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 
 	date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
 
+	type setupData struct {
+		expectedError error
+		expectedInfo  RepositoryInfo
+	}
+
 	for _, tc := range []struct {
-		desc         string
-		setup        func(t *testing.T, repoPath string)
-		expectedErr  error
-		expectedInfo RepositoryInfo
+		desc  string
+		setup func(t *testing.T, repoPath string) setupData
 	}{
 		{
 			desc: "empty repository",
-			setup: func(*testing.T, string) {
+			setup: func(*testing.T, string) setupData {
+				return setupData{}
 			},
 		},
 		{
 			desc: "single blob",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
-			},
-			expectedInfo: RepositoryInfo{
-				LooseObjects: LooseObjectsInfo{
-					Count: 1,
-					Size:  16,
-				},
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						LooseObjects: LooseObjectsInfo{
+							Count: 1,
+							Size:  16,
+						},
+					},
+				}
 			},
 		},
 		{
 			desc: "single packed blob",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// We use `-d`, which also prunes objects that have been packed.
 				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-Ad")
-			},
-			expectedInfo: RepositoryInfo{
-				Packfiles: PackfilesInfo{
-					Count:             1,
-					Size:              hashDependentSize(t, 42, 54),
-					ReverseIndexCount: 1,
-					Bitmap: BitmapInfo{
-						Exists:       true,
-						Version:      1,
-						HasHashCache: true,
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						Packfiles: PackfilesInfo{
+							Count:             1,
+							Size:              hashDependentSize(t, 42, 54),
+							ReverseIndexCount: 1,
+							Bitmap: BitmapInfo{
+								Exists:       true,
+								Version:      1,
+								HasHashCache: true,
+							},
+						},
+						References: ReferencesInfo{
+							LooseReferencesCount: 1,
+						},
 					},
-				},
-				References: ReferencesInfo{
-					LooseReferencesCount: 1,
-				},
+				}
 			},
 		},
 		{
 			desc: "single pruneable blob",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// This time we don't use `-d`, so the object will exist both in
 				// loose and packed form.
 				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-a")
-			},
-			expectedInfo: RepositoryInfo{
-				LooseObjects: LooseObjectsInfo{
-					Count: 1,
-					Size:  16,
-				},
-				Packfiles: PackfilesInfo{
-					Count:             1,
-					Size:              hashDependentSize(t, 42, 54),
-					ReverseIndexCount: 1,
-					Bitmap: BitmapInfo{
-						Exists:       true,
-						Version:      1,
-						HasHashCache: true,
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						LooseObjects: LooseObjectsInfo{
+							Count: 1,
+							Size:  16,
+						},
+						Packfiles: PackfilesInfo{
+							Count:             1,
+							Size:              hashDependentSize(t, 42, 54),
+							ReverseIndexCount: 1,
+							Bitmap: BitmapInfo{
+								Exists:       true,
+								Version:      1,
+								HasHashCache: true,
+							},
+						},
+						References: ReferencesInfo{
+							LooseReferencesCount: 1,
+						},
 					},
-				},
-				References: ReferencesInfo{
-					LooseReferencesCount: 1,
-				},
+				}
 			},
 		},
 		{
 			desc: "garbage",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				garbagePath := filepath.Join(repoPath, "objects", "pack", "garbage")
 				require.NoError(t, os.WriteFile(garbagePath, []byte("x"), perm.PrivateFile))
-			},
-			expectedInfo: RepositoryInfo{
-				Packfiles: PackfilesInfo{
-					GarbageCount: 1,
-					GarbageSize:  1,
-				},
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						Packfiles: PackfilesInfo{
+							GarbageCount: 1,
+							GarbageSize:  1,
+						},
+					},
+				}
 			},
 		},
 		{
 			desc: "alternates",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				writeFileWithMtime(t,
 					filepath.Join(repoPath, "objects", "info", "alternates"),
 					[]byte(alternatePath),
 					date,
 				)
-			},
-			expectedInfo: RepositoryInfo{
-				Alternates: AlternatesInfo{
-					Exists: true,
-					ObjectDirectories: []string{
-						alternatePath,
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						Alternates: AlternatesInfo{
+							Exists: true,
+							ObjectDirectories: []string{
+								alternatePath,
+							},
+							LastModified: date,
+						},
 					},
-					LastModified: date,
-				},
+				}
 			},
 		},
 		{
 			desc: "non-split commit-graph without bloom filter and generation data",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
 					"commit-graph", "write", "--reachable",
 				)
-			},
-			expectedInfo: RepositoryInfo{
-				LooseObjects: LooseObjectsInfo{
-					Count: 2,
-					Size:  hashDependentSize(t, 142, 158),
-				},
-				References: ReferencesInfo{
-					LooseReferencesCount: 1,
-				},
-				CommitGraph: CommitGraphInfo{
-					Exists: true,
-				},
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						LooseObjects: LooseObjectsInfo{
+							Count: 2,
+							Size:  hashDependentSize(t, 142, 158),
+						},
+						References: ReferencesInfo{
+							LooseReferencesCount: 1,
+						},
+						CommitGraph: CommitGraphInfo{
+							Exists: true,
+						},
+					},
+				}
 			},
 		},
 		{
 			desc: "non-split commit-graph with bloom filter and no generation data",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
 					"commit-graph", "write", "--reachable", "--changed-paths",
 				)
-			},
-			expectedInfo: RepositoryInfo{
-				LooseObjects: LooseObjectsInfo{
-					Count: 2,
-					Size:  hashDependentSize(t, 142, 158),
-				},
-				References: ReferencesInfo{
-					LooseReferencesCount: 1,
-				},
-				CommitGraph: CommitGraphInfo{
-					Exists:          true,
-					HasBloomFilters: true,
-				},
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						LooseObjects: LooseObjectsInfo{
+							Count: 2,
+							Size:  hashDependentSize(t, 142, 158),
+						},
+						References: ReferencesInfo{
+							LooseReferencesCount: 1,
+						},
+						CommitGraph: CommitGraphInfo{
+							Exists:          true,
+							HasBloomFilters: true,
+						},
+					},
+				}
 			},
 		},
 		{
 			desc: "non-split commit-graph with bloom filters and generation data",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c",
@@ -353,37 +378,43 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					"--reachable",
 					"--changed-paths",
 				)
-			},
-			expectedInfo: RepositoryInfo{
-				LooseObjects: LooseObjectsInfo{
-					Count: 2,
-					Size:  hashDependentSize(t, 142, 158),
-				},
-				References: ReferencesInfo{
-					LooseReferencesCount: 1,
-				},
-				CommitGraph: CommitGraphInfo{
-					Exists:            true,
-					HasBloomFilters:   true,
-					HasGenerationData: true,
-				},
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						LooseObjects: LooseObjectsInfo{
+							Count: 2,
+							Size:  hashDependentSize(t, 142, 158),
+						},
+						References: ReferencesInfo{
+							LooseReferencesCount: 1,
+						},
+						CommitGraph: CommitGraphInfo{
+							Exists:            true,
+							HasBloomFilters:   true,
+							HasGenerationData: true,
+						},
+					},
+				}
 			},
 		},
 		{
 			desc: "last full repack timestamp",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				timestampPath := filepath.Join(repoPath, fullRepackTimestampFilename)
 				writeFileWithMtime(t, timestampPath, nil, date)
-			},
-			expectedInfo: RepositoryInfo{
-				Packfiles: PackfilesInfo{
-					LastFullRepack: time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local),
-				},
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						Packfiles: PackfilesInfo{
+							LastFullRepack: time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local),
+						},
+					},
+				}
 			},
 		},
 		{
 			desc: "all together",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repoPath string) setupData {
 				writeFileWithMtime(t,
 					filepath.Join(repoPath, "objects", "info", "alternates"),
 					[]byte(alternatePath),
@@ -405,34 +436,37 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					garbagePath := filepath.Join(repoPath, "objects", "pack", file)
 					require.NoError(t, os.WriteFile(garbagePath, []byte("x"), perm.PrivateFile))
 				}
-			},
-			expectedInfo: RepositoryInfo{
-				LooseObjects: LooseObjectsInfo{
-					Count: 2,
-					Size:  32,
-				},
-				Packfiles: PackfilesInfo{
-					Count:             1,
-					Size:              hashDependentSize(t, 42, 54),
-					ReverseIndexCount: 1,
-					GarbageCount:      3,
-					GarbageSize:       3,
-					Bitmap: BitmapInfo{
-						Exists:       true,
-						Version:      1,
-						HasHashCache: true,
+
+				return setupData{
+					expectedInfo: RepositoryInfo{
+						LooseObjects: LooseObjectsInfo{
+							Count: 2,
+							Size:  32,
+						},
+						Packfiles: PackfilesInfo{
+							Count:             1,
+							Size:              hashDependentSize(t, 42, 54),
+							ReverseIndexCount: 1,
+							GarbageCount:      3,
+							GarbageSize:       3,
+							Bitmap: BitmapInfo{
+								Exists:       true,
+								Version:      1,
+								HasHashCache: true,
+							},
+						},
+						References: ReferencesInfo{
+							LooseReferencesCount: 1,
+						},
+						Alternates: AlternatesInfo{
+							Exists: true,
+							ObjectDirectories: []string{
+								alternatePath,
+							},
+							LastModified: date,
+						},
 					},
-				},
-				References: ReferencesInfo{
-					LooseReferencesCount: 1,
-				},
-				Alternates: AlternatesInfo{
-					Exists: true,
-					ObjectDirectories: []string{
-						alternatePath,
-					},
-					LastModified: date,
-				},
+				}
 			},
 		},
 	} {
@@ -442,11 +476,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			tc.setup(t, repoPath)
+			setup := tc.setup(t, repoPath)
 
 			repoInfo, err := RepositoryInfoForRepository(repo)
-			require.Equal(t, tc.expectedErr, err)
-			require.Equal(t, tc.expectedInfo, repoInfo)
+			require.Equal(t, setup.expectedError, err)
+			require.Equal(t, setup.expectedInfo, repoInfo)
 		})
 	}
 }
