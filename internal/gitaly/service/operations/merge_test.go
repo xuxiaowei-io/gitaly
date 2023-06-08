@@ -1468,8 +1468,17 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 
 func TestUserMergeToRef_successful(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.MergeToRefWithGit,
+	).Run(
+		t,
+		testUserMergeToRefSuccessful,
+	)
+}
+
+func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1572,7 +1581,18 @@ func TestUserMergeToRef_successful(t *testing.T) {
 
 func TestUserMergeToRef_conflicts(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.MergeToRefWithGit,
+	).Run(
+		t,
+		testUserMergeToRefConflicts,
+	)
+}
+
+func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1614,7 +1634,18 @@ func buildUserMergeToRefRequest(tb testing.TB, cfg config.Cfg, repo *gitalypb.Re
 
 func TestUserMergeToRef_stableMergeID(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.MergeToRefWithGit,
+	).Run(
+		t,
+		testUserMergeToRefStableMergeID,
+	)
+}
+
+func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1760,7 +1791,18 @@ func TestUserMergeToRef_failure(t *testing.T) {
 
 func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.MergeToRefWithGit,
+	).Run(
+		t,
+		testUserMergeToRefIgnoreHooksRequest,
+	)
+}
+
+func testUserMergeToRefIgnoreHooksRequest(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 

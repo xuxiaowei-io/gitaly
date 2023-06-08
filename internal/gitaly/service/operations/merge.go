@@ -9,6 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
@@ -440,18 +441,31 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, structerr.NewInternal("could not read target reference: %w", err)
 	}
 
-	// Now, we create the merge commit...
-	mergeCommitID, err := s.mergeWithGit2Go(
-		ctx,
-		repo,
-		repoPath,
-		string(request.User.Name),
-		string(request.User.Email),
-		authorDate,
-		string(request.Message),
-		oid.String(),
-		sourceOID.String(),
-	)
+	var mergeCommitID string
+	if featureflag.MergeToRefWithGit.IsEnabled(ctx) {
+		mergeCommitID, err = s.merge(
+			ctx,
+			repo,
+			string(request.User.Name),
+			string(request.User.Email),
+			authorDate,
+			string(request.Message),
+			oid.String(),
+			sourceOID.String(),
+		)
+	} else {
+		mergeCommitID, err = s.mergeWithGit2Go(
+			ctx,
+			repo,
+			repoPath,
+			string(request.User.Name),
+			string(request.User.Email),
+			authorDate,
+			string(request.Message),
+			oid.String(),
+			sourceOID.String(),
+		)
+	}
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).WithFields(
 			logrus.Fields{
