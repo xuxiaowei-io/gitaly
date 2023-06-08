@@ -126,6 +126,7 @@ func optimizeRepo(
 
 func walkReposShuffled(
 	ctx context.Context,
+	locator storage.Locator,
 	walker *randomWalker,
 	l logrus.FieldLogger,
 	s config.Storage,
@@ -157,7 +158,7 @@ func walkReposShuffled(
 			RelativePath: relativeRepoPath,
 		}
 
-		if storage.ValidateRepository(path) != nil {
+		if locator.ValidateRepository(path) != nil {
 			continue
 		}
 		walker.skipDir()
@@ -195,6 +196,8 @@ func OptimizeReposRandomly(cfg config.Cfg, optimizer Optimizer, ticker helper.Ti
 			enabledNames[sName] = struct{}{}
 		}
 
+		locator := config.NewLocator(cfg)
+
 		visitedPaths := map[string]bool{}
 
 		ticker.Reset()
@@ -214,7 +217,7 @@ func OptimizeReposRandomly(cfg config.Cfg, optimizer Optimizer, ticker helper.Ti
 
 			walker := newRandomWalker(storage.Path, rand)
 
-			if err := walkReposShuffled(ctx, walker, l, storage, optimizer, ticker); err != nil {
+			if err := walkReposShuffled(ctx, locator, walker, l, storage, optimizer, ticker); err != nil {
 				l.WithError(err).
 					WithField("storage_path", storage.Path).
 					Errorf("maintenance: unable to completely walk storage")

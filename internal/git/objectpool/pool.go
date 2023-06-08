@@ -37,6 +37,7 @@ var (
 type ObjectPool struct {
 	*localrepo.Repo
 
+	locator             storage.Locator
 	gitCmdFactory       git.CommandFactory
 	txManager           transaction.Manager
 	housekeepingManager housekeeping.Manager
@@ -73,6 +74,7 @@ func FromProto(
 
 	pool := &ObjectPool{
 		Repo:                localrepo.New(locator, gitCmdFactory, catfileCache, proto.GetRepository()),
+		locator:             locator,
 		gitCmdFactory:       gitCmdFactory,
 		txManager:           txManager,
 		housekeepingManager: housekeepingManager,
@@ -117,7 +119,7 @@ func (o *ObjectPool) IsValid() bool {
 		return false
 	}
 
-	return storage.ValidateRepository(path) == nil
+	return o.locator.ValidateRepository(path) == nil
 }
 
 // Remove will remove the pool, and all its contents without preparing and/or
@@ -166,7 +168,7 @@ func FromRepo(
 		return nil, err
 	}
 
-	if storage.ValidateRepository(filepath.Dir(absolutePoolObjectDirPath)) != nil {
+	if locator.ValidateRepository(filepath.Dir(absolutePoolObjectDirPath)) != nil {
 		return nil, ErrInvalidPoolRepository
 	}
 

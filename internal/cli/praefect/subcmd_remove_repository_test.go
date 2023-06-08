@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gitalycfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -36,6 +35,8 @@ func TestRemoveRepositorySubcommand(t *testing.T) {
 
 	g1Addr := testserver.RunGitalyServer(t, g1Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
 	g2Srv := testserver.StartGitalyServer(t, g2Cfg, setup.RegisterAll, testserver.WithDisablePraefect())
+
+	g1Locator := gitalycfg.NewLocator(g1Cfg)
 
 	db := testdb.New(t)
 
@@ -188,8 +189,8 @@ func TestRemoveRepositorySubcommand(t *testing.T) {
 				require.NoError(t, err)
 				require.False(t, repositoryExists(t, repo))
 				// Repo is still present on-disk on the Gitaly nodes.
-				require.NoError(t, storage.ValidateRepository(filepath.Join(g1Cfg.Storages[0].Path, replicaPath)))
-				require.NoError(t, storage.ValidateRepository(filepath.Join(g2Cfg.Storages[0].Path, replicaPath)))
+				require.NoError(t, g1Locator.ValidateRepository(filepath.Join(g1Cfg.Storages[0].Path, replicaPath)))
+				require.NoError(t, g1Locator.ValidateRepository(filepath.Join(g2Cfg.Storages[0].Path, replicaPath)))
 			},
 			assertOutput: func(t *testing.T, out string, repo *gitalypb.Repository) {
 				assert.Contains(t, out, "Repository found in the database.\n")

@@ -44,7 +44,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		return nil, structerr.NewInternal("%w", err)
 	}
 
-	if err := storage.ValidateRepository(repoPath); err != nil {
+	if err := s.locator.ValidateRepository(repoPath); err != nil {
 		if err = s.create(ctx, in, repoPath); err != nil {
 			if errors.Is(err, ErrInvalidSourceRepository) {
 				return nil, ErrInvalidSourceRepository

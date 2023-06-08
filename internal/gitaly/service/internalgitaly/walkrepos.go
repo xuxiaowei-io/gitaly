@@ -46,7 +46,7 @@ func walkStorage(
 			// keep walking
 		}
 
-		if storage.ValidateRepository(path) == nil {
+		if locator.ValidateRepository(path) == nil {
 			relPath, err := filepath.Rel(storagePath, path)
 			if err != nil {
 				return err

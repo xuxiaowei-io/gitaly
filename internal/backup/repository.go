@@ -268,7 +268,7 @@ func (r *localRepository) IsEmpty(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("local repository: is empty: %w", err)
 	}
 
-	if err := storage.ValidateRepository(path); err != nil {
+	if err := r.locator.ValidateRepository(path); err != nil {
 		if errors.Is(err, storage.ErrRepositoryNotFound) {
 			// Backups do not currently differentiate between non-existent and
 			// empty. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -20,6 +21,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	locator := config.NewLocator(cfg)
 	originalRepo, originalPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, originalPath)
 
@@ -52,7 +54,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	}
 
 	require.DirExists(t, newDirectory)
-	require.NoError(t, storage.ValidateRepository(newDirectory), "moved Git repository has been corrupted")
+	require.NoError(t, locator.ValidateRepository(newDirectory), "moved Git repository has been corrupted")
 	// ensure the git directory that got renamed contains the original commit.
 	gittest.RequireObjectExists(t, cfg, newDirectory, commitID)
 }

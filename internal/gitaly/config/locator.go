@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -31,6 +32,48 @@ func NewLocator(conf Cfg) storage.Locator {
 
 type configLocator struct {
 	conf Cfg
+}
+
+// ValidateRepository validates whether the given path points to a valid Git repository. This
+// function returns:
+//
+// - ErrRepositoryNotFound when the path cannot be found.
+// - ErrRepositoryNotValid when the repository is not a valid Git repository.
+// - An unspecified error when stat(3P)ing files fails due to other reasons.
+func (l *configLocator) ValidateRepository(path string) error {
+	if path == "" {
+		return structerr.NewInvalidArgument("repository path is empty")
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return structerr.NewNotFound("%w", storage.ErrRepositoryNotFound).WithMetadata("repository_path", path)
+		}
+
+		return structerr.New("statting repository: %w", err).WithMetadata("repository_path", path)
+	}
+
+	for _, element := range []string{"objects", "refs", "HEAD"} {
+		if _, err := os.Stat(filepath.Join(path, element)); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, element).WithMetadata("repository_path", path)
+			}
+
+			return structerr.New("statting %q: %w", element, err).WithMetadata("repository_path", path)
+		}
+	}
+
+	// See: https://gitlab.com/gitlab-org/gitaly/issues/1339
+	//
+	// This is a workaround for Gitaly running on top of an NFS mount. There
+	// is a Linux NFS v4.0 client bug where opening the packed-refs file can
+	// either result in a stale file handle or stale data. This can happen if
+	// git gc runs for a long time while keeping open the packed-refs file.
+	// Running stat() on the file causes the kernel to revalidate the cached
+	// directory entry. We don't actually care if this file exists.
+	_, _ = os.Stat(filepath.Join(path, "packed-refs"))
+
+	return nil
 }
 
 // GetRepoPath returns the full path of the repository referenced by an RPC Repository message.
@@ -69,7 +112,7 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 	repoPath := filepath.Join(storagePath, relativePath)
 
 	if !cfg.SkipRepositoryVerification {
-		if err := storage.ValidateRepository(repoPath); err != nil {
+		if err := l.ValidateRepository(repoPath); err != nil {
 			return "", err
 		}
 	}
