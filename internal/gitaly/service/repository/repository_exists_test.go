@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -40,7 +40,7 @@ func TestRepositoryExists(t *testing.T) {
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: nil,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyRepository.Error(), "missing repository")),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(storage.ErrRepositoryNotSet.Error(), "missing repository")),
 		},
 		{
 			desc: "storage name empty",
@@ -50,7 +50,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyStorageName.Error(), "repository missing storage name")),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(storage.ErrStorageNotSet.Error(), "repository missing storage name")),
 		},
 		{
 			desc: "relative path empty",
@@ -60,7 +60,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: "",
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyRelativePath.Error(), "repository missing relative path")),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(storage.ErrRepositoryPathNotSet.Error(), "repository missing relative path")),
 		},
 		{
 			desc: "exists true",

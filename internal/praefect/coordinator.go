@@ -10,7 +10,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -1149,13 +1148,13 @@ func (c *Coordinator) newRequestFinalizer(
 
 func (c *Coordinator) validateTargetRepo(repo *gitalypb.Repository) error {
 	if repo.GetStorageName() == "" || repo.GetRelativePath() == "" {
-		return gitalyerrors.ErrInvalidRepository
+		return storage.ErrInvalidRepository
 	}
 
 	if _, found := c.conf.StorageNames()[repo.StorageName]; !found {
 		// this needs to be nodes.ErrVirtualStorageNotExist error, but it will break
 		// existing API contract as praefect should be a transparent proxy of the gitaly
-		return gitalyerrors.ErrInvalidRepository
+		return storage.ErrInvalidRepository
 	}
 
 	return nil

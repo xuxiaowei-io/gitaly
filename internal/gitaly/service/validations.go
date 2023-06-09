@@ -3,7 +3,7 @@ package service
 import (
 	"strings"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -11,13 +11,13 @@ import (
 // all the required fields are set.
 func ValidateRepository(repository *gitalypb.Repository) error {
 	if repository == nil {
-		return gitalyerrors.ErrEmptyRepository
+		return storage.ErrRepositoryNotSet
 	}
 	if strings.TrimSpace(repository.GetStorageName()) == "" {
-		return gitalyerrors.ErrEmptyStorageName
+		return storage.ErrStorageNotSet
 	}
 	if strings.TrimSpace(repository.GetRelativePath()) == "" {
-		return gitalyerrors.ErrEmptyRelativePath
+		return storage.ErrRepositoryPathNotSet
 	}
 	return nil
 }
