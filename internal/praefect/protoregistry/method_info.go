@@ -86,8 +86,8 @@ func (mi MethodInfo) FullMethodName() string {
 	return mi.fullMethodName
 }
 
-// ErrTargetRepoMissing indicates that the target repo is missing or not set
-var ErrTargetRepoMissing = errors.New("empty Repository")
+// ErrRepositoryFieldNotFound indicates that the repository field could not be found.
+var ErrRepositoryFieldNotFound = errors.New("repository field not found")
 
 func (mi MethodInfo) getRepo(msg proto.Message, extensionType protoreflect.ExtensionType) (*gitalypb.Repository, error) {
 	if mi.requestName != string(proto.MessageName(msg)) {
@@ -100,7 +100,7 @@ func (mi MethodInfo) getRepo(msg proto.Message, extensionType protoreflect.Exten
 	field, err := findFieldByExtension(msg, extensionType)
 	if err != nil {
 		if errors.Is(err, errFieldNotFound) {
-			return nil, ErrTargetRepoMissing
+			return nil, ErrRepositoryFieldNotFound
 		}
 
 		return nil, err
@@ -116,7 +116,7 @@ func (mi MethodInfo) getRepo(msg proto.Message, extensionType protoreflect.Exten
 	case *gitalypb.ObjectPool:
 		repo := fieldMsg.GetRepository()
 		if repo == nil {
-			return nil, ErrTargetRepoMissing
+			return nil, ErrRepositoryFieldNotFound
 		}
 
 		return repo, nil

@@ -52,15 +52,15 @@ func TestMethodInfo_getRepo(t *testing.T) {
 				Repository: testRepos[0],
 			},
 			expectRepo:          testRepos[0],
-			expectAdditionalErr: ErrTargetRepoMissing,
+			expectAdditionalErr: ErrRepositoryFieldNotFound,
 		},
 		{
 			desc:                "unset oneof",
 			svc:                 "OperationService",
 			method:              "UserCommitFiles",
 			pbMsg:               &gitalypb.UserCommitFilesRequest{},
-			expectErr:           ErrTargetRepoMissing,
-			expectAdditionalErr: ErrTargetRepoMissing,
+			expectErr:           ErrRepositoryFieldNotFound,
+			expectAdditionalErr: ErrRepositoryFieldNotFound,
 		},
 		{
 			desc:   "unset value in oneof",
@@ -69,8 +69,8 @@ func TestMethodInfo_getRepo(t *testing.T) {
 			pbMsg: &gitalypb.UserCommitFilesRequest{
 				UserCommitFilesRequestPayload: &gitalypb.UserCommitFilesRequest_Header{},
 			},
-			expectErr:           ErrTargetRepoMissing,
-			expectAdditionalErr: ErrTargetRepoMissing,
+			expectErr:           ErrRepositoryFieldNotFound,
+			expectAdditionalErr: ErrRepositoryFieldNotFound,
 		},
 		{
 			desc:   "unset repository in oneof",
@@ -81,8 +81,8 @@ func TestMethodInfo_getRepo(t *testing.T) {
 					Header: &gitalypb.UserCommitFilesRequestHeader{},
 				},
 			},
-			expectErr:           ErrTargetRepoMissing,
-			expectAdditionalErr: ErrTargetRepoMissing,
+			expectErr:           ErrRepositoryFieldNotFound,
+			expectAdditionalErr: ErrRepositoryFieldNotFound,
 		},
 		{
 			desc:   "target nested in oneOf",
@@ -96,7 +96,7 @@ func TestMethodInfo_getRepo(t *testing.T) {
 				},
 			},
 			expectRepo:          testRepos[1],
-			expectAdditionalErr: ErrTargetRepoMissing,
+			expectAdditionalErr: ErrRepositoryFieldNotFound,
 		},
 		{
 			desc:   "target nested, includes additional repository",
@@ -114,8 +114,8 @@ func TestMethodInfo_getRepo(t *testing.T) {
 			svc:                 "RepositoryService",
 			method:              "OptimizeRepository",
 			pbMsg:               &gitalypb.OptimizeRepositoryRequest{Repository: nil},
-			expectErr:           ErrTargetRepoMissing,
-			expectAdditionalErr: ErrTargetRepoMissing,
+			expectErr:           ErrRepositoryFieldNotFound,
+			expectAdditionalErr: ErrRepositoryFieldNotFound,
 		},
 	}
 
@@ -394,7 +394,7 @@ func BenchmarkMethodInfo(b *testing.B) {
 			request: &gitalypb.OptimizeRepositoryRequest{
 				Repository: nil,
 			},
-			expectedErr: ErrTargetRepoMissing,
+			expectedErr: ErrRepositoryFieldNotFound,
 		},
 		{
 			desc:   "target repository",
