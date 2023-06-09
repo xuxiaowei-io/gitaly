@@ -37,7 +37,12 @@ func fixedLockKey(ctx context.Context) string {
 func TestUnaryLimitHandler(t *testing.T) {
 	t.Parallel()
 
-	s := &server{blockCh: make(chan struct{})}
+	s := &queueTestServer{
+		server: server{
+			blockCh: make(chan struct{}),
+		},
+		reqArrivedCh: make(chan struct{}),
+	}
 
 	cfg := config.Cfg{
 		Concurrency: []config.Concurrency{
@@ -55,6 +60,8 @@ func TestUnaryLimitHandler(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	var wg sync.WaitGroup
+	defer wg.Wait()
+
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
@@ -68,12 +75,27 @@ func TestUnaryLimitHandler(t *testing.T) {
 		}()
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	// As we have a concurrency limit of two we should be able to serve two requests.
+	<-s.reqArrivedCh
+	<-s.reqArrivedCh
 
-	require.Equal(t, 2, s.getRequestCount())
+	// On the other hand, we shouldn't allow any further requests than that. As we cannot test
+	// for something to not happen deterministically, we simply do a best-effort and verify that
+	// no additional requests arrive in the next 100 milliseconds.
+	select {
+	case <-s.reqArrivedCh:
+		require.FailNow(t, "received unexpected third request")
+	case <-time.After(100 * time.Millisecond):
+	}
 
+	// Unblock all requests.
 	close(s.blockCh)
-	wg.Wait()
+
+	// With requests unblocked, we should now also be able to observe the remaining eight queued
+	// calls.
+	for i := 0; i < 8; i++ {
+		<-s.reqArrivedCh
+	}
 }
 
 func TestUnaryLimitHandler_queueing(t *testing.T) {
