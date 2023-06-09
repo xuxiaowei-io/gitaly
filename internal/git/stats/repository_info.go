@@ -497,6 +497,23 @@ type AlternatesInfo struct {
 	// LastModified is the time when the alternates file has last been modified. Has the zero
 	// value when the alternates file doesn't exist.
 	LastModified time.Time `json:"last_modified"`
+	// repoPath is the path to the repository that corresponds with the alternates file. It is only
+	// used when converting the object directory paths to be absolute, thus it is not exposed.
+	repoPath string
+}
+
+// AbsoluteObjectDirectories converts AlternatesInfo ObjectDirectories to absolute paths.
+func (a AlternatesInfo) AbsoluteObjectDirectories() []string {
+	alternatePaths := make([]string, 0, len(a.ObjectDirectories))
+	for _, path := range a.ObjectDirectories {
+		if filepath.IsAbs(path) {
+			alternatePaths = append(alternatePaths, path)
+		} else {
+			alternatePaths = append(alternatePaths, filepath.Join(a.repoPath, "objects", path))
+		}
+	}
+
+	return alternatePaths
 }
 
 // AlternatesInfoForRepository reads the alternates file and returns information on it. This
@@ -533,13 +550,7 @@ func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
 			// Lines starting with a '#' are comments and thus need to be skipped.
 			continue
 		default:
-			path := scanner.Text()
-
-			if filepath.IsAbs(path) {
-				alternatePaths = append(alternatePaths, path)
-			} else {
-				alternatePaths = append(alternatePaths, filepath.Join(repoPath, "objects", path))
-			}
+			alternatePaths = append(alternatePaths, scanner.Text())
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -550,6 +561,7 @@ func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
 		Exists:            true,
 		ObjectDirectories: alternatePaths,
 		LastModified:      stat.ModTime(),
+		repoPath:          repoPath,
 	}, nil
 }
 
