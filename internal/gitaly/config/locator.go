@@ -60,7 +60,7 @@ func (l *configLocator) ValidateRepository(repo storage.Repository, opts ...stor
 
 	relativePath := repo.GetRelativePath()
 	if len(relativePath) == 0 {
-		return structerr.NewInvalidArgument("relative path is not set")
+		return structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet)
 	}
 
 	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {

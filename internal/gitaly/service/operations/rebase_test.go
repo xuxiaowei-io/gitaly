@@ -808,7 +808,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("empty RelativePath"),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
 			),
 		},

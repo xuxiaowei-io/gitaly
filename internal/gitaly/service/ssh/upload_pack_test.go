@@ -464,7 +464,7 @@ func TestUploadPack_validation(t *testing.T) {
 				},
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("empty RelativePath"),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
 			),
 		},

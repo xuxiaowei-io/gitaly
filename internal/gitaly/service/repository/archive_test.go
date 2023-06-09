@@ -186,7 +186,7 @@ func TestGetArchive(t *testing.T) {
 						Format:   gitalypb.GetArchiveRequest_TAR,
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("empty RelativePath"),
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
 					),
 				},

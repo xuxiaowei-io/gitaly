@@ -37,7 +37,7 @@ var (
 	// ErrRepositoryNotSet is returned when the repository has not been set.
 	ErrRepositoryNotSet = errors.New("empty Repository")
 	// ErrRepositoryPathNotSet is returned when the repository path has not been set.
-	ErrRepositoryPathNotSet = errors.New("empty RelativePath")
+	ErrRepositoryPathNotSet = errors.New("repository path not set")
 	// ErrRepositoryNotFound is returned when operating on a repository that doesn't exist.
 	//
 	// This somewhat duplicates the above RepositoryNotFoundError but doesn't specify which

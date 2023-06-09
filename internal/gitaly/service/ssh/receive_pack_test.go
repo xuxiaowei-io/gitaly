@@ -58,7 +58,7 @@ func TestReceivePack_validation(t *testing.T) {
 				GlId: "user-123",
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("empty RelativePath"),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
 			),
 		},
