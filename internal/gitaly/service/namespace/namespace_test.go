@@ -131,9 +131,7 @@ func TestAddNamespace(t *testing.T) {
 				StorageName: "",
 				Name:        "mepmep",
 			},
-			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-				"%w", storage.NewStorageNotFoundError(""),
-			)),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 	} {
 		tc := tc
@@ -185,9 +183,7 @@ func TestRemoveNamespace(t *testing.T) {
 				StorageName: "",
 				Name:        "mepmep",
 			},
-			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-				"%w", storage.NewStorageNotFoundError(""),
-			)),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 	}
 

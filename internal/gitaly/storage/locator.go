@@ -30,7 +30,7 @@ func NewRepositoryNotFoundError(storageName string, relativePath string) error {
 
 var (
 	// ErrStorageNotSet is returned when the storage name has not been set.
-	ErrStorageNotSet = errors.New("empty StorageName")
+	ErrStorageNotSet = errors.New("storage name not set")
 	// ErrStorageNotFound is returned when operating on a storage that doesn't exist.
 	ErrStorageNotFound = errors.New("storage name not found")
 

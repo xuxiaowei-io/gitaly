@@ -50,9 +50,7 @@ func TestLink(t *testing.T) {
 				Repository: repo,
 				ObjectPool: nil,
 			},
-			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-				"%w", storage.NewStorageNotFoundError(""),
-			)),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 		{
 			desc: "successful",

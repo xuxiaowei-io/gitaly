@@ -139,6 +139,10 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 // GetStorageByName will return the path for the storage, which is fetched by
 // its key. An error is return if it cannot be found.
 func (l *configLocator) GetStorageByName(storageName string) (string, error) {
+	if storageName == "" {
+		return "", structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet)
+	}
+
 	storagePath, ok := l.conf.StoragePath(storageName)
 	if !ok {
 		return "", storage.NewStorageNotFoundError(storageName)

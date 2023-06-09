@@ -261,7 +261,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 			},
 			revision: []byte("master"),
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("empty StorageName"),
+				structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrStorageNotSet),
 			),
 		},

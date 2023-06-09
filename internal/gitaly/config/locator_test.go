@@ -51,7 +51,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "storage is empty",
 			repo:   &gitalypb.Repository{RelativePath: repo.RelativePath},
-			expErr: storage.NewStorageNotFoundError(""),
+			expErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 		{
 			desc:   "unknown storage",

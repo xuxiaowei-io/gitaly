@@ -259,7 +259,7 @@ func TestSearchFilesByName(t *testing.T) {
 				Repository: &gitalypb.Repository{},
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("empty StorageName"),
+				structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrStorageNotSet),
 			),
 		},
