@@ -2,7 +2,6 @@ package storagemgr
 
 import (
 	"bytes"
-	"container/list"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -234,8 +233,6 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 		txn.snapshot.CustomHookPath = filepath.Join(mgr.repositoryPath, repoutil.CustomHooksDir)
 	}
 
-	openTransactionElement := mgr.openTransactions.PushBack(txn)
-
 	mgr.snapshotLocks[txn.snapshot.ReadIndex].activeSnapshotters.Add(1)
 	defer mgr.snapshotLocks[txn.snapshot.ReadIndex].activeSnapshotters.Done()
 	readReady := mgr.snapshotLocks[txn.snapshot.ReadIndex].applied
@@ -243,10 +240,6 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 
 	txn.finish = func() error {
 		defer close(txn.finished)
-
-		mgr.mutex.Lock()
-		mgr.openTransactions.Remove(openTransactionElement)
-		mgr.mutex.Unlock()
 
 		if txn.stagingDirectory != "" {
 			if err := os.RemoveAll(txn.stagingDirectory); err != nil {
@@ -695,9 +688,6 @@ type TransactionManager struct {
 	// admissionQueue is where the incoming writes are waiting to be admitted to the transaction
 	// manager.
 	admissionQueue chan *Transaction
-	// openTransactions contains all transactions that have been begun but not yet committed or rolled back.
-	// The transactions are ordered from the oldest to the newest.
-	openTransactions *list.List
 
 	// initialized is closed when the manager has been initialized. It's used to block new transactions
 	// from beginning prior to the manager having initialized its runtime state on start up.
@@ -755,7 +745,6 @@ func NewTransactionManager(
 		relativePath:         relativePath,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
-		openTransactions:     list.New(),
 		initialized:          make(chan struct{}),
 		snapshotLocks:        make(map[LogIndex]*snapshotLock),
 		stateDirectory:       stateDir,
@@ -1697,61 +1686,7 @@ func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, update
 }
 
 // applyRepositoryDeletion deletes the repository.
-//
-// Given how the repositories are laid out in the storage, we currently can't support MVCC for them.
-// This is because there is only ever a single instance of a given repository.  We have to wait for all
-// of the readers to finish before we can delete the repository as otherwise the readers could fail in
-// unexpected ways and it would be an isolation violation. Repository deletions thus block before all
-// transaction with an older read snapshot are done with the repository.
 func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, index LogIndex) error {
-	for {
-		mgr.mutex.Lock()
-		oldestElement := mgr.openTransactions.Front()
-		mgr.mutex.Unlock()
-		if oldestElement == nil {
-			// If there are no open transactions, the deletion can proceed as there are
-			// no readers.
-			//
-			// Any new transaction would have the deletion in their snapshot, and are waiting
-			// for it to be applied prior to beginning.
-			break
-		}
-
-		oldestTransaction := oldestElement.Value.(*Transaction)
-		if oldestTransaction.snapshot.ReadIndex >= index {
-			// If the oldest transaction is reading at this or later log index, it already has the deletion
-			// in its snapshot, and is waiting for it to be applied. Proceed with the deletion as there
-			// are no readers with the pre-deletion state in the snapshot.
-			break
-		}
-
-		for {
-			select {
-			case <-oldestTransaction.finished:
-				// The oldest transaction finished. Proceed to check the second oldest open transaction.
-			case transaction := <-mgr.admissionQueue:
-				// The oldest transaction could also be waiting to commit. Since the Run goroutine is
-				// blocked here waiting for the transaction to finish, the write would never be admitted
-				// for processing, leading to a deadlock. Since the repository was deleted, the only correct
-				// outcome for the transaction would be to receive a not found error. Admit the transaction,
-				// and finish it with the correct result so we can unblock the deletion.
-				transaction.result <- ErrRepositoryNotFound
-				if err := transaction.finish(); err != nil {
-					return fmt.Errorf("finish transaction: %w", err)
-				}
-
-				continue
-			case <-ctx.Done():
-			}
-
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-
-			break
-		}
-	}
-
 	if err := os.RemoveAll(mgr.repositoryPath); err != nil {
 		return fmt.Errorf("remove repository: %w", err)
 	}

@@ -344,15 +344,6 @@ func TestTransactionManager(t *testing.T) {
 		IncludeObjects []git.ObjectID
 	}
 
-	// AsyncDeletion can be used to commit a repository deletion asynchronously. This is necessary in tests
-	// which test concurrent transactions with repository deletions as deletions are blocking.
-	type AsyncDeletion struct {
-		// TransactionID identifies the transaction to async commit a deletion.
-		TransactionID int
-		// ExpectedError is the error that is expected to be returned when committing the transaction.
-		ExpectedError error
-	}
-
 	// RecordInitialReferenceValues calls RecordInitialReferenceValues on a transaction.
 	type RecordInitialReferenceValues struct {
 		// TransactionID identifies the transaction to prepare the reference updates on.
@@ -3438,8 +3429,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				Commit{
 					TransactionID:    2,
@@ -3464,8 +3456,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				Commit{
 					TransactionID:     2,
@@ -3490,8 +3483,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				Commit{
 					TransactionID: 2,
@@ -3518,8 +3512,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				Commit{
 					TransactionID: 2,
@@ -3703,8 +3698,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				// The concurrent transaction should be able to read the
 				// repository despite the committed deletion.
@@ -4063,8 +4059,9 @@ func TestTransactionManager(t *testing.T) {
 						CustomHookIndex: 1,
 					},
 				},
-				AsyncDeletion{
-					TransactionID: 2,
+				Commit{
+					TransactionID:    2,
+					DeleteRepository: true,
 				},
 				// This transaction was started before the deletion, so it should see the old state regardless
 				// of the repository being deleted.
@@ -4425,26 +4422,6 @@ func TestTransactionManager(t *testing.T) {
 					default:
 						t.Fatalf("unexpected error type: %T", expectedErr)
 					}
-				case AsyncDeletion:
-					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction committed before beginning it")
-
-					transaction := openTransactions[step.TransactionID]
-					transaction.DeleteRepository()
-
-					commitErr := make(chan error)
-					go func() {
-						commitErr <- transaction.Commit(ctx)
-					}()
-					defer func() {
-						require.NoError(t, <-commitErr, "committing async deletion failed")
-					}()
-
-					// The transactions generally don't block each other due to MVCC. Repository deletions are not yet managed via MVCC
-					// and thus block until all other transactions with an older snapshot are finished. In order to test transactions with
-					// concurrent repository deletions, we have to commit the deletions asynchronously. We peek here at the internals to
-					// determine that the deletion has actually been admitted, and is waiting for application to ensure the commit order is always
-					// as expected by the test.
-					<-transaction.admitted
 				case RecordInitialReferenceValues:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: record initial reference value on transaction before beginning it")
 
