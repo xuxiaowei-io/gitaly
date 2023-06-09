@@ -1050,6 +1050,24 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 			},
 		},
 		{
+			desc: "max file count enforcement with collect all paths",
+			request: &gitalypb.CommitDiffRequest{
+				EnforceLimits:   true,
+				MaxFiles:        3,
+				MaxLines:        1000,
+				MaxBytes:        3 * 5 * 1024,
+				MaxPatchBytes:   100000,
+				CollectAllPaths: true,
+			},
+			result: []diffAttributes{
+				{path: "CHANGELOG"},
+				{path: "CONTRIBUTING.md"},
+				{path: "LICENSE"},
+				{path: "PROCESS.md", overflowMarker: true},
+				{path: "VERSION", overflowMarker: true},
+			},
+		},
+		{
 			desc: "max line count enforcement",
 			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
@@ -1062,6 +1080,24 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 				{path: "CHANGELOG"},
 				{path: "CONTRIBUTING.md"},
 				{overflowMarker: true},
+			},
+		},
+		{
+			desc: "max line count enforcement with collect all paths",
+			request: &gitalypb.CommitDiffRequest{
+				EnforceLimits:   true,
+				MaxFiles:        5,
+				MaxLines:        90,
+				MaxBytes:        5 * 5 * 1024,
+				MaxPatchBytes:   100000,
+				CollectAllPaths: true,
+			},
+			result: []diffAttributes{
+				{path: "CHANGELOG"},
+				{path: "CONTRIBUTING.md"},
+				{path: "LICENSE", overflowMarker: true},
+				{path: "PROCESS.md", overflowMarker: true},
+				{path: "VERSION", overflowMarker: true},
 			},
 		},
 		{
@@ -1079,6 +1115,24 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 				{path: "LICENSE"},
 				{path: "PROCESS.md"},
 				{overflowMarker: true},
+			},
+		},
+		{
+			desc: "max byte count enforcement with collect all paths",
+			request: &gitalypb.CommitDiffRequest{
+				EnforceLimits:   true,
+				MaxFiles:        5,
+				MaxLines:        1000,
+				MaxBytes:        6900,
+				MaxPatchBytes:   100000,
+				CollectAllPaths: true,
+			},
+			result: []diffAttributes{
+				{path: "CHANGELOG"},
+				{path: "CONTRIBUTING.md"},
+				{path: "LICENSE"},
+				{path: "PROCESS.md"},
+				{path: "VERSION", overflowMarker: true},
 			},
 		},
 		{
