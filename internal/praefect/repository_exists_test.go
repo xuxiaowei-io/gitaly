@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -34,17 +35,17 @@ func TestRepositoryExistsHandler(t *testing.T) {
 	}{
 		{
 			desc:  "missing repository",
-			error: errMissingRepository,
+			error: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:       "missing storage name",
 			repository: &gitalypb.Repository{RelativePath: "relative-path"},
-			error:      errMissingStorageName,
+			error:      structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 		{
 			desc:       "missing relative path",
 			repository: &gitalypb.Repository{StorageName: "virtual-storage"},
-			error:      errMissingRelativePath,
+			error:      structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 		},
 		{
 			desc:       "invalid virtual storage",

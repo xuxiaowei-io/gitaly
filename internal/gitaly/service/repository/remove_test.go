@@ -51,10 +51,7 @@ func TestRemoveRepository_validate(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, client := setupRepositoryServiceWithoutRepo(t)
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: nil})
-	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-		structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-		structerr.NewInvalidArgument("missing repository"),
-	), err)
+	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 }
 
 func TestRemoveRepository_locking(t *testing.T) {

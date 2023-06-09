@@ -11,8 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestRepositoryExists(t *testing.T) {
@@ -40,7 +38,7 @@ func TestRepositoryExists(t *testing.T) {
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: nil,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(storage.ErrRepositoryNotSet.Error(), "missing repository")),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "storage name empty",
@@ -50,7 +48,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(storage.ErrStorageNotSet.Error(), "repository missing storage name")),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 		{
 			desc: "relative path empty",
@@ -60,7 +58,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: "",
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(storage.ErrRepositoryPathNotSet.Error(), "repository missing relative path")),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 		},
 		{
 			desc: "exists true",
