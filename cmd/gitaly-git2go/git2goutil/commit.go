@@ -20,7 +20,7 @@ func NewCommitSubmitter(repo *git.Repository, signingKeyPath string) *CommitSubm
 	}
 }
 
-// Commit commits a commit with or without OpenPGP signature depends on SigningKeyPath value.
+// Commit commits a commit with or without signature depends on SigningKeyPath value.
 func (cs *CommitSubmitter) Commit(
 	author, committer *git.Signature,
 	messageEncoding git.MessageEncoding,
@@ -33,12 +33,12 @@ func (cs *CommitSubmitter) Commit(
 		return nil, err
 	}
 
-	signature, err := CreateCommitSignature(cs.SigningKeyPath, string(commitBytes))
+	signature, err := CreateCommitSignature(cs.SigningKeyPath, commitBytes)
 	if err != nil {
 		return nil, fmt.Errorf("create commit signature: %w", err)
 	}
 
-	commitID, err := cs.Repo.CreateCommitWithSignature(string(commitBytes), signature, "")
+	commitID, err := cs.Repo.CreateCommitWithSignature(string(commitBytes), string(signature), "")
 	if err != nil {
 		return nil, err
 	}
