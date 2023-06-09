@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -75,8 +77,9 @@ func TestGetConfig(t *testing.T) {
 
 	t.Run("no repository provided", func(t *testing.T) {
 		_, err := getConfig(t, client, nil)
-		msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
-		expectedErr := status.Errorf(codes.InvalidArgument, msg)
-		testhelper.RequireGrpcError(t, expectedErr, err)
+		testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+			structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+		), err)
 	})
 }

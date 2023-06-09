@@ -112,10 +112,10 @@ func TestGetArchive(t *testing.T) {
 						CommitId:   commitID.String(),
 						Format:     gitalypb.GetArchiveRequest_ZIP,
 					},
-					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						"empty Repository",
-						"repo scoped: empty Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					),
 				},
 				{
 					desc: "empty commit ID",

@@ -107,10 +107,10 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 			request: &gitalypb.LastCommitForPathRequest{
 				Revision: []byte("some-branch"),
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "Revision is missing",

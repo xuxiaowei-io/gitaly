@@ -111,10 +111,10 @@ func TestListLastCommitsForTree(t *testing.T) {
 						Repository: nil,
 						Path:       []byte("/"),
 					},
-					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						"empty Repository",
-						"repo scoped: empty Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					),
 				}
 			},
 		},

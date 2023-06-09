@@ -30,11 +30,10 @@ func TestPruneUnreachableObjects(t *testing.T) {
 
 	t.Run("missing repository", func(t *testing.T) {
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{})
-		if testhelper.IsPraefectEnabled() {
-			testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("repo scoped: empty Repository"), err)
-		} else {
-			testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("empty Repository"), err)
-		}
+		testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+			structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+		), err)
 	})
 
 	t.Run("relative path points to removed repository", func(t *testing.T) {

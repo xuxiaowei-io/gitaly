@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -358,7 +357,7 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 		req  *gitalypb.UserRebaseConfirmableRequest
 	}{
 		{
-			desc: "empty Repository",
+			desc: "repository not set",
 			req:  buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "master"),
 		},
 		{
@@ -777,10 +776,10 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
 				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "non-existing storage",

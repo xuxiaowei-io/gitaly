@@ -448,10 +448,10 @@ func TestFindAllTags_invalidRequest(t *testing.T) {
 		{
 			desc:    "empty request",
 			request: &gitalypb.FindAllTagsRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "invalid repo",

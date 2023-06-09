@@ -18,8 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -172,10 +170,10 @@ func TestFindDefaultBranchName(t *testing.T) {
 			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
 				return setupData{
 					request: &gitalypb.FindDefaultBranchNameRequest{},
-					expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-						"empty Repository",
-						"repo scoped: empty Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					),
 				}
 			},
 		},
@@ -489,10 +487,10 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "repository doesn't exist on disk",
@@ -685,10 +683,10 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 		{
 			description: "Empty request",
 			request:     &gitalypb.FindAllBranchesRequest{},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			description: "Invalid repo",

@@ -691,10 +691,10 @@ func TestFetchRemote(t *testing.T) {
 					request: &gitalypb.FetchRemoteRequest{
 						RemoteParams: &gitalypb.Remote{Url: remoteRepoPath},
 					},
-					runs: []run{{expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						"empty Repository",
-						"repo scoped: empty Repository",
-					))}},
+					runs: []run{{expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					)}},
 				}
 			},
 		},

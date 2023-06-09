@@ -175,10 +175,10 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 		{
 			desc: "Repository not provided",
 			req:  &gitalypb.CountDivergingCommitsRequest{Repository: nil, From: []byte("abcdef"), To: []byte("12345")},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "Repository doesn't exist",

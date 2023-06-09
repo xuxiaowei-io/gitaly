@@ -473,12 +473,10 @@ func TestUploadPack_validation(t *testing.T) {
 			request: &gitalypb.SSHUploadPackRequest{
 				Repository: nil,
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewInvalidArgument("repo scoped: empty Repository")
-				}
-				return structerr.NewInvalidArgument("empty Repository")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "data in first request",

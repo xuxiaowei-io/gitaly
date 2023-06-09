@@ -9,12 +9,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestGetInfoAttributesExisting(t *testing.T) {
@@ -72,6 +72,8 @@ func TestGetInfoAttributes_validate(t *testing.T) {
 	response, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{Repository: nil})
 	require.NoError(t, err)
 	_, err = response.Recv()
-	msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
-	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
+	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+		structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+		structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+	), err)
 }

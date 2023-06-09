@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -64,7 +65,7 @@ func TestGetBlobs(t *testing.T) {
 		setup func(t *testing.T) setupData
 	}{
 		{
-			desc: "empty Repository",
+			desc: "unset repository",
 			setup: func(t *testing.T) setupData {
 				return setupData{
 					request: &gitalypb.GetBlobsRequest{
@@ -72,10 +73,10 @@ func TestGetBlobs(t *testing.T) {
 							{Revision: "does-not-exist", Path: []byte("file")},
 						},
 					},
-					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						"empty Repository",
-						"repo scoped: empty Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					),
 				}
 			},
 		},

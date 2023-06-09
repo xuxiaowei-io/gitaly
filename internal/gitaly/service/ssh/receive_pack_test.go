@@ -68,13 +68,10 @@ func TestReceivePack_validation(t *testing.T) {
 				Repository: nil,
 				GlId:       "user-123",
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewInvalidArgument("repo scoped: empty Repository")
-				}
-
-				return structerr.NewInvalidArgument("empty Repository")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "missing GlId",

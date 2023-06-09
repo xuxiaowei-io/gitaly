@@ -728,7 +728,7 @@ func TestUpdateRemoteMirror_Validations(t *testing.T) {
 		desc        string
 	}{
 		{
-			desc: "empty Repository",
+			desc: "unset repository",
 			setup: func(t *testing.T) *gitalypb.UpdateRemoteMirrorRequest {
 				return &gitalypb.UpdateRemoteMirrorRequest{
 					Repository: nil,
@@ -737,10 +737,10 @@ func TestUpdateRemoteMirror_Validations(t *testing.T) {
 					},
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "no Remote",

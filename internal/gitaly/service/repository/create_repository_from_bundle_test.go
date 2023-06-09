@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -253,8 +254,10 @@ func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.CreateRepositoryFromBundleRequest{}))
 
 	_, err = stream.CloseAndRecv()
-	msg := testhelper.GitalyOrPraefect("CreateRepositoryFromBundle: empty Repository", "repo scoped: empty Repository")
-	testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, msg))
+	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+		structerr.NewInvalidArgument("CreateRepositoryFromBundle: %w", storage.ErrRepositoryNotSet),
+		structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+	), err)
 }
 
 func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {

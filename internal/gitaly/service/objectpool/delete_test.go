@@ -34,7 +34,7 @@ func TestDelete(t *testing.T) {
 			desc:   "no pool in request fails",
 			noPool: true,
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				structerr.NewInvalidArgument("no object pool repository"),
 			),
 		},

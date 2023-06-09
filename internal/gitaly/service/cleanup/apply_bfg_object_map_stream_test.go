@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -134,10 +135,10 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 			ObjectMap:  []byte("does not matter"),
 		})
 		require.Nil(t, response)
-		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-			"empty Repository",
-			"repo scoped: empty Repository",
-		)), err)
+		testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+			structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+		), err)
 	})
 }
 

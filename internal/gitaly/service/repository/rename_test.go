@@ -98,7 +98,7 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 		{
 			desc: "empty repository",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: nil, RelativePath: "/tmp/abc"},
-			exp:  status.Error(codes.InvalidArgument, "empty Repository"),
+			exp:  structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "empty destination relative path",

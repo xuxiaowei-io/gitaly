@@ -29,8 +29,10 @@ func TestSetFullPath(t *testing.T) {
 			Path:       "my/repo",
 		})
 		require.Nil(t, response)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "empty Repository")
+		testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+			structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+		), err)
 	})
 
 	t.Run("missing path", func(t *testing.T) {
@@ -157,9 +159,10 @@ func TestFullPath(t *testing.T) {
 			Repository: nil,
 		})
 		require.Nil(t, response)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "empty Repository")
-		testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+		testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+			structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+		), err)
 	})
 
 	t.Run("nonexistent repository", func(t *testing.T) {
