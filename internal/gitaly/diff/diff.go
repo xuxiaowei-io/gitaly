@@ -15,19 +15,20 @@ import (
 
 // Diff represents a single parsed diff entry
 type Diff struct {
-	Binary         bool
-	OverflowMarker bool
-	Collapsed      bool
-	TooLarge       bool
-	Status         byte
-	lineCount      int
-	FromID         string
-	ToID           string
-	OldMode        int32
-	NewMode        int32
-	FromPath       []byte
-	ToPath         []byte
-	Patch          []byte
+	Binary          bool
+	OverflowMarker  bool
+	Collapsed       bool
+	TooLarge        bool
+	CollectAllPaths bool
+	Status          byte
+	lineCount       int
+	FromID          string
+	ToID            string
+	OldMode         int32
+	NewMode         int32
+	FromPath        []byte
+	ToPath          []byte
+	Patch           []byte
 }
 
 // Reset clears all fields of d in a way that lets the underlying memory
@@ -40,18 +41,26 @@ func (d *Diff) Reset() {
 	}
 }
 
+// ClearPatch clears only patch field of Diff d
+func (d *Diff) ClearPatch() {
+	// Clear Patch data, but preserve underlying memory allocation
+	// to reduce allocation/gc cycles of the []bytes field and improve performance
+	d.Patch = d.Patch[:0]
+}
+
 // Parser holds necessary state for parsing a diff stream
 type Parser struct {
-	limits            Limits
-	patchReader       *bufio.Reader
-	rawLines          [][]byte
-	currentDiff       Diff
-	nextPatchFromPath []byte
-	filesProcessed    int
-	linesProcessed    int
-	bytesProcessed    int
-	finished          bool
-	err               error
+	limits              Limits
+	patchReader         *bufio.Reader
+	rawLines            [][]byte
+	currentDiff         Diff
+	nextPatchFromPath   []byte
+	filesProcessed      int
+	linesProcessed      int
+	bytesProcessed      int
+	finished            bool
+	stopPatchCollection bool
+	err                 error
 }
 
 // Limits holds the limits at which either parsing stops or patches are collapsed
@@ -60,6 +69,8 @@ type Limits struct {
 	EnforceLimits bool
 	// If true, SafeMax{Files,Lines,Bytes} will cause diffs to collapse (i.e. patches are emptied) after any of these limits reached
 	CollapseDiffs bool
+	// If true, all diffs are parsed, processed, and returned but info outside of path may be empty
+	CollectAllPaths bool
 	// Number of maximum files to parse. The file parsed after this limit is reached is marked as the overflow.
 	MaxFiles int
 	// Number of diffs lines to parse (including lines preceded with --- or +++).
@@ -179,20 +190,35 @@ func (parser *Parser) Parse() bool {
 	if parser.limits.CollapseDiffs && parser.isOverSafeLimits() && parser.currentDiff.lineCount > 0 {
 		parser.prunePatch()
 		parser.currentDiff.Collapsed = true
+		if parser.limits.CollectAllPaths {
+			parser.currentDiff.CollectAllPaths = true
+		}
 	}
 
 	if parser.limits.EnforceLimits {
-		if len(parser.currentDiff.Patch) >= parser.maxPatchBytesForCurrentFile() {
+		// Apply single-file size limit
+		maxPatchBytesExceeded := len(parser.currentDiff.Patch) >= parser.maxPatchBytesForCurrentFile()
+		if maxPatchBytesExceeded {
 			parser.prunePatch()
 			parser.currentDiff.TooLarge = true
 		}
 
-		maxFilesExceeded := parser.filesProcessed > parser.limits.MaxFiles
-		maxBytesOrLinesExceeded := parser.bytesProcessed >= parser.limits.MaxBytes || parser.linesProcessed >= parser.limits.MaxLines
-
-		if maxFilesExceeded || maxBytesOrLinesExceeded {
-			parser.finished = true
-			parser.currentDiff.Reset()
+		maxFilesExceeded := parser.filesProcessed - parser.limits.MaxFiles
+		maxLinesExceeded := parser.linesProcessed - parser.limits.MaxLines
+		maxBytesExceeded := parser.bytesProcessed - parser.limits.MaxBytes
+		maxLimitsExceeded := maxLinesExceeded >= 0 || maxBytesExceeded >= 0 || maxFilesExceeded > 0
+		if maxLimitsExceeded {
+			if parser.limits.CollectAllPaths {
+				parser.currentDiff.CollectAllPaths = true
+				// Do allow parser to finish, but since limits are hit
+				// do not allow it to continue collecting patches
+				// only info about patches
+				parser.currentDiff.ClearPatch()
+				parser.stopPatchCollection = true
+			} else {
+				parser.finished = true
+				parser.currentDiff.Reset()
+			}
 			parser.currentDiff.OverflowMarker = true
 		}
 	}
@@ -216,8 +242,7 @@ func (limit *Limits) enforceUpperBound() {
 func (parser *Parser) prunePatch() {
 	parser.linesProcessed -= parser.currentDiff.lineCount
 	parser.bytesProcessed -= len(parser.currentDiff.Patch)
-	// Clear Patch, but preserve underlying memory allocation
-	parser.currentDiff.Patch = parser.currentDiff.Patch[:0]
+	parser.currentDiff.ClearPatch()
 }
 
 // Diff returns a successfully parsed diff. It should be called only when Parser.Parse()
@@ -417,8 +442,9 @@ func (parser *Parser) consumeChunkLine(updateLineStats bool) {
 			parser.err = fmt.Errorf("read chunk line: %w", err)
 			return
 		}
-
-		parser.currentDiff.Patch = append(parser.currentDiff.Patch, line...)
+		if !parser.stopPatchCollection {
+			parser.currentDiff.Patch = append(parser.currentDiff.Patch, line...)
+		}
 	}
 
 	if updateLineStats {

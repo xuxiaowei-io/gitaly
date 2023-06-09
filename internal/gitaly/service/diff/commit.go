@@ -85,6 +85,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 		}
 	}
 	limits.CollapseDiffs = in.CollapseDiffs
+	limits.CollectAllPaths = in.CollectAllPaths
 	limits.SafeMaxFiles = int(in.SafeMaxFiles)
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
