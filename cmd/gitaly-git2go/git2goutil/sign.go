@@ -7,10 +7,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/ProtonMail/go-crypto/openpgp"
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gpg"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -62,7 +60,7 @@ func CreateCommitSignature(signingKeyPath string, contentToSign []byte) ([]byte,
 		return createSSHSignature(key, contentToSign)
 	}
 
-	return createGPGSignature(key, contentToSign)
+	return gpg.CreateSignature(key, contentToSign)
 }
 
 // VerifySSHSignature reads the given signing public key and verifies whether the signature
@@ -106,25 +104,6 @@ func VerifySSHSignature(pubKeyPath string, signatureText, signedText []byte) err
 	}
 
 	return publicKey.Verify(ssh.Marshal(signedData), signature)
-}
-
-func createGPGSignature(key []byte, contentToSign []byte) ([]byte, error) {
-	entity, err := openpgp.ReadEntity(packet.NewReader(bytes.NewReader(key)))
-	if err != nil {
-		return nil, fmt.Errorf("read entity: %w", err)
-	}
-
-	var sigBuf strings.Builder
-	if err := openpgp.ArmoredDetachSignText(
-		&sigBuf,
-		entity,
-		bytes.NewReader(contentToSign),
-		&packet.Config{},
-	); err != nil {
-		return nil, fmt.Errorf("sign commit: %w", err)
-	}
-
-	return []byte(sigBuf.String()), nil
 }
 
 func createSSHSignature(key []byte, contentToSign []byte) ([]byte, error) {
