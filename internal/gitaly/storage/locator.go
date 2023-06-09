@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // RepositoryNotFoundError is returned when attempting to operate on a repository that does not
@@ -65,6 +63,9 @@ func RepoPathEqual(a, b Repository) bool {
 
 // Locator allows to get info about location of the repository or storage at the local file system.
 type Locator interface {
+	// ValidateRepository validates whether the given repository is a valid Git repository. This
+	// function can be configured by passing ValidateRepositoryOptions.
+	ValidateRepository(Repository, ...ValidateRepositoryOption) error
 	// GetRepoPath returns the full path of the repository referenced by an RPC Repository message.
 	// By default, it verifies that the path is an existing git directory. However, if invoked with
 	// the `GetRepoPathOption` produced by `WithRepositoryVerificationSkipped()`, this validation
@@ -81,6 +82,26 @@ type Locator interface {
 	TempDir(storageName string) (string, error)
 	// StateDir returns the path to the state dir for a storage.
 	StateDir(storageName string) (string, error)
+}
+
+// ValidateRepositoryConfig is used to configure ValidateRepository.
+type ValidateRepositoryConfig struct {
+	// SkipRepositoryExistenceCheck determines whether the repository shall be checked for
+	// existence or not. If set, the locator shall still perform parameter verification and
+	// verify that whether the repository _would_ be valid if it existed, but not verify actual
+	// existence.
+	SkipRepositoryExistenceCheck bool
+}
+
+// ValidateRepositoryOption is an option that can be passed to ValidateRepository.
+type ValidateRepositoryOption func(*ValidateRepositoryConfig)
+
+// WithSkipRepositoryExistenceCheck causes ValidateRepository to not check for repository
+// existence. All other tests will still be performed.
+func WithSkipRepositoryExistenceCheck() ValidateRepositoryOption {
+	return func(cfg *ValidateRepositoryConfig) {
+		cfg.SkipRepositoryExistenceCheck = true
+	}
 }
 
 // GetRepoPathConfig is used to configure GetRepoPath.
@@ -111,48 +132,6 @@ func ValidateRelativePath(rootDir, relativePath string) (string, error) {
 	}
 
 	return filepath.Rel(rootDir, absPath)
-}
-
-// ValidateRepository validates whether the given path points to a valid Git repository. This
-// function returns:
-//
-// - ErrRepositoryNotExist when the path cannot be found.
-// - ErrRepositoryNotValid when the repository is not a valid Git repository.
-// - An unspecified error when stat(3P)ing files fails due to other reasons.
-func ValidateRepository(path string) error {
-	if path == "" {
-		return structerr.NewInvalidArgument("repository path is empty")
-	}
-
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return structerr.NewNotFound("%w", ErrRepositoryNotFound).WithMetadata("repository_path", path)
-		}
-
-		return structerr.New("statting repository: %w", err).WithMetadata("repository_path", path)
-	}
-
-	for _, element := range []string{"objects", "refs", "HEAD"} {
-		if _, err := os.Stat(filepath.Join(path, element)); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return structerr.NewFailedPrecondition("%w: %q does not exist", ErrRepositoryNotValid, element).WithMetadata("repository_path", path)
-			}
-
-			return structerr.New("statting %q: %w", element, err).WithMetadata("repository_path", path)
-		}
-	}
-
-	// See: https://gitlab.com/gitlab-org/gitaly/issues/1339
-	//
-	// This is a workaround for Gitaly running on top of an NFS mount. There
-	// is a Linux NFS v4.0 client bug where opening the packed-refs file can
-	// either result in a stale file handle or stale data. This can happen if
-	// git gc runs for a long time while keeping open the packed-refs file.
-	// Running stat() on the file causes the kernel to revalidate the cached
-	// directory entry. We don't actually care if this file exists.
-	_, _ = os.Stat(filepath.Join(path, "packed-refs"))
-
-	return nil
 }
 
 // QuarantineDirectoryPrefix returns a prefix for use in the temporary directory. The prefix is

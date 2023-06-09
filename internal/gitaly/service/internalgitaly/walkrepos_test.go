@@ -13,11 +13,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type serverWrapper struct {
@@ -113,9 +112,7 @@ func TestWalkRepos(t *testing.T) {
 
 	_, err = stream.Recv()
 	require.NotNil(t, err)
-	s, ok := status.FromError(err)
-	require.True(t, ok)
-	require.Equal(t, codes.NotFound, s.Code())
+	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("looking up storage: GetStorageByName: no such storage: %q", "invalid storage name"), err)
 
 	stream, err = client.WalkRepos(ctx, &gitalypb.WalkReposRequest{
 		StorageName: storageName,

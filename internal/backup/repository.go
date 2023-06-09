@@ -263,12 +263,7 @@ func newLocalRepository(
 
 // IsEmpty returns true if the repository has no branches.
 func (r *localRepository) IsEmpty(ctx context.Context) (bool, error) {
-	path, err := r.locator.GetRepoPath(r.repo, storage.WithRepositoryVerificationSkipped())
-	if err != nil {
-		return false, fmt.Errorf("local repository: is empty: %w", err)
-	}
-
-	if err := storage.ValidateRepository(path); err != nil {
+	if err := r.locator.ValidateRepository(r.repo); err != nil {
 		if errors.Is(err, storage.ErrRepositoryNotFound) {
 			// Backups do not currently differentiate between non-existent and
 			// empty. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044

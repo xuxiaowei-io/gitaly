@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	gitalycfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -446,6 +446,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 	backupCfg := testcfg.Build(t, testcfg.WithStorages("backup"))
 	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, setup.RegisterAll, testserver.WithDisablePraefect())
+	backupLocator := gitalycfg.NewLocator(backupCfg)
 	testcfg.BuildGitalySSH(t, backupCfg)
 	testcfg.BuildGitalyHooks(t, backupCfg)
 
@@ -507,7 +508,6 @@ func TestProcessBacklog_Success(t *testing.T) {
 	fullNewPath1 := filepath.Join(backupCfg.Storages[0].Path, renameTo1)
 
 	renameTo2 := filepath.Join(renameTo1, "..", filepath.Base(testRepo.GetRelativePath())+"-mv2")
-	fullNewPath2 := filepath.Join(backupCfg.Storages[0].Path, renameTo2)
 
 	// Rename replication job
 	eventType2 := datastore.ReplicationEvent{
@@ -572,7 +572,10 @@ func TestProcessBacklog_Success(t *testing.T) {
 	<-replMgrDone
 
 	require.NoDirExists(t, fullNewPath1, "repository must be moved from %q to the new location", fullNewPath1)
-	require.NoError(t, storage.ValidateRepository(fullNewPath2), "repository must exist at new last RenameRepository location")
+	require.NoError(t, backupLocator.ValidateRepository(&gitalypb.Repository{
+		StorageName:  backupCfg.Storages[0].Name,
+		RelativePath: renameTo2,
+	}), "repository must exist at new last RenameRepository location")
 }
 
 func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {

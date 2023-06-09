@@ -37,6 +37,7 @@ var (
 type ObjectPool struct {
 	*localrepo.Repo
 
+	locator             storage.Locator
 	gitCmdFactory       git.CommandFactory
 	txManager           transaction.Manager
 	housekeepingManager housekeeping.Manager
@@ -73,6 +74,7 @@ func FromProto(
 
 	pool := &ObjectPool{
 		Repo:                localrepo.New(locator, gitCmdFactory, catfileCache, proto.GetRepository()),
+		locator:             locator,
 		gitCmdFactory:       gitCmdFactory,
 		txManager:           txManager,
 		housekeepingManager: housekeepingManager,
@@ -112,12 +114,7 @@ func (o *ObjectPool) Exists() bool {
 
 // IsValid checks if a repository exists, and if its valid.
 func (o *ObjectPool) IsValid() bool {
-	path, err := o.Path()
-	if err != nil {
-		return false
-	}
-
-	return storage.ValidateRepository(path) == nil
+	return o.locator.ValidateRepository(o.Repo) == nil
 }
 
 // Remove will remove the pool, and all its contents without preparing and/or
@@ -142,13 +139,9 @@ func FromRepo(
 	housekeepingManager housekeeping.Manager,
 	repo *localrepo.Repo,
 ) (*ObjectPool, error) {
-	dir, err := getAlternateObjectDir(repo)
+	storagePath, err := locator.GetStorageByName(repo.GetStorageName())
 	if err != nil {
 		return nil, err
-	}
-
-	if dir == "" {
-		return nil, nil
 	}
 
 	repoPath, err := repo.Path()
@@ -156,7 +149,16 @@ func FromRepo(
 		return nil, err
 	}
 
-	altPathRelativeToStorage, err := objectPathRelativeToStorage(locator, repo.GetStorageName(), dir, repoPath)
+	relativeAlternateObjectDirPath, err := getAlternateObjectDir(repo)
+	if err != nil {
+		return nil, err
+	}
+	if relativeAlternateObjectDirPath == "" {
+		return nil, nil
+	}
+
+	absolutePoolObjectDirPath := filepath.Join(repoPath, "objects", relativeAlternateObjectDirPath)
+	relativePoolObjectDirPath, err := filepath.Rel(storagePath, absolutePoolObjectDirPath)
 	if err != nil {
 		return nil, err
 	}
@@ -164,8 +166,12 @@ func FromRepo(
 	objectPoolProto := &gitalypb.ObjectPool{
 		Repository: &gitalypb.Repository{
 			StorageName:  repo.GetStorageName(),
-			RelativePath: filepath.Dir(altPathRelativeToStorage),
+			RelativePath: filepath.Dir(relativePoolObjectDirPath),
 		},
+	}
+
+	if locator.ValidateRepository(objectPoolProto.Repository) != nil {
+		return nil, ErrInvalidPoolRepository
 	}
 
 	return FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, objectPoolProto)
@@ -207,27 +213,4 @@ func getAlternateObjectDir(repo *localrepo.Repo) (string, error) {
 	}
 
 	return string(b), nil
-}
-
-// objectPathRelativeToStorage takes an object path that's relative to a repository's object directory
-// and returns the path relative to the storage path of the repository.
-func objectPathRelativeToStorage(locator storage.Locator, storageName, path, repoPath string) (string, error) {
-	storagePath, err := locator.GetStorageByName(storageName)
-	if err != nil {
-		return "", err
-	}
-	objectDirPath := filepath.Join(repoPath, "objects")
-
-	poolObjectDirFullPath := filepath.Join(objectDirPath, path)
-
-	if storage.ValidateRepository(filepath.Dir(poolObjectDirFullPath)) != nil {
-		return "", ErrInvalidPoolRepository
-	}
-
-	poolRelPath, err := filepath.Rel(storagePath, poolObjectDirFullPath)
-	if err != nil {
-		return "", err
-	}
-
-	return poolRelPath, nil
 }

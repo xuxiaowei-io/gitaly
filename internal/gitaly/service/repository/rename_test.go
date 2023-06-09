@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -20,10 +21,11 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	locator := config.NewLocator(cfg)
 	originalRepo, originalPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, originalPath)
 
-	const targetPath = "a-new-location"
+	targetPath := "a-new-location"
 	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
 		Repository:   originalRepo,
 		RelativePath: targetPath,
@@ -45,14 +47,16 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.RepositoryExistsResponse{Exists: true}, exists)
 
-	newDirectory := filepath.Join(cfg.Storages[0].Path, targetPath)
 	if testhelper.IsPraefectEnabled() {
 		// Praefect does not move repositories on the disk.
-		newDirectory = originalPath
+		targetPath = gittest.GetReplicaPath(t, ctx, cfg, renamedRepo)
 	}
+	newDirectory := filepath.Join(cfg.Storages[0].Path, targetPath)
 
-	require.DirExists(t, newDirectory)
-	require.NoError(t, storage.ValidateRepository(newDirectory), "moved Git repository has been corrupted")
+	require.NoError(t, locator.ValidateRepository(&gitalypb.Repository{
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: targetPath,
+	}), "moved Git repository has been corrupted")
 	// ensure the git directory that got renamed contains the original commit.
 	gittest.RequireObjectExists(t, cfg, newDirectory, commitID)
 }
