@@ -460,7 +460,8 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		if err != nil {
 			var conflictErr git2go.ConflictingFilesError
 			if errors.As(err, &conflictErr) {
-				return nil, structerr.NewFailedPrecondition("rebase conflict: %w", err)
+				return nil, structerr.NewFailedPrecondition("Failed to rebase %s on %s while preparing %s due to conflict",
+					sourceOID, oid, string(request.TargetRef))
 			}
 
 			return nil, structerr.NewInternal("rebasing commits: %w", err)
