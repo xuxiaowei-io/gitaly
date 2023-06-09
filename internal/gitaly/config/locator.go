@@ -40,7 +40,12 @@ type configLocator struct {
 // - ErrRepositoryNotFound when the path cannot be found.
 // - ErrRepositoryNotValid when the repository is not a valid Git repository.
 // - An unspecified error when stat(3P)ing files fails due to other reasons.
-func (l *configLocator) ValidateRepository(repo storage.Repository) error {
+func (l *configLocator) ValidateRepository(repo storage.Repository, opts ...storage.ValidateRepositoryOption) error {
+	var cfg storage.ValidateRepositoryConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	storagePath, err := l.GetStorageByName(repo.GetStorageName())
 	if err != nil {
 		return err
@@ -53,38 +58,49 @@ func (l *configLocator) ValidateRepository(repo storage.Repository) error {
 		return structerr.New("storage path: %w", err).WithMetadata("storage_path", storagePath)
 	}
 
+	relativePath := repo.GetRelativePath()
+	if len(relativePath) == 0 {
+		return structerr.NewInvalidArgument("relative path is not set")
+	}
+
+	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {
+		return structerr.NewInvalidArgument("%w", err).WithMetadata("relative_path", relativePath)
+	}
+
 	path := filepath.Join(storagePath, repo.GetRelativePath())
 	if path == "" {
 		return structerr.NewInvalidArgument("repository path is empty")
 	}
 
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return structerr.NewNotFound("%w", storage.ErrRepositoryNotFound).WithMetadata("repository_path", path)
-		}
-
-		return structerr.New("statting repository: %w", err).WithMetadata("repository_path", path)
-	}
-
-	for _, element := range []string{"objects", "refs", "HEAD"} {
-		if _, err := os.Stat(filepath.Join(path, element)); err != nil {
+	if !cfg.SkipRepositoryExistenceCheck {
+		if _, err := os.Stat(path); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, element).WithMetadata("repository_path", path)
+				return structerr.NewNotFound("%w", storage.ErrRepositoryNotFound).WithMetadata("repository_path", path)
 			}
 
-			return structerr.New("statting %q: %w", element, err).WithMetadata("repository_path", path)
+			return structerr.New("statting repository: %w", err).WithMetadata("repository_path", path)
 		}
-	}
 
-	// See: https://gitlab.com/gitlab-org/gitaly/issues/1339
-	//
-	// This is a workaround for Gitaly running on top of an NFS mount. There
-	// is a Linux NFS v4.0 client bug where opening the packed-refs file can
-	// either result in a stale file handle or stale data. This can happen if
-	// git gc runs for a long time while keeping open the packed-refs file.
-	// Running stat() on the file causes the kernel to revalidate the cached
-	// directory entry. We don't actually care if this file exists.
-	_, _ = os.Stat(filepath.Join(path, "packed-refs"))
+		for _, element := range []string{"objects", "refs", "HEAD"} {
+			if _, err := os.Stat(filepath.Join(path, element)); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, element).WithMetadata("repository_path", path)
+				}
+
+				return structerr.New("statting %q: %w", element, err).WithMetadata("repository_path", path)
+			}
+		}
+
+		// See: https://gitlab.com/gitlab-org/gitaly/issues/1339
+		//
+		// This is a workaround for Gitaly running on top of an NFS mount. There
+		// is a Linux NFS v4.0 client bug where opening the packed-refs file can
+		// either result in a stale file handle or stale data. This can happen if
+		// git gc runs for a long time while keeping open the packed-refs file.
+		// Running stat() on the file causes the kernel to revalidate the cached
+		// directory entry. We don't actually care if this file exists.
+		_, _ = os.Stat(filepath.Join(path, "packed-refs"))
+	}
 
 	return nil
 }
@@ -100,33 +116,22 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 		opt(&cfg)
 	}
 
+	var validationOptions []storage.ValidateRepositoryOption
+	if cfg.SkipRepositoryVerification {
+		validationOptions = []storage.ValidateRepositoryOption{
+			storage.WithSkipRepositoryExistenceCheck(),
+		}
+	}
+
+	if err := l.ValidateRepository(repo, validationOptions...); err != nil {
+		return "", err
+	}
+
 	storagePath, err := l.GetStorageByName(repo.GetStorageName())
 	if err != nil {
 		return "", err
 	}
-
-	if _, err := os.Stat(storagePath); err != nil {
-		if os.IsNotExist(err) {
-			return "", structerr.NewNotFound("storage does not exist").WithMetadata("storage_path", storagePath)
-		}
-		return "", structerr.New("storage path: %w", err).WithMetadata("storage_path", storagePath)
-	}
-
 	relativePath := repo.GetRelativePath()
-	if len(relativePath) == 0 {
-		err := structerr.NewInvalidArgument("relative path is not set")
-		return "", err
-	}
-
-	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {
-		return "", structerr.NewInvalidArgument("%w", err).WithMetadata("relative_path", relativePath)
-	}
-
-	if !cfg.SkipRepositoryVerification {
-		if err := l.ValidateRepository(repo); err != nil {
-			return "", err
-		}
-	}
 
 	return filepath.Join(storagePath, relativePath), nil
 }

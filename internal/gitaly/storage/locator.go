@@ -63,8 +63,9 @@ func RepoPathEqual(a, b Repository) bool {
 
 // Locator allows to get info about location of the repository or storage at the local file system.
 type Locator interface {
-	// ValidateRepository validates whether the given repository is a valid Git repository.
-	ValidateRepository(Repository) error
+	// ValidateRepository validates whether the given repository is a valid Git repository. This
+	// function can be configured by passing ValidateRepositoryOptions.
+	ValidateRepository(Repository, ...ValidateRepositoryOption) error
 	// GetRepoPath returns the full path of the repository referenced by an RPC Repository message.
 	// By default, it verifies that the path is an existing git directory. However, if invoked with
 	// the `GetRepoPathOption` produced by `WithRepositoryVerificationSkipped()`, this validation
@@ -81,6 +82,26 @@ type Locator interface {
 	TempDir(storageName string) (string, error)
 	// StateDir returns the path to the state dir for a storage.
 	StateDir(storageName string) (string, error)
+}
+
+// ValidateRepositoryConfig is used to configure ValidateRepository.
+type ValidateRepositoryConfig struct {
+	// SkipRepositoryExistenceCheck determines whether the repository shall be checked for
+	// existence or not. If set, the locator shall still perform parameter verification and
+	// verify that whether the repository _would_ be valid if it existed, but not verify actual
+	// existence.
+	SkipRepositoryExistenceCheck bool
+}
+
+// ValidateRepositoryOption is an option that can be passed to ValidateRepository.
+type ValidateRepositoryOption func(*ValidateRepositoryConfig)
+
+// WithSkipRepositoryExistenceCheck causes ValidateRepository to not check for repository
+// existence. All other tests will still be performed.
+func WithSkipRepositoryExistenceCheck() ValidateRepositoryOption {
+	return func(cfg *ValidateRepositoryConfig) {
+		cfg.SkipRepositoryExistenceCheck = true
+	}
 }
 
 // GetRepoPathConfig is used to configure GetRepoPath.
