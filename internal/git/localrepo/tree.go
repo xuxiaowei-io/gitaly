@@ -121,6 +121,8 @@ var (
 	ErrAbsolutePath = errors.New("path is absolute")
 	// ErrEmptyPath indicates the path is an absolute path
 	ErrEmptyPath = errors.New("path is empty")
+	// ErrInvalidPath indicates the path is invalid
+	ErrInvalidPath = errors.New("invalid path")
 )
 
 func validateFileCreationPath(path string) (string, error) {
@@ -136,6 +138,10 @@ func validateFileCreationPath(path string) (string, error) {
 
 	if path == "." {
 		return "", ErrEmptyPath
+	}
+
+	if before, _, _ := strings.Cut(path, "/"); before == ".git" {
+		return "", ErrInvalidPath
 	}
 
 	return path, nil
