@@ -377,7 +377,7 @@ test:macos:
     <<: *test_artifacts
 
 verify:docs:
-  image: registry.gitlab.com/gitlab-org/gitlab-docs/lint-markdown:alpine-3.16-vale-2.20.2-markdownlint-0.32.2-markdownlint2-0.5.1
+  image: registry.gitlab.com/gitlab-org/gitlab-docs/lint-markdown:alpine-3.17-vale-2.25.2-markdownlint-0.34.0-markdownlint2-0.7.1
   needs: []
   stage: analyze
   script:
