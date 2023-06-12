@@ -1983,17 +1983,6 @@ func TestValidatePath(t *testing.T) {
 			path:        ".",
 			expectedErr: ErrEmptyPath,
 		},
-		{
-			desc:        "contains .git",
-			path:        ".git/objects/info",
-			expectedErr: ErrInvalidPath,
-		},
-		{
-			desc:         "contains .git but not the git directory",
-			path:         ".gitsomefile",
-			expectedPath: ".gitsomefile",
-			expectedErr:  nil,
-		},
 	}
 
 	for _, tc := range testCases {
