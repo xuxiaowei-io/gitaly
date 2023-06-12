@@ -1309,7 +1309,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 			req:  &gitalypb.CommitDiffRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit},
 			exrErr: testhelper.GitalyOrPraefect(
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"cmd: %w", storage.NewStorageNotFoundError("fake"),
+					"%w", storage.NewStorageNotFoundError("fake"),
 				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),

@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -28,7 +28,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 		"Paths":                  logPaths(in.Paths),
 	}).Debug("CommitDiff")
 
-	if err := validateRequest(in); err != nil {
+	if err := validateRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -144,7 +144,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 		"Paths":         logPaths(in.Paths),
 	}).Debug("CommitDelta")
 
-	if err := validateRequest(in); err != nil {
+	if err := validateRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -214,8 +214,8 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 	return flushFunc()
 }
 
-func validateRequest(in requestWithLeftRightCommitIds) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateRequest(locator storage.Locator, in requestWithLeftRightCommitIds) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if in.GetLeftCommitId() == "" {
