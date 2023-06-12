@@ -11,7 +11,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/linguist"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -20,7 +19,7 @@ import (
 var errAmbigRef = errors.New("ambiguous reference")
 
 func (s *server) validateCommitLanguagesRequest(req *gitalypb.CommitLanguagesRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+	if err := s.locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision(req.Revision, git.AllowEmptyRevision()); err != nil {

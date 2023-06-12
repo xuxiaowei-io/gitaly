@@ -6,7 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -17,7 +17,7 @@ func (s *server) FilterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 		return err
 	}
 
-	if err = validateFirstFilterShasWithSignaturesRequest(firstRequest); err != nil {
+	if err = validateFirstFilterShasWithSignaturesRequest(s.locator, firstRequest); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -27,8 +27,8 @@ func (s *server) FilterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 	return nil
 }
 
-func validateFirstFilterShasWithSignaturesRequest(in *gitalypb.FilterShasWithSignaturesRequest) error {
-	return service.ValidateRepository(in.GetRepository())
+func validateFirstFilterShasWithSignaturesRequest(locator storage.Locator, in *gitalypb.FilterShasWithSignaturesRequest) error {
+	return locator.ValidateRepository(in.GetRepository())
 }
 
 func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShasWithSignaturesServer, firstRequest *gitalypb.FilterShasWithSignaturesRequest) error {

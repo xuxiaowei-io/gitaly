@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer) error {
-	if err := validateFindAllCommitsRequest(in); err != nil {
+	if err := validateFindAllCommitsRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -39,8 +39,8 @@ func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 	return nil
 }
 
-func validateFindAllCommitsRequest(in *gitalypb.FindAllCommitsRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateFindAllCommitsRequest(locator storage.Locator, in *gitalypb.FindAllCommitsRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 

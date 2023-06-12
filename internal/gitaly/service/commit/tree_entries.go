@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -25,8 +25,8 @@ const (
 	defaultFlatTreeRecursion = 10
 )
 
-func validateGetTreeEntriesRequest(in *gitalypb.GetTreeEntriesRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateGetTreeEntriesRequest(locator storage.Locator, in *gitalypb.GetTreeEntriesRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision(in.Revision); err != nil {
@@ -294,7 +294,7 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 		"Path":     in.Path,
 	}).Debug("GetTreeEntries")
 
-	if err := validateGetTreeEntriesRequest(in); err != nil {
+	if err := validateGetTreeEntriesRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

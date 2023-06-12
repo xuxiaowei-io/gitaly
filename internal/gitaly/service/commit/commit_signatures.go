@@ -9,7 +9,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -18,7 +18,7 @@ import (
 var gpgSiganturePrefix = []byte("gpgsig")
 
 func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
-	if err := validateGetCommitSignaturesRequest(request); err != nil {
+	if err := validateGetCommitSignaturesRequest(s.locator, request); err != nil {
 		return structerr.NewInvalidArgument("GetCommitSignatures: %w", err)
 	}
 
@@ -126,8 +126,8 @@ func sendResponse(commitID string, signatureKey []byte, commitText []byte, strea
 	return nil
 }
 
-func validateGetCommitSignaturesRequest(request *gitalypb.GetCommitSignaturesRequest) error {
-	if err := service.ValidateRepository(request.GetRepository()); err != nil {
+func validateGetCommitSignaturesRequest(locator storage.Locator, request *gitalypb.GetCommitSignaturesRequest) error {
+	if err := locator.ValidateRepository(request.GetRepository()); err != nil {
 		return err
 	}
 
