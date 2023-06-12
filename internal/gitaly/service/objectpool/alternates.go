@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -17,7 +16,7 @@ import (
 // objects/info/alternates.
 func (s *server) DisconnectGitAlternates(ctx context.Context, req *gitalypb.DisconnectGitAlternatesRequest) (*gitalypb.DisconnectGitAlternatesResponse, error) {
 	repository := req.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
+	if err := s.locator.ValidateRepository(repository); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 

@@ -3,14 +3,13 @@ package objectpool
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) LinkRepositoryToObjectPool(ctx context.Context, req *gitalypb.LinkRepositoryToObjectPoolRequest) (*gitalypb.LinkRepositoryToObjectPoolResponse, error) {
 	repository := req.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
+	if err := s.locator.ValidateRepository(repository); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
