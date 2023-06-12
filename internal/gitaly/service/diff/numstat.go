@@ -5,7 +5,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -13,8 +12,8 @@ import (
 var maxNumStatBatchSize = 1000
 
 func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffService_DiffStatsServer) error {
-	if err := s.validateDiffStatsRequestParams(in); err != nil {
-		return err
+	if err := validateRequest(in); err != nil {
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	var batch []*gitalypb.DiffStats
@@ -71,22 +70,6 @@ func sendStats(batch []*gitalypb.DiffStats, stream gitalypb.DiffService_DiffStat
 
 	if err := stream.Send(&gitalypb.DiffStatsResponse{Stats: batch}); err != nil {
 		return structerr.NewUnavailable("send: %w", err)
-	}
-
-	return nil
-}
-
-func (s *server) validateDiffStatsRequestParams(in *gitalypb.DiffStatsRequest) error {
-	repository := in.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
-	}
-	if _, err := s.locator.GetRepoPath(repository); err != nil {
-		return err
-	}
-
-	if err := validateRequest(in); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	return nil
