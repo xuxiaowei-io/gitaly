@@ -141,7 +141,9 @@ func TestRefExists(t *testing.T) {
 				Ref: []byte("refs/heads/master"),
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "invalid"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("invalid"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
 				)),

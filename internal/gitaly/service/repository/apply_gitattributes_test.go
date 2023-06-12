@@ -247,7 +247,9 @@ func TestApplyGitattributes_failure(t *testing.T) {
 			},
 			revision: []byte("master"),
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "foo"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("foo"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("foo"))),
 			),

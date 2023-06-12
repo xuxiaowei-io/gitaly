@@ -184,7 +184,9 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.CountDivergingCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, From: []byte("abcdef"), To: []byte("12345")},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`repository not valid: GetStorageByName: no such storage: "fake"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repository not valid: %w", storage.NewStorageNotFoundError("fake"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 				)),

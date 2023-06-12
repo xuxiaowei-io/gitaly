@@ -166,7 +166,9 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`cmd: GetStorageByName: no such storage: "foo"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"cmd: %w", storage.NewStorageNotFoundError("foo"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("foo"),
 				)),

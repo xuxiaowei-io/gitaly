@@ -141,7 +141,7 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 func (l *configLocator) GetStorageByName(storageName string) (string, error) {
 	storagePath, ok := l.conf.StoragePath(storageName)
 	if !ok {
-		return "", structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", storageName)
+		return "", storage.NewStorageNotFoundError(storageName)
 	}
 
 	return storagePath, nil

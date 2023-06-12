@@ -227,7 +227,9 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 				RelativePath: "foobar.git",
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`creating repository: locate repository: GetStorageByName: no such storage: "does not exist"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"creating repository: locate repository: %w", storage.NewStorageNotFoundError("does not exist"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("does not exist"),
 				)),

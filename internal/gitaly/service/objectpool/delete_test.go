@@ -34,7 +34,9 @@ func TestDelete(t *testing.T) {
 			desc:   "no pool in request fails",
 			noPool: true,
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", ""),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError(""),
+				)),
 				structerr.NewInvalidArgument("no object pool repository"),
 			),
 		},

@@ -122,7 +122,9 @@ func TestGetTreeEntries(t *testing.T) {
 						Path:       []byte("folder"),
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument(`GetStorageByName: no such storage: "fake"`),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"%w", storage.NewStorageNotFoundError("fake"),
+						)),
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 							"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 						)),

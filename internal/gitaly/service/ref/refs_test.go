@@ -211,7 +211,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 						Repository: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument(`get default branch: GetStorageByName: no such storage: "invalid"`),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"get default branch: %w", storage.NewStorageNotFoundError("invalid"),
+						)),
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 							"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
 						)),
@@ -512,7 +514,9 @@ func TestFindLocalBranches_validate(t *testing.T) {
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`creating object reader: GetStorageByName: no such storage: "invalid"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"creating object reader: %w", storage.NewStorageNotFoundError("invalid"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
 				)),
@@ -695,7 +699,9 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 				},
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`creating object reader: GetStorageByName: no such storage: "fake"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"creating object reader: %w", storage.NewStorageNotFoundError("fake"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 				)),

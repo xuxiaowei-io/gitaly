@@ -714,7 +714,9 @@ func TestFetchRemote(t *testing.T) {
 						RemoteParams: &gitalypb.Remote{Url: remoteRepoPath},
 					},
 					runs: []run{{expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument(`fetch remote: GetStorageByName: no such storage: "foobar"`),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"fetch remote: %w", storage.NewStorageNotFoundError("foobar"),
+						)),
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 							"repo scoped: %w", storage.NewStorageNotFoundError("foobar"),
 						)),

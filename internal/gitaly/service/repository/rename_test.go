@@ -116,7 +116,9 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 		{
 			desc: "repository storage doesn't exist",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: "stub", RelativePath: repo.RelativePath}, RelativePath: "usr/bin"},
-			exp:  status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "stub"`),
+			exp: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("stub"),
+			)),
 		},
 		{
 			desc: "repository relative path doesn't exist",

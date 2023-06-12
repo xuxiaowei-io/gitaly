@@ -73,7 +73,9 @@ func TestListFiles(t *testing.T) {
 				Repository: &gitalypb.Repository{StorageName: "foo", RelativePath: "bar"},
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "foo"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("foo"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("foo"),
 				)),

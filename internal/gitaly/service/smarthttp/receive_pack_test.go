@@ -381,7 +381,9 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 				GlId: "user-123",
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "fake"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("fake"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.New(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 				)),

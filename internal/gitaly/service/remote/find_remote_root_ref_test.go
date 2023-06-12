@@ -47,7 +47,9 @@ func TestFindRemoteRootRef(t *testing.T) {
 						RemoteUrl:  "remote-url",
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument(`GetStorageByName: no such storage: "fake"`),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"%w", storage.NewStorageNotFoundError("fake"),
+						)),
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 							"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 						)),

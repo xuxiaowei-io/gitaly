@@ -106,7 +106,9 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`cmd: GetStorageByName: no such storage: "fake"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"cmd: %w", storage.NewStorageNotFoundError("fake"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 				)),

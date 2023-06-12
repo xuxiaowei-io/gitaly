@@ -791,7 +791,9 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`creating repo quarantine: creating object quarantine: getting repo path: GetStorageByName: no such storage: "@this-storage-does-not-exist"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"creating repo quarantine: creating object quarantine: getting repo path: %w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
 				)),

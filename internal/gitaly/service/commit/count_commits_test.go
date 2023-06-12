@@ -175,7 +175,9 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.CountCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`cmd: GetStorageByName: no such storage: "fake"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"cmd: %w", storage.NewStorageNotFoundError("fake"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 				)),

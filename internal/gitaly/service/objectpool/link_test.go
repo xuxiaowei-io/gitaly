@@ -50,7 +50,9 @@ func TestLink(t *testing.T) {
 				Repository: repo,
 				ObjectPool: nil,
 			},
-			expectedErr: structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", ""),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError(""),
+			)),
 		},
 		{
 			desc: "successful",

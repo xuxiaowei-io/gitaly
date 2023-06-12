@@ -97,7 +97,9 @@ func TestGetArchive(t *testing.T) {
 						Format:   gitalypb.GetArchiveRequest_ZIP,
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument(`GetStorageByName: no such storage: "fake"`),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"%w", storage.NewStorageNotFoundError("fake"),
+						)),
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 							"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 						)),

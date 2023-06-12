@@ -90,14 +90,14 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: "foobar.git",
 				},
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					// Praefect doesn't check for storage existence but just returns that the repository doesn't exist.
-					return nil
-				}
-
-				return status.Errorf(codes.InvalidArgument, `GetStorageByName: no such storage: "unconfigured"`)
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				error(testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("unconfigured"),
+				))),
+				// Praefect doesn't check for storage existence but just returns
+				// that the repository doesn't exist.
+				nil,
+			),
 		},
 		{
 			desc: "storage directory does not exist",

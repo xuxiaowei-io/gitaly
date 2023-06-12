@@ -174,7 +174,9 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				Oid: oid,
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("create object reader: GetStorageByName: no such storage: %q", "fake"),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"create object reader: %w", storage.NewStorageNotFoundError("fake"),
+				)),
 				testhelper.ToInterceptedMetadata(
 					structerr.New("repo scoped: %w", storage.NewStorageNotFoundError("fake")),
 				),

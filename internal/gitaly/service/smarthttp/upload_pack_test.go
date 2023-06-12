@@ -298,7 +298,9 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "fake"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("fake"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 				)),
@@ -339,7 +341,9 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.PostUploadPackWithSidechannelRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "fake"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("fake"),
+				)),
 				testhelper.ToInterceptedMetadata(structerr.New(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
 				)),

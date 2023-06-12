@@ -782,7 +782,7 @@ func TestUploadPack_invalidStorage(t *testing.T) {
 	require.Error(t, err)
 
 	require.Contains(t, err.Error(), testhelper.GitalyOrPraefect(
-		"rpc error: code = InvalidArgument desc = GetStorageByName: no such storage: \\\"foobar\\\"",
+		fmt.Sprintf("rpc error: code = InvalidArgument desc = %s", storage.NewStorageNotFoundError("foobar")),
 		fmt.Sprintf("rpc error: code = InvalidArgument desc = repo scoped: %s", storage.NewStorageNotFoundError("foobar")),
 	))
 }

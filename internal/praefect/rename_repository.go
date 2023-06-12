@@ -21,7 +21,7 @@ func validateRenameRepositoryRequest(req *gitalypb.RenameRepositoryRequest, virt
 	} else if req.GetRelativePath() == "" {
 		return structerr.NewInvalidArgument("destination relative path is empty")
 	} else if _, ok := virtualStorages[repository.GetStorageName()]; !ok {
-		return structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", repository.GetStorageName())
+		return storage.NewStorageNotFoundError(repository.GetStorageName())
 	} else if _, err := storage.ValidateRelativePath("/fake-root", req.GetRelativePath()); err != nil {
 		// Gitaly uses ValidateRelativePath to verify there are no traversals, so we use the same function
 		// here. Praefect is not susceptible to path traversals as it generates its own disk paths but we
