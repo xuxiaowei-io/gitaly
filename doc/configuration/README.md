@@ -160,18 +160,16 @@ pattern. All error messages are logged unconditionally.
 By default, health check gRPC messages are not logged. To enable them,
 set `GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN` to `.`.
 
-### Validation
+### Validate Gitaly configuration
 
-The `gitaly configuration validate` sub-command validates the provided configuration. Use `validate` before starting the service.
-
-`validate` prints all configuration problems to `STDOUT` in JSON format.
-The output's structure includes:
-
-- A key, which is the path to the configuration field where the problem is detected.
-- A message, with an explanation of the problem.
-
-#### Usage
+To validate Gitaly configuration, use `gitaly configuration validate`. For example:
 
 ```shell
-gitaly configuration validate
+gitaly configuration validate < gitaly.config.toml
+```
+
+For more information, run:
+
+```shell
+gitaly configuration validate --help
 ```
