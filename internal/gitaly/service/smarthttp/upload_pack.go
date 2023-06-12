@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -74,7 +73,7 @@ func (s *server) runStatsCollector(ctx context.Context, r io.Reader) (io.Reader,
 
 func (s *server) validateUploadPackRequest(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (string, []git.ConfigPair, error) {
 	repository := req.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
+	if err := s.locator.ValidateRepository(repository); err != nil {
 		return "", nil, err
 	}
 	repoPath, err := s.locator.GetRepoPath(repository)
