@@ -98,7 +98,14 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 	// We need to set up a separate "real" hook service here, as it will be used in
 	// git-update-ref(1) spawned by `updateRefWithHooks()`
 	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
+			deps.GetHookManager(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetPackObjectsCache(),
+			deps.GetPackObjectsConcurrencyTracker(),
+			deps.GetPackObjectsLimiter(),
+		))
 	})
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{

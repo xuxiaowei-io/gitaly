@@ -35,13 +35,14 @@ func startSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, s
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 			opts...))
-		gitalypb.RegisterHookServiceServer(srv,
-			hookservice.NewServer(
-				deps.GetHookManager(),
-				deps.GetGitCmdFactory(),
-				deps.GetPackObjectsCache(),
-				deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()),
-		)
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
+			deps.GetHookManager(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetPackObjectsCache(),
+			deps.GetPackObjectsConcurrencyTracker(),
+			deps.GetPackObjectsLimiter(),
+		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
 			deps.GetLocator(),

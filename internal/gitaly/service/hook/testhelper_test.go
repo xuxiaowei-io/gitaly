@@ -56,6 +56,7 @@ func runHooksServer(tb testing.TB, cfg config.Cfg, opts []serverOption, serverOp
 	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		hookServer := NewServer(
 			gitalyhook.NewManager(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager(), deps.GetGitlabClient()),
+			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
 			deps.GetPackObjectsConcurrencyTracker(),

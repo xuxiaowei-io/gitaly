@@ -138,7 +138,14 @@ func testUserCreateBranchTransactions(t *testing.T, ctx context.Context) {
 			deps.GetCatfileCache(),
 			deps.GetUpdaterWithHooks(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
+			deps.GetHookManager(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetPackObjectsCache(),
+			deps.GetPackObjectsConcurrencyTracker(),
+			deps.GetPackObjectsLimiter(),
+		))
 		// Praefect proxy execution disabled as praefect runs only on the UNIX socket, but
 		// the test requires a TCP listening address.
 	}, testserver.WithDisablePraefect())
