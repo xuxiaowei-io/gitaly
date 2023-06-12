@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
@@ -17,7 +16,7 @@ import (
 )
 
 func (s *server) RenameRepository(ctx context.Context, in *gitalypb.RenameRepositoryRequest) (*gitalypb.RenameRepositoryResponse, error) {
-	if err := validateRenameRepositoryRequest(in); err != nil {
+	if err := validateRenameRepositoryRequest(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -98,8 +97,8 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	return nil
 }
 
-func validateRenameRepositoryRequest(in *gitalypb.RenameRepositoryRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateRenameRepositoryRequest(locator storage.Locator, in *gitalypb.RenameRepositoryRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

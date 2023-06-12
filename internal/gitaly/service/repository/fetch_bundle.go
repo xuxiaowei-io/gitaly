@@ -2,7 +2,6 @@ package repository
 
 import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -14,7 +13,7 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 		return structerr.NewInternal("first request: %w", err)
 	}
 
-	if err := service.ValidateRepository(firstRequest.GetRepository()); err != nil {
+	if err := s.locator.ValidateRepository(firstRequest.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

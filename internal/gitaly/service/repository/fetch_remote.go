@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
@@ -146,7 +145,7 @@ func didTagsChange(r io.Reader) bool {
 }
 
 func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+	if err := s.locator.ValidateRepository(req.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

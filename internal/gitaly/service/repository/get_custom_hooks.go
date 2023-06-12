@@ -2,7 +2,6 @@ package repository
 
 import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -14,7 +13,7 @@ import (
 func (s *server) GetCustomHooks(in *gitalypb.GetCustomHooksRequest, stream gitalypb.RepositoryService_GetCustomHooksServer) error {
 	ctx := stream.Context()
 
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+	if err := s.locator.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("validating repository: %w", err)
 	}
 
@@ -35,7 +34,7 @@ func (s *server) GetCustomHooks(in *gitalypb.GetCustomHooksRequest, stream gital
 func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream gitalypb.RepositoryService_BackupCustomHooksServer) error {
 	ctx := stream.Context()
 
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+	if err := s.locator.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("validating repository: %w", err)
 	}
 

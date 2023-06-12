@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -78,7 +77,7 @@ func (s *server) cloneFromURLCommand(
 }
 
 func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.CreateRepositoryFromURLRequest) (*gitalypb.CreateRepositoryFromURLResponse, error) {
-	if err := validateCreateRepositoryFromURLRequest(req); err != nil {
+	if err := validateCreateRepositoryFromURLRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("CreateRepositoryFromURL: %w", err)
 	}
 
@@ -118,8 +117,8 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 	return &gitalypb.CreateRepositoryFromURLResponse{}, nil
 }
 
-func validateCreateRepositoryFromURLRequest(req *gitalypb.CreateRepositoryFromURLRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateCreateRepositoryFromURLRequest(locator storage.Locator, req *gitalypb.CreateRepositoryFromURLRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository(), storage.WithSkipRepositoryExistenceCheck()); err != nil {
 		return err
 	}
 

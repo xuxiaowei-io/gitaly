@@ -7,17 +7,21 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest) (*gitalypb.CreateForkResponse, error) {
-	if err := service.ValidateRepository(req.GetSourceRepository()); err != nil {
+	// We don't validate existence of the source repository given that we may connect to a different Gitaly host in
+	// order to fetch from it. So it may or may not exist locally.
+	if err := s.locator.ValidateRepository(req.GetSourceRepository(), storage.WithSkipRepositoryExistenceCheck()); err != nil {
 		return nil, structerr.NewInvalidArgument("validating source repository: %w", err)
 	}
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+
+	// Neither do we validate existence of the target repository given that this is the repository we wish to create
+	// in the first place.
+	if err := s.locator.ValidateRepository(req.GetRepository(), storage.WithSkipRepositoryExistenceCheck()); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 

@@ -228,7 +228,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"creating repository: locate repository: %w", storage.NewStorageNotFoundError("does not exist"),
+					"%w", storage.NewStorageNotFoundError("does not exist"),
 				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("does not exist"),

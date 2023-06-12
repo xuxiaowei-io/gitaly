@@ -49,7 +49,9 @@ func TestObjectFormat(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				return setupData{
 					request: &gitalypb.ObjectFormatRequest{
-						Repository: &gitalypb.Repository{},
+						Repository: &gitalypb.Repository{
+							RelativePath: "path",
+						},
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
 						structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
