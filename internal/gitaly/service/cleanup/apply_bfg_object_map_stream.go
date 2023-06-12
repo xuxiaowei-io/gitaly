@@ -3,7 +3,7 @@ package cleanup
 import (
 	"io"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -29,7 +29,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 		return structerr.NewInternal("%w", err)
 	}
 
-	if err := validateFirstRequest(firstRequest); err != nil {
+	if err := validateFirstRequest(s.locator, firstRequest); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -66,8 +66,8 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 	return nil
 }
 
-func validateFirstRequest(req *gitalypb.ApplyBfgObjectMapStreamRequest) error {
-	return service.ValidateRepository(req.GetRepository())
+func validateFirstRequest(locator storage.Locator, req *gitalypb.ApplyBfgObjectMapStreamRequest) error {
+	return locator.ValidateRepository(req.GetRepository())
 }
 
 func (r *bfgStreamReader) readOne() ([]byte, error) {
