@@ -12,7 +12,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -45,7 +45,7 @@ func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchS
 		return structerr.NewInvalidArgument("empty UserApplyPatch_Header")
 	}
 
-	if err := validateUserApplyPatchHeader(header); err != nil {
+	if err := validateUserApplyPatchHeader(s.locator, header); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -209,8 +209,8 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 	return nil
 }
 
-func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header) error {
-	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+func validateUserApplyPatchHeader(locator storage.Locator, header *gitalypb.UserApplyPatchRequest_Header) error {
+	if err := locator.ValidateRepository(header.GetRepository()); err != nil {
 		return err
 	}
 

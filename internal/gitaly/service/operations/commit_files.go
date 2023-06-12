@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -35,7 +34,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 		return structerr.NewInvalidArgument("empty UserCommitFilesRequestHeader")
 	}
 
-	if err = validateUserCommitFilesHeader(header); err != nil {
+	if err = validateUserCommitFilesHeader(s.locator, header); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -442,8 +441,8 @@ func (s *Server) fetchMissingCommit(
 	return nil
 }
 
-func validateUserCommitFilesHeader(header *gitalypb.UserCommitFilesRequestHeader) error {
-	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+func validateUserCommitFilesHeader(locator storage.Locator, header *gitalypb.UserCommitFilesRequestHeader) error {
+	if err := locator.ValidateRepository(header.GetRepository()); err != nil {
 		return err
 	}
 	if header.GetUser() == nil {

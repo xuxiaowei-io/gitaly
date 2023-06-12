@@ -14,14 +14,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error {
-	if err := service.ValidateRepository(request.GetRepository()); err != nil {
+func validateMergeBranchRequest(locator storage.Locator, request *gitalypb.UserMergeBranchRequest) error {
+	if err := locator.ValidateRepository(request.GetRepository()); err != nil {
 		return err
 	}
 
@@ -101,7 +100,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
-	if err := validateMergeBranchRequest(firstRequest); err != nil {
+	if err := validateMergeBranchRequest(s.locator, firstRequest); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -255,8 +254,8 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	return nil
 }
 
-func validateFFRequest(in *gitalypb.UserFFBranchRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateFFRequest(locator storage.Locator, in *gitalypb.UserFFBranchRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 
@@ -277,7 +276,7 @@ func validateFFRequest(in *gitalypb.UserFFBranchRequest) error {
 
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequest) (*gitalypb.UserFFBranchResponse, error) {
-	if err := validateFFRequest(in); err != nil {
+	if err := validateFFRequest(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -357,8 +356,8 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 	}, nil
 }
 
-func validateUserMergeToRefRequest(in *gitalypb.UserMergeToRefRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateUserMergeToRefRequest(locator storage.Locator, in *gitalypb.UserMergeToRefRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 
@@ -389,7 +388,7 @@ func validateUserMergeToRefRequest(in *gitalypb.UserMergeToRefRequest) error {
 // FirstParentRef. Afterwards, it performs a merge of SourceSHA with either
 // Branch or FirstParentRef and updates TargetRef to the merge commit.
 func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMergeToRefRequest) (*gitalypb.UserMergeToRefResponse, error) {
-	if err := validateUserMergeToRefRequest(request); err != nil {
+	if err := validateUserMergeToRefRequest(s.locator, request); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 

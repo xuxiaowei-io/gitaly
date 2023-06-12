@@ -8,7 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -25,7 +25,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		return structerr.NewInvalidArgument("empty UserRebaseConfirmableRequest.Header")
 	}
 
-	if err := validateUserRebaseConfirmableHeader(header); err != nil {
+	if err := validateUserRebaseConfirmableHeader(s.locator, header); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -148,8 +148,8 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 // ErrInvalidBranch indicates a branch name is invalid
 var ErrInvalidBranch = errors.New("invalid branch name")
 
-func validateUserRebaseConfirmableHeader(header *gitalypb.UserRebaseConfirmableRequest_Header) error {
-	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+func validateUserRebaseConfirmableHeader(locator storage.Locator, header *gitalypb.UserRebaseConfirmableRequest_Header) error {
+	if err := locator.ValidateRepository(header.GetRepository()); err != nil {
 		return err
 	}
 
