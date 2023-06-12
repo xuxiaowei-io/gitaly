@@ -175,7 +175,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"create object reader: %w", storage.NewStorageNotFoundError("fake"),
+					"%w", storage.NewStorageNotFoundError("fake"),
 				)),
 				testhelper.ToInterceptedMetadata(
 					structerr.New("repo scoped: %w", storage.NewStorageNotFoundError("fake")),
@@ -193,7 +193,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("create object reader: repository not found"),
+					structerr.NewNotFound("repository not found"),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "path"),
 				),
 				testhelper.ToInterceptedMetadata(

@@ -7,7 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -154,7 +154,7 @@ func sendBlobTreeEntry(
 }
 
 func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobService_GetBlobsServer) error {
-	if err := validateGetBlobsRequest(req); err != nil {
+	if err := validateGetBlobsRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -175,8 +175,8 @@ func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 	return sendGetBlobsResponse(req, stream, objectReader, objectInfoReader)
 }
 
-func validateGetBlobsRequest(req *gitalypb.GetBlobsRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateGetBlobsRequest(locator storage.Locator, req *gitalypb.GetBlobsRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 
