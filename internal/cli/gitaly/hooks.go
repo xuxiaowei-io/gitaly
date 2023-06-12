@@ -27,29 +27,33 @@ const (
 
 func newHooksCommand() *cli.Command {
 	return &cli.Command{
-		Name:            "hooks",
-		Usage:           "manage Git hooks",
-		Description:     "Manage hooks for a Git repository.",
+		Name:  "hooks",
+		Usage: "Manage Git hooks",
+		Description: "Manage hooks for a Git repository.\n\n" +
+
+			"Provides the following subcommand:\n\n" +
+
+			"- set",
 		HideHelpCommand: true,
 		Subcommands: []*cli.Command{
 			{
 				Name:        "set",
-				Usage:       "set custom hooks for a Git repository",
+				Usage:       "Set custom hooks for a Git repository",
 				Description: "Reads a tarball containing custom Git hooks from stdin and writes the hooks to the specified repository.",
 				Action:      setHooksAction,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  flagStorage,
-						Usage: "storage containing the repository",
+						Usage: "Storage containing the repository",
 					},
 					&cli.StringFlag{
 						Name:     flagRepository,
-						Usage:    "repository to set hooks for",
+						Usage:    "Repository to set hooks for",
 						Required: true,
 					},
 					&cli.StringFlag{
 						Name:     flagConfig,
-						Usage:    "path to Gitaly config",
+						Usage:    "Path to Gitaly configuration",
 						Aliases:  []string{"c"},
 						Required: true,
 					},

@@ -16,7 +16,7 @@ import (
 func newCheckCommand() *cli.Command {
 	return &cli.Command{
 		Name:            "check",
-		Usage:           "verify internal API is accessible",
+		Usage:           "Verify internal API is accessible",
 		Description:     "Check that the internal Gitaly API is accessible.",
 		ArgsUsage:       "<configfile>",
 		Action:          checkAction,

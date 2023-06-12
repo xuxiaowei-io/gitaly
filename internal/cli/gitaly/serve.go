@@ -53,7 +53,7 @@ import (
 func newServeCommand() *cli.Command {
 	return &cli.Command{
 		Name:            "serve",
-		Usage:           "launch the server daemon",
+		Usage:           "Launch the server daemon",
 		Description:     "Launch the Gitaly server daemon.",
 		ArgsUsage:       "<configfile>",
 		Action:          serveAction,

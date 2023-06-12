@@ -30,7 +30,7 @@ func TestGitalyCLI(t *testing.T) {
 		{
 			desc:     "without arguments",
 			exitCode: 2,
-			stdout:   "NAME:\n   gitaly - a Git RPC service\n\nUSAGE:\n   gitaly command [command options] [arguments...]\n\nDESCRIPTION:\n   Gitaly is a Git RPC service for handling Git calls.\n\nCOMMANDS:\n   serve          launch the server daemon\n   check          verify internal API is accessible\n   configuration  run configuration-related commands\n   hooks          manage Git hooks\n\nOPTIONS:\n   --help, -h     show help\n   --version, -v  print the version\n",
+			stdout:   "NAME:\n   gitaly - A Git RPC service\n\nUSAGE:\n   gitaly command [command options] [arguments...]\n\nDESCRIPTION:\n   Gitaly is a Git RPC service for handling Git calls.\n\nCOMMANDS:\n   serve          Launch the server daemon\n   check          Verify internal API is accessible\n   configuration  Run configuration-related commands\n   hooks          Manage Git hooks\n\nOPTIONS:\n   --help, -h     show help\n   --version, -v  print the version\n",
 		},
 		{
 			desc:     "with non-existent config",
@@ -42,7 +42,7 @@ func TestGitalyCLI(t *testing.T) {
 			desc:     "check without config",
 			args:     []string{"check"},
 			exitCode: 2,
-			stdout:   "NAME:\n   gitaly check - verify internal API is accessible\n\nUSAGE:\n   gitaly check command [command options] <configfile>\n\nDESCRIPTION:\n   Check that the internal Gitaly API is accessible.\n\nOPTIONS:\n   --help, -h  show help\n",
+			stdout:   "NAME:\n   gitaly check - Verify internal API is accessible\n\nUSAGE:\n   gitaly check command [command options] <configfile>\n\nDESCRIPTION:\n   Check that the internal Gitaly API is accessible.\n\nOPTIONS:\n   --help, -h  show help\n",
 			stderr:   "invalid argument(s)",
 		},
 		{
