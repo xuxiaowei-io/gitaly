@@ -1,4 +1,3 @@
 # Versions of Gitaly dependencies managed by asdf.
 golang 1.20.4 1.19.9
-golangci-lint 1.50.1
 ruby 3.1.4

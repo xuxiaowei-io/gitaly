@@ -41,30 +41,41 @@ gitaly:
 
 #### Using the Makefile
 
-Gitaly uses [Make](https://en.wikipedia.org/wiki/Make_(software)) to manage its build process, and all targets are defined in
-our top-level [Makefile](../Makefile). By default, simply running `make` will
-build our `all` target, which installs Gitaly into the `./_build/bin` directory so
-that it's easily picked up by the GDK. The following is a list of the most
-frequently used targets:
+Gitaly uses [Make](https://en.wikipedia.org/wiki/Make_(software)) to manage its build process, and all targets are
+defined in our top-level [`Makefile`](../Makefile). By default, running `make` builds the `all` target, which installs
+Gitaly into the `./_build/bin` directory so that it's picked up by GDK. The following is a list of the most frequently
+used targets:
 
 - `build`: Build Gitaly, but do not install it.
-
-- `install`: Build and install Gitaly. The destination directory can be modified
-  by modifying a set of variables, most importantly `PREFIX`.
-
+- `install`: Build and install Gitaly. The destination directory can be modified by modifying a set of variables, most
+  importantly `PREFIX`.
 - `test`: Execute tests.
-
 - `clean`: Remove all generated build artifacts.
-
 - `help`: Print a list of available Makefile targets and variables.
 
-You can modify some parts of the build process by setting up various variables.
-For example, by executing `make V=1` you can do a verbose build or by overriding
-the `PROTOC_VERSION` and `PROTOC_HASH` a different protobuf compiler version
-will be used for generating code.
+You can modify some parts of the build process by setting up various variables. For example, by:
 
-If you wish to persist your configuration, you may create a `config.mak` file
-next to the Makefile and put all variables you wish to override in there.
+- Executing `make V=1`, you can do a verbose build
+- Overriding the `PROTOC_VERSION` and `PROTOC_HASH`, a different protobuf compiler version is used for generating code.
+
+If you wish to persist your configuration, create a `config.mak` file next to the Makefile and put all variables you
+wish to override in there.
+
+##### Lint code and documentation
+
+The `Makefile` defines these targets for linting:
+
+- `lint`: Run [`golangci-lint`](https://golangci-lint.run) but don't correct any problems found.
+- `lint-fix`: Run `golangci-lint` and fix any problems found.
+- `lint-docs`: Run [`markdownlint-cli2`](https://github.com/DavidAnson/markdownlint-cli2) in the project but don't
+  correct any problems found.
+- `lint-docs-fix`: Run `markdownlint-cli2` in the project and fix any problems found.
+
+To enable linting in your code editor:
+
+1. Run `make lint` at least once. That builds a version of `golangci-lint` for you.
+1. Point your code editor or code editor's plugin to the binary at `_build/tools/golangci-lint`.
+1. If necessary, add `_build/deps/libgit2/install/lib/pkgconfig` to your `PKG_CONFIG_PATH` environment variable.
 
 #### Experimenting with editing code
 

@@ -460,9 +460,14 @@ lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/git
 	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-docs
-## Run Markdownlint to lint documentation.
+## Run markdownlint-cli2-config to lint the documentation.
 lint-docs:
-	${Q}markdownlint-cli2-config .markdownlint.yml README.md REVIEWING.md STYLE.md **/*.md || (echo "error: markdownlint-cli2 not found!")
+	${Q}markdownlint-cli2-config .markdownlint.yml README.md REVIEWING.md STYLE.md doc/**.md
+
+.PHONY: lint-docs-fix
+## Run markdownlint-cli2-config to lint and fix the documentation.
+lint-docs-fix:
+	${Q}markdownlint-cli2-config .markdownlint.yml README.md REVIEWING.md STYLE.md doc/**.md --fix
 
 .PHONY: lint-gitaly-linters
 ## Test Go tests in tools/golangci-lint/gitaly folder
