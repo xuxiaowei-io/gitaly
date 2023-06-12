@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -115,12 +114,8 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 
 func (s *server) validateFindTagRequest(in *gitalypb.FindTagRequest) error {
 	repository := in.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
+	if err := s.locator.ValidateRepository(repository); err != nil {
 		return err
-	}
-
-	if _, err := s.locator.GetRepoPath(repository); err != nil {
-		return fmt.Errorf("invalid git directory: %w", err)
 	}
 
 	if in.GetTagName() == nil {

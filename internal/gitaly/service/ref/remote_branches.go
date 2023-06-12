@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) FindAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesRequest, stream gitalypb.RefService_FindAllRemoteBranchesServer) error {
-	if err := validateFindAllRemoteBranchesRequest(req); err != nil {
+	if err := validateFindAllRemoteBranchesRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -50,8 +50,8 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	return nil
 }
 
-func validateFindAllRemoteBranchesRequest(req *gitalypb.FindAllRemoteBranchesRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateFindAllRemoteBranchesRequest(locator storage.Locator, req *gitalypb.FindAllRemoteBranchesRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 

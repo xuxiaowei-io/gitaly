@@ -9,7 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -17,7 +17,7 @@ import (
 )
 
 func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest) (_ *gitalypb.DeleteRefsResponse, returnedErr error) {
-	if err := validateDeleteRefRequest(in); err != nil {
+	if err := validateDeleteRefRequest(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -159,8 +159,8 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 	return false
 }
 
-func validateDeleteRefRequest(req *gitalypb.DeleteRefsRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateDeleteRefRequest(locator storage.Locator, req *gitalypb.DeleteRefsRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 

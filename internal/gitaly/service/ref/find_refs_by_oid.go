@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) FindRefsByOID(ctx context.Context, in *gitalypb.FindRefsByOIDRequest) (*gitalypb.FindRefsByOIDResponse, error) {
-	if err := validateFindRefsReq(in); err != nil {
+	if err := validateFindRefsReq(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -51,8 +51,8 @@ func (s *server) FindRefsByOID(ctx context.Context, in *gitalypb.FindRefsByOIDRe
 	}, nil
 }
 
-func validateFindRefsReq(in *gitalypb.FindRefsByOIDRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateFindRefsReq(locator storage.Locator, in *gitalypb.FindRefsByOIDRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 

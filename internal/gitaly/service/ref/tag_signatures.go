@@ -7,15 +7,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
 
-func verifyGetTagSignaturesRequest(req *gitalypb.GetTagSignaturesRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func verifyGetTagSignaturesRequest(locator storage.Locator, req *gitalypb.GetTagSignaturesRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 
@@ -32,7 +32,7 @@ func verifyGetTagSignaturesRequest(req *gitalypb.GetTagSignaturesRequest) error 
 }
 
 func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream gitalypb.RefService_GetTagSignaturesServer) error {
-	if err := verifyGetTagSignaturesRequest(req); err != nil {
+	if err := verifyGetTagSignaturesRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
