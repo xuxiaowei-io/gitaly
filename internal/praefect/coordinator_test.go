@@ -1464,10 +1464,12 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 	db := testdb.New(t)
 
 	for i, tc := range []struct {
-		desc              string
-		replicationFactor int
-		primaryStored     bool
-		assignmentsStored bool
+		desc                string
+		replicationFactor   int
+		primaryStored       bool
+		assignmentsStored   bool
+		mockRepositoryStore func() datastore.RepositoryStore
+		expectedErr         error
 	}{
 		{
 			desc:              "without variable replication factor",
@@ -1479,6 +1481,17 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			replicationFactor: 3,
 			primaryStored:     true,
 			assignmentsStored: true,
+		},
+		{
+			desc: "repository metadata already exists",
+			mockRepositoryStore: func() datastore.RepositoryStore {
+				return &datastore.MockRepositoryStore{
+					CreateRepositoryFunc: func(context.Context, int64, string, string, string, string, []string, []string, bool, bool) error {
+						return datastore.RepositoryExistsError{}
+					},
+				}
+			},
+			expectedErr: structerr.NewAlreadyExists("%w", datastore.RepositoryExistsError{}),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1515,7 +1528,11 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			primaryConnPointer := fmt.Sprintf("%p", conns["praefect"][primaryNode.Storage])
 			secondaryConnPointers := []string{fmt.Sprintf("%p", conns["praefect"][healthySecondaryNode.Storage])}
-			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+			var repositoryStore datastore.RepositoryStore = datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+			if tc.mockRepositoryStore != nil {
+				repositoryStore = tc.mockRepositoryStore()
+			}
+
 			router := NewPerRepositoryRouter(
 				conns,
 				nil,
@@ -1531,7 +1548,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				},
 				nil,
 				nil,
-				rs,
+				repositoryStore,
 				conf.DefaultReplicationFactors(),
 			)
 
@@ -1540,7 +1557,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			coordinator := NewCoordinator(
 				queueInterceptor,
-				rs,
+				repositoryStore,
 				router,
 				txMgr,
 				conf,
@@ -1582,7 +1599,10 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			// this call creates new events in the queue and simulates usual flow of the update operation
 			err = streamParams.RequestFinalizer()
-			require.NoError(t, err)
+			require.Equal(t, tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				return
+			}
 
 			// wait until event persisted (async operation)
 			require.NoError(t, queueInterceptor.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {

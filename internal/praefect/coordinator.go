@@ -1100,11 +1100,11 @@ func (c *Coordinator) newRequestFinalizer(
 				repositorySpecificPrimariesEnabled,
 				variableReplicationFactorEnabled,
 			); err != nil {
-				if !errors.Is(err, datastore.RepositoryExistsError{}) {
-					return fmt.Errorf("create repository: %w", err)
+				if errors.Is(err, datastore.RepositoryExistsError{}) {
+					return structerr.NewAlreadyExists("%w", err)
 				}
 
-				ctxlogrus.Extract(ctx).WithError(err).Info("create repository already has a store entry")
+				return fmt.Errorf("create repository: %w", err)
 			}
 			change = datastore.UpdateRepo
 		}
