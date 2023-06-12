@@ -31,7 +31,7 @@ const (
 func newTrackRepositoryCommand() *cli.Command {
 	return &cli.Command{
 		Name:  trackRepositoryCmdName,
-		Usage: "Praefect starts to track given repository",
+		Usage: "start tracking a repository",
 		Description: "This command adds a given repository to be tracked by Praefect.\n" +
 			"It checks if the repository exists on disk on the authoritative storage,\n" +
 			"and whether database records are absent from tracking the repository.\n" +

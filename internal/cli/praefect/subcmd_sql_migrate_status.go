@@ -14,7 +14,7 @@ const sqlMigrateStatusCmdName = "sql-migrate-status"
 func newSQLMigrateStatusCommand() *cli.Command {
 	return &cli.Command{
 		Name:  sqlMigrateStatusCmdName,
-		Usage: "shows applied database migrations",
+		Usage: "show applied database migrations",
 		Description: "The commands prints a table of the migration identifiers applied to the database\n" +
 			"with the timestamp for each when it was applied.",
 		HideHelpCommand: true,

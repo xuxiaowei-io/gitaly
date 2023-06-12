@@ -14,7 +14,7 @@ const sqlMigrateDownCmdName = "sql-migrate-down"
 func newSQLMigrateDownCommand() *cli.Command {
 	return &cli.Command{
 		Name:  sqlMigrateDownCmdName,
-		Usage: "applies revert SQL migrations",
+		Usage: "apply revert SQL migrations",
 		Description: "The sql-migrate-down subcommand applies revert migrations to the configured database.\n" +
 			"It accepts a single argument - amount of migrations to revert.",
 		HideHelpCommand: true,

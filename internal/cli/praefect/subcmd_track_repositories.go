@@ -22,7 +22,7 @@ const (
 func newTrackRepositoriesCommand() *cli.Command {
 	return &cli.Command{
 		Name:  trackRepositoriesCmdName,
-		Usage: "process bulk requests to track repositories in Praefect",
+		Usage: "process bulk requests to track repositories",
 		Description: "This command allows bulk requests for repositories to be tracked by Praefect.\n" +
 			"The -input-path flag must be the path of a file containing the details of the repositories\n" +
 			"to track as a list of newline-delimited JSON objects. Each line must contain the details for\n" +

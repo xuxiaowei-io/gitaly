@@ -30,7 +30,7 @@ const (
 func newRemoveRepositoryCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "remove-repository",
-		Usage: "removes repository from the Gitaly cluster",
+		Usage: "remove a repository from the cluster",
 		Description: "This command removes all state associated with a given repository from the Gitaly Cluster.\n" +
 			"This includes both on-disk repositories on all relevant Gitaly nodes as well as any potential\n" +
 			"database state as tracked by Praefect, or optionally only database state.\n" +

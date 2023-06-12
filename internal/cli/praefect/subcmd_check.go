@@ -15,8 +15,8 @@ import (
 func newCheckCommand(checkFuncs []service.CheckFunc) *cli.Command {
 	return &cli.Command{
 		Name:            "check",
-		Usage:           "runs startup checks",
-		Description:     `This command runs startup checks for Praefect.`,
+		Usage:           "run startup checks",
+		Description:     "Run Praefect startup checks.",
 		HideHelpCommand: true,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
