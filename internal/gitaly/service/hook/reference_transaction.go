@@ -4,15 +4,15 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
-func validateReferenceTransactionHookRequest(in *gitalypb.ReferenceTransactionHookRequest) error {
-	return service.ValidateRepository(in.GetRepository())
+func validateReferenceTransactionHookRequest(locator storage.Locator, in *gitalypb.ReferenceTransactionHookRequest) error {
+	return locator.ValidateRepository(in.GetRepository())
 }
 
 func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceTransactionHookServer) error {
@@ -21,7 +21,7 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 		return structerr.NewInternal("receiving first request: %w", err)
 	}
 
-	if err := validateReferenceTransactionHookRequest(request); err != nil {
+	if err := validateReferenceTransactionHookRequest(s.locator, request); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

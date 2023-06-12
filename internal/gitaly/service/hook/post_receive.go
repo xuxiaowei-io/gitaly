@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -29,7 +29,7 @@ func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServ
 		return structerr.NewInternal("%w", err)
 	}
 
-	if err := validatePostReceiveHookRequest(firstRequest); err != nil {
+	if err := validatePostReceiveHookRequest(s.locator, firstRequest); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -66,6 +66,6 @@ func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServ
 	return postReceiveHookResponse(stream, 0, "")
 }
 
-func validatePostReceiveHookRequest(in *gitalypb.PostReceiveHookRequest) error {
-	return service.ValidateRepository(in.GetRepository())
+func validatePostReceiveHookRequest(locator storage.Locator, in *gitalypb.PostReceiveHookRequest) error {
+	return locator.ValidateRepository(in.GetRepository())
 }

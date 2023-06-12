@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -18,7 +18,7 @@ func (s *server) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer
 		return structerr.NewInternal("receiving first request: %w", err)
 	}
 
-	if err := validatePreReceiveHookRequest(firstRequest); err != nil {
+	if err := validatePreReceiveHookRequest(s.locator, firstRequest); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 	repository := firstRequest.GetRepository()
@@ -56,8 +56,8 @@ func (s *server) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer
 	return preReceiveHookResponse(stream, 0, "")
 }
 
-func validatePreReceiveHookRequest(in *gitalypb.PreReceiveHookRequest) error {
-	return service.ValidateRepository(in.GetRepository())
+func validatePreReceiveHookRequest(locator storage.Locator, in *gitalypb.PreReceiveHookRequest) error {
+	return locator.ValidateRepository(in.GetRepository())
 }
 
 func preReceiveHookResponse(stream gitalypb.HookService_PreReceiveHookServer, code int32, stderr string) error {
