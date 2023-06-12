@@ -1,7 +1,6 @@
 package remote
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,7 +9,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -30,7 +29,7 @@ func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return structerr.NewInternal("receive first request: %w", err)
 	}
 
-	if err = validateUpdateRemoteMirrorRequest(stream.Context(), firstRequest); err != nil {
+	if err = validateUpdateRemoteMirrorRequest(s.locator, firstRequest); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -275,8 +274,8 @@ func newReferenceMatcher(branchMatchers [][]byte) (*regexp.Regexp, error) {
 	return regexp.Compile(sb.String())
 }
 
-func validateUpdateRemoteMirrorRequest(ctx context.Context, req *gitalypb.UpdateRemoteMirrorRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateUpdateRemoteMirrorRequest(locator storage.Locator, req *gitalypb.UpdateRemoteMirrorRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 
