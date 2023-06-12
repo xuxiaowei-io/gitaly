@@ -444,11 +444,12 @@ func requireFailedSSHStream(t *testing.T, expectedErr error, recv func() (int32,
 func TestUploadPack_validation(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSSHServer(t, cfg)
+	client := newSSHClient(t, cfg.SocketPath)
 
-	serverSocketPath := runSSHServer(t, cfg)
-
-	client := newSSHClient(t, serverSocketPath)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc        string
@@ -481,26 +482,13 @@ func TestUploadPack_validation(t *testing.T) {
 		{
 			desc: "data in first request",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  cfg.Storages[0].Name,
-					RelativePath: "path/to/repo",
-				},
-				Stdin: []byte("Fail"),
+				Repository: repo,
+				Stdin:      []byte("Fail"),
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("non-empty stdin in first request"),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"accessor call: route repository accessor: consistent storages: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/to/repo"),
-					),
-				),
-			),
+			expectedErr: structerr.NewInvalidArgument("non-empty stdin in first request"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			stream, err := client.SSHUploadPack(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(tc.request))

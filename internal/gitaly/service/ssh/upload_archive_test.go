@@ -77,11 +77,12 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSSHServer(t, cfg)
+	client := newSSHClient(t, cfg.SocketPath)
 
-	serverSocketPath := runSSHServer(t, cfg)
-
-	client := newSSHClient(t, serverSocketPath)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	tests := []struct {
 		Desc        string
@@ -105,23 +106,14 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 			),
 		},
 		{
-			Desc: "Data exists on first request",
-			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Stdin: []byte("Fail")},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("non-empty stdin in first request"),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"accessor call: route repository accessor: consistent storages: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/to/repo"),
-					),
-				),
-			),
+			Desc:        "Data exists on first request",
+			Req:         &gitalypb.SSHUploadArchiveRequest{Repository: repo, Stdin: []byte("Fail")},
+			expectedErr: structerr.NewInvalidArgument("non-empty stdin in first request"),
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.Desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			stream, err := client.SSHUploadArchive(ctx)
 			if err != nil {
 				t.Fatal(err)
