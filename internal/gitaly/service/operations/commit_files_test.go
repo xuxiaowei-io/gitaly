@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -32,12 +31,8 @@ var commitFilesMessage = []byte("Change files")
 
 func TestUserCommitFiles(t *testing.T) {
 	t.Parallel()
+	ctx := testhelper.Context(t)
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testUserCommitFiles)
-}
-
-func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	const (
@@ -970,12 +965,8 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 func TestUserCommitFilesStableCommitID(t *testing.T) {
 	t.Parallel()
+	ctx := testhelper.Context(t)
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testUserCommitFilesStableCommitID)
-}
-
-func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1032,12 +1023,8 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 
 func TestUserCommitFilesQuarantine(t *testing.T) {
 	t.Parallel()
+	ctx := testhelper.Context(t)
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testUserCommitFilesQuarantine)
-}
-
-func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1086,14 +1073,10 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
-func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
+func TestSuccessfulUserCommitFilesFilesRequest(t *testing.T) {
 	t.Parallel()
+	ctx := testhelper.Context(t)
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testSuccessfulUserCommitFilesRequest)
-}
-
-func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	newRepo, newRepoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1241,14 +1224,10 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
+func TestSuccessUserCommitFilesRequestMove(t *testing.T) {
 	t.Parallel()
+	ctx := testhelper.Context(t)
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testSuccessfulUserCommitFilesRequestMove)
-}
-
-func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	branchName := "master"
@@ -1303,14 +1282,10 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 	}
 }
 
-func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
+func TestSuccessUserCommitFilesRequestForceCommit(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testSuccessUserCommitFilesRequestForceCommit)
-}
-
-func testSuccessUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1352,14 +1327,10 @@ func testSuccessUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Cont
 	require.Equal(t, newTargetBranchCommit.ParentIds, []string{startBranchCommit.Id})
 }
 
-func TestSuccessUserCommitFilesRequestForceCommit(t *testing.T) {
+func TestSuccessUserCommitFilesRequestStartSha(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testSuccessUserCommitFilesRequestStartSha)
-}
-
-func testSuccessUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1392,19 +1363,17 @@ func testSuccessUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context
 func TestSuccessUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
-			setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
-		}))
+	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
+		setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
+	})
 }
 
 func TestSuccessUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
-			setStartBranchName(header, []byte("master"))
-		}))
+	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
+		setStartBranchName(header, []byte("master"))
+	})
 }
 
 func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header *gitalypb.UserCommitFilesRequest)) func(*testing.T, context.Context) {
@@ -1448,11 +1417,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature)
-}
-
-func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -1503,11 +1468,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testFailedUserCommitFilesRequestDueToHooks)
-}
-
-func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
@@ -1556,11 +1517,7 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testFailedUserCommitFilesRequestDueToIndexError)
-}
-
-func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
@@ -1633,11 +1590,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 func TestFailedUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CommitFilesInGit).
-		Run(t, testFailedUserCommitFilesRequest)
-}
-
-func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
@@ -1676,29 +1629,29 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())),
 		},
 		{
-			desc:        "failed to parse signature - Signature cannot have an empty name or email 1",
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
 			req:         headerRequest(repo, &gitalypb.User{}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
-			desc:        "failed to parse signature - Signature cannot have an empty name or email 2",
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
 			req:         headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("")}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
-			desc:        "failed to parse signature - Signature cannot have an empty name or email 3",
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
 			req:         headerRequest(repo, &gitalypb.User{Name: []byte(" "), Email: []byte(" ")}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
-			desc:        "failed to parse signature - Signature cannot have an empty name or email 4",
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
 			req:         headerRequest(repo, &gitalypb.User{Name: []byte("Jane Doe"), Email: []byte("")}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
-			desc:        "failed to parse signature - Signature cannot have an empty name or email 5",
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
 			req:         headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("janedoe@gitlab.com")}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 	}
 
