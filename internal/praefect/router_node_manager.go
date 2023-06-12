@@ -86,7 +86,7 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 	// paths of repositories and thus returns an empty string. This breaks the tests. Instead, we'll just keep
 	// using the relative path in NodeManagerRouter.
 	_, consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
-	if err != nil && !errors.As(err, new(storage.RepositoryNotFoundError)) {
+	if err != nil && !errors.Is(err, storage.ErrRepositoryNotFound) {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
 

@@ -186,13 +186,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 		}, []string{"refs/does/not/exist"}, localrepo.FetchOpts{})
 		require.Error(t, err)
 		require.IsType(t, err, localrepo.FetchFailedError{})
-
-		expectedMsg := storage.ErrRepositoryNotFound.Error()
-		if testhelper.IsPraefectEnabled() {
-			expectedMsg = `repository \"default\"/\"does/not/exist\" not found`
-		}
-
-		require.Contains(t, err.Error(), expectedMsg)
+		require.Contains(t, err.Error(), storage.ErrRepositoryNotFound.Error())
 	})
 
 	t.Run("pruning", func(t *testing.T) {

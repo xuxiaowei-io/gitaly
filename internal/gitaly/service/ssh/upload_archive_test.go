@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -108,12 +109,15 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 		{
 			Desc: "Data exists on first request",
 			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Stdin: []byte("Fail")},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return status.Error(codes.NotFound, `accessor call: route repository accessor: consistent storages: repository "default"/"path/to/repo" not found`)
-				}
-				return status.Error(codes.InvalidArgument, "non-empty stdin in first request")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("non-empty stdin in first request"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"accessor call: route repository accessor: consistent storages: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/to/repo"),
+					),
+				),
+			),
 		},
 	}
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -191,7 +192,12 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 					structerr.NewNotFound("create object reader: repository not found"),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "path"),
 				),
-				structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"accessor call: route repository accessor: consistent storages: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path"),
+					),
+				),
 			),
 		},
 		{

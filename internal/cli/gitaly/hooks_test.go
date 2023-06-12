@@ -119,7 +119,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedErr: testhelper.GitalyOrPraefect(
 				fmt.Sprintf("getting repo path: %s", storage.ErrRepositoryNotFound),
-				"rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: repository \"default\"/\"non-existent\" not found\n",
+				fmt.Sprintf("rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: %s", storage.ErrRepositoryNotFound),
 			),
 		},
 		{

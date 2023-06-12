@@ -108,12 +108,9 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 		{
 			desc: "destination relative path contains path traversal",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: repo, RelativePath: "../usr/bin"},
-			exp: testhelper.GitalyOrPraefect(
-				testhelper.WithInterceptedMetadata(
-					structerr.NewInvalidArgument("%w", storage.ErrRelativePathEscapesRoot),
-					"relative_path", "../usr/bin",
-				),
-				structerr.NewInvalidArgument("GetRepoPath: %w", storage.ErrRelativePathEscapesRoot),
+			exp: testhelper.WithInterceptedMetadata(
+				structerr.NewInvalidArgument("%w", storage.ErrRelativePathEscapesRoot),
+				"relative_path", "../usr/bin",
 			),
 		},
 		{
@@ -129,7 +126,9 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "stub"),
 				),
-				structerr.NewNotFound(`GetRepoPath: not a git repository: "%s/stub"`, repo.GetStorageName()),
+				testhelper.ToInterceptedMetadata(
+					structerr.NewNotFound("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "stub")),
+				),
 			),
 		},
 	}

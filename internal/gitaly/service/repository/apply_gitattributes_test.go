@@ -274,7 +274,12 @@ func TestApplyGitattributes_failure(t *testing.T) {
 					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar"),
 				),
-				structerr.NewNotFound(`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"mutator call: route repository mutator: get repository id: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "bar"),
+					),
+				),
 			),
 		},
 		{

@@ -90,9 +90,11 @@ func TestObjectFormat(t *testing.T) {
 							structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
 							"repository_path", filepath.Join(cfg.Storages[0].Path, "nonexistent.git"),
 						),
-						structerr.NewNotFound(
-							"accessor call: route repository accessor: consistent storages: repository %q/%q not found",
-							cfg.Storages[0].Name, "nonexistent.git",
+						testhelper.ToInterceptedMetadata(
+							structerr.New(
+								"accessor call: route repository accessor: consistent storages: %w",
+								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "nonexistent.git"),
+							),
 						),
 					),
 				}

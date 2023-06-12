@@ -80,8 +80,9 @@ func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetA
 	}
 
 	if err := s.rs.SetAuthoritativeReplica(ctx, req.VirtualStorage, req.RelativePath, req.AuthoritativeStorage); err != nil {
-		if errors.As(err, &storage.RepositoryNotFoundError{}) {
-			return nil, structerr.NewInvalidArgument("repository %q does not exist on virtual storage %q", req.RelativePath, req.VirtualStorage)
+		var serr structerr.Error
+		if errors.Is(err, storage.ErrRepositoryNotFound) && errors.As(err, &serr) {
+			return nil, structerr.NewInvalidArgument("repository does not exist on virtual storage").WithMetadataItems(serr.MetadataItems()...)
 		}
 
 		return nil, structerr.NewInternal("%w", err)

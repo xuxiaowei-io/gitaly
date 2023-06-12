@@ -29,7 +29,7 @@ func validateRenameRepositoryRequest(req *gitalypb.RenameRepositoryRequest, virt
 		// seeing whether the relative path escapes the root directory. It's not possible to traverse up
 		// from the /, so the traversals in the path wouldn't be caught. To allow for the check to work,
 		// we use the /fake-root directory simply to notice if there were traversals in the path.
-		return structerr.NewInvalidArgument("GetRepoPath: %w", err)
+		return structerr.NewInvalidArgument("%w", err).WithMetadata("relative_path", req.GetRelativePath())
 	}
 
 	return nil
@@ -59,8 +59,7 @@ func RenameRepositoryHandler(virtualStoragesNames []string, rs datastore.Reposit
 			req.GetRelativePath(),
 		); err != nil {
 			if errors.Is(err, storage.ErrRepositoryNotFound) {
-				return structerr.NewNotFound(
-					`GetRepoPath: not a git repository: "%s/%s"`,
+				return storage.NewRepositoryNotFoundError(
 					req.GetRepository().GetStorageName(),
 					req.GetRepository().GetRelativePath(),
 				)

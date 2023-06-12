@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -401,13 +402,15 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 				},
 				GlId: "",
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewNotFound("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
-				}
-
-				return structerr.NewInvalidArgument("empty GlId")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("empty GlId"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"mutator call: route repository mutator: get repository id: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/to/repo"),
+					),
+				),
+			),
 		},
 		{
 			desc: "Data exists on first request",
@@ -419,13 +422,15 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 				GlId: "user-123",
 				Data: []byte("Fail"),
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewNotFound("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
-				}
-
-				return structerr.NewInvalidArgument("non-empty Data")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("non-empty Data"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"mutator call: route repository mutator: get repository id: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/to/repo"),
+					),
+				),
+			),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

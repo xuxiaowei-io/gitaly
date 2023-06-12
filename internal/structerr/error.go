@@ -3,6 +3,7 @@ package structerr
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -10,9 +11,12 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-type metadataItem struct {
-	key   string
-	value any
+// MetadataItem is an item that associated a metadata key with an arbitrary value.
+type MetadataItem struct {
+	// Key is the key of the metadata item that will be used as the logging key.
+	Key string
+	// Value is the value of the metadata item that will be formatted as the logging value.
+	Value any
 }
 
 // Error is a structured error that contains additional details.
@@ -23,7 +27,7 @@ type Error struct {
 	// metadata is the array of metadata items added to this error. Note that we explicitly
 	// don't use a map here so that we don't have any allocation overhead here in the general
 	// case where there is no metadata.
-	metadata []metadataItem
+	metadata []MetadataItem
 }
 
 type grpcStatuser interface {
@@ -262,13 +266,30 @@ func (e Error) Metadata() map[string]any {
 
 	for _, err := range e.errorChain() {
 		for _, m := range err.metadata {
-			if _, exists := result[m.key]; !exists {
-				result[m.key] = m.value
+			if _, exists := result[m.Key]; !exists {
+				result[m.Key] = m.Value
 			}
 		}
 	}
 
 	return result
+}
+
+// MetadataItems returns a copy of all metadata items added to this error. This function has the
+// same semantics as `Metadata()`. The results are sorted by their metadata key.
+func (e Error) MetadataItems() []MetadataItem {
+	metadata := e.Metadata()
+
+	items := make([]MetadataItem, 0, len(metadata))
+	for key, value := range metadata {
+		items = append(items, MetadataItem{Key: key, Value: value})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Key < items[j].Key
+	})
+
+	return items
 }
 
 // WithMetadata adds an additional metadata item to the Error. The metadata has the intent to
@@ -277,16 +298,25 @@ func (e Error) Metadata() map[string]any {
 func (e Error) WithMetadata(key string, value any) Error {
 	for i, metadataItem := range e.metadata {
 		// In case the key already exists we override it.
-		if metadataItem.key == key {
-			e.metadata[i].value = value
+		if metadataItem.Key == key {
+			e.metadata[i].Value = value
 			return e
 		}
 	}
 
 	// Otherwise we append a new metadata item.
-	e.metadata = append(e.metadata, metadataItem{
-		key: key, value: value,
+	e.metadata = append(e.metadata, MetadataItem{
+		Key: key, Value: value,
 	})
+	return e
+}
+
+// WithMetadataItems is a convenience function to append multiple metadata items to an error. It
+// behaves the same as if `WithMetadata()` was called for each of the items separately.
+func (e Error) WithMetadataItems(items ...MetadataItem) Error {
+	for _, item := range items {
+		e = e.WithMetadata(item.Key, item.Value)
+	}
 	return e
 }
 

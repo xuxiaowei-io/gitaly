@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	correlation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -239,6 +240,13 @@ func RunPraefectServer(
 		NodeSetFromNodeManager(opt.WithNodeMgr),
 	)
 
+	// We set up the structerr interceptors so that any error metadata that gets set via
+	// `structerr.WithMetadata()` is not only logged, but also present in the error details.
+	serverOpts := []ServerOption{
+		WithUnaryInterceptor(testserver.StructErrUnaryInterceptor),
+		WithStreamInterceptor(testserver.StructErrStreamInterceptor),
+	}
+
 	prf := NewGRPCServer(
 		conf,
 		opt.WithLogger,
@@ -251,6 +259,7 @@ func RunPraefectServer(
 		opt.WithPrimaryGetter,
 		nil,
 		opt.WithChecks,
+		serverOpts...,
 	)
 
 	listener, port := listenAvailPort(tb)

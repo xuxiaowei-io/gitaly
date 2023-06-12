@@ -162,7 +162,12 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "unknown"),
 				),
-				structerr.NewNotFound(`mutator call: route repository mutator: get repository id: repository "default"/"unknown" not found`),
+				testhelper.ToInterceptedMetadata(
+					structerr.New(
+						"mutator call: route repository mutator: get repository id: %w",
+						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "unknown"),
+					),
+				),
 			),
 		},
 	} {

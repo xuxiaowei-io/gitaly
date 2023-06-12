@@ -274,7 +274,7 @@ func (n *Mgr) GetPrimary(ctx context.Context, virtualStorage string, _ int64) (s
 //nolint:revive // This is unintentionally missing documentation.
 func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath string) (Node, error) {
 	_, upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
-	if err != nil && !errors.As(err, new(storage.RepositoryNotFoundError)) {
+	if err != nil && !errors.Is(err, storage.ErrRepositoryNotFound) {
 		return nil, err
 	}
 

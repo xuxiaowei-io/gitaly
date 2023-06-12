@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -138,10 +139,11 @@ func TestLink_noPool(t *testing.T) {
 	})
 	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
 		structerr.NewFailedPrecondition("object pool is not a valid git repository"),
-		structerr.NewNotFound(
-			"mutator call: route repository mutator: resolve additional replica path: get additional repository id: repository %q/%q not found",
-			cfg.Storages[0].Name,
-			poolRelativePath,
+		testhelper.ToInterceptedMetadata(
+			structerr.New(
+				"mutator call: route repository mutator: resolve additional replica path: get additional repository id: %w",
+				storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, poolRelativePath),
+			),
 		),
 	), err)
 }

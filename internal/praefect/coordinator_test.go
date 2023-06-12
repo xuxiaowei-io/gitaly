@@ -303,7 +303,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 					request: &gitalypb.UserCreateTagRequest{
 						Repository: targetRepo,
 					},
-					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+					expectedErr: structerr.New("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
 				}
 			},
 		},
@@ -331,7 +331,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 							Repository: targetRepo,
 						},
 					},
-					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
+					expectedErr: structerr.New("%w", fmt.Errorf("mutator call: route repository mutator: %w",
 						fmt.Errorf("resolve additional replica path: %w",
 							fmt.Errorf("get additional repository id: %w",
 								storage.NewRepositoryNotFoundError(additionalRepo.StorageName, additionalRepo.RelativePath),
@@ -1089,7 +1089,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 					return RepositoryAccessorRoute{}, storage.NewRepositoryNotFoundError(virtualStorage, relativePath)
 				},
 			},
-			error: structerr.NewNotFound("%w", fmt.Errorf("accessor call: route repository accessor: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
+			error: structerr.New("%w", fmt.Errorf("accessor call: route repository accessor: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
