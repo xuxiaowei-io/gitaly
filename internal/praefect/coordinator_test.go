@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
@@ -52,12 +50,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
-
-var testLogger = logrus.New()
-
-func init() {
-	testLogger.SetOutput(io.Discard)
-}
 
 func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 	t.Parallel()
