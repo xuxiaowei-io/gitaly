@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -789,10 +790,12 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`creating repo quarantine: creating object quarantine: getting repo path: GetStorageByName: no such storage: "@this-storage-does-not-exist"`,
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument(`creating repo quarantine: creating object quarantine: getting repo path: GetStorageByName: no such storage: "@this-storage-does-not-exist"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
+				)),
+			),
 		},
 		{
 			desc: "missing repository path",
@@ -802,10 +805,10 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty RelativePath",
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("empty RelativePath"),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
+			),
 		},
 	}
 

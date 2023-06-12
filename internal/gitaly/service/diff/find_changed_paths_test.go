@@ -987,10 +987,12 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Storage not found",
 			repo:    &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			commits: []string{newCommit.String(), oldCommit.String()},
-			err: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "foo"`,
-				"repo scoped: invalid Repository",
-			)),
+			err: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "foo"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("foo"),
+				)),
+			),
 		},
 		{
 			desc:    "Commits cannot contain an empty commit",

@@ -1147,14 +1147,16 @@ func (c *Coordinator) newRequestFinalizer(
 }
 
 func (c *Coordinator) validateTargetRepo(repo *gitalypb.Repository) error {
-	if repo.GetStorageName() == "" || repo.GetRelativePath() == "" {
-		return storage.ErrInvalidRepository
+	if repo.GetStorageName() == "" {
+		return storage.ErrStorageNotSet
+	}
+
+	if repo.GetRelativePath() == "" {
+		return storage.ErrRepositoryPathNotSet
 	}
 
 	if _, found := c.conf.StorageNames()[repo.StorageName]; !found {
-		// this needs to be nodes.ErrVirtualStorageNotExist error, but it will break
-		// existing API contract as praefect should be a transparent proxy of the gitaly
-		return storage.ErrInvalidRepository
+		return storage.NewStorageNotFoundError(repo.GetStorageName())
 	}
 
 	return nil

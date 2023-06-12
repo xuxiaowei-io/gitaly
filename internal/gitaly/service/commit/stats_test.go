@@ -130,10 +130,12 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"GetStorageByName: no such storage: \"foo\"",
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "foo"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("foo"),
+				)),
+			),
 		},
 		{
 			desc: "ref not found",

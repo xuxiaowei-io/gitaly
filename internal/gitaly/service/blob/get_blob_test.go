@@ -173,10 +173,12 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				fmt.Sprintf("create object reader: GetStorageByName: no such storage: %q", "fake"),
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("create object reader: GetStorageByName: no such storage: %q", "fake"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("repo scoped: %w", storage.NewStorageNotFoundError("fake")),
+				),
+			),
 		},
 		{
 			desc: "invalid relative path",

@@ -5,6 +5,7 @@ package ref
 import (
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -140,8 +141,10 @@ func TestRefExists(t *testing.T) {
 				Ref: []byte("refs/heads/master"),
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", "invalid"),
-				structerr.NewInvalidArgument("repo scoped: invalid Repository"),
+				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "invalid"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
+				)),
 			),
 		},
 	} {

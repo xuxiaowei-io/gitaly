@@ -11,6 +11,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
+// NewStorageNotFoundError returns a new error wrapping ErrStorageNotFound with an InvalidArgument
+// error code and metadata.
+func NewStorageNotFoundError(storageName string) error {
+	return structerr.NewInvalidArgument("%w", ErrStorageNotFound).WithMetadata(
+		"storage_name", storageName,
+	)
+}
+
 // NewRepositoryNotFoundError returns a new error that wraps ErrRepositoryNotFound. The virtual
 // storage and relative path are appended as error metadata.
 func NewRepositoryNotFoundError(storageName string, relativePath string) error {
@@ -26,9 +34,6 @@ var (
 	// ErrStorageNotFound is returned when operating on a storage that doesn't exist.
 	ErrStorageNotFound = errors.New("storage name not found")
 
-	// ErrInvalidRepository is returned when the repository does not pass validation. This error
-	// is deprecated and will be removed.
-	ErrInvalidRepository = errors.New("invalid Repository")
 	// ErrRepositoryNotSet is returned when the repository has not been set.
 	ErrRepositoryNotSet = errors.New("empty Repository")
 	// ErrRepositoryPathNotSet is returned when the repository path has not been set.

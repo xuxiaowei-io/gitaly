@@ -210,10 +210,12 @@ func TestFindDefaultBranchName(t *testing.T) {
 					request: &gitalypb.FindDefaultBranchNameRequest{
 						Repository: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
 					},
-					expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-						`get default branch: GetStorageByName: no such storage: "invalid"`,
-						"repo scoped: invalid Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument(`get default branch: GetStorageByName: no such storage: "invalid"`),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
+						)),
+					),
 				}
 			},
 		},
@@ -509,10 +511,12 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`creating object reader: GetStorageByName: no such storage: "invalid"`,
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument(`creating object reader: GetStorageByName: no such storage: "invalid"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
+				)),
+			),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -690,10 +694,12 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 					RelativePath: "repo",
 				},
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"creating object reader: GetStorageByName: no such storage: \"fake\"",
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument(`creating object reader: GetStorageByName: no such storage: "fake"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
+				)),
+			),
 		},
 	} {
 		t.Run(tc.description, func(t *testing.T) {

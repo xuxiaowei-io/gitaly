@@ -352,9 +352,11 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "non-existent"`,
-				"repo scoped: invalid Repository"),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument(`GetStorageByName: no such storage: "non-existent"`),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("non-existent"),
+				)),
 			),
 		},
 		{

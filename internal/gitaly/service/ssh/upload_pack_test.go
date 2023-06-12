@@ -463,12 +463,10 @@ func TestUploadPack_validation(t *testing.T) {
 					RelativePath: "",
 				},
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewInvalidArgument("repo scoped: invalid Repository")
-				}
-				return structerr.NewInvalidArgument("empty RelativePath")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("empty RelativePath"),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
+			),
 		},
 		{
 			desc: "missing repository",
@@ -783,11 +781,10 @@ func TestUploadPack_invalidStorage(t *testing.T) {
 	}, "git@localhost:test/test.git", localRepoPath)
 	require.Error(t, err)
 
-	if testhelper.IsPraefectEnabled() {
-		require.Contains(t, err.Error(), "rpc error: code = InvalidArgument desc = repo scoped: invalid Repository")
-	} else {
-		require.Contains(t, err.Error(), "rpc error: code = InvalidArgument desc = GetStorageByName: no such storage: \\\"foobar\\\"")
-	}
+	require.Contains(t, err.Error(), testhelper.GitalyOrPraefect(
+		"rpc error: code = InvalidArgument desc = GetStorageByName: no such storage: \\\"foobar\\\"",
+		fmt.Sprintf("rpc error: code = InvalidArgument desc = repo scoped: %s", storage.NewStorageNotFoundError("foobar")),
+	))
 }
 
 func TestUploadPack_gitFailure(t *testing.T) {

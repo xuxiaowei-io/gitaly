@@ -103,7 +103,10 @@ func TestSetHooksSubcommand(t *testing.T) {
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedErr: testhelper.GitalyOrPraefect(
 				"getting repo path: GetStorageByName: no such storage: \"non-existent\"\n",
-				"rpc error: code = InvalidArgument desc = repo scoped: invalid Repository\n",
+				fmt.Sprintf(
+					"rpc error: code = InvalidArgument desc = repo scoped: %s\n",
+					storage.NewStorageNotFoundError("non-existent"),
+				),
 			),
 		},
 		{

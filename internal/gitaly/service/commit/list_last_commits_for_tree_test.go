@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -91,10 +92,12 @@ func TestListLastCommitsForTree(t *testing.T) {
 						},
 						Revision: parentCommitID.String(),
 					},
-					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						`GetStorageByName: no such storage: "broken"`,
-						"repo scoped: invalid Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument(`GetStorageByName: no such storage: "broken"`),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"repo scoped: %w", storage.NewStorageNotFoundError("broken"),
+						)),
+					),
 				}
 			},
 		},
