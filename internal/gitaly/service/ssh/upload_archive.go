@@ -9,7 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -20,7 +20,7 @@ func (s *server) SSHUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 	if err != nil {
 		return structerr.NewInternal("%w", err)
 	}
-	if err = validateFirstUploadArchiveRequest(req); err != nil {
+	if err = validateFirstUploadArchiveRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -99,8 +99,8 @@ func (s *server) sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 	})
 }
 
-func validateFirstUploadArchiveRequest(req *gitalypb.SSHUploadArchiveRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateFirstUploadArchiveRequest(locator storage.Locator, req *gitalypb.SSHUploadArchiveRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 	if req.Stdin != nil {
