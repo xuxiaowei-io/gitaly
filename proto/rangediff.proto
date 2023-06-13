@@ -1,0 +1,96 @@
+// This file implements RPC service for git-range-diff comparison.
+// For a detailed explanation and documentation of git range-diff,
+// please refer to: https://git-scm.com/docs/git-range-diff
+
+syntax = "proto3";
+
+package gitaly;
+
+import "lint.proto";
+import "shared.proto";
+
+option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
+
+// Service for range difference comparison
+service RangeDiffService {
+  // RPC method to compare ranges and retrieve the difference
+  rpc CompareRanges(RangeDiffRequest) returns (stream RangeDiffResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
+  rpc RawRangeDiff(RangeDiffRequest) returns (stream RawRangeDiffResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+}
+
+// Request for range difference comparison
+message RangeDiffRequest {
+  // Enum to specify the type of commit range notation.
+  enum RangeNotation {
+    // Specifies the <range1> <range2> notation.
+    TWO_RANGES = 0;
+    // Specifies the <rev1>...<rev2> notation.
+    TWO_REVS = 1;
+    // Specifies the <base> <rev1> <rev2> notation.
+    BASE_AND_REVS = 2;
+  }
+
+  // Enum to specify the format of the response.
+  enum ResponseFormat {
+    // For unparsed output
+    UNPARSED_OUTPUT = 0;
+    // Parsed output
+    PARSED_OUTPUT = 1;
+    // Both
+    BOTH = 2;
+  }
+
+  // This comment is left unintentionally blank.
+  Repository repository = 1 [(target_repository) = true];
+  // The commit range notation to use.
+  RangeNotation range_notation = 2;
+  // The base revision. Corresponds to the '<base>' argument of git range-diff,
+  // so only used with the BASE_AND_REVS notation.
+  string base_rev = 3;
+  // The first commit range or revision. Corresponds to the '<range1>' argument of git range-diff with
+  // the TWO_RANGES notation, and to the '<rev1>' argument with the TWO_REVS and BASE_AND_REVS notations.
+  string rev1_or_range1 = 4;
+  // The second commit range or revision. Corresponds to the '<range2>' argument of git range-diff with
+  // the TWO_RANGES notation, and to the '<rev2>' argument with the TWO_REVS and BASE_AND_REVS notations.
+  string rev2_or_range2 = 5;
+  // The response format.
+  ResponseFormat response_format = 6;
+}
+
+// Response for range difference comparison
+message RangeDiffResponse {
+  // The commit in the first range.
+  GitCommit commit1 = 1;
+  // The commit in the second range.
+  GitCommit commit2 = 2;
+  // The comparison relationship between the two commits.
+  enum Comparison {
+    // Indicates that the commit remains unmodified between the two ranges (=).
+    UNMODIFIED = 0;
+    // Indicates that the commit has been modified between the two ranges (!).
+    MODIFIED = 1;
+    // Indicates that the commit was removed in the second range (<).
+    REMOVED = 2;
+    // Indicates that the commit was added in the second range (>).
+    ADDED = 3;
+  }
+  // Diff lines between the two commits.
+  bytes diff_lines = 4;
+  // The comparison result between the two commits.
+  Comparison comparison = 6;
+}
+
+// The raw range difference data.
+message RawRangeDiffResponse {
+  // The raw range difference data.
+  bytes data = 1;
+}

@@ -19,6 +19,7 @@ var GitalyProtos = []string{
 	"operations.proto",
 	"packfile.proto",
 	"praefect.proto",
+	"rangediff.proto",
 	"ref.proto",
 	"remote.proto",
 	"repository.proto",
