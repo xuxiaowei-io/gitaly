@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -384,19 +385,30 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 		hookExitCode       int32
 		expectedExitStatus int32
 		expectedStderr     string
+		expectedVotes      []transaction.PhasedVote
 	}{
+		{
+			desc:               "primary votes on success",
+			primary:            true,
+			allowedHandler:     allowedHandler(t, true),
+			preReceiveHandler:  preReceiveHandler(t, true),
+			expectedExitStatus: 0,
+			expectedVotes:      []transaction.PhasedVote{},
+		},
 		{
 			desc:               "primary checks for permissions",
 			primary:            true,
 			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 1,
 			expectedStderr:     "GitLab: not allowed",
+			expectedVotes:      []transaction.PhasedVote{},
 		},
 		{
 			desc:               "secondary checks for permissions",
 			primary:            false,
 			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 0,
+			expectedVotes:      []transaction.PhasedVote{},
 		},
 		{
 			desc:               "primary tries to increase reference counter",
@@ -405,6 +417,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			preReceiveHandler:  preReceiveHandler(t, false),
 			expectedExitStatus: 1,
 			expectedStderr:     "",
+			expectedVotes:      []transaction.PhasedVote{},
 		},
 		{
 			desc:               "secondary does not try to increase reference counter",
@@ -412,6 +425,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			allowedHandler:     allowedHandler(t, true),
 			preReceiveHandler:  preReceiveHandler(t, false),
 			expectedExitStatus: 0,
+			expectedVotes:      []transaction.PhasedVote{},
 		},
 		{
 			desc:               "primary executes hook",
@@ -420,6 +434,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			preReceiveHandler:  preReceiveHandler(t, true),
 			hookExitCode:       123,
 			expectedExitStatus: 123,
+			expectedVotes:      []transaction.PhasedVote{},
 		},
 		{
 			desc:               "secondary does not execute hook",
@@ -428,6 +443,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			preReceiveHandler:  preReceiveHandler(t, true),
 			hookExitCode:       123,
 			expectedExitStatus: 0,
+			expectedVotes:      []transaction.PhasedVote{},
 		},
 	}
 
@@ -457,7 +473,12 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
+			txManager := transaction.NewTrackingManager()
+
+			cfg.SocketPath = runHooksServer(t, cfg, nil,
+				testserver.WithGitLabClient(gitlabClient),
+				testserver.WithTransactionManager(txManager),
+			)
 
 			ctx := testhelper.Context(t)
 			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -505,6 +526,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 			require.Equal(t, tc.expectedExitStatus, status)
 			require.Equal(t, tc.expectedStderr, text.ChompBytes(stderr))
+			require.Equal(t, tc.expectedVotes, txManager.Votes())
 		})
 	}
 }

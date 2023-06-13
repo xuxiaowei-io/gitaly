@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -98,7 +99,12 @@ func TestHooksMissingStdin(t *testing.T) {
 			gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewDiscardingLogger(t), cfg.Gitlab, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
+			txManager := transaction.NewTrackingManager()
+
+			serverSocketPath := runHooksServer(t, cfg, nil,
+				testserver.WithGitLabClient(gitlabClient),
+				testserver.WithTransactionManager(txManager),
+			)
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -152,8 +158,10 @@ func TestHooksMissingStdin(t *testing.T) {
 
 			if tc.fail {
 				require.NotEqual(t, int32(0), status, "exit code should be non-zero")
+				require.Empty(t, txManager.Votes())
 			} else {
 				require.Equal(t, int32(0), status, "exit code unequal")
+				require.Empty(t, txManager.Votes())
 			}
 		})
 	}
