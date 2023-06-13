@@ -19,8 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v16/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestCreateFork_successful(t *testing.T) {
@@ -271,20 +269,18 @@ func TestCreateFork_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			req:  &gitalypb.CreateForkRequest{Repository: nil, SourceRepository: repo},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "source repository not provided",
 			req:  &gitalypb.CreateForkRequest{Repository: repo, SourceRepository: nil},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return status.Error(codes.AlreadyExists, "route repository creation: reserve repository id: repository already exists")
-				}
-				return status.Error(codes.InvalidArgument, "validating source repository: empty Repository")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("validating source repository: %w", storage.ErrRepositoryNotSet),
+				structerr.NewAlreadyExists("route repository creation: reserve repository id: repository already exists"),
+			),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

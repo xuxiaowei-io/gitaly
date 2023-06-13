@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -161,10 +162,10 @@ size 12345`
 			desc: "missing repository",
 			setup: func(t *testing.T) setupData {
 				return setupData{
-					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						"empty Repository",
-						"repo scoped: empty Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					),
 				}
 			},
 		},
@@ -322,15 +323,15 @@ func TestGetLFSPointers(t *testing.T) {
 		expectedPointers []*gitalypb.LFSPointer
 	}{
 		{
-			desc: "empty Repository",
+			desc: "unset repository",
 			request: &gitalypb.GetLFSPointersRequest{
 				Repository: nil,
 				BlobIds:    []string{"f00"},
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "empty BlobIds",

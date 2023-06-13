@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -230,8 +229,8 @@ func TestReplicateRepository(t *testing.T) {
 					source: source,
 					target: nil,
 					expectedError: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						gitalyerrors.ErrEmptyRepository.Error(),
-						fmt.Sprintf("repo scoped: %s", gitalyerrors.ErrEmptyRepository.Error()),
+						storage.ErrRepositoryNotSet.Error(),
+						fmt.Sprintf("repo scoped: %s", storage.ErrRepositoryNotSet.Error()),
 					)),
 				}
 			},

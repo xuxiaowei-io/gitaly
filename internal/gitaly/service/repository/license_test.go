@@ -13,14 +13,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -265,8 +264,10 @@ func TestFindLicense_validate(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = serverSocketPath
 	_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: nil})
-	msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
-	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
+	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+		structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+		structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+	), err)
 }
 
 func BenchmarkFindLicense(b *testing.B) {

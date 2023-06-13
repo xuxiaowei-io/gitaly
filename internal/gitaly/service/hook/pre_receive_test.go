@@ -16,16 +16,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
@@ -37,7 +37,7 @@ func TestPreReceiveInvalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.PreReceiveHookRequest{}))
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, "empty Repository"), err)
+	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 }
 
 func sendPreReceiveHookRequest(t *testing.T, stream gitalypb.HookService_PreReceiveHookClient, stdin io.Reader) ([]byte, []byte, int32, error) {

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -349,10 +350,10 @@ func TestUserMergeBranch_failure(t *testing.T) {
 					User: gittest.TestUser,
 				}
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "empty user",
@@ -1084,7 +1085,10 @@ func TestUserFFBranch(t *testing.T) {
 					},
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "empty user",

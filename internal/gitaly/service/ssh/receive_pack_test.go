@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -57,8 +58,8 @@ func TestReceivePack_validation(t *testing.T) {
 				GlId: "user-123",
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("empty RelativePath"),
-				structerr.NewInvalidArgument("repo scoped: invalid Repository"),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
 			),
 		},
 		{
@@ -67,13 +68,10 @@ func TestReceivePack_validation(t *testing.T) {
 				Repository: nil,
 				GlId:       "user-123",
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewInvalidArgument("repo scoped: empty Repository")
-				}
-
-				return structerr.NewInvalidArgument("empty Repository")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "missing GlId",
@@ -96,8 +94,12 @@ func TestReceivePack_validation(t *testing.T) {
 				GlId: "user-123",
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", "doesnotexist"),
-				structerr.NewInvalidArgument("repo scoped: invalid Repository"),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("doesnotexist"),
+				)),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("doesnotexist"),
+				)),
 			),
 		},
 		{

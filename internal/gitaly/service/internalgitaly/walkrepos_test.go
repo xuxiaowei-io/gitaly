@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -112,7 +113,9 @@ func TestWalkRepos(t *testing.T) {
 
 	_, err = stream.Recv()
 	require.NotNil(t, err)
-	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("looking up storage: GetStorageByName: no such storage: %q", "invalid storage name"), err)
+	testhelper.RequireGrpcError(t, testhelper.ToInterceptedMetadata(
+		structerr.New("looking up storage: %w", storage.NewStorageNotFoundError("invalid storage name")),
+	), err)
 
 	stream, err = client.WalkRepos(ctx, &gitalypb.WalkReposRequest{
 		StorageName: storageName,

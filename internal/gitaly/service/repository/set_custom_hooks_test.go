@@ -12,9 +12,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -23,7 +25,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestSetCustomHooksRequest_success(t *testing.T) {
@@ -168,10 +169,10 @@ func TestSetCustomHooks_failedValidation(t *testing.T) {
 			_, client := setupRepositoryServiceWithoutRepo(t)
 
 			err := tc.streamSender(t, ctx, client)
-			testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"validating repo: empty Repository",
-				"repo scoped: empty Repository",
-			)))
+			testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("validating repo: %w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			), err)
 		})
 	}
 }

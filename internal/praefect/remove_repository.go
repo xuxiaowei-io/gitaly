@@ -29,7 +29,7 @@ func RemoveRepositoryHandler(rs datastore.RepositoryStore, conns Connections) gr
 
 			repo := req.GetRepository()
 			if repo == nil {
-				return nil, errMissingRepository
+				return nil, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)
 			}
 
 			return repo, nil

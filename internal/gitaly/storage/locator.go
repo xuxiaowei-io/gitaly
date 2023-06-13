@@ -11,6 +11,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
+// NewStorageNotFoundError returns a new error wrapping ErrStorageNotFound with an InvalidArgument
+// error code and metadata.
+func NewStorageNotFoundError(storageName string) error {
+	return structerr.NewInvalidArgument("%w", ErrStorageNotFound).WithMetadata(
+		"storage_name", storageName,
+	)
+}
+
 // NewRepositoryNotFoundError returns a new error that wraps ErrRepositoryNotFound. The virtual
 // storage and relative path are appended as error metadata.
 func NewRepositoryNotFoundError(storageName string, relativePath string) error {
@@ -21,17 +29,24 @@ func NewRepositoryNotFoundError(storageName string, relativePath string) error {
 }
 
 var (
+	// ErrStorageNotSet is returned when the storage name has not been set.
+	ErrStorageNotSet = errors.New("storage name not set")
+	// ErrStorageNotFound is returned when operating on a storage that doesn't exist.
+	ErrStorageNotFound = errors.New("storage name not found")
+
+	// ErrRepositoryNotSet is returned when the repository has not been set.
+	ErrRepositoryNotSet = errors.New("repository not set")
+	// ErrRepositoryPathNotSet is returned when the repository path has not been set.
+	ErrRepositoryPathNotSet = errors.New("repository path not set")
 	// ErrRepositoryNotFound is returned when operating on a repository that doesn't exist.
 	//
 	// This somewhat duplicates the above RepositoryNotFoundError but doesn't specify which
 	// repository was not found. With repository IDs in use, the virtual storage and relative
 	// path won't be available everywhere anymore.
 	ErrRepositoryNotFound = errors.New("repository not found")
-
 	// ErrRepositoryAlreadyExists is returned when attempting to create a repository that
 	// already exists.
 	ErrRepositoryAlreadyExists = errors.New("repository already exists")
-
 	// ErrRepositoryNotValid is returned when operating on a path that is not a valid Git
 	// repository.
 	ErrRepositoryNotValid = errors.New("repository not valid")

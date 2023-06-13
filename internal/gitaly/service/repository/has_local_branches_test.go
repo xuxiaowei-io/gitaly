@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -67,10 +68,10 @@ func TestHasLocalBranches_failure(t *testing.T) {
 		{
 			desc:       "repository nil",
 			repository: nil,
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "repository doesn't exist",
@@ -78,10 +79,14 @@ func TestHasLocalBranches_failure(t *testing.T) {
 				StorageName:  "fake",
 				RelativePath: "path",
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("fake"),
+				)),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
+				)),
+			),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

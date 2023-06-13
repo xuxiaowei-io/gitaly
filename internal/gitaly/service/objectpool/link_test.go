@@ -42,7 +42,7 @@ func TestLink(t *testing.T) {
 				Repository: nil,
 				ObjectPool: poolProto,
 			},
-			expectedErr: structerr.NewInvalidArgument("empty Repository"),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "unset object pool",
@@ -50,7 +50,7 @@ func TestLink(t *testing.T) {
 				Repository: repo,
 				ObjectPool: nil,
 			},
-			expectedErr: structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", ""),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "successful",

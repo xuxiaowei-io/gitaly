@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -21,8 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -97,7 +96,10 @@ func TestUserDeleteTag(t *testing.T) {
 					User:    gittest.TestUser,
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "empty user",
@@ -1267,10 +1269,10 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "shiny-new-tag",
 			targetRevision: "main",
 			user:           gittest.TestUser,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"validating request: empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("validating request: %w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc:           "empty target revision",

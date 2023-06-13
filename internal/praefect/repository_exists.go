@@ -3,17 +3,11 @@ package praefect
 import (
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-)
-
-var (
-	errMissingRepository   = status.Error(codes.InvalidArgument, "missing repository")
-	errMissingStorageName  = status.Error(codes.InvalidArgument, "repository missing storage name")
-	errMissingRelativePath = status.Error(codes.InvalidArgument, "repository missing relative path")
 )
 
 // RepositoryExistsHandler handles /gitaly.RepositoryService/RepositoryExists calls by checking
@@ -27,17 +21,17 @@ func RepositoryExistsHandler(rs datastore.RepositoryStore) grpc.StreamHandler {
 
 		repo := req.GetRepository()
 		if repo == nil {
-			return errMissingRepository
+			return structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)
 		}
 
 		storageName := repo.StorageName
 		if storageName == "" {
-			return errMissingStorageName
+			return structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet)
 		}
 
 		relativePath := repo.RelativePath
 		if relativePath == "" {
-			return errMissingRelativePath
+			return structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet)
 		}
 
 		exists, err := rs.RepositoryExists(stream.Context(), storageName, relativePath)

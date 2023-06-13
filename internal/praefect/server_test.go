@@ -359,7 +359,9 @@ func TestRejectBadStorage(t *testing.T) {
 	}
 
 	_, err := gitalypb.NewRepositoryServiceClient(cc).OptimizeRepository(ctx, req)
-	require.Error(t, err, status.New(codes.InvalidArgument, "repo scoped: invalid Repository"))
+	testhelper.RequireGrpcError(t, testhelper.ToInterceptedMetadata(
+		structerr.New("repo scoped: %w", storage.NewStorageNotFoundError("bad-name")),
+	), err)
 }
 
 func TestWarnDuplicateAddrs(t *testing.T) {

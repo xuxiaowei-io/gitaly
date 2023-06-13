@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -172,18 +174,22 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 		{
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.CountCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`cmd: GetStorageByName: no such storage: "fake"`,
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"cmd: %w", storage.NewStorageNotFoundError("fake"),
+				)),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
+				)),
+			),
 		},
 		{
 			desc: "Repository is nil",
 			req:  &gitalypb.CountCommitsRequest{Repository: nil, Revision: revision},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc:        "Revision is empty and All is false",

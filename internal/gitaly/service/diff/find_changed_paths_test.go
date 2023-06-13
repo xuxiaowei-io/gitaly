@@ -961,10 +961,10 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repository not provided",
 			repo:    nil,
 			commits: []string{newCommit.String(), oldCommit.String()},
-			err: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			err: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc:    "Repo not found",
@@ -987,10 +987,14 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Storage not found",
 			repo:    &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			commits: []string{newCommit.String(), oldCommit.String()},
-			err: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "foo"`,
-				"repo scoped: invalid Repository",
-			)),
+			err: testhelper.GitalyOrPraefect(
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("foo"),
+				)),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("foo"),
+				)),
+			),
 		},
 		{
 			desc:    "Commits cannot contain an empty commit",

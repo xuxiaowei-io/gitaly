@@ -51,12 +51,12 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "storage is empty",
 			repo:   &gitalypb.Repository{RelativePath: repo.RelativePath},
-			expErr: structerr.NewInvalidArgument(`GetStorageByName: no such storage: ""`),
+			expErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 		{
 			desc:   "unknown storage",
 			repo:   &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.RelativePath},
-			expErr: structerr.NewInvalidArgument(`GetStorageByName: no such storage: "invalid"`),
+			expErr: storage.NewStorageNotFoundError("invalid"),
 		},
 		{
 			desc:   "storage doesn't exist on disk",
@@ -66,7 +66,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "relative path is empty",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: ""},
-			expErr: structerr.NewInvalidArgument("relative path is not set"),
+			expErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 		},
 		{
 			desc:   "unknown relative path",

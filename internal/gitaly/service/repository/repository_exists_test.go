@@ -5,14 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestRepositoryExists(t *testing.T) {
@@ -40,7 +38,7 @@ func TestRepositoryExists(t *testing.T) {
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: nil,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyRepository.Error(), "missing repository")),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "storage name empty",
@@ -50,7 +48,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyStorageName.Error(), "repository missing storage name")),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 		{
 			desc: "relative path empty",
@@ -60,7 +58,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: "",
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyRelativePath.Error(), "repository missing relative path")),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 		},
 		{
 			desc: "exists true",
@@ -90,14 +88,14 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: "foobar.git",
 				},
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					// Praefect doesn't check for storage existence but just returns that the repository doesn't exist.
-					return nil
-				}
-
-				return status.Errorf(codes.InvalidArgument, `GetStorageByName: no such storage: "unconfigured"`)
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				error(testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("unconfigured"),
+				))),
+				// Praefect doesn't check for storage existence but just returns
+				// that the repository doesn't exist.
+				nil,
+			),
 		},
 		{
 			desc: "storage directory does not exist",

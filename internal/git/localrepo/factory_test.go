@@ -1,12 +1,14 @@
 package localrepo
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -39,7 +41,7 @@ func TestFactory(t *testing.T) {
 	t.Run("ScopeByStorage/Build", func(t *testing.T) {
 		t.Run("non-existent storage fails", func(t *testing.T) {
 			scopedFactory, err := factory.ScopeByStorage("non-existent")
-			require.ErrorContains(t, err, `no such storage: "non-existent"`)
+			require.Equal(t, fmt.Errorf("get storage by name: %w", storage.NewStorageNotFoundError("non-existent")), err)
 			require.Empty(t, scopedFactory)
 		})
 

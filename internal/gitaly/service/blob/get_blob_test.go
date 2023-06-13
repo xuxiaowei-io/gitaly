@@ -159,10 +159,10 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				Repository: nil,
 				Oid:        oid,
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "invalid storage name",
@@ -173,10 +173,14 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				fmt.Sprintf("create object reader: GetStorageByName: no such storage: %q", "fake"),
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"create object reader: %w", storage.NewStorageNotFoundError("fake"),
+				)),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("repo scoped: %w", storage.NewStorageNotFoundError("fake")),
+				),
+			),
 		},
 		{
 			desc: "invalid relative path",

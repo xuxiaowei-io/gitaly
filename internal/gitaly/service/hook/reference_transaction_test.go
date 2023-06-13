@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -18,9 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 )
 
 type testTransactionServer struct {
@@ -48,7 +47,7 @@ func TestReferenceTransactionHookInvalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.ReferenceTransactionHookRequest{}))
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, "empty Repository"), err)
+	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 }
 
 func TestReferenceTransactionHook(t *testing.T) {

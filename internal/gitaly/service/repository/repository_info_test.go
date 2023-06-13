@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -58,8 +57,8 @@ func TestRepositoryInfo(t *testing.T) {
 						Repository: nil,
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", gitalyerrors.ErrEmptyRepository),
-						structerr.NewInvalidArgument("repo scoped: %w", gitalyerrors.ErrEmptyRepository),
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
 					),
 				}
 			},

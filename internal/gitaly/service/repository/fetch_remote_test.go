@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -690,10 +691,10 @@ func TestFetchRemote(t *testing.T) {
 					request: &gitalypb.FetchRemoteRequest{
 						RemoteParams: &gitalypb.Remote{Url: remoteRepoPath},
 					},
-					runs: []run{{expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						"empty Repository",
-						"repo scoped: empty Repository",
-					))}},
+					runs: []run{{expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					)}},
 				}
 			},
 		},
@@ -712,10 +713,14 @@ func TestFetchRemote(t *testing.T) {
 						},
 						RemoteParams: &gitalypb.Remote{Url: remoteRepoPath},
 					},
-					runs: []run{{expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						`fetch remote: GetStorageByName: no such storage: "foobar"`,
-						"repo scoped: invalid Repository",
-					))}},
+					runs: []run{{expectedErr: testhelper.GitalyOrPraefect(
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"fetch remote: %w", storage.NewStorageNotFoundError("foobar"),
+						)),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"repo scoped: %w", storage.NewStorageNotFoundError("foobar"),
+						)),
+					)}},
 				}
 			},
 		},

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -255,10 +256,10 @@ func TestDeleteRefs_validation(t *testing.T) {
 		{
 			desc:    "no repository provided",
 			request: &gitalypb.DeleteRefsRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "Invalid repository",
@@ -266,10 +267,14 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("fake"),
+				)),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
+				)),
+			),
 		},
 		{
 			desc: "Repository is nil",
@@ -277,10 +282,10 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       nil,
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "No prefixes nor refs",

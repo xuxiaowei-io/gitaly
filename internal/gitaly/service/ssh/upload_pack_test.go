@@ -463,24 +463,20 @@ func TestUploadPack_validation(t *testing.T) {
 					RelativePath: "",
 				},
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewInvalidArgument("repo scoped: invalid Repository")
-				}
-				return structerr.NewInvalidArgument("empty RelativePath")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
+			),
 		},
 		{
 			desc: "missing repository",
 			request: &gitalypb.SSHUploadPackRequest{
 				Repository: nil,
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewInvalidArgument("repo scoped: empty Repository")
-				}
-				return structerr.NewInvalidArgument("empty Repository")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "data in first request",
@@ -783,11 +779,10 @@ func TestUploadPack_invalidStorage(t *testing.T) {
 	}, "git@localhost:test/test.git", localRepoPath)
 	require.Error(t, err)
 
-	if testhelper.IsPraefectEnabled() {
-		require.Contains(t, err.Error(), "rpc error: code = InvalidArgument desc = repo scoped: invalid Repository")
-	} else {
-		require.Contains(t, err.Error(), "rpc error: code = InvalidArgument desc = GetStorageByName: no such storage: \\\"foobar\\\"")
-	}
+	require.Contains(t, err.Error(), testhelper.GitalyOrPraefect(
+		fmt.Sprintf("rpc error: code = InvalidArgument desc = %s", storage.NewStorageNotFoundError("foobar")),
+		fmt.Sprintf("rpc error: code = InvalidArgument desc = repo scoped: %s", storage.NewStorageNotFoundError("foobar")),
+	))
 }
 
 func TestUploadPack_gitFailure(t *testing.T) {

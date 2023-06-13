@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -36,11 +37,9 @@ func TestFsck(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				return setupData{
 					repo: nil,
-					expectedErr: structerr.NewInvalidArgument(
-						testhelper.GitalyOrPraefect(
-							"empty Repository",
-							"repo scoped: empty Repository",
-						),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
 					),
 				}
 			},

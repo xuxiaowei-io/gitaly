@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -130,7 +131,7 @@ func TestAddNamespace(t *testing.T) {
 				StorageName: "",
 				Name:        "mepmep",
 			},
-			expectedErr: structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", ""),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 	} {
 		tc := tc
@@ -182,7 +183,7 @@ func TestRemoveNamespace(t *testing.T) {
 				StorageName: "",
 				Name:        "mepmep",
 			},
-			expectedErr: structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", ""),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 	}
 

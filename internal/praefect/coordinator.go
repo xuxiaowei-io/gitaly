@@ -10,7 +10,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -369,7 +368,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	}
 
 	var additionalRepoRelativePath string
-	if additionalRepo, err := call.methodInfo.AdditionalRepo(call.msg); errors.Is(err, protoregistry.ErrTargetRepoMissing) {
+	if additionalRepo, err := call.methodInfo.AdditionalRepo(call.msg); errors.Is(err, protoregistry.ErrRepositoryFieldNotFound) {
 		// We can land here in two cases: either the message doesn't have an additional
 		// repository, or the repository wasn't set. The former case is obviously fine, but
 		// the latter case is fine, too, given that the additional repository may be an
@@ -680,7 +679,11 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 	if mi.Scope == protoregistry.ScopeRepository {
 		targetRepo, err := mi.TargetRepo(m)
 		if err != nil {
-			return nil, structerr.NewInvalidArgument("repo scoped: %w", err)
+			if errors.Is(err, protoregistry.ErrRepositoryFieldNotFound) {
+				return nil, structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet)
+			}
+
+			return nil, structerr.New("repo scoped: %w", err)
 		}
 
 		if err := c.validateTargetRepo(targetRepo); err != nil {
@@ -799,15 +802,19 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 }
 
 // rewrittenRepositoryMessage rewrites the repository storages and relative paths.
-func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storage, relativePath, additionalRelativePath string) ([]byte, error) {
+func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storageName, relativePath, additionalRelativePath string) ([]byte, error) {
 	// clone the message so the original is not changed
 	m = proto.Clone(m)
 	targetRepo, err := mi.TargetRepo(m)
 	if err != nil {
-		return nil, structerr.NewInvalidArgument("%w", err)
+		if errors.Is(err, protoregistry.ErrRepositoryFieldNotFound) {
+			return nil, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)
+		}
+
+		return nil, structerr.New("%w", err)
 	}
 
-	if additionalRepo, err := mi.AdditionalRepo(m); errors.Is(err, protoregistry.ErrTargetRepoMissing) {
+	if additionalRepo, err := mi.AdditionalRepo(m); errors.Is(err, protoregistry.ErrRepositoryFieldNotFound) {
 		// Nothing to rewrite in case the additional repository either doesn't exist in the
 		// message or wasn't set by the caller.
 	} else if err != nil {
@@ -823,14 +830,14 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 			return nil, structerr.NewInvalidArgument("resolving additional repository on different storage than target repository is not supported")
 		}
 
-		additionalRepo.StorageName = storage
+		additionalRepo.StorageName = storageName
 		additionalRepo.RelativePath = additionalRelativePath
 	}
 
 	// Rewrite the target repository. Note that we only do this after having written the
 	// additional repository so that we can check whether the original storage name of both
 	// repositories match.
-	targetRepo.StorageName = storage
+	targetRepo.StorageName = storageName
 	targetRepo.RelativePath = relativePath
 
 	return proxy.NewCodec().Marshal(m)
@@ -1148,14 +1155,16 @@ func (c *Coordinator) newRequestFinalizer(
 }
 
 func (c *Coordinator) validateTargetRepo(repo *gitalypb.Repository) error {
-	if repo.GetStorageName() == "" || repo.GetRelativePath() == "" {
-		return gitalyerrors.ErrInvalidRepository
+	if repo.GetStorageName() == "" {
+		return storage.ErrStorageNotSet
+	}
+
+	if repo.GetRelativePath() == "" {
+		return storage.ErrRepositoryPathNotSet
 	}
 
 	if _, found := c.conf.StorageNames()[repo.StorageName]; !found {
-		// this needs to be nodes.ErrVirtualStorageNotExist error, but it will break
-		// existing API contract as praefect should be a transparent proxy of the gitaly
-		return gitalyerrors.ErrInvalidRepository
+		return storage.NewStorageNotFoundError(repo.GetStorageName())
 	}
 
 	return nil

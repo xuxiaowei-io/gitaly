@@ -5,6 +5,7 @@ package ref
 import (
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -140,8 +141,12 @@ func TestRefExists(t *testing.T) {
 				Ref: []byte("refs/heads/master"),
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", "invalid"),
-				structerr.NewInvalidArgument("repo scoped: invalid Repository"),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"%w", storage.NewStorageNotFoundError("invalid"),
+				)),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
+				)),
 			),
 		},
 	} {
@@ -169,10 +174,10 @@ func TestRefExists_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			req:  &gitalypb.RefExistsRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc:        "invalid ref name",

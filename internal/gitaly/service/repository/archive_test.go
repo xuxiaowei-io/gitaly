@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -95,10 +96,14 @@ func TestGetArchive(t *testing.T) {
 						CommitId: commitID.String(),
 						Format:   gitalypb.GetArchiveRequest_ZIP,
 					},
-					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						`GetStorageByName: no such storage: "fake"`,
-						"repo scoped: invalid Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"%w", storage.NewStorageNotFoundError("fake"),
+						)),
+						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+							"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
+						)),
+					),
 				},
 				{
 					desc: "unset repository",
@@ -107,10 +112,10 @@ func TestGetArchive(t *testing.T) {
 						CommitId:   commitID.String(),
 						Format:     gitalypb.GetArchiveRequest_ZIP,
 					},
-					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						"empty Repository",
-						"repo scoped: empty Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					),
 				},
 				{
 					desc: "empty commit ID",
@@ -180,10 +185,10 @@ func TestGetArchive(t *testing.T) {
 						CommitId: commitID.String(),
 						Format:   gitalypb.GetArchiveRequest_TAR,
 					},
-					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						"empty RelativePath",
-						"repo scoped: invalid Repository",
-					)),
+					expectedErr: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
+					),
 				},
 				{
 					desc: "with path is file and path elision",

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -39,8 +38,8 @@ func TestObjectFormat(t *testing.T) {
 				return setupData{
 					request: &gitalypb.ObjectFormatRequest{},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", errors.ErrEmptyRepository),
-						structerr.NewInvalidArgument("repo scoped: %w", errors.ErrEmptyRepository),
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
 					),
 				}
 			},
@@ -53,8 +52,8 @@ func TestObjectFormat(t *testing.T) {
 						Repository: &gitalypb.Repository{},
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", errors.ErrEmptyStorageName),
-						structerr.NewInvalidArgument("repo scoped: %w", errors.ErrInvalidRepository),
+						structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrStorageNotSet),
 					),
 				}
 			},
@@ -69,8 +68,8 @@ func TestObjectFormat(t *testing.T) {
 						},
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", errors.ErrEmptyRelativePath),
-						structerr.NewInvalidArgument("repo scoped: %w", errors.ErrInvalidRepository),
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
 					),
 				}
 			},

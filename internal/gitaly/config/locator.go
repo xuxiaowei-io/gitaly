@@ -46,6 +46,13 @@ func (l *configLocator) ValidateRepository(repo storage.Repository, opts ...stor
 		opt(&cfg)
 	}
 
+	// Only checking for `nil` isn't sufficient as Protobuf messages may be non-nil, but still
+	// either invalid or empty. Thus we also explicitly verify whether both the storage name and
+	// the relative path are unset.
+	if repo == nil || repo.GetStorageName() == "" && repo.GetRelativePath() == "" {
+		return structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)
+	}
+
 	storagePath, err := l.GetStorageByName(repo.GetStorageName())
 	if err != nil {
 		return err
@@ -60,7 +67,7 @@ func (l *configLocator) ValidateRepository(repo storage.Repository, opts ...stor
 
 	relativePath := repo.GetRelativePath()
 	if len(relativePath) == 0 {
-		return structerr.NewInvalidArgument("relative path is not set")
+		return structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet)
 	}
 
 	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {
@@ -139,9 +146,13 @@ func (l *configLocator) GetRepoPath(repo storage.Repository, opts ...storage.Get
 // GetStorageByName will return the path for the storage, which is fetched by
 // its key. An error is return if it cannot be found.
 func (l *configLocator) GetStorageByName(storageName string) (string, error) {
+	if storageName == "" {
+		return "", structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet)
+	}
+
 	storagePath, ok := l.conf.StoragePath(storageName)
 	if !ok {
-		return "", structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", storageName)
+		return "", storage.NewStorageNotFoundError(storageName)
 	}
 
 	return storagePath, nil

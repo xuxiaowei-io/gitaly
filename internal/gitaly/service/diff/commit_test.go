@@ -12,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -1305,18 +1307,22 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 		{
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.CommitDiffRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit},
-			exrErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`cmd: GetStorageByName: no such storage: "fake"`,
-				"repo scoped: invalid Repository",
-			)),
+			exrErr: testhelper.GitalyOrPraefect(
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"cmd: %w", storage.NewStorageNotFoundError("fake"),
+				)),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
+				)),
+			),
 		},
 		{
 			desc: "Repository is nil",
 			req:  &gitalypb.CommitDiffRequest{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},
-			exrErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			exrErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc:   "RightCommitId is empty",

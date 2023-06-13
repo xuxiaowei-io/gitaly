@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -19,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -357,7 +357,7 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 		req  *gitalypb.UserRebaseConfirmableRequest
 	}{
 		{
-			desc: "empty Repository",
+			desc: "repository not set",
 			req:  buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "master"),
 		},
 		{
@@ -776,10 +776,10 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
 				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "non-existing storage",
@@ -789,10 +789,14 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`creating repo quarantine: creating object quarantine: getting repo path: GetStorageByName: no such storage: "@this-storage-does-not-exist"`,
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"creating repo quarantine: creating object quarantine: getting repo path: %w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
+				)),
+				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+					"repo scoped: %w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
+				)),
+			),
 		},
 		{
 			desc: "missing repository path",
@@ -802,10 +806,10 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty RelativePath",
-				"repo scoped: invalid Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
+			),
 		},
 	}
 

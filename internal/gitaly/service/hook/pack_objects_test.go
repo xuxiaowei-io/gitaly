@@ -21,9 +21,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	hookPkg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -664,7 +666,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 		{
 			desc:        "empty",
 			req:         &gitalypb.PackObjectsHookWithSidechannelRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, "empty Repository"),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:        "repo, no args",

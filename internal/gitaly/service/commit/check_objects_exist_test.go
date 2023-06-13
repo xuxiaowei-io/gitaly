@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -41,10 +42,10 @@ func TestCheckObjectsExist(t *testing.T) {
 		{
 			desc:     "no repository provided",
 			requests: []*gitalypb.CheckObjectsExistRequest{{Repository: nil}},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc:     "no requests",
@@ -61,12 +62,10 @@ func TestCheckObjectsExist(t *testing.T) {
 					Revisions: [][]byte{},
 				},
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewInvalidArgument("repo scoped: empty Repository")
-				}
-				return structerr.NewInvalidArgument("empty Repository")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+			),
 		},
 		{
 			desc: "request without revisions",
