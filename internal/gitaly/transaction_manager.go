@@ -1535,6 +1535,10 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix str
 // applyCustomHooks applies the custom hooks to the repository from the log entry. The custom hooks are stored
 // at `<repo>/wal/hooks/<log_index>`. The custom hooks are fsynced prior to returning so it is safe to delete
 // the log entry afterwards.
+//
+// The hooks are also extracted at `<repo>/custom_hooks`. This is done for backwards compatibility, as we want
+// the hooks to be present even if the WAL logic is disabled. This ensures we don't lose data if we have to
+// disable the WAL logic after rollout.
 func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex LogIndex, update *gitalypb.LogEntry_CustomHooksUpdate) error {
 	if update == nil {
 		return nil
@@ -1550,19 +1554,54 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		}
 	}
 
-	if err := repoutil.ExtractHooks(ctx, bytes.NewReader(update.CustomHooksTar), targetDirectory, true); err != nil {
-		return fmt.Errorf("extract hooks: %w", err)
+	syncer := safe.NewSyncer()
+	extractHooks := func(destinationDir string) error {
+		if err := repoutil.ExtractHooks(ctx, bytes.NewReader(update.CustomHooksTar), destinationDir, true); err != nil {
+			return fmt.Errorf("extract hooks: %w", err)
+		}
+
+		// TAR doesn't sync the extracted files so do it manually here.
+		if err := syncer.SyncRecursive(destinationDir); err != nil {
+			return fmt.Errorf("sync hooks: %w", err)
+		}
+
+		return nil
 	}
 
-	syncer := safe.NewSyncer()
-	// TAR doesn't sync the extracted files so do it manually here.
-	if err := syncer.SyncRecursive(targetDirectory); err != nil {
-		return fmt.Errorf("sync hooks: %w", err)
+	if err := extractHooks(targetDirectory); err != nil {
+		return fmt.Errorf("extract hooks: %w", err)
 	}
 
 	// Sync the parent directory as well.
 	if err := syncer.SyncParent(targetDirectory); err != nil {
 		return fmt.Errorf("sync hook directory: %w", err)
+	}
+
+	// Extract another copy that we can move to `<repo>/custom_hooks` where the hooks exist without the WAL enabled.
+	// We make a second copy as if we disable the WAL, we have to clear all of its state prior to re-enabling it.
+	// This would clear the hooks so symbolic linking the first copy is not enough.
+	tmpDir, err := os.MkdirTemp(mgr.stagingDirectory, "")
+	if err != nil {
+		return fmt.Errorf("create temporary directory: %w", err)
+	}
+
+	if err := extractHooks(tmpDir); err != nil {
+		return fmt.Errorf("extract legacy hooks: %w", err)
+	}
+
+	legacyHooksPath := filepath.Join(mgr.repositoryPath, repoutil.CustomHooksDir)
+	// The hooks are lost if we perform this removal but fail to perform the remaining operations and the
+	// WAL is disabled before succeeding. This is an existing issue already with SetCustomHooks RPC.
+	if err := os.RemoveAll(legacyHooksPath); err != nil {
+		return fmt.Errorf("remove existing legacy hooks: %w", err)
+	}
+
+	if err := os.Rename(tmpDir, legacyHooksPath); err != nil {
+		return fmt.Errorf("move legacy hooks in place: %w", err)
+	}
+
+	if err := syncer.SyncParent(legacyHooksPath); err != nil {
+		return fmt.Errorf("sync legacy hooks directory entry: %w", err)
 	}
 
 	return nil
