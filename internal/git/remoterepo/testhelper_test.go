@@ -32,6 +32,8 @@ func setupGitalyServer(t *testing.T) config.Cfg {
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetBackupSink(),
+			deps.GetBackupLocator(),
 		))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
 			deps.GetCfg(),

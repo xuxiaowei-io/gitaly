@@ -486,6 +486,8 @@ func TestVerifier(t *testing.T) {
 							deps.GetConnsPool(),
 							deps.GetGit2goExecutor(),
 							deps.GetHousekeepingManager(),
+							deps.GetBackupSink(),
+							deps.GetBackupLocator(),
 						)})
 					}
 				}

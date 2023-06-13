@@ -46,6 +46,8 @@ func startSmartHTTPServerWithOptions(t *testing.T, cfg config.Cfg, opts []Server
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetBackupSink(),
+			deps.GetBackupLocator(),
 		))
 		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
 			deps.GetLocator(),

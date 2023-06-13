@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -268,6 +269,8 @@ type gitalyServerDeps struct {
 	git2goExecutor                *git2go.Executor
 	updaterWithHooks              *updateref.UpdaterWithHooks
 	housekeepingManager           housekeeping.Manager
+	backupSink                    backup.Sink
+	backupLocator                 backup.Locator
 }
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
@@ -382,6 +385,8 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		UpdaterWithHooks:              gsd.updaterWithHooks,
 		HousekeepingManager:           gsd.housekeepingManager,
 		PartitionManager:              partitionManager,
+		BackupSink:                    gsd.backupSink,
+		BackupLocator:                 gsd.backupLocator,
 	}
 }
 
@@ -484,6 +489,22 @@ func WithPackObjectsLimiter(limiter *limithandler.ConcurrencyLimiter) GitalyServ
 func WithHousekeepingManager(manager housekeeping.Manager) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.housekeepingManager = manager
+		return deps
+	}
+}
+
+// WithBackupSink sets the backup.Sink that will be used for Gitaly services
+func WithBackupSink(backupSink backup.Sink) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.backupSink = backupSink
+		return deps
+	}
+}
+
+// WithBackupLocator sets the backup.Locator that will be used for Gitaly services
+func WithBackupLocator(backupLocator backup.Locator) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.backupLocator = backupLocator
 		return deps
 	}
 }

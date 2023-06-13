@@ -85,6 +85,8 @@ func startTestServices(tb testing.TB, cfg config.Cfg, opts ...testserver.GitalyS
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetBackupSink(),
+			deps.GetBackupLocator(),
 		))
 	}, opts...)
 }

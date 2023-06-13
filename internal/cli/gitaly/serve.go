@@ -14,6 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
@@ -306,6 +307,20 @@ func run(cfg config.Cfg) error {
 	concurrencyTracker := hook.NewConcurrencyTracker()
 	prometheus.MustRegister(concurrencyTracker)
 
+	var backupSink backup.Sink
+	var backupLocator backup.Locator
+	if cfg.Backup.GoCloudURL != "" {
+		var err error
+		backupSink, err = backup.ResolveSink(ctx, cfg.Backup.GoCloudURL)
+		if err != nil {
+			return fmt.Errorf("resolve backup sink: %w", err)
+		}
+		backupLocator, err = backup.ResolveLocator(cfg.Backup.Layout, backupSink)
+		if err != nil {
+			return fmt.Errorf("resolve backup locator: %w", err)
+		}
+	}
+
 	for _, c := range []starter.Config{
 		{Name: starter.Unix, Addr: cfg.SocketPath, HandoverOnUpgrade: true},
 		{Name: starter.Unix, Addr: cfg.InternalSocketPath(), HandoverOnUpgrade: false},
@@ -344,6 +359,8 @@ func run(cfg config.Cfg) error {
 			Git2goExecutor:                git2goExecutor,
 			UpdaterWithHooks:              updaterWithHooks,
 			HousekeepingManager:           housekeepingManager,
+			BackupSink:                    backupSink,
+			BackupLocator:                 backupLocator,
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}
