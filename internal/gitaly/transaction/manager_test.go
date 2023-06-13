@@ -126,6 +126,26 @@ func TestPoolManager_Vote(t *testing.T) {
 			},
 		},
 		{
+			desc: "successful synchronized vote",
+			transaction: txinfo.Transaction{
+				BackchannelID: backchannelID,
+				ID:            1,
+				Node:          "node",
+			},
+			vote:  voting.VoteFromData([]byte("foobar")),
+			phase: voting.Synchronized,
+			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
+				require.Equal(t, uint64(1), request.TransactionId)
+				require.Equal(t, "node", request.Node)
+				require.Equal(t, request.ReferenceUpdatesHash, voting.VoteFromData([]byte("foobar")).Bytes())
+				require.Equal(t, gitalypb.VoteTransactionRequest_SYNCHRONIZED_PHASE, request.Phase)
+
+				return &gitalypb.VoteTransactionResponse{
+					State: gitalypb.VoteTransactionResponse_COMMIT,
+				}, nil
+			},
+		},
+		{
 			desc: "aborted vote",
 			transaction: txinfo.Transaction{
 				BackchannelID: backchannelID,
