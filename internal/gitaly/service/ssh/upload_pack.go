@@ -93,7 +93,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 
 	config, err := git.ConvertConfigOptions(req.GetGitConfigOptions())
 	if err != nil {
-		return
+		return nil, 0, err
 	}
 
 	var wg sync.WaitGroup

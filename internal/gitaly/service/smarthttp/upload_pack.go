@@ -129,9 +129,8 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 		return nil, structerr.NewUnavailable("copying stdout from upload-pack: %w", err)
 	}
 
-	if err = cmd.Wait(); err != nil {
+	if err := cmd.Wait(); err != nil {
 		stats = collector.finish()
-
 		if _, ok := command.ExitStatus(err); ok && stats.Deepen != "" {
 			// We have seen a 'deepen' message in the request. It is expected that
 			// git-upload-pack has a non-zero exit status: don't treat this as an
@@ -143,5 +142,5 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 	}
 
 	ctxlogrus.Extract(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")
-	return stats, nil
+	return nil, nil
 }
