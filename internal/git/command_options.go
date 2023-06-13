@@ -222,6 +222,21 @@ func WithInternalFetchWithSidechannel(req *gitalypb.SSHUploadPackWithSidechannel
 	return withInternalFetch(req, true)
 }
 
+// WithGitalyGPG sets gpg.prgoram to gitaly-gpg for commit signing
+func WithGitalyGPG() CmdOpt {
+	return func(_ context.Context, cfg config.Cfg, _ CommandFactory, c *cmdCfg) error {
+		c.globals = append(
+			c.globals,
+			&ConfigPair{
+				Key:   "gpg.program",
+				Value: cfg.BinaryPath("gitaly-gpg"),
+			},
+		)
+
+		return nil
+	}
+}
+
 type repoScopedRequest interface {
 	proto.Message
 	GetRepository() *gitalypb.Repository
