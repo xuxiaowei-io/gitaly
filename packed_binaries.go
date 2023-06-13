@@ -16,7 +16,7 @@ const buildDir = "_build/bin"
 // packedBinariesFS contains embedded binaries. If you modify the above embeddings, you must also update
 // GITALY_PACKED_EXECUTABLES in Makefile and packedBinaries in internal/gitaly/config/config.go.
 //
-//go:embed _build/bin/gitaly-hooks _build/bin/gitaly-ssh _build/bin/gitaly-git2go _build/bin/gitaly-lfs-smudge
+//go:embed _build/bin/gitaly-hooks _build/bin/gitaly-ssh _build/bin/gitaly-git2go _build/bin/gitaly-lfs-smudge _build/bin/gitaly-gpg
 var packedBinariesFS embed.FS
 
 // UnpackAuxiliaryBinaries unpacks the packed auxiliary binaries of Gitaly into destination directory.
