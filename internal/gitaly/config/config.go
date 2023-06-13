@@ -112,6 +112,7 @@ type Cfg struct {
 	Cgroups                cgroups.Config      `toml:"cgroups,omitempty" json:"cgroups"`
 	PackObjectsCache       StreamCacheConfig   `toml:"pack_objects_cache,omitempty" json:"pack_objects_cache"`
 	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting,omitempty" json:"pack_objects_limiting"`
+	Backup                 BackupConfig        `toml:"backup,omitempty" json:"backup"`
 }
 
 // TLS configuration
@@ -419,6 +420,31 @@ func (pol PackObjectsLimiting) Validate() error {
 		AsError()
 }
 
+// BackupConfig configures server-side backups.
+type BackupConfig struct {
+	// GoCloudURL is the blob storage GoCloud URL that will be used to store
+	// server-side backups.
+	GoCloudURL string `toml:"go_cloud_url,omitempty" json:"go_cloud_url,omitempty"`
+	// Layout determines how backup files are located.
+	Layout string `toml:"layout,omitempty" json:"layout,omitempty"`
+}
+
+// Validate runs validation on all fields and returns any errors found.
+func (bc BackupConfig) Validate() error {
+	if bc.GoCloudURL == "" {
+		return nil
+	}
+	var errs cfgerror.ValidationErrors
+
+	if _, err := url.Parse(bc.GoCloudURL); err != nil {
+		errs = errs.Append(err, "go_cloud_url")
+	}
+
+	return errs.
+		Append(cfgerror.NotBlank(bc.Layout), "layout").
+		AsError()
+}
+
 // StreamCacheConfig contains settings for a streamcache instance.
 type StreamCacheConfig struct {
 	Enabled        bool              `toml:"enabled" json:"enabled"` // Default: false
@@ -577,6 +603,7 @@ func (cfg *Cfg) ValidateV2() error {
 		{field: "cgroups", validate: cfg.Cgroups.Validate},
 		{field: "pack_objects_cache", validate: cfg.PackObjectsCache.Validate},
 		{field: "pack_objects_limiting", validate: cfg.PackObjectsLimiting.Validate},
+		{field: "backup", validate: cfg.Backup.Validate},
 	} {
 		var fields []string
 		if check.field != "" {
@@ -614,6 +641,10 @@ func (cfg *Cfg) setDefaults() error {
 	}
 
 	cfg.Cgroups.FallbackToOldVersion()
+
+	if cfg.Backup.Layout == "" {
+		cfg.Backup.Layout = "pointer"
+	}
 
 	return nil
 }
