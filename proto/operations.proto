@@ -64,11 +64,21 @@ service OperationService {
     };
   }
 
-  // UserMergeRef creates a merge commit and updates target_ref to point to that
+  // UserMergeToRef creates a merge commit and updates target_ref to point to that
   // new commit. The first parent of the merge commit (the main line) is taken
   // from first_parent_ref. The second parent is specified by its commit ID in source_sha.
   // If target_ref already exists it will be overwritten.
   rpc UserMergeToRef(UserMergeToRefRequest) returns (UserMergeToRefResponse) {
+    option (op_type) = {
+      op: MUTATOR
+    };
+  }
+
+  // UserRebaseToRef creates a merge commit and updates target_ref to point to that
+  // new commit. The first parent of the merge commit (the main line) is taken
+  // from first_parent_ref. The second parent is specified by its commit ID in source_sha.
+  // If target_ref already exists it will be overwritten.
+  rpc UserRebaseToRef(UserRebaseToRefRequest) returns (UserRebaseToRefResponse) {
     option (op_type) = {
       op: MUTATOR
     };
@@ -459,6 +469,32 @@ message UserMergeToRefResponse {
   reserved "pre_receive_error";
   reserved 2;
 }
+
+// This comment is left unintentionally blank.
+message UserRebaseToRefRequest {
+  // repository is the repository in which the merge shall be computed.
+  Repository repository = 1 [(target_repository)=true];
+  // user is the user as which the merge commit shall be created.
+  User user = 2;
+  // source_sha is the object ID of the second parent of the computed merge.
+  string source_sha = 3;
+  // target_ref contains the fully qualified reference which should be updated
+  // with the computed merge commit.
+  bytes target_ref = 5;
+  // first_parent_ref is the name of the reference which should be used as the
+  // first parent of the computed merge. Overrides `branch`.
+  bytes first_parent_ref = 7;
+  // timestamp is the optional timestamp to use for the merge commit. If it's
+  // not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 9;
+}
+
+// This comment is left unintentionally blank.
+message UserRebaseToRefResponse {
+  // commit_id is the object ID of the HEAD of the rebased ref.
+  string commit_id = 1;
+}
+
 
 // OperationBranchUpdate contains the details of a branch update.
 message OperationBranchUpdate {

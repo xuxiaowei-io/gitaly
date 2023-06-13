@@ -46,11 +46,16 @@ type OperationServiceClient interface {
 	UserCreateTag(ctx context.Context, in *UserCreateTagRequest, opts ...grpc.CallOption) (*UserCreateTagResponse, error)
 	// This comment is left unintentionally blank.
 	UserDeleteTag(ctx context.Context, in *UserDeleteTagRequest, opts ...grpc.CallOption) (*UserDeleteTagResponse, error)
-	// UserMergeRef creates a merge commit and updates target_ref to point to that
+	// UserMergeToRef creates a merge commit and updates target_ref to point to that
 	// new commit. The first parent of the merge commit (the main line) is taken
 	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
 	// If target_ref already exists it will be overwritten.
 	UserMergeToRef(ctx context.Context, in *UserMergeToRefRequest, opts ...grpc.CallOption) (*UserMergeToRefResponse, error)
+	// UserRebaseToRef creates a merge commit and updates target_ref to point to that
+	// new commit. The first parent of the merge commit (the main line) is taken
+	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
+	// If target_ref already exists it will be overwritten.
+	UserRebaseToRef(ctx context.Context, in *UserRebaseToRefRequest, opts ...grpc.CallOption) (*UserRebaseToRefResponse, error)
 	// UserMergeBranch tries to merge the given commit into the target branch.
 	// The merge commit is created with the given user as author/committer and
 	// the given message.
@@ -153,6 +158,15 @@ func (c *operationServiceClient) UserDeleteTag(ctx context.Context, in *UserDele
 func (c *operationServiceClient) UserMergeToRef(ctx context.Context, in *UserMergeToRefRequest, opts ...grpc.CallOption) (*UserMergeToRefResponse, error) {
 	out := new(UserMergeToRefResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.OperationService/UserMergeToRef", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *operationServiceClient) UserRebaseToRef(ctx context.Context, in *UserRebaseToRefRequest, opts ...grpc.CallOption) (*UserRebaseToRefResponse, error) {
+	out := new(UserRebaseToRefResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.OperationService/UserRebaseToRef", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -362,11 +376,16 @@ type OperationServiceServer interface {
 	UserCreateTag(context.Context, *UserCreateTagRequest) (*UserCreateTagResponse, error)
 	// This comment is left unintentionally blank.
 	UserDeleteTag(context.Context, *UserDeleteTagRequest) (*UserDeleteTagResponse, error)
-	// UserMergeRef creates a merge commit and updates target_ref to point to that
+	// UserMergeToRef creates a merge commit and updates target_ref to point to that
 	// new commit. The first parent of the merge commit (the main line) is taken
 	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
 	// If target_ref already exists it will be overwritten.
 	UserMergeToRef(context.Context, *UserMergeToRefRequest) (*UserMergeToRefResponse, error)
+	// UserRebaseToRef creates a merge commit and updates target_ref to point to that
+	// new commit. The first parent of the merge commit (the main line) is taken
+	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
+	// If target_ref already exists it will be overwritten.
+	UserRebaseToRef(context.Context, *UserRebaseToRefRequest) (*UserRebaseToRefResponse, error)
 	// UserMergeBranch tries to merge the given commit into the target branch.
 	// The merge commit is created with the given user as author/committer and
 	// the given message.
@@ -435,6 +454,9 @@ func (UnimplementedOperationServiceServer) UserDeleteTag(context.Context, *UserD
 }
 func (UnimplementedOperationServiceServer) UserMergeToRef(context.Context, *UserMergeToRefRequest) (*UserMergeToRefResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UserMergeToRef not implemented")
+}
+func (UnimplementedOperationServiceServer) UserRebaseToRef(context.Context, *UserRebaseToRefRequest) (*UserRebaseToRefResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UserRebaseToRef not implemented")
 }
 func (UnimplementedOperationServiceServer) UserMergeBranch(OperationService_UserMergeBranchServer) error {
 	return status.Errorf(codes.Unimplemented, "method UserMergeBranch not implemented")
@@ -580,6 +602,24 @@ func _OperationService_UserMergeToRef_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(OperationServiceServer).UserMergeToRef(ctx, req.(*UserMergeToRefRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OperationService_UserRebaseToRef_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserRebaseToRefRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OperationServiceServer).UserRebaseToRef(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.OperationService/UserRebaseToRef",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OperationServiceServer).UserRebaseToRef(ctx, req.(*UserRebaseToRefRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -808,6 +848,10 @@ var OperationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UserMergeToRef",
 			Handler:    _OperationService_UserMergeToRef_Handler,
+		},
+		{
+			MethodName: "UserRebaseToRef",
+			Handler:    _OperationService_UserRebaseToRef_Handler,
 		},
 		{
 			MethodName: "UserFFBranch",

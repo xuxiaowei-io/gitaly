@@ -59,6 +59,7 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.OperationService/UserFFBranch":                  transactionsEnabled,
 	"/gitaly.OperationService/UserMergeBranch":               transactionsEnabled,
 	"/gitaly.OperationService/UserMergeToRef":                transactionsEnabled,
+	"/gitaly.OperationService/UserRebaseToRef":               transactionsEnabled,
 	"/gitaly.OperationService/UserRebaseConfirmable":         transactionsEnabled,
 	"/gitaly.OperationService/UserRevert":                    transactionsEnabled,
 	"/gitaly.OperationService/UserSquash":                    transactionsEnabled,
