@@ -291,11 +291,12 @@ type assignedNodes struct {
 	replicationTargets []string
 }
 
-// assignRepsoitoryToNodes picks a random healthy node to act as the primary node and selects the
+// assignRepositoryToNodes picks a random healthy node to act as the primary node and selects the
 // secondary nodes if assignments are enabled. Healthy secondaries take part in the transaction,
 // unhealthy secondaries are set as replication targets.
 func (r *PerRepositoryRouter) assignRepositoryToNodes(
-	ctx context.Context, virtualStorage, relativePath string, additionalRepoMetadata *datastore.RepositoryMetadata,
+	virtualStorage string,
+	additionalRepoMetadata *datastore.RepositoryMetadata,
 ) (assignedNodes, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
@@ -450,7 +451,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		additionalReplicaPath = metadata.ReplicaPath
 	}
 
-	assignedNodes, err := r.assignRepositoryToNodes(ctx, virtualStorage, relativePath, additionalRepoMetadata)
+	assignedNodes, err := r.assignRepositoryToNodes(virtualStorage, additionalRepoMetadata)
 	if err != nil {
 		return RepositoryMutatorRoute{}, err
 	}
