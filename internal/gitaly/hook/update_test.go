@@ -2,6 +2,7 @@ package hook
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -22,7 +23,13 @@ import (
 )
 
 func TestUpdate_customHooks(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUpdateCustomHooks)
+}
+
+func testUpdateCustomHooks(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -174,16 +181,22 @@ func TestUpdate_customHooks(t *testing.T) {
 			newHash:        commitB,
 			hook:           "#!/bin/sh\necho foo\n",
 			expectedStdout: "foo\n",
-			expectedVotes:  []transaction.PhasedVote{},
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("update")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
-			desc:          "hook is not executed on secondary",
-			env:           []string{secondaryPayload},
-			reference:     "refs/heads/master",
-			oldHash:       commitA,
-			newHash:       commitB,
-			hook:          "#!/bin/sh\necho foo\n",
-			expectedVotes: []transaction.PhasedVote{},
+			desc:      "hook is not executed on secondary",
+			env:       []string{secondaryPayload},
+			reference: "refs/heads/master",
+			oldHash:   commitA,
+			newHash:   commitB,
+			hook:      "#!/bin/sh\necho foo\n",
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("update")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
 			desc:          "hook fails with missing reference",
@@ -233,7 +246,13 @@ func TestUpdate_customHooks(t *testing.T) {
 }
 
 func TestUpdate_quarantine(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUpdateQuarantine)
+}
+
+func testUpdateQuarantine(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{

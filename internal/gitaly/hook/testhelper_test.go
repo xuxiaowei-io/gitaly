@@ -13,7 +13,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -55,4 +57,11 @@ func getExpectedEnv(tb testing.TB, ctx context.Context, locator storage.Locator,
 	sort.Strings(result)
 
 	return result
+}
+
+func synchronizedVote(hook string) transaction.PhasedVote {
+	return transaction.PhasedVote{
+		Vote:  voting.VoteFromData([]byte("synchronize " + hook + " hook")),
+		Phase: voting.Synchronized,
+	}
 }

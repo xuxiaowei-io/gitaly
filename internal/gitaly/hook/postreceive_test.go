@@ -67,7 +67,13 @@ func TestPrintAlert(t *testing.T) {
 }
 
 func TestPostReceive_customHook(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPostReceiveCustomHook)
+}
+
+func testPostReceiveCustomHook(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -207,14 +213,20 @@ func TestPostReceive_customHook(t *testing.T) {
 			stdin:          "changes\n",
 			hook:           "#!/bin/sh\necho foo\n",
 			expectedStdout: "foo\n",
-			expectedVotes:  []transaction.PhasedVote{},
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("post-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
-			desc:          "hook is not executed on secondary",
-			env:           []string{secondaryPayload},
-			stdin:         "changes\n",
-			hook:          "#!/bin/sh\necho foo\n",
-			expectedVotes: []transaction.PhasedVote{},
+			desc:  "hook is not executed on secondary",
+			env:   []string{secondaryPayload},
+			stdin: "changes\n",
+			hook:  "#!/bin/sh\necho foo\n",
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("post-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
 			desc:          "missing changes cause error",
@@ -267,7 +279,13 @@ func (m *postreceiveAPIMock) PostReceive(ctx context.Context, glRepository, glID
 }
 
 func TestPostReceive_gitlab(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPostReceiveGitlab)
+}
+
+func testPostReceiveGitlab(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -392,7 +410,13 @@ func TestPostReceive_gitlab(t *testing.T) {
 }
 
 func TestPostReceive_quarantine(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPostReceiveQuarantine)
+}
+
+func testPostReceiveQuarantine(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{

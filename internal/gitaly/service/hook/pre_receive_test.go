@@ -2,6 +2,7 @@ package hook
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -376,6 +377,11 @@ exit %d
 
 func TestPreReceiveHook_Primary(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPreReceiveHookPrimary)
+}
+
+func testPreReceiveHookPrimary(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	testCases := []struct {
 		desc               string
@@ -393,7 +399,10 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			allowedHandler:     allowedHandler(t, true),
 			preReceiveHandler:  preReceiveHandler(t, true),
 			expectedExitStatus: 0,
-			expectedVotes:      []transaction.PhasedVote{},
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
 			desc:               "primary checks for permissions",
@@ -408,7 +417,10 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			primary:            false,
 			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 0,
-			expectedVotes:      []transaction.PhasedVote{},
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
 			desc:               "primary tries to increase reference counter",
@@ -425,7 +437,10 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			allowedHandler:     allowedHandler(t, true),
 			preReceiveHandler:  preReceiveHandler(t, false),
 			expectedExitStatus: 0,
-			expectedVotes:      []transaction.PhasedVote{},
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
 			desc:               "primary executes hook",
@@ -443,7 +458,10 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			preReceiveHandler:  preReceiveHandler(t, true),
 			hookExitCode:       123,
 			expectedExitStatus: 0,
-			expectedVotes:      []transaction.PhasedVote{},
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 	}
 
@@ -480,7 +498,6 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 				testserver.WithTransactionManager(txManager),
 			)
 
-			ctx := testhelper.Context(t)
 			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/usr/bin/env bash\nexit %d", tc.hookExitCode)))

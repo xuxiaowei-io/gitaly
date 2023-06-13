@@ -2,6 +2,7 @@ package hook
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"path/filepath"
 	"testing"
@@ -42,6 +43,11 @@ func TestPostReceiveInvalidArgument(t *testing.T) {
 
 func TestHooksMissingStdin(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testHooksMissingStdin)
+}
+
+func testHooksMissingStdin(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	user, password, secretToken := "user", "password", "secret token"
 	tempDir := testhelper.TempDir(t)
@@ -65,7 +71,6 @@ func TestHooksMissingStdin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -158,10 +163,12 @@ func TestHooksMissingStdin(t *testing.T) {
 
 			if tc.fail {
 				require.NotEqual(t, int32(0), status, "exit code should be non-zero")
-				require.Empty(t, txManager.Votes())
 			} else {
 				require.Equal(t, int32(0), status, "exit code unequal")
-				require.Empty(t, txManager.Votes())
+				require.Equal(t, testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+					[]transaction.PhasedVote{synchronizedVote("post-receive")},
+					[]transaction.PhasedVote{},
+				), txManager.Votes())
 			}
 		})
 	}

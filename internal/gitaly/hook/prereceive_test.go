@@ -26,7 +26,13 @@ import (
 )
 
 func TestPrereceive_customHooks(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPrereceiveCustomHooks)
+}
+
+func testPrereceiveCustomHooks(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -163,14 +169,20 @@ func TestPrereceive_customHooks(t *testing.T) {
 			hook:           "#!/bin/sh\necho foo\n",
 			stdin:          "change\n",
 			expectedStdout: "foo\n",
-			expectedVotes:  []transaction.PhasedVote{},
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
-			desc:          "hook is not executed on secondary",
-			env:           []string{secondaryPayload},
-			hook:          "#!/bin/sh\necho foo\n",
-			stdin:         "change\n",
-			expectedVotes: []transaction.PhasedVote{},
+			desc:  "hook is not executed on secondary",
+			env:   []string{secondaryPayload},
+			hook:  "#!/bin/sh\necho foo\n",
+			stdin: "change\n",
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
 			desc:          "missing changes cause error",
@@ -203,7 +215,13 @@ func TestPrereceive_customHooks(t *testing.T) {
 }
 
 func TestPrereceive_quarantine(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPrereceiveQuarantine)
+}
+
+func testPrereceiveQuarantine(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -287,7 +305,13 @@ func (m *prereceiveAPIMock) PostReceive(context.Context, string, string, string,
 }
 
 func TestPrereceive_gitlab(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPrereceiveGitlab)
+}
+
+func testPrereceiveGitlab(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{

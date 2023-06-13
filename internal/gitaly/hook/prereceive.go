@@ -88,6 +88,10 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 		}
 	}
 
+	if err := m.synchronizeHookExecution(ctx, payload, "pre-receive"); err != nil {
+		return fmt.Errorf("synchronizing pre-receive hook: %w", err)
+	}
+
 	return nil
 }
 
