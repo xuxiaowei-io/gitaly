@@ -8,10 +8,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -38,7 +38,7 @@ type Dependencies struct {
 	Git2goExecutor                *git2go.Executor
 	UpdaterWithHooks              *updateref.UpdaterWithHooks
 	HousekeepingManager           housekeeping.Manager
-	PartitionManager              *gitaly.PartitionManager
+	PartitionManager              *storagemgr.PartitionManager
 }
 
 // GetCfg returns service configuration.
@@ -127,6 +127,6 @@ func (dc *Dependencies) GetPackObjectsLimiter() limithandler.Limiter {
 }
 
 // GetPartitionManager returns the PartitionManager.
-func (dc *Dependencies) GetPartitionManager() *gitaly.PartitionManager {
+func (dc *Dependencies) GetPartitionManager() *storagemgr.PartitionManager {
 	return dc.PartitionManager
 }

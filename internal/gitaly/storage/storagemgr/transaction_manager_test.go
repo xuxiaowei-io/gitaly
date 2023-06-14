@@ -1,4 +1,4 @@
-package gitaly
+package storagemgr
 
 import (
 	"archive/tar"
