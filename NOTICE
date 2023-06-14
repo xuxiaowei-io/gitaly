@@ -11300,13 +11300,13 @@ jobs:
 
     steps:
       - name: set up go 1.19
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
           go-version: 1.19
         id: go
 
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
 
       - name: build and test
         run: |
@@ -11566,6 +11566,16 @@ func (c *TwoQueueCache[K, V]) Keys() []K {
 	return append(k1, k2...)
 }
 
+// Values returns a slice of the values in the cache.
+// The frequently used values are first in the returned slice.
+func (c *TwoQueueCache[K, V]) Values() []V {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	v1 := c.frequent.Values()
+	v2 := c.recent.Values()
+	return append(v1, v2...)
+}
+
 // Remove removes the provided key from the cache.
 func (c *TwoQueueCache[K, V]) Remove(key K) {
 	c.lock.Lock()
@@ -11645,7 +11655,7 @@ func Benchmark2Q_Rand(b *testing.B) {
 			}
 		}
 	}
-	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(miss))
+	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(hit+miss))
 }
 
 func Benchmark2Q_Freq(b *testing.B) {
@@ -11676,7 +11686,7 @@ func Benchmark2Q_Freq(b *testing.B) {
 			miss++
 		}
 	}
-	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(miss))
+	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(hit+miss))
 }
 
 func Test2Q_RandomOps(t *testing.T) {
@@ -11847,6 +11857,11 @@ func Test2Q(t *testing.T) {
 	for i, k := range l.Keys() {
 		if v, ok := l.Get(k); !ok || v != k || v != i+128 {
 			t.Fatalf("bad key: %v", k)
+		}
+	}
+	for i, v := range l.Values() {
+		if v != i+128 {
+			t.Fatalf("bad key: %v", v)
 		}
 	}
 	for i := 0; i < 128; i++ {
@@ -12299,652 +12314,23 @@ Example
 Using the LRU is very simple:
 
 ```go
-l, _ := New[int, interface{}](128)
-for i := 0; i < 256; i++ {
-    l.Add(i, nil)
-}
-if l.Len() != 128 {
-    panic(fmt.Sprintf("bad len: %v", l.Len()))
+package main
+
+import (
+	"fmt"
+	"github.com/hashicorp/golang-lru/v2"
+)
+
+func main() {
+  l, _ := lru.New[int, any](128)
+  for i := 0; i < 256; i++ {
+      l.Add(i, nil)
+  }
+  if l.Len() != 128 {
+      panic(fmt.Sprintf("bad len: %v", l.Len()))
+  }
 }
 ```
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-arc.go - github.com/hashicorp/golang-lru/v2
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
-
-package lru
-
-import (
-	"sync"
-
-	"github.com/hashicorp/golang-lru/v2/simplelru"
-)
-
-// ARCCache is a thread-safe fixed size Adaptive Replacement Cache (ARC).
-// ARC is an enhancement over the standard LRU cache in that tracks both
-// frequency and recency of use. This avoids a burst in access to new
-// entries from evicting the frequently used older entries. It adds some
-// additional tracking overhead to a standard LRU cache, computationally
-// it is roughly 2x the cost, and the extra memory overhead is linear
-// with the size of the cache. ARC has been patented by IBM, but is
-// similar to the TwoQueueCache (2Q) which requires setting parameters.
-type ARCCache[K comparable, V any] struct {
-	size int // Size is the total capacity of the cache
-	p    int // P is the dynamic preference towards T1 or T2
-
-	t1 simplelru.LRUCache[K, V]        // T1 is the LRU for recently accessed items
-	b1 simplelru.LRUCache[K, struct{}] // B1 is the LRU for evictions from t1
-
-	t2 simplelru.LRUCache[K, V]        // T2 is the LRU for frequently accessed items
-	b2 simplelru.LRUCache[K, struct{}] // B2 is the LRU for evictions from t2
-
-	lock sync.RWMutex
-}
-
-// NewARC creates an ARC of the given size
-func NewARC[K comparable, V any](size int) (*ARCCache[K, V], error) {
-	// Create the sub LRUs
-	b1, err := simplelru.NewLRU[K, struct{}](size, nil)
-	if err != nil {
-		return nil, err
-	}
-	b2, err := simplelru.NewLRU[K, struct{}](size, nil)
-	if err != nil {
-		return nil, err
-	}
-	t1, err := simplelru.NewLRU[K, V](size, nil)
-	if err != nil {
-		return nil, err
-	}
-	t2, err := simplelru.NewLRU[K, V](size, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize the ARC
-	c := &ARCCache[K, V]{
-		size: size,
-		p:    0,
-		t1:   t1,
-		b1:   b1,
-		t2:   t2,
-		b2:   b2,
-	}
-	return c, nil
-}
-
-// Get looks up a key's value from the cache.
-func (c *ARCCache[K, V]) Get(key K) (value V, ok bool) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	// If the value is contained in T1 (recent), then
-	// promote it to T2 (frequent)
-	if val, ok := c.t1.Peek(key); ok {
-		c.t1.Remove(key)
-		c.t2.Add(key, val)
-		return val, ok
-	}
-
-	// Check if the value is contained in T2 (frequent)
-	if val, ok := c.t2.Get(key); ok {
-		return val, ok
-	}
-
-	// No hit
-	return
-}
-
-// Add adds a value to the cache.
-func (c *ARCCache[K, V]) Add(key K, value V) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	// Check if the value is contained in T1 (recent), and potentially
-	// promote it to frequent T2
-	if c.t1.Contains(key) {
-		c.t1.Remove(key)
-		c.t2.Add(key, value)
-		return
-	}
-
-	// Check if the value is already in T2 (frequent) and update it
-	if c.t2.Contains(key) {
-		c.t2.Add(key, value)
-		return
-	}
-
-	// Check if this value was recently evicted as part of the
-	// recently used list
-	if c.b1.Contains(key) {
-		// T1 set is too small, increase P appropriately
-		delta := 1
-		b1Len := c.b1.Len()
-		b2Len := c.b2.Len()
-		if b2Len > b1Len {
-			delta = b2Len / b1Len
-		}
-		if c.p+delta >= c.size {
-			c.p = c.size
-		} else {
-			c.p += delta
-		}
-
-		// Potentially need to make room in the cache
-		if c.t1.Len()+c.t2.Len() >= c.size {
-			c.replace(false)
-		}
-
-		// Remove from B1
-		c.b1.Remove(key)
-
-		// Add the key to the frequently used list
-		c.t2.Add(key, value)
-		return
-	}
-
-	// Check if this value was recently evicted as part of the
-	// frequently used list
-	if c.b2.Contains(key) {
-		// T2 set is too small, decrease P appropriately
-		delta := 1
-		b1Len := c.b1.Len()
-		b2Len := c.b2.Len()
-		if b1Len > b2Len {
-			delta = b1Len / b2Len
-		}
-		if delta >= c.p {
-			c.p = 0
-		} else {
-			c.p -= delta
-		}
-
-		// Potentially need to make room in the cache
-		if c.t1.Len()+c.t2.Len() >= c.size {
-			c.replace(true)
-		}
-
-		// Remove from B2
-		c.b2.Remove(key)
-
-		// Add the key to the frequently used list
-		c.t2.Add(key, value)
-		return
-	}
-
-	// Potentially need to make room in the cache
-	if c.t1.Len()+c.t2.Len() >= c.size {
-		c.replace(false)
-	}
-
-	// Keep the size of the ghost buffers trim
-	if c.b1.Len() > c.size-c.p {
-		c.b1.RemoveOldest()
-	}
-	if c.b2.Len() > c.p {
-		c.b2.RemoveOldest()
-	}
-
-	// Add to the recently seen list
-	c.t1.Add(key, value)
-}
-
-// replace is used to adaptively evict from either T1 or T2
-// based on the current learned value of P
-func (c *ARCCache[K, V]) replace(b2ContainsKey bool) {
-	t1Len := c.t1.Len()
-	if t1Len > 0 && (t1Len > c.p || (t1Len == c.p && b2ContainsKey)) {
-		k, _, ok := c.t1.RemoveOldest()
-		if ok {
-			c.b1.Add(k, struct{}{})
-		}
-	} else {
-		k, _, ok := c.t2.RemoveOldest()
-		if ok {
-			c.b2.Add(k, struct{}{})
-		}
-	}
-}
-
-// Len returns the number of cached entries
-func (c *ARCCache[K, V]) Len() int {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.t1.Len() + c.t2.Len()
-}
-
-// Keys returns all the cached keys
-func (c *ARCCache[K, V]) Keys() []K {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	k1 := c.t1.Keys()
-	k2 := c.t2.Keys()
-	return append(k1, k2...)
-}
-
-// Remove is used to purge a key from the cache
-func (c *ARCCache[K, V]) Remove(key K) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.t1.Remove(key) {
-		return
-	}
-	if c.t2.Remove(key) {
-		return
-	}
-	if c.b1.Remove(key) {
-		return
-	}
-	if c.b2.Remove(key) {
-		return
-	}
-}
-
-// Purge is used to clear the cache
-func (c *ARCCache[K, V]) Purge() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.t1.Purge()
-	c.t2.Purge()
-	c.b1.Purge()
-	c.b2.Purge()
-}
-
-// Contains is used to check if the cache contains a key
-// without updating recency or frequency.
-func (c *ARCCache[K, V]) Contains(key K) bool {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.t1.Contains(key) || c.t2.Contains(key)
-}
-
-// Peek is used to inspect the cache value of a key
-// without updating recency or frequency.
-func (c *ARCCache[K, V]) Peek(key K) (value V, ok bool) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	if val, ok := c.t1.Peek(key); ok {
-		return val, ok
-	}
-	return c.t2.Peek(key)
-}
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-arc_test.go - github.com/hashicorp/golang-lru/v2
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
-
-package lru
-
-import (
-	"math/rand"
-	"testing"
-	"time"
-)
-
-func init() {
-	rand.Seed(time.Now().Unix())
-}
-
-func BenchmarkARC_Rand(b *testing.B) {
-	l, err := NewARC[int64, int64](8192)
-	if err != nil {
-		b.Fatalf("err: %v", err)
-	}
-
-	trace := make([]int64, b.N*2)
-	for i := 0; i < b.N*2; i++ {
-		trace[i] = getRand(b) % 32768
-	}
-
-	b.ResetTimer()
-
-	var hit, miss int
-	for i := 0; i < 2*b.N; i++ {
-		if i%2 == 0 {
-			l.Add(trace[i], trace[i])
-		} else {
-			if _, ok := l.Get(trace[i]); ok {
-				hit++
-			} else {
-				miss++
-			}
-		}
-	}
-	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(miss))
-}
-
-func BenchmarkARC_Freq(b *testing.B) {
-	l, err := NewARC[int64, int64](8192)
-	if err != nil {
-		b.Fatalf("err: %v", err)
-	}
-
-	trace := make([]int64, b.N*2)
-	for i := 0; i < b.N*2; i++ {
-		if i%2 == 0 {
-			trace[i] = getRand(b) % 16384
-		} else {
-			trace[i] = getRand(b) % 32768
-		}
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		l.Add(trace[i], trace[i])
-	}
-	var hit, miss int
-	for i := 0; i < b.N; i++ {
-		if _, ok := l.Get(trace[i]); ok {
-			hit++
-		} else {
-			miss++
-		}
-	}
-	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(miss))
-}
-
-func TestARC_RandomOps(t *testing.T) {
-	size := 128
-	l, err := NewARC[int64, int64](128)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	n := 200000
-	for i := 0; i < n; i++ {
-		key := getRand(t) % 512
-		r := getRand(t)
-		switch r % 3 {
-		case 0:
-			l.Add(key, key)
-		case 1:
-			l.Get(key)
-		case 2:
-			l.Remove(key)
-		}
-
-		if l.t1.Len()+l.t2.Len() > size {
-			t.Fatalf("bad: t1: %d t2: %d b1: %d b2: %d p: %d",
-				l.t1.Len(), l.t2.Len(), l.b1.Len(), l.b2.Len(), l.p)
-		}
-		if l.b1.Len()+l.b2.Len() > size {
-			t.Fatalf("bad: t1: %d t2: %d b1: %d b2: %d p: %d",
-				l.t1.Len(), l.t2.Len(), l.b1.Len(), l.b2.Len(), l.p)
-		}
-	}
-}
-
-func TestARC_Get_RecentToFrequent(t *testing.T) {
-	l, err := NewARC[int, int](128)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	// Touch all the entries, should be in t1
-	for i := 0; i < 128; i++ {
-		l.Add(i, i)
-	}
-	if n := l.t1.Len(); n != 128 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Get should upgrade to t2
-	for i := 0; i < 128; i++ {
-		if _, ok := l.Get(i); !ok {
-			t.Fatalf("missing: %d", i)
-		}
-	}
-	if n := l.t1.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 128 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Get be from t2
-	for i := 0; i < 128; i++ {
-		if _, ok := l.Get(i); !ok {
-			t.Fatalf("missing: %d", i)
-		}
-	}
-	if n := l.t1.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 128 {
-		t.Fatalf("bad: %d", n)
-	}
-}
-
-func TestARC_Add_RecentToFrequent(t *testing.T) {
-	l, err := NewARC[int, int](128)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	// Add initially to t1
-	l.Add(1, 1)
-	if n := l.t1.Len(); n != 1 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Add should upgrade to t2
-	l.Add(1, 1)
-	if n := l.t1.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 1 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Add should remain in t2
-	l.Add(1, 1)
-	if n := l.t1.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 1 {
-		t.Fatalf("bad: %d", n)
-	}
-}
-
-func TestARC_Adaptive(t *testing.T) {
-	l, err := NewARC[int, int](4)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	// Fill t1
-	for i := 0; i < 4; i++ {
-		l.Add(i, i)
-	}
-	if n := l.t1.Len(); n != 4 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Move to t2
-	l.Get(0)
-	l.Get(1)
-	if n := l.t2.Len(); n != 2 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Evict from t1
-	l.Add(4, 4)
-	if n := l.b1.Len(); n != 1 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Current state
-	// t1 : (MRU) [4, 3] (LRU)
-	// t2 : (MRU) [1, 0] (LRU)
-	// b1 : (MRU) [2] (LRU)
-	// b2 : (MRU) [] (LRU)
-
-	// Add 2, should cause hit on b1
-	l.Add(2, 2)
-	if n := l.b1.Len(); n != 1 {
-		t.Fatalf("bad: %d", n)
-	}
-	if l.p != 1 {
-		t.Fatalf("bad: %d", l.p)
-	}
-	if n := l.t2.Len(); n != 3 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Current state
-	// t1 : (MRU) [4] (LRU)
-	// t2 : (MRU) [2, 1, 0] (LRU)
-	// b1 : (MRU) [3] (LRU)
-	// b2 : (MRU) [] (LRU)
-
-	// Add 4, should migrate to t2
-	l.Add(4, 4)
-	if n := l.t1.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 4 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Current state
-	// t1 : (MRU) [] (LRU)
-	// t2 : (MRU) [4, 2, 1, 0] (LRU)
-	// b1 : (MRU) [3] (LRU)
-	// b2 : (MRU) [] (LRU)
-
-	// Add 4, should evict to b2
-	l.Add(5, 5)
-	if n := l.t1.Len(); n != 1 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 3 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.b2.Len(); n != 1 {
-		t.Fatalf("bad: %d", n)
-	}
-
-	// Current state
-	// t1 : (MRU) [5] (LRU)
-	// t2 : (MRU) [4, 2, 1] (LRU)
-	// b1 : (MRU) [3] (LRU)
-	// b2 : (MRU) [0] (LRU)
-
-	// Add 0, should decrease p
-	l.Add(0, 0)
-	if n := l.t1.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.t2.Len(); n != 4 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.b1.Len(); n != 2 {
-		t.Fatalf("bad: %d", n)
-	}
-	if n := l.b2.Len(); n != 0 {
-		t.Fatalf("bad: %d", n)
-	}
-	if l.p != 0 {
-		t.Fatalf("bad: %d", l.p)
-	}
-
-	// Current state
-	// t1 : (MRU) [] (LRU)
-	// t2 : (MRU) [0, 4, 2, 1] (LRU)
-	// b1 : (MRU) [5, 3] (LRU)
-	// b2 : (MRU) [0] (LRU)
-}
-
-func TestARC(t *testing.T) {
-	l, err := NewARC[int, int](128)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	for i := 0; i < 256; i++ {
-		l.Add(i, i)
-	}
-	if l.Len() != 128 {
-		t.Fatalf("bad len: %v", l.Len())
-	}
-
-	for i, k := range l.Keys() {
-		if v, ok := l.Get(k); !ok || v != k || v != i+128 {
-			t.Fatalf("bad key: %v", k)
-		}
-	}
-	for i := 0; i < 128; i++ {
-		if _, ok := l.Get(i); ok {
-			t.Fatalf("should be evicted")
-		}
-	}
-	for i := 128; i < 256; i++ {
-		if _, ok := l.Get(i); !ok {
-			t.Fatalf("should not be evicted")
-		}
-	}
-	for i := 128; i < 192; i++ {
-		l.Remove(i)
-		if _, ok := l.Get(i); ok {
-			t.Fatalf("should be deleted")
-		}
-	}
-
-	l.Purge()
-	if l.Len() != 0 {
-		t.Fatalf("bad len: %v", l.Len())
-	}
-	if _, ok := l.Get(200); ok {
-		t.Fatalf("should contain nothing")
-	}
-}
-
-// Test that Contains doesn't update recent-ness
-func TestARC_Contains(t *testing.T) {
-	l, err := NewARC[int, int](2)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	l.Add(1, 1)
-	l.Add(2, 2)
-	if !l.Contains(1) {
-		t.Errorf("1 should be contained")
-	}
-
-	l.Add(3, 3)
-	if l.Contains(1) {
-		t.Errorf("Contains should not have updated recent-ness of 1")
-	}
-}
-
-// Test that Peek doesn't update recent-ness
-func TestARC_Peek(t *testing.T) {
-	l, err := NewARC[int, int](2)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	l.Add(1, 1)
-	l.Add(2, 2)
-	if v, ok := l.Peek(1); !ok || v != 1 {
-		t.Errorf("1 should be set to 1: %v, %v", v, ok)
-	}
-
-	l.Add(3, 3)
-	if l.Contains(1) {
-		t.Errorf("should not have updated recent-ness of 1")
-	}
-}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 doc.go - github.com/hashicorp/golang-lru/v2
@@ -12953,21 +12339,21 @@ doc.go - github.com/hashicorp/golang-lru/v2
 
 // Package lru provides three different LRU caches of varying sophistication.
 //
-// Cache is a simple LRU cache. It is based on the
-// LRU implementation in groupcache:
-// https://github.com/golang/groupcache/tree/master/lru
+// Cache is a simple LRU cache. It is based on the LRU implementation in
+// groupcache: https://github.com/golang/groupcache/tree/master/lru
 //
 // TwoQueueCache tracks frequently used and recently used entries separately.
-// This avoids a burst of accesses from taking out frequently used entries,
-// at the cost of about 2x computational overhead and some extra bookkeeping.
+// This avoids a burst of accesses from taking out frequently used entries, at
+// the cost of about 2x computational overhead and some extra bookkeeping.
 //
-// ARCCache is an adaptive replacement cache. It tracks recent evictions as
-// well as recent usage in both the frequent and recent caches. Its
-// computational overhead is comparable to TwoQueueCache, but the memory
-// overhead is linear with the size of the cache.
+// ARCCache is an adaptive replacement cache. It tracks recent evictions as well
+// as recent usage in both the frequent and recent caches. Its computational
+// overhead is comparable to TwoQueueCache, but the memory overhead is linear
+// with the size of the cache.
 //
 // ARC has been patented by IBM, so do not use it if that is problematic for
-// your program.
+// your program. For this reason, it is in a separate go module contained within
+// this repository.
 //
 // All caches in this package take locks while operating, and are therefore
 // thread-safe for consumers.
@@ -13216,6 +12602,14 @@ func (c *Cache[K, V]) Keys() []K {
 	return keys
 }
 
+// Values returns a slice of the values in the cache, from oldest to newest.
+func (c *Cache[K, V]) Values() []V {
+	c.lock.RLock()
+	values := c.lru.Values()
+	c.lock.RUnlock()
+	return values
+}
+
 // Len returns the number of items in the cache.
 func (c *Cache[K, V]) Len() int {
 	c.lock.RLock()
@@ -13260,7 +12654,7 @@ func BenchmarkLRU_Rand(b *testing.B) {
 			}
 		}
 	}
-	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(miss))
+	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(hit+miss))
 }
 
 func BenchmarkLRU_Freq(b *testing.B) {
@@ -13291,7 +12685,7 @@ func BenchmarkLRU_Freq(b *testing.B) {
 			miss++
 		}
 	}
-	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(miss))
+	b.Logf("hit: %d miss: %d ratio: %f", hit, miss, float64(hit)/float64(hit+miss))
 }
 
 func TestLRU(t *testing.T) {
@@ -13321,6 +12715,11 @@ func TestLRU(t *testing.T) {
 	for i, k := range l.Keys() {
 		if v, ok := l.Get(k); !ok || v != k || v != i+128 {
 			t.Fatalf("bad key: %v", k)
+		}
+	}
+	for i, v := range l.Values() {
+		if v != i+128 {
+			t.Fatalf("bad value: %v", v)
 		}
 	}
 	for i := 0; i < 128; i++ {
@@ -13813,6 +13212,17 @@ func (c *LRU[K, V]) Keys() []K {
 	return keys
 }
 
+// Values returns a slice of the values in the cache, from oldest to newest.
+func (c *LRU[K, V]) Values() []V {
+	values := make([]V, len(c.items))
+	i := 0
+	for ent := c.evictList.back(); ent != nil; ent = ent.prevEntry() {
+		values[i] = ent.value
+		i++
+	}
+	return values
+}
+
 // Len returns the number of items in the cache.
 func (c *LRU[K, V]) Len() int {
 	return c.evictList.length()
@@ -13883,6 +13293,9 @@ type LRUCache[K comparable, V any] interface {
 	// Returns a slice of the keys in the cache, from oldest to newest.
 	Keys() []K
 
+	// Values returns a slice of the values in the cache, from oldest to newest.
+	Values() []V
+
 	// Returns the number of items in the cache.
 	Len() int
 
@@ -13929,6 +13342,11 @@ func TestLRU(t *testing.T) {
 	for i, k := range l.Keys() {
 		if v, ok := l.Get(k); !ok || v != k || v != i+128 {
 			t.Fatalf("bad key: %v", k)
+		}
+	}
+	for i, v := range l.Values() {
+		if v != i+128 {
+			t.Fatalf("bad value: %v", v)
 		}
 	}
 	for i := 0; i < 128; i++ {
@@ -14101,7 +13519,7 @@ func TestLRU_Resize(t *testing.T) {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-testing.go - github.com/hashicorp/golang-lru/v2
+testing_test.go - github.com/hashicorp/golang-lru/v2
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
