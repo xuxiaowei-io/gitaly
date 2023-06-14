@@ -104,14 +104,15 @@ func (repo *Repo) MergeTree(
 			return "", errors.New("could not parse exit status of merge-tree(1)")
 		}
 
-		if exitCode > 1 {
-			if text.ChompBytes(stderr.Bytes()) == "fatal: refusing to merge unrelated histories" {
-				return "", ErrMergeTreeUnrelatedHistory
-			}
-			return "", fmt.Errorf("merge-tree: %w", err)
+		if exitCode == 1 {
+			return parseMergeTreeError(objectHash, config, stdout.String())
 		}
 
-		return parseMergeTreeError(objectHash, config, stdout.String())
+		if text.ChompBytes(stderr.Bytes()) == "fatal: refusing to merge unrelated histories" {
+			return "", ErrMergeTreeUnrelatedHistory
+		}
+
+		return "", fmt.Errorf("merge-tree: %w", err)
 	}
 
 	oid, err := objectHash.FromHex(strings.Split(stdout.String(), "\x00")[0])
