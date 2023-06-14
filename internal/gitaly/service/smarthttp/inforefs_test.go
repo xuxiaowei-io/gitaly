@@ -151,8 +151,8 @@ func TestInfoRefsUploadPack_validate(t *testing.T) {
 				RelativePath: "doesnt/exist",
 			}},
 			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound), "repository_path", filepath.Join(cfg.Storages[0].Path, "doesnt/exist"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt/exist")),
 				),
 				testhelper.ToInterceptedMetadata(
 					structerr.New(
@@ -345,9 +345,8 @@ func TestInfoRefsReceivePack_validate(t *testing.T) {
 				RelativePath: "testdata/scratch/another_repo",
 			}},
 			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
-					"repository_path", filepath.Join(cfg.Storages[0].Path, "testdata/scratch/another_repo"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "testdata/scratch/another_repo")),
 				),
 				testhelper.ToInterceptedMetadata(
 					structerr.New(

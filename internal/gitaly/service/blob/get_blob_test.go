@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -192,9 +191,8 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				Oid: oid,
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("repository not found"),
-					"repository_path", filepath.Join(cfg.Storages[0].Path, "path"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path")),
 				),
 				testhelper.ToInterceptedMetadata(
 					structerr.New(

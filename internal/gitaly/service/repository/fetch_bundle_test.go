@@ -156,9 +156,8 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 				},
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
-					"repository_path", filepath.Join(cfg.Storages[0].Path, "unknown"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "unknown")),
 				),
 				testhelper.ToInterceptedMetadata(
 					structerr.New(

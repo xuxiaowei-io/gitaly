@@ -71,7 +71,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "unknown relative path",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "invalid"},
-			expErr: structerr.NewNotFound("%w", storage.ErrRepositoryNotFound).WithMetadata("repository_path", filepath.Join(cfg.Storages[0].Path, "invalid")),
+			expErr: storage.NewRepositoryNotFoundError(storageName, "invalid"),
 		},
 		{
 			desc: "path exists but not a git repository",
