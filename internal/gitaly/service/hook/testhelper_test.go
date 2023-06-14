@@ -7,9 +7,11 @@ import (
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -75,4 +77,11 @@ func runHooksServer(tb testing.TB, cfg config.Cfg, opts []serverOption, serverOp
 			deps.GetHousekeepingManager(),
 		))
 	}, serverOpts...)
+}
+
+func synchronizedVote(hook string) transaction.PhasedVote {
+	return transaction.PhasedVote{
+		Vote:  voting.VoteFromData([]byte("synchronize " + hook + " hook")),
+		Phase: voting.Synchronized,
+	}
 }

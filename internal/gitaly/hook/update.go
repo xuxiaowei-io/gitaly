@@ -32,6 +32,10 @@ func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repos
 		}
 	}
 
+	if err := m.synchronizeHookExecution(ctx, payload, "update"); err != nil {
+		return fmt.Errorf("synchronizing update hook: %w", err)
+	}
+
 	return nil
 }
 

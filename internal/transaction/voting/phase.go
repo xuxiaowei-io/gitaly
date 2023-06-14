@@ -18,6 +18,8 @@ const (
 	// Committed is the committing phase. Data has been committed to disk and will be visible
 	// in all subsequent requests.
 	Committed
+	// Synchronized is the synchronizing phase. It is used to synchronize nodes with each other on a specific event.
+	Synchronized
 )
 
 // ToProto converts the phase into its Protobuf enum. This function panics if called with an
@@ -30,6 +32,8 @@ func (p Phase) ToProto() gitalypb.VoteTransactionRequest_Phase {
 		return gitalypb.VoteTransactionRequest_PREPARED_PHASE
 	case Committed:
 		return gitalypb.VoteTransactionRequest_COMMITTED_PHASE
+	case Synchronized:
+		return gitalypb.VoteTransactionRequest_SYNCHRONIZED_PHASE
 	default:
 		panic(fmt.Sprintf("unknown phase %q", p))
 	}

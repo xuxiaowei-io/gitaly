@@ -131,6 +131,10 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 		}
 	}
 
+	if err := m.synchronizeHookExecution(ctx, payload, "post-receive"); err != nil {
+		return fmt.Errorf("synchronizing post-receive hook: %w", err)
+	}
+
 	return nil
 }
 

@@ -57,6 +57,9 @@ message VoteTransactionRequest {
     // COMMITTED_PHASE is the committing phase. Data has been committed to disk
     // and will be visible in all subsequent requests.
     COMMITTED_PHASE  = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
+    // SYNCHRONIZED_PHASE is the synchronizing phase. This is used to synchronize nodes with each other on a
+    // specific event.
+    SYNCHRONIZED_PHASE = 3;  // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   };
 
   // This comment is left unintentionally blank.

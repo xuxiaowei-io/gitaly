@@ -2,7 +2,9 @@ package hook
 
 import (
 	"context"
+	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -47,4 +49,29 @@ func (m *GitLabHookManager) stopTransaction(ctx context.Context, payload git.Hoo
 	return m.runWithTransaction(ctx, payload, func(ctx context.Context, tx txinfo.Transaction) error {
 		return m.txManager.Stop(ctx, tx)
 	})
+}
+
+// synchronizeHookExecution synchronizes execution of hooks on the primary and secondary nodes.
+//
+// Hooks are executed only on the primary node, which has the consequence that secondary nodes forge ahead. This would
+// cause them to lock references already while the primary is still executing the hook, which significantly increases
+// the critical phase of these locks on secondaries and may thus cause contention. This problem becomes even more grave
+// when the reference updates include a deletion, as we need to lock the global `packed-refs` file and block all
+// concurrent deletions.
+//
+// We thus synchronize the hook execution with a separate synchronizing vote. This ensures that the primary node has
+// finished processing the hook _before_ we try to lock references on secondaries. As a result, the critical section on
+// becomes significantly shorter, which alleviates the lock contention.
+func (m *GitLabHookManager) synchronizeHookExecution(ctx context.Context, payload git.HooksPayload, hook string) error {
+	if err := m.runWithTransaction(ctx, payload, func(ctx context.Context, tx txinfo.Transaction) error {
+		if featureflag.SynchronizeHookExecutions.IsEnabled(ctx) {
+			return m.txManager.Vote(ctx, tx, voting.VoteFromData([]byte("synchronize "+hook+" hook")), voting.Synchronized)
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("vote failed: %w", err)
+	}
+
+	return nil
 }

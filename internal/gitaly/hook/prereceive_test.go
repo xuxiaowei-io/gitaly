@@ -26,7 +26,13 @@ import (
 )
 
 func TestPrereceive_customHooks(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPrereceiveCustomHooks)
+}
+
+func testPrereceiveCustomHooks(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -36,7 +42,8 @@ func TestPrereceive_customHooks(t *testing.T) {
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 
-	hookManager := NewManager(cfg, locator, gitCmdFactory, transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
+	txManager := transaction.NewTrackingManager()
+	hookManager := NewManager(cfg, locator, gitCmdFactory, txManager, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 
@@ -92,6 +99,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		expectedErr    string
 		expectedStdout string
 		expectedStderr string
+		expectedVotes  []transaction.PhasedVote
 	}{
 		{
 			desc:           "hook receives environment variables",
@@ -99,6 +107,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 			hook:           "#!/bin/sh\nenv | grep -v -e '^SHLVL=' -e '^_=' | sort\n",
 			stdin:          "change\n",
 			expectedStdout: strings.Join(getExpectedEnv(t, ctx, locator, gitCmdFactory, repo), "\n") + "\n",
+			expectedVotes:  []transaction.PhasedVote{},
 		},
 		{
 			desc:        "hook receives push options",
@@ -111,6 +120,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 				"GIT_PUSH_OPTION_1=mr.merge_when_pipeline_succeeds",
 				"GIT_PUSH_OPTION_COUNT=2",
 			}, "\n") + "\n",
+			expectedVotes: []transaction.PhasedVote{},
 		},
 		{
 			desc:           "hook can write to stderr and stdout",
@@ -119,6 +129,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 			stdin:          "change\n",
 			expectedStdout: "foo\n",
 			expectedStderr: "bar\n",
+			expectedVotes:  []transaction.PhasedVote{},
 		},
 		{
 			desc:           "hook receives standard input",
@@ -126,6 +137,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 			hook:           "#!/bin/sh\ncat\n",
 			stdin:          "foo\n",
 			expectedStdout: "foo\n",
+			expectedVotes:  []transaction.PhasedVote{},
 		},
 		{
 			desc:           "hook succeeds without consuming stdin",
@@ -133,20 +145,23 @@ func TestPrereceive_customHooks(t *testing.T) {
 			hook:           "#!/bin/sh\necho foo\n",
 			stdin:          "ignore me\n",
 			expectedStdout: "foo\n",
+			expectedVotes:  []transaction.PhasedVote{},
 		},
 		{
-			desc:        "invalid hook results in error",
-			env:         []string{payload},
-			hook:        "",
-			stdin:       "change\n",
-			expectedErr: "exec format error",
+			desc:          "invalid hook results in error",
+			env:           []string{payload},
+			hook:          "",
+			stdin:         "change\n",
+			expectedErr:   "exec format error",
+			expectedVotes: []transaction.PhasedVote{},
 		},
 		{
-			desc:        "failing hook results in error",
-			env:         []string{payload},
-			hook:        "#!/bin/sh\nexit 123",
-			stdin:       "change\n",
-			expectedErr: "exit status 123",
+			desc:          "failing hook results in error",
+			env:           []string{payload},
+			hook:          "#!/bin/sh\nexit 123",
+			stdin:         "change\n",
+			expectedErr:   "exit status 123",
+			expectedVotes: []transaction.PhasedVote{},
 		},
 		{
 			desc:           "hook is executed on primary",
@@ -154,22 +169,33 @@ func TestPrereceive_customHooks(t *testing.T) {
 			hook:           "#!/bin/sh\necho foo\n",
 			stdin:          "change\n",
 			expectedStdout: "foo\n",
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
 			desc:  "hook is not executed on secondary",
 			env:   []string{secondaryPayload},
 			hook:  "#!/bin/sh\necho foo\n",
 			stdin: "change\n",
+			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
+				[]transaction.PhasedVote{},
+			),
 		},
 		{
-			desc:        "missing changes cause error",
-			env:         []string{payload},
-			expectedErr: "hook got no reference updates",
+			desc:          "missing changes cause error",
+			env:           []string{payload},
+			expectedErr:   "hook got no reference updates",
+			expectedVotes: []transaction.PhasedVote{},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			txManager.Reset()
+
 			gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(tc.hook))
 
 			var stdout, stderr bytes.Buffer
@@ -183,12 +209,19 @@ func TestPrereceive_customHooks(t *testing.T) {
 
 			require.Equal(t, tc.expectedStdout, stdout.String())
 			require.Equal(t, tc.expectedStderr, stderr.String())
+			require.Equal(t, tc.expectedVotes, txManager.Votes())
 		})
 	}
 }
 
 func TestPrereceive_quarantine(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPrereceiveQuarantine)
+}
+
+func testPrereceiveQuarantine(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -272,7 +305,13 @@ func (m *prereceiveAPIMock) PostReceive(context.Context, string, string, string,
 }
 
 func TestPrereceive_gitlab(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPrereceiveGitlab)
+}
+
+func testPrereceiveGitlab(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{

@@ -2,6 +2,7 @@ package hook
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -41,6 +43,11 @@ func TestPostReceiveInvalidArgument(t *testing.T) {
 
 func TestHooksMissingStdin(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testHooksMissingStdin)
+}
+
+func testHooksMissingStdin(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	user, password, secretToken := "user", "password", "secret token"
 	tempDir := testhelper.TempDir(t)
@@ -64,7 +71,6 @@ func TestHooksMissingStdin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -98,7 +104,12 @@ func TestHooksMissingStdin(t *testing.T) {
 			gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewDiscardingLogger(t), cfg.Gitlab, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
+			txManager := transaction.NewTrackingManager()
+
+			serverSocketPath := runHooksServer(t, cfg, nil,
+				testserver.WithGitLabClient(gitlabClient),
+				testserver.WithTransactionManager(txManager),
+			)
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -154,6 +165,10 @@ func TestHooksMissingStdin(t *testing.T) {
 				require.NotEqual(t, int32(0), status, "exit code should be non-zero")
 			} else {
 				require.Equal(t, int32(0), status, "exit code unequal")
+				require.Equal(t, testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
+					[]transaction.PhasedVote{synchronizedVote("post-receive")},
+					[]transaction.PhasedVote{},
+				), txManager.Votes())
 			}
 		})
 	}
