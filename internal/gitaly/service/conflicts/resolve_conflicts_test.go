@@ -55,7 +55,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"single file conflict, pick ours",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				baseCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -114,7 +114,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"single file conflict, pick theirs",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				baseCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -173,7 +173,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"single file conflict without ancestor, pick ours",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -228,7 +228,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"single file multi conflict",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				baseCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -294,7 +294,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"multi file multi conflict",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				baseCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -369,7 +369,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"single file conflict, remote repo",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				testcfg.BuildGitalySSH(t, cfg)
 
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
@@ -427,7 +427,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"single file with only newline",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -473,7 +473,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"conflicting newline with embedded character",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -527,7 +527,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"conflicting carriage-return newlines",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -581,7 +581,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"conflict with no trailing newline",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -635,7 +635,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"conflict with existing conflict markers",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -685,7 +685,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"invalid OID",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -727,7 +727,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"resolved content is same as the conflict",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -775,7 +775,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"missing resolution for section",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
@@ -827,7 +827,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"empty User",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				return setupData{
@@ -855,7 +855,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"empty Repository",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				return setupData{
@@ -886,7 +886,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"empty TargetRepository",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				return setupData{
@@ -914,7 +914,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"empty OurCommitID",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				return setupData{
@@ -942,7 +942,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"empty TheirCommitID",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				return setupData{
@@ -970,7 +970,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"empty CommitMessage",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				return setupData{
@@ -998,7 +998,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"empty SourceBranch",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				return setupData{
@@ -1026,7 +1026,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"empty TargetBranch",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				return setupData{
@@ -1054,7 +1054,7 @@ func TestResolveConflicts(t *testing.T) {
 		{
 			"uses quarantine repo",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				testcfg.BuildGitalySSH(t, cfg)

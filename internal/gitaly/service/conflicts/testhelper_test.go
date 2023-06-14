@@ -3,10 +3,8 @@
 package conflicts
 
 import (
-	"context"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -26,7 +24,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupConflictsServiceWithoutRepo(tb testing.TB, hookManager hook.Manager) (config.Cfg, gitalypb.ConflictsServiceClient) {
+func setupConflictsService(tb testing.TB, hookManager hook.Manager) (config.Cfg, gitalypb.ConflictsServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	testcfg.BuildGitalyGit2Go(tb, cfg)
@@ -38,16 +36,6 @@ func setupConflictsServiceWithoutRepo(tb testing.TB, hookManager hook.Manager) (
 	tb.Cleanup(func() { conn.Close() })
 
 	return cfg, client
-}
-
-func setupConflictsService(tb testing.TB, ctx context.Context, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
-	cfg, client := setupConflictsServiceWithoutRepo(tb, hookManager)
-
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	return cfg, repo, repoPath, client
 }
 
 func runConflictsServer(tb testing.TB, cfg config.Cfg, hookManager hook.Manager) string {
