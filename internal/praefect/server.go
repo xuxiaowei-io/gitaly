@@ -212,6 +212,7 @@ func NewGRPCServer(
 		})
 		proxy.RegisterStreamHandlers(srv, "gitaly.ObjectPoolService", map[string]grpc.StreamHandler{
 			"DeleteObjectPool": DeleteObjectPoolHandler(rs, conns),
+			"GetObjectPool":    GetObjectPoolHandler(rs, router),
 		})
 	}
 
