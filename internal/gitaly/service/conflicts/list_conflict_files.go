@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -22,7 +21,7 @@ import (
 func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, stream gitalypb.ConflictsService_ListConflictFilesServer) error {
 	ctx := stream.Context()
 
-	if err := validateListConflictFilesRequest(request); err != nil {
+	if err := validateListConflictFilesRequest(s.locator, request); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -302,8 +301,8 @@ func (s *server) conflictFilesWithGit2Go(
 	return nil
 }
 
-func validateListConflictFilesRequest(in *gitalypb.ListConflictFilesRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateListConflictFilesRequest(locator storage.Locator, in *gitalypb.ListConflictFilesRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if in.GetOurCommitOid() == "" {

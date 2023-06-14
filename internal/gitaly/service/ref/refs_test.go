@@ -186,7 +186,7 @@ func TestFindDefaultBranchName(t *testing.T) {
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
 						testhelper.WithInterceptedMetadata(
-							structerr.NewNotFound("get default branch: %w", storage.ErrRepositoryNotFound),
+							structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
 							"repository_path", filepath.Join(cfg.Storages[0].Path, "made/up/path"),
 						),
 						testhelper.ToInterceptedMetadata(
@@ -210,7 +210,7 @@ func TestFindDefaultBranchName(t *testing.T) {
 					},
 					expectedErr: testhelper.GitalyOrPraefect(
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"get default branch: %w", storage.NewStorageNotFoundError("invalid"),
+							"%w", storage.NewStorageNotFoundError("invalid"),
 						)),
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 							"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
@@ -497,7 +497,7 @@ func TestFindLocalBranches_validate(t *testing.T) {
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("creating object reader: %w", storage.ErrRepositoryNotFound),
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "made/up/path"),
 				),
 				testhelper.ToInterceptedMetadata(
@@ -513,7 +513,7 @@ func TestFindLocalBranches_validate(t *testing.T) {
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"creating object reader: %w", storage.NewStorageNotFoundError("invalid"),
+					"%w", storage.NewStorageNotFoundError("invalid"),
 				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
@@ -698,7 +698,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"creating object reader: %w", storage.NewStorageNotFoundError("fake"),
+					"%w", storage.NewStorageNotFoundError("fake"),
 				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),

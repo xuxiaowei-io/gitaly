@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -17,8 +17,8 @@ type cherryPickOrRevertRequest interface {
 	GetMessage() []byte
 }
 
-func validateCherryPickOrRevertRequest(req cherryPickOrRevertRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateCherryPickOrRevertRequest(locator storage.Locator, req cherryPickOrRevertRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 

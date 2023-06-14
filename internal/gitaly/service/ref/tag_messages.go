@@ -7,14 +7,14 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
 func (s *server) GetTagMessages(request *gitalypb.GetTagMessagesRequest, stream gitalypb.RefService_GetTagMessagesServer) error {
-	if err := validateGetTagMessagesRequest(request); err != nil {
+	if err := validateGetTagMessagesRequest(s.locator, request); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 	if err := s.getAndStreamTagMessages(request, stream); err != nil {
@@ -24,8 +24,8 @@ func (s *server) GetTagMessages(request *gitalypb.GetTagMessagesRequest, stream 
 	return nil
 }
 
-func validateGetTagMessagesRequest(request *gitalypb.GetTagMessagesRequest) error {
-	return service.ValidateRepository(request.GetRepository())
+func validateGetTagMessagesRequest(locator storage.Locator, request *gitalypb.GetTagMessagesRequest) error {
+	return locator.ValidateRepository(request.GetRepository())
 }
 
 func (s *server) getAndStreamTagMessages(request *gitalypb.GetTagMessagesRequest, stream gitalypb.RefService_GetTagMessagesServer) error {

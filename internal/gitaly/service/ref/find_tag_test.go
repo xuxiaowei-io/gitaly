@@ -319,7 +319,7 @@ func TestFindTag_invalidRequest(t *testing.T) {
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"invalid git directory: %w", storage.NewStorageNotFoundError("fake"),
+					"%w", storage.NewStorageNotFoundError("fake"),
 				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),

@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -35,7 +34,7 @@ func (s *server) ResolveConflicts(stream gitalypb.ConflictsService_ResolveConfli
 		return structerr.NewInvalidArgument("empty ResolveConflictsRequestHeader")
 	}
 
-	if err = validateResolveConflictsHeader(header); err != nil {
+	if err = validateResolveConflictsHeader(s.locator, header); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -74,11 +73,11 @@ func handleResolveConflictsErr(err error, stream gitalypb.ConflictsService_Resol
 	return stream.SendAndClose(&gitalypb.ResolveConflictsResponse{})
 }
 
-func validateResolveConflictsHeader(header *gitalypb.ResolveConflictsRequestHeader) error {
+func validateResolveConflictsHeader(locator storage.Locator, header *gitalypb.ResolveConflictsRequestHeader) error {
 	if header.GetOurCommitOid() == "" {
 		return errors.New("empty OurCommitOid")
 	}
-	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+	if err := locator.ValidateRepository(header.GetRepository()); err != nil {
 		return err
 	}
 	if header.GetTargetRepository() == nil {

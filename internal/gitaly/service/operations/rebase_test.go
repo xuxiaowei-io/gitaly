@@ -797,7 +797,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"creating repo quarantine: creating object quarantine: getting repo path: %w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
+					"%w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
 				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),

@@ -149,7 +149,7 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("cmd: %w", storage.ErrRepositoryNotFound),
+					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
 					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar.git"),
 				),
 				testhelper.ToInterceptedMetadata(
@@ -167,7 +167,7 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			expectedErr: testhelper.GitalyOrPraefect(
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"cmd: %w", storage.NewStorageNotFoundError("foo"),
+					"%w", storage.NewStorageNotFoundError("foo"),
 				)),
 				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 					"repo scoped: %w", storage.NewStorageNotFoundError("foo"),

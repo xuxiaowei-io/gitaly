@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -20,7 +19,7 @@ import (
 func (s *server) ListBranchNamesContainingCommit(in *gitalypb.ListBranchNamesContainingCommitRequest, stream gitalypb.RefService_ListBranchNamesContainingCommitServer) error {
 	ctx := stream.Context()
 
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+	if err := s.locator.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -75,7 +74,7 @@ func (bs *branchNamesContainingCommitSender) Send() error {
 func (s *server) ListTagNamesContainingCommit(in *gitalypb.ListTagNamesContainingCommitRequest, stream gitalypb.RefService_ListTagNamesContainingCommitServer) error {
 	ctx := stream.Context()
 
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+	if err := s.locator.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

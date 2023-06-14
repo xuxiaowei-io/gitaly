@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) GetPatchID(ctx context.Context, in *gitalypb.GetPatchIDRequest) (*gitalypb.GetPatchIDResponse, error) {
-	if err := validatePatchIDRequest(in); err != nil {
+	if err := validatePatchIDRequest(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -81,8 +81,8 @@ func (s *server) GetPatchID(ctx context.Context, in *gitalypb.GetPatchIDRequest)
 	return &gitalypb.GetPatchIDResponse{PatchId: patchID}, nil
 }
 
-func validatePatchIDRequest(in *gitalypb.GetPatchIDRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validatePatchIDRequest(locator storage.Locator, in *gitalypb.GetPatchIDRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if string(in.GetOldRevision()) == "" {

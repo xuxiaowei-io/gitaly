@@ -9,7 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -17,8 +17,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func verifyListBlobsRequest(req *gitalypb.ListBlobsRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func verifyListBlobsRequest(locator storage.Locator, req *gitalypb.ListBlobsRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 	if len(req.GetRevisions()) == 0 {
@@ -35,7 +35,7 @@ func verifyListBlobsRequest(req *gitalypb.ListBlobsRequest) error {
 // ListBlobs finds all blobs which are transitively reachable via a graph walk of the given set of
 // revisions.
 func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobService_ListBlobsServer) error {
-	if err := verifyListBlobsRequest(req); err != nil {
+	if err := verifyListBlobsRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -237,7 +237,7 @@ func (s *server) ListAllBlobs(req *gitalypb.ListAllBlobsRequest, stream gitalypb
 	ctx := stream.Context()
 
 	repository := req.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
+	if err := s.locator.ValidateRepository(repository); err != nil {
 		return err
 	}
 

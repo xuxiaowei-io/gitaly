@@ -8,13 +8,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func validateUserCreateBranchRequest(in *gitalypb.UserCreateBranchRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateUserCreateBranchRequest(locator storage.Locator, in *gitalypb.UserCreateBranchRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if len(in.BranchName) == 0 {
@@ -31,7 +31,7 @@ func validateUserCreateBranchRequest(in *gitalypb.UserCreateBranchRequest) error
 
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateBranchRequest) (*gitalypb.UserCreateBranchResponse, error) {
-	if err := validateUserCreateBranchRequest(req); err != nil {
+	if err := validateUserCreateBranchRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
@@ -92,8 +92,8 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	}, nil
 }
 
-func validateUserUpdateBranchGo(req *gitalypb.UserUpdateBranchRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateUserUpdateBranchGo(locator storage.Locator, req *gitalypb.UserUpdateBranchRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 
@@ -119,7 +119,7 @@ func validateUserUpdateBranchGo(req *gitalypb.UserUpdateBranchRequest) error {
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
 	// Validate the request
-	if err := validateUserUpdateBranchGo(req); err != nil {
+	if err := validateUserUpdateBranchGo(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -160,8 +160,8 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 	return &gitalypb.UserUpdateBranchResponse{}, nil
 }
 
-func validateUserDeleteBranchRequest(in *gitalypb.UserDeleteBranchRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateUserDeleteBranchRequest(locator storage.Locator, in *gitalypb.UserDeleteBranchRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if len(in.GetBranchName()) == 0 {
@@ -176,7 +176,7 @@ func validateUserDeleteBranchRequest(in *gitalypb.UserDeleteBranchRequest) error
 // UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
 // hooks and contacts Rails to verify that the user is indeed allowed to delete that branch.
 func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteBranchRequest) (*gitalypb.UserDeleteBranchResponse, error) {
-	if err := validateUserDeleteBranchRequest(req); err != nil {
+	if err := validateUserDeleteBranchRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))

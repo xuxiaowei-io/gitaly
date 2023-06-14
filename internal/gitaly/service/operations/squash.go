@@ -7,7 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -21,7 +21,7 @@ const (
 // UserSquash collapses a range of commits identified via a start and end revision into a single
 // commit whose single parent is the start revision.
 func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
-	if err := validateUserSquashRequest(req); err != nil {
+	if err := validateUserSquashRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -33,8 +33,8 @@ func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 	return &gitalypb.UserSquashResponse{SquashSha: sha}, nil
 }
 
-func validateUserSquashRequest(req *gitalypb.UserSquashRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateUserSquashRequest(locator storage.Locator, req *gitalypb.UserSquashRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 

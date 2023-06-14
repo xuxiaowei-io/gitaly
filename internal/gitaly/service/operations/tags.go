@@ -13,13 +13,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func validateUserDeleteTagRequest(in *gitalypb.UserDeleteTagRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateUserDeleteTagRequest(locator storage.Locator, in *gitalypb.UserDeleteTagRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if len(in.GetTagName()) == 0 {
@@ -33,7 +33,7 @@ func validateUserDeleteTagRequest(in *gitalypb.UserDeleteTagRequest) error {
 
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
-	if err := validateUserDeleteTagRequest(req); err != nil {
+	if err := validateUserDeleteTagRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
@@ -88,7 +88,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	return &gitalypb.UserDeleteTagResponse{}, nil
 }
 
-func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
+func validateUserCreateTag(locator storage.Locator, req *gitalypb.UserCreateTagRequest) error {
 	if len(req.TagName) == 0 {
 		return errors.New("empty tag name")
 	}
@@ -109,7 +109,7 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 		return errors.New("tag message contains NUL byte")
 	}
 
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 
@@ -118,7 +118,7 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
-	if err := validateUserCreateTag(req); err != nil {
+	if err := validateUserCreateTag(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("validating request: %w", err)
 	}
 
