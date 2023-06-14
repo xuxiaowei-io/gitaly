@@ -1,4 +1,4 @@
-package gitaly
+package storagemgr
 
 import (
 	"github.com/dgraph-io/badger/v4"

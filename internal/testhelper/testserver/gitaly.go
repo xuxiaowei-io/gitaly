@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/log"
@@ -27,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -349,10 +349,10 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		gsd.housekeepingManager = housekeeping.NewManager(cfg.Prometheus, gsd.txMgr)
 	}
 
-	var partitionManager *gitaly.PartitionManager
+	var partitionManager *storagemgr.PartitionManager
 	if _, ok := os.LookupEnv("GITALY_TEST_WAL"); ok {
 		var err error
-		partitionManager, err = gitaly.NewPartitionManager(
+		partitionManager, err = storagemgr.NewPartitionManager(
 			cfg.Storages,
 			gsd.gitCmdFactory,
 			gsd.housekeepingManager,
