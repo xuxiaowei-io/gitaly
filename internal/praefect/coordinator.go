@@ -262,10 +262,6 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	}
 
 	if err != nil {
-		if errors.Is(err, storage.ErrRepositoryNotFound) {
-			return nil, structerr.NewNotFound("%w", err)
-		}
-
 		return nil, err
 	}
 
@@ -699,6 +695,10 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 		if err != nil {
 			if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
 				return nil, structerr.NewInvalidArgument("%w", err)
+			}
+
+			if errors.Is(err, storage.ErrRepositoryNotFound) {
+				return nil, structerr.NewNotFound("%w", err)
 			}
 
 			if errors.Is(err, storage.ErrRepositoryAlreadyExists) {
