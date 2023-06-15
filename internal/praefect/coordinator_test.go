@@ -323,13 +323,17 @@ func TestStreamDirectorMutator(t *testing.T) {
 							Repository: targetRepo,
 						},
 					},
-					expectedErr: structerr.New("%w", fmt.Errorf("mutator call: route repository mutator: %w",
+					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
 						fmt.Errorf("resolve additional replica path: %w",
-							fmt.Errorf("get additional repository id: %w",
-								storage.NewRepositoryNotFoundError(additionalRepo.StorageName, additionalRepo.RelativePath),
-							),
+							additionalRepositoryNotFoundError{
+								storageName:  additionalRepo.StorageName,
+								relativePath: additionalRepo.RelativePath,
+							},
 						),
-					)),
+					)).WithMetadataItems(
+						structerr.MetadataItem{Key: "storage_name", Value: additionalRepo.StorageName},
+						structerr.MetadataItem{Key: "relative_path", Value: additionalRepo.RelativePath},
+					),
 				}
 			},
 		},

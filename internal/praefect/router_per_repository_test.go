@@ -847,10 +847,10 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			virtualStorage:         "virtual-storage-1",
 			relativePath:           "relative-path",
 			additionalRelativePath: "non-existent",
-			expectedErr: fmt.Errorf(
-				"resolve additional replica metadata: %w",
-				fmt.Errorf("repository not found"),
-			),
+			expectedErr: additionalRepositoryNotFoundError{
+				storageName:  "virtual-storage-1",
+				relativePath: "non-existent",
+			},
 		},
 		{
 			desc: "unhealthy primary with additional repository",

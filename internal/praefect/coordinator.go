@@ -697,6 +697,14 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 				return nil, structerr.NewInvalidArgument("%w", err)
 			}
 
+			var additionalRepoNotFound additionalRepositoryNotFoundError
+			if errors.As(err, &additionalRepoNotFound) {
+				return nil, structerr.NewNotFound("%w", err).WithMetadataItems(
+					structerr.MetadataItem{Key: "storage_name", Value: additionalRepoNotFound.storageName},
+					structerr.MetadataItem{Key: "relative_path", Value: additionalRepoNotFound.relativePath},
+				)
+			}
+
 			if errors.Is(err, storage.ErrRepositoryNotFound) {
 				return nil, structerr.NewNotFound("%w", err)
 			}
