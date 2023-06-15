@@ -1041,7 +1041,7 @@ func TestReconciler(t *testing.T) {
 				var err error
 				existing.Job.RepositoryID, err = rs.GetRepositoryID(ctx, existing.Job.VirtualStorage, existing.Job.RelativePath)
 				if err != nil {
-					require.Equal(t, storage.NewRepositoryNotFoundError(existing.Job.VirtualStorage, existing.Job.RelativePath), err)
+					require.Equal(t, datastore.ErrRepositoryNotFound, err)
 				}
 
 				var id int64

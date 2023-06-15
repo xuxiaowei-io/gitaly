@@ -186,7 +186,7 @@ func (dr defaultReplicator) Rename(ctx context.Context, event datastore.Replicat
 	// will be present once a replication job arrives for it.
 	if err := dr.rs.RenameRepository(ctx,
 		event.Job.VirtualStorage, event.Job.RelativePath, event.Job.TargetNodeStorage, relativePath); err != nil {
-		if !errors.Is(err, datastore.RepositoryNotExistsError{}) {
+		if !errors.Is(err, datastore.ErrRepositoryNotFound) {
 			return err
 		}
 

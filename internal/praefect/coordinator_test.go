@@ -295,7 +295,12 @@ func TestStreamDirectorMutator(t *testing.T) {
 					request: &gitalypb.UserCreateTagRequest{
 						Repository: targetRepo,
 					},
-					expectedErr: structerr.New("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
+						fmt.Errorf("get repository id: %w", datastore.ErrRepositoryNotFound),
+					)).WithMetadataItems(
+						structerr.MetadataItem{Key: "storage_name", Value: targetRepo.StorageName},
+						structerr.MetadataItem{Key: "relative_path", Value: targetRepo.RelativePath},
+					),
 				}
 			},
 		},
@@ -1082,10 +1087,12 @@ func TestStreamDirectorAccessor(t *testing.T) {
 			desc: "repository not found",
 			router: mockRouter{
 				routeRepositoryAccessorFunc: func(_ context.Context, virtualStorage, relativePath string, _ bool) (RepositoryAccessorRoute, error) {
-					return RepositoryAccessorRoute{}, storage.NewRepositoryNotFoundError(virtualStorage, relativePath)
+					return RepositoryAccessorRoute{}, datastore.ErrRepositoryNotFound
 				},
 			},
-			error: structerr.New("%w", fmt.Errorf("accessor call: route repository accessor: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
+			error: structerr.NewNotFound("%w", fmt.Errorf("accessor call: route repository accessor: %w",
+				datastore.ErrRepositoryNotFound,
+			)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1106,7 +1113,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 			peeker := &mockPeeker{frame: frame}
 			streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 			if tc.error != nil {
-				require.Equal(t, tc.error, err)
+				testhelper.RequireGrpcError(t, tc.error, err)
 				return
 			}
 

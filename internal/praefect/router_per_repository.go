@@ -200,7 +200,7 @@ func (r *PerRepositoryRouter) resolveAdditionalReplicaPath(ctx context.Context, 
 
 	additionalRepositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, additionalRelativePath)
 	if err != nil {
-		if errors.Is(err, storage.ErrRepositoryNotFound) {
+		if errors.Is(err, datastore.ErrRepositoryNotFound) {
 			return "", additionalRepositoryNotFoundError{
 				storageName:  virtualStorage,
 				relativePath: additionalRelativePath,

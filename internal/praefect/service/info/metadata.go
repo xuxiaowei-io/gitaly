@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -29,7 +28,7 @@ func (s *Server) GetRepositoryMetadata(ctx context.Context, req *gitalypb.GetRep
 
 	metadata, err := getMetadata()
 	if err != nil {
-		if errors.Is(err, storage.ErrRepositoryNotFound) {
+		if errors.Is(err, datastore.ErrRepositoryNotFound) {
 			return nil, structerr.NewNotFound("%w", err)
 		}
 

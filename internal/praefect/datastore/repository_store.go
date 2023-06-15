@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 )
 
@@ -37,32 +36,14 @@ func (err DowngradeAttemptedError) Error() string {
 	)
 }
 
-// RepositoryNotExistsError is returned when trying to perform an operation on a non-existent repository.
-type RepositoryNotExistsError struct {
-	virtualStorage string
-	relativePath   string
-	storage        string
-}
-
-// Is checks whether the other errors is of the same type.
-func (err RepositoryNotExistsError) Is(other error) bool {
-	_, ok := other.(RepositoryNotExistsError)
-	return ok
-}
-
-// Error returns the errors message.
-func (err RepositoryNotExistsError) Error() string {
-	return fmt.Sprintf("repository %q -> %q -> %q does not exist",
-		err.virtualStorage, err.relativePath, err.storage,
-	)
-}
-
 var (
 	// ErrNoRowsAffected is returned when a query did not perform any changes.
 	ErrNoRowsAffected = errors.New("no rows were affected by the query")
 	// ErrRepositoryAlreadyExists is returned when trying to insert a repository into the datastore that already
 	// exists.
 	ErrRepositoryAlreadyExists = errors.New("repository already exists")
+	// ErrRepositoryNotFound is returned when looking up a repository that does not exist in the datastore.
+	ErrRepositoryNotFound = errors.New("repository not found")
 )
 
 // RepositoryStore provides access to repository state.
@@ -74,7 +55,7 @@ type RepositoryStore interface {
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
 	// than the virtual storage's generation, it is set to match as well to guarantee monotonic increments.
 	SetGeneration(ctx context.Context, repositoryID int64, storage, relativePath string, generation int) error
-	// GetReplicaPath gets the replica path of a repository. Returns a storage.ErrRepositoryNotFound if a record
+	// GetReplicaPath gets the replica path of a repository. Returns a ErrRepositoryNotFound if a record
 	// for the repository ID is not found.
 	GetReplicaPath(ctx context.Context, repositoryID int64) (string, error)
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
@@ -94,7 +75,7 @@ type RepositoryStore interface {
 	// SetAuthoritativeReplica sets the given replica of a repsitory as the authoritative one by setting its generation as the latest one.
 	SetAuthoritativeReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// DeleteRepository deletes the database records associated with the repository. It returns the replica path and the storages
-	// which are known to have a replica at the time of deletion. storage.RepositoryNotFoundError is returned when
+	// which are known to have a replica at the time of deletion. ErrRepositoryNotFound is returned when
 	// the repository is not tracked by the Praefect datastore.
 	DeleteRepository(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
 	// DeleteAllRepositories deletes the database records associated with
@@ -103,7 +84,7 @@ type RepositoryStore interface {
 	// DeleteReplica deletes a replica of a repository from a storage without affecting other state in the virtual storage.
 	DeleteReplica(ctx context.Context, repositoryID int64, storage string) error
 	// RenameRepository updates a repository's relative path. It renames the virtual storage wide record as well
-	// as the storage's which is calling it. Returns RepositoryNotExistsError when trying to rename a repository
+	// as the storage's which is calling it. Returns ErrRepositoryNotFound when trying to rename a repository
 	// which has no record in the virtual storage or the storage.
 	RenameRepository(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	// RenameRepositoryInPlace renames the repository in the database without changing the replica path. This will replace
@@ -125,7 +106,7 @@ type RepositoryStore interface {
 	// exists with the given virtual storage and relative path combination, an error is returned.
 	ReserveRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 	// GetRepositoryID gets the ID of the repository identified via the given virtual storage and relative path. Returns a
-	// RepositoryNotFoundError if the repository doesn't exist.
+	// ErrRepositoryNotFound error if the repository doesn't exist.
 	GetRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 	// GetRepositoryMetadata retrieves a repository's metadata.
 	GetRepositoryMetadata(ctx context.Context, repositoryID int64) (RepositoryMetadata, error)
@@ -266,7 +247,7 @@ SELECT
 	}
 
 	if !repositoryExists {
-		return storage.ErrRepositoryNotFound
+		return ErrRepositoryNotFound
 	}
 
 	if !repositoryUpdated {
@@ -334,7 +315,7 @@ ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE
 	if rowsAffected, err := result.RowsAffected(); err != nil {
 		return fmt.Errorf("rows affected: %w", err)
 	} else if rowsAffected == 0 {
-		return storage.NewRepositoryNotFoundError(virtualStorage, relativePath)
+		return ErrRepositoryNotFound
 	}
 
 	return nil
@@ -494,7 +475,7 @@ GROUP BY replica_path
 		`, virtualStorage, relativePath,
 	).Scan(&replicaPath, &storages); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil, storage.NewRepositoryNotFoundError(virtualStorage, relativePath)
+			return "", nil, ErrRepositoryNotFound
 		}
 
 		return "", nil, fmt.Errorf("scan: %w", err)
@@ -580,7 +561,7 @@ WHERE repository_id = (SELECT repository_id FROM repository)
 	if rowsAffected, err := result.RowsAffected(); err != nil {
 		return fmt.Errorf("rows affected: %w", err)
 	} else if rowsAffected == 0 {
-		return storage.ErrRepositoryNotFound
+		return ErrRepositoryNotFound
 	}
 
 	return nil
@@ -612,11 +593,7 @@ AND storage = $3
 	if n, err := result.RowsAffected(); err != nil {
 		return err
 	} else if n == 0 {
-		return RepositoryNotExistsError{
-			virtualStorage: virtualStorage,
-			relativePath:   relativePath,
-			storage:        storage,
-		}
+		return ErrRepositoryNotFound
 	}
 
 	return err
@@ -635,7 +612,7 @@ GROUP BY replica_path
 
 // GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
 func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
-	replicaPath, storages, err := rs.getConsistentStorages(ctx, `
+	return rs.getConsistentStorages(ctx, `
 SELECT replica_path, ARRAY_AGG(storage)
 FROM repositories
 JOIN storage_repositories USING (repository_id, relative_path, generation)
@@ -643,11 +620,6 @@ WHERE repositories.virtual_storage = $1
 AND repositories.relative_path = $2
 GROUP BY replica_path
 	`, virtualStorage, relativePath)
-	if errors.Is(err, storage.ErrRepositoryNotFound) {
-		return "", nil, storage.NewRepositoryNotFoundError(virtualStorage, relativePath)
-	}
-
-	return replicaPath, storages, err
 }
 
 // getConsistentStorages is a helper for querying the consistent storages by different keys.
@@ -657,7 +629,7 @@ func (rs *PostgresRepositoryStore) getConsistentStorages(ctx context.Context, qu
 
 	if err := rs.db.QueryRowContext(ctx, query, params...).Scan(&replicaPath, &storages); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil, storage.ErrRepositoryNotFound
+			return "", nil, ErrRepositoryNotFound
 		}
 
 		return "", nil, fmt.Errorf("query: %w", err)
@@ -768,7 +740,7 @@ func (rs *PostgresRepositoryStore) GetRepositoryMetadata(ctx context.Context, re
 	}
 
 	if len(metadata) == 0 {
-		return RepositoryMetadata{}, storage.ErrRepositoryNotFound
+		return RepositoryMetadata{}, ErrRepositoryNotFound
 	}
 
 	return metadata[0], nil
@@ -789,7 +761,7 @@ func (rs *PostgresRepositoryStore) GetRepositoryMetadataByPath(ctx context.Conte
 	}
 
 	if len(metadata) == 0 {
-		return RepositoryMetadata{}, storage.ErrRepositoryNotFound
+		return RepositoryMetadata{}, ErrRepositoryNotFound
 	}
 
 	return metadata[0], nil
@@ -981,7 +953,7 @@ WHERE NOT EXISTS (
 }
 
 // GetRepositoryID gets the ID of the repository identified via the given virtual storage and relative path. Returns a
-// RepositoryNotFoundError if the repository doesn't exist.
+// ErrRepositoryNotFound error if the repository doesn't exist.
 func (rs *PostgresRepositoryStore) GetRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
 	var id int64
 	if err := rs.db.QueryRowContext(ctx, `
@@ -991,7 +963,7 @@ WHERE virtual_storage = $1
 AND   relative_path   = $2
 	`, virtualStorage, relativePath).Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, storage.NewRepositoryNotFoundError(virtualStorage, relativePath)
+			return 0, ErrRepositoryNotFound
 		}
 
 		return 0, fmt.Errorf("scan: %w", err)
@@ -1000,7 +972,7 @@ AND   relative_path   = $2
 	return id, nil
 }
 
-// GetReplicaPath gets the replica path of a repository. Returns a storage.ErrRepositoryNotFound if a record
+// GetReplicaPath gets the replica path of a repository. Returns a ErrRepositoryNotFound if a record
 // for the repository ID is not found.
 func (rs *PostgresRepositoryStore) GetReplicaPath(ctx context.Context, repositoryID int64) (string, error) {
 	var replicaPath string
@@ -1008,7 +980,7 @@ func (rs *PostgresRepositoryStore) GetReplicaPath(ctx context.Context, repositor
 		ctx, "SELECT replica_path FROM repositories WHERE repository_id = $1", repositoryID,
 	).Scan(&replicaPath); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", storage.ErrRepositoryNotFound
+			return "", ErrRepositoryNotFound
 		}
 
 		return "", fmt.Errorf("scan: %w", err)

@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
@@ -274,7 +273,7 @@ func (n *Mgr) GetPrimary(ctx context.Context, virtualStorage string, _ int64) (s
 //nolint:revive // This is unintentionally missing documentation.
 func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath string) (Node, error) {
 	_, upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
-	if err != nil && !errors.Is(err, storage.ErrRepositoryNotFound) {
+	if err != nil && !errors.Is(err, datastore.ErrRepositoryNotFound) {
 		return nil, err
 	}
 

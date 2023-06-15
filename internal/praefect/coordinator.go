@@ -705,8 +705,11 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 				)
 			}
 
-			if errors.Is(err, storage.ErrRepositoryNotFound) {
-				return nil, structerr.NewNotFound("%w", err)
+			if errors.Is(err, datastore.ErrRepositoryNotFound) {
+				return nil, structerr.NewNotFound("%w", err).WithMetadataItems(
+					structerr.MetadataItem{Key: "storage_name", Value: targetRepo.GetStorageName()},
+					structerr.MetadataItem{Key: "relative_path", Value: targetRepo.GetRelativePath()},
+				)
 			}
 
 			if errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
@@ -1089,7 +1092,7 @@ func (c *Coordinator) newRequestFinalizer(
 			// where the client receives an error but can't retry the call as the repository has already been moved on the primary.
 			// Ideally the rename RPC should copy the repository instead of moving so the client can retry if this failed.
 			if err := c.rs.RenameRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary, params["RelativePath"].(string)); err != nil {
-				if !errors.Is(err, datastore.RepositoryNotExistsError{}) {
+				if !errors.Is(err, datastore.ErrRepositoryNotFound) {
 					return fmt.Errorf("rename repository: %w", err)
 				}
 
