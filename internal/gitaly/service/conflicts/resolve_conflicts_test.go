@@ -53,6 +53,51 @@ func TestResolveConflicts(t *testing.T) {
 		setup func(testing.TB, context.Context) setupData
 	}{
 		{
+			"no conflict present",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsService(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Path: "b", Mode: "100644", Content: "apricot"}))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("theirs"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Path: "c", Mode: "100644", Content: "acai"}))
+
+				filesJSON, err := json.Marshal([]map[string]interface{}{})
+				require.NoError(t, err)
+
+				return setupData{
+					cfg:      cfg,
+					client:   client,
+					repoPath: repoPath,
+					repo:     repo,
+					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
+						Header: &gitalypb.ResolveConflictsRequestHeader{
+							Repository:       repo,
+							TargetRepository: repo,
+							OurCommitOid:     ourCommitID.String(),
+							TheirCommitOid:   theirCommitID.String(),
+							TargetBranch:     []byte("theirs"),
+							SourceBranch:     []byte("ours"),
+							CommitMessage:    []byte(conflictResolutionCommitMessage),
+							User:             user,
+							Timestamp:        &timestamppb.Timestamp{},
+						},
+					},
+					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
+						{FilesJson: filesJSON},
+					},
+					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedContent: map[string]map[string][]byte{
+						"refs/heads/ours": {
+							"b": []byte("apricot"),
+							"c": []byte("acai"),
+						},
+					},
+				}
+			},
+		},
+		{
 			"single file conflict, pick ours",
 			func(tb testing.TB, ctx context.Context) setupData {
 				cfg, client := setupConflictsService(tb, nil)
