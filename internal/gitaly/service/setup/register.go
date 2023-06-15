@@ -147,9 +147,6 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(
 		deps.GetCfg().Storages,
 		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-		deps.GetTxManager(),
 	))
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())

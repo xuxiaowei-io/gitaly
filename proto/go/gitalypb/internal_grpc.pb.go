@@ -25,9 +25,6 @@ type InternalGitalyClient interface {
 	// WalkRepos walks the storage and streams back all known git repos on the
 	// requested storage
 	WalkRepos(ctx context.Context, in *WalkReposRequest, opts ...grpc.CallOption) (InternalGitaly_WalkReposClient, error)
-	// BackupRepos triggers a backup for each repository in the stream. This RPC
-	// is intended to be used to coordinate backups within the gitaly cluster.
-	BackupRepos(ctx context.Context, opts ...grpc.CallOption) (InternalGitaly_BackupReposClient, error)
 }
 
 type internalGitalyClient struct {
@@ -70,40 +67,6 @@ func (x *internalGitalyWalkReposClient) Recv() (*WalkReposResponse, error) {
 	return m, nil
 }
 
-func (c *internalGitalyClient) BackupRepos(ctx context.Context, opts ...grpc.CallOption) (InternalGitaly_BackupReposClient, error) {
-	stream, err := c.cc.NewStream(ctx, &InternalGitaly_ServiceDesc.Streams[1], "/gitaly.InternalGitaly/BackupRepos", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &internalGitalyBackupReposClient{stream}
-	return x, nil
-}
-
-type InternalGitaly_BackupReposClient interface {
-	Send(*BackupReposRequest) error
-	CloseAndRecv() (*BackupReposResponse, error)
-	grpc.ClientStream
-}
-
-type internalGitalyBackupReposClient struct {
-	grpc.ClientStream
-}
-
-func (x *internalGitalyBackupReposClient) Send(m *BackupReposRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *internalGitalyBackupReposClient) CloseAndRecv() (*BackupReposResponse, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(BackupReposResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // InternalGitalyServer is the server API for InternalGitaly service.
 // All implementations must embed UnimplementedInternalGitalyServer
 // for forward compatibility
@@ -111,9 +74,6 @@ type InternalGitalyServer interface {
 	// WalkRepos walks the storage and streams back all known git repos on the
 	// requested storage
 	WalkRepos(*WalkReposRequest, InternalGitaly_WalkReposServer) error
-	// BackupRepos triggers a backup for each repository in the stream. This RPC
-	// is intended to be used to coordinate backups within the gitaly cluster.
-	BackupRepos(InternalGitaly_BackupReposServer) error
 	mustEmbedUnimplementedInternalGitalyServer()
 }
 
@@ -123,9 +83,6 @@ type UnimplementedInternalGitalyServer struct {
 
 func (UnimplementedInternalGitalyServer) WalkRepos(*WalkReposRequest, InternalGitaly_WalkReposServer) error {
 	return status.Errorf(codes.Unimplemented, "method WalkRepos not implemented")
-}
-func (UnimplementedInternalGitalyServer) BackupRepos(InternalGitaly_BackupReposServer) error {
-	return status.Errorf(codes.Unimplemented, "method BackupRepos not implemented")
 }
 func (UnimplementedInternalGitalyServer) mustEmbedUnimplementedInternalGitalyServer() {}
 
@@ -161,32 +118,6 @@ func (x *internalGitalyWalkReposServer) Send(m *WalkReposResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InternalGitaly_BackupRepos_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(InternalGitalyServer).BackupRepos(&internalGitalyBackupReposServer{stream})
-}
-
-type InternalGitaly_BackupReposServer interface {
-	SendAndClose(*BackupReposResponse) error
-	Recv() (*BackupReposRequest, error)
-	grpc.ServerStream
-}
-
-type internalGitalyBackupReposServer struct {
-	grpc.ServerStream
-}
-
-func (x *internalGitalyBackupReposServer) SendAndClose(m *BackupReposResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *internalGitalyBackupReposServer) Recv() (*BackupReposRequest, error) {
-	m := new(BackupReposRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // InternalGitaly_ServiceDesc is the grpc.ServiceDesc for InternalGitaly service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -199,11 +130,6 @@ var InternalGitaly_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "WalkRepos",
 			Handler:       _InternalGitaly_WalkRepos_Handler,
 			ServerStreams: true,
-		},
-		{
-			StreamName:    "BackupRepos",
-			Handler:       _InternalGitaly_BackupRepos_Handler,
-			ClientStreams: true,
 		},
 	},
 	Metadata: "internal.proto",

@@ -9,11 +9,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -72,11 +70,6 @@ func TestWalkRepos(t *testing.T) {
 		os.Chtimes(testRepo2Path, time.Now(), modifiedDate),
 	)
 
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-
-	txManager := transaction.NewTrackingManager()
-
 	// to test a directory being deleted during a walk, we must delete a directory after
 	// the file walk has started. To achieve that, we wrap the server to pass down a wrapped
 	// stream that allows us to hook in to stream responses. We then delete 'b' when
@@ -85,9 +78,6 @@ func TestWalkRepos(t *testing.T) {
 	srv := NewServer(
 		[]config.Storage{{Name: storageName, Path: storageRoot}},
 		config.NewLocator(cfg),
-		gittest.NewCommandFactory(t, cfg),
-		catfileCache,
-		txManager,
 	)
 	wsrv := &serverWrapper{
 		srv,
