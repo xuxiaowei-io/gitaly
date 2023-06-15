@@ -9,7 +9,6 @@ import (
 	"io"
 	"runtime"
 	"strings"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
@@ -33,6 +32,7 @@ type restoreSubcommand struct {
 	parallelStorage       int
 	layout                string
 	removeAllRepositories []string
+	backupID              string
 }
 
 func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
@@ -44,6 +44,7 @@ func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 		cmd.removeAllRepositories = strings.Split(removeAll, ",")
 		return nil
 	})
+	fs.StringVar(&cmd.backupID, "id", "", "ID of full backup to restore. If not specified, the latest backup is restored.")
 }
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
@@ -60,7 +61,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 	pool := client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
 	defer pool.Close()
 
-	manager := backup.NewManager(sink, locator, pool, time.Now().UTC().Format("20060102150405"))
+	manager := backup.NewManager(sink, locator, pool, cmd.backupID)
 	logger := log.StandardLogger()
 
 	for _, storageName := range cmd.removeAllRepositories {
