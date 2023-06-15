@@ -1,3 +1,5 @@
+//go:build linux
+
 /*
    Adapted from https://github.com/containerd/cgroups/blob/f1d9380fd3c028194db9582825512fdf3f39ab2a/mock_test.go
 
@@ -26,7 +28,9 @@ import (
 	"testing"
 
 	"github.com/containerd/cgroups/v3/cgroup1"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
@@ -54,13 +58,9 @@ func newMock(t *testing.T) *mockCgroup {
 	}
 }
 
-func (m *mockCgroup) hierarchy() ([]cgroup1.Subsystem, error) {
-	return m.subsystems, nil
-}
-
 func (m *mockCgroup) setupMockCgroupFiles(
 	t *testing.T,
-	manager *CGroupV1Manager,
+	manager *CGroupManager,
 	memFailCount int,
 ) {
 	for _, s := range m.subsystems {
@@ -116,4 +116,12 @@ throttled_time 1000000`
 			}
 		}
 	}
+}
+
+func (m *mockCgroup) newCgroupManager(cfg cgroupscfg.Config, pid int) *CGroupManager {
+	return newCgroupManager(cfg, pid)
+}
+
+func (m *mockCgroup) pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
+	PruneOldCgroups(cfg, logger)
 }

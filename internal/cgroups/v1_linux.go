@@ -1,9 +1,9 @@
+//go:build linux
+
 package cgroups
 
 import (
 	"fmt"
-	"hash/crc32"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -11,16 +11,13 @@ import (
 	"github.com/containerd/cgroups/v3/cgroup1"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
-// cfs_period_us hardcoded to be 100ms.
-const cfsPeriodUs uint64 = 100000
-
-// CGroupV1Manager is the manager for cgroups v1
-type CGroupV1Manager struct {
+type cgroupV1Handler struct {
 	cfg                        cgroupscfg.Config
 	hierarchy                  func() ([]cgroup1.Subsystem, error)
 	memoryReclaimAttemptsTotal *prometheus.GaugeVec
@@ -32,8 +29,8 @@ type CGroupV1Manager struct {
 	pid                        int
 }
 
-func newV1Manager(cfg cgroupscfg.Config, pid int) *CGroupV1Manager {
-	return &CGroupV1Manager{
+func newV1Handler(cfg cgroupscfg.Config, pid int) *cgroupV1Handler {
+	return &cgroupV1Handler{
 		cfg: cfg,
 		pid: pid,
 		hierarchy: func() ([]cgroup1.Subsystem, error) {
@@ -78,100 +75,34 @@ func newV1Manager(cfg cgroupscfg.Config, pid int) *CGroupV1Manager {
 	}
 }
 
-//nolint:revive // This is unintentionally missing documentation.
-func (cg *CGroupV1Manager) Setup() error {
-	cfsPeriodUs := cfsPeriodUs
-
-	var parentResources specs.LinuxResources
-	// Leave them `nil` so it takes kernel default unless cfg value above `0`.
-	parentResources.CPU = &specs.LinuxCPU{}
-
-	if cg.cfg.CPUShares > 0 {
-		parentResources.CPU.Shares = &cg.cfg.CPUShares
-	}
-
-	if cg.cfg.CPUQuotaUs > 0 {
-		parentResources.CPU.Quota = &cg.cfg.CPUQuotaUs
-		parentResources.CPU.Period = &cfsPeriodUs
-	}
-
-	if cg.cfg.MemoryBytes > 0 {
-		parentResources.Memory = &specs.LinuxMemory{Limit: &cg.cfg.MemoryBytes}
-	}
-
+func (cvh *cgroupV1Handler) setupParent(parentResources *specs.LinuxResources) error {
 	if _, err := cgroup1.New(
-		cgroup1.StaticPath(cg.currentProcessCgroup()),
-		&parentResources,
-		cgroup1.WithHiearchy(cg.hierarchy),
+		cgroup1.StaticPath(cvh.currentProcessCgroup()),
+		parentResources,
+		cgroup1.WithHiearchy(cvh.hierarchy),
 	); err != nil {
 		return fmt.Errorf("failed creating parent cgroup: %w", err)
 	}
+	return nil
+}
 
-	var reposResources specs.LinuxResources
-	// Leave them `nil` so it takes kernel default unless cfg value above `0`.
-	reposResources.CPU = &specs.LinuxCPU{}
-
-	if cg.cfg.Repositories.CPUShares > 0 {
-		reposResources.CPU.Shares = &cg.cfg.Repositories.CPUShares
-	}
-
-	if cg.cfg.Repositories.CPUQuotaUs > 0 {
-		reposResources.CPU.Quota = &cg.cfg.Repositories.CPUQuotaUs
-		reposResources.CPU.Period = &cfsPeriodUs
-	}
-
-	if cg.cfg.Repositories.MemoryBytes > 0 {
-		reposResources.Memory = &specs.LinuxMemory{Limit: &cg.cfg.Repositories.MemoryBytes}
-	}
-
-	for i := 0; i < int(cg.cfg.Repositories.Count); i++ {
+func (cvh *cgroupV1Handler) setupRepository(reposResources *specs.LinuxResources) error {
+	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
 		if _, err := cgroup1.New(
-			cgroup1.StaticPath(cg.repoPath(i)),
-			&reposResources,
-			cgroup1.WithHiearchy(cg.hierarchy),
+			cgroup1.StaticPath(cvh.repoPath(i)),
+			reposResources,
+			cgroup1.WithHiearchy(cvh.hierarchy),
 		); err != nil {
 			return fmt.Errorf("failed creating repository cgroup: %w", err)
 		}
 	}
-
 	return nil
 }
 
-// AddCommand adds the given command to one of the CGroup's buckets. The bucket used for the command
-// is determined by hashing the repository storage and path. No error is returned if the command has already
-// exited.
-func (cg *CGroupV1Manager) AddCommand(
-	cmd *exec.Cmd,
-	opts ...AddCommandOption,
-) (string, error) {
-	var cfg addCommandCfg
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-
-	key := cfg.cgroupKey
-	if key == "" {
-		key = strings.Join(cmd.Args, "/")
-	}
-
-	checksum := crc32.ChecksumIEEE(
-		[]byte(key),
-	)
-
-	if cmd.Process == nil {
-		return "", fmt.Errorf("cannot add command that has not yet been started")
-	}
-
-	groupID := uint(checksum) % cg.cfg.Repositories.Count
-	cgroupPath := cg.repoPath(int(groupID))
-
-	return cgroupPath, cg.addToCgroup(cmd.Process.Pid, cgroupPath)
-}
-
-func (cg *CGroupV1Manager) addToCgroup(pid int, cgroupPath string) error {
+func (cvh *cgroupV1Handler) addToCgroup(pid int, cgroupPath string) error {
 	control, err := cgroup1.Load(
 		cgroup1.StaticPath(cgroupPath),
-		cgroup1.WithHiearchy(cg.hierarchy),
+		cgroup1.WithHiearchy(cvh.hierarchy),
 	)
 	if err != nil {
 		return fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
@@ -189,18 +120,17 @@ func (cg *CGroupV1Manager) addToCgroup(pid int, cgroupPath string) error {
 	return nil
 }
 
-// Collect collects metrics from the cgroups controller
-func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
-	if !cg.cfg.MetricsEnabled {
+func (cvh *cgroupV1Handler) collect(ch chan<- prometheus.Metric) {
+	if !cvh.cfg.MetricsEnabled {
 		return
 	}
 
-	for i := 0; i < int(cg.cfg.Repositories.Count); i++ {
-		repoPath := cg.repoPath(i)
+	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
+		repoPath := cvh.repoPath(i)
 		logger := log.Default().WithField("cgroup_path", repoPath)
 		control, err := cgroup1.Load(
 			cgroup1.StaticPath(repoPath),
-			cgroup1.WithHiearchy(cg.hierarchy),
+			cgroup1.WithHiearchy(cvh.hierarchy),
 		)
 		if err != nil {
 			logger.WithError(err).Warn("unable to load cgroup controller")
@@ -210,41 +140,41 @@ func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
 		if metrics, err := control.Stat(); err != nil {
 			logger.WithError(err).Warn("unable to get cgroup stats")
 		} else {
-			memoryMetric := cg.memoryReclaimAttemptsTotal.WithLabelValues(repoPath)
+			memoryMetric := cvh.memoryReclaimAttemptsTotal.WithLabelValues(repoPath)
 			memoryMetric.Set(float64(metrics.Memory.Usage.Failcnt))
 			ch <- memoryMetric
 
-			cpuUserMetric := cg.cpuUsage.WithLabelValues(repoPath, "user")
+			cpuUserMetric := cvh.cpuUsage.WithLabelValues(repoPath, "user")
 			cpuUserMetric.Set(float64(metrics.CPU.Usage.User))
 			ch <- cpuUserMetric
 
 			ch <- prometheus.MustNewConstMetric(
-				cg.cpuCFSPeriods,
+				cvh.cpuCFSPeriods,
 				prometheus.CounterValue,
 				float64(metrics.CPU.Throttling.Periods),
 				repoPath,
 			)
 
 			ch <- prometheus.MustNewConstMetric(
-				cg.cpuCFSThrottledPeriods,
+				cvh.cpuCFSThrottledPeriods,
 				prometheus.CounterValue,
 				float64(metrics.CPU.Throttling.ThrottledPeriods),
 				repoPath,
 			)
 
 			ch <- prometheus.MustNewConstMetric(
-				cg.cpuCFSThrottledTime,
+				cvh.cpuCFSThrottledTime,
 				prometheus.CounterValue,
 				float64(metrics.CPU.Throttling.ThrottledTime)/float64(time.Second),
 				repoPath,
 			)
 
-			cpuKernelMetric := cg.cpuUsage.WithLabelValues(repoPath, "kernel")
+			cpuKernelMetric := cvh.cpuUsage.WithLabelValues(repoPath, "kernel")
 			cpuKernelMetric.Set(float64(metrics.CPU.Usage.Kernel))
 			ch <- cpuKernelMetric
 		}
 
-		if subsystems, err := cg.hierarchy(); err != nil {
+		if subsystems, err := cvh.hierarchy(); err != nil {
 			logger.WithError(err).Warn("unable to get cgroup hierarchy")
 		} else {
 			for _, subsystem := range subsystems {
@@ -256,7 +186,7 @@ func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
 					continue
 				}
 
-				procsMetric := cg.procs.WithLabelValues(repoPath, string(subsystem.Name()))
+				procsMetric := cvh.procs.WithLabelValues(repoPath, string(subsystem.Name()))
 				procsMetric.Set(float64(len(processes)))
 				ch <- procsMetric
 			}
@@ -264,18 +194,12 @@ func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// Describe describes the cgroup metrics that Collect provides
-func (cg *CGroupV1Manager) Describe(ch chan<- *prometheus.Desc) {
-	prometheus.DescribeByCollect(cg, ch)
-}
-
-//nolint:revive // This is unintentionally missing documentation.
-func (cg *CGroupV1Manager) Cleanup() error {
-	processCgroupPath := cg.currentProcessCgroup()
+func (cvh *cgroupV1Handler) cleanup() error {
+	processCgroupPath := cvh.currentProcessCgroup()
 
 	control, err := cgroup1.Load(
 		cgroup1.StaticPath(processCgroupPath),
-		cgroup1.WithHiearchy(cg.hierarchy),
+		cgroup1.WithHiearchy(cvh.hierarchy),
 	)
 	if err != nil {
 		return fmt.Errorf("failed loading cgroup %s: %w", processCgroupPath, err)
@@ -288,12 +212,12 @@ func (cg *CGroupV1Manager) Cleanup() error {
 	return nil
 }
 
-func (cg *CGroupV1Manager) repoPath(groupID int) string {
-	return filepath.Join(cg.currentProcessCgroup(), fmt.Sprintf("repos-%d", groupID))
+func (cvh *cgroupV1Handler) repoPath(groupID int) string {
+	return filepath.Join(cvh.currentProcessCgroup(), fmt.Sprintf("repos-%d", groupID))
 }
 
-func (cg *CGroupV1Manager) currentProcessCgroup() string {
-	return config.GetGitalyProcessTempDir(cg.cfg.HierarchyRoot, cg.pid)
+func (cvh *cgroupV1Handler) currentProcessCgroup() string {
+	return config.GetGitalyProcessTempDir(cvh.cfg.HierarchyRoot, cvh.pid)
 }
 
 func defaultSubsystems(root string) ([]cgroup1.Subsystem, error) {
@@ -303,4 +227,22 @@ func defaultSubsystems(root string) ([]cgroup1.Subsystem, error) {
 	}
 
 	return subsystems, nil
+}
+
+func pruneOldCgroupsV1(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
+	if err := config.PruneOldGitalyProcessDirectories(
+		logger,
+		filepath.Join(cfg.Mountpoint, "memory",
+			cfg.HierarchyRoot),
+	); err != nil {
+		logger.WithError(err).Error("failed to clean up memory cgroups")
+	}
+
+	if err := config.PruneOldGitalyProcessDirectories(
+		logger,
+		filepath.Join(cfg.Mountpoint, "cpu",
+			cfg.HierarchyRoot),
+	); err != nil {
+		logger.WithError(err).Error("failed to clean up cpu cgroups")
+	}
 }

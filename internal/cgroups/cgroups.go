@@ -2,11 +2,9 @@ package cgroups
 
 import (
 	"os/exec"
-	"path/filepath"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 )
 
@@ -44,7 +42,7 @@ type Manager interface {
 // NewManager returns the appropriate Cgroups manager
 func NewManager(cfg cgroups.Config, pid int) Manager {
 	if cfg.Repositories.Count > 0 {
-		return newV1Manager(cfg, pid)
+		return newCgroupManager(cfg, pid)
 	}
 
 	return &NoopManager{}
@@ -56,19 +54,5 @@ func PruneOldCgroups(cfg cgroups.Config, logger log.FieldLogger) {
 		return
 	}
 
-	if err := config.PruneOldGitalyProcessDirectories(
-		logger,
-		filepath.Join(cfg.Mountpoint, "memory",
-			cfg.HierarchyRoot),
-	); err != nil {
-		logger.WithError(err).Error("failed to clean up memory cgroups")
-	}
-
-	if err := config.PruneOldGitalyProcessDirectories(
-		logger,
-		filepath.Join(cfg.Mountpoint, "cpu",
-			cfg.HierarchyRoot),
-	); err != nil {
-		logger.WithError(err).Error("failed to clean up cpu cgroups")
-	}
+	pruneOldCgroupsV1(cfg, logger)
 }
