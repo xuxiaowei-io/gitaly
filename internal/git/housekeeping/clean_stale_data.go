@@ -39,6 +39,7 @@ var lockfiles = []string{
 	"info/attributes.lock",
 	"objects/info/alternates.lock",
 	"objects/info/commit-graphs/commit-graph-chain.lock",
+	"objects/pack/multi-pack-index.lock",
 }
 
 type (
