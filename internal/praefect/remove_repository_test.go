@@ -114,6 +114,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 				nil,
 				rs,
 				nil,
+				nil,
 				nodeSet.Connections(),
 				nil,
 				nil,

@@ -28,6 +28,7 @@ func NewServerFactory(
 	queue datastore.ReplicationEventQueue,
 	rs datastore.RepositoryStore,
 	assignmentStore AssignmentStore,
+	router Router,
 	registry *protoregistry.Registry,
 	conns Connections,
 	primaryGetter PrimaryGetter,
@@ -43,6 +44,7 @@ func NewServerFactory(
 		queue:           queue,
 		rs:              rs,
 		assignmentStore: assignmentStore,
+		router:          router,
 		registry:        registry,
 		conns:           conns,
 		primaryGetter:   primaryGetter,
@@ -62,6 +64,7 @@ type ServerFactory struct {
 	queue            datastore.ReplicationEventQueue
 	rs               datastore.RepositoryStore
 	assignmentStore  AssignmentStore
+	router           Router
 	registry         *protoregistry.Registry
 	secure, insecure []*grpc.Server
 	conns            Connections
@@ -135,6 +138,7 @@ func (s *ServerFactory) createGRPC(creds credentials.TransportCredentials) *grpc
 		s.txMgr,
 		s.rs,
 		s.assignmentStore,
+		s.router,
 		s.conns,
 		s.primaryGetter,
 		creds,

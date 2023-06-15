@@ -123,6 +123,7 @@ func NewGRPCServer(
 	txMgr *transactions.Manager,
 	rs datastore.RepositoryStore,
 	assignmentStore AssignmentStore,
+	router Router,
 	conns Connections,
 	primaryGetter PrimaryGetter,
 	creds credentials.TransportCredentials,

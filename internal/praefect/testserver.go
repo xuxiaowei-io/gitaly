@@ -255,6 +255,7 @@ func RunPraefectServer(
 		opt.WithTxMgr,
 		opt.WithRepoStore,
 		opt.WithAssignmentStore,
+		opt.WithRouter,
 		opt.WithConnections,
 		opt.WithPrimaryGetter,
 		nil,
