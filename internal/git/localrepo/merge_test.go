@@ -24,8 +24,9 @@ func TestMergeTree(t *testing.T) {
 		ours   git.ObjectID
 		theirs git.ObjectID
 
-		expectedTreeEntries []gittest.TreeEntry
-		expectedErr         error
+		expectedTreeEntries   []gittest.TreeEntry
+		expectedErr           error
+		expectedConflictFiles []string
 	}
 
 	testCases := []struct {
@@ -198,6 +199,7 @@ func TestMergeTree(t *testing.T) {
 							},
 						},
 					},
+					expectedConflictFiles: []string{"file2"},
 				}
 			},
 		},
@@ -282,6 +284,7 @@ func TestMergeTree(t *testing.T) {
 							},
 						},
 					},
+					expectedConflictFiles: []string{"file1"},
 				}
 			},
 		},
@@ -344,6 +347,7 @@ func TestMergeTree(t *testing.T) {
 							},
 						},
 					},
+					expectedConflictFiles: []string{"file2"},
 				}
 			},
 		},
@@ -445,6 +449,7 @@ func TestMergeTree(t *testing.T) {
 							},
 						},
 					},
+					expectedConflictFiles: []string{"file2", "file3"},
 				}
 			},
 		},
@@ -553,6 +558,7 @@ func TestMergeTree(t *testing.T) {
 							},
 						},
 					},
+					expectedConflictFiles: []string{"file1", "file2"},
 				}
 			},
 		},
@@ -644,6 +650,7 @@ func TestMergeTree(t *testing.T) {
 							},
 						},
 					},
+					expectedConflictFiles: []string{"file1", "file2"},
 				}
 			},
 		},
@@ -707,16 +714,18 @@ func TestMergeTree(t *testing.T) {
 			data := tc.setup(t, repoPath)
 
 			mergeTreeResult, err := repo.MergeTree(ctx, string(data.ours), string(data.theirs), tc.mergeTreeOptions...)
-
 			require.Equal(t, data.expectedErr, err)
-			if data.expectedErr == nil {
-				gittest.RequireTree(
-					t,
-					cfg,
-					repoPath,
-					string(mergeTreeResult),
-					data.expectedTreeEntries,
-				)
+
+			if len(data.expectedConflictFiles) > 0 {
+				var mergeConflictErr *MergeTreeConflictError
+				if !errors.As(err, &mergeConflictErr) {
+					require.Fail(t, "error should be a conflict error")
+				}
+				require.ElementsMatch(t, data.expectedConflictFiles, mergeConflictErr.ConflictedFiles())
+			}
+
+			if data.expectedErr == nil && err == nil {
+				gittest.RequireTree(t, cfg, repoPath, string(mergeTreeResult), data.expectedTreeEntries)
 			}
 		})
 	}
