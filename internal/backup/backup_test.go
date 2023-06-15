@@ -357,10 +357,8 @@ func TestManager_Create_incremental(t *testing.T) {
 	}
 }
 
-func TestManager_Restore(t *testing.T) {
+func TestManager_Restore_latest(t *testing.T) {
 	t.Parallel()
-
-	const backupID = "abc123"
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -378,7 +376,7 @@ func TestManager_Restore(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool, backupID)
+				return backup.NewManager(sink, locator, pool, "")
 			},
 		},
 		{
@@ -394,7 +392,7 @@ func TestManager_Restore(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, backupID)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, "")
 			},
 		},
 	} {
@@ -624,6 +622,192 @@ func TestManager_Restore(t *testing.T) {
 								}
 							}
 						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestManager_Restore_specific(t *testing.T) {
+	t.Parallel()
+
+	const backupID = "abc123"
+
+	cfg := testcfg.Build(t)
+	testcfg.BuildGitalyHooks(t, cfg)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
+
+	for _, managerTC := range []struct {
+		desc  string
+		setup func(t testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager
+	}{
+		{
+			desc: "RPC manager",
+			setup: func(tb testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager {
+				pool := client.NewPool()
+				tb.Cleanup(func() {
+					testhelper.MustClose(tb, pool)
+				})
+
+				return backup.NewManager(sink, locator, pool, backupID)
+			},
+		},
+		{
+			desc: "Local manager",
+			setup: func(tb testing.TB, sink backup.Sink, locator backup.Locator) *backup.Manager {
+				if testhelper.IsPraefectEnabled() {
+					tb.Skip("local backup manager expects to operate on the local filesystem so cannot operate through praefect")
+				}
+
+				storageLocator := config.NewLocator(cfg)
+				gitCmdFactory := gittest.NewCommandFactory(tb, cfg)
+				catfileCache := catfile.NewCache(cfg)
+				tb.Cleanup(catfileCache.Stop)
+				txManager := transaction.NewTrackingManager()
+
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, backupID)
+			},
+		},
+	} {
+		managerTC := managerTC
+
+		t.Run(managerTC.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testhelper.Context(t)
+
+			cc, err := client.Dial(cfg.SocketPath, nil)
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, cc)
+
+			repoClient := gitalypb.NewRepositoryServiceClient(cc)
+
+			_, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
+			repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
+
+			backupRoot := testhelper.TempDir(t)
+
+			for _, tc := range []struct {
+				desc          string
+				setup         func(tb testing.TB) (*gitalypb.Repository, *git.Checksum)
+				alwaysCreate  bool
+				expectExists  bool
+				expectedPaths []string
+				expectedErrAs error
+			}{
+				{
+					desc: "single incremental",
+					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						repoBackupPath := joinBackupPath(tb, backupRoot, repo)
+						backupPath := filepath.Join(repoBackupPath, backupID)
+						require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
+						require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
+						bundlePath := filepath.Join(backupPath, "001.bundle")
+						gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
+
+						return repo, repoChecksum
+					},
+					expectExists: true,
+				},
+				{
+					desc: "many incrementals",
+					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						_, expectedRepoPath := gittest.CreateRepository(t, ctx, cfg)
+
+						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						repoBackupPath := joinBackupPath(tb, backupRoot, repo)
+						backupPath := filepath.Join(repoBackupPath, backupID)
+						require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
+						require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), perm.PublicFile))
+
+						root := gittest.WriteCommit(tb, cfg, expectedRepoPath,
+							gittest.WithBranch("master"),
+						)
+						master1 := gittest.WriteCommit(tb, cfg, expectedRepoPath,
+							gittest.WithBranch("master"),
+							gittest.WithParents(root),
+						)
+						other := gittest.WriteCommit(tb, cfg, expectedRepoPath,
+							gittest.WithBranch("other"),
+							gittest.WithParents(root),
+						)
+						gittest.Exec(tb, cfg, "-C", expectedRepoPath, "symbolic-ref", "HEAD", "refs/heads/master")
+						bundlePath1 := filepath.Join(backupPath, "001.bundle")
+						gittest.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath1,
+							"HEAD",
+							"refs/heads/master",
+							"refs/heads/other",
+						)
+
+						master2 := gittest.WriteCommit(tb, cfg, expectedRepoPath,
+							gittest.WithBranch("master"),
+							gittest.WithParents(master1),
+						)
+						bundlePath2 := filepath.Join(backupPath, "002.bundle")
+						gittest.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath2,
+							"HEAD",
+							"^"+master1.String(),
+							"^"+other.String(),
+							"refs/heads/master",
+							"refs/heads/other",
+						)
+
+						checksum := new(git.Checksum)
+						checksum.Add(git.NewReference("HEAD", master2.String()))
+						checksum.Add(git.NewReference("refs/heads/master", master2.String()))
+						checksum.Add(git.NewReference("refs/heads/other", other.String()))
+
+						return repo, checksum
+					},
+					expectExists: true,
+				},
+			} {
+				t.Run(tc.desc, func(t *testing.T) {
+					repo, expectedChecksum := tc.setup(t)
+
+					sink := backup.NewFilesystemSink(backupRoot)
+					locator, err := backup.ResolveLocator("pointer", sink)
+					require.NoError(t, err)
+
+					fsBackup := managerTC.setup(t, sink, locator)
+					err = fsBackup.Restore(ctx, &backup.RestoreRequest{
+						Server:       storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
+						Repository:   repo,
+						AlwaysCreate: tc.alwaysCreate,
+					})
+					if tc.expectedErrAs != nil {
+						require.ErrorAs(t, err, &tc.expectedErrAs)
+					} else {
+						require.NoError(t, err)
+					}
+
+					exists, err := repoClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+						Repository: repo,
+					})
+					require.NoError(t, err)
+					require.Equal(t, tc.expectExists, exists.Exists, "repository exists")
+
+					if expectedChecksum != nil {
+						checksum, err := repoClient.CalculateChecksum(ctx, &gitalypb.CalculateChecksumRequest{
+							Repository: repo,
+						})
+						require.NoError(t, err)
+
+						require.Equal(t, expectedChecksum.String(), checksum.GetChecksum())
+					}
+
+					if len(tc.expectedPaths) > 0 {
+						// Restore has to use the rewritten path as the relative path due to the test creating
+						// the repository through Praefect. In order to get to the correct disk paths, we need
+						// to get the replica path of the rewritten repository.
+						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+						for _, p := range tc.expectedPaths {
+							require.FileExists(t, filepath.Join(repoPath, p))
+						}
 					}
 				})
 			}
