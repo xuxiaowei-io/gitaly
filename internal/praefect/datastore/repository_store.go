@@ -57,29 +57,13 @@ func (err RepositoryNotExistsError) Error() string {
 	)
 }
 
-// RepositoryExistsError is returned when trying to create a repository that already exists.
-type RepositoryExistsError struct {
-	virtualStorage string
-	relativePath   string
-	storage        string
-}
-
-// Is checks whether the other errors is of the same type.
-func (err RepositoryExistsError) Is(other error) bool {
-	//nolint:errorlint
-	_, ok := other.(RepositoryExistsError)
-	return ok
-}
-
-// Error returns the errors message.
-func (err RepositoryExistsError) Error() string {
-	return fmt.Sprintf("repository %q -> %q -> %q already exists",
-		err.virtualStorage, err.relativePath, err.storage,
-	)
-}
-
-// ErrNoRowsAffected is returned when a query did not perform any changes.
-var ErrNoRowsAffected = errors.New("no rows were affected by the query")
+var (
+	// ErrNoRowsAffected is returned when a query did not perform any changes.
+	ErrNoRowsAffected = errors.New("no rows were affected by the query")
+	// ErrRepositoryAlreadyExists is returned when trying to insert a repository into the datastore that already
+	// exists.
+	ErrRepositoryAlreadyExists = errors.New("repository already exists")
+)
 
 // RepositoryStore provides access to repository state.
 type RepositoryStore interface {
@@ -99,7 +83,7 @@ type RepositoryStore interface {
 	// CreateRepository creates a record for a repository in the specified virtual storage and relative path.
 	// Primary is the storage the repository was created on. UpdatedSecondaries are secondaries that participated
 	// and successfully completed the transaction. OutdatedSecondaries are secondaries that were outdated or failed
-	// the transaction. Returns RepositoryExistsError when trying to create a repository which already exists in the store.
+	// the transaction. Returns ErrRepositoryAlreadyExists when trying to create a repository which already exists in the store.
 	//
 	// storePrimary should be set when repository specific primaries are enabled. When set, the primary is stored as
 	// the repository's primary.
@@ -408,7 +392,8 @@ AND storage = ANY($2)
 // CreateRepository creates a record for a repository in the specified virtual storage and relative path.
 // Primary is the storage the repository was created on. UpdatedSecondaries are secondaries that participated
 // and successfully completed the transaction. OutdatedSecondaries are secondaries that were outdated or failed
-// the transaction. Returns RepositoryExistsError when trying to create a repository which already exists in the store.
+// the transaction. Returns ErrRepositoryAlreadyExists when trying to create a repository which already exists in the
+// store.
 //
 // storePrimary should be set when repository specific primaries are enabled. When set, the primary is stored as
 // the repository's primary.
@@ -478,11 +463,7 @@ FROM (
 		}
 
 		if glsql.IsUniqueViolation(err, "storage_repositories_pkey") {
-			return RepositoryExistsError{
-				virtualStorage: virtualStorage,
-				relativePath:   relativePath,
-				storage:        primary,
-			}
+			return ErrRepositoryAlreadyExists
 		}
 
 		return err
@@ -590,7 +571,7 @@ WHERE repository_id = (SELECT repository_id FROM repository)
 	`, virtualStorage, relativePath, newRelativePath)
 	if err != nil {
 		if glsql.IsUniqueViolation(err, "repository_lookup_index") {
-			return storage.ErrRepositoryAlreadyExists
+			return ErrRepositoryAlreadyExists
 		}
 
 		return fmt.Errorf("query: %w", err)
@@ -990,7 +971,7 @@ WHERE NOT EXISTS (
 )
 	`, virtualStorage, relativePath).Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, storage.ErrRepositoryAlreadyExists
+			return 0, ErrRepositoryAlreadyExists
 		}
 
 		return 0, fmt.Errorf("scan: %w", err)

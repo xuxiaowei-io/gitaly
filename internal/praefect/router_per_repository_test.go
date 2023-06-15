@@ -840,7 +840,7 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			primaryPick:               0,
 			repositoryExists:          true,
 			expectedPrimaryCandidates: []int{3},
-			expectedErr:               fmt.Errorf("reserve repository id: %w", storage.ErrRepositoryAlreadyExists),
+			expectedErr:               fmt.Errorf("reserve repository id: %w", datastore.ErrRepositoryAlreadyExists),
 		},
 		{
 			desc:                   "additional repository doesn't exist",

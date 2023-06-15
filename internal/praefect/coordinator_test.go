@@ -688,7 +688,7 @@ func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
 	router := mockRouter{
 		// Simulate scenario where target repository already exists and error is returned.
 		routeRepositoryCreation: func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
-			return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", storage.ErrRepositoryAlreadyExists)
+			return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", datastore.ErrRepositoryAlreadyExists)
 		},
 		// Pass through normally to handle route creation.
 		routeRepositoryMutator: func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
@@ -1487,11 +1487,11 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			mockRepositoryStore: func() datastore.RepositoryStore {
 				return &datastore.MockRepositoryStore{
 					CreateRepositoryFunc: func(context.Context, int64, string, string, string, string, []string, []string, bool, bool) error {
-						return datastore.RepositoryExistsError{}
+						return datastore.ErrRepositoryAlreadyExists
 					},
 				}
 			},
-			expectedErr: structerr.NewAlreadyExists("%w", datastore.RepositoryExistsError{}),
+			expectedErr: structerr.NewAlreadyExists("%w", storage.ErrRepositoryAlreadyExists),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

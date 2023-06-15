@@ -603,7 +603,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "replica-path", stor, nil, nil, false, false))
 			require.Equal(t,
-				RepositoryExistsError{vs, repo, stor},
+				ErrRepositoryAlreadyExists,
 				rs.CreateRepository(ctx, 2, vs, repo, "replica-path", stor, nil, nil, false, false),
 			)
 		})
@@ -910,7 +910,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			require.NoError(t, rs.CreateRepository(ctx, 2, vs, "relative-path-2", "replica-path-2", "primary", nil, nil, true, false))
 
 			require.Equal(t,
-				storage.ErrRepositoryAlreadyExists,
+				ErrRepositoryAlreadyExists,
 				rs.RenameRepositoryInPlace(ctx, vs, "relative-path-1", "relative-path-2"),
 			)
 		})
@@ -1208,7 +1208,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		require.NoError(t, rs.CreateRepository(ctx, id, vs, repo, "replica-path", stor, nil, nil, false, false))
 
 		id, err = rs.ReserveRepositoryID(ctx, vs, repo)
-		require.Equal(t, storage.ErrRepositoryAlreadyExists, err)
+		require.Equal(t, ErrRepositoryAlreadyExists, err)
 		require.Equal(t, int64(0), id)
 
 		id, err = rs.ReserveRepositoryID(ctx, vs, repo+"-2")

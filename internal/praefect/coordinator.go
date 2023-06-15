@@ -398,7 +398,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 		// ReplicateRepository RPC should also be able to replicate if repository ID already exists in Praefect.
 		if call.fullMethodName == "/gitaly.RepositoryService/ReplicateRepository" &&
-			errors.Is(err, storage.ErrRepositoryAlreadyExists) {
+			errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
 			change = datastore.UpdateRepo
 			route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
 		}
@@ -701,7 +701,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 				return nil, structerr.NewNotFound("%w", err)
 			}
 
-			if errors.Is(err, storage.ErrRepositoryAlreadyExists) {
+			if errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
 				return nil, structerr.NewAlreadyExists("%w", err)
 			}
 
@@ -1103,7 +1103,7 @@ func (c *Coordinator) newRequestFinalizer(
 				repositorySpecificPrimariesEnabled,
 				variableReplicationFactorEnabled,
 			); err != nil {
-				if errors.Is(err, datastore.RepositoryExistsError{}) {
+				if errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
 					return structerr.NewAlreadyExists("%w", err)
 				}
 
