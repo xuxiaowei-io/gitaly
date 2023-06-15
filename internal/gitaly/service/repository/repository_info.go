@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -14,7 +13,7 @@ func (s *server) RepositoryInfo(
 	ctx context.Context,
 	request *gitalypb.RepositoryInfoRequest,
 ) (*gitalypb.RepositoryInfoResponse, error) {
-	if err := service.ValidateRepository(request.Repository); err != nil {
+	if err := s.locator.ValidateRepository(request.Repository); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 

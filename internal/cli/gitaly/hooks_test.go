@@ -102,10 +102,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedErr: testhelper.GitalyOrPraefect(
-				fmt.Sprintf(
-					"setting custom hooks: getting repo path: %s\n",
-					storage.NewStorageNotFoundError("non-existent"),
-				),
+				storage.NewStorageNotFoundError("non-existent").Error(),
 				fmt.Sprintf(
 					"rpc error: code = InvalidArgument desc = repo scoped: %s\n",
 					storage.NewStorageNotFoundError("non-existent"),
@@ -124,7 +121,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedErr: testhelper.GitalyOrPraefect(
-				fmt.Sprintf("getting repo path: %s", storage.ErrRepositoryNotFound),
+				storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "non-existent").Error(),
 				fmt.Sprintf("rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: %s", storage.ErrRepositoryNotFound),
 			),
 		},

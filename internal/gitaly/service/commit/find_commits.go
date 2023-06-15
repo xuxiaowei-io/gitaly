@@ -15,7 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trailerparser"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -23,8 +23,8 @@ import (
 
 var statsPattern = regexp.MustCompile(`\s(\d+)\sfiles? changed(,\s(\d+)\sinsertions?\(\+\))?(,\s(\d+)\sdeletions?\(-\))?`)
 
-func validateFindCommitsRequest(in *gitalypb.FindCommitsRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateFindCommitsRequest(locator storage.Locator, in *gitalypb.FindCommitsRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision(in.GetRevision(), git.AllowEmptyRevision()); err != nil {
@@ -36,7 +36,7 @@ func validateFindCommitsRequest(in *gitalypb.FindCommitsRequest) error {
 func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.CommitService_FindCommitsServer) error {
 	ctx := stream.Context()
 
-	if err := validateFindCommitsRequest(req); err != nil {
+	if err := validateFindCommitsRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

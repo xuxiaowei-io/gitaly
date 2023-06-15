@@ -5,13 +5,13 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) LastCommitForPath(ctx context.Context, in *gitalypb.LastCommitForPathRequest) (*gitalypb.LastCommitForPathResponse, error) {
-	if err := validateLastCommitForPathRequest(in); err != nil {
+	if err := validateLastCommitForPathRequest(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -57,8 +57,8 @@ func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 	return &gitalypb.LastCommitForPathResponse{Commit: commit}, err
 }
 
-func validateLastCommitForPathRequest(in *gitalypb.LastCommitForPathRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateLastCommitForPathRequest(locator storage.Locator, in *gitalypb.LastCommitForPathRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision(in.Revision); err != nil {

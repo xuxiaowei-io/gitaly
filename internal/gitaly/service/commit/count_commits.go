@@ -10,13 +10,13 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequest) (*gitalypb.CountCommitsResponse, error) {
-	if err := validateCountCommitsRequest(in); err != nil {
+	if err := validateCountCommitsRequest(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -72,8 +72,8 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 	return &gitalypb.CountCommitsResponse{Count: int32(count)}, nil
 }
 
-func validateCountCommitsRequest(in *gitalypb.CountCommitsRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateCountCommitsRequest(locator storage.Locator, in *gitalypb.CountCommitsRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 

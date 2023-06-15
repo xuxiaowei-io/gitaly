@@ -7,7 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -129,7 +129,7 @@ func sendTreeEntry(
 }
 
 func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.CommitService_TreeEntryServer) error {
-	if err := validateRequest(in); err != nil {
+	if err := validateRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -157,8 +157,8 @@ func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.Commit
 	return sendTreeEntry(stream, objectReader, objectInfoReader, string(in.GetRevision()), requestPath, in.GetLimit(), in.GetMaxSize())
 }
 
-func validateRequest(in *gitalypb.TreeEntryRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateRequest(locator storage.Locator, in *gitalypb.TreeEntryRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision(in.Revision); err != nil {

@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -35,7 +34,7 @@ import (
 var ErrInvalidSourceRepository = status.Error(codes.NotFound, "invalid source repository")
 
 func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
-	if err := validateReplicateRepository(in); err != nil {
+	if err := validateReplicateRepository(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -104,8 +103,8 @@ func (s *server) replicateRepository(ctx context.Context, source, target *gitaly
 	return nil
 }
 
-func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateReplicateRepository(locator storage.Locator, in *gitalypb.ReplicateRepositoryRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository(), storage.WithSkipRepositoryExistenceCheck()); err != nil {
 		return err
 	}
 

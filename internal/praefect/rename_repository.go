@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -16,12 +15,16 @@ func validateRenameRepositoryRequest(req *gitalypb.RenameRepositoryRequest, virt
 	// These checks are not strictly necessary but they exist to keep retain compatibility with
 	// Gitaly's tested behavior.
 	repository := req.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
-	} else if req.GetRelativePath() == "" {
-		return structerr.NewInvalidArgument("destination relative path is empty")
+	if repository == nil || repository.GetStorageName() == "" && repository.GetRelativePath() == "" {
+		return structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)
+	} else if repository.GetStorageName() == "" {
+		return structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet)
+	} else if repository.GetRelativePath() == "" {
+		return structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet)
 	} else if _, ok := virtualStorages[repository.GetStorageName()]; !ok {
 		return storage.NewStorageNotFoundError(repository.GetStorageName())
+	} else if req.GetRelativePath() == "" {
+		return structerr.NewInvalidArgument("destination relative path is empty")
 	} else if _, err := storage.ValidateRelativePath("/fake-root", req.GetRelativePath()); err != nil {
 		// Gitaly uses ValidateRelativePath to verify there are no traversals, so we use the same function
 		// here. Praefect is not susceptible to path traversals as it generates its own disk paths but we

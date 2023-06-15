@@ -8,14 +8,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func validateFetchSourceBranchRequest(in *gitalypb.FetchSourceBranchRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateFetchSourceBranchRequest(locator storage.Locator, in *gitalypb.FetchSourceBranchRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision(in.GetSourceBranch()); err != nil {
@@ -28,7 +27,7 @@ func validateFetchSourceBranchRequest(in *gitalypb.FetchSourceBranchRequest) err
 }
 
 func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourceBranchRequest) (*gitalypb.FetchSourceBranchResponse, error) {
-	if err := validateFetchSourceBranchRequest(req); err != nil {
+	if err := validateFetchSourceBranchRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 

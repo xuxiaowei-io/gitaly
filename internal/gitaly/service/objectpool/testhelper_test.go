@@ -72,8 +72,12 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
 			deps.GetHookManager(),
+			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()))
+			deps.GetPackObjectsCache(),
+			deps.GetPackObjectsConcurrencyTracker(),
+			deps.GetPackObjectsLimiter(),
+		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
 			deps.GetLocator(),

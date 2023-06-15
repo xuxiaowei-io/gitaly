@@ -3,14 +3,13 @@ package repository
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // ObjectFormat determines the object format of the Git repository.
 func (s *server) ObjectFormat(ctx context.Context, request *gitalypb.ObjectFormatRequest) (*gitalypb.ObjectFormatResponse, error) {
-	if err := service.ValidateRepository(request.Repository); err != nil {
+	if err := s.locator.ValidateRepository(request.Repository); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -37,12 +36,8 @@ func (s *server) validateCountDivergingCommitsRequest(req *gitalypb.CountDivergi
 	}
 
 	repository := req.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
+	if err := s.locator.ValidateRepository(repository); err != nil {
 		return err
-	}
-
-	if _, err := s.locator.GetRepoPath(repository); err != nil {
-		return fmt.Errorf("repository not valid: %w", err)
 	}
 
 	return nil

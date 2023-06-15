@@ -8,13 +8,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
-	if err := validateWriteRefRequest(req); err != nil {
+	if err := validateWriteRefRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	if err := s.writeRef(ctx, req); err != nil {
@@ -96,8 +96,8 @@ func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRef
 	return nil
 }
 
-func validateWriteRefRequest(req *gitalypb.WriteRefRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateWriteRefRequest(locator storage.Locator, req *gitalypb.WriteRefRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision(req.Ref); err != nil {

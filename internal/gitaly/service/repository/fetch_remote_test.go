@@ -715,7 +715,7 @@ func TestFetchRemote(t *testing.T) {
 					},
 					runs: []run{{expectedErr: testhelper.GitalyOrPraefect(
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"fetch remote: %w", storage.NewStorageNotFoundError("foobar"),
+							"%w", storage.NewStorageNotFoundError("foobar"),
 						)),
 						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 							"repo scoped: %w", storage.NewStorageNotFoundError("foobar"),

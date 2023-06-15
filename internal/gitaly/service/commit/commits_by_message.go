@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
@@ -25,7 +25,7 @@ func (sender *commitsByMessageSender) Send() error {
 }
 
 func (s *server) CommitsByMessage(in *gitalypb.CommitsByMessageRequest, stream gitalypb.CommitService_CommitsByMessageServer) error {
-	if err := validateCommitsByMessageRequest(in); err != nil {
+	if err := validateCommitsByMessageRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -69,8 +69,8 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 	return s.sendCommits(stream.Context(), sender, repo, []string{string(revision)}, paths, in.GetGlobalOptions(), gitLogExtraOptions...)
 }
 
-func validateCommitsByMessageRequest(in *gitalypb.CommitsByMessageRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateCommitsByMessageRequest(locator storage.Locator, in *gitalypb.CommitsByMessageRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 

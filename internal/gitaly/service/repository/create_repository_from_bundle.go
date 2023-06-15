@@ -6,7 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -19,7 +19,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 	}
 
 	repo := firstRequest.GetRepository()
-	if err := service.ValidateRepository(repo); err != nil {
+	if err := s.locator.ValidateRepository(repo, storage.WithSkipRepositoryExistenceCheck()); err != nil {
 		return structerr.NewInvalidArgument("CreateRepositoryFromBundle: %w", err)
 	}
 

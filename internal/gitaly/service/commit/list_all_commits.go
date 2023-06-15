@@ -4,21 +4,21 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func verifyListAllCommitsRequest(request *gitalypb.ListAllCommitsRequest) error {
-	return service.ValidateRepository(request.GetRepository())
+func verifyListAllCommitsRequest(locator storage.Locator, request *gitalypb.ListAllCommitsRequest) error {
+	return locator.ValidateRepository(request.GetRepository())
 }
 
 func (s *server) ListAllCommits(
 	request *gitalypb.ListAllCommitsRequest,
 	stream gitalypb.CommitService_ListAllCommitsServer,
 ) error {
-	if err := verifyListAllCommitsRequest(request); err != nil {
+	if err := verifyListAllCommitsRequest(s.locator, request); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

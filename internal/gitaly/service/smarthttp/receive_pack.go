@@ -6,7 +6,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -28,7 +28,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		"GitConfigOptions": req.GitConfigOptions,
 	}).Debug("PostReceivePack")
 
-	if err := validateReceivePackRequest(req); err != nil {
+	if err := validateReceivePackRequest(s.locator, req); err != nil {
 		return err
 	}
 
@@ -94,14 +94,14 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 	return nil
 }
 
-func validateReceivePackRequest(req *gitalypb.PostReceivePackRequest) error {
+func validateReceivePackRequest(locator storage.Locator, req *gitalypb.PostReceivePackRequest) error {
 	if req.GlId == "" {
 		return structerr.NewInvalidArgument("empty GlId")
 	}
 	if req.Data != nil {
 		return structerr.NewInvalidArgument("non-empty Data")
 	}
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

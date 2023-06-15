@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -34,7 +34,7 @@ func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer)
 		"GitProtocol":      req.GitProtocol,
 	}).Debug("SSHReceivePack")
 
-	if err = validateFirstReceivePackRequest(req); err != nil {
+	if err = validateFirstReceivePackRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -161,12 +161,12 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 	return nil
 }
 
-func validateFirstReceivePackRequest(req *gitalypb.SSHReceivePackRequest) error {
+func validateFirstReceivePackRequest(locator storage.Locator, req *gitalypb.SSHReceivePackRequest) error {
 	if req.GlId == "" {
 		return errors.New("empty GlId")
 	}
 	if req.Stdin != nil {
 		return errors.New("non-empty data in first request")
 	}
-	return service.ValidateRepository(req.GetRepository())
+	return locator.ValidateRepository(req.GetRepository())
 }

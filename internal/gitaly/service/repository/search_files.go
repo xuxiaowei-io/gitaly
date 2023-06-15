@@ -11,7 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -30,7 +30,7 @@ var contentDelimiter = []byte("--\n")
 func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest, stream gitalypb.RepositoryService_SearchFilesByContentServer) error {
 	ctx := stream.Context()
 
-	if err := validateSearchFilesRequest(req); err != nil {
+	if err := validateSearchFilesRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -106,7 +106,7 @@ func sendSearchFilesResultChunked(cmd *command.Command, stream gitalypb.Reposito
 func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, stream gitalypb.RepositoryService_SearchFilesByNameServer) error {
 	ctx := stream.Context()
 
-	if err := validateSearchFilesRequest(req); err != nil {
+	if err := validateSearchFilesRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -166,8 +166,8 @@ type searchFilesRequest interface {
 	GetQuery() string
 }
 
-func validateSearchFilesRequest(req searchFilesRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateSearchFilesRequest(locator storage.Locator, req searchFilesRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 

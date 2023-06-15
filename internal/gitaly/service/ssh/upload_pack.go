@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/stream"
@@ -37,7 +37,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		"GitProtocol":      req.GitProtocol,
 	}).Debug("SSHUploadPack")
 
-	if err = validateFirstUploadPackRequest(req); err != nil {
+	if err = validateFirstUploadPackRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -183,8 +183,8 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 	return 0, nil
 }
 
-func validateFirstUploadPackRequest(req *gitalypb.SSHUploadPackRequest) error {
-	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+func validateFirstUploadPackRequest(locator storage.Locator, req *gitalypb.SSHUploadPackRequest) error {
+	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
 		return err
 	}
 	if req.Stdin != nil {

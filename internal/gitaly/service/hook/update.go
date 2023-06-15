@@ -5,18 +5,18 @@ import (
 	"os/exec"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
-func validateUpdateHookRequest(in *gitalypb.UpdateHookRequest) error {
-	return service.ValidateRepository(in.GetRepository())
+func validateUpdateHookRequest(locator storage.Locator, in *gitalypb.UpdateHookRequest) error {
+	return locator.ValidateRepository(in.GetRepository())
 }
 
 func (s *server) UpdateHook(in *gitalypb.UpdateHookRequest, stream gitalypb.HookService_UpdateHookServer) error {
-	if err := validateUpdateHookRequest(in); err != nil {
+	if err := validateUpdateHookRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 

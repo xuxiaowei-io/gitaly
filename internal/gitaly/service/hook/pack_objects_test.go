@@ -771,184 +771,176 @@ func setupSidechannel(t *testing.T, ctx context.Context, oid string) (context.Co
 func TestPackObjects_concurrencyLimit(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
+
 	args := []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"}
 
 	for _, tc := range []struct {
 		desc        string
-		requests    [2]*gitalypb.PackObjectsHookWithSidechannelRequest
+		setup       func(*testing.T, config.Cfg) [2]*gitalypb.PackObjectsHookWithSidechannelRequest
 		shouldLimit bool
 	}{
 		{
 			desc: "never reach limit",
-			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
-				{
-					GlId:     "user-123",
-					RemoteIp: "1.2.3.4",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+			setup: func(t *testing.T, cfg config.Cfg) [2]*gitalypb.PackObjectsHookWithSidechannelRequest {
+				repoA, _ := gittest.CreateRepository(t, ctx, cfg)
+				repoB, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+					{
+						GlId:       "user-123",
+						RemoteIp:   "1.2.3.4",
+						Repository: repoA,
+						Args:       args,
 					},
-					Args: args,
-				},
-				{
-					GlId:     "user-456",
-					RemoteIp: "1.2.3.5",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "d/e/f",
+					{
+						GlId:       "user-456",
+						RemoteIp:   "1.2.3.5",
+						Repository: repoB,
+						Args:       args,
 					},
-					Args: args,
-				},
+				}
 			},
 			shouldLimit: false,
 		},
 		{
 			desc: "normal IP address",
-			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
-				{
-					GlId:     "user-123",
-					RemoteIp: "1.2.3.4",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+			setup: func(t *testing.T, cfg config.Cfg) [2]*gitalypb.PackObjectsHookWithSidechannelRequest {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+					{
+						GlId:       "user-123",
+						RemoteIp:   "1.2.3.4",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
-				{
-					GlId:     "user-123",
-					RemoteIp: "1.2.3.4",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+					{
+						GlId:       "user-123",
+						RemoteIp:   "1.2.3.4",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
+				}
 			},
 			shouldLimit: true,
 		},
 		{
 			desc: "IP addresses including source port",
-			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
-				{
-					GlId:     "user-123",
-					RemoteIp: "1.2.3.4:47293",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+			setup: func(t *testing.T, cfg config.Cfg) [2]*gitalypb.PackObjectsHookWithSidechannelRequest {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+					{
+						GlId:       "user-123",
+						RemoteIp:   "1.2.3.4:47293",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
-				{
-					GlId:     "user-123",
-					RemoteIp: "1.2.3.4:51010",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+					{
+						GlId:       "user-123",
+						RemoteIp:   "1.2.3.4:51010",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
+				}
 			},
 			shouldLimit: true,
 		},
 		{
 			desc: "IPv4 loopback addresses",
-			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
-				{
-					GlId:     "user-123",
-					RemoteIp: "127.0.0.1",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+			setup: func(t *testing.T, cfg config.Cfg) [2]*gitalypb.PackObjectsHookWithSidechannelRequest {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+					{
+						GlId:       "user-123",
+						RemoteIp:   "127.0.0.1",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
-				{
-					GlId:     "user-123",
-					RemoteIp: "127.0.0.1",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+					{
+						GlId:       "user-123",
+						RemoteIp:   "127.0.0.1",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
+				}
 			},
 			shouldLimit: false,
 		},
 		{
 			desc: "IPv6 loopback addresses",
-			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
-				{
-					GlId:     "user-123",
-					RemoteIp: net.IPv6loopback.String(),
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+			setup: func(t *testing.T, cfg config.Cfg) [2]*gitalypb.PackObjectsHookWithSidechannelRequest {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+					{
+						GlId:       "user-123",
+						RemoteIp:   net.IPv6loopback.String(),
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
-				{
-					GlId:     "user-123",
-					RemoteIp: net.IPv6loopback.String(),
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+					{
+						GlId:       "user-123",
+						RemoteIp:   net.IPv6loopback.String(),
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
+				}
 			},
 			shouldLimit: false,
 		},
 		{
 			desc: "invalid IP addresses",
-			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
-				{
-					GlId:     "user-123",
-					RemoteIp: "hello-world",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+			setup: func(t *testing.T, cfg config.Cfg) [2]*gitalypb.PackObjectsHookWithSidechannelRequest {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+					{
+						GlId:       "user-123",
+						RemoteIp:   "hello-world",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
-				{
-					GlId:     "user-123",
-					RemoteIp: "hello-world",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+					{
+						GlId:       "user-123",
+						RemoteIp:   "hello-world",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
+				}
 			},
 			shouldLimit: false,
 		},
 		{
 			desc: "empty IP addresses",
-			requests: [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
-				{
-					GlId:     "user-123",
-					RemoteIp: "",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+			setup: func(t *testing.T, cfg config.Cfg) [2]*gitalypb.PackObjectsHookWithSidechannelRequest {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return [2]*gitalypb.PackObjectsHookWithSidechannelRequest{
+					{
+						GlId:       "user-123",
+						RemoteIp:   "",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
-				{
-					GlId:     "user-123",
-					RemoteIp: "",
-					Repository: &gitalypb.Repository{
-						StorageName:  "storage-0",
-						RelativePath: "a/b/c",
+					{
+						GlId:       "user-123",
+						RemoteIp:   "",
+						Repository: repo,
+						Args:       args,
 					},
-					Args: args,
-				},
+				}
 			},
 			shouldLimit: false,
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
+			t.Parallel()
+
 			cfg := cfgWithCache(t, 0)
 
 			ticker := helper.NewManualTicker()
@@ -985,6 +977,8 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 				testserver.WithPackObjectsLimiter(limiter),
 			)
 
+			requests := tc.setup(t, cfg)
+
 			ctx1, wt1, err := setupSidechannel(t, ctx, "1dd08961455abf80ef9115f4afdc1c6f968b503c")
 			require.NoError(t, err)
 
@@ -1013,8 +1007,8 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 			}
 
 			for _, c := range []call{
-				{ctx: ctx1, req: tc.requests[0]},
-				{ctx: ctx2, req: tc.requests[1]},
+				{ctx: ctx1, req: requests[0]},
+				{ctx: ctx2, req: requests[1]},
 			} {
 				go func(c call) {
 					defer wg.Done()

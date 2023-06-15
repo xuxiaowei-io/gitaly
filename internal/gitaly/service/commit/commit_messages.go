@@ -7,14 +7,14 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
 func (s *server) GetCommitMessages(request *gitalypb.GetCommitMessagesRequest, stream gitalypb.CommitService_GetCommitMessagesServer) error {
-	if err := validateGetCommitMessagesRequest(request); err != nil {
+	if err := validateGetCommitMessagesRequest(s.locator, request); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 	if err := s.getAndStreamCommitMessages(request, stream); err != nil {
@@ -55,6 +55,6 @@ func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesR
 	return nil
 }
 
-func validateGetCommitMessagesRequest(request *gitalypb.GetCommitMessagesRequest) error {
-	return service.ValidateRepository(request.GetRepository())
+func validateGetCommitMessagesRequest(locator storage.Locator, request *gitalypb.GetCommitMessagesRequest) error {
+	return locator.ValidateRepository(request.GetRepository())
 }

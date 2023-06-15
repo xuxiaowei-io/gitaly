@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -20,7 +20,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		"Revision": in.GetRevision(),
 	}).Debug("ListFiles")
 
-	if err := validateListFilesRequest(in); err != nil {
+	if err := validateListFilesRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -59,8 +59,8 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 	return nil
 }
 
-func validateListFilesRequest(in *gitalypb.ListFilesRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateListFilesRequest(locator storage.Locator, in *gitalypb.ListFilesRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision(in.Revision, git.AllowEmptyRevision()); err != nil {

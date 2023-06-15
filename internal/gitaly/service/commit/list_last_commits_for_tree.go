@@ -10,7 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -18,7 +18,7 @@ import (
 var maxNumStatBatchSize = 10
 
 func (s *server) ListLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
-	if err := validateListLastCommitsForTreeRequest(in); err != nil {
+	if err := validateListLastCommitsForTreeRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -155,8 +155,8 @@ func sendCommitsForTree(batch []*gitalypb.ListLastCommitsForTreeResponse_CommitF
 	return nil
 }
 
-func validateListLastCommitsForTreeRequest(in *gitalypb.ListLastCommitsForTreeRequest) error {
-	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+func validateListLastCommitsForTreeRequest(locator storage.Locator, in *gitalypb.ListLastCommitsForTreeRequest) error {
+	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return err
 	}
 	if err := git.ValidateRevision([]byte(in.Revision)); err != nil {

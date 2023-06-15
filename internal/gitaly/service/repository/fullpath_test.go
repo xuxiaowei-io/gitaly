@@ -73,7 +73,7 @@ func TestSetFullPath(t *testing.T) {
 
 		require.Nil(t, response)
 
-		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = setting config: %s", storage.ErrRepositoryNotFound)
+		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = %s", storage.ErrRepositoryNotFound)
 		if testhelper.IsPraefectEnabled() {
 			expectedErr = fmt.Sprintf("rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: %s", storage.ErrRepositoryNotFound)
 		}
@@ -176,7 +176,7 @@ func TestFullPath(t *testing.T) {
 		})
 		require.Nil(t, response)
 
-		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = fetch config: %s", storage.ErrRepositoryNotFound)
+		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = %s", storage.ErrRepositoryNotFound)
 		if testhelper.IsPraefectEnabled() {
 			expectedErr = fmt.Sprintf("rpc error: code = NotFound desc = accessor call: route repository accessor: consistent storages: %s", storage.ErrRepositoryNotFound)
 		}
