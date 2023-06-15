@@ -28,7 +28,7 @@ func (st StaticRepositoryAssignments) GetHostAssignments(ctx context.Context, vi
 
 	storages, ok := vs[relativePath]
 	if !ok {
-		return nil, errRepositoryNotFound
+		return nil, datastore.ErrRepositoryNotFound
 	}
 
 	return storages, nil

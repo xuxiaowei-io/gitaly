@@ -17,9 +17,6 @@ const (
 	routeRepositoryAccessorPolicyPrimaryOnly = "primary-only"
 )
 
-// errRepositoryNotFound is retuned when trying to operate on a non-existent repository.
-var errRepositoryNotFound = errors.New("repository not found")
-
 // errPrimaryUnassigned is returned when the primary node is not in the set of assigned nodes.
 var errPrimaryUnassigned = errors.New("primary node is not assigned")
 
