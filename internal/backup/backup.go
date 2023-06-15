@@ -69,6 +69,10 @@ type Locator interface {
 
 	// FindLatest returns the latest backup that was written by Commit
 	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
+
+	// Find returns the repository backup at the given backupID. If the backup does
+	// not exist then the error ErrDoesntExist is returned.
+	Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error)
 }
 
 // Repository abstracts git access required to make a repository backup

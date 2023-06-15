@@ -50,6 +50,11 @@ func (l LegacyLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository
 	}, nil
 }
 
+// Find is not supported for legacy backups.
+func (l LegacyLocator) Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
+	return nil, errors.New("legacy layout: find: not supported")
+}
+
 func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
@@ -165,8 +170,16 @@ func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repositor
 	return backup, nil
 }
 
-// find returns the repository backup at the given backupID. If the backup does
+// Find returns the repository backup at the given backupID. If the backup does
 // not exist then the error ErrDoesntExist is returned.
+func (l PointerLocator) Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
+	backup, err := l.find(ctx, repo, backupID)
+	if err != nil {
+		return nil, fmt.Errorf("pointer locator: %w", err)
+	}
+	return backup, nil
+}
+
 func (l PointerLocator) find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
 	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
 	backupPath := filepath.Join(repoPath, backupID)

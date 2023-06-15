@@ -300,4 +300,75 @@ func TestPointerLocator(t *testing.T) {
 			require.EqualError(t, err, "pointer locator: find latest: find: determine increment ID: strconv.Atoi: parsing \"invalid\": invalid syntax")
 		})
 	})
+
+	t.Run("Find", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("not found", func(t *testing.T) {
+			t.Parallel()
+
+			backupPath := testhelper.TempDir(t)
+			var l Locator = PointerLocator{
+				Sink: NewFilesystemSink(backupPath),
+			}
+
+			_, err := l.Find(ctx, repo, backupID)
+			require.ErrorIs(t, err, ErrDoesntExist)
+		})
+
+		t.Run("found", func(t *testing.T) {
+			t.Parallel()
+
+			backupPath := testhelper.TempDir(t)
+			var l Locator = PointerLocator{
+				Sink: NewFilesystemSink(backupPath),
+			}
+
+			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), perm.SharedDir))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("003"), perm.SharedFile))
+			expected := &Backup{
+				Steps: []Step{
+					{
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "001.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "001.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "001.custom_hooks.tar"),
+					},
+					{
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "002.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "002.refs"),
+						PreviousRefPath: filepath.Join(repo.RelativePath, backupID, "001.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "002.custom_hooks.tar"),
+					},
+					{
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "003.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "003.refs"),
+						PreviousRefPath: filepath.Join(repo.RelativePath, backupID, "002.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "003.custom_hooks.tar"),
+					},
+				},
+			}
+
+			full, err := l.Find(ctx, repo, backupID)
+			require.NoError(t, err)
+			require.Equal(t, expected, full)
+		})
+
+		t.Run("invalid incremental LATEST", func(t *testing.T) {
+			t.Parallel()
+
+			backupPath := testhelper.TempDir(t)
+			var l Locator = PointerLocator{
+				Sink: NewFilesystemSink(backupPath),
+			}
+
+			_, err := l.Find(ctx, repo, backupID)
+			require.ErrorIs(t, err, ErrDoesntExist)
+
+			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), perm.SharedDir))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("invalid"), perm.SharedFile))
+
+			_, err = l.Find(ctx, repo, backupID)
+			require.EqualError(t, err, "pointer locator: find: determine increment ID: strconv.Atoi: parsing \"invalid\": invalid syntax")
+		})
+	})
 }
