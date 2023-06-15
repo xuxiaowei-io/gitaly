@@ -123,9 +123,6 @@ var (
 	ErrEmptyPath = errors.New("path is empty")
 	// ErrDisallowedPath indicates the path is invalid
 	ErrDisallowedPath = errors.New("disallowed path")
-	// ErrDisallowedCharacters indicates the name and/or email contains disallowed
-	// characters
-	ErrDisallowedCharacters = errors.New("disallowed characters")
 )
 
 func validateFileCreationPath(path string) (string, error) {
@@ -601,10 +598,6 @@ func (t *TreeEntry) Write(
 
 	treeOID, err := repo.writeEntries(ctx, t.Entries)
 	if err != nil {
-		if strings.Contains(err.Error(), "name consists only of disallowed characters") {
-			return ErrDisallowedCharacters
-		}
-
 		return fmt.Errorf("writing tree: %w", err)
 	}
 

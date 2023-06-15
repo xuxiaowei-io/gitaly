@@ -262,6 +262,17 @@ func TestWriteCommit_validation(t *testing.T) {
 			},
 			expectedErr: ErrMissingTree,
 		},
+		{
+			desc: "author name consists of invalid characters",
+			cfg: WriteCommitConfig{
+				TreeID:         treeID,
+				AuthorName:     ".",
+				AuthorEmail:    "author@example.com",
+				CommitterName:  "Coe Mitter",
+				CommitterEmail: "coemitter@example.com",
+			},
+			expectedErr: ErrDisallowedCharacters,
+		},
 	}
 
 	for _, tc := range testCases {

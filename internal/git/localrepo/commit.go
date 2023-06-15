@@ -26,6 +26,10 @@ var ErrMissingCommitterName = errors.New("missing committer name")
 // comitter name
 var ErrMissingAuthorName = errors.New("missing author name")
 
+// ErrDisallowedCharacters indicates the name and/or email contains disallowed
+// characters
+var ErrDisallowedCharacters = errors.New("disallowed characters")
+
 // WriteCommitConfig contains fields for writing a commit
 type WriteCommitConfig struct {
 	Reference          string
@@ -128,6 +132,10 @@ func (repo *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.O
 		git.WithStdin(strings.NewReader(cfg.Message)),
 		git.WithEnv(env...),
 	); err != nil {
+		if strings.Contains(stderr.String(), "name consists only of disallowed characters") {
+			return "", ErrDisallowedCharacters
+		}
+
 		return "", fmt.Errorf("commit-tree: %w: %s %s", err, stderr.String(), stdout.String())
 	}
 
