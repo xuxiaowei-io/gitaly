@@ -39,6 +39,7 @@ variables:
   # chosen as a semi-random value so as to not interfer with any preexisting
   # users.
   TEST_UID: 9999
+  RAILS_BRANCH_FOR_MERGE_REQUEST: "gitaly-merge-requests-$CI_MERGE_REQUEST_IID"
 
 include:
   - template: Security/License-Scanning.gitlab-ci.yml
@@ -513,6 +514,45 @@ pages:
       - public
   rules:
     - *rules_run_on_merge
+
+start-rails-specs:
+  needs: []
+  stage: qa
+  script:
+    - |
+      curl --request POST --header "PRIVATE-TOKEN: $GITLAB_PROJECT_TOKEN" \
+      "https://gitlab.com/api/v4/projects/278964/repository/branches?branch=$RAILS_BRANCH_FOR_MERGE_REQUEST&ref=master"
+    - |
+      curl --request PUT --header "PRIVATE-TOKEN: $GITLAB_PROJECT_TOKEN" \
+      --data "branch=$RAILS_BRANCH_FOR_MERGE_REQUEST" \
+      --data "content=$CI_MERGE_REQUEST_SOURCE_BRANCH_SHA" \
+      --data "commit_message=Updating GITALY_SERVER_VERSION to $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA" \
+      https://gitlab.com/api/v4/projects/278964/repository/files/GITALY_SERVER_VERSION
+  rules:
+    - *rules_run_on_merge
+
+rails-specs:
+  needs: ["start-rails-specs"]
+  stage: qa
+  trigger:
+    project: gitlab-org/gitlab
+    branch: "gitaly-merge-requests-$CI_MERGE_REQUEST_IID"
+    strategy: depend
+  variables:
+    GITALY_TEST: "true"
+    FORCE_GITLAB_CI: "true"
+  rules:
+    - allow_failure: true
+
+rails-specs-cleanup:
+  stage: qa
+  needs: ["rails-specs"]
+  script:
+    - |
+      curl --request DELETE --header "PRIVATE-TOKEN: $GITLAB_PROJECT_TOKEN" \
+      "https://gitlab.com/api/v4/projects/278964/repository/branches/$RAILS_BRANCH_FOR_MERGE_REQUEST"
+  rules:
+    - allow_failure: true
 
 build-package-and-qa:
   needs: []
