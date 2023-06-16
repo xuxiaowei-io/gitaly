@@ -358,7 +358,7 @@ func testRepoReadObjectCatfileCount(t *testing.T, ctx context.Context) {
 	if featureflag.LocalrepoReadObjectCached.IsEnabled(ctx) {
 		expected = 1
 	}
-	require.Equal(t, uint64(expected), gitCmdFactory.CommandCount("cat-file"))
+	gitCmdFactory.RequireCommandCount(t, "cat-file", expected)
 }
 
 func TestRepo_ReadCommit(t *testing.T) {

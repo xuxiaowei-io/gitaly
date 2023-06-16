@@ -34,7 +34,7 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 	// If this command did spawn git-worktree(1) we'd see an error. It doesn't though because it
 	// detects that there aren't any worktrees at all.
 	require.NoError(t, cleanDisconnectedWorktrees(ctx, repo))
-	require.EqualValues(t, 0, countingGitCmdFactory.CommandCount("worktree"))
+	countingGitCmdFactory.RequireCommandCount(t, "worktree", 0)
 
 	// Create a worktree, but remove the actual worktree path so that it will be disconnected.
 	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
@@ -43,12 +43,12 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 	// We have now added a worktree now, so it should detect that there are worktrees and thus
 	// spawn the Git command.
 	require.NoError(t, cleanDisconnectedWorktrees(ctx, repo))
-	require.EqualValues(t, 1, countingGitCmdFactory.CommandCount("worktree"))
+	countingGitCmdFactory.RequireCommandCount(t, "worktree", 1)
 
 	// Trigger the cleanup again. As we have just deleted the worktree, we should not see
 	// another execution of git-worktree(1).
 	require.NoError(t, cleanDisconnectedWorktrees(ctx, repo))
-	require.EqualValues(t, 1, countingGitCmdFactory.CommandCount("worktree"))
+	countingGitCmdFactory.RequireCommandCount(t, "worktree", 1)
 }
 
 func TestRemoveWorktree(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -38,6 +39,12 @@ func (f *CountingCommandFactory) CommandCount(cmd string) uint64 {
 	c := f.counts[cmd]
 
 	return c
+}
+
+// RequireCommandCount checks if the count for the given command equals the
+// expected count.
+func (f *CountingCommandFactory) RequireCommandCount(tb testing.TB, cmd string, expected interface{}) {
+	require.EqualValues(tb, expected, f.CommandCount(cmd))
 }
 
 // ResetCount resets all counts to zero

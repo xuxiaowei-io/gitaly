@@ -363,9 +363,12 @@ func BenchmarkFindLicense(b *testing.B) {
 				repo: repoStress,
 			},
 		} {
-			b.Run(tc.desc, func(b *testing.B) {
-				gitCmdFactory.ResetCount()
+			// Preheat
+			_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: tc.repo})
+			require.NoError(b, err)
+			gitCmdFactory.ResetCount()
 
+			b.Run(tc.desc, func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: tc.repo})
 					require.NoError(b, err)
@@ -373,8 +376,7 @@ func BenchmarkFindLicense(b *testing.B) {
 				}
 
 				if featureflag.LocalrepoReadObjectCached.IsEnabled(ctx) {
-					catfileCount := gitCmdFactory.CommandCount("cat-file")
-					require.LessOrEqual(b, catfileCount, uint64(1))
+					gitCmdFactory.RequireCommandCount(b, "cat-file", 0)
 				}
 			})
 		}
