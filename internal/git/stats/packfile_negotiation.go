@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 //nolint:revive // This is unintentionally missing documentation.
@@ -29,6 +30,20 @@ type PackfileNegotiation struct {
 	Deepen string
 	// Filter-spec specified by the client.
 	Filter string
+}
+
+// ToProto converts PackfileNegotiation to its Protobuf representation.
+func (n PackfileNegotiation) ToProto() *gitalypb.PackfileNegotiationStatistics {
+	return &gitalypb.PackfileNegotiationStatistics{
+		PayloadSize: n.PayloadSize,
+		Packets:     int64(n.Packets),
+		Caps:        n.Caps,
+		Wants:       int64(n.Wants),
+		Haves:       int64(n.Haves),
+		Shallows:    int64(n.Shallows),
+		Deepen:      n.Deepen,
+		Filter:      n.Filter,
+	}
 }
 
 //nolint:revive // This is unintentionally missing documentation.
