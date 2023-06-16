@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
@@ -743,7 +744,7 @@ func TestParseResult(t *testing.T) {
 				"",
 			}, "\x00"),
 			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: fmt.Errorf("parsing conflicting file info: 100644 %s 1a", gittest.DefaultObjectHash.EmptyTreeOID),
+			expectedErr: structerr.NewInternal("parsing conflicting file info: 100644 %s 1a", gittest.DefaultObjectHash.EmptyTreeOID),
 		},
 		{
 			desc: "incorrect number of fields in conflicting file info",
@@ -760,7 +761,7 @@ func TestParseResult(t *testing.T) {
 				"",
 			}, "\x00"),
 			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: fmt.Errorf("parsing conflicting file info: %s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+			expectedErr: structerr.NewInternal("parsing conflicting file info: %s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
 		},
 		{
 			desc: "invalid OID in conflicting file info",
@@ -777,7 +778,7 @@ func TestParseResult(t *testing.T) {
 				"",
 			}, "\x00"),
 			oid: gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: fmt.Errorf("hex to oid: %w", git.InvalidObjectIDLengthError{
+			expectedErr: structerr.NewInternal("hex to oid: %w", git.InvalidObjectIDLengthError{
 				OID:           "$$$",
 				CorrectLength: gittest.DefaultObjectHash.EncodedLen(),
 				Length:        3,
@@ -798,7 +799,7 @@ func TestParseResult(t *testing.T) {
 				"",
 			}, "\x00"),
 			oid: gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: fmt.Errorf("converting stage to int: %w", &strconv.NumError{
+			expectedErr: structerr.NewInternal("converting stage to int: %w", &strconv.NumError{
 				Func: "Atoi",
 				Num:  "foo",
 				Err:  errors.New("invalid syntax"),
@@ -819,7 +820,29 @@ func TestParseResult(t *testing.T) {
 				"",
 			}, "\x00"),
 			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: fmt.Errorf("invalid value for stage: 5"),
+			expectedErr: structerr.NewInternal("invalid value for stage: 5"),
+		},
+		{
+			desc: "missing conflicting file section",
+			output: strings.Join([]string{
+				gittest.DefaultObjectHash.EmptyTreeOID.String(),
+				"",
+				"1",
+				"a",
+				"Auto-merging",
+				"Auto-merging a\n",
+				"",
+			}, "\x00"),
+			oid: gittest.DefaultObjectHash.EmptyTreeOID,
+			expectedErr: structerr.NewInternal("couldn't split oid and file info").WithMetadata("stderr", strings.Join([]string{
+				gittest.DefaultObjectHash.EmptyTreeOID.String(),
+				"",
+				"1",
+				"a",
+				"Auto-merging",
+				"Auto-merging a\n",
+				"",
+			}, "\x00")),
 		},
 	}
 

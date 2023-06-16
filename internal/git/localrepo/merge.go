@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // MergeStage denotes the stage indicated by git-merge-tree(1) in the conflicting
@@ -84,7 +84,7 @@ func (repo *Repo) MergeTree(
 
 	objectHash, err := repo.ObjectHash(ctx)
 	if err != nil {
-		return "", fmt.Errorf("getting object hash %w", err)
+		return "", structerr.NewInternal("getting object hash %w", err)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -101,22 +101,23 @@ func (repo *Repo) MergeTree(
 	if err != nil {
 		exitCode, success := command.ExitStatus(err)
 		if !success {
-			return "", errors.New("could not parse exit status of merge-tree(1)")
+			return "", structerr.NewInternal("could not parse exit status of merge-tree(1)")
 		}
 
-		if exitCode > 1 {
-			if text.ChompBytes(stderr.Bytes()) == "fatal: refusing to merge unrelated histories" {
-				return "", ErrMergeTreeUnrelatedHistory
-			}
-			return "", fmt.Errorf("merge-tree: %w", err)
+		if exitCode == 1 {
+			return parseMergeTreeError(objectHash, config, stdout.String())
 		}
 
-		return parseMergeTreeError(objectHash, config, stdout.String())
+		if text.ChompBytes(stderr.Bytes()) == "fatal: refusing to merge unrelated histories" {
+			return "", ErrMergeTreeUnrelatedHistory
+		}
+
+		return "", structerr.NewInternal("merge-tree: %w", err).WithMetadata("exit_status", exitCode)
 	}
 
 	oid, err := objectHash.FromHex(strings.Split(stdout.String(), "\x00")[0])
 	if err != nil {
-		return "", fmt.Errorf("hex to oid: %w", err)
+		return "", structerr.NewInternal("hex to oid: %w", err)
 	}
 
 	return oid, nil
@@ -130,18 +131,18 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 
 	oidAndConflictsBuf, infoMsg, ok := strings.Cut(output, "\x00\x00")
 	if !ok {
-		return "", fmt.Errorf("couldn't parse merge tree output: %s", output)
+		return "", structerr.NewInternal("couldn't parse merge tree output: %s", output).WithMetadata("stderr", output)
 	}
 
 	oidAndConflicts := strings.Split(oidAndConflictsBuf, "\x00")
 	// When the output is of unexpected length
 	if len(oidAndConflicts) < 2 {
-		return "", errors.New("couldn't split oid and file info")
+		return "", structerr.NewInternal("couldn't split oid and file info").WithMetadata("stderr", output)
 	}
 
 	oid, err := objectHash.FromHex(oidAndConflicts[0])
 	if err != nil {
-		return "", fmt.Errorf("hex to oid: %w", err)
+		return "", structerr.NewInternal("hex to oid: %w", err)
 	}
 
 	mergeTreeConflictError.ConflictingFileInfo = make([]ConflictingFileInfo, len(oidAndConflicts[1:]))
@@ -155,31 +156,31 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 		} else {
 			infoAndFilename := strings.Split(infoLine, "\t")
 			if len(infoAndFilename) != 2 {
-				return "", fmt.Errorf("parsing conflicting file info: %s", infoLine)
+				return "", structerr.NewInternal("parsing conflicting file info: %s", infoLine)
 			}
 
 			info := strings.Fields(infoAndFilename[0])
 			if len(info) != 3 {
-				return "", fmt.Errorf("parsing conflicting file info: %s", infoLine)
+				return "", structerr.NewInternal("parsing conflicting file info: %s", infoLine)
 			}
 
 			mode, err := strconv.ParseInt(info[0], 8, 32)
 			if err != nil {
-				return "", fmt.Errorf("parsing mode: %w", err)
+				return "", structerr.NewInternal("parsing mode: %w", err)
 			}
 
 			mergeTreeConflictError.ConflictingFileInfo[i].OID, err = objectHash.FromHex(info[1])
 			if err != nil {
-				return "", fmt.Errorf("hex to oid: %w", err)
+				return "", structerr.NewInternal("hex to oid: %w", err)
 			}
 
 			stage, err := strconv.Atoi(info[2])
 			if err != nil {
-				return "", fmt.Errorf("converting stage to int: %w", err)
+				return "", structerr.NewInternal("converting stage to int: %w", err)
 			}
 
 			if stage < 1 || stage > 3 {
-				return "", fmt.Errorf("invalid value for stage: %d", stage)
+				return "", structerr.NewInternal("invalid value for stage: %d", stage)
 			}
 
 			mergeTreeConflictError.ConflictingFileInfo[i].Mode = int32(mode)
@@ -197,11 +198,11 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 
 		numOfPaths, err := strconv.Atoi(fields[i])
 		if err != nil {
-			return "", fmt.Errorf("converting stage to int: %w", err)
+			return "", structerr.NewInternal("converting stage to int: %w", err)
 		}
 
 		if i+numOfPaths+2 > len(fields) {
-			return "", fmt.Errorf("incorrect number of fields: %s", infoMsg)
+			return "", structerr.NewInternal("incorrect number of fields: %s", infoMsg)
 		}
 
 		c.Paths = fields[i+1 : i+numOfPaths+1]
