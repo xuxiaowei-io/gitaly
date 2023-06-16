@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 16.0.5 (2023-06-16)
+
+No changes.
+
 ## 16.0.4 (2023-06-08)
 
 No changes.
