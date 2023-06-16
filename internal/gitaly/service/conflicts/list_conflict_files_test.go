@@ -45,7 +45,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"Lists the expected conflict files",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -92,7 +92,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"Lists the expected conflict files with short OIDs",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -139,7 +139,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"conflict in submodules commits are not handled",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 				_, subRepoPath := gittest.CreateRepository(tb, ctx, cfg)
 
@@ -192,7 +192,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"Lists the expected conflict files with ancestor path",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				commonCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -249,7 +249,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"Lists the expected conflict files with huge diff",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -302,7 +302,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"invalid commit id on 'our' side",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -326,7 +326,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"invalid commit id on 'their' side",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -350,7 +350,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"conflict side missing",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				commonCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -384,7 +384,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"allow tree conflicts",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				commonCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -446,7 +446,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"encoding error",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -472,7 +472,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"empty repo",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				_, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -501,7 +501,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"empty OurCommitId field",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
@@ -524,7 +524,7 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 		{
 			"empty TheirCommitId field",
 			func(tb testing.TB, ctx context.Context) setupData {
-				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				cfg, client := setupConflictsService(tb, nil)
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
