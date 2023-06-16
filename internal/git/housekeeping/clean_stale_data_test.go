@@ -743,6 +743,17 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 				packedRefsNew: 1,
 			},
 		},
+		{
+			desc: "multi-pack index",
+			file: "multi-pack-index.lock",
+			subdirs: []string{
+				"objects", "pack",
+			},
+			finder: findStaleLockfiles,
+			expectedMetrics: cleanStaleDataMetrics{
+				locks: 1,
+			},
+		},
 	} {
 		tc := tc
 
