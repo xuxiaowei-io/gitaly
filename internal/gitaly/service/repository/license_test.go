@@ -3,14 +3,11 @@
 package repository
 
 import (
-	"context"
 	"os"
 	"testing"
 
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -18,8 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/labkit/correlation"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -344,41 +339,32 @@ func BenchmarkFindLicense(b *testing.B) {
 		gittest.WithTreeEntries(treeEntries...))
 	gittest.Exec(b, cfg, "-C", repoStressPath, "symbolic-ref", "HEAD", "refs/heads/main")
 
-	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Bench(b, func(b *testing.B, ctx context.Context) {
-		ctx = correlation.ContextWithCorrelation(ctx, "1")
-		ctx = testhelper.MergeOutgoingMetadata(ctx,
-			metadata.Pairs(catfile.SessionIDField, "1"),
-		)
+	for _, tc := range []struct {
+		desc string
+		repo *gitalypb.Repository
+	}{
+		{
+			desc: "gitlab-org/gitlab.git",
+			repo: repoGitLab,
+		},
+		{
+			desc: "stress.git",
+			repo: repoStress,
+		},
+	} {
+		// Preheat
+		_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: tc.repo})
+		require.NoError(b, err)
+		gitCmdFactory.ResetCount()
 
-		for _, tc := range []struct {
-			desc string
-			repo *gitalypb.Repository
-		}{
-			{
-				desc: "gitlab-org/gitlab.git",
-				repo: repoGitLab,
-			},
-			{
-				desc: "stress.git",
-				repo: repoStress,
-			},
-		} {
-			// Preheat
-			_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: tc.repo})
-			require.NoError(b, err)
-			gitCmdFactory.ResetCount()
+		b.Run(tc.desc, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: tc.repo})
+				require.NoError(b, err)
+				require.Equal(b, "mit", resp.GetLicenseShortName())
+			}
 
-			b.Run(tc.desc, func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: tc.repo})
-					require.NoError(b, err)
-					require.Equal(b, "mit", resp.GetLicenseShortName())
-				}
-
-				if featureflag.LocalrepoReadObjectCached.IsEnabled(ctx) {
-					gitCmdFactory.RequireCommandCount(b, "cat-file", 0)
-				}
-			})
-		}
-	})
+			gitCmdFactory.RequireCommandCount(b, "cat-file", 0)
+		})
+	}
 }
