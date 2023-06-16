@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -92,8 +91,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			targetBranch:          git.DefaultBranch,
 			nonExistentRepository: true,
 			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound), "repository_path", filepath.Join(cfg.Storages[0].Path, "doesnt-exist"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist")),
 				),
 				testhelper.ToInterceptedMetadata(
 					structerr.New(

@@ -61,12 +61,12 @@ func RenameRepositoryHandler(virtualStoragesNames []string, rs datastore.Reposit
 			req.GetRepository().GetRelativePath(),
 			req.GetRelativePath(),
 		); err != nil {
-			if errors.Is(err, storage.ErrRepositoryNotFound) {
+			if errors.Is(err, datastore.ErrRepositoryNotFound) {
 				return storage.NewRepositoryNotFoundError(
 					req.GetRepository().GetStorageName(),
 					req.GetRepository().GetRelativePath(),
 				)
-			} else if errors.Is(err, storage.ErrRepositoryAlreadyExists) {
+			} else if errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
 				return structerr.NewAlreadyExists("target repo exists already")
 			}
 

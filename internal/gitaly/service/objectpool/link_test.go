@@ -139,11 +139,10 @@ func TestLink_noPool(t *testing.T) {
 	})
 	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
 		structerr.NewFailedPrecondition("object pool is not a valid git repository"),
-		testhelper.ToInterceptedMetadata(
-			structerr.New(
-				"mutator call: route repository mutator: resolve additional replica path: get additional repository id: %w",
-				storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, poolRelativePath),
-			),
+		testhelper.WithInterceptedMetadataItems(
+			structerr.NewNotFound("mutator call: route repository mutator: resolve additional replica path: additional repository not found"),
+			structerr.MetadataItem{Key: "relative_path", Value: poolRelativePath},
+			structerr.MetadataItem{Key: "storage_name", Value: cfg.Storages[0].Name},
 		),
 	), err)
 }

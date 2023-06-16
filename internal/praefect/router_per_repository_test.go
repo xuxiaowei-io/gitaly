@@ -28,7 +28,7 @@ func (st StaticRepositoryAssignments) GetHostAssignments(ctx context.Context, vi
 
 	storages, ok := vs[relativePath]
 	if !ok {
-		return nil, errRepositoryNotFound
+		return nil, datastore.ErrRepositoryNotFound
 	}
 
 	return storages, nil
@@ -840,17 +840,17 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 			primaryPick:               0,
 			repositoryExists:          true,
 			expectedPrimaryCandidates: []int{3},
-			expectedErr:               fmt.Errorf("reserve repository id: %w", storage.ErrRepositoryAlreadyExists),
+			expectedErr:               fmt.Errorf("reserve repository id: %w", datastore.ErrRepositoryAlreadyExists),
 		},
 		{
 			desc:                   "additional repository doesn't exist",
 			virtualStorage:         "virtual-storage-1",
 			relativePath:           "relative-path",
 			additionalRelativePath: "non-existent",
-			expectedErr: fmt.Errorf(
-				"resolve additional replica metadata: %w",
-				fmt.Errorf("repository not found"),
-			),
+			expectedErr: additionalRepositoryNotFoundError{
+				storageName:  "virtual-storage-1",
+				relativePath: "non-existent",
+			},
 		},
 		{
 			desc: "unhealthy primary with additional repository",

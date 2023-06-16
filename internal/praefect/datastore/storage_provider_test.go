@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -101,7 +100,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		cache.Connected()
 
 		_, _, err = cache.GetConsistentStorages(ctx, "vs", "/repo/path")
-		require.Equal(t, storage.NewRepositoryNotFoundError("vs", "/repo/path"), err)
+		require.Equal(t, ErrRepositoryNotFound, err)
 
 		// "populate" metric is not set as there was an error and we don't want this result to be cached
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`

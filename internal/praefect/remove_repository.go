@@ -63,7 +63,7 @@ func removeRepositoryHandler(rs datastore.RepositoryStore, conns Connections, pa
 		virtualStorage := repo.StorageName
 		replicaPath, storages, err := rs.DeleteRepository(ctx, virtualStorage, repo.RelativePath)
 		if err != nil {
-			if errors.Is(err, storage.ErrRepositoryNotFound) {
+			if errors.Is(err, datastore.ErrRepositoryNotFound) {
 				if errorOnNotFound {
 					return structerr.NewNotFound("repository does not exist")
 				}

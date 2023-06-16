@@ -295,7 +295,12 @@ func TestStreamDirectorMutator(t *testing.T) {
 					request: &gitalypb.UserCreateTagRequest{
 						Repository: targetRepo,
 					},
-					expectedErr: structerr.New("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
+						fmt.Errorf("get repository id: %w", datastore.ErrRepositoryNotFound),
+					)).WithMetadataItems(
+						structerr.MetadataItem{Key: "storage_name", Value: targetRepo.StorageName},
+						structerr.MetadataItem{Key: "relative_path", Value: targetRepo.RelativePath},
+					),
 				}
 			},
 		},
@@ -323,13 +328,17 @@ func TestStreamDirectorMutator(t *testing.T) {
 							Repository: targetRepo,
 						},
 					},
-					expectedErr: structerr.New("%w", fmt.Errorf("mutator call: route repository mutator: %w",
+					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
 						fmt.Errorf("resolve additional replica path: %w",
-							fmt.Errorf("get additional repository id: %w",
-								storage.NewRepositoryNotFoundError(additionalRepo.StorageName, additionalRepo.RelativePath),
-							),
+							additionalRepositoryNotFoundError{
+								storageName:  additionalRepo.StorageName,
+								relativePath: additionalRepo.RelativePath,
+							},
 						),
-					)),
+					)).WithMetadataItems(
+						structerr.MetadataItem{Key: "storage_name", Value: additionalRepo.StorageName},
+						structerr.MetadataItem{Key: "relative_path", Value: additionalRepo.RelativePath},
+					),
 				}
 			},
 		},
@@ -688,7 +697,7 @@ func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
 	router := mockRouter{
 		// Simulate scenario where target repository already exists and error is returned.
 		routeRepositoryCreation: func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
-			return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", storage.ErrRepositoryAlreadyExists)
+			return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", datastore.ErrRepositoryAlreadyExists)
 		},
 		// Pass through normally to handle route creation.
 		routeRepositoryMutator: func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
@@ -1078,10 +1087,12 @@ func TestStreamDirectorAccessor(t *testing.T) {
 			desc: "repository not found",
 			router: mockRouter{
 				routeRepositoryAccessorFunc: func(_ context.Context, virtualStorage, relativePath string, _ bool) (RepositoryAccessorRoute, error) {
-					return RepositoryAccessorRoute{}, storage.NewRepositoryNotFoundError(virtualStorage, relativePath)
+					return RepositoryAccessorRoute{}, datastore.ErrRepositoryNotFound
 				},
 			},
-			error: structerr.New("%w", fmt.Errorf("accessor call: route repository accessor: %w", storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
+			error: structerr.NewNotFound("%w", fmt.Errorf("accessor call: route repository accessor: %w",
+				datastore.ErrRepositoryNotFound,
+			)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1102,7 +1113,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 			peeker := &mockPeeker{frame: frame}
 			streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 			if tc.error != nil {
-				require.Equal(t, tc.error, err)
+				testhelper.RequireGrpcError(t, tc.error, err)
 				return
 			}
 
@@ -1487,11 +1498,11 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			mockRepositoryStore: func() datastore.RepositoryStore {
 				return &datastore.MockRepositoryStore{
 					CreateRepositoryFunc: func(context.Context, int64, string, string, string, string, []string, []string, bool, bool) error {
-						return datastore.RepositoryExistsError{}
+						return datastore.ErrRepositoryAlreadyExists
 					},
 				}
 			},
-			expectedErr: structerr.NewAlreadyExists("%w", datastore.RepositoryExistsError{}),
+			expectedErr: structerr.NewAlreadyExists("%w", storage.ErrRepositoryAlreadyExists),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

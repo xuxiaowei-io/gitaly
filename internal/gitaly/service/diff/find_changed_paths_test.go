@@ -2,7 +2,6 @@ package diff
 
 import (
 	"io"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -971,9 +970,8 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			repo:    &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar.git"},
 			commits: []string{newCommit.String(), oldCommit.String()},
 			err: testhelper.GitalyOrPraefect(
-				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
-					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar.git"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "bar.git")),
 				),
 				testhelper.ToInterceptedMetadata(
 					structerr.New(

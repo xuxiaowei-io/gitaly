@@ -262,10 +262,6 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	}
 
 	if err != nil {
-		if errors.Is(err, storage.ErrRepositoryNotFound) {
-			return nil, structerr.NewNotFound("%w", err)
-		}
-
 		return nil, err
 	}
 
@@ -402,7 +398,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 		// ReplicateRepository RPC should also be able to replicate if repository ID already exists in Praefect.
 		if call.fullMethodName == "/gitaly.RepositoryService/ReplicateRepository" &&
-			errors.Is(err, storage.ErrRepositoryAlreadyExists) {
+			errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
 			change = datastore.UpdateRepo
 			route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
 		}
@@ -701,7 +697,22 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 				return nil, structerr.NewInvalidArgument("%w", err)
 			}
 
-			if errors.Is(err, storage.ErrRepositoryAlreadyExists) {
+			var additionalRepoNotFound additionalRepositoryNotFoundError
+			if errors.As(err, &additionalRepoNotFound) {
+				return nil, structerr.NewNotFound("%w", err).WithMetadataItems(
+					structerr.MetadataItem{Key: "storage_name", Value: additionalRepoNotFound.storageName},
+					structerr.MetadataItem{Key: "relative_path", Value: additionalRepoNotFound.relativePath},
+				)
+			}
+
+			if errors.Is(err, datastore.ErrRepositoryNotFound) {
+				return nil, structerr.NewNotFound("%w", err).WithMetadataItems(
+					structerr.MetadataItem{Key: "storage_name", Value: targetRepo.GetStorageName()},
+					structerr.MetadataItem{Key: "relative_path", Value: targetRepo.GetRelativePath()},
+				)
+			}
+
+			if errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
 				return nil, structerr.NewAlreadyExists("%w", err)
 			}
 
@@ -1081,7 +1092,7 @@ func (c *Coordinator) newRequestFinalizer(
 			// where the client receives an error but can't retry the call as the repository has already been moved on the primary.
 			// Ideally the rename RPC should copy the repository instead of moving so the client can retry if this failed.
 			if err := c.rs.RenameRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary, params["RelativePath"].(string)); err != nil {
-				if !errors.Is(err, datastore.RepositoryNotExistsError{}) {
+				if !errors.Is(err, datastore.ErrRepositoryNotFound) {
 					return fmt.Errorf("rename repository: %w", err)
 				}
 
@@ -1103,7 +1114,7 @@ func (c *Coordinator) newRequestFinalizer(
 				repositorySpecificPrimariesEnabled,
 				variableReplicationFactorEnabled,
 			); err != nil {
-				if errors.Is(err, datastore.RepositoryExistsError{}) {
+				if errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
 					return structerr.NewAlreadyExists("%w", err)
 				}
 

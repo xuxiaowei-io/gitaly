@@ -17,6 +17,15 @@ const (
 	logFieldStorage               = "storage"
 )
 
+type additionalRepositoryNotFoundError struct {
+	storageName  string
+	relativePath string
+}
+
+func (e additionalRepositoryNotFoundError) Error() string {
+	return "additional repository not found"
+}
+
 func addRouteLogField(ctx context.Context, fields logrus.Fields) {
 	ctxlogrus.AddFields(ctx, logrus.Fields{"route": fields})
 }

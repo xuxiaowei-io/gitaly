@@ -273,9 +273,8 @@ func TestApplyGitattributes_failure(t *testing.T) {
 			},
 			revision: []byte("master"),
 			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.WithInterceptedMetadata(
-					structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
-					"repository_path", filepath.Join(cfg.Storages[0].Path, "bar"),
+				testhelper.ToInterceptedMetadata(
+					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "bar")),
 				),
 				testhelper.ToInterceptedMetadata(
 					structerr.New(

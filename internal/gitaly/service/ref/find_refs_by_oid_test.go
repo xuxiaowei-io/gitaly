@@ -168,9 +168,17 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				return &gitalypb.FindRefsByOIDRequest{
 						Repository: repo,
 						Oid:        oid.String(),
-					}, testhelper.WithInterceptedMetadata(
-						structerr.NewNotFound("%w", storage.ErrRepositoryNotFound),
-						"repository_path", repoPath,
+					}, testhelper.GitalyOrPraefect(
+						testhelper.ToInterceptedMetadata(
+							structerr.New("%w", storage.NewRepositoryNotFoundError(repo.GetStorageName(), repo.GetRelativePath())),
+						),
+						// Note that Praefect reports the _rewritten_ repository path as not found. This is expected
+						// given that the repository does exist in Praefect, but is missing in Gitaly.
+						testhelper.ToInterceptedMetadata(
+							structerr.New("%w", storage.NewRepositoryNotFoundError(
+								repo.GetStorageName(), gittest.GetReplicaPath(t, ctx, cfg, repo),
+							)),
+						),
 					)
 			},
 		},

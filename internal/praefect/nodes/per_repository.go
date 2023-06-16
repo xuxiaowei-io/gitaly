@@ -8,7 +8,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 )
 
@@ -103,7 +103,7 @@ WHERE snapshot.repository_id = $1
 		repositoryID,
 	).Scan(&current, &previous); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", storage.ErrRepositoryNotFound
+			return "", datastore.ErrRepositoryNotFound
 		}
 
 		return "", fmt.Errorf("scan: %w", err)

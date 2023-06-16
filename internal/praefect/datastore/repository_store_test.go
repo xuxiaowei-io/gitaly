@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -132,8 +131,8 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			rs := newRepositoryStore(t, nil)
 
 			require.Equal(t,
+				ErrRepositoryNotFound,
 				rs.IncrementGeneration(ctx, 1, "primary", []string{"secondary-1"}),
-				storage.ErrRepositoryNotFound,
 			)
 			requireState(t, ctx, db, virtualStorageState{}, storageState{})
 		})
@@ -358,7 +357,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			rs := newRepositoryStore(t, nil)
 
 			require.Equal(t,
-				storage.NewRepositoryNotFoundError(vs, repo),
+				ErrRepositoryNotFound,
 				rs.SetAuthoritativeReplica(ctx, vs, repo, stor),
 			)
 		})
@@ -603,7 +602,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "replica-path", stor, nil, nil, false, false))
 			require.Equal(t,
-				RepositoryExistsError{vs, repo, stor},
+				ErrRepositoryAlreadyExists,
 				rs.CreateRepository(ctx, 2, vs, repo, "replica-path", stor, nil, nil, false, false),
 			)
 		})
@@ -752,7 +751,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			rs := newRepositoryStore(t, nil)
 
 			replicaPath, storages, err := rs.DeleteRepository(ctx, vs, repo)
-			require.Equal(t, storage.NewRepositoryNotFoundError(vs, repo), err)
+			require.Equal(t, ErrRepositoryNotFound, err)
 			require.Empty(t, replicaPath)
 			require.Empty(t, storages)
 		})
@@ -898,7 +897,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			rs := newRepositoryStore(t, nil)
 
 			require.Equal(t,
-				storage.ErrRepositoryNotFound,
+				ErrRepositoryNotFound,
 				rs.RenameRepositoryInPlace(ctx, vs, repo, "new-relative-path"),
 			)
 		})
@@ -910,7 +909,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			require.NoError(t, rs.CreateRepository(ctx, 2, vs, "relative-path-2", "replica-path-2", "primary", nil, nil, true, false))
 
 			require.Equal(t,
-				storage.ErrRepositoryAlreadyExists,
+				ErrRepositoryAlreadyExists,
 				rs.RenameRepositoryInPlace(ctx, vs, "relative-path-1", "relative-path-2"),
 			)
 		})
@@ -942,7 +941,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			rs := newRepositoryStore(t, nil)
 
 			require.Equal(t,
-				RepositoryNotExistsError{vs, repo, stor},
+				ErrRepositoryNotFound,
 				rs.RenameRepository(ctx, vs, repo, stor, "repository-2"),
 			)
 		})
@@ -1007,12 +1006,12 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 
 		t.Run("no records", func(t *testing.T) {
 			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
-			require.Equal(t, storage.NewRepositoryNotFoundError(vs, repo), err)
+			require.Equal(t, ErrRepositoryNotFound, err)
 			require.Empty(t, replicaPath)
 			require.Empty(t, secondaries)
 
 			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
-			require.Equal(t, storage.ErrRepositoryNotFound, err)
+			require.Equal(t, ErrRepositoryNotFound, err)
 			require.Empty(t, replicaPath)
 			require.Empty(t, secondaries)
 		})
@@ -1101,12 +1100,12 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			requireState(t, ctx, db, virtualStorageState{}, storageState{})
 
 			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
-			require.Equal(t, storage.NewRepositoryNotFoundError(vs, repo), err)
+			require.Equal(t, ErrRepositoryNotFound, err)
 			require.Empty(t, secondaries)
 			require.Empty(t, replicaPath)
 
 			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
-			require.Equal(t, storage.ErrRepositoryNotFound, err)
+			require.Equal(t, ErrRepositoryNotFound, err)
 			require.Empty(t, secondaries)
 			require.Empty(t, replicaPath)
 		})
@@ -1208,7 +1207,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		require.NoError(t, rs.CreateRepository(ctx, id, vs, repo, "replica-path", stor, nil, nil, false, false))
 
 		id, err = rs.ReserveRepositoryID(ctx, vs, repo)
-		require.Equal(t, storage.ErrRepositoryAlreadyExists, err)
+		require.Equal(t, ErrRepositoryAlreadyExists, err)
 		require.Equal(t, int64(0), id)
 
 		id, err = rs.ReserveRepositoryID(ctx, vs, repo+"-2")
@@ -1220,7 +1219,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		rs := newRepositoryStore(t, nil)
 
 		id, err := rs.GetRepositoryID(ctx, vs, repo)
-		require.Equal(t, storage.NewRepositoryNotFoundError(vs, repo), err)
+		require.Equal(t, ErrRepositoryNotFound, err)
 		require.Equal(t, int64(0), id)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "replica-path", stor, nil, nil, false, false))
@@ -1234,7 +1233,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		rs := newRepositoryStore(t, nil)
 
 		replicaPath, err := rs.GetReplicaPath(ctx, 1)
-		require.Equal(t, err, storage.ErrRepositoryNotFound)
+		require.Equal(t, err, ErrRepositoryNotFound)
 		require.Empty(t, replicaPath)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "replica-path", stor, nil, nil, false, false))
@@ -1669,7 +1668,7 @@ func TestPostgresRepositoryStore_GetRepositoryMetadata(t *testing.T) {
 
 			var expectedErr error
 			if tc.nonExistentRepository {
-				expectedErr = storage.ErrRepositoryNotFound
+				expectedErr = ErrRepositoryNotFound
 				expectedMetadata = RepositoryMetadata{}
 			}
 

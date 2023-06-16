@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
@@ -80,9 +79,12 @@ func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetA
 	}
 
 	if err := s.rs.SetAuthoritativeReplica(ctx, req.VirtualStorage, req.RelativePath, req.AuthoritativeStorage); err != nil {
-		var serr structerr.Error
-		if errors.Is(err, storage.ErrRepositoryNotFound) && errors.As(err, &serr) {
-			return nil, structerr.NewInvalidArgument("repository does not exist on virtual storage").WithMetadataItems(serr.MetadataItems()...)
+		if errors.Is(err, datastore.ErrRepositoryNotFound) {
+			return nil, structerr.NewInvalidArgument("repository does not exist on virtual storage").WithMetadataItems(
+				structerr.MetadataItem{Key: "virtual_storage", Value: req.VirtualStorage},
+				structerr.MetadataItem{Key: "relative_path", Value: req.RelativePath},
+				structerr.MetadataItem{Key: "authoritative_storage", Value: req.AuthoritativeStorage},
+			)
 		}
 
 		return nil, structerr.NewInternal("%w", err)

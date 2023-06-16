@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -83,7 +82,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 			rs := NewPostgresRepositoryStore(db, nil)
 			for _, assignment := range tc.existingAssignments {
 				repositoryID, err := rs.GetRepositoryID(ctx, assignment.virtualStorage, assignment.relativePath)
-				if errors.Is(err, storage.NewRepositoryNotFoundError(assignment.virtualStorage, assignment.relativePath)) {
+				if errors.Is(err, ErrRepositoryNotFound) {
 					repositoryID, err = rs.ReserveRepositoryID(ctx, assignment.virtualStorage, assignment.relativePath)
 					require.NoError(t, err)
 
@@ -99,7 +98,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 
 			repositoryID, err := rs.GetRepositoryID(ctx, tc.virtualStorage, "relative-path")
 			if err != nil {
-				require.Equal(t, storage.NewRepositoryNotFoundError(tc.virtualStorage, "relative-path"), err)
+				require.Equal(t, ErrRepositoryNotFound, err)
 			}
 
 			actualAssignments, err := NewAssignmentStore(

@@ -17,9 +17,6 @@ const (
 	routeRepositoryAccessorPolicyPrimaryOnly = "primary-only"
 )
 
-// errRepositoryNotFound is retuned when trying to operate on a non-existent repository.
-var errRepositoryNotFound = errors.New("repository not found")
-
 // errPrimaryUnassigned is returned when the primary node is not in the set of assigned nodes.
 var errPrimaryUnassigned = errors.New("primary node is not assigned")
 
@@ -200,10 +197,22 @@ func (r *PerRepositoryRouter) resolveAdditionalReplicaPath(ctx context.Context, 
 
 	additionalRepositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, additionalRelativePath)
 	if err != nil {
+		if errors.Is(err, datastore.ErrRepositoryNotFound) {
+			return "", additionalRepositoryNotFoundError{
+				storageName:  virtualStorage,
+				relativePath: additionalRelativePath,
+			}
+		}
+
 		return "", fmt.Errorf("get additional repository id: %w", err)
 	}
 
-	return r.rs.GetReplicaPath(ctx, additionalRepositoryID)
+	replicaPath, err := r.rs.GetReplicaPath(ctx, additionalRepositoryID)
+	if err != nil {
+		return "", err
+	}
+
+	return replicaPath, nil
 }
 
 //nolint:revive // This is unintentionally missing documentation.
@@ -444,6 +453,13 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 	if additionalRelativePath != "" {
 		metadata, err := r.rs.GetRepositoryMetadataByPath(ctx, virtualStorage, additionalRelativePath)
 		if err != nil {
+			if errors.Is(err, datastore.ErrRepositoryNotFound) {
+				return RepositoryMutatorRoute{}, additionalRepositoryNotFoundError{
+					storageName:  virtualStorage,
+					relativePath: additionalRelativePath,
+				}
+			}
+
 			return RepositoryMutatorRoute{}, fmt.Errorf("resolve additional replica metadata: %w", err)
 		}
 

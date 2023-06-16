@@ -45,7 +45,7 @@ func TestRepo_Path(t *testing.T) {
 		require.NoError(t, os.RemoveAll(repoPath))
 
 		_, err := repo.Path()
-		require.Equal(t, structerr.NewNotFound("%w", storage.ErrRepositoryNotFound).WithMetadata("repository_path", repoPath), err)
+		require.Equal(t, storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, repoProto.GetRelativePath()), err)
 	})
 
 	t.Run("non-git repository", func(t *testing.T) {

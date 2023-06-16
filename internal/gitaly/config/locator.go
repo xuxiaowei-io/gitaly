@@ -82,7 +82,7 @@ func (l *configLocator) ValidateRepository(repo storage.Repository, opts ...stor
 	if !cfg.SkipRepositoryExistenceCheck {
 		if _, err := os.Stat(path); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return structerr.NewNotFound("%w", storage.ErrRepositoryNotFound).WithMetadata("repository_path", path)
+				return storage.NewRepositoryNotFoundError(repo.GetStorageName(), repo.GetRelativePath())
 			}
 
 			return structerr.New("statting repository: %w", err).WithMetadata("repository_path", path)
