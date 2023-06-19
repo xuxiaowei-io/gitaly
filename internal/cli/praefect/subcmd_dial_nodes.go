@@ -11,7 +11,7 @@ import (
 func newDialNodesCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "dial-nodes",
-		Usage: "checks connection with remote nodes",
+		Usage: "check connection with remote nodes",
 		Description: "The subcommand \"dial-nodes\" helps diagnose connection problems to Gitaly or\n" +
 			"Praefect. The subcommand works by sourcing the connection information from\n" +
 			"the config file, and then dialing and health checking the remote nodes.",

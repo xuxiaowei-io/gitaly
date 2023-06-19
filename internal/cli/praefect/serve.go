@@ -44,6 +44,7 @@ func newServeCommand() *cli.Command {
 	return &cli.Command{
 		Name:            "serve",
 		Usage:           "launch the server daemon",
+		Description:     "Launch the Praefect server daemon.",
 		Action:          serveAction,
 		HideHelpCommand: true,
 		Before: func(context *cli.Context) error {

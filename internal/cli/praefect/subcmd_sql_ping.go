@@ -13,7 +13,7 @@ const sqlPingCmdName = "sql-ping"
 func newSQLPingCommand() *cli.Command {
 	return &cli.Command{
 		Name:            sqlPingCmdName,
-		Usage:           "checks reachability of the database",
+		Usage:           "check reachability of the database",
 		Description:     "The subcommand checks if the database configured in the configuration file is reachable",
 		HideHelpCommand: true,
 		Action:          sqlPingAction,

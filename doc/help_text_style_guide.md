@@ -36,17 +36,61 @@ keys for commands and subcommands:
 | Field key     | All lower case | Use period | Example key and value                                                                 |
 |:--------------|:---------------|:-----------|:--------------------------------------------------------------------------------------|
 | `Name`        | Yes            | No         | `Name: "example"`                                                                     |
-| `Usage`       | No             | No         | `Usage: "Short description of example command"`                                       |
+| `Usage`       | Yes            | No         | `Usage: "short description of example command"`                                       |
 | `Description` | No             | Yes        | `Description: "This is a long description of all the things example command can do."` |
+
+### Specific rules for `Usage`
+
+When providing values for the `Usage` field key:
+
+- Don't mention Gitaly or Praefect explicitly. We imply in the help text the tool we're referring to.
+
+  - Do:
+
+    ```plaintext
+    start the daemon
+    ```
+
+  - Don't:
+
+    ```plaintext
+    start the Gitaly daemon
+    ```
+
+- Always start with a verb and always write the string from the user's perspective, not the tool's perspective:
+
+  - Do:
+
+    ```plaintext
+    run the process
+    ```
+
+  - Don't:
+
+    ```plaintext
+    runs the process
+    ```
+
+  - Don't:
+
+    ```plaintext
+    the process runs
+    ```
 
 ### Specific rules for `Description`
 
-When providing values for the `Description` key:
+When providing values for the `Description` field key:
 
-- If referring to the subcommand itself, put the subcommand in backticks. For example:
+- If referring to subcommands or flags, put the subcommand or flag in backticks. For example:
 
   ```plaintext
-  `subcommand` can be run at any time.
+  `subcommand` can be run at any time with the `flag` flag.
+  ```
+
+- Can mention Gitaly, Praefect, or Gitaly Cluster. For example:
+
+  ```plaintext
+  Runs all of the processes for the Gitaly Cluster.
   ```
 
 ## Related topics

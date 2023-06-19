@@ -14,7 +14,7 @@ import (
 func newDatalossCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "dataloss",
-		Usage: "identifies stale Gitaly nodes",
+		Usage: "identify stale nodes",
 		Description: "The subcommand \"dataloss\" identifies Gitaly nodes which are missing data from the\n" +
 			"previous write-enabled primary node. It does so by looking through incomplete\n" +
 			"replication jobs. This is useful for identifying potential data loss from a failover\n" +

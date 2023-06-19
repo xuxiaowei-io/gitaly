@@ -14,11 +14,13 @@ const verifyCmdName = "verify"
 func newVerifyCommand() *cli.Command {
 	return &cli.Command{
 		Name:  verifyCmdName,
-		Usage: "marks a discrete repository, or repositories of a storage, or repositories of a virtual storage to be verified",
-		Description: "The command marks a single repository if 'repository-id' flag is provided or a batch of\n" +
-			"repositories that belong to a particular storage or virtual storage to be checked they exist.\n" +
-			"The repository existence is confirmed if repository exists on the disk. That verification operation\n" +
-			"runs in background and executes verification asynchronously.",
+		Usage: "mark repositories for verification",
+		Description: "Mark for verification:\n\n" +
+
+			"- A single repository if the `repository-id` flag is provided.\n" +
+			"- A batch of repositories that belong to a particular storage or virtual storage if they exist on disk.\n\n" +
+
+			"Verification runs asynchronously in the background.",
 		HideHelpCommand: true,
 		Action:          verifyAction,
 		Flags: []cli.Flag{

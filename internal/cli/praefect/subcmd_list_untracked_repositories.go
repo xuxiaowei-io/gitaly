@@ -22,7 +22,7 @@ import (
 func newListUntrackedRepositoriesCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "list-untracked-repositories",
-		Usage: "shows repositories not tracked by Praefect",
+		Usage: "list untracked repositories",
 		Description: "This command checks whether all repositories on all Gitaly nodes are tracked by Praefect.\n" +
 			"If a repository is found on the disk, but it is not known to Praefect, then the location of\n" +
 			"that repository will be written to the standard output stream in JSON format.\n" +

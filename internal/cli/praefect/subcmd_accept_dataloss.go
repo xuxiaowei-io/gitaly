@@ -12,7 +12,7 @@ import (
 func newAcceptDatalossCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "accept-dataloss",
-		Usage: "allows for accepting data loss in a repository",
+		Usage: "accept data loss in a repository",
 		Description: `The subcommand "accept-dataloss" allows for accepting data loss in a repository to enable it for
 writing again. The current version of the repository on the authoritative storage is set to be
 the latest version and replications to other nodes are scheduled in order to bring them consistent

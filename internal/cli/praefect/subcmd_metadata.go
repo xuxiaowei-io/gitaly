@@ -12,7 +12,7 @@ import (
 func newMetadataCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "metadata",
-		Usage: "shows metadata information about repository",
+		Usage: "show metadata information about repository",
 		Description: "The command provides metadata information about the repository. It includes " +
 			"identifier of the repository, path on the disk for it and it's replicas, information " +
 			"about replicas such as if it is assigned or not, its generation, health state, the storage, " +
