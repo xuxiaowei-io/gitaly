@@ -4,7 +4,6 @@ package gitaly;
 
 import "google/protobuf/timestamp.proto";
 import "lint.proto";
-import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
@@ -17,14 +16,6 @@ service InternalGitaly {
     option (op_type) = {
       op:          ACCESSOR
       scope_level: STORAGE
-    };
-  }
-
-  // BackupRepos triggers a backup for each repository in the stream. This RPC
-  // is intended to be used to coordinate backups within the gitaly cluster.
-  rpc BackupRepos (stream BackupReposRequest) returns (BackupReposResponse) {
-    option (op_type) = {
-      op: ACCESSOR
     };
   }
 }
@@ -43,30 +34,4 @@ message WalkReposResponse {
   // This can be used as a proxy for when the repository was last
   // modified.
   google.protobuf.Timestamp modification_time = 2;
-}
-
-// BackupReposRequest contains request parameters for the BackupRepos RPC.
-message BackupReposRequest {
-  // Header contains information to create the backups and must be sent in the
-  // first message.
-  message Header {
-    // BackupId determines which collective backup these repository backups will
-    // be part of. Must be sent in first message.
-    string backup_id = 1;
-
-    // StorageUrl is the object-storage URL where the backups will be stored.
-    // See https://gocloud.dev/howto/blob/ and https://gocloud.dev/concepts/urls/
-    string storage_url = 2;
-  }
-
-  // For each request stream there must be first a request with a header
-  // containing details about the backups to perform.
-  Header header = 1;
-
-  // Repositories to have a backups triggered.
-  repeated Repository repositories = 2 [(target_repository)=true];
-}
-
-// BackupReposResponse contains response parameters for the BackupRepos RPC.
-message BackupReposResponse {
 }
