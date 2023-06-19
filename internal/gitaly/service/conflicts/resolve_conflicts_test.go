@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -35,6 +36,12 @@ var (
 )
 
 func TestResolveConflicts(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.ResolveConflictsViaGit).Run(t, testResolveConflicts)
+}
+
+func testResolveConflicts(t *testing.T, ctx context.Context) {
 	type setupData struct {
 		cfg               config.Cfg
 		requestHeader     *gitalypb.ResolveConflictsRequest_Header
@@ -1173,11 +1180,11 @@ func TestResolveConflicts(t *testing.T) {
 		},
 	} {
 		tc := tc
+		ctx := ctx
 
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := testhelper.Context(t)
 			setup := tc.setup(t, ctx)
 
 			mdGS := testcfg.GitalyServersMetadataFromCfg(t, setup.cfg)
