@@ -95,6 +95,12 @@ type Locator interface {
 
 // ValidateRepositoryConfig is used to configure ValidateRepository.
 type ValidateRepositoryConfig struct {
+	// SkipStorageExistenceCheck determines whether the storage shall be checked for
+	// existence or not. If set, the locator shall still perform parameter verification and
+	// verify that whether the storage _would_ be valid if it existed, but not verify actual
+	// existence. This will also skip the repository existence check. Required when
+	// Praefect has not rewritten the repository storage name.
+	SkipStorageExistenceCheck bool
 	// SkipRepositoryExistenceCheck determines whether the repository shall be checked for
 	// existence or not. If set, the locator shall still perform parameter verification and
 	// verify that whether the repository _would_ be valid if it existed, but not verify actual
@@ -110,6 +116,14 @@ type ValidateRepositoryOption func(*ValidateRepositoryConfig)
 func WithSkipRepositoryExistenceCheck() ValidateRepositoryOption {
 	return func(cfg *ValidateRepositoryConfig) {
 		cfg.SkipRepositoryExistenceCheck = true
+	}
+}
+
+// WithSkipStorageExistenceCheck causes ValidateRepository to not check for storage
+// existence. Repository existence check will also be skipped.
+func WithSkipStorageExistenceCheck() ValidateRepositoryOption {
+	return func(cfg *ValidateRepositoryConfig) {
+		cfg.SkipStorageExistenceCheck = true
 	}
 }
 

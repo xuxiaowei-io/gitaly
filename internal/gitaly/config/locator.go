@@ -53,6 +53,15 @@ func (l *configLocator) ValidateRepository(repo storage.Repository, opts ...stor
 		return structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)
 	}
 
+	relativePath := repo.GetRelativePath()
+	if len(relativePath) == 0 {
+		return structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet)
+	}
+
+	if cfg.SkipStorageExistenceCheck {
+		return nil
+	}
+
 	storagePath, err := l.GetStorageByName(repo.GetStorageName())
 	if err != nil {
 		return err
@@ -63,11 +72,6 @@ func (l *configLocator) ValidateRepository(repo storage.Repository, opts ...stor
 			return structerr.NewNotFound("storage does not exist").WithMetadata("storage_path", storagePath)
 		}
 		return structerr.New("storage path: %w", err).WithMetadata("storage_path", storagePath)
-	}
-
-	relativePath := repo.GetRelativePath()
-	if len(relativePath) == 0 {
-		return structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet)
 	}
 
 	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {
