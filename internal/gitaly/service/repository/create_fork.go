@@ -15,7 +15,7 @@ import (
 func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest) (*gitalypb.CreateForkResponse, error) {
 	// We don't validate existence of the source repository given that we may connect to a different Gitaly host in
 	// order to fetch from it. So it may or may not exist locally.
-	if err := s.locator.ValidateRepository(req.GetSourceRepository(), storage.WithSkipRepositoryExistenceCheck()); err != nil {
+	if err := s.locator.ValidateRepository(req.GetSourceRepository(), storage.WithSkipStorageExistenceCheck()); err != nil {
 		return nil, structerr.NewInvalidArgument("validating source repository: %w", err)
 	}
 
