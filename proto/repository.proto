@@ -352,6 +352,15 @@ service RepositoryService {
       op: ACCESSOR
     };
   }
+
+  // RestoreRepository restores a backup streamed directly from object-storage.
+  // The repository is restored synchronously. The source object-storage must
+  // be configured in config.backup.go_cloud_url
+  rpc RestoreRepository(RestoreRepositoryRequest) returns (RestoreRepositoryResponse) {
+    option (op_type) = {
+      op: MUTATOR
+    };
+  }
 }
 
 // This comment is left unintentionally blank.
@@ -1192,4 +1201,21 @@ message BackupRepositoryResponse {
   // SkippedError is returned when the repository backup has been skipped.
   message SkippedError {
   }
+}
+
+// RestoreRepository is a request for the RestoreRepository RPC.
+message RestoreRepositoryRequest {
+  // Repository is the repository to be restored.
+  Repository repository = 1 [(target_repository)=true];
+  // VanityRepository is used to determine the backup path.
+  Repository vanity_repository = 2;
+  // BackupId is the label used to identify the backup to restore from.
+  string backup_id = 3;
+  // AlwaysCreate will force the repository to exist even if no bundle is
+  // found. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
+  bool always_create = 4;
+}
+
+// RestoreRepositoryResponse is a response for the RestoreRepository RPC.
+message RestoreRepositoryResponse {
 }
