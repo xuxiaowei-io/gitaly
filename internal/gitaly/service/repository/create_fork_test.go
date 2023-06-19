@@ -261,6 +261,11 @@ func TestCreateFork_validate(t *testing.T) {
 	cfg, cli := setupRepositoryServiceWithoutRepo(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
+	srcRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+	// Praefect does not rewrite the SourceRepository storage name, confirm
+	// we accept a storage name unknown to Gitaly.
+	srcRepo.StorageName = "RailsStorageName"
+
 	for _, tc := range []struct {
 		desc        string
 		req         *gitalypb.CreateForkRequest
@@ -268,7 +273,7 @@ func TestCreateFork_validate(t *testing.T) {
 	}{
 		{
 			desc: "repository not provided",
-			req:  &gitalypb.CreateForkRequest{Repository: nil, SourceRepository: repo},
+			req:  &gitalypb.CreateForkRequest{Repository: nil, SourceRepository: srcRepo},
 			expectedErr: testhelper.GitalyOrPraefect(
 				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
