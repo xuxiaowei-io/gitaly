@@ -135,57 +135,18 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 	}
 
 	oidAndConflicts := strings.Split(oidAndConflictsBuf, "\x00")
-	// When the output is of unexpected length
-	if len(oidAndConflicts) < 2 {
-		return "", structerr.NewInternal("couldn't split oid and file info").WithMetadata("stderr", output)
-	}
 
 	oid, err := objectHash.FromHex(oidAndConflicts[0])
 	if err != nil {
 		return "", structerr.NewInternal("hex to oid: %w", err)
 	}
 
-	mergeTreeConflictError.ConflictingFileInfo = make([]ConflictingFileInfo, len(oidAndConflicts[1:]))
-
-	// From git-merge-tree(1), the information is of the format `<mode> <object> <stage> <filename>`
-	// unless the `--name-only` option is used, in which case only the filename is output.
-	// Note: that there is \t before the filename (https://gitlab.com/gitlab-org/git/blob/v2.40.0/builtin/merge-tree.c#L481)
-	for i, infoLine := range oidAndConflicts[1:] {
-		if cfg.conflictingFileNamesOnly {
-			mergeTreeConflictError.ConflictingFileInfo[i].FileName = infoLine
-		} else {
-			infoAndFilename := strings.Split(infoLine, "\t")
-			if len(infoAndFilename) != 2 {
-				return "", structerr.NewInternal("parsing conflicting file info: %s", infoLine)
-			}
-
-			info := strings.Fields(infoAndFilename[0])
-			if len(info) != 3 {
-				return "", structerr.NewInternal("parsing conflicting file info: %s", infoLine)
-			}
-
-			mode, err := strconv.ParseInt(info[0], 8, 32)
-			if err != nil {
-				return "", structerr.NewInternal("parsing mode: %w", err)
-			}
-
-			mergeTreeConflictError.ConflictingFileInfo[i].OID, err = objectHash.FromHex(info[1])
-			if err != nil {
-				return "", structerr.NewInternal("hex to oid: %w", err)
-			}
-
-			stage, err := strconv.Atoi(info[2])
-			if err != nil {
-				return "", structerr.NewInternal("converting stage to int: %w", err)
-			}
-
-			if stage < 1 || stage > 3 {
-				return "", structerr.NewInternal("invalid value for stage: %d", stage)
-			}
-
-			mergeTreeConflictError.ConflictingFileInfo[i].Mode = int32(mode)
-			mergeTreeConflictError.ConflictingFileInfo[i].Stage = MergeStage(stage)
-			mergeTreeConflictError.ConflictingFileInfo[i].FileName = infoAndFilename[1]
+	// If there are directory conflicts with unclear distinction, git-merge-tree(1)
+	// doesn't output any filenames in the conflicted file info section
+	if len(oidAndConflicts) > 1 {
+		err := parseConflictingFileInfo(objectHash, cfg, &mergeTreeConflictError, oidAndConflicts[1:])
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -215,6 +176,54 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 	}
 
 	return oid, &mergeTreeConflictError
+}
+
+func parseConflictingFileInfo(objectHash git.ObjectHash, cfg mergeTreeConfig, mergeTreeConflictError *MergeTreeConflictError, conflicts []string) error {
+	mergeTreeConflictError.ConflictingFileInfo = make([]ConflictingFileInfo, len(conflicts))
+
+	// From git-merge-tree(1), the information is of the format `<mode> <object> <stage> <filename>`
+	// unless the `--name-only` option is used, in which case only the filename is output.
+	// Note: that there is \t before the filename (https://gitlab.com/gitlab-org/git/blob/v2.40.0/builtin/merge-tree.c#L481)
+	for i, infoLine := range conflicts {
+		if cfg.conflictingFileNamesOnly {
+			mergeTreeConflictError.ConflictingFileInfo[i].FileName = infoLine
+		} else {
+			infoAndFilename := strings.Split(infoLine, "\t")
+			if len(infoAndFilename) != 2 {
+				return structerr.NewInternal("parsing conflicting file info: %s", infoLine)
+			}
+
+			info := strings.Fields(infoAndFilename[0])
+			if len(info) != 3 {
+				return structerr.NewInternal("parsing conflicting file info: %s", infoLine)
+			}
+
+			mode, err := strconv.ParseInt(info[0], 8, 32)
+			if err != nil {
+				return structerr.NewInternal("parsing mode: %w", err)
+			}
+
+			mergeTreeConflictError.ConflictingFileInfo[i].OID, err = objectHash.FromHex(info[1])
+			if err != nil {
+				return structerr.NewInternal("hex to oid: %w", err)
+			}
+
+			stage, err := strconv.Atoi(info[2])
+			if err != nil {
+				return structerr.NewInternal("converting stage to int: %w", err)
+			}
+
+			if stage < 1 || stage > 3 {
+				return structerr.NewInternal("invalid value for stage: %d", stage)
+			}
+
+			mergeTreeConflictError.ConflictingFileInfo[i].Mode = int32(mode)
+			mergeTreeConflictError.ConflictingFileInfo[i].Stage = MergeStage(stage)
+			mergeTreeConflictError.ConflictingFileInfo[i].FileName = infoAndFilename[1]
+		}
+	}
+
+	return nil
 }
 
 // ConflictingFileInfo holds the conflicting file info output from git-merge-tree(1).

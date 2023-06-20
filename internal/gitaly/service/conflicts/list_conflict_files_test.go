@@ -247,6 +247,52 @@ func testListConflictFiles(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			"Directory rename conflict without explicit paths",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsService(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				commonCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "z", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "b", Mode: "100644", Content: "b"},
+						{Path: "c", Mode: "100644", Content: "c"},
+					})},
+				))
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(commonCommitID),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "y", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "b", Mode: "100644", Content: "b"},
+						})},
+						gittest.TreeEntry{Path: "w", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "c", Mode: "100644", Content: "c"},
+						})},
+					),
+				)
+
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(commonCommitID),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "z", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "b", Mode: "100644", Content: "b"},
+							{Path: "c", Mode: "100644", Content: "c"},
+							{Path: "d", Mode: "100644", Content: "d"},
+						})},
+					),
+				)
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:  client,
+					request: request,
+				}
+			},
+		},
+		{
 			"Lists the expected conflict files with huge diff",
 			func(tb testing.TB, ctx context.Context) setupData {
 				cfg, client := setupConflictsService(tb, nil)
