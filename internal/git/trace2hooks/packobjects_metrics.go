@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 var statsIntData = map[string]string{
@@ -56,18 +56,18 @@ func (p *PackObjectsMetrics) Name() string {
 // When it finds one, it updates Prometheus objects and log fields accordingly.
 func (p *PackObjectsMetrics) Handle(rootCtx context.Context, trace *trace2.Trace) error {
 	trace.Walk(rootCtx, func(ctx context.Context, trace *trace2.Trace) context.Context {
-		stats := command.StatsFromContext(ctx)
-		if stats != nil {
+		customFields := log.CustomFieldsFromContext(ctx)
+		if customFields != nil {
 			if field, ok := statsIntData[trace.Name]; ok {
 				data, err := strconv.Atoi(trace.Metadata["data"])
 				if err == nil {
-					stats.RecordSum(field, data)
+					customFields.RecordSum(field, data)
 				}
 			}
 
 			if field, ok := statsElapsedTimes[trace.Name]; ok {
 				elapsedTime := trace.FinishTime.Sub(trace.StartTime).Milliseconds()
-				stats.RecordSum(field, int(elapsedTime))
+				customFields.RecordSum(field, int(elapsedTime))
 			}
 
 			if stage, ok := histogramStageNames[trace.Name]; ok {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -16,15 +17,15 @@ func TestGetSpawnToken_CommandStats(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx = InitContextStats(ctx)
+	ctx = log.InitContextCustomFields(ctx)
 
 	putToken, err := getSpawnToken(ctx)
 	require.Nil(t, err)
 	putToken()
 
-	stats := StatsFromContext(ctx)
-	require.NotNil(t, stats)
-	require.Contains(t, stats.Fields(), "command.spawn_token_wait_ms")
+	customFields := log.CustomFieldsFromContext(ctx)
+	require.NotNil(t, customFields)
+	require.Contains(t, customFields.Fields(), "command.spawn_token_wait_ms")
 }
 
 // This test modifies a global config, hence should never run in parallel
@@ -41,7 +42,7 @@ func TestGetSpawnToken_CommandStats_timeout(t *testing.T) {
 	}()
 
 	ctx := testhelper.Context(t)
-	ctx = InitContextStats(ctx)
+	ctx = log.InitContextCustomFields(ctx)
 
 	_, err := getSpawnToken(ctx)
 
@@ -57,10 +58,10 @@ func TestGetSpawnToken_CommandStats_timeout(t *testing.T) {
 	require.Equal(t, "process spawn timed out after 1ms", limitErr.ErrorMessage)
 	require.Equal(t, durationpb.New(0), limitErr.RetryAfter)
 
-	stats := StatsFromContext(ctx)
-	require.NotNil(t, stats)
-	fields := stats.Fields()
+	customFields := log.CustomFieldsFromContext(ctx)
+	require.NotNil(t, customFields)
+	logrusFields := customFields.Fields()
 
-	require.GreaterOrEqual(t, fields["command.spawn_token_wait_ms"], 0)
-	require.Equal(t, fields["command.spawn_token_error"], "spawn token timeout")
+	require.GreaterOrEqual(t, logrusFields["command.spawn_token_wait_ms"], 0)
+	require.Equal(t, logrusFields["command.spawn_token_error"], "spawn token timeout")
 }

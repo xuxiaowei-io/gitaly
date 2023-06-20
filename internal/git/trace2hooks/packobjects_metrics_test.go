@@ -8,8 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -25,12 +25,12 @@ func TestPackObjectsMetrics_Handle(t *testing.T) {
 		desc            string
 		inputTrace      *trace2.Trace
 		expectedMetrics string
-		expectedStats   logrus.Fields
+		expectedFields  logrus.Fields
 	}{
 		{
 			desc:            "empty trace",
 			inputTrace:      nil,
-			expectedStats:   logrus.Fields{},
+			expectedFields:  logrus.Fields{},
 			expectedMetrics: ``,
 		},
 		{
@@ -41,7 +41,7 @@ func TestPackObjectsMetrics_Handle(t *testing.T) {
 				StartTime:  current,
 				FinishTime: time.Time{},
 			},
-			expectedStats:   logrus.Fields{},
+			expectedFields:  logrus.Fields{},
 			expectedMetrics: ``,
 		},
 		{
@@ -153,7 +153,7 @@ func TestPackObjectsMetrics_Handle(t *testing.T) {
 					),
 				},
 			}),
-			expectedStats: logrus.Fields{
+			expectedFields: logrus.Fields{
 				"pack_objects.written_object_count":           99,
 				"pack_objects.loosened_unused_packed_objects": 1234,
 				"pack_objects.stdin_packs_hints":              999,
@@ -314,7 +314,7 @@ gitaly_pack_objects_stages_seconds_count{stage="write-pack-file"} 1
 					),
 				},
 			}),
-			expectedStats: logrus.Fields{
+			expectedFields: logrus.Fields{
 				"pack_objects.written_object_count":           101,
 				"pack_objects.loosened_unused_packed_objects": 4690,
 				"pack_objects.stdin_packs_hints":              999,
@@ -375,7 +375,7 @@ gitaly_pack_objects_stages_seconds_count{stage="write-pack-file"} 2
 
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			ctx := command.InitContextStats(testhelper.Context(t))
+			ctx := log.InitContextCustomFields(testhelper.Context(t))
 
 			exporter := NewPackObjectsMetrics()
 
@@ -390,9 +390,9 @@ gitaly_pack_objects_stages_seconds_count{stage="write-pack-file"} 2
 				),
 			)
 
-			stats := command.StatsFromContext(ctx)
-			require.NotNil(t, stats)
-			require.Equal(t, tc.expectedStats, stats.Fields())
+			customFields := log.CustomFieldsFromContext(ctx)
+			require.NotNil(t, customFields)
+			require.Equal(t, tc.expectedFields, customFields.Fields())
 		})
 	}
 }

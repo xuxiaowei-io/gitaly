@@ -10,9 +10,9 @@ import (
 	"unsafe"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
@@ -414,7 +414,7 @@ func TestRequestQueue_CommandStats(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx = command.InitContextStats(ctx)
+	ctx = log.InitContextCustomFields(ctx)
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 
@@ -429,8 +429,8 @@ func TestRequestQueue_CommandStats(t *testing.T) {
 	_, err := queue.ReadObject(ctx)
 	require.NoError(t, err)
 
-	stats := command.StatsFromContext(ctx)
-	fields := stats.Fields()
+	customFields := log.CustomFieldsFromContext(ctx)
+	fields := customFields.Fields()
 	require.Contains(t, fields, "catfile.request_object_count")
 	require.Contains(t, fields, "catfile.request_object_ms")
 	require.Contains(t, fields, "catfile.flush_count")

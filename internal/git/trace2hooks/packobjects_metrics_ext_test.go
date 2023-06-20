@@ -8,12 +8,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2hooks"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -175,7 +175,7 @@ func TestPackObjectsMetrics(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := command.InitContextStats(testhelper.Context(t))
+			ctx := log.InitContextCustomFields(testhelper.Context(t))
 			repoProto, cfg, input := tc.setupRepo(ctx)
 			gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, git.WithTrace2Hooks([]trace2.Hook{
 				trace2hooks.NewPackObjectsMetrics(),
@@ -197,17 +197,17 @@ func TestPackObjectsMetrics(t *testing.T) {
 			err = cmd.Wait()
 			require.NoError(t, err)
 
-			stats := command.StatsFromContext(ctx)
-			require.NotNil(t, stats)
+			customFields := log.CustomFieldsFromContext(ctx)
+			require.NotNil(t, customFields)
 
-			statFields := stats.Fields()
-			require.Equal(t, "true", statFields["trace2.activated"])
-			require.Equal(t, "pack_objects_metrics", statFields["trace2.hooks"])
-			require.Contains(t, statFields, "pack_objects.enumerate_objects_ms")
-			require.Contains(t, statFields, "pack_objects.prepare_pack_ms")
-			require.Contains(t, statFields, "pack_objects.write_pack_file_ms")
+			logrusFields := customFields.Fields()
+			require.Equal(t, "true", logrusFields["trace2.activated"])
+			require.Equal(t, "pack_objects_metrics", logrusFields["trace2.hooks"])
+			require.Contains(t, logrusFields, "pack_objects.enumerate_objects_ms")
+			require.Contains(t, logrusFields, "pack_objects.prepare_pack_ms")
+			require.Contains(t, logrusFields, "pack_objects.write_pack_file_ms")
 
-			tc.assert(t, statFields)
+			tc.assert(t, logrusFields)
 		})
 	}
 }

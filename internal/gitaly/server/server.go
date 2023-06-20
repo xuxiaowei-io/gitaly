@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/grpcstats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/cache"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/commandstatshandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/customfieldshandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
@@ -107,7 +107,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	logMsgProducer := grpcmwlogrus.WithMessageProducer(
 		gitalylog.MessageProducer(
 			gitalylog.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-			commandstatshandler.FieldsProducer,
+			customfieldshandler.FieldsProducer,
 			grpcstats.FieldsProducer,
 			featureflag.FieldsProducer,
 			structerr.FieldsProducer,
@@ -120,7 +120,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
-		commandstatshandler.StreamInterceptor,
+		customfieldshandler.StreamInterceptor,
 		limithandler.StatsStreamInterceptor,
 		grpcmwlogrus.StreamServerInterceptor(s.logger,
 			grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
@@ -137,7 +137,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 		metadatahandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
-		commandstatshandler.UnaryInterceptor,
+		customfieldshandler.UnaryInterceptor,
 		limithandler.StatsUnaryInterceptor,
 		grpcmwlogrus.UnaryServerInterceptor(s.logger,
 			grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),

@@ -8,6 +8,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -85,10 +86,10 @@ func getSpawnToken(ctx context.Context) (putToken func(), err error) {
 func recordTime(ctx context.Context, start time.Time, msg string) {
 	delta := time.Since(start)
 
-	if stats := StatsFromContext(ctx); stats != nil {
-		stats.RecordSum("command.spawn_token_wait_ms", int(delta.Milliseconds()))
+	if customFields := log.CustomFieldsFromContext(ctx); customFields != nil {
+		customFields.RecordSum("command.spawn_token_wait_ms", int(delta.Milliseconds()))
 		if len(msg) != 0 {
-			stats.RecordMetadata("command.spawn_token_error", msg)
+			customFields.RecordMetadata("command.spawn_token_error", msg)
 		}
 	}
 }
