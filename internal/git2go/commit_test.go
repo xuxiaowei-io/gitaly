@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gpg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
@@ -624,31 +625,7 @@ func extractSignature(tb testing.TB, ctx context.Context, repo *localrepo.Repo, 
 	data, err := repo.ReadObject(ctx, oid)
 	require.NoError(tb, err)
 
-	const gpgSignaturePrefix = "gpgsig "
-	var (
-		gpgsig, dataWithoutGpgSig string
-		inSignature               bool
-	)
-
-	lines := strings.Split(string(data), "\n")
-
-	for i, line := range lines {
-		if line == "" {
-			dataWithoutGpgSig += "\n" + strings.Join(lines[i+1:], "\n")
-			break
-		}
-
-		if strings.HasPrefix(line, gpgSignaturePrefix) {
-			inSignature = true
-			gpgsig += strings.TrimPrefix(line, gpgSignaturePrefix)
-		} else if inSignature {
-			gpgsig += "\n" + strings.TrimPrefix(line, " ")
-		} else {
-			dataWithoutGpgSig += line + "\n"
-		}
-	}
-
-	return gpgsig, dataWithoutGpgSig
+	return gpg.ExtractSignature(tb, ctx, data)
 }
 
 func defaultCommitAuthorSignature() Signature {

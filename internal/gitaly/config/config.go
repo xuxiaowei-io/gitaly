@@ -662,6 +662,7 @@ var packedBinaries = map[string]struct{}{
 	"gitaly-ssh":        {},
 	"gitaly-git2go":     {},
 	"gitaly-lfs-smudge": {},
+	"gitaly-gpg":        {},
 }
 
 // BinaryPath returns the path to a given binary. BinaryPath does not do any validation, it simply joins the binaryName
