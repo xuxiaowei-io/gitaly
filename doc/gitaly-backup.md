@@ -113,6 +113,7 @@ Gitaly and Gitaly Cluster.
    |  `-path`                    |  string                |  yes     |  Directory where the backup files are stored. |
    |  `-parallel`                |  integer               |  no      |  Maximum number of parallel restores. |
    |  `-parallel-storage`        |  integer               |  no      |  Maximum number of parallel restores per storage. |
+   |  `-id`                      |  string                |  no      |  ID of full backup to restore. If not specified, the latest backup is restored (default). |
    |  `-layout`                  |  string                |  no      |  How backup files are located. Either `pointer` (default) or `legacy`. |
    |  `-remove-all-repositories` |  comma-separated list  |  no      |  List of storage names to have all repositories removed from before restoring. You must specify `GITALY_SERVERS` for the listed storage names. |
 

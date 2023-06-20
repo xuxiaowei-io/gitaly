@@ -69,6 +69,10 @@ type Locator interface {
 
 	// FindLatest returns the latest backup that was written by Commit
 	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
+
+	// Find returns the repository backup at the given backupID. If the backup does
+	// not exist then the error ErrDoesntExist is returned.
+	Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error)
 }
 
 // Repository abstracts git access required to make a repository backup
@@ -255,7 +259,8 @@ type RestoreRequest struct {
 	AlwaysCreate bool
 }
 
-// Restore restores a repository from a backup.
+// Restore restores a repository from a backup. If backupID is empty, the
+// latest backup will be used.
 func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
 	if err != nil {
@@ -266,9 +271,17 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	backup, err := mgr.locator.FindLatest(ctx, req.Repository)
-	if err != nil {
-		return fmt.Errorf("manager: %w", err)
+	var backup *Backup
+	if mgr.backupID == "" {
+		backup, err = mgr.locator.FindLatest(ctx, req.Repository)
+		if err != nil {
+			return fmt.Errorf("manager: %w", err)
+		}
+	} else {
+		backup, err = mgr.locator.Find(ctx, req.Repository, mgr.backupID)
+		if err != nil {
+			return fmt.Errorf("manager: %w", err)
+		}
 	}
 
 	if err := repo.Create(ctx); err != nil {
