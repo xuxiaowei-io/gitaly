@@ -110,6 +110,69 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 	}
 }
 
+func TestConfigLocator_ValidateRepository(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	const storageName = "exists"
+	cfg := testcfg.Build(t, testcfg.WithStorages(storageName))
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
+	locator := config.NewLocator(cfg)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	if testhelper.IsPraefectEnabled() {
+		repo.RelativePath = strings.TrimPrefix(repoPath, cfg.Storages[0].Path)
+	}
+
+	for _, tc := range []struct {
+		desc   string
+		repo   *gitalypb.Repository
+		opts   []storage.ValidateRepositoryOption
+		expErr error
+	}{
+		{
+			desc:   "unknown storage",
+			repo:   &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.RelativePath},
+			expErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotFound).WithMetadata("storage_name", "invalid"),
+		},
+		{
+			desc: "unchecked unknown storage",
+			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.RelativePath},
+			opts: []storage.ValidateRepositoryOption{storage.WithSkipStorageExistenceCheck()},
+		},
+		{
+			desc:   "unchecked unset storage",
+			repo:   &gitalypb.Repository{StorageName: "", RelativePath: repo.RelativePath},
+			expErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
+		},
+		{
+			desc:   "unknown repository",
+			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "invalid"},
+			expErr: storage.NewRepositoryNotFoundError(storageName, "invalid"),
+		},
+		{
+			desc: "unchecked unknown repo",
+			repo: &gitalypb.Repository{StorageName: storageName, RelativePath: "invalid"},
+			opts: []storage.ValidateRepositoryOption{storage.WithSkipRepositoryExistenceCheck()},
+		},
+		{
+			desc:   "unchecked unset repository",
+			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: ""},
+			expErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
+		},
+		{
+			desc: "proper repository path",
+			repo: repo,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := locator.ValidateRepository(tc.repo, tc.opts...)
+			require.Equal(t, tc.expErr, err)
+		})
+	}
+}
+
 func TestConfigLocator_CacheDir(t *testing.T) {
 	t.Parallel()
 	const storageName = "exists"
