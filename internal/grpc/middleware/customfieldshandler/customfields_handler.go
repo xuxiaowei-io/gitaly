@@ -1,27 +1,27 @@
-package commandstatshandler
+package customfieldshandler
 
 import (
 	"context"
 
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 )
 
-// UnaryInterceptor returns a Unary Interceptor
+// UnaryInterceptor returns a Unary Interceptor that initializes and injects a log.CustomFields object into the context
 func UnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	ctx = command.InitContextStats(ctx)
+	ctx = log.InitContextCustomFields(ctx)
 
 	res, err := handler(ctx, req)
 
 	return res, err
 }
 
-// StreamInterceptor returns a Stream Interceptor
+// StreamInterceptor returns a Stream Interceptor that initializes and injects a log.CustomFields object into the context
 func StreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	ctx := stream.Context()
-	ctx = command.InitContextStats(ctx)
+	ctx = log.InitContextCustomFields(ctx)
 
 	wrapped := grpcmw.WrapServerStream(stream)
 	wrapped.WrappedContext = ctx
@@ -31,10 +31,10 @@ func StreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.Str
 	return err
 }
 
-// FieldsProducer extracts stats info from the context and returns it as a logging fields.
+// FieldsProducer extracts custom fields info from the context and returns it as a logging fields.
 func FieldsProducer(ctx context.Context, _ error) logrus.Fields {
-	if stats := command.StatsFromContext(ctx); stats != nil {
-		return stats.Fields()
+	if fields := log.CustomFieldsFromContext(ctx); fields != nil {
+		return fields.Fields()
 	}
 	return nil
 }

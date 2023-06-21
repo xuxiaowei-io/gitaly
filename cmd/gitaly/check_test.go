@@ -97,6 +97,7 @@ func TestCheckBadCreds(t *testing.T) {
 	cmd.Stdout = &stdout
 
 	require.Error(t, cmd.Run())
+	require.Contains(t, stdout.String(), `Checking GitLab API access: FAILED`)
 	require.Contains(t, stderr.String(), "HTTP GET to GitLab endpoint /check failed: authorization failed")
-	require.Regexp(t, `Checking GitLab API access: .* level=error msg="Internal API error" .* error="authorization failed" method=GET status=401 url="http://127.0.0.1:[0-9]+/api/v4/internal/check"\nFAIL`, stdout.String())
+	require.Regexp(t, `.* level=error msg="Internal API error" .* error="authorization failed" method=GET status=401 url="http://127.0.0.1:[0-9]+/api/v4/internal/check"`, stderr.String())
 }

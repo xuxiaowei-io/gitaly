@@ -21,6 +21,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command/commandcounter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 )
@@ -460,23 +461,23 @@ func (c *Command) logProcessComplete() {
 		entry.Error(c.stderrBuffer.String())
 	}
 
-	if stats := StatsFromContext(ctx); stats != nil {
-		stats.RecordSum("command.count", 1)
-		stats.RecordSum("command.system_time_ms", int(systemTime.Milliseconds()))
-		stats.RecordSum("command.user_time_ms", int(userTime.Milliseconds()))
-		stats.RecordSum("command.cpu_time_ms", int(systemTime.Milliseconds()+userTime.Milliseconds()))
-		stats.RecordSum("command.real_time_ms", int(realTime.Milliseconds()))
+	if customFields := log.CustomFieldsFromContext(ctx); customFields != nil {
+		customFields.RecordSum("command.count", 1)
+		customFields.RecordSum("command.system_time_ms", int(systemTime.Milliseconds()))
+		customFields.RecordSum("command.user_time_ms", int(userTime.Milliseconds()))
+		customFields.RecordSum("command.cpu_time_ms", int(systemTime.Milliseconds()+userTime.Milliseconds()))
+		customFields.RecordSum("command.real_time_ms", int(realTime.Milliseconds()))
 
 		if ok {
-			stats.RecordMax("command.maxrss", int(rusage.Maxrss))
-			stats.RecordSum("command.inblock", int(rusage.Inblock))
-			stats.RecordSum("command.oublock", int(rusage.Oublock))
-			stats.RecordSum("command.minflt", int(rusage.Minflt))
-			stats.RecordSum("command.majflt", int(rusage.Majflt))
+			customFields.RecordMax("command.maxrss", int(rusage.Maxrss))
+			customFields.RecordSum("command.inblock", int(rusage.Inblock))
+			customFields.RecordSum("command.oublock", int(rusage.Oublock))
+			customFields.RecordSum("command.minflt", int(rusage.Minflt))
+			customFields.RecordSum("command.majflt", int(rusage.Majflt))
 		}
 
 		if c.cgroupPath != "" {
-			stats.RecordMetadata("command.cgroup_path", c.cgroupPath)
+			customFields.RecordMetadata("command.cgroup_path", c.cgroupPath)
 		}
 	}
 

@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -261,10 +261,10 @@ func logDuration(ctx context.Context, logFieldName string) func() {
 	start := time.Now()
 	return func() {
 		delta := time.Since(start)
-		if stats := command.StatsFromContext(ctx); stats != nil {
-			stats.RecordSum(fmt.Sprintf("catfile.%s_count", logFieldName), 1)
-			stats.RecordSum(fmt.Sprintf("catfile.%s_ms", logFieldName), int(delta.Milliseconds()))
-			stats.RecordSum("catfile.duration_ms", int(delta.Milliseconds()))
+		if customFields := log.CustomFieldsFromContext(ctx); customFields != nil {
+			customFields.RecordSum(fmt.Sprintf("catfile.%s_count", logFieldName), 1)
+			customFields.RecordSum(fmt.Sprintf("catfile.%s_ms", logFieldName), int(delta.Milliseconds()))
+			customFields.RecordSum("catfile.duration_ms", int(delta.Milliseconds()))
 		}
 	}
 }

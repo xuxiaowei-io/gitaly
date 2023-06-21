@@ -17,11 +17,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -95,14 +95,14 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 		packObjectsCacheLookups.WithLabelValues("hit").Inc()
 	}
 
-	stats := command.StatsFromContext(ctx)
-	if stats != nil {
-		stats.RecordMetadata("pack_objects_cache.key", cacheKey)
-		stats.RecordSum("pack_objects_cache.served_bytes", int(servedBytes))
+	customFields := log.CustomFieldsFromContext(ctx)
+	if customFields != nil {
+		customFields.RecordMetadata("pack_objects_cache.key", cacheKey)
+		customFields.RecordSum("pack_objects_cache.served_bytes", int(servedBytes))
 		if created {
-			stats.RecordMetadata("pack_objects_cache.hit", "false")
+			customFields.RecordMetadata("pack_objects_cache.hit", "false")
 		} else {
-			stats.RecordMetadata("pack_objects_cache.hit", "true")
+			customFields.RecordMetadata("pack_objects_cache.hit", "true")
 		}
 	}
 	packObjectsServedBytes.Add(float64(servedBytes))
@@ -241,12 +241,12 @@ func runPackObjects(
 
 	defer func() {
 		packObjectsGeneratedBytes.Add(float64(counter.N))
-		stats := command.StatsFromContext(ctx)
-		if stats != nil {
-			stats.RecordMetadata("pack_objects_cache.key", key)
-			stats.RecordSum("pack_objects_cache.generated_bytes", int(counter.N))
+		customFields := log.CustomFieldsFromContext(ctx)
+		if customFields != nil {
+			customFields.RecordMetadata("pack_objects_cache.key", key)
+			customFields.RecordSum("pack_objects_cache.generated_bytes", int(counter.N))
 			if total := totalMessage(stderrBuf.Bytes()); total != "" {
-				stats.RecordMetadata("pack_objects.compression_statistics", total)
+				customFields.RecordMetadata("pack_objects.compression_statistics", total)
 			}
 		}
 	}()

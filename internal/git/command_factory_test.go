@@ -18,13 +18,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2hooks"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
@@ -737,10 +737,10 @@ func TestWithTrace2Hooks(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc          string
-		setup         func(t *testing.T) []trace2.Hook
-		expectedStats map[string]any
-		withStats     bool
+		desc           string
+		setup          func(t *testing.T) []trace2.Hook
+		expectedFields map[string]any
+		withFields     bool
 	}{
 		{
 			desc: "trace2 hook runs successfully",
@@ -755,8 +755,8 @@ func TestWithTrace2Hooks(t *testing.T) {
 					},
 				}
 			},
-			withStats: true,
-			expectedStats: map[string]any{
+			withFields: true,
+			expectedFields: map[string]any{
 				"trace2.activated": "true",
 				"trace2.hooks":     "dummy",
 			},
@@ -781,8 +781,8 @@ func TestWithTrace2Hooks(t *testing.T) {
 					},
 				}
 			},
-			withStats: true,
-			expectedStats: map[string]any{
+			withFields: true,
+			expectedFields: map[string]any{
 				"trace2.activated": "true",
 				"trace2.hooks":     "dummy,dummy2",
 			},
@@ -792,8 +792,8 @@ func TestWithTrace2Hooks(t *testing.T) {
 			setup: func(t *testing.T) []trace2.Hook {
 				return []trace2.Hook{}
 			},
-			withStats: true,
-			expectedStats: map[string]any{
+			withFields: true,
+			expectedFields: map[string]any{
 				"trace2.activated": nil,
 				"trace2.hooks":     nil,
 			},
@@ -817,15 +817,15 @@ func TestWithTrace2Hooks(t *testing.T) {
 					},
 				}
 			},
-			withStats: true,
-			expectedStats: map[string]any{
+			withFields: true,
+			expectedFields: map[string]any{
 				"trace2.activated": "true",
 				"trace2.hooks":     "dummy,dummy2",
 				"trace2.error":     `trace2: executing "dummy" handler: something goes wrong`,
 			},
 		},
 		{
-			desc: "stats is not initialized",
+			desc: "context does not initialize custom fields",
 			setup: func(t *testing.T) []trace2.Hook {
 				return []trace2.Hook{
 					&dummyHook{
@@ -837,28 +837,28 @@ func TestWithTrace2Hooks(t *testing.T) {
 					},
 				}
 			},
-			withStats: false,
+			withFields: false,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			hooks := tc.setup(t)
 			ctx := testhelper.Context(t)
-			if tc.withStats {
-				ctx = command.InitContextStats(ctx)
+			if tc.withFields {
+				ctx = log.InitContextCustomFields(ctx)
 			}
 
 			performPackObjectGit(t, ctx, git.WithTrace2Hooks(hooks))
 
-			if tc.withStats {
-				stats := command.StatsFromContext(ctx)
-				require.NotNil(t, stats)
+			if tc.withFields {
+				customFields := log.CustomFieldsFromContext(ctx)
+				require.NotNil(t, customFields)
 
-				fields := stats.Fields()
-				for key, value := range tc.expectedStats {
-					require.Equal(t, value, fields[key])
+				logrusFields := customFields.Fields()
+				for key, value := range tc.expectedFields {
+					require.Equal(t, value, logrusFields[key])
 				}
 			} else {
-				require.Nil(t, command.StatsFromContext(ctx))
+				require.Nil(t, log.CustomFieldsFromContext(ctx))
 			}
 		})
 	}
@@ -922,12 +922,12 @@ func TestTrace2TracingExporter(t *testing.T) {
 			reporter, cleanup := testhelper.StubTracingReporter(t, tc.tracerOptions...)
 			defer cleanup()
 
-			ctx := tc.setup(t, command.InitContextStats(testhelper.Context(t)))
+			ctx := tc.setup(t, log.InitContextCustomFields(testhelper.Context(t)))
 			performRevList(t, ctx)
 
-			stats := command.StatsFromContext(ctx)
-			require.NotNil(t, stats)
-			statFields := stats.Fields()
+			customFields := log.CustomFieldsFromContext(ctx)
+			require.NotNil(t, customFields)
+			statFields := customFields.Fields()
 
 			var spans []string
 			for _, span := range testhelper.ReportedSpans(t, reporter) {
@@ -992,14 +992,14 @@ func TestTrace2PackObjectsMetrics(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := command.InitContextStats(testhelper.Context(t))
+			ctx := log.InitContextCustomFields(testhelper.Context(t))
 			tc.performGitCommand(t, ctx)
 
-			stats := command.StatsFromContext(ctx)
-			require.NotNil(t, stats)
+			customFields := log.CustomFieldsFromContext(ctx)
+			require.NotNil(t, customFields)
 
-			statFields := stats.Fields()
-			tc.assert(t, ctx, statFields)
+			logrusFields := customFields.Fields()
+			tc.assert(t, ctx, logrusFields)
 		})
 	}
 }

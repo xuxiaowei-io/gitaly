@@ -36,7 +36,7 @@ func TestGitalyCLI(t *testing.T) {
 			desc:     "with non-existent config",
 			args:     []string{"non-existent-file"},
 			exitCode: 1,
-			stdout:   `msg="load config: config_path \"non-existent-file\"`,
+			stderr:   `msg="load config: config_path \"non-existent-file\"`,
 		},
 		{
 			desc:     "check without config",
