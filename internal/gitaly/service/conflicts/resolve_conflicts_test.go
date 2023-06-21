@@ -38,7 +38,10 @@ var (
 func TestResolveConflicts(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ResolveConflictsViaGit).Run(t, testResolveConflicts)
+	testhelper.NewFeatureSets(
+		featureflag.ResolveConflictsViaGit,
+		featureflag.GPGSigning,
+	).Run(t, testResolveConflicts)
 }
 
 func testResolveConflicts(t *testing.T, ctx context.Context) {
@@ -218,6 +221,75 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("acai"),
+						},
+					},
+				}
+			},
+		},
+		{
+			"single file in directory conflict, pick ours",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsService(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				baseCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						{Path: "a", Mode: "100644", Content: "apple"},
+					})}),
+				)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(baseCommitID), gittest.WithBranch("ours"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "a", Mode: "100644", Content: "apricot"},
+						})}),
+				)
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(baseCommitID), gittest.WithBranch("theirs"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+							{Path: "a", Mode: "100644", Content: "acai"},
+						})}),
+				)
+
+				files := []map[string]interface{}{
+					{
+						"old_path": "subdir/a",
+						"new_path": "subdir/a",
+						"sections": map[string]string{
+							fmt.Sprintf("%x_%d_%d", sha1.Sum([]byte("subdir/a")), 1, 1): "head",
+						},
+					},
+				}
+
+				filesJSON, err := json.Marshal(files)
+				require.NoError(t, err)
+
+				return setupData{
+					cfg:      cfg,
+					client:   client,
+					repoPath: repoPath,
+					repo:     repo,
+					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
+						Header: &gitalypb.ResolveConflictsRequestHeader{
+							Repository:       repo,
+							TargetRepository: repo,
+							OurCommitOid:     ourCommitID.String(),
+							TheirCommitOid:   theirCommitID.String(),
+							TargetBranch:     []byte("theirs"),
+							SourceBranch:     []byte("ours"),
+							CommitMessage:    []byte(conflictResolutionCommitMessage),
+							User:             user,
+							Timestamp:        &timestamppb.Timestamp{},
+						},
+					},
+					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
+						{FilesJson: filesJSON[:50]},
+						{FilesJson: filesJSON[50:]},
+					},
+					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedContent: map[string]map[string][]byte{
+						"refs/heads/ours": {
+							"subdir/a": []byte("apricot"),
 						},
 					},
 				}
@@ -420,6 +492,70 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			"multi file conflict, but missing file resolution",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsService(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				baseCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "apple\n" + strings.Repeat("filler\n", 10) + "banana"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "strawberry"},
+				))
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(baseCommitID), gittest.WithBranch("ours"),
+					gittest.WithTreeEntries(gittest.TreeEntry{
+						Path: "a", Mode: "100644",
+						Content: "apricot\n" + strings.Repeat("filler\n", 10) + "berries",
+					}, gittest.TreeEntry{Path: "b", Mode: "100644", Content: "blueberry"}))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(baseCommitID), gittest.WithBranch("theirs"),
+					gittest.WithTreeEntries(gittest.TreeEntry{
+						Path: "a", Mode: "100644",
+						Content: "acai\n" + strings.Repeat("filler\n", 10) + "birne",
+					}, gittest.TreeEntry{Path: "b", Mode: "100644", Content: "raspberry"}))
+
+				files := []map[string]interface{}{
+					{
+						"old_path": "b",
+						"new_path": "b",
+						"sections": map[string]string{
+							fmt.Sprintf("%x_%d_%d", sha1.Sum([]byte("b")), 1, 1): "head",
+						},
+					},
+				}
+
+				filesJSON, err := json.Marshal(files)
+				require.NoError(t, err)
+
+				return setupData{
+					cfg:      cfg,
+					client:   client,
+					repoPath: repoPath,
+					repo:     repo,
+					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
+						Header: &gitalypb.ResolveConflictsRequestHeader{
+							Repository:       repo,
+							TargetRepository: repo,
+							OurCommitOid:     ourCommitID.String(),
+							TheirCommitOid:   theirCommitID.String(),
+							TargetBranch:     []byte("theirs"),
+							SourceBranch:     []byte("ours"),
+							CommitMessage:    []byte(conflictResolutionCommitMessage),
+							User:             user,
+							Timestamp:        &timestamppb.Timestamp{},
+						},
+					},
+					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
+						{FilesJson: filesJSON[:50]},
+						{FilesJson: filesJSON[50:]},
+					},
+					expectedResponse: &gitalypb.ResolveConflictsResponse{
+						ResolutionError: "Missing resolutions for the following files: a",
+					},
+					skipCommitCheck: true,
+				}
+			},
+		},
+		{
 			"single file conflict, remote repo",
 			func(tb testing.TB, ctx context.Context) setupData {
 				cfg, client := setupConflictsService(tb, nil)
@@ -601,6 +737,17 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 				filesJSON, err := json.Marshal(files)
 				require.NoError(t, err)
 
+				expectedContent := map[string]map[string][]byte{
+					"refs/heads/ours": {
+						"a": []byte("A\r\nB\r\nX\r\nD\r\nE\r\n"),
+					},
+				}
+
+				// git replaces crlf with newlines when storing to the database
+				if featureflag.ResolveConflictsViaGit.IsEnabled(ctx) {
+					expectedContent["refs/heads/ours"]["a"] = []byte("A\nB\nX\nD\nE\n")
+				}
+
 				return setupData{
 					cfg:      cfg,
 					client:   client,
@@ -623,11 +770,7 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 						{FilesJson: filesJSON},
 					},
 					expectedResponse: &gitalypb.ResolveConflictsResponse{},
-					expectedContent: map[string]map[string][]byte{
-						"refs/heads/ours": {
-							"a": []byte("A\r\nB\r\nX\r\nD\r\nE\r\n"),
-						},
-					},
+					expectedContent:  expectedContent,
 				}
 			},
 		},
