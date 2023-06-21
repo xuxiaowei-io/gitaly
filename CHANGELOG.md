@@ -1,5 +1,22 @@
 # Gitaly changelog
 
+## 16.1.0 (2023-06-21)
+
+### Added (1 change)
+
+- [proto: Update FindDefaultBranchName to add HeadOnly](gitlab-org/gitaly@e6f48cdeae55e5001d4bebafce2cc132eabdb913) ([merge request](gitlab-org/gitaly!5880))
+
+### Fixed (4 changes)
+
+- [git/housekeeping: Prune stale multi-pack-index locks](gitlab-org/gitaly@db79f9379d8378b566ac3dbc78bddd15572fe7e5) ([merge request](gitlab-org/gitaly!5932))
+- [gitaly/hook: Fix packed-refs lock contention by synchronizing hooks](gitlab-org/gitaly@38e01406b245eb6fa13088e951dd3210c64c30b6) ([merge request](gitlab-org/gitaly!5916))
+- [Fixed: UserMergeBranch loses error messages from the merge operation](gitlab-org/gitaly@4f48c3fc8c122a11e3143bcbba3af3140f8e780b) by @OK_MF ([merge request](gitlab-org/gitaly!5777))
+- [git: Extend locking timeout for packed-refs to decrease contention](gitlab-org/gitaly@b0a54103612c2e4b9dd2356e79b5897058cf1543) ([merge request](gitlab-org/gitaly!5833))
+
+### Changed (1 change)
+
+- [Use SSH for signing commits](gitlab-org/gitaly@2a1007bee30206a282312d73186ff82c379f6aa9) ([merge request](gitlab-org/gitaly!5408))
+
 ## 16.0.5 (2023-06-16)
 
 No changes.
