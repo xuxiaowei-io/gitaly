@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gpg"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 )
 
 func gpgApp() *cli.App {
@@ -24,7 +24,7 @@ func gpgApp() *cli.App {
 				return errors.New("expected --status-fd=2")
 			}
 
-			signedKeyData, err := os.ReadFile(cCtx.Args().First())
+			signingKey, err := signature.ParseSigningKey(cCtx.Args().First())
 			if err != nil {
 				return fmt.Errorf("reading signed key file %s : %w", cCtx.Args().First(), err)
 			}
@@ -34,7 +34,7 @@ func gpgApp() *cli.App {
 				return fmt.Errorf("reading contents from stdin: %w", err)
 			}
 
-			signature, err := gpg.CreateSignature(signedKeyData, contents)
+			sig, err := signingKey.CreateSignature(contents)
 			if err != nil {
 				return fmt.Errorf("creating signature: %w", err)
 			}
@@ -44,7 +44,7 @@ func gpgApp() *cli.App {
 				return fmt.Errorf("printing to stdout: %w", err)
 			}
 
-			if _, err := cCtx.App.Writer.Write(signature); err != nil {
+			if _, err := cCtx.App.Writer.Write(sig); err != nil {
 				return fmt.Errorf("printing to stdout: %w", err)
 			}
 

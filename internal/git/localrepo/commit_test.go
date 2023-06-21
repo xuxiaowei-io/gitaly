@@ -14,8 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gpg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
@@ -249,7 +249,7 @@ func testWriteCommit(t *testing.T, ctx context.Context) {
 		data, err := repo.ReadObject(ctx, oid)
 		require.NoError(t, err)
 
-		gpgsig, dataWithoutGpgSig := gpg.ExtractSignature(t, ctx, data)
+		gpgsig, dataWithoutGpgSig := signature.ExtractSignature(t, ctx, data)
 
 		pubKey := testhelper.MustReadFile(tb, "testdata/signing_gpg_key.pub")
 		keyring, err := openpgp.ReadKeyRing(bytes.NewReader(pubKey))
