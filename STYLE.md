@@ -163,6 +163,30 @@ message FrobnicateError {
 }
 ```
 
+### Unavailable code
+
+The Unavailable status code is reserved for cases that clients are encouraged to retry. The most suitable use cases for
+this status code are in interceptors or network-related components such as load-balancing. The official documentation
+differentiates the usage of status codes as the following:
+
+> (a) Use UNAVAILABLE if the client can retry just the failing call.
+> (b) Use ABORTED if the client should retry at a higher level
+> (c) Use FAILED_PRECONDITION if the client should not retry until the
+> system state has been explicitly fixed
+
+In the past we've had multiple places in the source code where an error from sending a streaming message was captured
+and wrapped in an `Unavailable` code. This status code is often not correct because it can raise other less common
+errors, such as buffer overflow (`ResourceExhausted`), max message size exceeded (`ResourceExhausted`), or encoding
+failure (`Internal`). It's more appropriate for the handler to propagate the error up as an `Aborted` status code.
+
+Another common misused pattern is wrapping the spawned process exit code. In many cases, if Gitaly can intercept the
+exit code or/and error from stderr, it must have a precise error code (`InvalidArgument`, `NotFound`, `Internal`).
+However, Git processes may exit with 128 status code and un-parseable stderr. We can intercept it as an operation was
+rejected because the system is not in a state where it can be executed (resource inaccessible, invalid refs, etc.).
+For these situations, `FailedPrecondition` is the most suitable choice.
+
+Thus, gRPC handlers should avoid using `Unavailable` status code.
+
 ## Logging
 
 ### Use context-based logging
