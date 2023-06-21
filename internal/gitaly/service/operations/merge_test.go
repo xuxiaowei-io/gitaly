@@ -1483,19 +1483,25 @@ func TestUserMergeToRef_successful(t *testing.T) {
 }
 
 func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
-
+	branch := "main"
+	firstParentRef := "refs/heads/" + branch
+	branchSha := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithReference(firstParentRef),
+		gittest.WithMessage("branch commit"),
+	).String()
+	sourceSha := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("source-branch"),
+		gittest.WithMessage("source branch commit"),
+	).String()
 	existingTargetRef := []byte("refs/merge-requests/x/written")
+	existingTargetRefOid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference(string(existingTargetRef)))
 	emptyTargetRef := []byte("refs/merge-requests/x/merge")
 	mergeCommitMessage := "Merged by Gitaly"
-
-	// Writes in existingTargetRef
-	beforeRefreshCommitSha := "a5391128b0ef5d21df5dd23d98557f4ef12fae20"
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha)
 
 	testCases := []struct {
 		desc           string
@@ -1506,38 +1512,52 @@ func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 		sourceSha      string
 		message        string
 		firstParentRef []byte
+		expectedOldOid string
 	}{
 		{
 			desc:           "empty target ref merge",
 			user:           gittest.TestUser,
 			targetRef:      emptyTargetRef,
 			emptyRef:       true,
-			sourceSha:      commitToMerge,
+			sourceSha:      sourceSha,
 			message:        mergeCommitMessage,
-			firstParentRef: []byte("refs/heads/" + mergeBranchName),
+			firstParentRef: []byte(firstParentRef),
 		},
 		{
 			desc:           "existing target ref",
 			user:           gittest.TestUser,
 			targetRef:      existingTargetRef,
 			emptyRef:       false,
-			sourceSha:      commitToMerge,
+			sourceSha:      sourceSha,
 			message:        mergeCommitMessage,
-			firstParentRef: []byte("refs/heads/" + mergeBranchName),
+			firstParentRef: []byte(firstParentRef),
+		},
+		{
+			desc:           "existing target ref with optimistic lock",
+			user:           gittest.TestUser,
+			targetRef:      existingTargetRef,
+			emptyRef:       false,
+			sourceSha:      sourceSha,
+			message:        mergeCommitMessage,
+			firstParentRef: []byte(firstParentRef),
+			expectedOldOid: existingTargetRefOid.String(),
 		},
 		{
 			desc:      "branch is specified and firstParentRef is empty",
 			user:      gittest.TestUser,
-			branch:    []byte(mergeBranchName),
+			branch:    []byte(branch),
 			targetRef: existingTargetRef,
 			emptyRef:  false,
-			sourceSha: "38008cb17ce1466d8fec2dfa6f6ab8dcfe5cf49e",
+			sourceSha: sourceSha,
 			message:   mergeCommitMessage,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
+			// reset target ref
+			gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(existingTargetRef), existingTargetRefOid)
+
 			request := &gitalypb.UserMergeToRefRequest{
 				Repository:     repoProto,
 				User:           testCase.user,
@@ -1546,6 +1566,7 @@ func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 				SourceSha:      testCase.sourceSha,
 				Message:        []byte(testCase.message),
 				FirstParentRef: testCase.firstParentRef,
+				ExpectedOldOid: testCase.expectedOldOid,
 			}
 
 			commitBeforeRefMerge, fetchRefBeforeMergeErr := repo.ReadCommit(ctx, git.Revision(testCase.targetRef))
@@ -1562,7 +1583,7 @@ func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 			require.NoError(t, err, "look up git commit after call has finished")
 
 			// Asserts commit parent SHAs
-			require.Equal(t, []string{mergeBranchHeadBefore, testCase.sourceSha}, commit.ParentIds, "merge commit parents must be the sha before HEAD and source sha")
+			require.Equal(t, []string{branchSha, testCase.sourceSha}, commit.ParentIds, "merge commit parents must be the sha before HEAD and source sha")
 
 			require.True(t, strings.HasPrefix(string(commit.Body), testCase.message), "expected %q to start with %q", commit.Body, testCase.message)
 
@@ -1699,93 +1720,123 @@ func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
 }
 
 func TestUserMergeToRef_failure(t *testing.T) {
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.MergeToRefWithGit,
+	).Run(t, testUserMergeToRefFailure)
+}
+
+func testUserMergeToRefFailure(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
+	validBranchName := "main"
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(validBranchName),
+		gittest.WithMessage("branch commit"),
+	)
+	validSourceSha := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("source-branch"),
+		gittest.WithMessage("source branch commit"),
+	).String()
 	validTargetRef := []byte("refs/merge-requests/x/merge")
 
 	testCases := []struct {
-		desc      string
-		user      *gitalypb.User
-		branch    []byte
-		targetRef []byte
-		sourceSha string
-		repo      *gitalypb.Repository
-		code      codes.Code
+		desc           string
+		user           *gitalypb.User
+		branch         []byte
+		targetRef      []byte
+		sourceSha      string
+		repo           *gitalypb.Repository
+		code           codes.Code
+		expectedOldOid string
+		message        []byte
 	}{
 		{
 			desc:      "empty repository",
 			user:      gittest.TestUser,
-			branch:    []byte(branchName),
-			sourceSha: commitToMerge,
+			branch:    []byte(validBranchName),
+			sourceSha: validSourceSha,
 			targetRef: validTargetRef,
 			code:      codes.InvalidArgument,
 		},
 		{
 			desc:      "empty user",
-			repo:      repo,
-			branch:    []byte(branchName),
-			sourceSha: commitToMerge,
+			repo:      repoProto,
+			branch:    []byte(validBranchName),
+			sourceSha: validSourceSha,
 			targetRef: validTargetRef,
 			code:      codes.InvalidArgument,
 		},
 		{
 			desc:      "empty source SHA",
-			repo:      repo,
+			repo:      repoProto,
 			user:      gittest.TestUser,
-			branch:    []byte(branchName),
+			branch:    []byte(validBranchName),
 			targetRef: validTargetRef,
 			code:      codes.InvalidArgument,
 		},
 		{
 			desc:      "non-existing commit",
-			repo:      repo,
+			repo:      repoProto,
 			user:      gittest.TestUser,
-			branch:    []byte(branchName),
+			branch:    []byte(validBranchName),
 			sourceSha: "f001",
 			targetRef: validTargetRef,
 			code:      codes.InvalidArgument,
 		},
 		{
 			desc:      "empty branch and first parent ref",
-			repo:      repo,
+			repo:      repoProto,
 			user:      gittest.TestUser,
-			sourceSha: commitToMerge,
+			sourceSha: validSourceSha,
 			targetRef: validTargetRef,
 			code:      codes.InvalidArgument,
 		},
 		{
 			desc:      "invalid target ref",
-			repo:      repo,
+			repo:      repoProto,
 			user:      gittest.TestUser,
-			branch:    []byte(branchName),
-			sourceSha: commitToMerge,
+			branch:    []byte(validBranchName),
+			sourceSha: validSourceSha,
 			targetRef: []byte("refs/heads/branch"),
 			code:      codes.InvalidArgument,
 		},
 		{
 			desc:      "non-existing branch",
-			repo:      repo,
+			repo:      repoProto,
 			user:      gittest.TestUser,
 			branch:    []byte("this-isnt-real"),
-			sourceSha: commitToMerge,
+			sourceSha: validSourceSha,
 			targetRef: validTargetRef,
 			code:      codes.InvalidArgument,
+		},
+		{
+			desc:           "non-matching expected_object_id",
+			repo:           repoProto,
+			user:           gittest.TestUser,
+			branch:         []byte(validBranchName),
+			sourceSha:      validSourceSha,
+			targetRef:      validTargetRef,
+			code:           codes.FailedPrecondition,
+			message:        []byte("some merge commit message"),
+			expectedOldOid: validSourceSha, // arbitrary value that differs from current target ref OID
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserMergeToRefRequest{
-				Repository: testCase.repo,
-				User:       testCase.user,
-				Branch:     testCase.branch,
-				SourceSha:  testCase.sourceSha,
-				TargetRef:  testCase.targetRef,
+				Repository:     testCase.repo,
+				User:           testCase.user,
+				Branch:         testCase.branch,
+				SourceSha:      testCase.sourceSha,
+				TargetRef:      testCase.targetRef,
+				Message:        testCase.message,
+				ExpectedOldOid: testCase.expectedOldOid,
 			}
 			_, err := client.UserMergeToRef(ctx, request)
 			testhelper.RequireGrpcCode(t, err, testCase.code)
