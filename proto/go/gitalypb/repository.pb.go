@@ -4762,6 +4762,112 @@ func (*RemoveAllResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{82}
 }
 
+// BackupRepository is a request for the BackupRepository RPC.
+type BackupRepositoryRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Repository is the repository to be backed up.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// VanityRepository is used to determine the backup path.
+	VanityRepository *Repository `protobuf:"bytes,2,opt,name=vanity_repository,json=vanityRepository,proto3" json:"vanity_repository,omitempty"`
+	// BackupId is the label used to identify this backup when restoring.
+	BackupId string `protobuf:"bytes,3,opt,name=backup_id,json=backupId,proto3" json:"backup_id,omitempty"`
+}
+
+func (x *BackupRepositoryRequest) Reset() {
+	*x = BackupRepositoryRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_repository_proto_msgTypes[83]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BackupRepositoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupRepositoryRequest) ProtoMessage() {}
+
+func (x *BackupRepositoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_proto_msgTypes[83]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupRepositoryRequest.ProtoReflect.Descriptor instead.
+func (*BackupRepositoryRequest) Descriptor() ([]byte, []int) {
+	return file_repository_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *BackupRepositoryRequest) GetRepository() *Repository {
+	if x != nil {
+		return x.Repository
+	}
+	return nil
+}
+
+func (x *BackupRepositoryRequest) GetVanityRepository() *Repository {
+	if x != nil {
+		return x.VanityRepository
+	}
+	return nil
+}
+
+func (x *BackupRepositoryRequest) GetBackupId() string {
+	if x != nil {
+		return x.BackupId
+	}
+	return ""
+}
+
+// BackupRepositoryResponse is a response for the BackupRepository RPC.
+type BackupRepositoryResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *BackupRepositoryResponse) Reset() {
+	*x = BackupRepositoryResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_repository_proto_msgTypes[84]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BackupRepositoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupRepositoryResponse) ProtoMessage() {}
+
+func (x *BackupRepositoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_proto_msgTypes[84]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupRepositoryResponse.ProtoReflect.Descriptor instead.
+func (*BackupRepositoryResponse) Descriptor() ([]byte, []int) {
+	return file_repository_proto_rawDescGZIP(), []int{84}
+}
+
 // ReferencesInfo hosts information about references.
 type RepositoryInfoResponse_ReferencesInfo struct {
 	state         protoimpl.MessageState
@@ -4786,7 +4892,7 @@ type RepositoryInfoResponse_ReferencesInfo struct {
 func (x *RepositoryInfoResponse_ReferencesInfo) Reset() {
 	*x = RepositoryInfoResponse_ReferencesInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_repository_proto_msgTypes[83]
+		mi := &file_repository_proto_msgTypes[85]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4799,7 +4905,7 @@ func (x *RepositoryInfoResponse_ReferencesInfo) String() string {
 func (*RepositoryInfoResponse_ReferencesInfo) ProtoMessage() {}
 
 func (x *RepositoryInfoResponse_ReferencesInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_proto_msgTypes[83]
+	mi := &file_repository_proto_msgTypes[85]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4865,7 +4971,7 @@ type RepositoryInfoResponse_ObjectsInfo struct {
 func (x *RepositoryInfoResponse_ObjectsInfo) Reset() {
 	*x = RepositoryInfoResponse_ObjectsInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_repository_proto_msgTypes[84]
+		mi := &file_repository_proto_msgTypes[86]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4878,7 +4984,7 @@ func (x *RepositoryInfoResponse_ObjectsInfo) String() string {
 func (*RepositoryInfoResponse_ObjectsInfo) ProtoMessage() {}
 
 func (x *RepositoryInfoResponse_ObjectsInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_proto_msgTypes[84]
+	mi := &file_repository_proto_msgTypes[86]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4949,7 +5055,7 @@ type GetRawChangesResponse_RawChange struct {
 func (x *GetRawChangesResponse_RawChange) Reset() {
 	*x = GetRawChangesResponse_RawChange{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_repository_proto_msgTypes[85]
+		mi := &file_repository_proto_msgTypes[87]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4962,7 +5068,7 @@ func (x *GetRawChangesResponse_RawChange) String() string {
 func (*GetRawChangesResponse_RawChange) ProtoMessage() {}
 
 func (x *GetRawChangesResponse_RawChange) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_proto_msgTypes[85]
+	mi := &file_repository_proto_msgTypes[87]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5032,6 +5138,45 @@ func (x *GetRawChangesResponse_RawChange) GetOldPathBytes() []byte {
 		return x.OldPathBytes
 	}
 	return nil
+}
+
+// SkippedError is returned when the repository backup has been skipped.
+type BackupRepositoryResponse_SkippedError struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *BackupRepositoryResponse_SkippedError) Reset() {
+	*x = BackupRepositoryResponse_SkippedError{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_repository_proto_msgTypes[88]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BackupRepositoryResponse_SkippedError) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupRepositoryResponse_SkippedError) ProtoMessage() {}
+
+func (x *BackupRepositoryResponse_SkippedError) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_proto_msgTypes[88]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupRepositoryResponse_SkippedError.ProtoReflect.Descriptor instead.
+func (*BackupRepositoryResponse_SkippedError) Descriptor() ([]byte, []int) {
+	return file_repository_proto_rawDescGZIP(), []int{84, 0}
 }
 
 var File_repository_proto protoreflect.FileDescriptor
@@ -5564,7 +5709,21 @@ var file_repository_proto_rawDesc = []byte{
 	0x12, 0x21, 0x0a, 0x0c, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x4e,
 	0x61, 0x6d, 0x65, 0x22, 0x13, 0x0a, 0x11, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x41, 0x6c, 0x6c,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x8f, 0x1e, 0x0a, 0x11, 0x52, 0x65, 0x70,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xb1, 0x01, 0x0a, 0x17, 0x42, 0x61, 0x63,
+	0x6b, 0x75, 0x70, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x38, 0x0a, 0x0a, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f,
+	0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c,
+	0x79, 0x2e, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x42, 0x04, 0x98, 0xc6,
+	0x2c, 0x01, 0x52, 0x0a, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x3f,
+	0x0a, 0x11, 0x76, 0x61, 0x6e, 0x69, 0x74, 0x79, 0x5f, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74,
+	0x6f, 0x72, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x67, 0x69, 0x74, 0x61,
+	0x6c, 0x79, 0x2e, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x10, 0x76,
+	0x61, 0x6e, 0x69, 0x74, 0x79, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x12,
+	0x1b, 0x0a, 0x09, 0x62, 0x61, 0x63, 0x6b, 0x75, 0x70, 0x5f, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x08, 0x62, 0x61, 0x63, 0x6b, 0x75, 0x70, 0x49, 0x64, 0x22, 0x2a, 0x0a, 0x18,
+	0x42, 0x61, 0x63, 0x6b, 0x75, 0x70, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x0e, 0x0a, 0x0c, 0x53, 0x6b, 0x69, 0x70,
+	0x70, 0x65, 0x64, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x32, 0xee, 0x1e, 0x0a, 0x11, 0x52, 0x65, 0x70,
 	0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x5d,
 	0x0a, 0x10, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x45, 0x78, 0x69, 0x73,
 	0x74, 0x73, 0x12, 0x1f, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x52, 0x65, 0x70, 0x6f,
@@ -5805,11 +5964,17 @@ var file_repository_proto_rawDesc = []byte{
 	0x18, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x41,
 	0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x67, 0x69, 0x74, 0x61,
 	0x6c, 0x79, 0x2e, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x41, 0x6c, 0x6c, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x04, 0x80, 0x98, 0x28, 0x01, 0x42, 0x34, 0x5a, 0x32, 0x67, 0x69,
-	0x74, 0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2d,
-	0x6f, 0x72, 0x67, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2f, 0x76, 0x31, 0x36, 0x2f, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x70, 0x62,
-	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x04, 0x80, 0x98, 0x28, 0x01, 0x12, 0x5d, 0x0a, 0x10, 0x42, 0x61,
+	0x63, 0x6b, 0x75, 0x70, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x1f,
+	0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x42, 0x61, 0x63, 0x6b, 0x75, 0x70, 0x52, 0x65,
+	0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x20, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x42, 0x61, 0x63, 0x6b, 0x75, 0x70, 0x52,
+	0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02, 0x42, 0x34, 0x5a, 0x32, 0x67, 0x69, 0x74,
+	0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2d, 0x6f,
+	0x72, 0x67, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2f, 0x76, 0x31, 0x36, 0x2f, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x70, 0x62, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -5825,7 +5990,7 @@ func file_repository_proto_rawDescGZIP() []byte {
 }
 
 var file_repository_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_repository_proto_msgTypes = make([]protoimpl.MessageInfo, 86)
+var file_repository_proto_msgTypes = make([]protoimpl.MessageInfo, 89)
 var file_repository_proto_goTypes = []interface{}{
 	(GetArchiveRequest_Format)(0),                  // 0: gitaly.GetArchiveRequest.Format
 	(GetRawChangesResponse_RawChange_Operation)(0), // 1: gitaly.GetRawChangesResponse.RawChange.Operation
@@ -5913,152 +6078,159 @@ var file_repository_proto_goTypes = []interface{}{
 	(*FullPathResponse)(nil),                       // 83: gitaly.FullPathResponse
 	(*RemoveAllRequest)(nil),                       // 84: gitaly.RemoveAllRequest
 	(*RemoveAllResponse)(nil),                      // 85: gitaly.RemoveAllResponse
-	(*RepositoryInfoResponse_ReferencesInfo)(nil),  // 86: gitaly.RepositoryInfoResponse.ReferencesInfo
-	(*RepositoryInfoResponse_ObjectsInfo)(nil),     // 87: gitaly.RepositoryInfoResponse.ObjectsInfo
-	(*GetRawChangesResponse_RawChange)(nil),        // 88: gitaly.GetRawChangesResponse.RawChange
-	(*Repository)(nil),                             // 89: gitaly.Repository
-	(ObjectFormat)(0),                              // 90: gitaly.ObjectFormat
+	(*BackupRepositoryRequest)(nil),                // 86: gitaly.BackupRepositoryRequest
+	(*BackupRepositoryResponse)(nil),               // 87: gitaly.BackupRepositoryResponse
+	(*RepositoryInfoResponse_ReferencesInfo)(nil),  // 88: gitaly.RepositoryInfoResponse.ReferencesInfo
+	(*RepositoryInfoResponse_ObjectsInfo)(nil),     // 89: gitaly.RepositoryInfoResponse.ObjectsInfo
+	(*GetRawChangesResponse_RawChange)(nil),        // 90: gitaly.GetRawChangesResponse.RawChange
+	(*BackupRepositoryResponse_SkippedError)(nil),  // 91: gitaly.BackupRepositoryResponse.SkippedError
+	(*Repository)(nil),                             // 92: gitaly.Repository
+	(ObjectFormat)(0),                              // 93: gitaly.ObjectFormat
 }
 var file_repository_proto_depIdxs = []int32{
-	89, // 0: gitaly.RepositoryExistsRequest.repository:type_name -> gitaly.Repository
-	89, // 1: gitaly.RepositorySizeRequest.repository:type_name -> gitaly.Repository
-	89, // 2: gitaly.RepositoryInfoRequest.repository:type_name -> gitaly.Repository
-	86, // 3: gitaly.RepositoryInfoResponse.references:type_name -> gitaly.RepositoryInfoResponse.ReferencesInfo
-	87, // 4: gitaly.RepositoryInfoResponse.objects:type_name -> gitaly.RepositoryInfoResponse.ObjectsInfo
-	89, // 5: gitaly.ObjectFormatRequest.repository:type_name -> gitaly.Repository
-	90, // 6: gitaly.ObjectFormatResponse.format:type_name -> gitaly.ObjectFormat
-	89, // 7: gitaly.ApplyGitattributesRequest.repository:type_name -> gitaly.Repository
-	89, // 8: gitaly.FetchBundleRequest.repository:type_name -> gitaly.Repository
-	89, // 9: gitaly.FetchRemoteRequest.repository:type_name -> gitaly.Repository
+	92, // 0: gitaly.RepositoryExistsRequest.repository:type_name -> gitaly.Repository
+	92, // 1: gitaly.RepositorySizeRequest.repository:type_name -> gitaly.Repository
+	92, // 2: gitaly.RepositoryInfoRequest.repository:type_name -> gitaly.Repository
+	88, // 3: gitaly.RepositoryInfoResponse.references:type_name -> gitaly.RepositoryInfoResponse.ReferencesInfo
+	89, // 4: gitaly.RepositoryInfoResponse.objects:type_name -> gitaly.RepositoryInfoResponse.ObjectsInfo
+	92, // 5: gitaly.ObjectFormatRequest.repository:type_name -> gitaly.Repository
+	93, // 6: gitaly.ObjectFormatResponse.format:type_name -> gitaly.ObjectFormat
+	92, // 7: gitaly.ApplyGitattributesRequest.repository:type_name -> gitaly.Repository
+	92, // 8: gitaly.FetchBundleRequest.repository:type_name -> gitaly.Repository
+	92, // 9: gitaly.FetchRemoteRequest.repository:type_name -> gitaly.Repository
 	67, // 10: gitaly.FetchRemoteRequest.remote_params:type_name -> gitaly.Remote
-	89, // 11: gitaly.CreateRepositoryRequest.repository:type_name -> gitaly.Repository
-	90, // 12: gitaly.CreateRepositoryRequest.object_format:type_name -> gitaly.ObjectFormat
-	89, // 13: gitaly.GetArchiveRequest.repository:type_name -> gitaly.Repository
+	92, // 11: gitaly.CreateRepositoryRequest.repository:type_name -> gitaly.Repository
+	93, // 12: gitaly.CreateRepositoryRequest.object_format:type_name -> gitaly.ObjectFormat
+	92, // 13: gitaly.GetArchiveRequest.repository:type_name -> gitaly.Repository
 	0,  // 14: gitaly.GetArchiveRequest.format:type_name -> gitaly.GetArchiveRequest.Format
-	89, // 15: gitaly.HasLocalBranchesRequest.repository:type_name -> gitaly.Repository
-	89, // 16: gitaly.FetchSourceBranchRequest.repository:type_name -> gitaly.Repository
-	89, // 17: gitaly.FetchSourceBranchRequest.source_repository:type_name -> gitaly.Repository
-	89, // 18: gitaly.FsckRequest.repository:type_name -> gitaly.Repository
-	89, // 19: gitaly.WriteRefRequest.repository:type_name -> gitaly.Repository
-	89, // 20: gitaly.FindMergeBaseRequest.repository:type_name -> gitaly.Repository
-	89, // 21: gitaly.CreateForkRequest.repository:type_name -> gitaly.Repository
-	89, // 22: gitaly.CreateForkRequest.source_repository:type_name -> gitaly.Repository
-	89, // 23: gitaly.CreateRepositoryFromURLRequest.repository:type_name -> gitaly.Repository
-	89, // 24: gitaly.CreateBundleRequest.repository:type_name -> gitaly.Repository
-	89, // 25: gitaly.CreateBundleFromRefListRequest.repository:type_name -> gitaly.Repository
-	89, // 26: gitaly.GetConfigRequest.repository:type_name -> gitaly.Repository
-	89, // 27: gitaly.RestoreCustomHooksRequest.repository:type_name -> gitaly.Repository
-	89, // 28: gitaly.SetCustomHooksRequest.repository:type_name -> gitaly.Repository
-	89, // 29: gitaly.BackupCustomHooksRequest.repository:type_name -> gitaly.Repository
-	89, // 30: gitaly.GetCustomHooksRequest.repository:type_name -> gitaly.Repository
-	89, // 31: gitaly.CreateRepositoryFromBundleRequest.repository:type_name -> gitaly.Repository
-	89, // 32: gitaly.FindLicenseRequest.repository:type_name -> gitaly.Repository
-	89, // 33: gitaly.GetInfoAttributesRequest.repository:type_name -> gitaly.Repository
-	89, // 34: gitaly.CalculateChecksumRequest.repository:type_name -> gitaly.Repository
-	89, // 35: gitaly.GetSnapshotRequest.repository:type_name -> gitaly.Repository
-	89, // 36: gitaly.CreateRepositoryFromSnapshotRequest.repository:type_name -> gitaly.Repository
-	89, // 37: gitaly.GetRawChangesRequest.repository:type_name -> gitaly.Repository
-	88, // 38: gitaly.GetRawChangesResponse.raw_changes:type_name -> gitaly.GetRawChangesResponse.RawChange
-	89, // 39: gitaly.SearchFilesByNameRequest.repository:type_name -> gitaly.Repository
-	89, // 40: gitaly.SearchFilesByContentRequest.repository:type_name -> gitaly.Repository
-	89, // 41: gitaly.GetObjectDirectorySizeRequest.repository:type_name -> gitaly.Repository
-	89, // 42: gitaly.RemoveRepositoryRequest.repository:type_name -> gitaly.Repository
-	89, // 43: gitaly.RenameRepositoryRequest.repository:type_name -> gitaly.Repository
-	89, // 44: gitaly.ReplicateRepositoryRequest.repository:type_name -> gitaly.Repository
-	89, // 45: gitaly.ReplicateRepositoryRequest.source:type_name -> gitaly.Repository
-	89, // 46: gitaly.OptimizeRepositoryRequest.repository:type_name -> gitaly.Repository
+	92, // 15: gitaly.HasLocalBranchesRequest.repository:type_name -> gitaly.Repository
+	92, // 16: gitaly.FetchSourceBranchRequest.repository:type_name -> gitaly.Repository
+	92, // 17: gitaly.FetchSourceBranchRequest.source_repository:type_name -> gitaly.Repository
+	92, // 18: gitaly.FsckRequest.repository:type_name -> gitaly.Repository
+	92, // 19: gitaly.WriteRefRequest.repository:type_name -> gitaly.Repository
+	92, // 20: gitaly.FindMergeBaseRequest.repository:type_name -> gitaly.Repository
+	92, // 21: gitaly.CreateForkRequest.repository:type_name -> gitaly.Repository
+	92, // 22: gitaly.CreateForkRequest.source_repository:type_name -> gitaly.Repository
+	92, // 23: gitaly.CreateRepositoryFromURLRequest.repository:type_name -> gitaly.Repository
+	92, // 24: gitaly.CreateBundleRequest.repository:type_name -> gitaly.Repository
+	92, // 25: gitaly.CreateBundleFromRefListRequest.repository:type_name -> gitaly.Repository
+	92, // 26: gitaly.GetConfigRequest.repository:type_name -> gitaly.Repository
+	92, // 27: gitaly.RestoreCustomHooksRequest.repository:type_name -> gitaly.Repository
+	92, // 28: gitaly.SetCustomHooksRequest.repository:type_name -> gitaly.Repository
+	92, // 29: gitaly.BackupCustomHooksRequest.repository:type_name -> gitaly.Repository
+	92, // 30: gitaly.GetCustomHooksRequest.repository:type_name -> gitaly.Repository
+	92, // 31: gitaly.CreateRepositoryFromBundleRequest.repository:type_name -> gitaly.Repository
+	92, // 32: gitaly.FindLicenseRequest.repository:type_name -> gitaly.Repository
+	92, // 33: gitaly.GetInfoAttributesRequest.repository:type_name -> gitaly.Repository
+	92, // 34: gitaly.CalculateChecksumRequest.repository:type_name -> gitaly.Repository
+	92, // 35: gitaly.GetSnapshotRequest.repository:type_name -> gitaly.Repository
+	92, // 36: gitaly.CreateRepositoryFromSnapshotRequest.repository:type_name -> gitaly.Repository
+	92, // 37: gitaly.GetRawChangesRequest.repository:type_name -> gitaly.Repository
+	90, // 38: gitaly.GetRawChangesResponse.raw_changes:type_name -> gitaly.GetRawChangesResponse.RawChange
+	92, // 39: gitaly.SearchFilesByNameRequest.repository:type_name -> gitaly.Repository
+	92, // 40: gitaly.SearchFilesByContentRequest.repository:type_name -> gitaly.Repository
+	92, // 41: gitaly.GetObjectDirectorySizeRequest.repository:type_name -> gitaly.Repository
+	92, // 42: gitaly.RemoveRepositoryRequest.repository:type_name -> gitaly.Repository
+	92, // 43: gitaly.RenameRepositoryRequest.repository:type_name -> gitaly.Repository
+	92, // 44: gitaly.ReplicateRepositoryRequest.repository:type_name -> gitaly.Repository
+	92, // 45: gitaly.ReplicateRepositoryRequest.source:type_name -> gitaly.Repository
+	92, // 46: gitaly.OptimizeRepositoryRequest.repository:type_name -> gitaly.Repository
 	2,  // 47: gitaly.OptimizeRepositoryRequest.strategy:type_name -> gitaly.OptimizeRepositoryRequest.Strategy
-	89, // 48: gitaly.PruneUnreachableObjectsRequest.repository:type_name -> gitaly.Repository
-	89, // 49: gitaly.SetFullPathRequest.repository:type_name -> gitaly.Repository
-	89, // 50: gitaly.FullPathRequest.repository:type_name -> gitaly.Repository
-	1,  // 51: gitaly.GetRawChangesResponse.RawChange.operation:type_name -> gitaly.GetRawChangesResponse.RawChange.Operation
-	3,  // 52: gitaly.RepositoryService.RepositoryExists:input_type -> gitaly.RepositoryExistsRequest
-	5,  // 53: gitaly.RepositoryService.RepositorySize:input_type -> gitaly.RepositorySizeRequest
-	7,  // 54: gitaly.RepositoryService.RepositoryInfo:input_type -> gitaly.RepositoryInfoRequest
-	9,  // 55: gitaly.RepositoryService.ObjectFormat:input_type -> gitaly.ObjectFormatRequest
-	11, // 56: gitaly.RepositoryService.ApplyGitattributes:input_type -> gitaly.ApplyGitattributesRequest
-	15, // 57: gitaly.RepositoryService.FetchRemote:input_type -> gitaly.FetchRemoteRequest
-	17, // 58: gitaly.RepositoryService.CreateRepository:input_type -> gitaly.CreateRepositoryRequest
-	19, // 59: gitaly.RepositoryService.GetArchive:input_type -> gitaly.GetArchiveRequest
-	21, // 60: gitaly.RepositoryService.HasLocalBranches:input_type -> gitaly.HasLocalBranchesRequest
-	23, // 61: gitaly.RepositoryService.FetchSourceBranch:input_type -> gitaly.FetchSourceBranchRequest
-	25, // 62: gitaly.RepositoryService.Fsck:input_type -> gitaly.FsckRequest
-	27, // 63: gitaly.RepositoryService.WriteRef:input_type -> gitaly.WriteRefRequest
-	29, // 64: gitaly.RepositoryService.FindMergeBase:input_type -> gitaly.FindMergeBaseRequest
-	31, // 65: gitaly.RepositoryService.CreateFork:input_type -> gitaly.CreateForkRequest
-	33, // 66: gitaly.RepositoryService.CreateRepositoryFromURL:input_type -> gitaly.CreateRepositoryFromURLRequest
-	35, // 67: gitaly.RepositoryService.CreateBundle:input_type -> gitaly.CreateBundleRequest
-	37, // 68: gitaly.RepositoryService.CreateBundleFromRefList:input_type -> gitaly.CreateBundleFromRefListRequest
-	13, // 69: gitaly.RepositoryService.FetchBundle:input_type -> gitaly.FetchBundleRequest
-	49, // 70: gitaly.RepositoryService.CreateRepositoryFromBundle:input_type -> gitaly.CreateRepositoryFromBundleRequest
-	39, // 71: gitaly.RepositoryService.GetConfig:input_type -> gitaly.GetConfigRequest
-	51, // 72: gitaly.RepositoryService.FindLicense:input_type -> gitaly.FindLicenseRequest
-	53, // 73: gitaly.RepositoryService.GetInfoAttributes:input_type -> gitaly.GetInfoAttributesRequest
-	55, // 74: gitaly.RepositoryService.CalculateChecksum:input_type -> gitaly.CalculateChecksumRequest
-	57, // 75: gitaly.RepositoryService.GetSnapshot:input_type -> gitaly.GetSnapshotRequest
-	59, // 76: gitaly.RepositoryService.CreateRepositoryFromSnapshot:input_type -> gitaly.CreateRepositoryFromSnapshotRequest
-	61, // 77: gitaly.RepositoryService.GetRawChanges:input_type -> gitaly.GetRawChangesRequest
-	65, // 78: gitaly.RepositoryService.SearchFilesByContent:input_type -> gitaly.SearchFilesByContentRequest
-	63, // 79: gitaly.RepositoryService.SearchFilesByName:input_type -> gitaly.SearchFilesByNameRequest
-	41, // 80: gitaly.RepositoryService.RestoreCustomHooks:input_type -> gitaly.RestoreCustomHooksRequest
-	42, // 81: gitaly.RepositoryService.SetCustomHooks:input_type -> gitaly.SetCustomHooksRequest
-	45, // 82: gitaly.RepositoryService.BackupCustomHooks:input_type -> gitaly.BackupCustomHooksRequest
-	46, // 83: gitaly.RepositoryService.GetCustomHooks:input_type -> gitaly.GetCustomHooksRequest
-	68, // 84: gitaly.RepositoryService.GetObjectDirectorySize:input_type -> gitaly.GetObjectDirectorySizeRequest
-	70, // 85: gitaly.RepositoryService.RemoveRepository:input_type -> gitaly.RemoveRepositoryRequest
-	72, // 86: gitaly.RepositoryService.RenameRepository:input_type -> gitaly.RenameRepositoryRequest
-	74, // 87: gitaly.RepositoryService.ReplicateRepository:input_type -> gitaly.ReplicateRepositoryRequest
-	76, // 88: gitaly.RepositoryService.OptimizeRepository:input_type -> gitaly.OptimizeRepositoryRequest
-	78, // 89: gitaly.RepositoryService.PruneUnreachableObjects:input_type -> gitaly.PruneUnreachableObjectsRequest
-	80, // 90: gitaly.RepositoryService.SetFullPath:input_type -> gitaly.SetFullPathRequest
-	82, // 91: gitaly.RepositoryService.FullPath:input_type -> gitaly.FullPathRequest
-	84, // 92: gitaly.RepositoryService.RemoveAll:input_type -> gitaly.RemoveAllRequest
-	4,  // 93: gitaly.RepositoryService.RepositoryExists:output_type -> gitaly.RepositoryExistsResponse
-	6,  // 94: gitaly.RepositoryService.RepositorySize:output_type -> gitaly.RepositorySizeResponse
-	8,  // 95: gitaly.RepositoryService.RepositoryInfo:output_type -> gitaly.RepositoryInfoResponse
-	10, // 96: gitaly.RepositoryService.ObjectFormat:output_type -> gitaly.ObjectFormatResponse
-	12, // 97: gitaly.RepositoryService.ApplyGitattributes:output_type -> gitaly.ApplyGitattributesResponse
-	16, // 98: gitaly.RepositoryService.FetchRemote:output_type -> gitaly.FetchRemoteResponse
-	18, // 99: gitaly.RepositoryService.CreateRepository:output_type -> gitaly.CreateRepositoryResponse
-	20, // 100: gitaly.RepositoryService.GetArchive:output_type -> gitaly.GetArchiveResponse
-	22, // 101: gitaly.RepositoryService.HasLocalBranches:output_type -> gitaly.HasLocalBranchesResponse
-	24, // 102: gitaly.RepositoryService.FetchSourceBranch:output_type -> gitaly.FetchSourceBranchResponse
-	26, // 103: gitaly.RepositoryService.Fsck:output_type -> gitaly.FsckResponse
-	28, // 104: gitaly.RepositoryService.WriteRef:output_type -> gitaly.WriteRefResponse
-	30, // 105: gitaly.RepositoryService.FindMergeBase:output_type -> gitaly.FindMergeBaseResponse
-	32, // 106: gitaly.RepositoryService.CreateFork:output_type -> gitaly.CreateForkResponse
-	34, // 107: gitaly.RepositoryService.CreateRepositoryFromURL:output_type -> gitaly.CreateRepositoryFromURLResponse
-	36, // 108: gitaly.RepositoryService.CreateBundle:output_type -> gitaly.CreateBundleResponse
-	38, // 109: gitaly.RepositoryService.CreateBundleFromRefList:output_type -> gitaly.CreateBundleFromRefListResponse
-	14, // 110: gitaly.RepositoryService.FetchBundle:output_type -> gitaly.FetchBundleResponse
-	50, // 111: gitaly.RepositoryService.CreateRepositoryFromBundle:output_type -> gitaly.CreateRepositoryFromBundleResponse
-	40, // 112: gitaly.RepositoryService.GetConfig:output_type -> gitaly.GetConfigResponse
-	52, // 113: gitaly.RepositoryService.FindLicense:output_type -> gitaly.FindLicenseResponse
-	54, // 114: gitaly.RepositoryService.GetInfoAttributes:output_type -> gitaly.GetInfoAttributesResponse
-	56, // 115: gitaly.RepositoryService.CalculateChecksum:output_type -> gitaly.CalculateChecksumResponse
-	58, // 116: gitaly.RepositoryService.GetSnapshot:output_type -> gitaly.GetSnapshotResponse
-	60, // 117: gitaly.RepositoryService.CreateRepositoryFromSnapshot:output_type -> gitaly.CreateRepositoryFromSnapshotResponse
-	62, // 118: gitaly.RepositoryService.GetRawChanges:output_type -> gitaly.GetRawChangesResponse
-	66, // 119: gitaly.RepositoryService.SearchFilesByContent:output_type -> gitaly.SearchFilesByContentResponse
-	64, // 120: gitaly.RepositoryService.SearchFilesByName:output_type -> gitaly.SearchFilesByNameResponse
-	43, // 121: gitaly.RepositoryService.RestoreCustomHooks:output_type -> gitaly.RestoreCustomHooksResponse
-	44, // 122: gitaly.RepositoryService.SetCustomHooks:output_type -> gitaly.SetCustomHooksResponse
-	47, // 123: gitaly.RepositoryService.BackupCustomHooks:output_type -> gitaly.BackupCustomHooksResponse
-	48, // 124: gitaly.RepositoryService.GetCustomHooks:output_type -> gitaly.GetCustomHooksResponse
-	69, // 125: gitaly.RepositoryService.GetObjectDirectorySize:output_type -> gitaly.GetObjectDirectorySizeResponse
-	71, // 126: gitaly.RepositoryService.RemoveRepository:output_type -> gitaly.RemoveRepositoryResponse
-	73, // 127: gitaly.RepositoryService.RenameRepository:output_type -> gitaly.RenameRepositoryResponse
-	75, // 128: gitaly.RepositoryService.ReplicateRepository:output_type -> gitaly.ReplicateRepositoryResponse
-	77, // 129: gitaly.RepositoryService.OptimizeRepository:output_type -> gitaly.OptimizeRepositoryResponse
-	79, // 130: gitaly.RepositoryService.PruneUnreachableObjects:output_type -> gitaly.PruneUnreachableObjectsResponse
-	81, // 131: gitaly.RepositoryService.SetFullPath:output_type -> gitaly.SetFullPathResponse
-	83, // 132: gitaly.RepositoryService.FullPath:output_type -> gitaly.FullPathResponse
-	85, // 133: gitaly.RepositoryService.RemoveAll:output_type -> gitaly.RemoveAllResponse
-	93, // [93:134] is the sub-list for method output_type
-	52, // [52:93] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	92, // 48: gitaly.PruneUnreachableObjectsRequest.repository:type_name -> gitaly.Repository
+	92, // 49: gitaly.SetFullPathRequest.repository:type_name -> gitaly.Repository
+	92, // 50: gitaly.FullPathRequest.repository:type_name -> gitaly.Repository
+	92, // 51: gitaly.BackupRepositoryRequest.repository:type_name -> gitaly.Repository
+	92, // 52: gitaly.BackupRepositoryRequest.vanity_repository:type_name -> gitaly.Repository
+	1,  // 53: gitaly.GetRawChangesResponse.RawChange.operation:type_name -> gitaly.GetRawChangesResponse.RawChange.Operation
+	3,  // 54: gitaly.RepositoryService.RepositoryExists:input_type -> gitaly.RepositoryExistsRequest
+	5,  // 55: gitaly.RepositoryService.RepositorySize:input_type -> gitaly.RepositorySizeRequest
+	7,  // 56: gitaly.RepositoryService.RepositoryInfo:input_type -> gitaly.RepositoryInfoRequest
+	9,  // 57: gitaly.RepositoryService.ObjectFormat:input_type -> gitaly.ObjectFormatRequest
+	11, // 58: gitaly.RepositoryService.ApplyGitattributes:input_type -> gitaly.ApplyGitattributesRequest
+	15, // 59: gitaly.RepositoryService.FetchRemote:input_type -> gitaly.FetchRemoteRequest
+	17, // 60: gitaly.RepositoryService.CreateRepository:input_type -> gitaly.CreateRepositoryRequest
+	19, // 61: gitaly.RepositoryService.GetArchive:input_type -> gitaly.GetArchiveRequest
+	21, // 62: gitaly.RepositoryService.HasLocalBranches:input_type -> gitaly.HasLocalBranchesRequest
+	23, // 63: gitaly.RepositoryService.FetchSourceBranch:input_type -> gitaly.FetchSourceBranchRequest
+	25, // 64: gitaly.RepositoryService.Fsck:input_type -> gitaly.FsckRequest
+	27, // 65: gitaly.RepositoryService.WriteRef:input_type -> gitaly.WriteRefRequest
+	29, // 66: gitaly.RepositoryService.FindMergeBase:input_type -> gitaly.FindMergeBaseRequest
+	31, // 67: gitaly.RepositoryService.CreateFork:input_type -> gitaly.CreateForkRequest
+	33, // 68: gitaly.RepositoryService.CreateRepositoryFromURL:input_type -> gitaly.CreateRepositoryFromURLRequest
+	35, // 69: gitaly.RepositoryService.CreateBundle:input_type -> gitaly.CreateBundleRequest
+	37, // 70: gitaly.RepositoryService.CreateBundleFromRefList:input_type -> gitaly.CreateBundleFromRefListRequest
+	13, // 71: gitaly.RepositoryService.FetchBundle:input_type -> gitaly.FetchBundleRequest
+	49, // 72: gitaly.RepositoryService.CreateRepositoryFromBundle:input_type -> gitaly.CreateRepositoryFromBundleRequest
+	39, // 73: gitaly.RepositoryService.GetConfig:input_type -> gitaly.GetConfigRequest
+	51, // 74: gitaly.RepositoryService.FindLicense:input_type -> gitaly.FindLicenseRequest
+	53, // 75: gitaly.RepositoryService.GetInfoAttributes:input_type -> gitaly.GetInfoAttributesRequest
+	55, // 76: gitaly.RepositoryService.CalculateChecksum:input_type -> gitaly.CalculateChecksumRequest
+	57, // 77: gitaly.RepositoryService.GetSnapshot:input_type -> gitaly.GetSnapshotRequest
+	59, // 78: gitaly.RepositoryService.CreateRepositoryFromSnapshot:input_type -> gitaly.CreateRepositoryFromSnapshotRequest
+	61, // 79: gitaly.RepositoryService.GetRawChanges:input_type -> gitaly.GetRawChangesRequest
+	65, // 80: gitaly.RepositoryService.SearchFilesByContent:input_type -> gitaly.SearchFilesByContentRequest
+	63, // 81: gitaly.RepositoryService.SearchFilesByName:input_type -> gitaly.SearchFilesByNameRequest
+	41, // 82: gitaly.RepositoryService.RestoreCustomHooks:input_type -> gitaly.RestoreCustomHooksRequest
+	42, // 83: gitaly.RepositoryService.SetCustomHooks:input_type -> gitaly.SetCustomHooksRequest
+	45, // 84: gitaly.RepositoryService.BackupCustomHooks:input_type -> gitaly.BackupCustomHooksRequest
+	46, // 85: gitaly.RepositoryService.GetCustomHooks:input_type -> gitaly.GetCustomHooksRequest
+	68, // 86: gitaly.RepositoryService.GetObjectDirectorySize:input_type -> gitaly.GetObjectDirectorySizeRequest
+	70, // 87: gitaly.RepositoryService.RemoveRepository:input_type -> gitaly.RemoveRepositoryRequest
+	72, // 88: gitaly.RepositoryService.RenameRepository:input_type -> gitaly.RenameRepositoryRequest
+	74, // 89: gitaly.RepositoryService.ReplicateRepository:input_type -> gitaly.ReplicateRepositoryRequest
+	76, // 90: gitaly.RepositoryService.OptimizeRepository:input_type -> gitaly.OptimizeRepositoryRequest
+	78, // 91: gitaly.RepositoryService.PruneUnreachableObjects:input_type -> gitaly.PruneUnreachableObjectsRequest
+	80, // 92: gitaly.RepositoryService.SetFullPath:input_type -> gitaly.SetFullPathRequest
+	82, // 93: gitaly.RepositoryService.FullPath:input_type -> gitaly.FullPathRequest
+	84, // 94: gitaly.RepositoryService.RemoveAll:input_type -> gitaly.RemoveAllRequest
+	86, // 95: gitaly.RepositoryService.BackupRepository:input_type -> gitaly.BackupRepositoryRequest
+	4,  // 96: gitaly.RepositoryService.RepositoryExists:output_type -> gitaly.RepositoryExistsResponse
+	6,  // 97: gitaly.RepositoryService.RepositorySize:output_type -> gitaly.RepositorySizeResponse
+	8,  // 98: gitaly.RepositoryService.RepositoryInfo:output_type -> gitaly.RepositoryInfoResponse
+	10, // 99: gitaly.RepositoryService.ObjectFormat:output_type -> gitaly.ObjectFormatResponse
+	12, // 100: gitaly.RepositoryService.ApplyGitattributes:output_type -> gitaly.ApplyGitattributesResponse
+	16, // 101: gitaly.RepositoryService.FetchRemote:output_type -> gitaly.FetchRemoteResponse
+	18, // 102: gitaly.RepositoryService.CreateRepository:output_type -> gitaly.CreateRepositoryResponse
+	20, // 103: gitaly.RepositoryService.GetArchive:output_type -> gitaly.GetArchiveResponse
+	22, // 104: gitaly.RepositoryService.HasLocalBranches:output_type -> gitaly.HasLocalBranchesResponse
+	24, // 105: gitaly.RepositoryService.FetchSourceBranch:output_type -> gitaly.FetchSourceBranchResponse
+	26, // 106: gitaly.RepositoryService.Fsck:output_type -> gitaly.FsckResponse
+	28, // 107: gitaly.RepositoryService.WriteRef:output_type -> gitaly.WriteRefResponse
+	30, // 108: gitaly.RepositoryService.FindMergeBase:output_type -> gitaly.FindMergeBaseResponse
+	32, // 109: gitaly.RepositoryService.CreateFork:output_type -> gitaly.CreateForkResponse
+	34, // 110: gitaly.RepositoryService.CreateRepositoryFromURL:output_type -> gitaly.CreateRepositoryFromURLResponse
+	36, // 111: gitaly.RepositoryService.CreateBundle:output_type -> gitaly.CreateBundleResponse
+	38, // 112: gitaly.RepositoryService.CreateBundleFromRefList:output_type -> gitaly.CreateBundleFromRefListResponse
+	14, // 113: gitaly.RepositoryService.FetchBundle:output_type -> gitaly.FetchBundleResponse
+	50, // 114: gitaly.RepositoryService.CreateRepositoryFromBundle:output_type -> gitaly.CreateRepositoryFromBundleResponse
+	40, // 115: gitaly.RepositoryService.GetConfig:output_type -> gitaly.GetConfigResponse
+	52, // 116: gitaly.RepositoryService.FindLicense:output_type -> gitaly.FindLicenseResponse
+	54, // 117: gitaly.RepositoryService.GetInfoAttributes:output_type -> gitaly.GetInfoAttributesResponse
+	56, // 118: gitaly.RepositoryService.CalculateChecksum:output_type -> gitaly.CalculateChecksumResponse
+	58, // 119: gitaly.RepositoryService.GetSnapshot:output_type -> gitaly.GetSnapshotResponse
+	60, // 120: gitaly.RepositoryService.CreateRepositoryFromSnapshot:output_type -> gitaly.CreateRepositoryFromSnapshotResponse
+	62, // 121: gitaly.RepositoryService.GetRawChanges:output_type -> gitaly.GetRawChangesResponse
+	66, // 122: gitaly.RepositoryService.SearchFilesByContent:output_type -> gitaly.SearchFilesByContentResponse
+	64, // 123: gitaly.RepositoryService.SearchFilesByName:output_type -> gitaly.SearchFilesByNameResponse
+	43, // 124: gitaly.RepositoryService.RestoreCustomHooks:output_type -> gitaly.RestoreCustomHooksResponse
+	44, // 125: gitaly.RepositoryService.SetCustomHooks:output_type -> gitaly.SetCustomHooksResponse
+	47, // 126: gitaly.RepositoryService.BackupCustomHooks:output_type -> gitaly.BackupCustomHooksResponse
+	48, // 127: gitaly.RepositoryService.GetCustomHooks:output_type -> gitaly.GetCustomHooksResponse
+	69, // 128: gitaly.RepositoryService.GetObjectDirectorySize:output_type -> gitaly.GetObjectDirectorySizeResponse
+	71, // 129: gitaly.RepositoryService.RemoveRepository:output_type -> gitaly.RemoveRepositoryResponse
+	73, // 130: gitaly.RepositoryService.RenameRepository:output_type -> gitaly.RenameRepositoryResponse
+	75, // 131: gitaly.RepositoryService.ReplicateRepository:output_type -> gitaly.ReplicateRepositoryResponse
+	77, // 132: gitaly.RepositoryService.OptimizeRepository:output_type -> gitaly.OptimizeRepositoryResponse
+	79, // 133: gitaly.RepositoryService.PruneUnreachableObjects:output_type -> gitaly.PruneUnreachableObjectsResponse
+	81, // 134: gitaly.RepositoryService.SetFullPath:output_type -> gitaly.SetFullPathResponse
+	83, // 135: gitaly.RepositoryService.FullPath:output_type -> gitaly.FullPathResponse
+	85, // 136: gitaly.RepositoryService.RemoveAll:output_type -> gitaly.RemoveAllResponse
+	87, // 137: gitaly.RepositoryService.BackupRepository:output_type -> gitaly.BackupRepositoryResponse
+	96, // [96:138] is the sub-list for method output_type
+	54, // [54:96] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_repository_proto_init() }
@@ -7066,7 +7238,7 @@ func file_repository_proto_init() {
 			}
 		}
 		file_repository_proto_msgTypes[83].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RepositoryInfoResponse_ReferencesInfo); i {
+			switch v := v.(*BackupRepositoryRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7078,7 +7250,7 @@ func file_repository_proto_init() {
 			}
 		}
 		file_repository_proto_msgTypes[84].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RepositoryInfoResponse_ObjectsInfo); i {
+			switch v := v.(*BackupRepositoryResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7090,7 +7262,43 @@ func file_repository_proto_init() {
 			}
 		}
 		file_repository_proto_msgTypes[85].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RepositoryInfoResponse_ReferencesInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_repository_proto_msgTypes[86].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RepositoryInfoResponse_ObjectsInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_repository_proto_msgTypes[87].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetRawChangesResponse_RawChange); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_repository_proto_msgTypes[88].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*BackupRepositoryResponse_SkippedError); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7108,7 +7316,7 @@ func file_repository_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_repository_proto_rawDesc,
 			NumEnums:      3,
-			NumMessages:   86,
+			NumMessages:   89,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

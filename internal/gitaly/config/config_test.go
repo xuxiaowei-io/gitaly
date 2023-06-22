@@ -2056,6 +2056,66 @@ func TestGitlab_Validate(t *testing.T) {
 	}
 }
 
+func TestBackupConfig_Validate(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name         string
+		backupConfig BackupConfig
+		expectedErr  error
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name: "valid",
+			backupConfig: BackupConfig{
+				GoCloudURL: "s3://my-bucket",
+				Layout:     "pointer",
+			},
+		},
+		{
+			name: "go_cloud_url invalid",
+			backupConfig: BackupConfig{
+				GoCloudURL: "%invalid%",
+				Layout:     "pointer",
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					&url.Error{
+						Op:  "parse",
+						URL: "%invalid%",
+						Err: url.EscapeError("%in"),
+					},
+					"go_cloud_url",
+				),
+			},
+		},
+		{
+			name: "layout missing",
+			backupConfig: BackupConfig{
+				GoCloudURL: "s3://my-bucket",
+				Layout:     "",
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrBlankOrEmpty,
+					"layout",
+				),
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tc.backupConfig.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
 func TestStreamCacheConfig_Validate(t *testing.T) {
 	t.Parallel()
 

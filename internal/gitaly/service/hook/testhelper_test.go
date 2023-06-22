@@ -76,6 +76,8 @@ func runHooksServer(tb testing.TB, cfg config.Cfg, opts []serverOption, serverOp
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetBackupSink(),
+			deps.GetBackupLocator(),
 		))
 	}, serverOpts...)
 }

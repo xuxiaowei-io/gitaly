@@ -159,10 +159,14 @@ func TestManager_Create(t *testing.T) {
 			t.Run(tc.desc, func(t *testing.T) {
 				repo, repoPath := tc.setup(t)
 				backupRoot := testhelper.TempDir(t)
+				vanityRepo := &gitalypb.Repository{
+					RelativePath: "some/path.git",
+					StorageName:  "some_storage",
+				}
 
-				refsPath := joinBackupPath(t, backupRoot, repo, backupID, "001.refs")
-				bundlePath := joinBackupPath(t, backupRoot, repo, backupID, "001.bundle")
-				customHooksPath := joinBackupPath(t, backupRoot, repo, backupID, "001.custom_hooks.tar")
+				refsPath := joinBackupPath(t, backupRoot, vanityRepo, backupID, "001.refs")
+				bundlePath := joinBackupPath(t, backupRoot, vanityRepo, backupID, "001.bundle")
+				customHooksPath := joinBackupPath(t, backupRoot, vanityRepo, backupID, "001.custom_hooks.tar")
 
 				sink := backup.NewFilesystemSink(backupRoot)
 				locator, err := backup.ResolveLocator("pointer", sink)
@@ -170,8 +174,9 @@ func TestManager_Create(t *testing.T) {
 
 				fsBackup := managerTC.setup(t, sink, locator)
 				err = fsBackup.Create(ctx, &backup.CreateRequest{
-					Server:     storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
-					Repository: repo,
+					Server:           storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
+					Repository:       repo,
+					VanityRepository: vanityRepo,
 				})
 				if tc.err == nil {
 					require.NoError(t, err)

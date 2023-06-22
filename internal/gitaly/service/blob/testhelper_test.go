@@ -38,6 +38,8 @@ func setup(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobService
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
+			deps.GetBackupSink(),
+			deps.GetBackupLocator(),
 		))
 	})
 	cfg.SocketPath = addr

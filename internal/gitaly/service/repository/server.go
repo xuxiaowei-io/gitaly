@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
@@ -29,6 +30,8 @@ type server struct {
 	catfileCache        catfile.Cache
 	git2goExecutor      *git2go.Executor
 	housekeepingManager housekeeping.Manager
+	backupSink          backup.Sink
+	backupLocator       backup.Locator
 
 	licenseCache *unarycache.Cache[git.ObjectID, *gitalypb.FindLicenseResponse]
 }
@@ -43,6 +46,8 @@ func NewServer(
 	connsPool *client.Pool,
 	git2goExecutor *git2go.Executor,
 	housekeepingManager housekeeping.Manager,
+	backupSink backup.Sink,
+	backupLocator backup.Locator,
 ) gitalypb.RepositoryServiceServer {
 	return &server{
 		locator:             locator,
@@ -54,6 +59,8 @@ func NewServer(
 		catfileCache:        catfileCache,
 		git2goExecutor:      git2goExecutor,
 		housekeepingManager: housekeepingManager,
+		backupSink:          backupSink,
+		backupLocator:       backupLocator,
 
 		licenseCache: newLicenseCache(),
 	}

@@ -202,13 +202,22 @@ func (mgr *Manager) RemoveAllRepositories(ctx context.Context, req *RemoveAllRep
 
 // CreateRequest is the request to create a backup
 type CreateRequest struct {
-	Server      storage.ServerInfo
-	Repository  *gitalypb.Repository
+	// Server contains gitaly server connection information required to call
+	// RPCs in the non-local backup.Manager configuration.
+	Server storage.ServerInfo
+	// Repository is the repository to be backed up.
+	Repository *gitalypb.Repository
+	// VanityRepository is used to determine the backup path.
+	VanityRepository *gitalypb.Repository
+	// Incremental when true will create an increment on the specified full backup.
 	Incremental bool
 }
 
 // Create creates a repository backup.
 func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
+	if req.VanityRepository == nil {
+		req.VanityRepository = req.Repository
+	}
 	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -223,12 +232,12 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	var step *Step
 	if req.Incremental {
 		var err error
-		step, err = mgr.locator.BeginIncremental(ctx, req.Repository, mgr.backupID)
+		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, mgr.backupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		step = mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
+		step = mgr.locator.BeginFull(ctx, req.VanityRepository, mgr.backupID)
 	}
 
 	refs, err := repo.ListRefs(ctx)

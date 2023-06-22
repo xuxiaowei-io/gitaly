@@ -343,6 +343,15 @@ service RepositoryService {
   rpc RemoveAll(RemoveAllRequest) returns (RemoveAllResponse) {
     option (intercepted_method) = true;
   }
+
+  // BackupRepository creates a full backup streamed directly to
+  // object-storage. The backup is created synchronously. The destination must
+  // be configured in config.backup.go_cloud_url
+  rpc BackupRepository(BackupRepositoryRequest) returns (BackupRepositoryResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 // This comment is left unintentionally blank.
@@ -1166,4 +1175,21 @@ message RemoveAllRequest {
 
 // RemoveAllResponse is a response for the RemoveAll RPC.
 message RemoveAllResponse {
+}
+
+// BackupRepository is a request for the BackupRepository RPC.
+message BackupRepositoryRequest {
+  // Repository is the repository to be backed up.
+  Repository repository = 1 [(target_repository)=true];
+  // VanityRepository is used to determine the backup path.
+  Repository vanity_repository = 2;
+  // BackupId is the label used to identify this backup when restoring.
+  string backup_id = 3;
+}
+
+// BackupRepositoryResponse is a response for the BackupRepository RPC.
+message BackupRepositoryResponse {
+  // SkippedError is returned when the repository backup has been skipped.
+  message SkippedError {
+  }
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -39,6 +40,8 @@ type Dependencies struct {
 	UpdaterWithHooks              *updateref.UpdaterWithHooks
 	HousekeepingManager           housekeeping.Manager
 	PartitionManager              *storagemgr.PartitionManager
+	BackupSink                    backup.Sink
+	BackupLocator                 backup.Locator
 }
 
 // GetCfg returns service configuration.
@@ -129,4 +132,14 @@ func (dc *Dependencies) GetPackObjectsLimiter() limithandler.Limiter {
 // GetPartitionManager returns the PartitionManager.
 func (dc *Dependencies) GetPartitionManager() *storagemgr.PartitionManager {
 	return dc.PartitionManager
+}
+
+// GetBackupSink returns the backup.Sink.
+func (dc *Dependencies) GetBackupSink() backup.Sink {
+	return dc.BackupSink
+}
+
+// GetBackupLocator returns the backup.Locator.
+func (dc *Dependencies) GetBackupLocator() backup.Locator {
+	return dc.BackupLocator
 }

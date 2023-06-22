@@ -45,6 +45,8 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 				deps.GetConnsPool(),
 				deps.GetGit2goExecutor(),
 				deps.GetHousekeepingManager(),
+				deps.GetBackupSink(),
+				deps.GetBackupLocator(),
 			))
 		}, testserver.WithDisablePraefect())
 		cfgNodes = append(cfgNodes, &config.Node{
