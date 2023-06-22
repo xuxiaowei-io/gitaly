@@ -436,11 +436,13 @@ message UserMergeToRefRequest {
   // first_parent_ref is the name of the reference which should be used as the
   // first parent of the computed merge. Overrides `branch`.
   bytes first_parent_ref = 7;
-  // Allow conflicts to occur. Any conflict markers will be part of the merge commit.
-  // When tree-based conflicts occur, no conflict markers will be added to the
-  // file on the merge commit. The `Their` side of the conflict will be kept and
-  // `Our` and `Ancestor` will be ignored.
-  bool allow_conflicts = 8;
+
+  // It used to be possible to set an allow_conflicts field to allow the merge
+  // to go ahead when there were conflicts. The code would simply write the
+  // conflict markers in the code. This has since been deprecated in Rails and
+  // is no longer needed.
+  bool allow_conflicts = 8 [deprecated = true];
+
   // timestamp is the optional timestamp to use for the merge commit. If it's
   // not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 9;
