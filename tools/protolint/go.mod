@@ -2,9 +2,10 @@ module gitlab.com/gitlab-org/gitaly/tools/protolint
 
 go 1.19
 
-require github.com/yoheimuta/protolint v0.43.2
+require github.com/yoheimuta/protolint v0.45.0
 
 require (
+	github.com/chavacava/garif v0.0.0-20230608123814-4bd63c2919ab // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/gertd/go-pluralize v0.2.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -18,7 +19,6 @@ require (
 	github.com/mitchellh/go-testing-interface v0.0.0-20171004221916-a61a99592b77 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/oklog/run v1.0.0 // indirect
-	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/yoheimuta/go-protoparser/v4 v4.7.0 // indirect
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/sys v0.0.0-20220915200043-7b5979e65e41 // indirect
