@@ -868,7 +868,6 @@ func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, assertUserDeta
 				deps.GetLocator(),
 				deps.GetGitCmdFactory(),
 				deps.GetPackObjectsCache(),
-				deps.GetPackObjectsConcurrencyTracker(),
 				deps.GetPackObjectsLimiter(),
 			),
 		})

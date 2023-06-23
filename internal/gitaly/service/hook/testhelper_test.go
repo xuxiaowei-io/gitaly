@@ -59,7 +59,6 @@ func runHooksServer(tb testing.TB, cfg config.Cfg, opts []serverOption, serverOp
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsConcurrencyTracker(),
 			deps.GetPackObjectsLimiter(),
 		)
 		for _, opt := range opts {

@@ -129,7 +129,6 @@ func TestDeleteRefs_transaction(t *testing.T) {
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsConcurrencyTracker(),
 			deps.GetPackObjectsLimiter(),
 		))
 	}, testserver.WithTransactionManager(txManager))

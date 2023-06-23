@@ -70,7 +70,6 @@ func runRefServiceServer(tb testing.TB, cfg config.Cfg) string {
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsConcurrencyTracker(),
 			deps.GetPackObjectsLimiter(),
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(

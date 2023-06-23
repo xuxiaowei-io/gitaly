@@ -22,26 +22,25 @@ import (
 
 // Dependencies assembles set of components required by different kinds of services.
 type Dependencies struct {
-	Cfg                           config.Cfg
-	GitalyHookManager             gitalyhook.Manager
-	TransactionManager            transaction.Manager
-	StorageLocator                storage.Locator
-	ClientPool                    *client.Pool
-	GitCmdFactory                 git.CommandFactory
-	BackchannelRegistry           *backchannel.Registry
-	GitlabClient                  gitlab.Client
-	CatfileCache                  catfile.Cache
-	DiskCache                     cache.Cache
-	PackObjectsCache              streamcache.Cache
-	PackObjectsConcurrencyTracker *gitalyhook.ConcurrencyTracker
-	PackObjectsLimiter            limithandler.Limiter
-	LimitHandler                  *limithandler.LimiterMiddleware
-	Git2goExecutor                *git2go.Executor
-	UpdaterWithHooks              *updateref.UpdaterWithHooks
-	HousekeepingManager           housekeeping.Manager
-	PartitionManager              *storagemgr.PartitionManager
-	BackupSink                    backup.Sink
-	BackupLocator                 backup.Locator
+	Cfg                 config.Cfg
+	GitalyHookManager   gitalyhook.Manager
+	TransactionManager  transaction.Manager
+	StorageLocator      storage.Locator
+	ClientPool          *client.Pool
+	GitCmdFactory       git.CommandFactory
+	BackchannelRegistry *backchannel.Registry
+	GitlabClient        gitlab.Client
+	CatfileCache        catfile.Cache
+	DiskCache           cache.Cache
+	PackObjectsCache    streamcache.Cache
+	PackObjectsLimiter  limithandler.Limiter
+	LimitHandler        *limithandler.LimiterMiddleware
+	Git2goExecutor      *git2go.Executor
+	UpdaterWithHooks    *updateref.UpdaterWithHooks
+	HousekeepingManager housekeeping.Manager
+	PartitionManager    *storagemgr.PartitionManager
+	BackupSink          backup.Sink
+	BackupLocator       backup.Locator
 }
 
 // GetCfg returns service configuration.
@@ -97,11 +96,6 @@ func (dc *Dependencies) GetDiskCache() cache.Cache {
 // GetPackObjectsCache returns the pack-objects cache.
 func (dc *Dependencies) GetPackObjectsCache() streamcache.Cache {
 	return dc.PackObjectsCache
-}
-
-// GetPackObjectsConcurrencyTracker returns the pack-objects cache.
-func (dc *Dependencies) GetPackObjectsConcurrencyTracker() *gitalyhook.ConcurrencyTracker {
-	return dc.PackObjectsConcurrencyTracker
 }
 
 // GetLimitHandler returns the RPC limit handler.

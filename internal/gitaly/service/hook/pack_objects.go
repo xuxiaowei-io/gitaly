@@ -160,7 +160,7 @@ func (s *server) runPackObjects(
 
 	defer stdin.Close()
 
-	return s.runPackObjectsFn(ctx, s.gitCmdFactory, w, req, args, stdin, key, s.concurrencyTracker)
+	return s.runPackObjectsFn(ctx, s.gitCmdFactory, w, req, args, stdin, key)
 }
 
 func (s *server) runPackObjectsLimited(
@@ -192,7 +192,6 @@ func (s *server) runPackObjectsLimited(
 					args,
 					stdin,
 					key,
-					s.concurrencyTracker,
 				)
 		},
 	); err != nil {
@@ -210,28 +209,8 @@ func runPackObjects(
 	args *packObjectsArgs,
 	stdin io.Reader,
 	key string,
-	concurrencyTracker *gitalyhook.ConcurrencyTracker,
 ) error {
 	repo := req.GetRepository()
-
-	if concurrencyTracker != nil {
-		finishRepoLog := concurrencyTracker.LogConcurrency(ctx, "repository", repo.GetRelativePath())
-		defer finishRepoLog()
-
-		userID := req.GetGlId()
-		if userID == "" {
-			userID = "none"
-		}
-		finishUserLog := concurrencyTracker.LogConcurrency(ctx, "user_id", userID)
-		defer finishUserLog()
-
-		remoteIP := req.GetRemoteIp()
-		if remoteIP == "" {
-			remoteIP = "none"
-		}
-		finishRemoteIPLog := concurrencyTracker.LogConcurrency(ctx, "remote_ip", remoteIP)
-		defer finishRemoteIPLog()
-	}
 
 	counter := &helper.CountingWriter{W: w}
 	sw := pktline.NewSidebandWriter(counter)
