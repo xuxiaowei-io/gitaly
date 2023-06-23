@@ -368,7 +368,7 @@ test:macos:
     - createdb -U $PGUSER $POSTGRES_DB
     - make -j$(nproc) build prepare-tests
   script:
-    - make test-go
+    - make test-go ; EXIT_CODE=$? ; pg_ctl stop ; exit $EXIT_CODE
   after_script:
     - *test_after_script
   rules:
