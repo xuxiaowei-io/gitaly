@@ -18,7 +18,6 @@ type server struct {
 	locator            storage.Locator
 	gitCmdFactory      git.CommandFactory
 	packObjectsCache   streamcache.Cache
-	concurrencyTracker *gitalyhook.ConcurrencyTracker
 	packObjectsLimiter limithandler.Limiter
 	runPackObjectsFn   func(
 		context.Context,
@@ -28,7 +27,6 @@ type server struct {
 		*packObjectsArgs,
 		io.Reader,
 		string,
-		*gitalyhook.ConcurrencyTracker,
 	) error
 }
 
@@ -38,7 +36,6 @@ func NewServer(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	packObjectsCache streamcache.Cache,
-	concurrencyTracker *gitalyhook.ConcurrencyTracker,
 	packObjectsLimiter limithandler.Limiter,
 ) gitalypb.HookServiceServer {
 	srv := &server{
@@ -47,7 +44,6 @@ func NewServer(
 		gitCmdFactory:      gitCmdFactory,
 		packObjectsCache:   packObjectsCache,
 		packObjectsLimiter: packObjectsLimiter,
-		concurrencyTracker: concurrencyTracker,
 		runPackObjectsFn:   runPackObjects,
 	}
 

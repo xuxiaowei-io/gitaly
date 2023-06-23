@@ -143,7 +143,6 @@ func testUserCreateBranchTransactions(t *testing.T, ctx context.Context) {
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsConcurrencyTracker(),
 			deps.GetPackObjectsLimiter(),
 		))
 		// Praefect proxy execution disabled as praefect runs only on the UNIX socket, but

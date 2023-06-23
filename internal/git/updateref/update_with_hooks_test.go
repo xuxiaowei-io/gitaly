@@ -103,7 +103,6 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsConcurrencyTracker(),
 			deps.GetPackObjectsLimiter(),
 		))
 	})

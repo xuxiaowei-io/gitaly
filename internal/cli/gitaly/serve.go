@@ -304,8 +304,6 @@ func run(cfg config.Cfg) error {
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
 
 	streamCache := streamcache.New(cfg.PackObjectsCache, glog.Default())
-	concurrencyTracker := hook.NewConcurrencyTracker()
-	prometheus.MustRegister(concurrencyTracker)
 
 	var backupSink backup.Sink
 	var backupLocator backup.Locator
@@ -345,22 +343,21 @@ func run(cfg config.Cfg) error {
 		}
 
 		setup.RegisterAll(srv, &service.Dependencies{
-			Cfg:                           cfg,
-			GitalyHookManager:             hookManager,
-			TransactionManager:            transactionManager,
-			StorageLocator:                locator,
-			ClientPool:                    conns,
-			GitCmdFactory:                 gitCmdFactory,
-			CatfileCache:                  catfileCache,
-			DiskCache:                     diskCache,
-			PackObjectsCache:              streamCache,
-			PackObjectsConcurrencyTracker: concurrencyTracker,
-			PackObjectsLimiter:            packObjectsLimiter,
-			Git2goExecutor:                git2goExecutor,
-			UpdaterWithHooks:              updaterWithHooks,
-			HousekeepingManager:           housekeepingManager,
-			BackupSink:                    backupSink,
-			BackupLocator:                 backupLocator,
+			Cfg:                 cfg,
+			GitalyHookManager:   hookManager,
+			TransactionManager:  transactionManager,
+			StorageLocator:      locator,
+			ClientPool:          conns,
+			GitCmdFactory:       gitCmdFactory,
+			CatfileCache:        catfileCache,
+			DiskCache:           diskCache,
+			PackObjectsCache:    streamCache,
+			PackObjectsLimiter:  packObjectsLimiter,
+			Git2goExecutor:      git2goExecutor,
+			UpdaterWithHooks:    updaterWithHooks,
+			HousekeepingManager: housekeepingManager,
+			BackupSink:          backupSink,
+			BackupLocator:       backupLocator,
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}

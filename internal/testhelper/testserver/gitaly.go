@@ -251,26 +251,25 @@ func registerHealthServerIfNotRegistered(srv *grpc.Server) {
 }
 
 type gitalyServerDeps struct {
-	disablePraefect               bool
-	logger                        *logrus.Logger
-	conns                         *client.Pool
-	locator                       storage.Locator
-	txMgr                         transaction.Manager
-	hookMgr                       hook.Manager
-	gitlabClient                  gitlab.Client
-	gitCmdFactory                 git.CommandFactory
-	backchannelReg                *backchannel.Registry
-	catfileCache                  catfile.Cache
-	diskCache                     cache.Cache
-	packObjectsCache              streamcache.Cache
-	packObjectsConcurrencyTracker *hook.ConcurrencyTracker
-	packObjectsLimiter            limithandler.Limiter
-	limitHandler                  *limithandler.LimiterMiddleware
-	git2goExecutor                *git2go.Executor
-	updaterWithHooks              *updateref.UpdaterWithHooks
-	housekeepingManager           housekeeping.Manager
-	backupSink                    backup.Sink
-	backupLocator                 backup.Locator
+	disablePraefect     bool
+	logger              *logrus.Logger
+	conns               *client.Pool
+	locator             storage.Locator
+	txMgr               transaction.Manager
+	hookMgr             hook.Manager
+	gitlabClient        gitlab.Client
+	gitCmdFactory       git.CommandFactory
+	backchannelReg      *backchannel.Registry
+	catfileCache        catfile.Cache
+	diskCache           cache.Cache
+	packObjectsCache    streamcache.Cache
+	packObjectsLimiter  limithandler.Limiter
+	limitHandler        *limithandler.LimiterMiddleware
+	git2goExecutor      *git2go.Executor
+	updaterWithHooks    *updateref.UpdaterWithHooks
+	housekeepingManager housekeeping.Manager
+	backupSink          backup.Sink
+	backupLocator       backup.Locator
 }
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
@@ -323,10 +322,6 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		tb.Cleanup(gsd.packObjectsCache.Stop)
 	}
 
-	if gsd.packObjectsConcurrencyTracker == nil {
-		gsd.packObjectsConcurrencyTracker = hook.NewConcurrencyTracker()
-	}
-
 	if gsd.packObjectsLimiter == nil {
 		gsd.packObjectsLimiter = limithandler.NewConcurrencyLimiter(
 			0,
@@ -367,26 +362,25 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	return &service.Dependencies{
-		Cfg:                           cfg,
-		ClientPool:                    gsd.conns,
-		StorageLocator:                gsd.locator,
-		TransactionManager:            gsd.txMgr,
-		GitalyHookManager:             gsd.hookMgr,
-		GitCmdFactory:                 gsd.gitCmdFactory,
-		BackchannelRegistry:           gsd.backchannelReg,
-		GitlabClient:                  gsd.gitlabClient,
-		CatfileCache:                  gsd.catfileCache,
-		DiskCache:                     gsd.diskCache,
-		PackObjectsCache:              gsd.packObjectsCache,
-		PackObjectsLimiter:            gsd.packObjectsLimiter,
-		PackObjectsConcurrencyTracker: gsd.packObjectsConcurrencyTracker,
-		LimitHandler:                  gsd.limitHandler,
-		Git2goExecutor:                gsd.git2goExecutor,
-		UpdaterWithHooks:              gsd.updaterWithHooks,
-		HousekeepingManager:           gsd.housekeepingManager,
-		PartitionManager:              partitionManager,
-		BackupSink:                    gsd.backupSink,
-		BackupLocator:                 gsd.backupLocator,
+		Cfg:                 cfg,
+		ClientPool:          gsd.conns,
+		StorageLocator:      gsd.locator,
+		TransactionManager:  gsd.txMgr,
+		GitalyHookManager:   gsd.hookMgr,
+		GitCmdFactory:       gsd.gitCmdFactory,
+		BackchannelRegistry: gsd.backchannelReg,
+		GitlabClient:        gsd.gitlabClient,
+		CatfileCache:        gsd.catfileCache,
+		DiskCache:           gsd.diskCache,
+		PackObjectsCache:    gsd.packObjectsCache,
+		PackObjectsLimiter:  gsd.packObjectsLimiter,
+		LimitHandler:        gsd.limitHandler,
+		Git2goExecutor:      gsd.git2goExecutor,
+		UpdaterWithHooks:    gsd.updaterWithHooks,
+		HousekeepingManager: gsd.housekeepingManager,
+		PartitionManager:    partitionManager,
+		BackupSink:          gsd.backupSink,
+		BackupLocator:       gsd.backupLocator,
 	}
 }
 
@@ -462,15 +456,6 @@ func WithBackchannelRegistry(backchannelReg *backchannel.Registry) GitalyServerO
 func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.diskCache = diskCache
-		return deps
-	}
-}
-
-// WithConcurrencyTracker sets the PackObjectsConcurrencyTracker that will be
-// used for gitaly services initialization.
-func WithConcurrencyTracker(tracker *hook.ConcurrencyTracker) GitalyServerOpt {
-	return func(deps gitalyServerDeps) gitalyServerDeps {
-		deps.packObjectsConcurrencyTracker = tracker
 		return deps
 	}
 }

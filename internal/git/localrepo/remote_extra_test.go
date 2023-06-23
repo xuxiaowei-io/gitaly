@@ -39,7 +39,6 @@ func TestRepo_FetchInternal(t *testing.T) {
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsConcurrencyTracker(),
 			deps.GetPackObjectsLimiter(),
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(

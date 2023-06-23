@@ -45,7 +45,6 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) string {
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsConcurrencyTracker(),
 			deps.GetPackObjectsLimiter(),
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
