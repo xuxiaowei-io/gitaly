@@ -1356,7 +1356,7 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	err = drainCommitDiffResponse(c)
-	testhelper.RequireGrpcCode(t, err, codes.Unavailable)
+	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 }
 
 func TestSuccessfulCommitDeltaRequest(t *testing.T) {
@@ -1565,7 +1565,7 @@ func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	err = drainCommitDeltaResponse(c)
-	testhelper.RequireGrpcCode(t, err, codes.Unavailable)
+	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 }
 
 func drainCommitDiffResponse(c gitalypb.DiffService_CommitDiffClient) error {

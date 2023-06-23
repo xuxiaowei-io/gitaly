@@ -90,7 +90,7 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return structerr.NewUnavailable("cmd wait err: %w", err)
+		return structerr.NewFailedPrecondition("cmd wait err: %w", err)
 	}
 
 	return diffChunker.Flush()

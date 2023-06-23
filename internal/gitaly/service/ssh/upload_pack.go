@@ -206,7 +206,7 @@ func (rf *largeBufferReaderFrom) ReadFrom(r io.Reader) (int64, error) {
 func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb.SSHUploadPackWithSidechannelRequest) (*gitalypb.SSHUploadPackWithSidechannelResponse, error) {
 	conn, err := sidechannel.OpenSidechannel(ctx)
 	if err != nil {
-		return nil, structerr.NewUnavailable("opennig sidechannel: %w", err)
+		return nil, structerr.NewAborted("opennig sidechannel: %w", err)
 	}
 	defer conn.Close()
 

@@ -46,7 +46,7 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 
 	_, err = io.Copy(sw, cmd)
 	if err != nil {
-		return structerr.NewUnavailable("send: %w", err)
+		return structerr.NewAborted("send: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {

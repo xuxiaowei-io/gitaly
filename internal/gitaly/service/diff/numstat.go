@@ -57,7 +57,7 @@ func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffSe
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return structerr.NewUnavailable("%w", err)
+		return structerr.NewFailedPrecondition("%w", err)
 	}
 
 	return sendStats(batch, stream)
@@ -69,7 +69,7 @@ func sendStats(batch []*gitalypb.DiffStats, stream gitalypb.DiffService_DiffStat
 	}
 
 	if err := stream.Send(&gitalypb.DiffStatsResponse{Stats: batch}); err != nil {
-		return structerr.NewUnavailable("send: %w", err)
+		return structerr.NewAborted("send: %w", err)
 	}
 
 	return nil
