@@ -28,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb/testproto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -169,7 +170,7 @@ func testUserMergeBranch(t *testing.T, ctx context.Context) {
 			desc:  "incorrect expectedOldOID",
 			hooks: []string{},
 			setup: func(data setupData) setupResponse {
-				gittest.WriteCommit(t, cfg, data.repoPath,
+				secondCommit := gittest.WriteCommit(t, cfg, data.repoPath,
 					gittest.WithParents(git.ObjectID(data.masterCommit)),
 					gittest.WithBranch(data.branch),
 					gittest.WithTreeEntries(
@@ -190,8 +191,12 @@ func testUserMergeBranch(t *testing.T, ctx context.Context) {
 					secondRequest:          &gitalypb.UserMergeBranchRequest{Apply: true},
 					secondExpectedResponse: &gitalypb.OperationBranchUpdate{},
 					secondExpectedErr: func(response *gitalypb.UserMergeBranchResponse) error {
-						return structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again.").WithDetail(
-							&gitalypb.UserMergeBranchError{
+						return structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again.").
+							WithDetail(&testproto.ErrorMetadata{
+								Key:   []byte("stderr"),
+								Value: []byte(fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/master': is at %s but expected %s\n", secondCommit, data.masterCommit)),
+							}).
+							WithDetail(&gitalypb.UserMergeBranchError{
 								Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
 									ReferenceUpdate: &gitalypb.ReferenceUpdateError{
 										ReferenceName: []byte("refs/heads/" + data.branch),
@@ -199,8 +204,7 @@ func testUserMergeBranch(t *testing.T, ctx context.Context) {
 										NewOid:        response.GetCommitId(),
 									},
 								},
-							},
-						)
+							})
 					},
 				}
 			},
@@ -717,17 +721,23 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 	secondResponse, err := mergeBidi.Recv()
-	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again.").WithDetail(
-		&gitalypb.UserMergeBranchError{
-			Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
-				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
-					ReferenceName: []byte("refs/heads/" + mergeBranchName),
-					OldOid:        "281d3a76f31c812dbf48abce82ccf6860adedd81",
-					NewOid:        "f0165798887392f9148b55d54a832b005f93a38c",
+	testhelper.RequireGrpcError(t,
+		structerr.NewFailedPrecondition("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again.").
+			WithDetail(&testproto.ErrorMetadata{
+				Key:   []byte("stderr"),
+				Value: []byte("fatal: prepare: cannot lock ref 'refs/heads/gitaly-merge-test-branch': is at 549090fbeacc6607bc70648d3ba554c355e670c5 but expected 281d3a76f31c812dbf48abce82ccf6860adedd81\n"),
+			}).
+			WithDetail(&gitalypb.UserMergeBranchError{
+				Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
+					ReferenceUpdate: &gitalypb.ReferenceUpdateError{
+						ReferenceName: []byte("refs/heads/" + mergeBranchName),
+						OldOid:        "281d3a76f31c812dbf48abce82ccf6860adedd81",
+						NewOid:        "f0165798887392f9148b55d54a832b005f93a38c",
+					},
 				},
-			},
-		},
-	), err)
+			}),
+		err,
+	)
 	require.Nil(t, secondResponse)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))

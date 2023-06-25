@@ -33,206 +33,251 @@ func TestUserDeleteTag(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	testCases := []struct {
-		desc             string
-		setup            func() (string, *gitalypb.UserDeleteTagRequest)
+	type setupData struct {
+		repoPath         string
+		request          *gitalypb.UserDeleteTagRequest
 		expectedResponse *gitalypb.UserDeleteTagResponse
+		expectedError    error
 		expectedTags     []string
-		expectedErr      error
+	}
+
+	testCases := []struct {
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
 			desc: "successful deletion",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "mercury"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository: repoProto,
-					TagName:    []byte(tagName),
-					User:       gittest.TestUser,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository: repoProto,
+						TagName:    []byte(tagName),
+						User:       gittest.TestUser,
+					},
+					expectedResponse: &gitalypb.UserDeleteTagResponse{},
 				}
 			},
-			expectedResponse: &gitalypb.UserDeleteTagResponse{},
 		},
 		{
 			desc: "successful deletion + expectedOldOID",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "venus"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				commit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository:     repoProto,
-					TagName:        []byte(tagName),
-					User:           gittest.TestUser,
-					ExpectedOldOid: string(commit),
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository:     repoProto,
+						TagName:        []byte(tagName),
+						User:           gittest.TestUser,
+						ExpectedOldOid: string(commit),
+					},
+					expectedResponse: &gitalypb.UserDeleteTagResponse{},
 				}
 			},
-			expectedResponse: &gitalypb.UserDeleteTagResponse{},
 		},
 		{
 			desc: "possible to delete a tag called refs/tags/something",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "refs/tags/earth"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository: repoProto,
-					TagName:    []byte(tagName),
-					User:       gittest.TestUser,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository: repoProto,
+						TagName:    []byte(tagName),
+						User:       gittest.TestUser,
+					},
+					expectedResponse: &gitalypb.UserDeleteTagResponse{},
 				}
 			},
-			expectedResponse: &gitalypb.UserDeleteTagResponse{},
 		},
 		{
 			desc: "no repository provided",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
-				tagName := "mars"
+			setup: func(t *testing.T) setupData {
 				_, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath)
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					TagName: []byte(tagName),
-					User:    gittest.TestUser,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						TagName: []byte("mars"),
+						User:    gittest.TestUser,
+					},
+					expectedError: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					),
 				}
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
 		},
 		{
 			desc: "empty user",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "jupiter"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath)
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository: repoProto,
-					TagName:    []byte(tagName),
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository: repoProto,
+						TagName:    []byte(tagName),
+					},
+					expectedError: structerr.NewInvalidArgument("empty user"),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty user"),
 		},
 		{
 			desc: "empty tag name",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath)
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository: repoProto,
-					User:       gittest.TestUser,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+					},
+					expectedError: structerr.NewInvalidArgument("empty tag name"),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty tag name"),
 		},
 		{
 			desc: "non-existent tag name",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "uranus"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository: repoProto,
-					TagName:    []byte("neptune"),
-					User:       gittest.TestUser,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository: repoProto,
+						TagName:    []byte("neptune"),
+						User:       gittest.TestUser,
+					},
+					expectedError: structerr.NewFailedPrecondition("tag not found: %s", "neptune"),
+					expectedTags:  []string{"uranus"},
 				}
 			},
-			expectedErr:  structerr.NewFailedPrecondition("tag not found: %s", "neptune"),
-			expectedTags: []string{"uranus"},
 		},
 		{
 			desc: "space in tag name",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "sun"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository: repoProto,
-					TagName:    []byte("milky way"),
-					User:       gittest.TestUser,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository: repoProto,
+						TagName:    []byte("milky way"),
+						User:       gittest.TestUser,
+					},
+					expectedError: structerr.NewFailedPrecondition("tag not found: %s", "milky way"),
+					expectedTags:  []string{"sun"},
 				}
 			},
-			expectedErr:  structerr.NewFailedPrecondition("tag not found: %s", "milky way"),
-			expectedTags: []string{"sun"},
 		},
 		{
 			desc: "newline in tag name",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "moon"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository: repoProto,
-					TagName:    []byte("Dog\nStar"),
-					User:       gittest.TestUser,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository: repoProto,
+						TagName:    []byte("Dog\nStar"),
+						User:       gittest.TestUser,
+					},
+					expectedError: structerr.NewFailedPrecondition("tag not found: %s", "Dog\nStar"),
+					expectedTags:  []string{"moon"},
 				}
 			},
-			expectedErr:  structerr.NewFailedPrecondition("tag not found: %s", "Dog\nStar"),
-			expectedTags: []string{"moon"},
 		},
 		{
 			desc: "invalid expectedOldOID",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "europa"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository:     repoProto,
-					TagName:        []byte(tagName),
-					User:           gittest.TestUser,
-					ExpectedOldOid: "io",
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository:     repoProto,
+						TagName:        []byte(tagName),
+						User:           gittest.TestUser,
+						ExpectedOldOid: "io",
+					},
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "io", expected length %v, got 2`, gittest.DefaultObjectHash.EncodedLen())),
+						"old_object_id", "io"),
+
+					expectedTags: []string{"europa"},
 				}
 			},
-			expectedErr: testhelper.WithInterceptedMetadata(
-				structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "io", expected length %v, got 2`, gittest.DefaultObjectHash.EncodedLen())),
-				"old_object_id", "io"),
-			expectedTags: []string{"europa"},
 		},
 		{
 			desc: "valid expectedOldOID SHA but not present in repo",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "europa"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository:     repoProto,
-					TagName:        []byte(tagName),
-					User:           gittest.TestUser,
-					ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository:     repoProto,
+						TagName:        []byte(tagName),
+						User:           gittest.TestUser,
+						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
+					},
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+						"old_object_id", gittest.DefaultObjectHash.ZeroOID),
+					expectedTags: []string{"europa"},
 				}
 			},
-			expectedErr: testhelper.WithInterceptedMetadata(
-				structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
-				"old_object_id", gittest.DefaultObjectHash.ZeroOID),
-			expectedTags: []string{"europa"},
 		},
 		{
 			desc: "old ref expectedOldOID",
-			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
+			setup: func(t *testing.T) setupData {
 				tagName := "ganymede"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit), gittest.WithReference("refs/tags/"+tagName))
+				secondCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit), gittest.WithReference("refs/tags/"+tagName))
 
-				return repoPath, &gitalypb.UserDeleteTagRequest{
-					Repository:     repoProto,
-					TagName:        []byte(tagName),
-					User:           gittest.TestUser,
-					ExpectedOldOid: firstCommit.String(),
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserDeleteTagRequest{
+						Repository:     repoProto,
+						TagName:        []byte(tagName),
+						User:           gittest.TestUser,
+						ExpectedOldOid: firstCommit.String(),
+					},
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewFailedPrecondition("Could not update refs/tags/%s. Please refresh and try again.", tagName),
+						"stderr",
+						fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/tags/%s': is at %s but expected %s\n", tagName, secondCommit, firstCommit),
+					),
+					expectedTags: []string{"ganymede"},
 				}
 			},
-			expectedErr:  structerr.NewFailedPrecondition("Could not update refs/tags/ganymede. Please refresh and try again."),
-			expectedTags: []string{"ganymede"},
 		},
 	}
 
@@ -241,13 +286,13 @@ func TestUserDeleteTag(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			repoPath, request := tc.setup()
-			response, err := client.UserDeleteTag(ctx, request)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-			testhelper.ProtoEqual(t, tc.expectedResponse, response)
+			setup := tc.setup(t)
+			response, err := client.UserDeleteTag(ctx, setup.request)
+			testhelper.RequireGrpcError(t, setup.expectedError, err)
+			testhelper.ProtoEqual(t, setup.expectedResponse, response)
 
-			tags := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
-			require.ElementsMatchf(t, tc.expectedTags, strings.Fields(tags), "tag name still exists in tags list")
+			tags := text.ChompBytes(gittest.Exec(t, cfg, "-C", setup.repoPath, "tag"))
+			require.ElementsMatchf(t, setup.expectedTags, strings.Fields(tags), "tag name still exists in tags list")
 		})
 	}
 }

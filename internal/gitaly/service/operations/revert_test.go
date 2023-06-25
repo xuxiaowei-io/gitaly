@@ -31,13 +31,13 @@ func TestUserRevert(t *testing.T) {
 		expectedCommitID string
 		repoPath         string
 		request          *gitalypb.UserRevertRequest
+		expectedResponse *gitalypb.UserRevertResponse
+		expectedError    error
 	}
 
 	testCases := []struct {
-		desc             string
-		setup            func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData
-		expectedResponse *gitalypb.UserRevertResponse
-		expectedErr      error
+		desc  string
+		setup func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData
 	}{
 		{
 			desc: "successful",
@@ -57,10 +57,10 @@ func TestUserRevert(t *testing.T) {
 						BranchName: []byte(branchName),
 						Message:    []byte("Reverting " + firstCommitID),
 					},
+					expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
+					expectedError:    nil,
 				}
 			},
-			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
-			expectedErr:      nil,
 		},
 		{
 			desc: "nonexistent branch + start_repository == repository",
@@ -81,12 +81,12 @@ func TestUserRevert(t *testing.T) {
 						StartBranchName: []byte("master"),
 						Message:         []byte("Reverting " + firstCommitID),
 					},
+					expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
+						BranchCreated: true,
+					}},
+					expectedError: nil,
 				}
 			},
-			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
-				BranchCreated: true,
-			}},
-			expectedErr: nil,
 		},
 		{
 			desc: "nonexistent branch + start_repository != repository",
@@ -111,10 +111,10 @@ func TestUserRevert(t *testing.T) {
 						StartRepository: startRepoProto,
 						Message:         []byte("Reverting " + firstCommitID),
 					},
+					expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true, RepoCreated: true}},
+					expectedError:    nil,
 				}
 			},
-			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true, RepoCreated: true}},
-			expectedErr:      nil,
 		},
 		{
 			desc: "successful with dry run",
@@ -136,10 +136,10 @@ func TestUserRevert(t *testing.T) {
 						DryRun:     true,
 					},
 					expectedCommitID: firstCommit.Id,
+					expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
+					expectedError:    nil,
 				}
 			},
-			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
-			expectedErr:      nil,
 		},
 		{
 			desc: "nonexistent branch + start_repository == repository with dry run",
@@ -162,12 +162,12 @@ func TestUserRevert(t *testing.T) {
 						DryRun:          true,
 					},
 					expectedCommitID: firstCommit.Id,
+					expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
+						BranchCreated: true,
+					}},
+					expectedError: nil,
 				}
 			},
-			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
-				BranchCreated: true,
-			}},
-			expectedErr: nil,
 		},
 		{
 			desc: "nonexistent branch + start_repository != repository with dry run",
@@ -194,10 +194,10 @@ func TestUserRevert(t *testing.T) {
 						DryRun:          true,
 					},
 					expectedCommitID: firstCommitID.String(),
+					expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true, RepoCreated: true}},
+					expectedError:    nil,
 				}
 			},
-			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true, RepoCreated: true}},
-			expectedErr:      nil,
 		},
 
 		{
@@ -207,12 +207,12 @@ func TestUserRevert(t *testing.T) {
 					request: &gitalypb.UserRevertRequest{
 						Repository: nil,
 					},
+					expectedError: testhelper.GitalyOrPraefect(
+						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
+					),
 				}
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
 		},
 		{
 			desc: "empty user",
@@ -221,9 +221,9 @@ func TestUserRevert(t *testing.T) {
 					request: &gitalypb.UserRevertRequest{
 						Repository: repoProto,
 					},
+					expectedError: structerr.NewInvalidArgument("empty User"),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty User"),
 		},
 		{
 			desc: "empty commit",
@@ -233,9 +233,9 @@ func TestUserRevert(t *testing.T) {
 						Repository: repoProto,
 						User:       gittest.TestUser,
 					},
+					expectedError: structerr.NewInvalidArgument("empty Commit"),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty Commit"),
 		},
 		{
 			desc: "empty branch name",
@@ -253,9 +253,9 @@ func TestUserRevert(t *testing.T) {
 						Commit:     firstCommit,
 						Message:    []byte("Reverting " + firstCommitID),
 					},
+					expectedError: structerr.NewInvalidArgument("empty BranchName"),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty BranchName"),
 		},
 		{
 			desc: "empty message",
@@ -273,9 +273,9 @@ func TestUserRevert(t *testing.T) {
 						Commit:     firstCommit,
 						BranchName: []byte(branchName),
 					},
+					expectedError: structerr.NewInvalidArgument("empty Message"),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty Message"),
 		},
 		{
 			desc: "successful + expectedOldOID",
@@ -296,10 +296,10 @@ func TestUserRevert(t *testing.T) {
 						Message:        []byte("Reverting " + firstCommitID),
 						ExpectedOldOid: firstCommitID.String(),
 					},
+					expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
+					expectedError:    nil,
 				}
 			},
-			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
-			expectedErr:      nil,
 		},
 		{
 			desc: "successful + invalid expectedOldOID",
@@ -319,11 +319,11 @@ func TestUserRevert(t *testing.T) {
 						Message:        []byte("Reverting " + firstCommitID),
 						ExpectedOldOid: "foobar",
 					},
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())),
+						"old_object_id", "foobar"),
 				}
 			},
-			expectedErr: testhelper.WithInterceptedMetadata(
-				structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())),
-				"old_object_id", "foobar"),
 		},
 		{
 			desc: "expectedOldOID with valid SHA, but not present in repo",
@@ -343,11 +343,11 @@ func TestUserRevert(t *testing.T) {
 						Message:        []byte("Reverting " + firstCommitID),
 						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
 					},
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+						"old_object_id", gittest.DefaultObjectHash.ZeroOID),
 				}
 			},
-			expectedErr: testhelper.WithInterceptedMetadata(
-				structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
-				"old_object_id", gittest.DefaultObjectHash.ZeroOID),
 		},
 		{
 			desc: "expectedOldOID pointing to old commit",
@@ -370,9 +370,13 @@ func TestUserRevert(t *testing.T) {
 						Message:        []byte("Reverting " + secondCommitID),
 						ExpectedOldOid: firstCommitID.String(),
 					},
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewInternal("update reference with hooks: Could not update refs/heads/%s. Please refresh and try again.", branchName),
+						"stderr",
+						fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/%s': is at %s but expected %s\n", branchName, secondCommitID, firstCommitID),
+					),
 				}
 			},
-			expectedErr: structerr.NewInternal("update reference with hooks: Could not update refs/heads/%s. Please refresh and try again.", branchName),
 		},
 	}
 
@@ -388,14 +392,14 @@ func TestUserRevert(t *testing.T) {
 			data := tc.setup(t, repoPath, repoProto, repo)
 
 			response, err := client.UserRevert(ctx, data.request)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, data.expectedError, err)
 
-			if tc.expectedErr != nil {
+			if data.expectedError != nil {
 				return
 			}
 
 			branchCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", data.repoPath, "rev-parse", branchName))
-			tc.expectedResponse.BranchUpdate.CommitId = branchCommitID
+			data.expectedResponse.BranchUpdate.CommitId = branchCommitID
 
 			// For dry-run, we only skip the `update-ref` section, so a non-existent branch
 			// will be created by `UserRevert`. But, we need to ensure that the
@@ -404,7 +408,7 @@ func TestUserRevert(t *testing.T) {
 				require.Equal(t, data.expectedCommitID, branchCommitID, "dry run should point at expected commit")
 			}
 
-			testhelper.ProtoEqual(t, tc.expectedResponse, response)
+			testhelper.ProtoEqual(t, data.expectedResponse, response)
 		})
 	}
 }

@@ -28,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb/testproto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -391,7 +392,11 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "master",
 			startPoint: "master",
 			user:       gittest.TestUser,
-			err:        status.Errorf(codes.FailedPrecondition, "Could not update refs/heads/master. Please refresh and try again."),
+			err: testhelper.WithInterceptedMetadata(
+				structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again."),
+				"stderr",
+				"fatal: prepare: cannot lock ref 'refs/heads/master': reference already exists\n",
+			),
 		},
 		{
 			desc:       "conflicting with refs/heads/improve/awesome",
@@ -592,7 +597,7 @@ func TestUserDeleteBranch(t *testing.T) {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				secondCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
 
 				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -604,7 +609,11 @@ func TestUserDeleteBranch(t *testing.T) {
 						ExpectedOldOid: firstCommit.String(),
 					},
 					repoPath: repoPath,
-					expectedErr: structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/random-branch. Please refresh and try again.").
+					expectedErr: structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/%s. Please refresh and try again.", branchName).
+						WithDetail(&testproto.ErrorMetadata{
+							Key:   []byte("stderr"),
+							Value: []byte(fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/%s': is at %s but expected %s\n", branchName, secondCommit, firstCommit)),
+						}).
 						WithDetail(&gitalypb.UserDeleteBranchError{
 							Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
 								ReferenceUpdate: &gitalypb.ReferenceUpdateError{
