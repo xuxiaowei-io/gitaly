@@ -592,9 +592,10 @@ func TestManager_Restore_latest(t *testing.T) {
 
 							fsBackup := managerTC.setup(t, sink, locator)
 							err = fsBackup.Restore(ctx, &backup.RestoreRequest{
-								Server:       storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
-								Repository:   repo,
-								AlwaysCreate: tc.alwaysCreate,
+								Server:           storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
+								Repository:       repo,
+								VanityRepository: repo,
+								AlwaysCreate:     tc.alwaysCreate,
 							})
 							if tc.expectedErrAs != nil {
 								require.ErrorAs(t, err, &tc.expectedErrAs)
@@ -780,9 +781,10 @@ func TestManager_Restore_specific(t *testing.T) {
 
 					fsBackup := managerTC.setup(t, sink, locator)
 					err = fsBackup.Restore(ctx, &backup.RestoreRequest{
-						Server:       storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
-						Repository:   repo,
-						AlwaysCreate: tc.alwaysCreate,
+						Server:           storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
+						Repository:       repo,
+						VanityRepository: repo,
+						AlwaysCreate:     tc.alwaysCreate,
 					})
 					if tc.expectedErrAs != nil {
 						require.ErrorAs(t, err, &tc.expectedErrAs)
