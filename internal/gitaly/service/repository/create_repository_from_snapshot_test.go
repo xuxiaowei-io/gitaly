@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/darwin"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -58,7 +59,7 @@ func (h *tarTesthandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Create a tar file for the repo in memory, without relying on TarBuilder
 func generateTarFile(t *testing.T, path string) ([]byte, []string) {
 	var data []byte
-	if runtime.GOOS == "darwin" {
+	if runtime.GOOS == "darwin" && darwin.MajorVersion() < 13 {
 		data = testhelper.MustRunCommand(t, nil, "tar", "-C", path, "--no-mac-metadata", "-cf", "-", ".")
 	} else {
 		data = testhelper.MustRunCommand(t, nil, "tar", "-C", path, "-cf", "-", ".")

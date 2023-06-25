@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"runtime"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 )
@@ -13,12 +12,7 @@ import (
 // containing the specified archive members. Members should be specified
 // relative to `path`.
 func WriteTarball(ctx context.Context, writer io.Writer, path string, members ...string) error {
-	cmdArgs := []string{"-c", "-f", "-", "-C", path}
-
-	if runtime.GOOS == "darwin" {
-		cmdArgs = append(cmdArgs, "--no-mac-metadata")
-	}
-
+	cmdArgs := append([]string{"-c", "-f", "-", "-C", path}, extraFlags()...)
 	cmdArgs = append(cmdArgs, members...)
 
 	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...), command.WithStdout(writer))
