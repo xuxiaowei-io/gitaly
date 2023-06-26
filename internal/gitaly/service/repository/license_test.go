@@ -217,6 +217,20 @@ func TestFindLicense_successful(t *testing.T) {
 				LicensePath:      "mit.txt",
 			},
 		},
+		{
+			desc: "license in README",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    "README",
+							Content: "This project is released under MIT license",
+						},
+					))
+			},
+			expectedLicense: &gitalypb.FindLicenseResponse{},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)

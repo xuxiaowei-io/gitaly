@@ -224,6 +224,12 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 			continue
 		}
 
+		// Skip any file go-license-detector would use for NLP in
+		// Plan B: take the README, find the section about the license and apply NER
+		if readmeRegexp.MatchString(strings.ToLower(entry.Path)) {
+			continue
+		}
+
 		files = append(files, filer.File{
 			Name:  entry.Path,
 			IsDir: false,
