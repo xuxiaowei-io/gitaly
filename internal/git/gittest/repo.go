@@ -286,11 +286,11 @@ func RewrittenRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, rep
 
 // BundleRepo creates a bundle of a repository. `patterns` define the bundle contents as per
 // `git-rev-list-args`. If there are no patterns then `--all` is assumed.
-func BundleRepo(tb testing.TB, cfg config.Cfg, repoPath, bundlePath string, patterns ...string) {
+func BundleRepo(tb testing.TB, cfg config.Cfg, repoPath, bundlePath string, patterns ...string) []byte {
 	if len(patterns) == 0 {
 		patterns = []string{"--all"}
 	}
-	Exec(tb, cfg, append([]string{"-C", repoPath, "bundle", "create", bundlePath}, patterns...)...)
+	return Exec(tb, cfg, append([]string{"-C", repoPath, "bundle", "create", bundlePath}, patterns...)...)
 }
 
 // ChecksumRepo calculates the checksum of a repository.
