@@ -828,21 +828,21 @@ func TestParseResult(t *testing.T) {
 				gittest.DefaultObjectHash.EmptyTreeOID.String(),
 				"",
 				"1",
-				"a",
-				"Auto-merging",
-				"Auto-merging a\n",
+				"/foo",
+				"CONFLICT(directory rename unclear split)",
+				"CONFLICT (directory rename split): Unclear where to rename /foo to; it was renamed to multiple other directories, with no destination getting a majority of the files.",
 				"",
 			}, "\x00"),
 			oid: gittest.DefaultObjectHash.EmptyTreeOID,
-			expectedErr: structerr.NewInternal("couldn't split oid and file info").WithMetadata("stderr", strings.Join([]string{
-				gittest.DefaultObjectHash.EmptyTreeOID.String(),
-				"",
-				"1",
-				"a",
-				"Auto-merging",
-				"Auto-merging a\n",
-				"",
-			}, "\x00")),
+			expectedErr: &MergeTreeConflictError{
+				ConflictInfoMessage: []ConflictInfoMessage{
+					{
+						Paths:   []string{"/foo"},
+						Type:    "CONFLICT(directory rename unclear split)",
+						Message: "CONFLICT (directory rename split): Unclear where to rename /foo to; it was renamed to multiple other directories, with no destination getting a majority of the files.",
+					},
+				},
+			},
 		},
 	}
 
