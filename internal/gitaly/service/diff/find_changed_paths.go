@@ -10,7 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -249,9 +251,27 @@ func (t *findChangedPathsSender) Send() error {
 	})
 }
 
-func resolveObjectWithType(ctx context.Context, repo *localrepo.Repo, revision string, expectedType string) (git.ObjectID, error) {
+func resolveObjectWithType(
+	ctx context.Context,
+	repo *localrepo.Repo,
+	objectInfoReader catfile.ObjectInfoReader,
+	revision string,
+	expectedType string,
+) (git.ObjectID, error) {
 	if revision == "" {
 		return "", structerr.NewInvalidArgument("revision cannot be empty")
+	}
+
+	if featureflag.FindChangedPathsBatchedValidation.IsEnabled(ctx) {
+		info, err := objectInfoReader.Info(ctx, git.Revision(fmt.Sprintf("%s^{%s}", revision, expectedType)))
+		if err != nil {
+			if catfile.IsNotFound(err) {
+				return "", structerr.NewNotFound("revision can not be found: %q", revision)
+			}
+			return "", err
+		}
+
+		return info.Oid, nil
 	}
 
 	oid, err := repo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{%s}", revision, expectedType)))
@@ -290,30 +310,60 @@ func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *
 		}
 	}
 
+	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, gitRepo)
+	if err != nil {
+		return structerr.NewInternal("getting object info reader: %w", err)
+	}
+	defer cancel()
+
 	for _, request := range in.GetRequests() {
 		switch t := request.Type.(type) {
 		case *gitalypb.FindChangedPathsRequest_Request_CommitRequest_:
-			oid, err := resolveObjectWithType(ctx, gitRepo, t.CommitRequest.GetCommitRevision(), "commit")
+			oid, err := resolveObjectWithType(
+				ctx,
+				gitRepo,
+				objectInfoReader,
+				t.CommitRequest.GetCommitRevision(),
+				"commit",
+			)
 			if err != nil {
 				return structerr.NewInternal("resolving commit: %w", err)
 			}
 			t.CommitRequest.CommitRevision = oid.String()
 
 			for i, commit := range t.CommitRequest.GetParentCommitRevisions() {
-				oid, err := resolveObjectWithType(ctx, gitRepo, commit, "commit")
+				oid, err := resolveObjectWithType(
+					ctx,
+					gitRepo,
+					objectInfoReader,
+					commit,
+					"commit",
+				)
 				if err != nil {
 					return structerr.NewInternal("resolving commit parent: %w", err)
 				}
 				t.CommitRequest.ParentCommitRevisions[i] = oid.String()
 			}
 		case *gitalypb.FindChangedPathsRequest_Request_TreeRequest_:
-			oid, err := resolveObjectWithType(ctx, gitRepo, t.TreeRequest.GetLeftTreeRevision(), "tree")
+			oid, err := resolveObjectWithType(
+				ctx,
+				gitRepo,
+				objectInfoReader,
+				t.TreeRequest.GetLeftTreeRevision(),
+				"tree",
+			)
 			if err != nil {
 				return structerr.NewInternal("resolving left tree: %w", err)
 			}
 			t.TreeRequest.LeftTreeRevision = oid.String()
 
-			oid, err = resolveObjectWithType(ctx, gitRepo, t.TreeRequest.GetRightTreeRevision(), "tree")
+			oid, err = resolveObjectWithType(
+				ctx,
+				gitRepo,
+				objectInfoReader,
+				t.TreeRequest.GetRightTreeRevision(),
+				"tree",
+			)
 			if err != nil {
 				return structerr.NewInternal("resolving right tree: %w", err)
 			}
