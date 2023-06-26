@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,9 @@ func defaultCgroupsConfig() cgroups.Config {
 func TestNewManagerV1(t *testing.T) {
 	cfg := cgroups.Config{Repositories: cgroups.Repositories{Count: 10}}
 
-	manager := newCgroupManager(cfg, 1)
+	manager := newCgroupManagerWithMode(cfg, 1, cgrps.Legacy)
+	require.IsType(t, &cgroupV1Handler{}, manager.handler)
+	manager = newCgroupManagerWithMode(cfg, 1, cgrps.Hybrid)
 	require.IsType(t, &cgroupV1Handler{}, manager.handler)
 }
 
@@ -397,7 +400,7 @@ func TestPruneOldCgroups(t *testing.T) {
 			},
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
 				pid := 1
-				cgroupManager := newCgroupManager(cfg, pid)
+				cgroupManager := mock.newCgroupManager(cfg, pid)
 				require.NoError(t, cgroupManager.Setup())
 
 				return pid
@@ -416,7 +419,7 @@ func TestPruneOldCgroups(t *testing.T) {
 			},
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
 				pid := 1
-				cgroupManager := newCgroupManager(cfg, pid)
+				cgroupManager := mock.newCgroupManager(cfg, pid)
 				require.NoError(t, cgroupManager.Setup())
 				return 1
 			},
@@ -437,7 +440,7 @@ func TestPruneOldCgroups(t *testing.T) {
 				require.NoError(t, cmd.Run())
 				pid := cmd.Process.Pid
 
-				cgroupManager := newCgroupManager(cfg, pid)
+				cgroupManager := mock.newCgroupManager(cfg, pid)
 				require.NoError(t, cgroupManager.Setup())
 
 				memoryRoot := filepath.Join(
@@ -465,7 +468,7 @@ func TestPruneOldCgroups(t *testing.T) {
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
 				pid := os.Getpid()
 
-				cgroupManager := newCgroupManager(cfg, pid)
+				cgroupManager := mock.newCgroupManager(cfg, pid)
 				require.NoError(t, cgroupManager.Setup())
 
 				return pid
@@ -483,7 +486,7 @@ func TestPruneOldCgroups(t *testing.T) {
 				},
 			},
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
-				cgroupManager := newCgroupManager(cfg, 0)
+				cgroupManager := mock.newCgroupManager(cfg, 0)
 				require.NoError(t, cgroupManager.Setup())
 
 				return 0

@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"testing"
 
+	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/containerd/cgroups/v3/cgroup1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -119,9 +120,69 @@ throttled_time 1000000`
 }
 
 func (m *mockCgroup) newCgroupManager(cfg cgroupscfg.Config, pid int) *CGroupManager {
-	return newCgroupManager(cfg, pid)
+	return newCgroupManagerWithMode(cfg, pid, cgrps.Legacy)
 }
 
 func (m *mockCgroup) pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
-	PruneOldCgroups(cfg, logger)
+	pruneOldCgroupsWithMode(cfg, logger, cgrps.Legacy)
+}
+
+type mockCgroupV2 struct {
+	root string
+}
+
+func newMockV2(t *testing.T) *mockCgroupV2 {
+	t.Helper()
+
+	return &mockCgroupV2{
+		root: testhelper.TempDir(t),
+	}
+}
+
+func (m *mockCgroupV2) setupMockCgroupFiles(
+	t *testing.T,
+	manager *CGroupManager,
+) {
+	cgroupPath := filepath.Join(m.root, manager.currentProcessCgroup())
+	require.NoError(t, os.MkdirAll(cgroupPath, perm.SharedDir))
+
+	contentByFilename := map[string]string{
+		"cgroup.procs":           "",
+		"cgroup.subtree_control": "cpu cpuset memory",
+		"cgroup.controllers":     "cpu cpuset memory",
+		"cpu.max":                "max 100000",
+		"cpu.weight":             "10",
+		"memory.max":             "max",
+		"cpu.stat": `nr_periods 10
+		nr_throttled 20
+		throttled_usec 1000000`,
+	}
+
+	for filename, content := range contentByFilename {
+		controlFilePath := filepath.Join(m.root, manager.cfg.HierarchyRoot, filename)
+		require.NoError(t, os.WriteFile(controlFilePath, []byte(content), perm.SharedFile))
+	}
+
+	for filename, content := range contentByFilename {
+		controlFilePath := filepath.Join(cgroupPath, filename)
+		require.NoError(t, os.WriteFile(controlFilePath, []byte(content), perm.SharedFile))
+	}
+
+	for shard := uint(0); shard < manager.cfg.Repositories.Count; shard++ {
+		shardPath := filepath.Join(cgroupPath, fmt.Sprintf("repos-%d", shard))
+		require.NoError(t, os.MkdirAll(shardPath, perm.SharedDir))
+
+		for filename, content := range contentByFilename {
+			shardControlFilePath := filepath.Join(shardPath, filename)
+			require.NoError(t, os.WriteFile(shardControlFilePath, []byte(content), perm.SharedFile))
+		}
+	}
+}
+
+func (m *mockCgroupV2) newCgroupManager(cfg cgroupscfg.Config, pid int) *CGroupManager {
+	return newCgroupManagerWithMode(cfg, pid, cgrps.Unified)
+}
+
+func (m *mockCgroupV2) pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
+	pruneOldCgroupsWithMode(cfg, logger, cgrps.Unified)
 }

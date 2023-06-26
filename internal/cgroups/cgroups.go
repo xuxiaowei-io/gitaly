@@ -50,9 +50,5 @@ func NewManager(cfg cgroups.Config, pid int) Manager {
 
 // PruneOldCgroups prunes old cgroups for both the memory and cpu subsystems
 func PruneOldCgroups(cfg cgroups.Config, logger log.FieldLogger) {
-	if cfg.HierarchyRoot == "" {
-		return
-	}
-
-	pruneOldCgroupsV1(cfg, logger)
+	pruneOldCgroups(cfg, logger)
 }

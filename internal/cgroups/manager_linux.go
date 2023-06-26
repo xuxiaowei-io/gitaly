@@ -8,8 +8,10 @@ import (
 	"os/exec"
 	"strings"
 
+	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 )
 
@@ -35,10 +37,25 @@ type CGroupManager struct {
 }
 
 func newCgroupManager(cfg cgroupscfg.Config, pid int) *CGroupManager {
+	return newCgroupManagerWithMode(cfg, pid, cgrps.Mode())
+}
+
+func newCgroupManagerWithMode(cfg cgroupscfg.Config, pid int, mode cgrps.CGMode) *CGroupManager {
+	var handler cgroupHandler
+	switch mode {
+	case cgrps.Legacy, cgrps.Hybrid:
+		handler = newV1Handler(cfg, pid)
+	case cgrps.Unified:
+		handler = newV2Handler(cfg, pid)
+		log.Warnf("Gitaly now includes experimental support for CgroupV2. Please proceed with caution and use this experimental feature at your own risk")
+	default:
+		log.Fatalf("unknown cgroup version")
+	}
+
 	return &CGroupManager{
 		cfg:     cfg,
 		pid:     pid,
-		handler: newV1Handler(cfg, pid),
+		handler: handler,
 	}
 }
 
@@ -138,4 +155,23 @@ func (cgm *CGroupManager) configRepositoryResources() *specs.LinuxResources {
 		reposResources.Memory = &specs.LinuxMemory{Limit: &cgm.cfg.Repositories.MemoryBytes}
 	}
 	return &reposResources
+}
+
+func pruneOldCgroups(cfg cgroupscfg.Config, logger log.FieldLogger) {
+	pruneOldCgroupsWithMode(cfg, logger, cgrps.Mode())
+}
+
+func pruneOldCgroupsWithMode(cfg cgroupscfg.Config, logger log.FieldLogger, mode cgrps.CGMode) {
+	if cfg.HierarchyRoot == "" {
+		return
+	}
+
+	switch mode {
+	case cgrps.Legacy, cgrps.Hybrid:
+		pruneOldCgroupsV1(cfg, logger)
+	case cgrps.Unified:
+		pruneOldCgroupsV2(cfg, logger)
+	default:
+		log.Fatalf("unknown cgroup version")
+	}
 }
