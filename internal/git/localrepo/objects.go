@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -207,40 +206,6 @@ func (repo *Repo) ReadObjectInfo(ctx context.Context, rev git.Revision) (*catfil
 // ReadObject reads an object from the repository's object database. InvalidObjectError
 // is returned if the oid does not refer to a valid object.
 func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, error) {
-	if featureflag.LocalrepoReadObjectCached.IsEnabled(ctx) {
-		return repo.readObjectCached(ctx, oid)
-	}
-
-	const msgInvalidObject = "fatal: Not a valid object name "
-
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd, err := repo.Exec(ctx,
-		git.Command{
-			Name:  "cat-file",
-			Flags: []git.Option{git.Flag{Name: "-p"}},
-			Args:  []string{oid.String()},
-		},
-		git.WithStdout(stdout),
-		git.WithStderr(stderr),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		msg := text.ChompBytes(stderr.Bytes())
-		if strings.HasPrefix(msg, msgInvalidObject) {
-			return nil, InvalidObjectError(strings.TrimPrefix(msg, msgInvalidObject))
-		}
-
-		return nil, errorWithStderr(err, stderr.Bytes())
-	}
-
-	return stdout.Bytes(), nil
-}
-
-func (repo *Repo) readObjectCached(ctx context.Context, oid git.ObjectID) ([]byte, error) {
 	objectReader, cancel, err := repo.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("create object reader: %w", err)

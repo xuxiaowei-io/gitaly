@@ -2,7 +2,6 @@ package localrepo
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -33,10 +31,7 @@ func (fn ReaderFunc) Read(b []byte) (int, error) { return fn(b) }
 func TestRepo_WriteBlob(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Run(t, testRepoWriteBlob)
-}
-
-func testRepoWriteBlob(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	_, repo, repoPath := setupRepo(t)
 
 	for _, tc := range []struct {
@@ -248,10 +243,7 @@ tagger root <root@localhost> 12345 -0100
 func TestRepo_ReadObject(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Run(t, testRepoReadObject)
-}
-
-func testRepoReadObject(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg, repo, repoPath := setupRepo(t)
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
 
@@ -326,10 +318,7 @@ func TestRepoReadObjectInfo(t *testing.T) {
 func TestRepo_ReadObject_catfileCount(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Run(t, testRepoReadObjectCatfileCount)
-}
-
-func testRepoReadObjectCatfileCount(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	gitCmdFactory := gittest.NewCountingCommandFactory(t, cfg)
@@ -348,17 +337,13 @@ func testRepoReadObjectCatfileCount(t *testing.T, ctx context.Context) {
 
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
 
-	expected := 10
-	for i := 0; i < expected; i++ {
+	for i := 0; i < 10; i++ {
 		content, err := repo.ReadObject(ctx, blobID)
 		require.NoError(t, err)
 		require.Equal(t, "content", string(content))
 	}
 
-	if featureflag.LocalrepoReadObjectCached.IsEnabled(ctx) {
-		expected = 1
-	}
-	require.Equal(t, uint64(expected), gitCmdFactory.CommandCount("cat-file"))
+	gitCmdFactory.RequireCommandCount(t, "cat-file", 1)
 }
 
 func TestRepo_ReadCommit(t *testing.T) {

@@ -63,7 +63,7 @@ func TestCountingCommandFactory(t *testing.T) {
 			tc.run(t, f)
 
 			for k, v := range tc.expected {
-				require.Equal(t, v, f.CommandCount(k))
+				f.RequireCommandCount(t, k, v)
 			}
 		})
 	}
