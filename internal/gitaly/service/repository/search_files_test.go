@@ -255,10 +255,7 @@ func TestSearchFilesByName(t *testing.T) {
 			request: &gitalypb.SearchFilesByNameRequest{
 				Repository: &gitalypb.Repository{},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "empty request",

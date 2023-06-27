@@ -1166,6 +1166,10 @@ func (c *Coordinator) newRequestFinalizer(
 }
 
 func (c *Coordinator) validateTargetRepo(repo *gitalypb.Repository) error {
+	if repo.GetStorageName() == "" && repo.GetRelativePath() == "" {
+		return storage.ErrRepositoryNotSet
+	}
+
 	if repo.GetStorageName() == "" {
 		return storage.ErrStorageNotSet
 	}

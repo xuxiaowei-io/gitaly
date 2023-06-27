@@ -59,10 +59,7 @@ func TestListFiles(t *testing.T) {
 			request: &gitalypb.ListFilesRequest{
 				Repository: &gitalypb.Repository{},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "non-existing repo",
