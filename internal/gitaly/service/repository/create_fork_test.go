@@ -259,7 +259,6 @@ func TestCreateFork_validate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, cli := setupRepositoryServiceWithoutRepo(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	srcRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 	// Praefect does not rewrite the SourceRepository storage name, confirm
@@ -272,17 +271,23 @@ func TestCreateFork_validate(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc:        "repository not provided",
-			req:         &gitalypb.CreateForkRequest{Repository: nil, SourceRepository: srcRepo},
+			desc: "repository not provided",
+			req: &gitalypb.CreateForkRequest{
+				Repository:       nil,
+				SourceRepository: srcRepo,
+			},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "source repository not provided",
-			req:  &gitalypb.CreateForkRequest{Repository: repo, SourceRepository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("validating source repository: %w", storage.ErrRepositoryNotSet),
-				structerr.NewAlreadyExists("route repository creation: reserve repository id: repository already exists"),
-			),
+			req: &gitalypb.CreateForkRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  cfg.Storages[0].Name,
+					RelativePath: gittest.NewRepositoryName(t),
+				},
+				SourceRepository: nil,
+			},
+			expectedErr: structerr.NewInvalidArgument("validating source repository: %w", storage.ErrRepositoryNotSet),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
