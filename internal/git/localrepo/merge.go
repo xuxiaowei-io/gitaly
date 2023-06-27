@@ -256,3 +256,23 @@ func (c *MergeTreeConflictError) Error() string {
 	// and the InfoMessage.
 	return "merge: there are conflicting files"
 }
+
+// ConflictedFiles is used to get the list of the names of the conflicted files from the
+// MergeTreeConflictError.
+func (c *MergeTreeConflictError) ConflictedFiles() []string {
+	// We use a map for quick access to understand which files were already
+	// accounted for.
+	m := make(map[string]struct{})
+	var files []string
+
+	for _, fileInfo := range c.ConflictingFileInfo {
+		if _, ok := m[fileInfo.FileName]; ok {
+			continue
+		}
+
+		m[fileInfo.FileName] = struct{}{}
+		files = append(files, fileInfo.FileName)
+	}
+
+	return files
+}

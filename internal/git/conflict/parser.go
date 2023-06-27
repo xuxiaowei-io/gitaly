@@ -14,33 +14,6 @@ import (
 	"strings"
 )
 
-// Errors that can occur during parsing of a merge conflict file
-var (
-	ErrUnmergeableFile     = errors.New("merging is not supported for file")
-	ErrUnexpectedDelimiter = errors.New("unexpected conflict delimiter")
-	ErrMissingEndDelimiter = errors.New("missing last delimiter")
-)
-
-type section uint
-
-const (
-	sectionNone = section(iota)
-	sectionOld
-	sectionNew
-	sectionNoNewline
-)
-
-const fileLimit = 200 * (1 << 10) // 200k
-
-type line struct {
-	objIndex uint // where are we in the object?
-	oldIndex uint // where are we in the old file?
-	newIndex uint // where are we in the new file?
-
-	payload string // actual line contents (minus the newline)
-	section section
-}
-
 // File contains an ordered list of lines with metadata about potential
 // conflicts.
 type File struct {
@@ -53,23 +26,6 @@ func (f File) sectionID(l line) string {
 	pathSHA1 := sha1.Sum([]byte(f.path))
 	return fmt.Sprintf("%x_%d_%d", pathSHA1, l.oldIndex, l.newIndex)
 }
-
-// Resolution indicates how to resolve a conflict
-type Resolution struct {
-	OldPath string `json:"old_path"`
-	NewPath string `json:"new_path"`
-
-	// key is a sectionID, value is "head" or "origin"
-	Sections map[string]string `json:"sections"`
-
-	// Content is used when no sections are defined
-	Content string `json:"content"`
-}
-
-const (
-	head   = "head"
-	origin = "origin"
-)
 
 // Resolve will iterate through each conflict line and replace it with the
 // specified resolution
