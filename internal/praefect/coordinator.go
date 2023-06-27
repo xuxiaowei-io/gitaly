@@ -697,10 +697,6 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 			targetRepo:     targetRepo,
 		})
 		if err != nil {
-			if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
-				return nil, structerr.NewInvalidArgument("%w", err)
-			}
-
 			var additionalRepoNotFound additionalRepositoryNotFoundError
 			if errors.As(err, &additionalRepoNotFound) {
 				return nil, structerr.NewNotFound("%w", err).WithMetadataItems(
