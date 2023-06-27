@@ -118,6 +118,7 @@ func (q *QueueDepthCollector) Describe(ch chan<- *prometheus.Desc) {
 // NewQueueDepthCollector returns a new QueueDepthCollector
 func NewQueueDepthCollector(log logrus.FieldLogger, db glsql.Querier, timeout time.Duration) *QueueDepthCollector {
 	return &QueueDepthCollector{
+		log:     log.WithField("component", "queue_depth_collector"),
 		timeout: timeout,
 		db:      db,
 	}
