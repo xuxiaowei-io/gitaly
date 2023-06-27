@@ -170,7 +170,7 @@ func TestSetCustomHooks_failedValidation(t *testing.T) {
 
 			err := tc.streamSender(t, ctx, client)
 			testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("validating repo: %w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
 			), err)
 		})

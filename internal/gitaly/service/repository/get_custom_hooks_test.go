@@ -211,7 +211,7 @@ func TestGetCustomHooks_validate(t *testing.T) {
 			desc: "repository not provided",
 			req:  &gitalypb.GetCustomHooksRequest{Repository: nil},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("validating repository: %w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
 			),
 		},
@@ -240,7 +240,7 @@ func TestBackupCustomHooks_validate(t *testing.T) {
 			desc: "repository not provided",
 			req:  &gitalypb.BackupCustomHooksRequest{Repository: nil},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("validating repository: %w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
 			),
 		},

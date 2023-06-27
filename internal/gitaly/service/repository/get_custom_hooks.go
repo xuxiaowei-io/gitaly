@@ -14,7 +14,7 @@ func (s *server) GetCustomHooks(in *gitalypb.GetCustomHooksRequest, stream gital
 	ctx := stream.Context()
 
 	if err := s.locator.ValidateRepository(in.GetRepository()); err != nil {
-		return structerr.NewInvalidArgument("validating repository: %w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -35,7 +35,7 @@ func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream
 	ctx := stream.Context()
 
 	if err := s.locator.ValidateRepository(in.GetRepository()); err != nil {
-		return structerr.NewInvalidArgument("validating repository: %w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	writer := streamio.NewWriter(func(p []byte) error {

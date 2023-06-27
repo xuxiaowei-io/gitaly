@@ -20,7 +20,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 
 	repo := firstRequest.GetRepository()
 	if err := s.locator.ValidateRepository(repo, storage.WithSkipRepositoryExistenceCheck()); err != nil {
-		return structerr.NewInvalidArgument("CreateRepositoryFromBundle: %w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	ctx := stream.Context()

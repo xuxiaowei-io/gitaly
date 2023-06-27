@@ -70,7 +70,7 @@ func TestServerBackupRepository(t *testing.T) {
 					backupID: "",
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("backup repository: empty BackupId"),
+			expectedErr: structerr.NewInvalidArgument("empty BackupId"),
 		},
 		{
 			desc: "missing repository",
@@ -88,7 +88,7 @@ func TestServerBackupRepository(t *testing.T) {
 				}
 			},
 			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"backup repository: repository not set",
+				"repository not set",
 				"repo scoped: repository not set",
 			)),
 		},

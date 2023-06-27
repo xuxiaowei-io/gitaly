@@ -20,7 +20,7 @@ func (s *server) SetCustomHooks(stream gitalypb.RepositoryService_SetCustomHooks
 
 	repo := firstRequest.GetRepository()
 	if err := s.locator.ValidateRepository(repo); err != nil {
-		return structerr.NewInvalidArgument("validating repo: %w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	reader := streamio.NewReader(func() ([]byte, error) {
@@ -54,7 +54,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 
 	repo := firstRequest.GetRepository()
 	if err := s.locator.ValidateRepository(repo); err != nil {
-		return structerr.NewInvalidArgument("validating repo: %w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	reader := streamio.NewReader(func() ([]byte, error) {

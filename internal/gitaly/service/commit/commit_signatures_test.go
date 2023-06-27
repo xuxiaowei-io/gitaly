@@ -107,7 +107,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("GetCommitSignatures: %w", storage.ErrRepositoryNotSet),
+				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
 			),
 		},
@@ -117,7 +117,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				Repository: repo,
 				CommitIds:  []string{},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "GetCommitSignatures: empty CommitIds"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty CommitIds"),
 		},
 		{
 			desc: "commitIDS with shorthand sha",
@@ -125,7 +125,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				Repository: repo,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e", "a17a9f6"},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`GetCommitSignatures: invalid object ID: "a17a9f6", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen())),
+			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "a17a9f6", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen())),
 		},
 	}
 

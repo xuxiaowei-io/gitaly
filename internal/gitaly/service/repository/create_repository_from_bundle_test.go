@@ -255,7 +255,7 @@ func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 
 	_, err = stream.CloseAndRecv()
 	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-		structerr.NewInvalidArgument("CreateRepositoryFromBundle: %w", storage.ErrRepositoryNotSet),
+		structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
 	), err)
 }
