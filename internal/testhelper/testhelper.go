@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	mrand "math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -16,7 +15,6 @@ import (
 	"reflect"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
@@ -179,10 +177,6 @@ func Context(tb testing.TB, opts ...ContextOpt) context.Context {
 func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx := context.Background()
 
-	t := time.Now()
-
-	rnd := mrand.New(mrand.NewSource(t.Unix() + int64(t.Nanosecond())))
-
 	// Enable use of explicit feature flags. Each feature flag which is checked must have been
 	// explicitly injected into the context, or otherwise we panic. This is a sanity check to
 	// verify that all feature flags we introduce are tested both with the flag enabled and
@@ -192,9 +186,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// deep in the call stack, so almost every test function would have to inject it into its
 	// context. The values of these flags should be randomized to increase the test coverage.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
-
-	// Randomly enable either Git v2.40 or Git v2.41.
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GitV241, rnd.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)
