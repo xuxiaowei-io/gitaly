@@ -13,6 +13,7 @@ import (
 	git "github.com/libgit2/git2go/v34"
 	"gitlab.com/gitlab-org/gitaly/v16/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 type mergeSubcommand struct{}
@@ -253,4 +254,51 @@ func getConflicts(index *git.Index) ([]git.IndexConflict, error) {
 	}
 
 	return conflicts, nil
+}
+
+// Merge will merge the given index conflict and produce a file with conflict
+// markers.
+func Merge(repo *git.Repository, conflict git.IndexConflict) (*git.MergeFileResult, error) {
+	var ancestor, our, their git.MergeFileInput
+
+	for _, val := range []struct {
+		entry *git.IndexEntry
+		input *git.MergeFileInput
+	}{
+		{conflict.Ancestor, &ancestor},
+		{conflict.Our, &our},
+		{conflict.Their, &their},
+	} {
+		if val.entry == nil {
+			continue
+		}
+
+		blob, err := repo.LookupBlob(val.entry.Id)
+		if err != nil {
+			return nil, structerr.NewFailedPrecondition("could not get conflicting blob: %w", err)
+		}
+
+		val.input.Path = val.entry.Path
+		val.input.Mode = uint(val.entry.Mode)
+		val.input.Contents = blob.Contents()
+	}
+
+	merge, err := git.MergeFile(ancestor, our, their, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not compute conflicts: %w", err)
+	}
+
+	// In a case of tree-based conflicts (e.g. no ancestor), fallback to `Path`
+	// of `their` side. If that's also blank, fallback to `Path` of `our` side.
+	// This is to ensure that there's always a `Path` when we try to merge
+	// conflicts.
+	if merge.Path == "" {
+		if their.Path != "" {
+			merge.Path = their.Path
+		} else {
+			merge.Path = our.Path
+		}
+	}
+
+	return merge, nil
 }
