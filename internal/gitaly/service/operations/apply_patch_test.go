@@ -58,6 +58,13 @@ To restore the original branch and stop patching, run "git am --abort".
 		newTree []gittest.TreeEntry
 	}
 
+	type expected struct {
+		oldOID         string
+		err            error
+		branchCreation bool
+		tree           []gittest.TreeEntry
+	}
+
 	for _, tc := range []struct {
 		desc string
 		// sends a request to a non-existent repository
@@ -70,8 +77,6 @@ To restore the original branch and stop patching, run "git am --abort".
 		notSentByAuthor bool
 		// targetBranch is the branch where the patched commit goes.
 		targetBranch string
-		// expectedOldOID is a function which provides the expectedOldOID given the repoPath.
-		expectedOldOID func(repoPath string) string
 		// extraBranches are created with empty commits for verifying the correct base branch
 		// gets selected.
 		extraBranches []string
@@ -81,26 +86,28 @@ To restore the original branch and stop patching, run "git am --abort".
 		// in the series to its parent.
 		//
 		// After the patches are generated, they are applied sequentially on the base commit.
-		patches                []patchDescription
-		expectedErr            error
-		expectedBranchCreation bool
-		expectedTree           []gittest.TreeEntry
+		patches  []patchDescription
+		expected func(t *testing.T, repoPath string) expected
 	}{
 		{
 			desc:                  "non-existent repository",
 			targetBranch:          git.DefaultBranch,
 			nonExistentRepository: true,
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"mutator call: route repository mutator: get repository id: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist"),
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					err: testhelper.GitalyOrPraefect(
+						testhelper.ToInterceptedMetadata(
+							structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist")),
+						),
+						testhelper.ToInterceptedMetadata(
+							structerr.New(
+								"mutator call: route repository mutator: get repository id: %w",
+								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist"),
+							),
+						),
 					),
-				),
-			),
+				}
+			},
 		},
 		{
 			desc: "creating the first branch does not work",
@@ -115,7 +122,11 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedErr: status.Error(codes.Internal, "no default branch"),
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					err: status.Error(codes.Internal, "no default branch"),
+				}
+			},
 		},
 		{
 			desc: "creating a new branch from HEAD works",
@@ -132,9 +143,13 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedBranchCreation: true,
-			expectedTree: []gittest.TreeEntry{
-				{Mode: "100644", Path: "file", Content: "patch 1"},
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					branchCreation: true,
+					tree: []gittest.TreeEntry{
+						{Mode: "100644", Path: "file", Content: "patch 1"},
+					},
+				}
 			},
 		},
 		{
@@ -152,9 +167,13 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedBranchCreation: true,
-			expectedTree: []gittest.TreeEntry{
-				{Mode: "100644", Path: "file", Content: "patch 1"},
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					branchCreation: true,
+					tree: []gittest.TreeEntry{
+						{Mode: "100644", Path: "file", Content: "patch 1"},
+					},
+				}
 			},
 		},
 		{
@@ -179,8 +198,12 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedTree: []gittest.TreeEntry{
-				{Mode: "100644", Path: "file", Content: "patch 2"},
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					tree: []gittest.TreeEntry{
+						{Mode: "100644", Path: "file", Content: "patch 2"},
+					},
+				}
 			},
 		},
 		{
@@ -198,8 +221,12 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedTree: []gittest.TreeEntry{
-				{Mode: "100644", Path: "file", Content: "patch 1"},
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					tree: []gittest.TreeEntry{
+						{Mode: "100644", Path: "file", Content: "patch 1"},
+					},
+				}
 			},
 		},
 		{
@@ -224,8 +251,12 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedTree: []gittest.TreeEntry{
-				{Mode: "100644", Path: "file", Content: "patch 1"},
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					tree: []gittest.TreeEntry{
+						{Mode: "100644", Path: "file", Content: "patch 1"},
+					},
+				}
 			},
 		},
 		{
@@ -247,7 +278,11 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedErr: errPatchingFailed,
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					err: errPatchingFailed,
+				}
+			},
 		},
 		{
 			desc: "patching fails due to add-add conflict",
@@ -268,7 +303,11 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedErr: errPatchingFailed,
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					err: errPatchingFailed,
+				}
+			},
 		},
 		{
 			desc: "patch applies using rename detection",
@@ -289,8 +328,12 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedTree: []gittest.TreeEntry{
-				{Mode: "100644", Path: "moved-file", Content: "line 1\nline 2\nline 3\nline 4\nadded\n"},
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					tree: []gittest.TreeEntry{
+						{Mode: "100644", Path: "moved-file", Content: "line 1\nline 2\nline 3\nline 4\nadded\n"},
+					},
+				}
 			},
 		},
 		{
@@ -310,7 +353,11 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedErr: errPatchingFailed,
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					err: errPatchingFailed,
+				}
+			},
 		},
 		{
 			desc: "existing branch + correct expectedOldOID",
@@ -326,11 +373,14 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedTree: []gittest.TreeEntry{
-				{Mode: "100644", Path: "file", Content: "patch 1"},
-			},
-			expectedOldOID: func(repoPath string) string {
-				return text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", git.DefaultBranch))
+			expected: func(t *testing.T, repoPath string) expected {
+				oid := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", git.DefaultBranch))
+				return expected{
+					tree: []gittest.TreeEntry{
+						{Mode: "100644", Path: "file", Content: "patch 1"},
+					},
+					oldOID: oid,
+				}
 			},
 		},
 		{
@@ -347,8 +397,12 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string { return "foo" },
-			expectedErr:    structerr.NewInternal(fmt.Sprintf(`expected old object id not expected SHA format: invalid object ID: "foo", expected length %v, got 3`, gittest.DefaultObjectHash.EncodedLen())),
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					oldOID: "foo",
+					err:    structerr.NewInternal(fmt.Sprintf(`expected old object id not expected SHA format: invalid object ID: "foo", expected length %v, got 3`, gittest.DefaultObjectHash.EncodedLen())),
+				}
+			},
 		},
 		{
 			desc: "existing branch + valid but unavailable expectedOldOID",
@@ -364,8 +418,12 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string { return gittest.DefaultObjectHash.ZeroOID.String() },
-			expectedErr:    structerr.NewInternal("expected old object cannot be resolved: reference not found"),
+			expected: func(t *testing.T, repoPath string) expected {
+				return expected{
+					oldOID: gittest.DefaultObjectHash.ZeroOID.String(),
+					err:    structerr.NewInternal("expected old object cannot be resolved: reference not found"),
+				}
+			},
 		},
 		{
 			desc: "existing branch + expectedOldOID set to an old commit OID",
@@ -381,15 +439,21 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string {
+			expected: func(t *testing.T, repoPath string) expected {
 				currentCommit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", git.DefaultBranch))
 				// add a new commit to the default branch so we can point at
 				// the old one, this is because by default the test only
 				// creates one commit
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(currentCommit)), gittest.WithBranch(git.DefaultBranch))
-				return currentCommit
+				futureCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(currentCommit)), gittest.WithBranch(git.DefaultBranch))
+				return expected{
+					oldOID: currentCommit,
+					err: testhelper.WithInterceptedMetadata(
+						structerr.NewInternal(`update reference: Could not update %s. Please refresh and try again.`, git.DefaultRef),
+						"stderr",
+						fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/main': is at %s but expected %s\n", futureCommit, currentCommit),
+					),
+				}
 			},
-			expectedErr: structerr.NewInternal(`update reference: Could not update %s. Please refresh and try again.`, git.DefaultRef),
 		},
 	} {
 		tc := tc
@@ -459,10 +523,7 @@ To restore the original branch and stop patching, run "git am --abort".
 				repoProto.RelativePath = "doesnt-exist"
 			}
 
-			expectedOldOID := ""
-			if tc.expectedOldOID != nil {
-				expectedOldOID = tc.expectedOldOID(repoPath)
-			}
+			expectedValues := tc.expected(t, repoPath)
 
 			require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 				UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
@@ -471,7 +532,7 @@ To restore the original branch and stop patching, run "git am --abort".
 						User:           gittest.TestUser,
 						TargetBranch:   []byte(tc.targetBranch),
 						Timestamp:      requestTimestamp,
-						ExpectedOldOid: expectedOldOID,
+						ExpectedOldOid: expectedValues.oldOID,
 					},
 				},
 			}))
@@ -504,8 +565,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			}
 
 			actualResponse, err := stream.CloseAndRecv()
-			if tc.expectedErr != nil {
-				testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			if expectedValues.err != nil {
+				testhelper.RequireGrpcError(t, expectedValues.err, err)
 				return
 			}
 
@@ -516,7 +577,7 @@ To restore the original branch and stop patching, run "git am --abort".
 			testhelper.ProtoEqual(t, &gitalypb.UserApplyPatchResponse{
 				BranchUpdate: &gitalypb.OperationBranchUpdate{
 					RepoCreated:   false,
-					BranchCreated: tc.expectedBranchCreation,
+					BranchCreated: expectedValues.branchCreation,
 				},
 			}, actualResponse)
 
@@ -549,7 +610,7 @@ To restore the original branch and stop patching, run "git am --abort".
 				actualCommit,
 			)
 
-			gittest.RequireTree(t, cfg, repoPath, commitID, tc.expectedTree)
+			gittest.RequireTree(t, cfg, repoPath, commitID, expectedValues.tree)
 		})
 	}
 }

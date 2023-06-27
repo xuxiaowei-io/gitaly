@@ -115,6 +115,13 @@ type Error struct {
 	// OldOID and NewOID are the expected object IDs previous to and after the update if it
 	// would have succeeded.
 	OldOID, NewOID git.ObjectID
+	// Cause is an actual cause of the error.
+	Cause error
+}
+
+// Unwrap returns Cause.
+func (e Error) Unwrap() error {
+	return e.Cause
 }
 
 func (e Error) Error() string {
@@ -260,6 +267,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 			Reference: reference,
 			OldOID:    oldrev,
 			NewOID:    newrev,
+			Cause:     err,
 		}
 	}
 
@@ -272,6 +280,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 			Reference: reference,
 			OldOID:    oldrev,
 			NewOID:    newrev,
+			Cause:     err,
 		}
 	}
 

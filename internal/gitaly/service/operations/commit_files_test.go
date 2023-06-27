@@ -1164,7 +1164,11 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			repoPath:       repoPath,
 			branchName:     "few-commits",
 			expectedOldOID: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/few-commits~1")),
-			expectedError:  structerr.NewFailedPrecondition("Could not update refs/heads/few-commits. Please refresh and try again."),
+			expectedError: testhelper.WithInterceptedMetadata(
+				structerr.NewFailedPrecondition("Could not update refs/heads/few-commits. Please refresh and try again."),
+				"stderr",
+				"fatal: prepare: cannot lock ref 'refs/heads/few-commits': is at 0031876facac3f2b2702a0e53a26e89939a42209 but expected bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb\n",
+			),
 		},
 		{
 			desc:          "existing repo, new branch",
