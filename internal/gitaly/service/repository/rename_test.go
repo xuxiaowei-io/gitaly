@@ -123,13 +123,8 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 		{
 			desc: "repository relative path doesn't exist",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "stub"}, RelativePath: "non-existent/directory"},
-			exp: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "stub")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.NewNotFound("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "stub")),
-				),
+			exp: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "stub")),
 			),
 		},
 	}
