@@ -128,8 +128,6 @@ GIT_EXECUTABLES += git-http-backend
 ## WITH_BUNDLED_GIT=YesPlease. Can be set to an arbitrary Git revision with
 ## tags, branches, and commit ids.
 GIT_VERSION ?=
-## The Git version used for bundled Git v2.40.
-GIT_VERSION_2_40 ?= v2.40.1.gl2
 ## The Git version used for bundled Git v2.41.
 GIT_VERSION_2_41 ?= v2.41.0.gl1
 
@@ -323,15 +321,13 @@ install: build
 
 .PHONY: build-bundled-git
 ## Build bundled Git binaries.
-build-bundled-git: build-bundled-git-v2.40 build-bundled-git-v2.41
-build-bundled-git-v2.40: $(patsubst %,${BUILD_DIR}/bin/gitaly-%-v2.40,${GIT_EXECUTABLES})
+build-bundled-git: build-bundled-git-v2.41
 build-bundled-git-v2.41: $(patsubst %,${BUILD_DIR}/bin/gitaly-%-v2.41,${GIT_EXECUTABLES})
 
 .PHONY: install-bundled-git
 ## Install bundled Git binaries. The target directory can be modified by
 ## setting PREFIX and DESTDIR.
-install-bundled-git: install-bundled-git-v2.40 install-bundled-git-v2.41
-install-bundled-git-v2.40: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%-v2.40,${GIT_EXECUTABLES})
+install-bundled-git: install-bundled-git-v2.41
 install-bundled-git-v2.41: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%-v2.41,${GIT_EXECUTABLES})
 
 ifdef WITH_BUNDLED_GIT
@@ -578,10 +574,6 @@ ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 ${DEPENDENCY_DIR}/git-distribution/git: ${DEPENDENCY_DIR}/git-distribution/Makefile
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS}
 	${Q}touch $@
-
-${BUILD_DIR}/bin/gitaly-%-v2.40: override GIT_VERSION = ${GIT_VERSION_2_40}
-${BUILD_DIR}/bin/gitaly-%-v2.40: ${DEPENDENCY_DIR}/git-v2.40/% | ${BUILD_DIR}/bin
-	${Q}install $< $@
 
 ${BUILD_DIR}/bin/gitaly-%-v2.41: override GIT_VERSION = ${GIT_VERSION_2_41}
 ${BUILD_DIR}/bin/gitaly-%-v2.41: ${DEPENDENCY_DIR}/git-v2.41/% | ${BUILD_DIR}/bin
