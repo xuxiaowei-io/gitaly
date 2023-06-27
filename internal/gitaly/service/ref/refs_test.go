@@ -203,14 +203,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 					request: &gitalypb.FindDefaultBranchNameRequest{
 						Repository: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"%w", storage.NewStorageNotFoundError("invalid"),
-						)),
-						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
-						)),
-					),
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("invalid"),
+					)),
 				}
 			},
 		},
@@ -502,14 +497,9 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("invalid"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("invalid"),
+			)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -684,14 +674,9 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 					RelativePath: "repo",
 				},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("fake"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("fake"),
+			)),
 		},
 	} {
 		t.Run(tc.description, func(t *testing.T) {

@@ -92,14 +92,9 @@ func TestListLastCommitsForTree(t *testing.T) {
 						},
 						Revision: parentCommitID.String(),
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"%w", storage.NewStorageNotFoundError("broken"),
-						)),
-						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"repo scoped: %w", storage.NewStorageNotFoundError("broken"),
-						)),
-					),
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("broken"),
+					)),
 				}
 			},
 		},

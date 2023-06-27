@@ -243,24 +243,17 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				StorageName:  "foo",
 			},
 			revision: []byte("master"),
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("foo"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("foo"))),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("foo"),
+			)),
 		},
 		{
 			desc: "storage not provided",
 			repo: &gitalypb.Repository{
 				RelativePath: repo.GetRelativePath(),
 			},
-			revision: []byte("master"),
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrStorageNotSet),
-			),
+			revision:    []byte("master"),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 		},
 		{
 			desc: "repository doesn't exist on disk",

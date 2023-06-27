@@ -349,14 +349,9 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("non-existent"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("non-existent"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("non-existent"),
+			)),
 		},
 		{
 			desc: "invalid repository path",

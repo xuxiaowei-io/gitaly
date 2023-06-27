@@ -687,7 +687,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 		}
 
 		if err := c.validateTargetRepo(targetRepo); err != nil {
-			return nil, structerr.NewInvalidArgument("repo scoped: %w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		}
 
 		sp, err := c.directRepositoryScopedMessage(ctx, grpcCall{

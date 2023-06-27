@@ -160,14 +160,9 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 			repo:          &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("foo"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("foo"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("foo"),
+			)),
 		},
 		{
 			desc:          "left commit ID not found",

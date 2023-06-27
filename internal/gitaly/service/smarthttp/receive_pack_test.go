@@ -380,14 +380,9 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 				},
 				GlId: "user-123",
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("fake"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.New(
-					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("fake"),
+			)),
 		},
 		{
 			desc:        "Repository is nil",

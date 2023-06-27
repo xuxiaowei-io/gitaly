@@ -102,14 +102,9 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte("master"),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("fake"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("fake"),
+			)),
 		},
 		{
 			description: "Empty revision",

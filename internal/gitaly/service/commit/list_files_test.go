@@ -61,7 +61,7 @@ func TestListFiles(t *testing.T) {
 			},
 			expectedErr: testhelper.GitalyOrPraefect(
 				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrStorageNotSet),
+				structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 			),
 		},
 		{
@@ -69,14 +69,9 @@ func TestListFiles(t *testing.T) {
 			request: &gitalypb.ListFilesRequest{
 				Repository: &gitalypb.Repository{StorageName: "foo", RelativePath: "bar"},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("foo"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("foo"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("foo"),
+			)),
 		},
 		{
 			desc: "invalid revision",

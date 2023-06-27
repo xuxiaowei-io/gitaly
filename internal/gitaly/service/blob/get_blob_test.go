@@ -169,14 +169,9 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("fake"),
-				)),
-				testhelper.ToInterceptedMetadata(
-					structerr.New("repo scoped: %w", storage.NewStorageNotFoundError("fake")),
-				),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("fake"),
+			)),
 		},
 		{
 			desc: "invalid relative path",

@@ -100,14 +100,8 @@ func TestSetHooksSubcommand(t *testing.T) {
 					"--config=" + configPath,
 				}, repo
 			},
-			hooks: testhelper.MustCreateCustomHooksTar(t),
-			expectedErr: testhelper.GitalyOrPraefect(
-				storage.NewStorageNotFoundError("non-existent").Error(),
-				fmt.Sprintf(
-					"rpc error: code = InvalidArgument desc = repo scoped: %s\n",
-					storage.NewStorageNotFoundError("non-existent"),
-				),
-			),
+			hooks:       testhelper.MustCreateCustomHooksTar(t),
+			expectedErr: storage.NewStorageNotFoundError("non-existent").Error(),
 		},
 		{
 			desc: "repository not found",

@@ -792,14 +792,9 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
+			)),
 		},
 		{
 			desc: "missing repository path",
@@ -809,10 +804,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 		},
 	}
 
