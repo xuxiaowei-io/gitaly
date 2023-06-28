@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
@@ -74,154 +72,57 @@ func (l *legacyGit2GoSubmoduleAlreadyAtShaError) Error() string {
 func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.Repo, req *gitalypb.UserUpdateSubmoduleRequest) (string, error) {
 	var treeID git.ObjectID
 
-	path := filepath.Dir(string(req.GetSubmodule()))
-
-	if featureflag.SubmoduleWithTreeAPI.IsEnabled(ctx) {
-		fullTree, err := quarantineRepo.ReadTree(
-			ctx,
-			git.NewReferenceNameFromBranchName(string(req.GetBranch())).Revision(),
-			localrepo.WithRecursive(),
-		)
-		if err != nil {
-			if errors.Is(err, git.ErrReferenceNotFound) {
-				return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
-			}
-
-			return "", fmt.Errorf("error reading tree: %w", err)
-		}
-
-		if err := fullTree.Modify(
-			string(req.GetSubmodule()),
-			func(t *localrepo.TreeEntry) error {
-				replaceWith := git.ObjectID(req.GetCommitSha())
-
-				if t.Type != localrepo.Submodule {
-					return fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
-				}
-
-				if replaceWith == t.OID {
-					return &legacyGit2GoSubmoduleAlreadyAtShaError{
-						submodulePath: string(req.GetSubmodule()),
-						commitSha:     string(replaceWith),
-					}
-				}
-
-				t.OID = replaceWith
-
-				return nil
-			},
-		); err != nil {
-			if err == localrepo.ErrEntryNotFound {
-				return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
-			}
-
-			var git2GoErr *legacyGit2GoSubmoduleAlreadyAtShaError
-			if errors.As(err, &git2GoErr) {
-				return "", err
-			}
-
-			return "", fmt.Errorf("modifying tree: %w", err)
-		}
-
-		if err := fullTree.Write(ctx, quarantineRepo); err != nil {
-			return "", fmt.Errorf("writing tree: %w", err)
-		}
-
-		treeID = fullTree.OID
-	} else {
-		base := filepath.Base(string(req.GetSubmodule()))
-		replaceWith := git.ObjectID(req.GetCommitSha())
-
-		var submoduleFound bool
-
-		// First find the tree containing the submodule to be updated.
-		// Write a new tree object abc with the updated submodule. Then, write a new
-		// tree with the new tree abcabc. Continue iterating up the tree,
-		// writing a new tree object each time.
-		for {
-			tree, err := quarantineRepo.ReadTree(
-				ctx,
-				git.Revision("refs/heads/"+string(req.GetBranch())),
-				localrepo.WithRelativePath(path),
-			)
-			if err != nil {
-				if errors.Is(err, git.ErrReferenceNotFound) {
-					return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
-				}
-
-				return "", fmt.Errorf("error reading tree: %w", err)
-			}
-
-			var newEntries []*localrepo.TreeEntry
-			if err := tree.Walk(func(_ string, entry *localrepo.TreeEntry) error {
-				if entry.OID == tree.OID {
-					return nil
-				}
-
-				// If the entry's path does not match, then we simply
-				// want to retain this tree entry.
-				if entry.Path != base {
-					newEntries = append(newEntries, entry)
-					return nil
-				}
-
-				// If we are at the submodule we want to replace, check
-				// if it's already at the value we want to replace, or
-				// if it's not a submodule.
-				if filepath.Join(path, entry.Path) == string(req.GetSubmodule()) {
-					if string(entry.OID) == req.GetCommitSha() {
-						//nolint:stylecheck
-						return fmt.Errorf(
-							"The submodule %s is already at %s",
-							req.GetSubmodule(),
-							replaceWith,
-						)
-					}
-
-					if entry.Type != localrepo.Submodule {
-						return fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
-					}
-				}
-
-				// Otherwise, create a new tree entry
-				submoduleFound = true
-
-				newEntries = append(newEntries, &localrepo.TreeEntry{
-					Mode: entry.Mode,
-					Path: entry.Path,
-					OID:  replaceWith,
-				})
-
-				return nil
-			}); err != nil {
-				return "", err
-			}
-
-			newTree := &localrepo.TreeEntry{
-				Type:    localrepo.Tree,
-				Mode:    "040000",
-				Entries: newEntries,
-			}
-			if err := newTree.Write(ctx, quarantineRepo); err != nil {
-				return "", fmt.Errorf("write tree: %w", err)
-			}
-			replaceWith = newTree.OID
-
-			if path == "." {
-				break
-			}
-
-			base = filepath.Base(path)
-			path = filepath.Dir(path)
-		}
-
-		if !submoduleFound {
+	fullTree, err := quarantineRepo.ReadTree(
+		ctx,
+		git.NewReferenceNameFromBranchName(string(req.GetBranch())).Revision(),
+		localrepo.WithRecursive(),
+	)
+	if err != nil {
+		if errors.Is(err, git.ErrReferenceNotFound) {
 			return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
 		}
 
-		treeID = replaceWith
+		return "", fmt.Errorf("error reading tree: %w", err)
 	}
 
+	if err := fullTree.Modify(
+		string(req.GetSubmodule()),
+		func(t *localrepo.TreeEntry) error {
+			replaceWith := git.ObjectID(req.GetCommitSha())
+
+			if t.Type != localrepo.Submodule {
+				return fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
+			}
+
+			if replaceWith == t.OID {
+				return &legacyGit2GoSubmoduleAlreadyAtShaError{
+					submodulePath: string(req.GetSubmodule()),
+					commitSha:     string(replaceWith),
+				}
+			}
+
+			t.OID = replaceWith
+
+			return nil
+		},
+	); err != nil {
+		if err == localrepo.ErrEntryNotFound {
+			return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
+		}
+
+		var git2GoErr *legacyGit2GoSubmoduleAlreadyAtShaError
+		if errors.As(err, &git2GoErr) {
+			return "", err
+		}
+
+		return "", fmt.Errorf("modifying tree: %w", err)
+	}
+
+	if err := fullTree.Write(ctx, quarantineRepo); err != nil {
+		return "", fmt.Errorf("writing tree: %w", err)
+	}
+
+	treeID = fullTree.OID
 	currentBranchCommit, err := quarantineRepo.ResolveRevision(ctx, git.Revision(req.GetBranch()))
 	if err != nil {
 		return "", fmt.Errorf("resolving submodule branch: %w", err)

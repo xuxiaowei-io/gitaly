@@ -32,7 +32,6 @@ var subcommands = map[string]subcmd{
 	"rebase":      &rebaseSubcommand{},
 	"revert":      &revertSubcommand{},
 	"resolve":     &resolveSubcommand{},
-	"submodule":   &submoduleSubcommand{},
 }
 
 func fatalf(logger logrus.FieldLogger, encoder *gob.Encoder, format string, args ...interface{}) {

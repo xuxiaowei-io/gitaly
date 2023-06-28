@@ -25,7 +25,6 @@ func TestUserUpdateSubmodule(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.SubmoduleWithTreeAPI,
 		featureflag.GPGSigning,
 	).
 		Run(t, testUserUpdateSubmodule)
