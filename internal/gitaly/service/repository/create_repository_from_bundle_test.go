@@ -254,10 +254,7 @@ func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.CreateRepositoryFromBundleRequest{}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-		structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-		structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-	), err)
+	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 }
 
 func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {

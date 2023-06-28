@@ -516,12 +516,9 @@ func TestListConflictFiles(t *testing.T) {
 				}
 
 				return setupData{
-					client:  client,
-					request: request,
-					expectedError: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					client:        client,
+					request:       request,
+					expectedError: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

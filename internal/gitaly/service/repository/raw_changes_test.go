@@ -185,10 +185,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 				FromRevision: "cfe32cf61b73a0d5e9f13e774abde7ff789b1660",
 				ToRevision:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "missing commit",

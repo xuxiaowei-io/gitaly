@@ -66,10 +66,7 @@ func TestSearchFilesByContent(t *testing.T) {
 			request: &gitalypb.SearchFilesByContentRequest{
 				Repository: nil,
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "empty request",
@@ -285,10 +282,7 @@ func TestSearchFilesByName(t *testing.T) {
 				Query:      "foo",
 				Ref:        []byte("branch"),
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "invalid filter",

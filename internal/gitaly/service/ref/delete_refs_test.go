@@ -262,12 +262,9 @@ func TestDeleteRefs_validation(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc:    "no repository provided",
-			request: &gitalypb.DeleteRefsRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "no repository provided",
+			request:     &gitalypb.DeleteRefsRequest{Repository: nil},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "Invalid repository",
@@ -290,10 +287,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       nil,
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "No prefixes nor refs",

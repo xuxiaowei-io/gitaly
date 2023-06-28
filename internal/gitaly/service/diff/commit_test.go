@@ -1317,12 +1317,9 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 			),
 		},
 		{
-			desc: "Repository is nil",
-			req:  &gitalypb.CommitDiffRequest{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},
-			exrErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:   "Repository is nil",
+			req:    &gitalypb.CommitDiffRequest{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},
+			exrErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:   "RightCommitId is empty",

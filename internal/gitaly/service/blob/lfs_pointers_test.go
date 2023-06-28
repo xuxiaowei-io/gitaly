@@ -162,10 +162,7 @@ size 12345`
 			desc: "missing repository",
 			setup: func(t *testing.T) setupData {
 				return setupData{
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},
@@ -328,10 +325,7 @@ func TestGetLFSPointers(t *testing.T) {
 				Repository: nil,
 				BlobIds:    []string{"f00"},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "empty BlobIds",

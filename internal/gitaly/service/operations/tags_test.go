@@ -112,10 +112,7 @@ func TestUserDeleteTag(t *testing.T) {
 						TagName: []byte("mars"),
 						User:    gittest.TestUser,
 					},
-					expectedError: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedError: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},
@@ -1320,10 +1317,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "shiny-new-tag",
 			targetRevision: "main",
 			user:           gittest.TestUser,
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr:    structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:           "empty target revision",

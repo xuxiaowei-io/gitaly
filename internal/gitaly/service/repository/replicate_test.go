@@ -226,12 +226,9 @@ func TestReplicateRepository(t *testing.T) {
 				// Set up a request with no target repository specified to verify that validation
 				// fails and the RPC returns an error as expected.
 				return setupData{
-					source: source,
-					target: nil,
-					expectedError: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-						storage.ErrRepositoryNotSet.Error(),
-						fmt.Sprintf("repo scoped: %s", storage.ErrRepositoryNotSet.Error()),
-					)),
+					source:        source,
+					target:        nil,
+					expectedError: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

@@ -66,12 +66,9 @@ func TestHasLocalBranches_failure(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc:       "repository nil",
-			repository: nil,
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "repository nil",
+			repository:  nil,
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "repository doesn't exist",

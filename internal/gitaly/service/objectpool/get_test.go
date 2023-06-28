@@ -75,12 +75,9 @@ func TestGetObjectPool_validate(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "repository not provided",
-			req:  &gitalypb.GetObjectPoolRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "repository not provided",
+			req:         &gitalypb.GetObjectPoolRequest{Repository: nil},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

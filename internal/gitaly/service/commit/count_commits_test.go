@@ -184,12 +184,9 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 			),
 		},
 		{
-			desc: "Repository is nil",
-			req:  &gitalypb.CountCommitsRequest{Repository: nil, Revision: revision},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "Repository is nil",
+			req:         &gitalypb.CountCommitsRequest{Repository: nil, Revision: revision},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:        "Revision is empty and All is false",

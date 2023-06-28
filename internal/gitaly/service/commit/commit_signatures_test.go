@@ -106,10 +106,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				Repository: nil,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "empty CommitIds",

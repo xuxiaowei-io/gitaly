@@ -292,10 +292,7 @@ func TestGetPatchID(t *testing.T) {
 						OldRevision: []byte("HEAD~1"),
 						NewRevision: []byte("HEAD"),
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

@@ -56,10 +56,7 @@ func TestRepositoryInfo(t *testing.T) {
 					request: &gitalypb.RepositoryInfoRequest{
 						Repository: nil,
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

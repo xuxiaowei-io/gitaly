@@ -188,12 +188,9 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 			),
 		},
 		{
-			desc:    "Repository is nil",
-			request: &gitalypb.FindAllCommitsRequest{},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "Repository is nil",
+			request:     &gitalypb.FindAllCommitsRequest{},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "Revision is invalid",

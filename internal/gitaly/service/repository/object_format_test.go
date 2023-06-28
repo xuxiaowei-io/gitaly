@@ -36,11 +36,8 @@ func TestObjectFormat(t *testing.T) {
 			desc: "unset repository",
 			setup: func(t *testing.T) setupData {
 				return setupData{
-					request: &gitalypb.ObjectFormatRequest{},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					request:     &gitalypb.ObjectFormatRequest{},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

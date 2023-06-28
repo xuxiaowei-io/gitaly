@@ -307,12 +307,9 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 			),
 		},
 		{
-			desc:    "unset repository",
-			request: &gitalypb.PostUploadPackWithSidechannelRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "unset repository",
+			request:     &gitalypb.PostUploadPackWithSidechannelRequest{Repository: nil},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -350,12 +347,9 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 			),
 		},
 		{
-			desc: "Repository no provided",
-			req:  &gitalypb.PostUploadPackWithSidechannelRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "Repository no provided",
+			req:         &gitalypb.PostUploadPackWithSidechannelRequest{Repository: nil},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

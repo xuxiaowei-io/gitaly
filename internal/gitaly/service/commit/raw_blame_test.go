@@ -94,10 +94,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 		{
 			description: "No repository provided",
 			repo:        nil,
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			description: "Invalid repo",

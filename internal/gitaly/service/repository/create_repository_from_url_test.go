@@ -335,12 +335,9 @@ func TestServer_CloneFromURLCommand_validate(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "no repository provided",
-			req:  &gitalypb.CreateRepositoryFromURLRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "no repository provided",
+			req:         &gitalypb.CreateRepositoryFromURLRequest{Repository: nil},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:        "no URL provided",

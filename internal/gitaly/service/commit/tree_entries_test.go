@@ -141,10 +141,7 @@ func TestGetTreeEntries(t *testing.T) {
 						Revision:   []byte(gittest.DefaultObjectHash.EmptyTreeOID),
 						Path:       []byte("folder"),
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

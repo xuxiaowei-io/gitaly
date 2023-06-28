@@ -261,11 +261,8 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("sub"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
-					verify: func(t *testing.T) {},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+					verify:      func(t *testing.T) {},
 				}
 			},
 		},

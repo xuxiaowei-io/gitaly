@@ -1686,12 +1686,9 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 		expectedErr error
 	}{
 		{
-			desc: "unset repository",
-			req:  headerRequest(nil, gittest.TestUser, branchName, commitFilesMessage, "", ""),
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "unset repository",
+			req:         headerRequest(nil, gittest.TestUser, branchName, commitFilesMessage, "", ""),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:        "empty User",

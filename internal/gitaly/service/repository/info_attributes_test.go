@@ -72,8 +72,5 @@ func TestGetInfoAttributes_validate(t *testing.T) {
 	response, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{Repository: nil})
 	require.NoError(t, err)
 	_, err = response.Recv()
-	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-		structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-		structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-	), err)
+	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 }
