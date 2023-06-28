@@ -58,30 +58,36 @@ func (s *Server) merge(
 	authorName string,
 	authorMail string,
 	authorDate time.Time,
+	committerName string,
+	committerMail string,
+	committerDate time.Time,
 	message string,
 	ours string,
 	theirs string,
+	squash bool,
 ) (string, error) {
 	treeOID, err := quarantineRepo.MergeTree(ctx, ours, theirs, localrepo.WithAllowUnrelatedHistories(), localrepo.WithConflictingFileNamesOnly())
 	if err != nil {
 		return "", err
 	}
 
+	parents := []git.ObjectID{git.ObjectID(ours)}
+	if !squash {
+		parents = append(parents, git.ObjectID(theirs))
+	}
+
 	c, err := quarantineRepo.WriteCommit(
 		ctx,
 		localrepo.WriteCommitConfig{
-			TreeID:  treeOID,
-			Message: message,
-			Parents: []git.ObjectID{
-				git.ObjectID(ours),
-				git.ObjectID(theirs),
-			},
+			TreeID:         treeOID,
+			Message:        message,
+			Parents:        parents,
 			AuthorName:     authorName,
 			AuthorEmail:    authorMail,
 			AuthorDate:     authorDate,
-			CommitterName:  authorName,
-			CommitterEmail: authorMail,
-			CommitterDate:  authorDate,
+			CommitterName:  committerName,
+			CommitterEmail: committerMail,
+			CommitterDate:  committerDate,
 		},
 	)
 	if err != nil {
@@ -144,9 +150,14 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		string(firstRequest.User.Name),
 		string(firstRequest.User.Email),
 		authorDate,
+		string(firstRequest.User.Name),
+		string(firstRequest.User.Email),
+		authorDate,
 		string(firstRequest.Message),
 		revision.String(),
-		firstRequest.CommitId)
+		firstRequest.CommitId,
+		false,
+	)
 	if err != nil {
 		var conflictErr *localrepo.MergeTreeConflictError
 		if errors.As(err, &conflictErr) {
@@ -449,9 +460,13 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 			string(request.User.Name),
 			string(request.User.Email),
 			authorDate,
+			string(request.User.Name),
+			string(request.User.Email),
+			authorDate,
 			string(request.Message),
 			oid.String(),
 			sourceOID.String(),
+			false,
 		)
 	} else {
 		mergeCommitID, err = s.mergeWithGit2Go(
@@ -461,9 +476,14 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 			string(request.User.Name),
 			string(request.User.Email),
 			authorDate,
+			string(request.User.Name),
+			string(request.User.Email),
+			authorDate,
+
 			string(request.Message),
 			oid.String(),
 			sourceOID.String(),
+			false,
 		)
 	}
 	if err != nil {
@@ -505,18 +525,26 @@ func (s *Server) mergeWithGit2Go(
 	authorName string,
 	authorEmail string,
 	authorDate time.Time,
+	committerName string,
+	committerEmail string,
+	committerDate time.Time,
 	message string,
 	ours string,
 	theirs string,
+	squash bool,
 ) (string, error) {
 	merge, err := s.git2goExecutor.Merge(ctx, repo, git2go.MergeCommand{
-		Repository: repoPath,
-		AuthorName: authorName,
-		AuthorMail: authorEmail,
-		AuthorDate: authorDate,
-		Message:    message,
-		Ours:       ours,
-		Theirs:     theirs,
+		Repository:    repoPath,
+		AuthorName:    authorName,
+		AuthorMail:    authorEmail,
+		AuthorDate:    authorDate,
+		CommitterName: committerName,
+		CommitterMail: committerEmail,
+		CommitterDate: committerDate,
+		Message:       message,
+		Ours:          ours,
+		Theirs:        theirs,
+		Squash:        squash,
 	})
 	if err != nil {
 		return "", err
