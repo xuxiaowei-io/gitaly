@@ -57,6 +57,8 @@ func ValidateRevision(revision []byte, opts ...ValidateRevisionOption) error {
 			return nil
 		case bytes.Equal(revision, []byte("--tags")):
 			return nil
+		case bytes.Equal(revision, []byte("--alternate-refs")):
+			return nil
 		case bytes.HasPrefix(revision, []byte("--branches=")):
 			return nil
 		case bytes.HasPrefix(revision, []byte("--tags=")):
