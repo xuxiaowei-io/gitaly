@@ -3,11 +3,13 @@
 package git2go
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -16,8 +18,25 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
+func TestMain(m *testing.M) {
+	testhelper.Run(m)
+}
+
+func defaultCommitAuthorSignature() Signature {
+	return NewSignature(
+		gittest.DefaultCommitterName,
+		gittest.DefaultCommitterMail,
+		gittest.DefaultCommitTime,
+	)
+}
+
 func TestExecutor_Apply(t *testing.T) {
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+	).Run(t, testExecutorApply)
+}
+
+func testExecutorApply(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
@@ -40,61 +59,163 @@ func TestExecutor_Apply(t *testing.T) {
 	author := defaultCommitAuthorSignature()
 	committer := defaultCommitAuthorSignature()
 
-	parentCommitSHA, err := executor.Commit(ctx, repo, CommitCommand{
-		Repository: repoPath,
-		Author:     author,
-		Committer:  committer,
-		Message:    "base commit",
-		Actions:    []Action{CreateFile{Path: "file", OID: oidBase.String()}},
-	})
+	treeEntry := &localrepo.TreeEntry{
+		Mode: "040000",
+		Type: localrepo.Tree,
+	}
+
+	require.NoError(t, treeEntry.Add("file", localrepo.TreeEntry{
+		Path: "file",
+		Mode: "100644",
+		Type: localrepo.Blob,
+		OID:  oidBase,
+	}))
+	require.NoError(t, treeEntry.Write(ctx, repo))
+
+	parentCommitSHA, err := repo.WriteCommit(
+		ctx,
+		localrepo.WriteCommitConfig{
+			AuthorName:     gittest.DefaultCommitterName,
+			AuthorEmail:    gittest.DefaultCommitterMail,
+			AuthorDate:     gittest.DefaultCommitTime,
+			CommitterName:  gittest.DefaultCommitterName,
+			CommitterEmail: gittest.DefaultCommitterMail,
+			CommitterDate:  gittest.DefaultCommitTime,
+			Message:        "base commit",
+			TreeID:         treeEntry.OID,
+		},
+	)
 	require.NoError(t, err)
 
-	noCommonAncestor, err := executor.Commit(ctx, repo, CommitCommand{
-		Repository: repoPath,
-		Author:     author,
-		Committer:  committer,
-		Message:    "commit with ab",
-		Actions:    []Action{CreateFile{Path: "file", OID: oidA.String()}},
-	})
+	treeEntry = &localrepo.TreeEntry{
+		Mode: "040000",
+		Type: localrepo.Tree,
+	}
+
+	require.NoError(t, treeEntry.Add("file", localrepo.TreeEntry{
+		Path: "file",
+		Mode: "100644",
+		Type: localrepo.Blob,
+		OID:  oidA,
+	}))
+	require.NoError(t, treeEntry.Write(ctx, repo))
+
+	noCommonAncestor, err := repo.WriteCommit(
+		ctx,
+		localrepo.WriteCommitConfig{
+			AuthorName:     gittest.DefaultCommitterName,
+			AuthorEmail:    gittest.DefaultCommitterMail,
+			AuthorDate:     gittest.DefaultCommitTime,
+			CommitterName:  gittest.DefaultCommitterName,
+			CommitterEmail: gittest.DefaultCommitterMail,
+			CommitterDate:  gittest.DefaultCommitTime,
+			Message:        "base commit",
+			TreeID:         treeEntry.OID,
+		},
+	)
 	require.NoError(t, err)
 
-	updateToA, err := executor.Commit(ctx, repo, CommitCommand{
-		Repository: repoPath,
-		Author:     author,
-		Committer:  committer,
-		Message:    "commit with a",
-		Parent:     parentCommitSHA.String(),
-		Actions:    []Action{UpdateFile{Path: "file", OID: oidA.String()}},
-	})
+	treeEntry, err = repo.ReadTree(ctx, git.Revision(parentCommitSHA.String()))
 	require.NoError(t, err)
 
-	updateToB, err := executor.Commit(ctx, repo, CommitCommand{
-		Repository: repoPath,
-		Author:     author,
-		Committer:  committer,
-		Message:    "commit to b",
-		Parent:     parentCommitSHA.String(),
-		Actions:    []Action{UpdateFile{Path: "file", OID: oidB.String()}},
-	})
+	require.NoError(t, treeEntry.Modify("file", func(e *localrepo.TreeEntry) error {
+		e.OID = oidA
+		return nil
+	}))
+	require.NoError(t, treeEntry.Write(ctx, repo))
+
+	updateToA, err := repo.WriteCommit(
+		ctx,
+		localrepo.WriteCommitConfig{
+			AuthorName:     gittest.DefaultCommitterName,
+			AuthorEmail:    gittest.DefaultCommitterMail,
+			AuthorDate:     gittest.DefaultCommitTime,
+			CommitterName:  gittest.DefaultCommitterName,
+			CommitterEmail: gittest.DefaultCommitterMail,
+			CommitterDate:  gittest.DefaultCommitTime,
+			Message:        "commit with a",
+			TreeID:         treeEntry.OID,
+			Parents:        []git.ObjectID{parentCommitSHA},
+		},
+	)
 	require.NoError(t, err)
 
-	updateFromAToB, err := executor.Commit(ctx, repo, CommitCommand{
-		Repository: repoPath,
-		Author:     author,
-		Committer:  committer,
-		Message:    "commit a -> b",
-		Parent:     updateToA.String(),
-		Actions:    []Action{UpdateFile{Path: "file", OID: oidB.String()}},
-	})
+	treeEntry, err = repo.ReadTree(ctx, git.Revision(parentCommitSHA.String()))
 	require.NoError(t, err)
 
-	otherFile, err := executor.Commit(ctx, repo, CommitCommand{
-		Repository: repoPath,
-		Author:     author,
-		Committer:  committer,
-		Message:    "commit with other-file",
-		Actions:    []Action{CreateFile{Path: "other-file", OID: oidA.String()}},
-	})
+	require.NoError(t, treeEntry.Modify("file", func(e *localrepo.TreeEntry) error {
+		e.OID = oidB
+		return nil
+	}))
+	require.NoError(t, treeEntry.Write(ctx, repo))
+
+	updateToB, err := repo.WriteCommit(
+		ctx,
+		localrepo.WriteCommitConfig{
+			AuthorName:     gittest.DefaultCommitterName,
+			AuthorEmail:    gittest.DefaultCommitterMail,
+			AuthorDate:     gittest.DefaultCommitTime,
+			CommitterName:  gittest.DefaultCommitterName,
+			CommitterEmail: gittest.DefaultCommitterMail,
+			CommitterDate:  gittest.DefaultCommitTime,
+			Message:        "commit with b",
+			TreeID:         treeEntry.OID,
+			Parents:        []git.ObjectID{parentCommitSHA},
+		},
+	)
+	require.NoError(t, err)
+
+	treeEntry, err = repo.ReadTree(ctx, git.Revision(updateToA.String()))
+	require.NoError(t, err)
+
+	require.NoError(t, treeEntry.Modify("file", func(e *localrepo.TreeEntry) error {
+		e.OID = oidB
+		return nil
+	}))
+	require.NoError(t, treeEntry.Write(ctx, repo))
+
+	updateFromAToB, err := repo.WriteCommit(
+		ctx,
+		localrepo.WriteCommitConfig{
+			AuthorName:     gittest.DefaultCommitterName,
+			AuthorEmail:    gittest.DefaultCommitterMail,
+			AuthorDate:     gittest.DefaultCommitTime,
+			CommitterName:  gittest.DefaultCommitterName,
+			CommitterEmail: gittest.DefaultCommitterMail,
+			CommitterDate:  gittest.DefaultCommitTime,
+			Message:        "commit a -> b",
+			TreeID:         treeEntry.OID,
+			Parents:        []git.ObjectID{updateToA},
+		},
+	)
+	require.NoError(t, err)
+
+	treeEntry = &localrepo.TreeEntry{
+		Mode: "040000",
+		Type: localrepo.Tree,
+	}
+
+	require.NoError(t, treeEntry.Add("other-file", localrepo.TreeEntry{
+		Path: "other-file",
+		Mode: "100644",
+		Type: localrepo.Blob,
+		OID:  oidA,
+	}))
+	require.NoError(t, treeEntry.Write(ctx, repo))
+
+	otherFile, err := repo.WriteCommit(
+		ctx,
+		localrepo.WriteCommitConfig{
+			AuthorName:     gittest.DefaultCommitterName,
+			AuthorEmail:    gittest.DefaultCommitterMail,
+			AuthorDate:     gittest.DefaultCommitTime,
+			CommitterName:  gittest.DefaultCommitterName,
+			CommitterEmail: gittest.DefaultCommitterMail,
+			CommitterDate:  gittest.DefaultCommitTime,
+			Message:        "commit with other-file",
+			TreeID:         treeEntry.OID,
+		},
+	)
 	require.NoError(t, err)
 
 	diffBetween := func(tb testing.TB, fromCommit, toCommit git.ObjectID) []byte {
