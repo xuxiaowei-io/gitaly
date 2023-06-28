@@ -27,7 +27,7 @@ require (
 	github.com/libgit2/git2go/v34 v34.0.0
 	github.com/miekg/dns v1.1.54
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/opencontainers/runtime-spec v1.1.0-rc.2.0.20230511085824-0983f1d9e08f
+	github.com/opencontainers/runtime-spec v1.1.0-rc.3
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pelletier/go-toml/v2 v2.0.8
 	github.com/prometheus/client_golang v1.15.1
