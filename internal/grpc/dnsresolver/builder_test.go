@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/require"
@@ -69,9 +70,10 @@ func TestBuildDNSBuilder_customAuthorityResolver(t *testing.T) {
 	}).Start()
 
 	builder := NewBuilder(&BuilderConfig{
-		RefreshRate: 0,
-		Logger:      testhelper.NewDiscardingLogger(t),
-		Backoff:     &fakeBackoff{},
+		RefreshRate:   0,
+		LookupTimeout: 15 * time.Second,
+		Logger:        testhelper.NewDiscardingLogger(t),
+		Backoff:       &fakeBackoff{},
 	})
 
 	conn := newFakeClientConn(1, 0)
@@ -115,9 +117,10 @@ func TestBuildDNSBuilder_staticIPAddress(t *testing.T) {
 			}).Start()
 
 			builder := NewBuilder(&BuilderConfig{
-				RefreshRate: 0,
-				Logger:      testhelper.NewDiscardingLogger(t),
-				Backoff:     &fakeBackoff{},
+				RefreshRate:   0,
+				LookupTimeout: 15 * time.Second,
+				Logger:        testhelper.NewDiscardingLogger(t),
+				Backoff:       &fakeBackoff{},
 			})
 
 			conn := newFakeClientConn(1, 0)

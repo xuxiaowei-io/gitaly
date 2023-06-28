@@ -297,6 +297,7 @@ func TestDnsResolver(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := NewBuilder(&BuilderConfig{
 				RefreshRate:     0, // No delay
+				LookupTimeout:   15 * time.Second,
 				Logger:          testhelper.NewDiscardingLogger(t),
 				DefaultGrpcPort: "1234",
 				Backoff:         &fakeBackoff{},
@@ -343,19 +344,29 @@ func TestDnsResolver_grpcCallWithOurDNSResolver(t *testing.T) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithResolvers(NewBuilder(&BuilderConfig{
 			RefreshRate:     0, // No delay
+			LookupTimeout:   500 * time.Millisecond,
 			Logger:          testhelper.NewDiscardingLogger(t),
 			DefaultGrpcPort: "1234",
 			Backoff:         backoff.NewDefaultExponential(rand.New(rand.NewSource(time.Now().UnixNano()))),
 		})),
 	)
 	require.NoError(t, err)
-	defer testhelper.MustClose(t, conn)
 
 	client := grpc_testing.NewTestServiceClient(conn)
 	for i := 0; i < 10; i++ {
 		_, err = client.UnaryCall(testhelper.Context(t), &grpc_testing.SimpleRequest{})
 		require.NoError(t, err)
 	}
+
+	testhelper.MustClose(t, conn)
+	// In the grpc-go versions before v1.56, the resolver is closed when the bound connection is closed. After
+	// v1.56, the resolver runs more independently. The connection doesn't wait for the resolver to finish anymore.
+	// After the test suite finishes, there might be some in-flight DNS queries managed by the DNS resolver. When
+	// the connection is closed, those queries don't make sense anymore. They can stay until they finish.
+	// Unfortunately, the goroutine detector in the test suite complains about leaked goroutines. The resolver of
+	// a connection is not accessible from the outside. Hence, this test sets a low lookup timeout and sleep for
+	// a while until the pending DNS queries go away.
+	time.Sleep(1 * time.Second)
 }
 
 func spawnTestGRPCServer(t *testing.T) net.Listener {

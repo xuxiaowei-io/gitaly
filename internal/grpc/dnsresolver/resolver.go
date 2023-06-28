@@ -16,18 +16,19 @@ type dnsResolver struct {
 	logger *logrus.Entry
 	retry  backoff.Strategy
 
-	ctx         context.Context
-	cancel      context.CancelFunc
-	cc          resolver.ClientConn
-	host        string
-	port        string
-	refreshRate time.Duration
-	lookup      dnsLookuper
-	reqs        chan struct{}
-	wg          sync.WaitGroup
+	ctx           context.Context
+	cancel        context.CancelFunc
+	cc            resolver.ClientConn
+	host          string
+	port          string
+	refreshRate   time.Duration
+	lookupTimeout time.Duration
+	lookup        dnsLookuper
+	reqs          chan struct{}
+	wg            sync.WaitGroup
 }
 
-var dnsLookupTimeout = 15 * time.Second
+var defaultLookupTimeout = 15 * time.Second
 
 type dnsLookuper interface {
 	LookupHost(context.Context, string) ([]string, error)
@@ -101,7 +102,11 @@ func (d *dnsResolver) updateState(state *resolver.State) error {
 }
 
 func (d *dnsResolver) resolve() (*resolver.State, error) {
-	ctx, cancel := context.WithTimeout(d.ctx, dnsLookupTimeout)
+	timeout := d.lookupTimeout
+	if timeout == 0 {
+		timeout = defaultLookupTimeout
+	}
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
 
 	addrs, err := d.lookup.LookupHost(ctx, d.host)
