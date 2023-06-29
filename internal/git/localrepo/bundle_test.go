@@ -222,7 +222,7 @@ func TestRepo_FetchBundle(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			headRef, err := repo.GetDefaultBranch(ctx)
+			headRef, err := repo.HeadReference(ctx)
 			require.NoError(t, err)
 			require.Equal(t, data.expectedHeadRef, headRef)
 
