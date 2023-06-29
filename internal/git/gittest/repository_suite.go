@@ -33,6 +33,10 @@ func TestRepository(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFun
 			desc: "GetDefaultBranch",
 			test: testRepositoryGetDefaultBranch,
 		},
+		{
+			desc: "HeadReference",
+			test: testRepositoryHeadReference,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			tc.test(t, cfg, getRepository)
@@ -185,6 +189,63 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			name, err := tc.repo(t).GetDefaultBranch(ctx)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedName, name)
+		})
+	}
+}
+
+func testRepositoryHeadReference(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc         string
+		repo         func(t *testing.T) git.Repository
+		expectedName git.ReferenceName
+	}{
+		{
+			desc: "default unborn",
+			repo: func(t *testing.T) git.Repository {
+				repo, _ := getRepository(t, ctx)
+				return repo
+			},
+			expectedName: git.DefaultRef,
+		},
+		{
+			desc: "default exists",
+			repo: func(t *testing.T) git.Repository {
+				repo, repoPath := getRepository(t, ctx)
+				WriteCommit(t, cfg, repoPath, WithBranch(git.DefaultBranch))
+				return repo
+			},
+			expectedName: git.DefaultRef,
+		},
+		{
+			desc: "HEAD set nonexistent",
+			repo: func(t *testing.T) git.Repository {
+				repo, repoPath := getRepository(t, ctx)
+				Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+				return repo
+			},
+			expectedName: git.NewReferenceNameFromBranchName("feature"),
+		},
+		{
+			desc: "HEAD set exists",
+			repo: func(t *testing.T) git.Repository {
+				repo, repoPath := getRepository(t, ctx)
+				WriteCommit(t, cfg, repoPath, WithBranch("feature"))
+				Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+				return repo
+			},
+			expectedName: git.NewReferenceNameFromBranchName("feature"),
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			name, err := tc.repo(t).HeadReference(ctx)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedName, name)
 		})
