@@ -57,4 +57,4 @@ For S1 or S2 issues, please follow https://about.gitlab.com/handbook/engineering
 - [ ] Clearly articulated what is needed from the Gitaly team to support your request by filling out the _What specifically do you need from the Gitaly team_
 
 /label ~"Gitaly Customer Issue" ~"customer" ~"group::gitaly" ~"devops::systems" ~"section::enablement" ~"workflow::problem validation"
-/cc @mjwood @andrashorvath @jcaigitlab @john.mcdonnell
+/cc @mjwood @andrashorvath @jcaigitlab @john.mcdonnell @gerardo
