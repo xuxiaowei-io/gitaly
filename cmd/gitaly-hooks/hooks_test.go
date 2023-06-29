@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
@@ -356,6 +357,8 @@ func testHooksUpdate(t *testing.T, ctx context.Context, cfg config.Cfg, glValues
 }
 
 func TestHooksPostReceiveFailed(t *testing.T) {
+	t.Parallel()
+
 	secretToken := "secret token"
 	glProtocol := "ssh"
 	changes := "oldhead newhead"
@@ -395,7 +398,9 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
-	runHookServiceWithGitlabClient(t, cfg, true, gitlabClient)
+	txManager := transaction.NewTrackingManager()
+
+	runHookServiceWithGitlabClient(t, cfg, true, gitlabClient, testserver.WithTransactionManager(txManager))
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
@@ -418,6 +423,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 				require.Empty(t, stdout.String())
 				require.Empty(t, stderr.String())
 				require.NoFileExists(t, customHookOutputPath)
+				require.Empty(t, txManager.Votes())
 			},
 		},
 		{
@@ -430,12 +436,15 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 				require.Empty(t, stdout.String())
 				require.Empty(t, stderr.String())
 				require.NoFileExists(t, customHookOutputPath)
+				require.Len(t, txManager.Votes(), 1)
 			},
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
+			txManager.Reset()
+
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
