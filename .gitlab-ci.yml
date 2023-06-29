@@ -56,6 +56,13 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: '$CI_COMMIT_BRANCH =~ /^[\d-]+-stable$/'
 
+.rules_skip_if_docs: &rules_skip_if_docs
+  - if:
+    changes:
+      - .gitlab/*
+      - '*.md'
+    when: never
+
 .cache_deps:
   cache: &cache_deps_configuration
     key:
@@ -187,6 +194,8 @@ build:
       - GO_VERSION: [ "1.19", "1.20" ]
         TEST_BOOT_ARGS: "--bundled-git"
       - GIT_VERSION: "v2.41.0"
+  rules:
+    - *rules_skip_if_docs
 
 build:binaries:
   needs: []
@@ -231,6 +240,7 @@ test:
       - POSTGRES_VERSION: "11-alpine"
         TEST_TARGET: [ test, test-with-praefect ]
   rules:
+    - *rules_skip_if_docs
     - *rules_should_test
 
 test:pgbouncer:
@@ -262,6 +272,7 @@ test:pgbouncer:
     # can reach Postgres.
     TEST_TARGET: "test-with-praefect"
   rules:
+    - *rules_skip_if_docs
     - *rules_should_test
 
 test:nightly:
@@ -286,7 +297,9 @@ test:praefect_smoke:
     - ./_build/bin/praefect -config config.praefect.toml sql-ping
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
   rules:
+    - *rules_skip_if_docs
     - *rules_should_test
+
 
 test:sha256:
   <<: *test_definition
@@ -295,7 +308,9 @@ test:sha256:
       - TEST_TARGET: [ test, test-with-praefect ]
         TEST_WITH_SHA256: "YesPlease"
   rules:
+    - *rules_skip_if_docs
     - *rules_should_test
+
 
 test:fips:
   <<: *test_definition
@@ -321,6 +336,7 @@ test:fips:
   rules:
     # Automatically run the job when the FIPS label is set.
     - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
+    - *rules_skip_if_docs
     - *rules_run_on_merge
 
 test:macos:
@@ -372,6 +388,7 @@ test:macos:
   after_script:
     - *test_after_script
   rules:
+    - *rules_skip_if_docs
     - *rules_run_on_merge
   artifacts:
     <<: *test_artifacts
@@ -402,6 +419,7 @@ verify:
       - proto/go/gitalypb/*
     when: on_failure
   rules:
+    - *rules_skip_if_docs
     - *rules_should_test
 
 dbschema:
@@ -423,6 +441,7 @@ dbschema:
       - _support/praefect-schema.sql
     when: on_failure
   rules:
+    - *rules_skip_if_docs
     - *rules_should_test
 
 semgrep-sast:
@@ -433,6 +452,7 @@ semgrep-sast:
   rules:
     - if: $SAST_DISABLED
       when: never
+    - *rules_skip_if_docs
     - *rules_should_test
 
 license_scanning:
@@ -441,6 +461,7 @@ license_scanning:
   rules:
     - if: $LICENSE_SCANNING_DISABLED
       when: never
+    - *rules_skip_if_docs
     - *rules_should_test
   variables:
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=.'
