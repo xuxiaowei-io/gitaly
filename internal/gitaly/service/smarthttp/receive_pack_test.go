@@ -388,12 +388,9 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 			),
 		},
 		{
-			desc:    "Repository is nil",
-			request: &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "Repository is nil",
+			request:     &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "Empty GlId",
@@ -797,7 +794,7 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		requireSideband(t, []string{
 			"0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n0000",
 		}, response)
-		require.Equal(t, 5, refTransactionServer.called)
+		require.Equal(t, 9, refTransactionServer.called)
 	})
 
 	t.Run("delete", func(t *testing.T) {
@@ -832,7 +829,7 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		requireSideband(t, []string{
 			"0033\x01000eunpack ok\n001cok refs/heads/delete-me\n0000",
 		}, response)
-		require.Equal(t, 3, refTransactionServer.called)
+		require.Equal(t, 6, refTransactionServer.called)
 	})
 }
 

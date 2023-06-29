@@ -6,5 +6,5 @@ var SynchronizeHookExecutions = NewFeatureFlag(
 	"synchronize_hook_executions",
 	"v16.1.0",
 	"https://gitlab.com/gitlab-org/gitaly/-/issues/5359",
-	false,
+	true,
 )

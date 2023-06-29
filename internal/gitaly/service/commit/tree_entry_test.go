@@ -179,12 +179,9 @@ func TestFailedTreeEntry(t *testing.T) {
 			),
 		},
 		{
-			name: "Repository is nil",
-			req:  &gitalypb.TreeEntryRequest{Repository: nil, Revision: revision, Path: path},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			name:        "Repository is nil",
+			req:         &gitalypb.TreeEntryRequest{Repository: nil, Revision: revision, Path: path},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			name:        "Revision is empty",

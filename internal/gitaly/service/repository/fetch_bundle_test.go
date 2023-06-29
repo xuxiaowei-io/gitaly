@@ -142,10 +142,7 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 			firstRequest: &gitalypb.FetchBundleRequest{
 				Repository: nil,
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "unknown repo",

@@ -491,10 +491,7 @@ func TestUploadPack_validation(t *testing.T) {
 			request: &gitalypb.SSHUploadPackRequest{
 				Repository: nil,
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "data in first request",

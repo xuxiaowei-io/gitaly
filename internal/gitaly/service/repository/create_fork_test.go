@@ -272,12 +272,9 @@ func TestCreateFork_validate(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "repository not provided",
-			req:  &gitalypb.CreateForkRequest{Repository: nil, SourceRepository: srcRepo},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "repository not provided",
+			req:         &gitalypb.CreateForkRequest{Repository: nil, SourceRepository: srcRepo},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "source repository not provided",

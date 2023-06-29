@@ -16,7 +16,7 @@ func (s *server) BackupRepository(ctx context.Context, in *gitalypb.BackupReposi
 		return nil, structerr.NewFailedPrecondition("backup repository: server-side backups are not configured")
 	}
 	if err := s.validateBackupRepositoryRequest(in); err != nil {
-		return nil, structerr.NewInvalidArgument("backup repository: %w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	manager := backup.NewManagerLocal(

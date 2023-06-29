@@ -20,7 +20,7 @@ var gpgSiganturePrefix = []byte("gpgsig")
 
 func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
 	if err := validateGetCommitSignaturesRequest(s.locator, request); err != nil {
-		return structerr.NewInvalidArgument("GetCommitSignatures: %w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	return s.getCommitSignatures(request, stream)

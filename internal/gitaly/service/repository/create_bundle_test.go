@@ -74,12 +74,9 @@ func TestFailedCreateBundleRequestDueToValidations(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc:    "empty repository",
-			request: &gitalypb.CreateBundleRequest{},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("CreateBundle: %w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "empty repository",
+			request:     &gitalypb.CreateBundleRequest{},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	}
 

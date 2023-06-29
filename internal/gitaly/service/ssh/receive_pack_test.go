@@ -68,10 +68,7 @@ func TestReceivePack_validation(t *testing.T) {
 				Repository: nil,
 				GlId:       "user-123",
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "missing GlId",
@@ -496,7 +493,7 @@ func TestReceivePack_transactional(t *testing.T) {
 			expectedRefs: map[string]git.ObjectID{
 				"refs/heads/main": commitID,
 			},
-			expectedVotes: 3,
+			expectedVotes: 6,
 		},
 		{
 			desc:          "update",
@@ -511,7 +508,7 @@ func TestReceivePack_transactional(t *testing.T) {
 			expectedRefs: map[string]git.ObjectID{
 				"refs/heads/main": parentCommitID,
 			},
-			expectedVotes: 3,
+			expectedVotes: 6,
 		},
 		{
 			desc:          "creation",
@@ -526,7 +523,7 @@ func TestReceivePack_transactional(t *testing.T) {
 			expectedRefs: map[string]git.ObjectID{
 				"refs/heads/other": commitID,
 			},
-			expectedVotes: 3,
+			expectedVotes: 6,
 		},
 		{
 			desc: "deletion",
@@ -540,7 +537,7 @@ func TestReceivePack_transactional(t *testing.T) {
 			expectedRefs: map[string]git.ObjectID{
 				"refs/heads/other": gittest.DefaultObjectHash.ZeroOID,
 			},
-			expectedVotes: 3,
+			expectedVotes: 6,
 		},
 		{
 			desc:          "multiple commands",
@@ -561,7 +558,7 @@ func TestReceivePack_transactional(t *testing.T) {
 				"refs/heads/a": commitID,
 				"refs/heads/b": commitID,
 			},
-			expectedVotes: 5,
+			expectedVotes: 9,
 		},
 		{
 			desc:          "refused recreation of branch",
@@ -576,7 +573,7 @@ func TestReceivePack_transactional(t *testing.T) {
 			expectedRefs: map[string]git.ObjectID{
 				"refs/heads/a": commitID,
 			},
-			expectedVotes: 1,
+			expectedVotes: 3,
 		},
 		{
 			desc:          "refused recreation and successful delete",
@@ -596,7 +593,7 @@ func TestReceivePack_transactional(t *testing.T) {
 			expectedRefs: map[string]git.ObjectID{
 				"refs/heads/a": commitID,
 			},
-			expectedVotes: 3,
+			expectedVotes: 7,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

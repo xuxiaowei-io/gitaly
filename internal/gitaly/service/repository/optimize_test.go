@@ -337,12 +337,9 @@ func TestOptimizeRepository_validation(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc:    "empty repository",
-			request: &gitalypb.OptimizeRepositoryRequest{},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "empty repository",
+			request:     &gitalypb.OptimizeRepositoryRequest{},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "invalid repository storage",

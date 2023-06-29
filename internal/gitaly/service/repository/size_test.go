@@ -104,10 +104,7 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 		{
 			description: "no repository provided",
 			repo:        nil,
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	}
 

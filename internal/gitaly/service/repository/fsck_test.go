@@ -36,11 +36,8 @@ func TestFsck(t *testing.T) {
 			desc: "request is missing repository",
 			setup: func(t *testing.T) setupData {
 				return setupData{
-					repo: nil,
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					repo:        nil,
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

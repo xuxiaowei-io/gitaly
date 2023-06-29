@@ -259,10 +259,7 @@ func TestFindLicense_validate(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = serverSocketPath
 	_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: nil})
-	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-		structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-		structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-	), err)
+	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 }
 
 func BenchmarkFindLicense(b *testing.B) {

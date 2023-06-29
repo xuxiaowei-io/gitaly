@@ -64,10 +64,7 @@ func TestFindRemoteRootRef(t *testing.T) {
 					request: &gitalypb.FindRemoteRootRefRequest{
 						RemoteUrl: "remote-url",
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

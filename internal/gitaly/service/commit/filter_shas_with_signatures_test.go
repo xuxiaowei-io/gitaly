@@ -72,12 +72,9 @@ func TestFilterShasWithSignaturesValidationError(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "no repository provided",
-			req:  &gitalypb.FilterShasWithSignaturesRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "no repository provided",
+			req:         &gitalypb.FilterShasWithSignaturesRequest{Repository: nil},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

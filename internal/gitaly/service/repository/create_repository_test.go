@@ -213,12 +213,9 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "missing repository",
-			repo: nil,
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "missing repository",
+			repo:        nil,
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "invalid storage",

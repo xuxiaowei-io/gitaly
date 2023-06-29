@@ -97,12 +97,9 @@ func TestFailedCalculateChecksum(t *testing.T) {
 			),
 		},
 		{
-			desc:    "Repository is nil",
-			request: &gitalypb.CalculateChecksumRequest{},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "Repository is nil",
+			request:     &gitalypb.CalculateChecksumRequest{},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	}
 

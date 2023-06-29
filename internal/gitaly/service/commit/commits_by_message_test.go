@@ -186,12 +186,9 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 			),
 		},
 		{
-			desc:    "Repository is nil",
-			request: &gitalypb.CommitsByMessageRequest{Query: "foo"},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "Repository is nil",
+			request:     &gitalypb.CommitsByMessageRequest{Query: "foo"},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:        "Query is missing",

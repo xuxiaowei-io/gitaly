@@ -168,11 +168,8 @@ func TestFindDefaultBranchName(t *testing.T) {
 			desc: "repository not provided",
 			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
 				return setupData{
-					request: &gitalypb.FindDefaultBranchNameRequest{},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					request:     &gitalypb.FindDefaultBranchNameRequest{},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},
@@ -483,12 +480,9 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "repository not provided",
-			repo: nil,
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "repository not provided",
+			repo:        nil,
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "repository doesn't exist on disk",
@@ -680,10 +674,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 		{
 			description: "Empty request",
 			request:     &gitalypb.FindAllBranchesRequest{},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			description: "Invalid repo",

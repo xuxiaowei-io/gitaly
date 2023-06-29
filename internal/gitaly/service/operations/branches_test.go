@@ -357,10 +357,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "shiny-new-branch",
 			startPoint: "",
 			user:       gittest.TestUser,
-			err: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			err:        structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:       "empty start_point",
