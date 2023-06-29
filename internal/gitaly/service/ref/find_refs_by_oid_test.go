@@ -3,6 +3,7 @@ package ref
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -161,24 +162,16 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "repository is missing",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("repository is missing"))
-				require.NoError(t, os.RemoveAll(repoPath))
+				relativePath := gittest.NewRepositoryName(t)
 
 				return &gitalypb.FindRefsByOIDRequest{
-						Repository: repo,
-						Oid:        oid.String(),
-					}, testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(repo.GetStorageName(), repo.GetRelativePath())),
-						),
-						// Note that Praefect reports the _rewritten_ repository path as not found. This is expected
-						// given that the repository does exist in Praefect, but is missing in Gitaly.
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(
-								repo.GetStorageName(), gittest.GetReplicaPath(t, ctx, cfg, repo),
-							)),
-						),
+						Repository: &gitalypb.Repository{
+							StorageName:  cfg.Storages[0].Name,
+							RelativePath: relativePath,
+						},
+						Oid: strings.Repeat("a", gittest.DefaultObjectHash.EncodedLen()),
+					}, testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, relativePath)),
 					)
 			},
 		},
