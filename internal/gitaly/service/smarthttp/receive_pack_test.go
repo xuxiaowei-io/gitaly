@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package smarthttp
 
 import (
@@ -594,7 +592,7 @@ func TestPostReceivePack_fsck(t *testing.T) {
 		GlRepository: "project-456",
 	})
 
-	require.Contains(t, response, "duplicateEntries: contains duplicate file entries")
+	require.Contains(t, response, "duplicateEntries: contains duplicate file")
 }
 
 func TestPostReceivePack_hooks(t *testing.T) {
@@ -895,7 +893,7 @@ func setupPush(t *testing.T, ctx context.Context, cfg config.Cfg, sourceRepoPath
 	for i, refUpdate := range refUpdates {
 		pktline := fmt.Sprintf("%s %s %s", refUpdate.from, refUpdate.to, refUpdate.ref)
 		if i == 0 {
-			pktline += "\x00 report-status side-band-64k agent=git/2.12.0"
+			pktline += fmt.Sprintf("\x00 report-status side-band-64k object-format=%s agent=git/2.12.0", gittest.DefaultObjectHash.Format)
 		}
 		gittest.WritePktlineString(t, &request, pktline)
 
