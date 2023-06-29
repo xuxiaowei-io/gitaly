@@ -16,8 +16,8 @@ Would be really nice to point out contributions made by the Gitaly team, if any.
   - [ ] Create an issue for the rollout of the feature flag ([Reference](https://gitlab.com/gitlab-org/gitaly/-/issues/5030)).
   - [ ] Optional: Create a [change request](https://about.gitlab.com/handbook/engineering/infrastructure/change-management/#change-request-workflows) in case the new Git version contains changes that may cause issues.
   - [ ] Roll out the feature flag.
-- [ ] Update the default Git version. This must happen after the default-disabled flag has been released to avoid issues with zero-downtime upgrades.
-  - [ ] Remove the feature flag.
+  - [ ] After a release containing feature flag, remove the feature flag.
+- [ ] Update the default Git version. This must happen in a release after the feature flag has been removed to avoid issues with zero-downtime upgrades.
   - [ ] Remove the old bundled Git execution environment.
   - [ ] Remove the old bundled Git version in the [Makefile](/Makefile).
   - [ ] Update the default Git distribution by updating `GIT_VERSION` to the new Git version in the [Makefile](/Makefile).
