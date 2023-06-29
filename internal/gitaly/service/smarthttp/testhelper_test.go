@@ -20,10 +20,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const (
-	pktFlushStr = "0000"
-)
-
 func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
