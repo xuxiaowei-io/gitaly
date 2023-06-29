@@ -75,15 +75,8 @@ func TestObjectsSize(t *testing.T) {
 							},
 						},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, repoPath)),
-						),
-						testhelper.ToInterceptedMetadata(
-							structerr.New("accessor call: route repository accessor: consistent storages: %w",
-								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, repoPath),
-							),
-						),
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, repoPath)),
 					),
 				}
 			},

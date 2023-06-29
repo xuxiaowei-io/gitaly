@@ -361,15 +361,8 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: "path/not/exist",
 				},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/not/exist")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.NewNotFound("routing repository maintenance: getting repository metadata: %w",
-						storage.NewRepositoryNotFoundError("default", "path/not/exist"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/not/exist")),
 			),
 		},
 		{

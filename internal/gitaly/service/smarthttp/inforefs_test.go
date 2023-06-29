@@ -147,16 +147,8 @@ func TestInfoRefsUploadPack_validate(t *testing.T) {
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: "doesnt/exist",
 			}},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt/exist")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"accessor call: route repository accessor: consistent storages: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt/exist"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt/exist")),
 			),
 		},
 	} {
@@ -338,16 +330,8 @@ func TestInfoRefsReceivePack_validate(t *testing.T) {
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: "testdata/scratch/another_repo",
 			}},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "testdata/scratch/another_repo")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"accessor call: route repository accessor: consistent storages: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "testdata/scratch/another_repo"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "testdata/scratch/another_repo")),
 			),
 		},
 	} {

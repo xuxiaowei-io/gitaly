@@ -152,16 +152,8 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 					RelativePath: "unknown",
 				},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "unknown")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"mutator call: route repository mutator: get repository id: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "unknown"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "unknown")),
 			),
 		},
 	} {

@@ -706,10 +706,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 			}
 
 			if errors.Is(err, datastore.ErrRepositoryNotFound) {
-				return nil, structerr.NewNotFound("%w", err).WithMetadataItems(
-					structerr.MetadataItem{Key: "storage_name", Value: targetRepo.GetStorageName()},
-					structerr.MetadataItem{Key: "relative_path", Value: targetRepo.GetRelativePath()},
-				)
+				return nil, storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)
 			}
 
 			if errors.Is(err, datastore.ErrRepositoryAlreadyExists) {

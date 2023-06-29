@@ -2,7 +2,6 @@ package gitaly
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/fs"
 	"os/exec"
@@ -113,11 +112,8 @@ func TestSetHooksSubcommand(t *testing.T) {
 					"--config=" + configPath,
 				}, repo
 			},
-			hooks: testhelper.MustCreateCustomHooksTar(t),
-			expectedErr: testhelper.GitalyOrPraefect(
-				storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "non-existent").Error(),
-				fmt.Sprintf("rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: %s", storage.ErrRepositoryNotFound),
-			),
+			hooks:       testhelper.MustCreateCustomHooksTar(t),
+			expectedErr: storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "non-existent").Error(),
 		},
 		{
 			desc: "successfully set with empty hooks",

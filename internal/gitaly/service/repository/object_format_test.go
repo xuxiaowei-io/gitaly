@@ -77,16 +77,8 @@ func TestObjectFormat(t *testing.T) {
 							RelativePath: "nonexistent.git",
 						},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "nonexistent.git")),
-						),
-						testhelper.ToInterceptedMetadata(
-							structerr.New(
-								"accessor call: route repository accessor: consistent storages: %w",
-								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "nonexistent.git"),
-							),
-						),
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "nonexistent.git")),
 					),
 				}
 			},

@@ -180,16 +180,8 @@ func TestFindDefaultBranchName(t *testing.T) {
 					request: &gitalypb.FindDefaultBranchNameRequest{
 						Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
-						),
-						testhelper.ToInterceptedMetadata(
-							structerr.New(
-								"accessor call: route repository accessor: consistent storages: %w",
-								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path"),
-							),
-						),
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
 					),
 				}
 			},
@@ -482,16 +474,8 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "repository doesn't exist on disk",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"accessor call: route repository accessor: consistent storages: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
 			),
 		},
 		{

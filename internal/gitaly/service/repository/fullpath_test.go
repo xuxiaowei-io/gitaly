@@ -67,15 +67,10 @@ func TestSetFullPath(t *testing.T) {
 			Repository: repo,
 			Path:       "my/repo",
 		})
-
 		require.Nil(t, response)
-
-		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = %s", storage.ErrRepositoryNotFound)
-		if testhelper.IsPraefectEnabled() {
-			expectedErr = fmt.Sprintf("rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: %s", storage.ErrRepositoryNotFound)
-		}
-
-		require.EqualError(t, err, expectedErr)
+		testhelper.RequireGrpcError(t, testhelper.ToInterceptedMetadata(
+			structerr.New("%w", storage.NewRepositoryNotFoundError(repo.StorageName, repo.RelativePath)),
+		), err)
 	})
 
 	t.Run("normal repo", func(t *testing.T) {
@@ -169,14 +164,9 @@ func TestFullPath(t *testing.T) {
 			Repository: repo,
 		})
 		require.Nil(t, response)
-
-		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = %s", storage.ErrRepositoryNotFound)
-		if testhelper.IsPraefectEnabled() {
-			expectedErr = fmt.Sprintf("rpc error: code = NotFound desc = accessor call: route repository accessor: consistent storages: %s", storage.ErrRepositoryNotFound)
-		}
-
-		require.EqualError(t, err, expectedErr)
-		testhelper.RequireGrpcCode(t, err, codes.NotFound)
+		testhelper.RequireGrpcError(t, testhelper.ToInterceptedMetadata(
+			structerr.New("%w", storage.NewRepositoryNotFoundError(repo.StorageName, repo.RelativePath)),
+		), err)
 	})
 
 	t.Run("missing config", func(t *testing.T) {

@@ -70,16 +70,8 @@ func TestRepositoryInfo(t *testing.T) {
 							RelativePath: "does/not/exist",
 						},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "does/not/exist")),
-						),
-						testhelper.ToInterceptedMetadata(
-							structerr.New(
-								"accessor call: route repository accessor: consistent storages: %w",
-								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "does/not/exist"),
-							),
-						),
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "does/not/exist")),
 					),
 				}
 			},
