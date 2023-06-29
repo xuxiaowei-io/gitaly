@@ -436,7 +436,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 				require.Empty(t, stdout.String())
 				require.Empty(t, stderr.String())
 				require.NoFileExists(t, customHookOutputPath)
-				require.Empty(t, txManager.Votes())
+				require.Len(t, txManager.Votes(), 1)
 			},
 		},
 	}
