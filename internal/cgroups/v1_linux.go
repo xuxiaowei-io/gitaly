@@ -18,15 +18,11 @@ import (
 )
 
 type cgroupV1Handler struct {
-	cfg                        cgroupscfg.Config
-	hierarchy                  func() ([]cgroup1.Subsystem, error)
-	memoryReclaimAttemptsTotal *prometheus.GaugeVec
-	cpuUsage                   *prometheus.GaugeVec
-	cpuCFSPeriods              *prometheus.Desc
-	cpuCFSThrottledPeriods     *prometheus.Desc
-	cpuCFSThrottledTime        *prometheus.Desc
-	procs                      *prometheus.GaugeVec
-	pid                        int
+	cfg       cgroupscfg.Config
+	hierarchy func() ([]cgroup1.Subsystem, error)
+
+	*cgroupsMetrics
+	pid int
 }
 
 func newV1Handler(cfg cgroupscfg.Config, pid int) *cgroupV1Handler {
@@ -36,42 +32,7 @@ func newV1Handler(cfg cgroupscfg.Config, pid int) *cgroupV1Handler {
 		hierarchy: func() ([]cgroup1.Subsystem, error) {
 			return defaultSubsystems(cfg.Mountpoint)
 		},
-		memoryReclaimAttemptsTotal: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "gitaly_cgroup_memory_reclaim_attempts_total",
-				Help: "Number of memory usage hits limits",
-			},
-			[]string{"path"},
-		),
-		cpuUsage: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "gitaly_cgroup_cpu_usage_total",
-				Help: "CPU Usage of Cgroup",
-			},
-			[]string{"path", "type"},
-		),
-		cpuCFSPeriods: prometheus.NewDesc(
-			"gitaly_cgroup_cpu_cfs_periods_total",
-			"Number of elapsed enforcement period intervals",
-			[]string{"path"}, nil,
-		),
-		cpuCFSThrottledPeriods: prometheus.NewDesc(
-			"gitaly_cgroup_cpu_cfs_throttled_periods_total",
-			"Number of throttled period intervals",
-			[]string{"path"}, nil,
-		),
-		cpuCFSThrottledTime: prometheus.NewDesc(
-			"gitaly_cgroup_cpu_cfs_throttled_seconds_total",
-			"Total time duration the Cgroup has been throttled",
-			[]string{"path"}, nil,
-		),
-		procs: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "gitaly_cgroup_procs_total",
-				Help: "Total number of procs",
-			},
-			[]string{"path", "subsystem"},
-		),
+		cgroupsMetrics: newV1CgroupsMetrics(),
 	}
 }
 

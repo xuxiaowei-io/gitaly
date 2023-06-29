@@ -20,48 +20,17 @@ import (
 )
 
 type cgroupV2Handler struct {
-	cfg                    cgroupscfg.Config
-	cpuUsage               *prometheus.GaugeVec
-	cpuCFSPeriods          *prometheus.Desc
-	cpuCFSThrottledPeriods *prometheus.Desc
-	cpuCFSThrottledTime    *prometheus.Desc
-	procs                  *prometheus.GaugeVec
-	pid                    int
+	cfg cgroupscfg.Config
+
+	*cgroupsMetrics
+	pid int
 }
 
 func newV2Handler(cfg cgroupscfg.Config, pid int) *cgroupV2Handler {
 	return &cgroupV2Handler{
-		cfg: cfg,
-		pid: pid,
-		cpuUsage: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "gitaly_cgroup_cpu_usage_total",
-				Help: "CPU Usage of Cgroup",
-			},
-			[]string{"path", "type"},
-		),
-		cpuCFSPeriods: prometheus.NewDesc(
-			"gitaly_cgroup_cpu_cfs_periods_total",
-			"Number of elapsed enforcement period intervals",
-			[]string{"path"}, nil,
-		),
-		cpuCFSThrottledPeriods: prometheus.NewDesc(
-			"gitaly_cgroup_cpu_cfs_throttled_periods_total",
-			"Number of throttled period intervals",
-			[]string{"path"}, nil,
-		),
-		cpuCFSThrottledTime: prometheus.NewDesc(
-			"gitaly_cgroup_cpu_cfs_throttled_seconds_total",
-			"Total time duration the Cgroup has been throttled",
-			[]string{"path"}, nil,
-		),
-		procs: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "gitaly_cgroup_procs_total",
-				Help: "Total number of procs",
-			},
-			[]string{"path", "subsystem"},
-		),
+		cfg:            cfg,
+		pid:            pid,
+		cgroupsMetrics: newV2CgroupsMetrics(),
 	}
 }
 
