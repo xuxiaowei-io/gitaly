@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -35,6 +36,14 @@ func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 	}
 	defer cancel()
 
+	var signingKey signature.SigningKey
+	if s.cfg.Git.SigningKey != "" {
+		signingKey, err = signature.ParseSigningKey(s.cfg.Git.SigningKey)
+		if err != nil {
+			return fmt.Errorf("failed to parse signing key: %w", err)
+		}
+	}
+
 	for _, commitID := range request.CommitIds {
 		commitObj, err := objectReader.Object(ctx, git.Revision(commitID)+"^{commit}")
 		if err != nil {
@@ -49,7 +58,14 @@ func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 			return structerr.NewInternal("%w", err)
 		}
 
-		if err = sendResponse(commitID, signatureKey, commitText, stream); err != nil {
+		signer := gitalypb.GetCommitSignaturesResponse_SIGNER_USER
+		if signingKey != nil {
+			if err := signingKey.Verify(signatureKey, commitText); err == nil {
+				signer = gitalypb.GetCommitSignaturesResponse_SIGNER_SYSTEM
+			}
+		}
+
+		if err = sendResponse(commitID, signatureKey, commitText, signer, stream); err != nil {
 			return structerr.NewInternal("%w", err)
 		}
 	}
@@ -99,7 +115,13 @@ func extractSignature(reader io.Reader) ([]byte, []byte, error) {
 	return signatureKey, commitText, nil
 }
 
-func sendResponse(commitID string, signatureKey []byte, commitText []byte, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
+func sendResponse(
+	commitID string,
+	signatureKey []byte,
+	commitText []byte,
+	signer gitalypb.GetCommitSignaturesResponse_Signer,
+	stream gitalypb.CommitService_GetCommitSignaturesServer,
+) error {
 	if len(signatureKey) <= 0 {
 		return nil
 	}
@@ -107,6 +129,7 @@ func sendResponse(commitID string, signatureKey []byte, commitText []byte, strea
 	err := stream.Send(&gitalypb.GetCommitSignaturesResponse{
 		CommitId:  commitID,
 		Signature: signatureKey,
+		Signer:    signer,
 	})
 	if err != nil {
 		return err

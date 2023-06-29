@@ -9,6 +9,7 @@ import (
 // SigningKey is the common interface interface of SSH and GPG signing keys
 type SigningKey interface {
 	CreateSignature([]byte) ([]byte, error)
+	Verify([]byte, []byte) error
 }
 
 // ParseSigningKey parses a signing key and returns either GPG or SSH key

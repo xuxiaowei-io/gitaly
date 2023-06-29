@@ -5,7 +5,6 @@ import (
 	"crypto/sha512"
 	"encoding/pem"
 	"fmt"
-	"os"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -41,10 +40,10 @@ type signedData struct {
 var magicHeader = [6]byte{'S', 'S', 'H', 'S', 'I', 'G'}
 
 const (
-	version       = 1
-	namespace     = "git"
-	hashAlgorithm = "sha512"
-	signatureType = "SSH SIGNATURE"
+	version          = 1
+	namespace        = "git"
+	hashAlgorithm    = "sha512"
+	sshSignatureType = "SSH SIGNATURE"
 )
 
 func parseSSHSigningKey(key []byte) (*SSHSigningKey, error) {
@@ -54,49 +53,6 @@ func parseSSHSigningKey(key []byte) (*SSHSigningKey, error) {
 	}
 
 	return &SSHSigningKey{PrivateKey: privateKey}, nil
-}
-
-// VerifySSH reads the given signing public key and verifies whether the signature
-// matched the signed text
-func VerifySSH(pubKeyPath string, signatureText, signedText []byte) error {
-	key, err := os.ReadFile(pubKeyPath)
-	if err != nil {
-		return fmt.Errorf("read public key: %w", err)
-	}
-
-	publicKey, _, _, _, err := ssh.ParseAuthorizedKey(key)
-	if err != nil {
-		return fmt.Errorf("parse ssh authorized key: %w", err)
-	}
-
-	block, rest := pem.Decode(signatureText)
-	if len(rest) > 0 || block.Type != "SSH SIGNATURE" {
-		return fmt.Errorf("invalid signature text")
-	}
-
-	sshSig := &sshSignature{}
-	if err := ssh.Unmarshal(block.Bytes, sshSig); err != nil {
-		return fmt.Errorf("parse signature text: %w", err)
-	}
-
-	signature := &ssh.Signature{}
-	if err := ssh.Unmarshal(sshSig.Signature, signature); err != nil {
-		return fmt.Errorf("parse signature: %w", err)
-	}
-
-	h := sha512.New()
-	if _, err := h.Write(signedText); err != nil {
-		return fmt.Errorf("failed to create sha for verifying content: %w", err)
-	}
-
-	signedData := signedData{
-		MagicHeader:   sshSig.MagicHeader,
-		Namespace:     sshSig.Namespace,
-		HashAlgorithm: sshSig.HashAlgorithm,
-		Hash:          h.Sum(nil),
-	}
-
-	return publicKey.Verify(ssh.Marshal(signedData), signature)
 }
 
 // CreateSignature creates an SSH signature
@@ -140,9 +96,41 @@ func (sk *SSHSigningKey) CreateSignature(contentToSign []byte) ([]byte, error) {
 	}
 
 	armoredSignature := pem.EncodeToMemory(&pem.Block{
-		Type:  signatureType,
+		Type:  sshSignatureType,
 		Bytes: ssh.Marshal(sshSignature),
 	})
 
 	return armoredSignature, nil
+}
+
+// Verify method verifies whether a signature has been created by this signing key
+func (sk *SSHSigningKey) Verify(signatureText, signedText []byte) error {
+	block, rest := pem.Decode(signatureText)
+	if block == nil || len(rest) > 0 || block.Type != sshSignatureType {
+		return fmt.Errorf("invalid signature text")
+	}
+
+	sshSig := &sshSignature{}
+	if err := ssh.Unmarshal(block.Bytes, sshSig); err != nil {
+		return fmt.Errorf("parse signature text: %w", err)
+	}
+
+	signature := &ssh.Signature{}
+	if err := ssh.Unmarshal(sshSig.Signature, signature); err != nil {
+		return fmt.Errorf("parse signature: %w", err)
+	}
+
+	h := sha512.New()
+	if _, err := h.Write(signedText); err != nil {
+		return fmt.Errorf("failed to create sha for verifying content: %w", err)
+	}
+
+	signedData := signedData{
+		MagicHeader:   sshSig.MagicHeader,
+		Namespace:     sshSig.Namespace,
+		HashAlgorithm: sshSig.HashAlgorithm,
+		Hash:          h.Sum(nil),
+	}
+
+	return sk.PrivateKey.PublicKey().Verify(ssh.Marshal(signedData), signature)
 }
