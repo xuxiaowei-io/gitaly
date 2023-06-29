@@ -78,7 +78,7 @@ func (s *server) cloneFromURLCommand(
 
 func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.CreateRepositoryFromURLRequest) (*gitalypb.CreateRepositoryFromURLResponse, error) {
 	if err := validateCreateRepositoryFromURLRequest(s.locator, req); err != nil {
-		return nil, structerr.NewInvalidArgument("CreateRepositoryFromURL: %w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, req.GetRepository(), func(repo *gitalypb.Repository) error {

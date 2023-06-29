@@ -868,13 +868,10 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc:       "missing Repository",
-			branchName: "new-branch",
-			user:       gittest.TestUser,
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "missing Repository",
+			branchName:  "new-branch",
+			user:        gittest.TestUser,
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:        "missing Branch",

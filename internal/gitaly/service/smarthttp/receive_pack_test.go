@@ -388,12 +388,9 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 			),
 		},
 		{
-			desc:    "Repository is nil",
-			request: &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "Repository is nil",
+			request:     &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "Empty GlId",

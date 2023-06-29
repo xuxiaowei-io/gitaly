@@ -119,7 +119,7 @@ func validateUserCreateTag(locator storage.Locator, req *gitalypb.UserCreateTagR
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
 	if err := validateUserCreateTag(s.locator, req); err != nil {
-		return nil, structerr.NewInvalidArgument("validating request: %w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	targetRevision := git.Revision(req.TargetRevision)

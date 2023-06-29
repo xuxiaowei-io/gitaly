@@ -960,10 +960,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repository not provided",
 			repo:    nil,
 			commits: []string{newCommit.String(), oldCommit.String()},
-			err: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			err:     structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:    "Repo not found",

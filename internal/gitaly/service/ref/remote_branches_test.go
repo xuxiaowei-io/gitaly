@@ -111,10 +111,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 		{
 			description: "Empty repo",
 			request:     &gitalypb.FindAllRemoteBranchesRequest{RemoteName: "myRemote"},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			description: "Empty remote name",

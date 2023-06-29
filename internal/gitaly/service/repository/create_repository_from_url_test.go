@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestCreateRepositoryFromURL_successful(t *testing.T) {
@@ -336,17 +335,14 @@ func TestServer_CloneFromURLCommand_validate(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "no repository provided",
-			req:  &gitalypb.CreateRepositoryFromURLRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("CreateRepositoryFromURL: %w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "no repository provided",
+			req:         &gitalypb.CreateRepositoryFromURLRequest{Repository: nil},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:        "no URL provided",
 			req:         &gitalypb.CreateRepositoryFromURLRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "new"}, Url: ""},
-			expectedErr: status.Error(codes.InvalidArgument, "CreateRepositoryFromURL: empty Url"),
+			expectedErr: structerr.NewInvalidArgument("empty Url"),
 		},
 	}
 

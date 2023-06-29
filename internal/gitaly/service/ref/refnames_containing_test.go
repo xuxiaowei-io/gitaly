@@ -43,10 +43,7 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 			request: &gitalypb.ListTagNamesContainingCommitRequest{
 				Repository: nil,
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "invalid commit ID",
@@ -161,10 +158,7 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 			request: &gitalypb.ListBranchNamesContainingCommitRequest{
 				Repository: nil,
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "invalid commit",

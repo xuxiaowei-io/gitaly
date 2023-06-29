@@ -328,12 +328,9 @@ func TestListCommits_verify(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "no repository provided",
-			req:  &gitalypb.ListCommitsRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			desc:        "no repository provided",
+			req:         &gitalypb.ListCommitsRequest{Repository: nil},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:        "no revisions",

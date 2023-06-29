@@ -73,10 +73,7 @@ func TestGetBlobs(t *testing.T) {
 							{Revision: "does-not-exist", Path: []byte("file")},
 						},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

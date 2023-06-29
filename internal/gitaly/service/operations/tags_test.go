@@ -112,10 +112,7 @@ func TestUserDeleteTag(t *testing.T) {
 						TagName: []byte("mars"),
 						User:    gittest.TestUser,
 					},
-					expectedError: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedError: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},
@@ -656,7 +653,7 @@ func TestUserCreateTag_message(t *testing.T) {
 		{
 			desc:        "error: contains null byte",
 			message:     "\000",
-			expectedErr: structerr.NewInvalidArgument("validating request: tag message contains NUL byte"),
+			expectedErr: structerr.NewInvalidArgument("tag message contains NUL byte"),
 		},
 		{
 			desc:               "annotated: some control characters",
@@ -1320,10 +1317,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "shiny-new-tag",
 			targetRevision: "main",
 			user:           gittest.TestUser,
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("validating request: %w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr:    structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc:           "empty target revision",
@@ -1331,7 +1325,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "shiny-new-tag",
 			targetRevision: "",
 			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: empty target revision"),
+			expectedErr:    structerr.NewInvalidArgument("empty target revision"),
 		},
 		{
 			desc:           "empty user",
@@ -1339,7 +1333,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "shiny-new-tag",
 			targetRevision: "main",
 			user:           nil,
-			expectedErr:    structerr.NewInvalidArgument("validating request: empty user"),
+			expectedErr:    structerr.NewInvalidArgument("empty user"),
 		},
 		{
 			desc:           "empty starting point",
@@ -1347,7 +1341,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "new-tag",
 			targetRevision: "",
 			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: empty target revision"),
+			expectedErr:    structerr.NewInvalidArgument("empty target revision"),
 		},
 		{
 			desc:           "non-existing starting point",
@@ -1363,7 +1357,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "a tag",
 			targetRevision: "main",
 			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: invalid tag name: revision can't contain whitespace"),
+			expectedErr:    structerr.NewInvalidArgument("invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "space in annotated tag name",
@@ -1372,7 +1366,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "main",
 			message:        "a message",
 			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: invalid tag name: revision can't contain whitespace"),
+			expectedErr:    structerr.NewInvalidArgument("invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "newline in lightweight tag name",
@@ -1380,7 +1374,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "a\ntag",
 			targetRevision: "main",
 			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: invalid tag name: revision can't contain whitespace"),
+			expectedErr:    structerr.NewInvalidArgument("invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "newline in annotated tag name",
@@ -1389,7 +1383,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "main",
 			message:        "a message",
 			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: invalid tag name: revision can't contain whitespace"),
+			expectedErr:    structerr.NewInvalidArgument("invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "injection in lightweight tag name",
@@ -1397,7 +1391,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        injectedTag,
 			targetRevision: "main",
 			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: invalid tag name: revision can't contain whitespace"),
+			expectedErr:    structerr.NewInvalidArgument("invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "injection in annotated tag name",
@@ -1406,7 +1400,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "main",
 			message:        "a message",
 			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: invalid tag name: revision can't contain whitespace"),
+			expectedErr:    structerr.NewInvalidArgument("invalid tag name: revision can't contain whitespace"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

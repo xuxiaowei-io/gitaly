@@ -12,7 +12,7 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 
 	repository := req.GetRepository()
 	if err := s.locator.ValidateRepository(repository); err != nil {
-		return structerr.NewInvalidArgument("CreateBundle: %w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	repo := s.localrepo(repository)

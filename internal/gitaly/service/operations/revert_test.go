@@ -207,10 +207,7 @@ func TestUserRevert(t *testing.T) {
 					request: &gitalypb.UserRevertRequest{
 						Repository: nil,
 					},
-					expectedError: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-					),
+					expectedError: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 				}
 			},
 		},

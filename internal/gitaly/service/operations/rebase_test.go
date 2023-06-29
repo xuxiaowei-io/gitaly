@@ -782,10 +782,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
 				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
 			desc: "non-existing storage",

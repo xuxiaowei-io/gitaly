@@ -135,10 +135,7 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 			ObjectMap:  []byte("does not matter"),
 		})
 		require.Nil(t, response)
-		testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-			structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-			structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-		), err)
+		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 	})
 }
 

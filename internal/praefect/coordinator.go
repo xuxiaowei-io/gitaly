@@ -676,7 +676,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 		targetRepo, err := mi.TargetRepo(m)
 		if err != nil {
 			if errors.Is(err, protoregistry.ErrRepositoryFieldNotFound) {
-				return nil, structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet)
+				return nil, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)
 			}
 
 			return nil, structerr.New("repo scoped: %w", err)

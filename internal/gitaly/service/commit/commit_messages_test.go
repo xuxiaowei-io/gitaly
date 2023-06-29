@@ -75,10 +75,7 @@ func TestFailedGetCommitMessagesRequest(t *testing.T) {
 				Repository: nil,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
 			},
-			err: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryNotSet),
-			),
+			err: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	}
 
