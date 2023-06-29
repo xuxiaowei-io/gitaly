@@ -37,3 +37,15 @@ func (sk *GpgSigningKey) CreateSignature(contentToSign []byte) ([]byte, error) {
 
 	return []byte(sigBuf.String()), nil
 }
+
+// Verify method verifies whether a signature has been created by this signing key
+func (sk *GpgSigningKey) Verify(signature, signedText []byte) error {
+	_, err := openpgp.CheckArmoredDetachedSignature(
+		openpgp.EntityList([]*openpgp.Entity{sk.Entity}),
+		bytes.NewReader(signedText),
+		bytes.NewReader(signature),
+		&packet.Config{},
+	)
+
+	return err
+}
