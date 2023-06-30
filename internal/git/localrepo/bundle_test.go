@@ -161,8 +161,8 @@ func TestRepo_FetchBundle(t *testing.T) {
 					reader:          createBundle(t, cfg, sourceRepoPath),
 					expectedHeadRef: git.DefaultRef,
 					expectedRefs: []git.Reference{
-						git.NewReference(git.NewReferenceNameFromBranchName("feature"), featureOid.String()),
-						git.NewReference(git.DefaultRef, mainOid.String()),
+						git.NewReference(git.NewReferenceNameFromBranchName("feature"), featureOid),
+						git.NewReference(git.DefaultRef, mainOid),
 					},
 				}
 			},
@@ -185,8 +185,8 @@ func TestRepo_FetchBundle(t *testing.T) {
 					reader:          createBundle(t, cfg, sourceRepoPath),
 					expectedHeadRef: git.NewReferenceNameFromBranchName("feature"),
 					expectedRefs: []git.Reference{
-						git.NewReference(git.NewReferenceNameFromBranchName("feature"), featureOid.String()),
-						git.NewReference(git.DefaultRef, mainOid.String()),
+						git.NewReference(git.NewReferenceNameFromBranchName("feature"), featureOid),
+						git.NewReference(git.DefaultRef, mainOid),
 					},
 				}
 			},

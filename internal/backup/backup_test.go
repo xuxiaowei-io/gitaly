@@ -570,9 +570,9 @@ func TestManager_Restore_latest(t *testing.T) {
 						)
 
 						checksum := new(git.Checksum)
-						checksum.Add(git.NewReference("HEAD", master2.String()))
-						checksum.Add(git.NewReference("refs/heads/master", master2.String()))
-						checksum.Add(git.NewReference("refs/heads/other", other.String()))
+						checksum.Add(git.NewReference("HEAD", master2))
+						checksum.Add(git.NewReference("refs/heads/master", master2))
+						checksum.Add(git.NewReference("refs/heads/other", other))
 
 						return repo, checksum
 					},
@@ -763,9 +763,9 @@ func TestManager_Restore_specific(t *testing.T) {
 						)
 
 						checksum := new(git.Checksum)
-						checksum.Add(git.NewReference("HEAD", master2.String()))
-						checksum.Add(git.NewReference("refs/heads/master", master2.String()))
-						checksum.Add(git.NewReference("refs/heads/other", other.String()))
+						checksum.Add(git.NewReference("HEAD", master2))
+						checksum.Add(git.NewReference("refs/heads/master", master2))
+						checksum.Add(git.NewReference("refs/heads/other", other))
 
 						return repo, checksum
 					},

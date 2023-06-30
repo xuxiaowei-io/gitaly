@@ -126,9 +126,9 @@ func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...str
 		}
 
 		if len(line[2]) == 0 {
-			refs = append(refs, git.NewReference(git.ReferenceName(line[0]), string(line[1])))
+			refs = append(refs, git.NewReference(git.ReferenceName(line[0]), git.ObjectID(line[1])))
 		} else {
-			refs = append(refs, git.NewSymbolicReference(git.ReferenceName(line[0]), string(line[1])))
+			refs = append(refs, git.NewSymbolicReference(git.ReferenceName(line[0]), git.ReferenceName(line[1])))
 		}
 	}
 
@@ -310,11 +310,11 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 				return nil, fmt.Errorf("expected dereferenced symbolic ref %q but got reference %q", symRef, split[1])
 			}
 
-			refs = append(refs, git.NewSymbolicReference(git.ReferenceName(symRef), split[0]))
+			refs = append(refs, git.NewSymbolicReference(git.ReferenceName(symRef), git.ReferenceName(split[0])))
 			continue
 		}
 
-		refs = append(refs, git.NewReference(git.ReferenceName(split[1]), split[0]))
+		refs = append(refs, git.NewReference(git.ReferenceName(split[1]), git.ObjectID(split[0])))
 	}
 
 	if err := scanner.Err(); err != nil {

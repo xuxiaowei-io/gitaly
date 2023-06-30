@@ -42,7 +42,7 @@ func (d *ShowRefDecoder) Decode(ref *Reference) error {
 		return fmt.Errorf("show-ref decoder: invalid line: %q", line)
 	}
 
-	*ref = NewReference(ReferenceName(splits[1]), splits[0])
+	*ref = NewReference(ReferenceName(splits[1]), ObjectID(splits[0]))
 
 	return nil
 }

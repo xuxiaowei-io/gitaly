@@ -109,19 +109,19 @@ type Reference struct {
 }
 
 // NewReference creates a direct reference to an object.
-func NewReference(name ReferenceName, target string) Reference {
+func NewReference(name ReferenceName, target ObjectID) Reference {
 	return Reference{
 		Name:       name,
-		Target:     target,
+		Target:     string(target),
 		IsSymbolic: false,
 	}
 }
 
 // NewSymbolicReference creates a symbolic reference to another reference.
-func NewSymbolicReference(name ReferenceName, target string) Reference {
+func NewSymbolicReference(name ReferenceName, target ReferenceName) Reference {
 	return Reference{
 		Name:       name,
-		Target:     target,
+		Target:     string(target),
 		IsSymbolic: true,
 	}
 }
