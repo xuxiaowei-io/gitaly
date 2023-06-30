@@ -5,7 +5,9 @@ import (
 	"errors"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -133,20 +135,39 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		message += "\n"
 	}
 
-	// Perform squash merge onto endCommit using git2go merge.
-	merge, err := s.git2goExecutor.Merge(ctx, quarantineRepo, git2go.MergeCommand{
-		Repository:    quarantineRepoPath,
-		AuthorName:    string(req.GetAuthor().GetName()),
-		AuthorMail:    string(req.GetAuthor().GetEmail()),
-		AuthorDate:    commitDate,
-		CommitterName: string(req.GetUser().Name),
-		CommitterMail: string(req.GetUser().Email),
-		CommitterDate: commitDate,
-		Message:       message,
-		Ours:          startCommit.String(),
-		Theirs:        endCommit.String(),
-		Squash:        true,
-	})
+	var commitID string
+	if featureflag.SquashInGit.IsEnabled(ctx) {
+		commitID, err = s.merge(
+			ctx,
+			quarantineRepo,
+			string(req.GetAuthor().GetName()),
+			string(req.GetAuthor().GetEmail()),
+			commitDate,
+			string(req.GetUser().GetName()),
+			string(req.GetUser().GetEmail()),
+			commitDate,
+			message,
+			startCommit.String(),
+			endCommit.String(),
+			true,
+		)
+	} else {
+		commitID, err = s.mergeWithGit2Go(
+			ctx,
+			quarantineRepo,
+			quarantineRepoPath,
+			string(req.GetAuthor().GetName()),
+			string(req.GetAuthor().GetEmail()),
+			commitDate,
+			string(req.GetUser().GetName()),
+			string(req.GetUser().GetEmail()),
+			commitDate,
+			message,
+			startCommit.String(),
+			endCommit.String(),
+			true,
+		)
+	}
 	if err != nil {
 		var conflictErr git2go.ConflictingFilesError
 
@@ -172,9 +193,31 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 				},
 			)
 		}
-	}
 
-	commitID := merge.CommitID
+		var mergeConflictErr *localrepo.MergeTreeConflictError
+		if errors.As(err, &mergeConflictErr) {
+			conflictingFiles := make([][]byte, 0, len(mergeConflictErr.ConflictingFileInfo))
+			for _, conflictingFile := range mergeConflictErr.ConflictingFileInfo {
+				conflictingFiles = append(conflictingFiles, []byte(conflictingFile.FileName))
+			}
+
+			return "", structerr.NewFailedPrecondition("squashing commits: %w", err).WithDetail(
+				&gitalypb.UserSquashError{
+					// Note: this is actually a merge conflict, but we've kept
+					// the old "rebase" name for compatibility reasons.
+					Error: &gitalypb.UserSquashError_RebaseConflict{
+						RebaseConflict: &gitalypb.MergeConflictError{
+							ConflictingFiles: conflictingFiles,
+							ConflictingCommitIds: []string{
+								startCommit.String(),
+								endCommit.String(),
+							},
+						},
+					},
+				},
+			)
+		}
+	}
 
 	// The RPC is badly designed in that it never updates any references, but only creates the
 	// objects and writes them to disk. We still use a quarantine directory to stage the new

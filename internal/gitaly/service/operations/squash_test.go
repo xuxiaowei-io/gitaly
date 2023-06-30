@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -44,7 +45,14 @@ var (
 func TestUserSquash_successful(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashSuccessful)
+}
+
+func testUserSquashSuccessful(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	for _, tc := range []struct {
 		desc             string
@@ -96,10 +104,17 @@ func TestUserSquash_successful(t *testing.T) {
 	}
 }
 
-func TestUserSquash_transactional(t *testing.T) {
+func TestUserSquash_transaction(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashTransactional)
+}
+
+func testUserSquashTransactional(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	txManager := transaction.MockManager{}
 
@@ -213,7 +228,15 @@ func TestUserSquash_transactional(t *testing.T) {
 func TestUserSquash_stableID(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashStableID)
+}
+
+func testUserSquashStableID(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -270,7 +293,15 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 func TestUserSquash_threeWayMerge(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashThreeWayMerge)
+}
+
+func testUserSquashThreeWayMerge(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -303,7 +334,15 @@ func TestUserSquash_threeWayMerge(t *testing.T) {
 func TestUserSquash_splitIndex(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashSplitIndex)
+}
+
+func testUserSquashSplitIndex(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
@@ -325,7 +364,15 @@ func TestUserSquash_splitIndex(t *testing.T) {
 func TestUserSquash_renames(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashRenames)
+}
+
+func testUserSquashRenames(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -395,7 +442,15 @@ func TestUserSquash_renames(t *testing.T) {
 func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashMissingFileOnTargetBranch)
+}
+
+func testUserSquashMissingFileOnTargetBranch(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	conflictingStartSha := "bbd36ad238d14e1c03ece0f3358f545092dc9ca3"
@@ -416,7 +471,15 @@ func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 func TestUserSquash_emptyCommit(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashEmptyCommit)
+}
+
+func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -614,7 +677,15 @@ func TestUserSquash_validation(t *testing.T) {
 func TestUserSquash_conflicts(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashConflicts)
+}
+
+func testUserSquashConflicts(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
@@ -662,7 +733,15 @@ func TestUserSquash_conflicts(t *testing.T) {
 func TestUserSquash_ancestry(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashAncestry)
+}
+
+func testUserSquashAncestry(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	// We create an empty parent commit and two commits which both branch off from it. As a
@@ -696,7 +775,15 @@ func TestUserSquash_ancestry(t *testing.T) {
 func TestUserSquash_gitError(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashGitError)
+}
+
+func testUserSquashGitError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
@@ -797,7 +884,15 @@ func TestUserSquash_gitError(t *testing.T) {
 func TestUserSquash_squashingMerge(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.SquashInGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserSquashSquashingMerge)
+}
+
+func testUserSquashSquashingMerge(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("base"),
