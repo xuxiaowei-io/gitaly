@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
 func TestWriteRef(t *testing.T) {
@@ -53,6 +52,127 @@ func TestWriteRef(t *testing.T) {
 		desc  string
 		setup func(t *testing.T) setupData
 	}{
+		{
+			desc: "empty revision",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository: repo,
+						Ref:        []byte("refs/heads/master"),
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid revision: empty revision"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
+		{
+			desc: "empty ref name",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository: repo,
+						Revision:   []byte(commitID),
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid ref: empty revision"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
+		{
+			desc: "non-prefixed ref name",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository: repo,
+						Ref:        []byte("master"),
+						Revision:   []byte(commitID),
+					},
+					expectedErr: structerr.NewInvalidArgument("ref has to be a full reference"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
+		{
+			desc: "revision contains \\x00",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := []byte(gittest.WriteCommit(t, cfg, repoPath).String())
+				commitID[10] = '\x00'
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository: repo,
+						Ref:        []byte("refs/heads/master"),
+						Revision:   commitID,
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't contain NUL"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
+		{
+			desc: "ref contains whitespace",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath).String()
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository: repo,
+						Ref:        []byte("refs/heads /master"),
+						Revision:   []byte(commitID),
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid ref: revision can't contain whitespace"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
+		{
+			desc: "invalid revision",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository: repo,
+						Ref:        []byte("refs/heads/master"),
+						Revision:   []byte("--output=/meow"),
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
 		{
 			desc: "update default branch",
 			setup: func(t *testing.T) setupData {
@@ -190,81 +310,6 @@ func TestWriteRef(t *testing.T) {
 			}, refs...))
 
 			require.Equal(t, setup.expectedVotes, txManager.Votes())
-		})
-	}
-}
-
-func TestWriteRef_validation(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	testCases := []struct {
-		desc string
-		req  *gitalypb.WriteRefRequest
-	}{
-		{
-			desc: "empty revision",
-			req: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Ref:        []byte("refs/heads/master"),
-			},
-		},
-		{
-			desc: "empty ref name",
-			req: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Revision:   []byte("498214de67004b1da3d820901307bed2a68a8ef6"),
-			},
-		},
-		{
-			desc: "non-prefixed ref name for shell",
-			req: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Ref:        []byte("master"),
-				Revision:   []byte("498214de67004b1da3d820901307bed2a68a8ef6"),
-			},
-		},
-		{
-			desc: "revision contains \\x00",
-			req: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Ref:        []byte("refs/heads/master"),
-				Revision:   []byte("012301230123\x001243"),
-			},
-		},
-		{
-			desc: "ref contains \\x00",
-			req: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Ref:        []byte("refs/head\x00s/master\x00"),
-				Revision:   []byte("0123012301231243"),
-			},
-		},
-		{
-			desc: "ref contains whitespace",
-			req: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Ref:        []byte("refs/heads /master"),
-				Revision:   []byte("0123012301231243"),
-			},
-		},
-		{
-			desc: "invalid revision",
-			req: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Ref:        []byte("refs/heads/master"),
-				Revision:   []byte("--output=/meow"),
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.WriteRef(ctx, tc.req)
-
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }
