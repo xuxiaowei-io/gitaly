@@ -3,12 +3,14 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -26,7 +28,16 @@ import (
 func TestUserCherryPick(t *testing.T) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, testhelper.Context(t))
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserCherryPick)
+}
+
+func testUserCherryPick(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	destinationBranch := "dst-branch"
 
@@ -345,7 +356,15 @@ func TestUserCherryPick(t *testing.T) {
 
 func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickSuccessfulGitHooks)
+}
+
+func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -382,7 +401,15 @@ func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 
 func TestServer_UserCherryPick_stableID(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickStableID)
+}
+
+func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -437,7 +464,15 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 
 func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickFailedValidations)
+}
+
+func testServerUserCherryPickFailedValidations(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -529,7 +564,16 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickFailedWithPreReceiveError)
+}
+
+func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -571,7 +615,16 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickFailedWithCreateTreeError)
+}
+
+func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -602,7 +655,16 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickFailedWithCommitError)
+}
+
+func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -638,10 +700,19 @@ func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 	assert.Equal(t, []byte("8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"), targetBranchDivergedErr.TargetBranchDiverged.ParentRevision)
 }
 
-func TestServerUserCherryPickRailedWithConflict(t *testing.T) {
+func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickFailedWithConflict)
+}
+
+func testServerUserCherryPickFailedWithConflict(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -678,7 +749,15 @@ func TestServerUserCherryPickRailedWithConflict(t *testing.T) {
 
 func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickSuccessfulWithGivenCommits)
+}
+
+func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -734,7 +813,16 @@ func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 func TestServer_UserCherryPick_quarantine(t *testing.T) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickQuarantine)
+}
+
+func testServerUserCherryPickQuarantine(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
