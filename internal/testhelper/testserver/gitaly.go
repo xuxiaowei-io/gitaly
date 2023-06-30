@@ -179,6 +179,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
 		[]*limithandler.LimiterMiddleware{deps.GetLimitHandler()},
+		server.TransactionMiddleware{},
 	)
 
 	if cfg.RuntimeDir != "" {
@@ -270,6 +271,7 @@ type gitalyServerDeps struct {
 	backupSink          backup.Sink
 	backupLocator       backup.Locator
 	signingKey          string
+	transactionRegistry *storagemgr.TransactionRegistry
 }
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
@@ -303,9 +305,8 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		gsd.gitCmdFactory = gittest.NewCommandFactory(tb, cfg)
 	}
 
-	transactionRegistry := storagemgr.NewTransactionRegistry()
 	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.logger, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient, hook.NewTransactionRegistry(transactionRegistry))
+		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.logger, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient, hook.NewTransactionRegistry(gsd.transactionRegistry))
 	}
 
 	if gsd.catfileCache == nil {
@@ -385,7 +386,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		RepositoryCounter:   gsd.repositoryCounter,
 		UpdaterWithHooks:    gsd.updaterWithHooks,
 		HousekeepingManager: gsd.housekeepingManager,
-		TransactionRegistry: transactionRegistry,
+		TransactionRegistry: gsd.transactionRegistry,
 		PartitionManager:    partitionManager,
 		BackupSink:          gsd.backupSink,
 		BackupLocator:       gsd.backupLocator,
@@ -515,6 +516,14 @@ func WithBackupLocator(backupLocator backup.Locator) GitalyServerOpt {
 func WithSigningKey(signingKey string) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.signingKey = signingKey
+		return deps
+	}
+}
+
+// WithTransactionRegistry sets the transaction registry that will be used for Gitaly services.
+func WithTransactionRegistry(registry *storagemgr.TransactionRegistry) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.transactionRegistry = registry
 		return deps
 	}
 }

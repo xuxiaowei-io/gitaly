@@ -372,6 +372,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		registry,
 		diskCache,
 		[]*limithandler.LimiterMiddleware{perRPCLimitHandler, rateLimitHandler},
+		server.TransactionMiddleware{},
 	)
 	defer gitalyServerFactory.Stop()
 

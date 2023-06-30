@@ -203,7 +203,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, setupPerRPCConcurrencyLimiters)
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, logger, locator, hookManager, gitCmdFactory, catfileCache)
 
-	srv, err := NewGitalyServerFactory(cfg, logger, registry, diskCache, []*limithandler.LimiterMiddleware{limitHandler}).New(false)
+	srv, err := NewGitalyServerFactory(cfg, logger, registry, diskCache, []*limithandler.LimiterMiddleware{limitHandler}, TransactionMiddleware{}).New(true, false)
 	require.NoError(t, err)
 
 	setup.RegisterAll(srv, &service.Dependencies{
@@ -246,7 +246,8 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 		backchannel.NewRegistry(),
 		cache.New(cfg, config.NewLocator(cfg), testhelper.SharedLogger(t)),
 		[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, setupPerRPCConcurrencyLimiters)},
-	).New(true)
+		TransactionMiddleware{},
+	).New(true, true)
 	require.NoError(t, err)
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())

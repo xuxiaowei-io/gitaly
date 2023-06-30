@@ -53,7 +53,7 @@ func WithStreamInterceptor(interceptor grpc.StreamServerInterceptor) Option {
 }
 
 // New returns a GRPC server instance with a set of interceptors configured.
-func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, error) {
+func (s *GitalyServerFactory) New(external, secure bool, opts ...Option) (*grpc.Server, error) {
 	var cfg serverConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -153,6 +153,19 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 
 	streamServerInterceptors = append(streamServerInterceptors, cfg.streamInterceptors...)
 	unaryServerInterceptors = append(unaryServerInterceptors, cfg.unaryInterceptors...)
+
+	// Only requests coming through the external API need to be ran transactionalized. Only the HookService calls
+	// should arrive through the internal socket. Requests coming from there would already be running in a
+	// transaction as the external request that led to the internal socket call would have been transactionalized
+	// already.
+	if external {
+		if s.txMiddleware.UnaryInterceptor != nil {
+			unaryServerInterceptors = append(unaryServerInterceptors, s.txMiddleware.UnaryInterceptor)
+		}
+		if s.txMiddleware.StreamInterceptor != nil {
+			streamServerInterceptors = append(streamServerInterceptors, s.txMiddleware.StreamInterceptor)
+		}
+	}
 
 	serverOptions := []grpc.ServerOption{
 		grpc.StatsHandler(gitalylog.PerRPCLogHandler{
