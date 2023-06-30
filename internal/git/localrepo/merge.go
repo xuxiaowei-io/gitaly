@@ -162,7 +162,7 @@ func parseMergeTreeError(objectHash git.ObjectHash, cfg mergeTreeConfig, output 
 			return "", structerr.NewInternal("converting stage to int: %w", err)
 		}
 
-		if i+numOfPaths+2 > len(fields) {
+		if i+numOfPaths+2 >= len(fields) {
 			return "", structerr.NewInternal("incorrect number of fields: %s", infoMsg)
 		}
 

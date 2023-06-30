@@ -853,6 +853,22 @@ func TestParseResult(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "invalid number of fields in conflicting file section",
+			output: strings.Join([]string{
+				gittest.DefaultObjectHash.EmptyTreeOID.String(),
+				fmt.Sprintf("100644 %s 1\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 2\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				fmt.Sprintf("100644 %s 3\ta", gittest.DefaultObjectHash.EmptyTreeOID),
+				"",
+				"1",
+				"a",
+				"Auto-merging a\n",
+				"",
+			}, "\x00"),
+			oid:         gittest.DefaultObjectHash.EmptyTreeOID,
+			expectedErr: structerr.NewInternal("incorrect number of fields: %s", "1\x00a\x00Auto-merging a\n\x00"),
+		},
 	}
 
 	for _, tc := range testCases {
