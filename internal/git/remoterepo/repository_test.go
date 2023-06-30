@@ -26,7 +26,7 @@ func TestRepository(t *testing.T) {
 	cfg := setupGitalyServer(t)
 
 	pool := client.NewPool()
-	defer pool.Close()
+	t.Cleanup(func() { testhelper.MustClose(t, pool) })
 
 	gittest.TestRepository(t, cfg, func(tb testing.TB, ctx context.Context) (git.Repository, string) {
 		tb.Helper()

@@ -49,6 +49,9 @@ type Repository interface {
 	HasBranches(ctx context.Context) (bool, error)
 	// GetDefaultBranch returns the default branch of the repository.
 	GetDefaultBranch(ctx context.Context) (ReferenceName, error)
+	// HeadReference returns the reference that HEAD points to for the
+	// repository.
+	HeadReference(ctx context.Context) (ReferenceName, error)
 }
 
 // RepositoryExecutor is an interface which allows execution of Git commands in a specific

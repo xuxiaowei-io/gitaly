@@ -115,7 +115,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return fmt.Errorf("get local references: %w", err)
 	}
 
-	defaultBranch, err := repo.GetDefaultBranch(ctx)
+	defaultBranch, err := repo.HeadReference(ctx)
 	if err != nil {
 		return fmt.Errorf("get default branch: %w", err)
 	}

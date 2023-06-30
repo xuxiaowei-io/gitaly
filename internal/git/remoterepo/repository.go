@@ -113,3 +113,18 @@ func (rr *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, error)
 
 	return git.ReferenceName(resp.Name), nil
 }
+
+// HeadReference returns the reference that HEAD points to for the remote
+// repository.
+func (rr *Repo) HeadReference(ctx context.Context) (git.ReferenceName, error) {
+	resp, err := gitalypb.NewRefServiceClient(rr.conn).FindDefaultBranchName(
+		ctx, &gitalypb.FindDefaultBranchNameRequest{
+			Repository: rr.Repository,
+			HeadOnly:   true,
+		})
+	if err != nil {
+		return "", err
+	}
+
+	return git.ReferenceName(resp.Name), nil
+}

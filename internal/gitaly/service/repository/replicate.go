@@ -263,12 +263,12 @@ func fetchInternalRemote(
 		return structerr.NewInternal("%w", err)
 	}
 
-	remoteDefaultBranch, err := remoteRepo.GetDefaultBranch(ctx)
+	remoteDefaultBranch, err := remoteRepo.HeadReference(ctx)
 	if err != nil {
 		return structerr.NewInternal("getting remote default branch: %w", err)
 	}
 
-	defaultBranch, err := repo.GetDefaultBranch(ctx)
+	defaultBranch, err := repo.HeadReference(ctx)
 	if err != nil {
 		return structerr.NewInternal("getting local default branch: %w", err)
 	}
