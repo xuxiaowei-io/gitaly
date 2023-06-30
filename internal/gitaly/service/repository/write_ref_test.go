@@ -174,6 +174,66 @@ func TestWriteRef(t *testing.T) {
 			},
 		},
 		{
+			desc: "revision refers to missing reference",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository: repo,
+						Ref:        []byte("refs/heads/main"),
+						Revision:   []byte("refs/heads/missing"),
+					},
+					expectedErr: structerr.NewInternal("resolving new revision: reference not found"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
+		{
+			desc: "revision refers to missing object",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository: repo,
+						Ref:        []byte("refs/heads/main"),
+						Revision:   bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
+					},
+					expectedErr: structerr.NewInternal("resolving new revision: reference not found"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
+		{
+			desc: "old revision refers to missing reference",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+				return setupData{
+					request: &gitalypb.WriteRefRequest{
+						Repository:  repo,
+						Ref:         []byte("refs/heads/main"),
+						Revision:    []byte(commitID),
+						OldRevision: bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
+					},
+					expectedErr: structerr.NewInternal("resolving old revision: reference not found"),
+					expectedRefs: []git.Reference{
+						git.NewSymbolicReference("HEAD", git.DefaultRef),
+					},
+					expectedVotes: []transaction.PhasedVote{},
+				}
+			},
+		},
+		{
 			desc: "update default branch",
 			setup: func(t *testing.T) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -310,56 +370,6 @@ func TestWriteRef(t *testing.T) {
 			}, refs...))
 
 			require.Equal(t, setup.expectedVotes, txManager.Votes())
-		})
-	}
-}
-
-func TestWriteRef_missingRevisions(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
-
-	for _, tc := range []struct {
-		desc        string
-		request     *gitalypb.WriteRefRequest
-		expectedErr error
-	}{
-		{
-			desc: "revision refers to missing reference",
-			request: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Ref:        []byte("refs/heads/main"),
-				Revision:   []byte("refs/heads/missing"),
-			},
-			expectedErr: structerr.NewInternal("resolving new revision: reference not found"),
-		},
-		{
-			desc: "revision refers to missing object",
-			request: &gitalypb.WriteRefRequest{
-				Repository: repo,
-				Ref:        []byte("refs/heads/main"),
-				Revision:   bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
-			},
-			expectedErr: structerr.NewInternal("resolving new revision: reference not found"),
-		},
-		{
-			desc: "old revision refers to missing reference",
-			request: &gitalypb.WriteRefRequest{
-				Repository:  repo,
-				Ref:         []byte("refs/heads/main"),
-				Revision:    []byte(commitID),
-				OldRevision: bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
-			},
-			expectedErr: structerr.NewInternal("resolving old revision: reference not found"),
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.WriteRef(ctx, tc.request)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
