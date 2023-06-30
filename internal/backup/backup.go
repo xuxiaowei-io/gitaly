@@ -263,14 +263,25 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 
 // RestoreRequest is the request to restore from a backup
 type RestoreRequest struct {
-	Server       storage.ServerInfo
-	Repository   *gitalypb.Repository
+	// Server contains gitaly server connection information required to call
+	// RPCs in the non-local backup.Manager configuration.
+	Server storage.ServerInfo
+	// Repository is the repository to be restored.
+	Repository *gitalypb.Repository
+	// VanityRepository is used to determine the backup path.
+	VanityRepository *gitalypb.Repository
+	// AlwaysCreate forces the repository to be created even if no bundle for
+	// it exists. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
 	AlwaysCreate bool
 }
 
 // Restore restores a repository from a backup. If backupID is empty, the
 // latest backup will be used.
 func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
+	if req.VanityRepository == nil {
+		req.VanityRepository = req.Repository
+	}
+
 	repo, err := mgr.repositoryFactory(ctx, req.Repository, req.Server)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -282,12 +293,12 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 
 	var backup *Backup
 	if mgr.backupID == "" {
-		backup, err = mgr.locator.FindLatest(ctx, req.Repository)
+		backup, err = mgr.locator.FindLatest(ctx, req.VanityRepository)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		backup, err = mgr.locator.Find(ctx, req.Repository, mgr.backupID)
+		backup, err = mgr.locator.Find(ctx, req.VanityRepository, mgr.backupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}

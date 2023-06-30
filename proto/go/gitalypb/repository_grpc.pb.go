@@ -157,6 +157,10 @@ type RepositoryServiceClient interface {
 	// object-storage. The backup is created synchronously. The destination must
 	// be configured in config.backup.go_cloud_url
 	BackupRepository(ctx context.Context, in *BackupRepositoryRequest, opts ...grpc.CallOption) (*BackupRepositoryResponse, error)
+	// RestoreRepository restores a backup streamed directly from object-storage.
+	// The repository is restored synchronously. The source object-storage must
+	// be configured in config.backup.go_cloud_url
+	RestoreRepository(ctx context.Context, in *RestoreRepositoryRequest, opts ...grpc.CallOption) (*RestoreRepositoryResponse, error)
 }
 
 type repositoryServiceClient struct {
@@ -901,6 +905,15 @@ func (c *repositoryServiceClient) BackupRepository(ctx context.Context, in *Back
 	return out, nil
 }
 
+func (c *repositoryServiceClient) RestoreRepository(ctx context.Context, in *RestoreRepositoryRequest, opts ...grpc.CallOption) (*RestoreRepositoryResponse, error) {
+	out := new(RestoreRepositoryResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RestoreRepository", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RepositoryServiceServer is the server API for RepositoryService service.
 // All implementations must embed UnimplementedRepositoryServiceServer
 // for forward compatibility
@@ -1040,6 +1053,10 @@ type RepositoryServiceServer interface {
 	// object-storage. The backup is created synchronously. The destination must
 	// be configured in config.backup.go_cloud_url
 	BackupRepository(context.Context, *BackupRepositoryRequest) (*BackupRepositoryResponse, error)
+	// RestoreRepository restores a backup streamed directly from object-storage.
+	// The repository is restored synchronously. The source object-storage must
+	// be configured in config.backup.go_cloud_url
+	RestoreRepository(context.Context, *RestoreRepositoryRequest) (*RestoreRepositoryResponse, error)
 	mustEmbedUnimplementedRepositoryServiceServer()
 }
 
@@ -1172,6 +1189,9 @@ func (UnimplementedRepositoryServiceServer) RemoveAll(context.Context, *RemoveAl
 }
 func (UnimplementedRepositoryServiceServer) BackupRepository(context.Context, *BackupRepositoryRequest) (*BackupRepositoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BackupRepository not implemented")
+}
+func (UnimplementedRepositoryServiceServer) RestoreRepository(context.Context, *RestoreRepositoryRequest) (*RestoreRepositoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestoreRepository not implemented")
 }
 func (UnimplementedRepositoryServiceServer) mustEmbedUnimplementedRepositoryServiceServer() {}
 
@@ -2012,6 +2032,24 @@ func _RepositoryService_BackupRepository_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RepositoryService_RestoreRepository_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestoreRepositoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RepositoryServiceServer).RestoreRepository(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.RepositoryService/RestoreRepository",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RepositoryServiceServer).RestoreRepository(ctx, req.(*RestoreRepositoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RepositoryService_ServiceDesc is the grpc.ServiceDesc for RepositoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2126,6 +2164,10 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BackupRepository",
 			Handler:    _RepositoryService_BackupRepository_Handler,
+		},
+		{
+			MethodName: "RestoreRepository",
+			Handler:    _RepositoryService_RestoreRepository_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

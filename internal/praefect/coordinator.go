@@ -76,6 +76,7 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/RemoveRepository":             transactionsEnabled,
 	"/gitaly.RepositoryService/ReplicateRepository":          transactionsEnabled,
 	"/gitaly.RepositoryService/RestoreCustomHooks":           transactionsEnabled,
+	"/gitaly.RepositoryService/RestoreRepository":            transactionsEnabled,
 	"/gitaly.RepositoryService/SetCustomHooks":               transactionsEnabled,
 	"/gitaly.RepositoryService/SetFullPath":                  transactionsEnabled,
 	"/gitaly.RepositoryService/WriteRef":                     transactionsEnabled,
@@ -152,7 +153,8 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 		"/gitaly.RepositoryService/CreateRepositoryFromBundle",
 		"/gitaly.RepositoryService/CreateRepositoryFromSnapshot",
 		"/gitaly.RepositoryService/CreateRepositoryFromURL",
-		"/gitaly.RepositoryService/ReplicateRepository":
+		"/gitaly.RepositoryService/ReplicateRepository",
+		"/gitaly.RepositoryService/RestoreRepository":
 		return datastore.CreateRepo, nil, nil
 	case "/gitaly.RepositoryService/RenameRepository":
 		req, ok := m.(*gitalypb.RenameRepositoryRequest)
@@ -396,8 +398,10 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	case datastore.CreateRepo:
 		route, err = c.router.RouteRepositoryCreation(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
 
-		// ReplicateRepository RPC should also be able to replicate if repository ID already exists in Praefect.
-		if call.fullMethodName == "/gitaly.RepositoryService/ReplicateRepository" &&
+		// These RPCs are repository upserts. They should work if the
+		// repository ID already exists in Praefect.
+		if (call.fullMethodName == "/gitaly.RepositoryService/ReplicateRepository" ||
+			call.fullMethodName == "/gitaly.RepositoryService/RestoreRepository") &&
 			errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
 			change = datastore.UpdateRepo
 			route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
