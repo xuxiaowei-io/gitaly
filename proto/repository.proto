@@ -33,6 +33,34 @@ service RepositoryService {
     };
   }
 
+  // ObjectsSize calculates the total on-disk object size of reachable objects in bytes. In contrast
+  // to RepositorySize and RepositoryInfo, this RPC performs a graph walk of the specified revisions
+  // and will thus return an accurate view of how large the accumulated on-disk size of reachable
+  // objects is.
+  //
+  // As this RPC needs to perform a revision walk, it is significantly more expensive than the RPCs
+  // which simply check the size of on-disk data structures. On the other hand, it allows the caller
+  // to accurately compute the size of objects in a way that is at least somewhat detached from the
+  // on-disk representation:
+  //
+  // - Objects which exist in multiple packfiles will not be double-counted.
+  // - Objects which aren't reachable will not be accounted for.
+  // - It is possible to only account for a subset of references, e.g. only those that an admin
+  //   would have direct control over.
+  //
+  // It is thus recommended to use this RPC whenever you want to calculate sizes which will end up
+  // being shown to the user.
+  //
+  // Note that the size is still bound to change when repositories are getting repacked and thus
+  // cannot be considered to be stable. This is because the on-disk size of any object can change
+  // depending on how Git decides to deltify it in a packfile. Thus, when a repack would cause a
+  // different delta base to be picked, the actual on-disk size of any given object may change.
+  rpc ObjectsSize(stream ObjectsSizeRequest) returns (ObjectsSizeResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   // ObjectFormat determines the object format that is being used by the repository.
   rpc ObjectFormat(ObjectFormatRequest) returns (ObjectFormatResponse) {
     option (op_type) = {
@@ -449,6 +477,29 @@ message RepositoryInfoResponse {
   ReferencesInfo references = 2;
   // ObjectsInfo contains information about objects.
   ObjectsInfo objects = 3;
+}
+
+// ObjectsSizeRequest is a request for the ObjectsSize RPC. The RPC is defined as a streaming RPC given that a client
+// may theoretically specify an unbounded number of revisions. Only the first request may have fields other than the
+// revisions set.
+message ObjectsSizeRequest {
+  // Repository is the repository for which to determine the object size.
+  Repository repository = 1 [(target_repository)=true];
+  // Revisions is the set of revisions that shall be used to compute the object size for. Supports normal revisions as
+  // well as pseudo-revisions like `--not`, `--all`, `--branches[=pattern]`, `--tags[=pattern]` and `--glob=pattern`.
+  // Please refer to the man pages gitrevisions(7) as well as git-rev-list(1) for more information.
+  //
+  // Note: due to a restriction in Git v2.41 and older all arguments need to be passed via command line parameters. So
+  // even though you can send multiple requests, the actual number of revisions that can be passed is limited by the
+  // maximum command line length. This limitation will be lifted once Gitaly has upgraded to Git v2.42 and later.
+  repeated bytes revisions = 2;
+}
+
+// ObjectsSizeResponse is a response for the ObjectsSize RPC.
+message ObjectsSizeResponse {
+  // Size is the total size of all objects reachable via the given set of revisions. The size is
+  // specified in bytes.
+  uint64 size = 1;
 }
 
 // ObjectFormatRequest is a request for the ObjectFormat RPC.
