@@ -84,6 +84,10 @@ func Remove(
 		return structerr.NewInternal("staging repository for removal: %w", err)
 	}
 
+	if err := safe.NewSyncer().SyncParent(path); err != nil {
+		return fmt.Errorf("sync removal: %w", err)
+	}
+
 	if err := os.RemoveAll(destDir); err != nil {
 		return structerr.NewInternal("removing repository: %w", err)
 	}
