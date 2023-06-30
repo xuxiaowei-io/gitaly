@@ -21,8 +21,8 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 	cfg, repoProto, _, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	_, pool, _ := createObjectPool(t, ctx, cfg, repoProto)
-	relativePoolPath := pool.GetRelativePath()
+	poolProto, pool, _ := createObjectPool(t, ctx, cfg, repoProto)
+	relativePoolPath := poolProto.GetRepository().GetRelativePath()
 	require.NoError(t, pool.Link(ctx, repo))
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{

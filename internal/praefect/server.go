@@ -123,6 +123,7 @@ func NewGRPCServer(
 	txMgr *transactions.Manager,
 	rs datastore.RepositoryStore,
 	assignmentStore AssignmentStore,
+	router Router,
 	conns Connections,
 	primaryGetter PrimaryGetter,
 	creds credentials.TransportCredentials,
@@ -211,6 +212,7 @@ func NewGRPCServer(
 		})
 		proxy.RegisterStreamHandlers(srv, "gitaly.ObjectPoolService", map[string]grpc.StreamHandler{
 			"DeleteObjectPool": DeleteObjectPoolHandler(rs, conns),
+			"GetObjectPool":    GetObjectPoolHandler(rs, router),
 		})
 	}
 

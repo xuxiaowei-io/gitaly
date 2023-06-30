@@ -400,6 +400,7 @@ func server(
 			queue,
 			rs,
 			assignmentStore,
+			router,
 			protoregistry.GitalyProtoPreregistered,
 			nodeSet.Connections(),
 			primaryGetter,
