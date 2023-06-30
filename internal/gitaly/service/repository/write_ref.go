@@ -39,11 +39,16 @@ func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) er
 }
 
 func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) (returnedErr error) {
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object format: %w", err)
+	}
+
 	var newObjectID git.ObjectID
-	if git.ObjectHashSHA1.IsZeroOID(git.ObjectID(req.GetRevision())) {
+	if objectHash.IsZeroOID(git.ObjectID(req.GetRevision())) {
 		// Passing the all-zeroes object ID as new value means that we should delete the
 		// reference.
-		newObjectID = git.ObjectHashSHA1.ZeroOID
+		newObjectID = objectHash.ZeroOID
 	} else {
 		// We need to resolve the new revision in order to make sure that we're actually
 		// passing an object ID to git-update-ref(1), but more importantly this will also
@@ -58,10 +63,10 @@ func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRef
 
 	var oldObjectID git.ObjectID
 	if len(req.GetOldRevision()) > 0 {
-		if git.ObjectHashSHA1.IsZeroOID(git.ObjectID(req.GetOldRevision())) {
+		if objectHash.IsZeroOID(git.ObjectID(req.GetOldRevision())) {
 			// Passing an all-zeroes object ID indicates that we should only update the
 			// reference if it didn't previously exist.
-			oldObjectID = git.ObjectHashSHA1.ZeroOID
+			oldObjectID = objectHash.ZeroOID
 		} else {
 			var err error
 			oldObjectID, err = repo.ResolveRevision(ctx, git.Revision(req.GetOldRevision())+"^{object}")
