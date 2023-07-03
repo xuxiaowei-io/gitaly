@@ -446,6 +446,19 @@ message UserMergeToRefRequest {
   // timestamp is the optional timestamp to use for the merge commit. If it's
   // not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 9;
+  // expected_old_oid is the object ID that is expected to be at target_ref. It
+  // is used as an optimistic lock on concurrent updates of target_ref: If
+  // target_ref no longer points to this ID, then the update is rejected.
+  //
+  // expected_old_oid is the object ID which branch is expected to point to.
+  // This is used as a safety guard to avoid races when branch has been
+  // updated meanwhile to point to a different object ID.
+  //
+  // If unset, the target branch will be overwritten regardless of its current
+  // state. If set, it must either contain a valid, full object ID  or the
+  // zero object ID in case the branch should be created. Otherwise, this RPC
+  // will return an error.
+  string expected_old_oid = 10;
 }
 
 // This comment is left unintentionally blank.

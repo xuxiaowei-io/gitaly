@@ -431,11 +431,30 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	// Resolve the current state of the target reference. We do not care whether it
-	// exists or not, but what we do want to assert is that the target reference doesn't
-	// change while we compute the merge commit as a small protection against races.
+	// Initialize oldTargetOID from expected_old_oid when provided, otherwise
+	// resolve it from target_ref. This will be used as an optimistic lock when
+	// we finally update target_ref, to ensure it hasn't changed in the
+	// meantime.
 	var oldTargetOID git.ObjectID
-	if targetRef, err := repo.GetReference(ctx, git.ReferenceName(request.TargetRef)); err == nil {
+	if expectedOldOID := request.GetExpectedOldOid(); expectedOldOID != "" {
+		objectHash, err := repo.ObjectHash(ctx)
+		if err != nil {
+			return nil, structerr.NewInternal("detecting object hash: %w", err)
+		}
+
+		oldTargetOID, err = objectHash.FromHex(expectedOldOID)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
+		}
+
+		oldTargetOID, err = repo.ResolveRevision(
+			ctx, git.Revision(fmt.Sprintf("%s^{object}", oldTargetOID)),
+		)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else if targetRef, err := repo.GetReference(ctx, git.ReferenceName(request.TargetRef)); err == nil {
 		if targetRef.IsSymbolic {
 			return nil, structerr.NewFailedPrecondition("target reference is symbolic: %q", request.TargetRef)
 		}
