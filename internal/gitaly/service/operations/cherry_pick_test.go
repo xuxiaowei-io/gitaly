@@ -1015,6 +1015,88 @@ func testServerUserCherryPickQuarantine(t *testing.T, ctx context.Context) {
 	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
+func TestServer_UserCherryPick_reverse(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickReverse)
+}
+
+func testServerUserCherryPickReverse(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	skipSHA256WithGit2goCherryPick(t, ctx)
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	// All the tree entries that will eventually end up in the destinationBranch
+	treeEntries := []gittest.TreeEntry{
+		{Mode: "100644", Path: "a", Content: "apple"},
+		{Mode: "100644", Path: "b", Content: "banana"},
+		// The above are in the destination, the below are committed one by one in the source
+		{Mode: "100644", Path: "c", Content: "cherry"},
+		{Mode: "100644", Path: "d", Content: "date"},
+		{Mode: "100644", Path: "e", Content: "eggplant"},
+		{Mode: "100644", Path: "f", Content: "fig"},
+	}
+
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(treeEntries[:1]...),
+	)
+	destinationBranch := "cherry-picking-dst"
+
+	var destinationTree, cherryTree []gittest.TreeEntry
+	destinationTree = append(destinationTree, treeEntries[:2]...)
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithTreeEntries(destinationTree...),
+	)
+
+	cherryTree = append(cherryTree, treeEntries[0])
+
+	var cherryPicking []git.ObjectID
+	parentCommitID := mainCommitID
+
+	for _, entry := range treeEntries[2:] {
+		cherryTree = append(cherryTree, entry)
+
+		commitID := gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithParents(parentCommitID),
+			gittest.WithTreeEntries(cherryTree...),
+			gittest.WithMessage("planting "+entry.Content+" trees"),
+		)
+		cherryPicking = append(cherryPicking, commitID)
+
+		parentCommitID = commitID
+	}
+
+	for i := len(cherryPicking) - 1; i >= 0; i-- {
+		cherryPickCommit, err := repo.ReadCommit(ctx, cherryPicking[i].Revision())
+		require.NoError(t, err)
+
+		request := &gitalypb.UserCherryPickRequest{
+			Repository: repoProto,
+			User:       gittest.TestUser,
+			Commit:     cherryPickCommit,
+			BranchName: []byte(destinationBranch),
+			Message:    []byte("Cherry-picking " + cherryPickCommit.Id),
+		}
+
+		response, err := client.UserCherryPick(ctx, request)
+		require.NoError(t, err)
+
+		gittest.RequireTree(t, cfg, repoPath, response.BranchUpdate.CommitId,
+			append(destinationTree, treeEntries[i+2:]...),
+		)
+	}
+}
+
 func skipSHA256WithGit2goCherryPick(t *testing.T, ctx context.Context) {
 	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.CherryPickPureGit.IsDisabled(ctx) {
 		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
