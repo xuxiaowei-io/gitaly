@@ -35,6 +35,12 @@ const (
 	DefaultStorageName = "default"
 )
 
+// IsWALEnabled returns whether write-ahead logging is enabled in this testing run.
+func IsWALEnabled() bool {
+	_, ok := os.LookupEnv("GITALY_TEST_WAL")
+	return ok
+}
+
 // IsPraefectEnabled returns whether this testing run is done with Praefect in front of the Gitaly.
 func IsPraefectEnabled() bool {
 	_, enabled := os.LookupEnv("GITALY_TEST_WITH_PRAEFECT")
