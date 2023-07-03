@@ -41,6 +41,15 @@ func IsWALEnabled() bool {
 	return ok
 }
 
+// SkipWithWAL skips the test if write-ahead logging is enabled in this testing run. A reason
+// should be provided either as a description or a link to an issue to explain why the test is
+// skipped.
+func SkipWithWAL(tb testing.TB, reason string) {
+	if IsWALEnabled() {
+		tb.Skip(reason)
+	}
+}
+
 // IsPraefectEnabled returns whether this testing run is done with Praefect in front of the Gitaly.
 func IsPraefectEnabled() bool {
 	_, enabled := os.LookupEnv("GITALY_TEST_WITH_PRAEFECT")
