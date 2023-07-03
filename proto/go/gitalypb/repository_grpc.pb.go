@@ -30,6 +30,29 @@ type RepositoryServiceClient interface {
 	RepositorySize(ctx context.Context, in *RepositorySizeRequest, opts ...grpc.CallOption) (*RepositorySizeResponse, error)
 	// RepositoryInfo returns detailed information about a repository and its data structures.
 	RepositoryInfo(ctx context.Context, in *RepositoryInfoRequest, opts ...grpc.CallOption) (*RepositoryInfoResponse, error)
+	// ObjectsSize calculates the total on-disk object size of reachable objects in bytes. In contrast
+	// to RepositorySize and RepositoryInfo, this RPC performs a graph walk of the specified revisions
+	// and will thus return an accurate view of how large the accumulated on-disk size of reachable
+	// objects is.
+	//
+	// As this RPC needs to perform a revision walk, it is significantly more expensive than the RPCs
+	// which simply check the size of on-disk data structures. On the other hand, it allows the caller
+	// to accurately compute the size of objects in a way that is at least somewhat detached from the
+	// on-disk representation:
+	//
+	//   - Objects which exist in multiple packfiles will not be double-counted.
+	//   - Objects which aren't reachable will not be accounted for.
+	//   - It is possible to only account for a subset of references, e.g. only those that an admin
+	//     would have direct control over.
+	//
+	// It is thus recommended to use this RPC whenever you want to calculate sizes which will end up
+	// being shown to the user.
+	//
+	// Note that the size is still bound to change when repositories are getting repacked and thus
+	// cannot be considered to be stable. This is because the on-disk size of any object can change
+	// depending on how Git decides to deltify it in a packfile. Thus, when a repack would cause a
+	// different delta base to be picked, the actual on-disk size of any given object may change.
+	ObjectsSize(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_ObjectsSizeClient, error)
 	// ObjectFormat determines the object format that is being used by the repository.
 	ObjectFormat(ctx context.Context, in *ObjectFormatRequest, opts ...grpc.CallOption) (*ObjectFormatResponse, error)
 	// This comment is left unintentionally blank.
@@ -198,6 +221,40 @@ func (c *repositoryServiceClient) RepositoryInfo(ctx context.Context, in *Reposi
 	return out, nil
 }
 
+func (c *repositoryServiceClient) ObjectsSize(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_ObjectsSizeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[0], "/gitaly.RepositoryService/ObjectsSize", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &repositoryServiceObjectsSizeClient{stream}
+	return x, nil
+}
+
+type RepositoryService_ObjectsSizeClient interface {
+	Send(*ObjectsSizeRequest) error
+	CloseAndRecv() (*ObjectsSizeResponse, error)
+	grpc.ClientStream
+}
+
+type repositoryServiceObjectsSizeClient struct {
+	grpc.ClientStream
+}
+
+func (x *repositoryServiceObjectsSizeClient) Send(m *ObjectsSizeRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *repositoryServiceObjectsSizeClient) CloseAndRecv() (*ObjectsSizeResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(ObjectsSizeResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *repositoryServiceClient) ObjectFormat(ctx context.Context, in *ObjectFormatRequest, opts ...grpc.CallOption) (*ObjectFormatResponse, error) {
 	out := new(ObjectFormatResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/ObjectFormat", in, out, opts...)
@@ -235,7 +292,7 @@ func (c *repositoryServiceClient) CreateRepository(ctx context.Context, in *Crea
 }
 
 func (c *repositoryServiceClient) GetArchive(ctx context.Context, in *GetArchiveRequest, opts ...grpc.CallOption) (RepositoryService_GetArchiveClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[0], "/gitaly.RepositoryService/GetArchive", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[1], "/gitaly.RepositoryService/GetArchive", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +387,7 @@ func (c *repositoryServiceClient) CreateRepositoryFromURL(ctx context.Context, i
 }
 
 func (c *repositoryServiceClient) CreateBundle(ctx context.Context, in *CreateBundleRequest, opts ...grpc.CallOption) (RepositoryService_CreateBundleClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[1], "/gitaly.RepositoryService/CreateBundle", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[2], "/gitaly.RepositoryService/CreateBundle", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +419,7 @@ func (x *repositoryServiceCreateBundleClient) Recv() (*CreateBundleResponse, err
 }
 
 func (c *repositoryServiceClient) CreateBundleFromRefList(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_CreateBundleFromRefListClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[2], "/gitaly.RepositoryService/CreateBundleFromRefList", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[3], "/gitaly.RepositoryService/CreateBundleFromRefList", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +450,7 @@ func (x *repositoryServiceCreateBundleFromRefListClient) Recv() (*CreateBundleFr
 }
 
 func (c *repositoryServiceClient) FetchBundle(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_FetchBundleClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[3], "/gitaly.RepositoryService/FetchBundle", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[4], "/gitaly.RepositoryService/FetchBundle", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +484,7 @@ func (x *repositoryServiceFetchBundleClient) CloseAndRecv() (*FetchBundleRespons
 }
 
 func (c *repositoryServiceClient) CreateRepositoryFromBundle(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_CreateRepositoryFromBundleClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[4], "/gitaly.RepositoryService/CreateRepositoryFromBundle", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[5], "/gitaly.RepositoryService/CreateRepositoryFromBundle", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +518,7 @@ func (x *repositoryServiceCreateRepositoryFromBundleClient) CloseAndRecv() (*Cre
 }
 
 func (c *repositoryServiceClient) GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (RepositoryService_GetConfigClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[5], "/gitaly.RepositoryService/GetConfig", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[6], "/gitaly.RepositoryService/GetConfig", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +559,7 @@ func (c *repositoryServiceClient) FindLicense(ctx context.Context, in *FindLicen
 }
 
 func (c *repositoryServiceClient) GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[6], "/gitaly.RepositoryService/GetInfoAttributes", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[7], "/gitaly.RepositoryService/GetInfoAttributes", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +600,7 @@ func (c *repositoryServiceClient) CalculateChecksum(ctx context.Context, in *Cal
 }
 
 func (c *repositoryServiceClient) GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[7], "/gitaly.RepositoryService/GetSnapshot", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[8], "/gitaly.RepositoryService/GetSnapshot", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -584,7 +641,7 @@ func (c *repositoryServiceClient) CreateRepositoryFromSnapshot(ctx context.Conte
 }
 
 func (c *repositoryServiceClient) GetRawChanges(ctx context.Context, in *GetRawChangesRequest, opts ...grpc.CallOption) (RepositoryService_GetRawChangesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[8], "/gitaly.RepositoryService/GetRawChanges", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[9], "/gitaly.RepositoryService/GetRawChanges", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +673,7 @@ func (x *repositoryServiceGetRawChangesClient) Recv() (*GetRawChangesResponse, e
 }
 
 func (c *repositoryServiceClient) SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[9], "/gitaly.RepositoryService/SearchFilesByContent", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[10], "/gitaly.RepositoryService/SearchFilesByContent", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -648,7 +705,7 @@ func (x *repositoryServiceSearchFilesByContentClient) Recv() (*SearchFilesByCont
 }
 
 func (c *repositoryServiceClient) SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[10], "/gitaly.RepositoryService/SearchFilesByName", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[11], "/gitaly.RepositoryService/SearchFilesByName", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +738,7 @@ func (x *repositoryServiceSearchFilesByNameClient) Recv() (*SearchFilesByNameRes
 
 // Deprecated: Do not use.
 func (c *repositoryServiceClient) RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[11], "/gitaly.RepositoryService/RestoreCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/RestoreCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -715,7 +772,7 @@ func (x *repositoryServiceRestoreCustomHooksClient) CloseAndRecv() (*RestoreCust
 }
 
 func (c *repositoryServiceClient) SetCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_SetCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/SetCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[13], "/gitaly.RepositoryService/SetCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -750,7 +807,7 @@ func (x *repositoryServiceSetCustomHooksClient) CloseAndRecv() (*SetCustomHooksR
 
 // Deprecated: Do not use.
 func (c *repositoryServiceClient) BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[13], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[14], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -782,7 +839,7 @@ func (x *repositoryServiceBackupCustomHooksClient) Recv() (*BackupCustomHooksRes
 }
 
 func (c *repositoryServiceClient) GetCustomHooks(ctx context.Context, in *GetCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_GetCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[14], "/gitaly.RepositoryService/GetCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[15], "/gitaly.RepositoryService/GetCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -926,6 +983,29 @@ type RepositoryServiceServer interface {
 	RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error)
 	// RepositoryInfo returns detailed information about a repository and its data structures.
 	RepositoryInfo(context.Context, *RepositoryInfoRequest) (*RepositoryInfoResponse, error)
+	// ObjectsSize calculates the total on-disk object size of reachable objects in bytes. In contrast
+	// to RepositorySize and RepositoryInfo, this RPC performs a graph walk of the specified revisions
+	// and will thus return an accurate view of how large the accumulated on-disk size of reachable
+	// objects is.
+	//
+	// As this RPC needs to perform a revision walk, it is significantly more expensive than the RPCs
+	// which simply check the size of on-disk data structures. On the other hand, it allows the caller
+	// to accurately compute the size of objects in a way that is at least somewhat detached from the
+	// on-disk representation:
+	//
+	//   - Objects which exist in multiple packfiles will not be double-counted.
+	//   - Objects which aren't reachable will not be accounted for.
+	//   - It is possible to only account for a subset of references, e.g. only those that an admin
+	//     would have direct control over.
+	//
+	// It is thus recommended to use this RPC whenever you want to calculate sizes which will end up
+	// being shown to the user.
+	//
+	// Note that the size is still bound to change when repositories are getting repacked and thus
+	// cannot be considered to be stable. This is because the on-disk size of any object can change
+	// depending on how Git decides to deltify it in a packfile. Thus, when a repack would cause a
+	// different delta base to be picked, the actual on-disk size of any given object may change.
+	ObjectsSize(RepositoryService_ObjectsSizeServer) error
 	// ObjectFormat determines the object format that is being used by the repository.
 	ObjectFormat(context.Context, *ObjectFormatRequest) (*ObjectFormatResponse, error)
 	// This comment is left unintentionally blank.
@@ -1072,6 +1152,9 @@ func (UnimplementedRepositoryServiceServer) RepositorySize(context.Context, *Rep
 }
 func (UnimplementedRepositoryServiceServer) RepositoryInfo(context.Context, *RepositoryInfoRequest) (*RepositoryInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositoryInfo not implemented")
+}
+func (UnimplementedRepositoryServiceServer) ObjectsSize(RepositoryService_ObjectsSizeServer) error {
+	return status.Errorf(codes.Unimplemented, "method ObjectsSize not implemented")
 }
 func (UnimplementedRepositoryServiceServer) ObjectFormat(context.Context, *ObjectFormatRequest) (*ObjectFormatResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ObjectFormat not implemented")
@@ -1258,6 +1341,32 @@ func _RepositoryService_RepositoryInfo_Handler(srv interface{}, ctx context.Cont
 		return srv.(RepositoryServiceServer).RepositoryInfo(ctx, req.(*RepositoryInfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _RepositoryService_ObjectsSize_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RepositoryServiceServer).ObjectsSize(&repositoryServiceObjectsSizeServer{stream})
+}
+
+type RepositoryService_ObjectsSizeServer interface {
+	SendAndClose(*ObjectsSizeResponse) error
+	Recv() (*ObjectsSizeRequest, error)
+	grpc.ServerStream
+}
+
+type repositoryServiceObjectsSizeServer struct {
+	grpc.ServerStream
+}
+
+func (x *repositoryServiceObjectsSizeServer) SendAndClose(m *ObjectsSizeResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *repositoryServiceObjectsSizeServer) Recv() (*ObjectsSizeRequest, error) {
+	m := new(ObjectsSizeRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func _RepositoryService_ObjectFormat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -2171,6 +2280,11 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ObjectsSize",
+			Handler:       _RepositoryService_ObjectsSize_Handler,
+			ClientStreams: true,
+		},
 		{
 			StreamName:    "GetArchive",
 			Handler:       _RepositoryService_GetArchive_Handler,

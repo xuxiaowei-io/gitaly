@@ -166,6 +166,13 @@ func TestValidateRevision(t *testing.T) {
 				AllowPseudoRevision(),
 			},
 		},
+		{
+			desc:     "--alternate-refs",
+			revision: "--alternate-refs",
+			opts: []ValidateRevisionOption{
+				AllowPseudoRevision(),
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.Equal(t, tc.expectedErr, ValidateRevision([]byte(tc.revision), tc.opts...))

@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 func TestCommandDescriptions_revListPositionalArgs(t *testing.T) {
+	t.Parallel()
+
 	revlist, ok := commandDescriptions["rev-list"]
 	require.True(t, ok)
 	require.NotNil(t, revlist.validatePositionalArgs)
@@ -24,19 +27,49 @@ func TestCommandDescriptions_revListPositionalArgs(t *testing.T) {
 			},
 		},
 		{
-			desc: "reference with leading dash",
+			desc: "path-scoped reference",
 			args: []string{
-				"-master",
+				"master:path/to/file",
 			},
-			expectedErr: fmt.Errorf("rev-list: %w",
-				fmt.Errorf("positional arg \"-master\" cannot start with dash '-': %w", ErrInvalidArg),
-			),
+		},
+		{
+			desc: "revision with dashes",
+			args: []string{
+				"master-with-dashes",
+			},
 		},
 		{
 			desc: "revisions and pseudo-revisions",
 			args: []string{
-				"master --not --all",
+				"master", "--not", "--all", "--branches=foo", "--glob=bar",
 			},
+		},
+		{
+			desc: "invalid reference name",
+			args: []string{
+				"-master",
+			},
+			expectedErr: structerr.NewInvalidArgument("validating positional argument: %w",
+				fmt.Errorf("revision can't start with '-'"),
+			).WithMetadata("argument", "-master"),
+		},
+		{
+			desc: "invalid single-dashed option",
+			args: []string{
+				"master", "--branches=foo", "-not", "--glob=bar",
+			},
+			expectedErr: structerr.NewInvalidArgument("validating positional argument: %w",
+				fmt.Errorf("revision can't start with '-'"),
+			).WithMetadata("argument", "-not"),
+		},
+		{
+			desc: "invalid typoed option",
+			args: []string{
+				"master", "--branches=foo", "--nott", "--glob=bar",
+			},
+			expectedErr: structerr.NewInvalidArgument("validating positional argument: %w",
+				fmt.Errorf("revision can't start with '-'"),
+			).WithMetadata("argument", "--nott"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

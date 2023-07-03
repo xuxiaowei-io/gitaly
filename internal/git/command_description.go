@@ -5,6 +5,8 @@ import (
 	"math"
 	"runtime"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 const (
@@ -273,16 +275,18 @@ var commandDescriptions = map[string]commandDescription{
 				// intermingled with normal positional arguments. Given that these
 				// pseudo-revisions have leading dashes, normal validation would
 				// refuse them as positional arguments. We thus override validation
-				// for two of these which we are using in our codebase. There are
-				// more, but we can add them at a later point if they're ever
-				// required.
-				if arg == "--all" || arg == "--not" {
+				// for two of these which we are using in our codebase.
+				if strings.HasPrefix(arg, "-") {
+					if err := ValidateRevision([]byte(arg), AllowPseudoRevision()); err != nil {
+						return structerr.NewInvalidArgument(
+							"validating positional argument: %w", err,
+						).WithMetadata("argument", arg)
+					}
+
 					continue
 				}
-				if err := validatePositionalArg(arg); err != nil {
-					return fmt.Errorf("rev-list: %w", err)
-				}
 			}
+
 			return nil
 		},
 	},
