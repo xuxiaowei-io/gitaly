@@ -72,6 +72,42 @@ func RequireGrpcError(tb testing.TB, expected, actual error) {
 	ProtoEqual(tb, status.Convert(expected).Proto(), status.Convert(actual).Proto())
 }
 
+// RequireStatusWithErrorMetadataRegexp asserts that expected and actual error match each other. Both are expected to
+// be status errors. The error metadata in the status is matched against regular expressions defined in expectedMetadata.
+// expectedMetadata is keyed by error metadata key, and the value is a regex string that the value is expected to match.
+//
+// This method is useful when the error metadata contains values that should not be asserted for equality like changing paths.
+// If the metadata is expected to be equal, use an equality assertion instead.
+func RequireStatusWithErrorMetadataRegexp(tb testing.TB, expected, actual error, expectedMetadata map[string]string) {
+	tb.Helper()
+
+	actualStatus, ok := status.FromError(actual)
+	require.True(tb, ok, "actual was not a status: %+v", actual)
+
+	actualDetails := actualStatus.Details()
+
+	actualWithoutMetadata := actualStatus.Proto()
+	actualWithoutMetadata.Details = nil
+	RequireGrpcError(tb, expected, status.ErrorProto(actualWithoutMetadata))
+
+	actualKeys := make([]string, 0, len(actualDetails))
+	for _, detail := range actualDetails {
+		actualKeys = append(actualKeys, string(detail.(*testproto.ErrorMetadata).Key))
+	}
+
+	expectedKeys := make([]string, 0, len(expectedMetadata))
+	for key := range expectedMetadata {
+		expectedKeys = append(expectedKeys, key)
+	}
+
+	require.ElementsMatch(tb, expectedKeys, actualKeys, "actual metadata keys don't match expected")
+
+	for _, detail := range actualDetails {
+		metadata := detail.(*testproto.ErrorMetadata)
+		require.Regexp(tb, expectedMetadata[string(metadata.Key)], string(metadata.Value), "metadata key %q's value didn't match expected", metadata.Key)
+	}
+}
+
 // MergeOutgoingMetadata merges provided metadata-s and returns context with resulting value.
 func MergeOutgoingMetadata(ctx context.Context, md ...metadata.MD) context.Context {
 	ctxmd, ok := metadata.FromOutgoingContext(ctx)
