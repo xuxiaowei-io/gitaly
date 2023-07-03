@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -37,6 +35,8 @@ func TestUserCherryPick(t *testing.T) {
 func testUserCherryPick(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
+	skipSHA256WithGit2goCherryPick(t, ctx)
+
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	destinationBranch := "dst-branch"
@@ -49,7 +49,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 		copyRepoPath           string
 		copyRepoProto          *gitalypb.Repository
 		copyCherryPickedCommit *gitalypb.GitCommit
-		masterCommit           string
+		mainCommit             string
 	}
 
 	testCases := []struct {
@@ -59,7 +59,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 		{
 			desc: "branch exists",
 			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse, error) {
-				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 				return &gitalypb.UserCherryPickRequest{
 						Repository: data.repoProto,
@@ -75,9 +75,9 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc: "branch exists + expectedOldOID",
+			desc: "branch exists + ExpectedOldOId",
 			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse, error) {
-				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 				return &gitalypb.UserCherryPickRequest{
 						Repository:     data.repoProto,
@@ -85,7 +85,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Commit:         data.cherryPickedCommit,
 						BranchName:     []byte(destinationBranch),
 						Message:        []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						ExpectedOldOid: data.masterCommit,
+						ExpectedOldOid: data.mainCommit,
 					},
 					&gitalypb.UserCherryPickResponse{
 						BranchUpdate: &gitalypb.OperationBranchUpdate{},
@@ -102,7 +102,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Commit:          data.cherryPickedCommit,
 						BranchName:      []byte(destinationBranch),
 						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 					},
 					&gitalypb.UserCherryPickResponse{
 						BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
@@ -119,7 +119,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Commit:          data.cherryPickedCommit,
 						BranchName:      []byte(destinationBranch),
 						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						StartRepository: data.copyRepoProto,
 					},
 					&gitalypb.UserCherryPickResponse{
@@ -137,7 +137,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Commit:          data.cherryPickedCommit,
 						BranchName:      []byte(destinationBranch),
 						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 					},
 					&gitalypb.UserCherryPickResponse{
 						BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
@@ -148,7 +148,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 		{
 			desc: "branch exists with dry run",
 			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse, error) {
-				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 				return &gitalypb.UserCherryPickRequest{
 						Repository:      data.repoProto,
@@ -156,7 +156,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Commit:          data.cherryPickedCommit,
 						BranchName:      []byte(destinationBranch),
 						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						DryRun:          true,
 					},
 					&gitalypb.UserCherryPickResponse{
@@ -174,7 +174,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Commit:          data.cherryPickedCommit,
 						BranchName:      []byte(destinationBranch),
 						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						DryRun:          true,
 					},
 					&gitalypb.UserCherryPickResponse{
@@ -192,7 +192,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Commit:          data.cherryPickedCommit,
 						BranchName:      []byte(destinationBranch),
 						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						StartRepository: data.copyRepoProto,
 						DryRun:          true,
 					},
@@ -211,7 +211,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Commit:          data.cherryPickedCommit,
 						BranchName:      []byte(destinationBranch),
 						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						DryRun:          true,
 					},
 					&gitalypb.UserCherryPickResponse{
@@ -221,9 +221,9 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc: "invalid expectedOldOID",
+			desc: "invalid ExpectedOldOId",
 			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse, error) {
-				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 				return &gitalypb.UserCherryPickRequest{
 						Repository:     data.repoProto,
@@ -240,9 +240,9 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc: "valid but non-existent expectedOldOID",
+			desc: "valid but non-existent ExpectedOldOId",
 			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse, error) {
-				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 				return &gitalypb.UserCherryPickRequest{
 						Repository:     data.repoProto,
@@ -259,13 +259,13 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc: "incorrect expectedOldOID",
+			desc: "incorrect ExpectedOldOId",
 			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse, error) {
-				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 				commit := gittest.WriteCommit(t, data.cfg, data.repoPath,
-					gittest.WithParents(git.ObjectID(data.masterCommit)),
-					gittest.WithBranch("master"),
+					gittest.WithParents(git.ObjectID(data.mainCommit)),
+					gittest.WithBranch(git.DefaultBranch),
 					gittest.WithTreeEntries(
 						gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 					),
@@ -275,16 +275,16 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 						Repository:     data.repoProto,
 						User:           gittest.TestUser,
 						Commit:         data.cherryPickedCommit,
-						BranchName:     []byte("master"),
+						BranchName:     []byte(git.DefaultBranch),
 						Message:        []byte("Cherry-picking " + data.cherryPickedCommit.Id),
-						ExpectedOldOid: data.masterCommit,
+						ExpectedOldOid: data.mainCommit,
 					},
 					&gitalypb.UserCherryPickResponse{},
 					testhelper.WithInterceptedMetadataItems(
 						structerr.NewInternal("update reference with hooks: reference update: reference does not point to expected object"),
 						structerr.MetadataItem{Key: "actual_object_id", Value: commit},
-						structerr.MetadataItem{Key: "expected_object_id", Value: data.masterCommit},
-						structerr.MetadataItem{Key: "reference", Value: "refs/heads/master"},
+						structerr.MetadataItem{Key: "expected_object_id", Value: data.mainCommit},
+						structerr.MetadataItem{Key: "reference", Value: "refs/heads/main"},
 					)
 			},
 		},
@@ -297,13 +297,14 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 			t.Parallel()
 
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-			masterCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+			mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithBranch(git.DefaultBranch),
 				gittest.WithTreeEntries(
 					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 				),
 			)
 			cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
-				gittest.WithParents(masterCommitID),
+				gittest.WithParents(mainCommitID),
 				gittest.WithTreeEntries(
 					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 					gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
@@ -313,13 +314,14 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 			require.NoError(t, err)
 
 			copyRepoProto, copyRepoPath := gittest.CreateRepository(t, ctx, cfg)
-			masterCommitCopyID := gittest.WriteCommit(t, cfg, copyRepoPath, gittest.WithBranch("master"),
+			mainCommitCopyID := gittest.WriteCommit(t, cfg, copyRepoPath,
+				gittest.WithBranch(git.DefaultBranch),
 				gittest.WithTreeEntries(
 					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 				),
 			)
 			cherryPickCommitCopyID := gittest.WriteCommit(t, cfg, copyRepoPath,
-				gittest.WithParents(masterCommitCopyID),
+				gittest.WithParents(mainCommitCopyID),
 				gittest.WithTreeEntries(
 					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 					gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
@@ -336,7 +338,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 				copyRepoPath:           copyRepoPath,
 				copyRepoProto:          copyRepoProto,
 				copyCherryPickedCommit: copyCherryPickedCommit,
-				masterCommit:           masterCommitCopyID.String(),
+				mainCommit:             mainCommitCopyID.String(),
 			})
 
 			resp, err := client.UserCherryPick(ctx, req)
@@ -366,15 +368,29 @@ func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	destinationBranch := "cherry-picking-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
-
-	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 	require.NoError(t, err)
+
+	destinationBranch := "cherry-picking-dst"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 	request := &gitalypb.UserCherryPickRequest{
 		Repository: repoProto,
@@ -411,46 +427,74 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	destinationBranch := "cherry-picking-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		))
+	require.Equal(t,
+		git.ObjectID(gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "9f5cd015ffce347a87946a31884d85c2d5ac76c6",
+			"sha256": "685ed70f40309daf137b214b116084bb3cb64948ffe21894da60cffdacb328d9",
+		})),
+		cherryPickCommitID)
 
-	commitToPick, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 	require.NoError(t, err)
+
+	destinationBranch := "cherry-picking-dst"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 	request := &gitalypb.UserCherryPickRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		Commit:     commitToPick,
+		Commit:     cherryPickedCommit,
 		BranchName: []byte(destinationBranch),
-		Message:    []byte("Cherry-picking " + commitToPick.Id),
+		Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 		Timestamp:  &timestamppb.Timestamp{Seconds: 12345},
 	}
 
 	response, err := client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
-	require.Equal(t, "b17aeac93194cf2385b32623494ebce66efbacad", response.BranchUpdate.CommitId)
 
-	pickedCommit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
+	expectedCommitID := gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "92452444836a56b6fb1b2f0e4e62384d7d6f49db",
+		"sha256": "92cb8205718f443de173cff9997b3ea49e3ef5864b700a64403cae221a38338e",
+	})
+	require.Equal(t, expectedCommitID, response.BranchUpdate.CommitId)
+
+	pickCommit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 	require.NoError(t, err)
-	require.Equal(t, &gitalypb.GitCommit{
-		Id:        "b17aeac93194cf2385b32623494ebce66efbacad",
-		Subject:   []byte("Cherry-picking " + commitToPick.Id),
-		Body:      []byte("Cherry-picking " + commitToPick.Id),
-		BodySize:  55,
-		ParentIds: []string{"1e292f8fedd741b75372e19097c76d327140c312"},
-		TreeId:    "5f1b6bcadf0abc482a19454aeaa219a5998db083",
-		Author: &gitalypb.CommitAuthor{
-			Name:  []byte("Ahmad Sherif"),
-			Email: []byte("me@ahmadsherif.com"),
-			Date: &timestamppb.Timestamp{
-				Seconds: 1487337076,
-			},
-			Timezone: []byte("+0200"),
-		},
+	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
+		Id:      expectedCommitID,
+		Subject: []byte("Cherry-picking " + cherryPickedCommit.Id),
+		Body:    []byte("Cherry-picking " + cherryPickedCommit.Id),
+		BodySize: gittest.ObjectHashDependent(t, map[string]int64{
+			"sha1":   55,
+			"sha256": 79,
+		}),
+		ParentIds: gittest.ObjectHashDependent(t, map[string][]string{
+			"sha1":   {"6bb1e1bbf6de505981564b780ca28dc31cd64838"},
+			"sha256": {"996522a8ec52ad134174a543b8679edd6e7759b5149b5bf99edb463283588dd8"},
+		}),
+		TreeId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "0ff2fa5961cbe4fc6371bc5cb1a4eb3b314f308f",
+			"sha256": "bda92f49a13c07c80c816b7c9965c6c7e76f0f5f75aa9ee0453f7109bfb27f7b",
+		}),
+		Author: gittest.DefaultCommitAuthor,
 		Committer: &gitalypb.CommitAuthor{
 			Name:  gittest.TestUser.Name,
 			Email: gittest.TestUser.Email,
@@ -459,7 +503,7 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 			},
 			Timezone: []byte("+0000"),
 		},
-	}, pickedCommit)
+	}, pickCommit)
 }
 
 func TestServer_UserCherryPick_failedValidations(t *testing.T) {
@@ -474,15 +518,29 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 func testServerUserCherryPickFailedValidations(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 	require.NoError(t, err)
 
 	destinationBranch := "cherry-picking-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 	testCases := []struct {
 		desc        string
@@ -573,15 +631,29 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	destinationBranch := "cherry-picking-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
-
-	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 	require.NoError(t, err)
+
+	destinationBranch := "cherry-picking-dst"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 	request := &gitalypb.UserCherryPickRequest{
 		Repository: repoProto,
@@ -624,16 +696,30 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	destinationBranch := "cherry-picking-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
-
-	// This commit already exists in master
-	cherryPickedCommit, err := repo.ReadCommit(ctx, "4a24d82dbca5c11c61556f3b35ca472b7463187e")
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		),
+	)
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 	require.NoError(t, err)
+
+	destinationBranch := "cherry-picking-dst"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, git.DefaultBranch)
 
 	request := &gitalypb.UserCherryPickRequest{
 		Repository: repoProto,
@@ -664,16 +750,31 @@ func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	sourceBranch := "cherry-pick-src"
-	destinationBranch := "cherry-picking-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", sourceBranch, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
 
-	cherryPickedCommit, err := repo.ReadCommit(ctx, git.Revision(sourceBranch))
+	destinationBranch := "cherry-picking-dst"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, git.DefaultBranch)
+
+	sourceBranch := "cherry-pick-src"
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(sourceBranch),
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+		),
+	)
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
@@ -697,7 +798,7 @@ func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctx context.Con
 
 	targetBranchDivergedErr, ok := detailedErr.Error.(*gitalypb.UserCherryPickError_TargetBranchDiverged)
 	require.True(t, ok)
-	assert.Equal(t, []byte("8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"), targetBranchDivergedErr.TargetBranchDiverged.ParentRevision)
+	assert.Equal(t, []byte(cherryPickCommitID.String()), targetBranchDivergedErr.TargetBranchDiverged.ParentRevision)
 }
 
 func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
@@ -712,16 +813,36 @@ func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 func testServerUserCherryPickFailedWithConflict(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	destinationBranch := "cherry-picking-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "conflict_branch_a")
-
-	// This commit cannot be applied to the destinationBranch above
-	cherryPickedCommit, err := repo.ReadCommit(ctx, git.Revision("f0f390655872bb2772c85a0128b2fbc2d88670cb"))
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 	require.NoError(t, err)
+
+	destinationBranch := "cherry-picking-dst"
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "buzz"},
+		),
+	)
 
 	request := &gitalypb.UserCherryPickRequest{
 		Repository: repoProto,
@@ -744,7 +865,7 @@ func testServerUserCherryPickFailedWithConflict(t *testing.T, ctx context.Contex
 	conflictErr, ok := detailedErr.Error.(*gitalypb.UserCherryPickError_CherryPickConflict)
 	require.True(t, ok)
 	require.Len(t, conflictErr.CherryPickConflict.ConflictingFiles, 1)
-	assert.Equal(t, []byte("NEW_FILE.md"), conflictErr.CherryPickConflict.ConflictingFiles[0])
+	assert.Equal(t, []byte("foo"), conflictErr.CherryPickConflict.ConflictingFiles[0])
 }
 
 func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
@@ -759,9 +880,24 @@ func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		))
 
 	testCases := []struct {
 		desc           string
@@ -770,8 +906,8 @@ func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctx contex
 	}{
 		{
 			desc:           "merge commit",
-			startRevision:  "281d3a76f31c812dbf48abce82ccf6860adedd81",
-			cherryRevision: "6907208d755b60ebeacb2e9dfea74c92c3449a1f",
+			startRevision:  mainCommitID.Revision(),
+			cherryRevision: cherryPickCommitID.Revision(),
 		},
 	}
 
@@ -822,8 +958,27 @@ func TestServer_UserCherryPick_quarantine(t *testing.T) {
 func testServerUserCherryPickQuarantine(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goCherryPick(t, ctx)
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	mainCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mainCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+		))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
+	require.NoError(t, err)
 
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
@@ -833,29 +988,35 @@ func testServerUserCherryPickQuarantine(t *testing.T, ctx context.Context) {
 		read oldval newval ref &&
 		git rev-parse $newval^{commit} >%s &&
 		exit 1
-	`, outputPath)))
-
-	commit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
-	require.NoError(t, err)
+		`, outputPath)))
 
 	request := &gitalypb.UserCherryPickRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		Commit:     commit,
-		BranchName: []byte("refs/heads/master"),
+		Commit:     cherryPickedCommit,
+		BranchName: []byte("refs/heads/main"),
 		Message:    []byte("Message"),
 	}
 
 	response, err := client.UserCherryPick(ctx, request)
 	require.Nil(t, response)
 	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "access check failed")
+	require.Contains(t, err.Error(), "access check failed")
+
+	objectHash, err := repo.ObjectHash(ctx)
+	require.NoError(t, err)
 
 	hookOutput := testhelper.MustReadFile(t, outputPath)
-	oid, err := git.ObjectHashSHA1.FromHex(text.ChompBytes(hookOutput))
+	oid, err := objectHash.FromHex(text.ChompBytes(hookOutput))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)
 
 	require.False(t, exists, "quarantined commit should have been discarded")
+}
+
+func skipSHA256WithGit2goCherryPick(t *testing.T, ctx context.Context) {
+	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.CherryPickPureGit.IsDisabled(ctx) {
+		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
+	}
 }
