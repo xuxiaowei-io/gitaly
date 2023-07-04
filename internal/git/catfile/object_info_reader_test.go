@@ -233,6 +233,10 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		Format: gittest.DefaultObjectHash.Format,
 	}
 
+	treeWithNewlines := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "path\nwith\nnewline", Mode: "100644", OID: blobOID},
+	})
+
 	t.Run("reader is dirty with acquired queue", func(t *testing.T) {
 		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
@@ -379,6 +383,22 @@ func TestObjectInfoReader_queue(t *testing.T) {
 
 		_, err = queue.ReadInfo(ctx)
 		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+	})
+
+	t.Run("reading object with newline", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestObject(ctx, treeWithNewlines.Revision()+":path\nwith\nnewline"))
+		require.NoError(t, queue.Flush(ctx))
+
+		info, err := queue.ReadInfo(ctx)
+		require.NoError(t, err)
+		require.Equal(t, &blobInfo, info)
 	})
 
 	t.Run("can continue reading after NotFoundError", func(t *testing.T) {

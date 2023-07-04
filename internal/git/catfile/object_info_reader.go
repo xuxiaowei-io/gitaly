@@ -156,6 +156,7 @@ func newObjectInfoReader(
 			Flags: []git.Option{
 				git.Flag{Name: "--batch-check"},
 				git.Flag{Name: "--buffer"},
+				git.Flag{Name: "-z"},
 			},
 		},
 		git.WithSetupStdin(),

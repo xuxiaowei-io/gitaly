@@ -122,7 +122,7 @@ func (q *requestQueue) requestRevision(ctx context.Context, cmd string, revision
 		return fmt.Errorf("writing object request: %w", err)
 	}
 
-	if err := q.stdin.WriteByte('\n'); err != nil {
+	if err := q.stdin.WriteByte('\000'); err != nil {
 		atomic.AddInt64(&q.counters.outstandingRequests, -1)
 		return fmt.Errorf("terminating object request: %w", err)
 	}
@@ -141,7 +141,7 @@ func (q *requestQueue) Flush(ctx context.Context) error {
 		return fmt.Errorf("writing flush command: %w", err)
 	}
 
-	if err := q.stdin.WriteByte('\n'); err != nil {
+	if err := q.stdin.WriteByte('\000'); err != nil {
 		return fmt.Errorf("terminating flush command: %w", err)
 	}
 

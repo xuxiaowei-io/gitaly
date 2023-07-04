@@ -139,6 +139,9 @@ func TestObjectContentReader_queue(t *testing.T) {
 
 	foobarBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	barfooBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
+	treeWithNewlines := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "path\nwith\nnewline", Mode: "100644", OID: foobarBlob},
+	})
 
 	t.Run("reader is dirty with acquired queue", func(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
@@ -301,6 +304,25 @@ func TestObjectContentReader_queue(t *testing.T) {
 
 		_, err = queue.ReadObject(ctx)
 		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+	})
+
+	t.Run("reading object with newline", func(t *testing.T) {
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestObject(ctx, treeWithNewlines.Revision()+":path\nwith\nnewline"))
+		require.NoError(t, queue.Flush(ctx))
+
+		object, err := queue.ReadObject(ctx)
+		require.NoError(t, err)
+
+		contents, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", string(contents))
 	})
 
 	t.Run("can continue reading after NotFoundError", func(t *testing.T) {

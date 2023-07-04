@@ -65,6 +65,7 @@ func newObjectContentReader(
 			Flags: []git.Option{
 				git.Flag{Name: "--batch"},
 				git.Flag{Name: "--buffer"},
+				git.Flag{Name: "-z"},
 			},
 		},
 		git.WithSetupStdin(),

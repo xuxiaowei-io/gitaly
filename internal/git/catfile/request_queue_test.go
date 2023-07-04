@@ -29,7 +29,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	t.Run("ReadInfo on ReadObject queue", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, `#!/usr/bin/env bash
-			read
+			IFS= read -r -d ''
 		`)
 
 		require.PanicsWithValue(t, "object queue used to read object info", func() {
@@ -39,7 +39,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	t.Run("read without request", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, `#!/usr/bin/env bash
-			read
+			IFS= read -r -d ''
 		`)
 		_, err := queue.ReadObject(ctx)
 		require.Equal(t, fmt.Errorf("no outstanding request"), err)
@@ -47,7 +47,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	t.Run("read on closed reader", func(t *testing.T) {
 		reader, queue := newInterceptedObjectQueue(t, ctx, cfg, `#!/usr/bin/env bash
-			read
+			IFS= read -r -d ''
 		`)
 
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
@@ -277,7 +277,7 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 
 	t.Run("single request", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			read revision
+			IFS= read -r -d '' revision
 			echo "%s blob ${#revision}"
 			echo "${revision}"
 		`, oid))
@@ -290,7 +290,7 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 
 	t.Run("multiple request", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			while read revision
+			while IFS= read -r -d '' revision
 			do
 				echo "%s blob ${#revision}"
 				echo "${revision}"
@@ -311,10 +311,10 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 
 	t.Run("multiple request with intermediate flushing", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			while read revision
+			while IFS= read -r -d '' revision
 			do
-				read flush
-				if test "$flush" != "FLUSH"
+				IFS= read -r -d '' flush
+				if test "$flush" != "$(printf "\tFLUSH\t")"
 				then
 					echo "expected a flush"
 					exit 1
@@ -372,7 +372,7 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 
 	t.Run("single request", func(t *testing.T) {
 		_, queue := newInterceptedInfoQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			read revision
+			IFS= read -r -d '' revision
 			echo "%s blob 955"
 		`, oid))
 
@@ -384,7 +384,7 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 
 	t.Run("multiple request", func(t *testing.T) {
 		_, queue := newInterceptedInfoQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			while read revision
+			while IFS= read -r -d '' revision
 			do
 				echo "%s blob 955"
 			done
@@ -404,10 +404,10 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 
 	t.Run("multiple request with intermediate flushing", func(t *testing.T) {
 		_, queue := newInterceptedInfoQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			while read revision
+			while IFS= read -r -d '' revision
 			do
-				read flush
-				if test "$flush" != "FLUSH"
+				IFS= read -r -d '' flush
+				if test "$flush" != "$(printf "\tFLUSH\t")"
 				then
 					echo "expected a flush"
 					exit 1
@@ -440,7 +440,7 @@ func TestRequestQueue_CommandStats(t *testing.T) {
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 
 	_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			read revision
+			IFS= read -r -d '' revision
 			echo "%s blob ${#revision}"
 			echo "${revision}"
 		`, oid))
