@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.11.11 (2023-07-04)
+
+No changes.
+
 ## 15.11.10 (2023-06-28)
 
 No changes.
