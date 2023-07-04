@@ -351,6 +351,36 @@ func TestObjectContentReader_queue(t *testing.T) {
 		require.Equal(t, "foobar", string(contents))
 	})
 
+	t.Run("missing object with newline", func(t *testing.T) {
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestObject(ctx, "does\nnot\nexist"))
+		require.NoError(t, queue.Flush(ctx))
+
+		_, err = queue.ReadObject(ctx)
+		if !catfileSupportsNul(t, ctx, cfg) {
+			require.Equal(t, fmt.Errorf("invalid info line: %q", "does"), err)
+			return
+		}
+		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+
+		// Requesting another object after the previous one has failed should continue to
+		// work alright.
+		require.NoError(t, queue.RequestObject(ctx, foobarBlob.Revision()))
+		require.NoError(t, queue.Flush(ctx))
+		object, err := queue.ReadObject(ctx)
+		require.NoError(t, err)
+
+		contents, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", string(contents))
+	})
+
 	t.Run("requesting multiple queues fails", func(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)

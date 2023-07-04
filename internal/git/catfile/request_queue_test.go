@@ -26,6 +26,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	lineEnding := detectEncodedLineEnding(t, ctx, cfg)
 
 	t.Run("ReadInfo on ReadObject queue", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, `#!/usr/bin/env bash
@@ -62,8 +63,8 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	t.Run("read with unconsumed object", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			echo "%s commit 464"
-		`, oid))
+			printf "%s commit 464%s"
+		`, oid, lineEnding))
 
 		// We queue two revisions...
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
@@ -81,9 +82,9 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("read with invalid object header", func(t *testing.T) {
-		_, queue := newInterceptedObjectQueue(t, ctx, cfg, `#!/usr/bin/env bash
-			echo "something something"
-		`)
+		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
+			printf "something something%s"
+		`, lineEnding))
 
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
 
@@ -119,8 +120,8 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	t.Run("read with missing object", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			echo "%s missing"
-		`, oid))
+			printf "%s missing%s"
+		`, oid, lineEnding))
 
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
 
@@ -134,9 +135,9 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	t.Run("read single object", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			echo "%s blob 10"
-			echo "1234567890"
-		`, oid))
+			printf "%[1]s blob 10%[2]s"
+			printf "1234567890%[2]s"
+		`, oid, lineEnding))
 
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
 		require.True(t, queue.isDirty())
@@ -161,11 +162,11 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		secondOID := git.ObjectID(strings.Repeat("2", gittest.DefaultObjectHash.EncodedLen()))
 
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			echo "%s blob 10"
-			echo "1234567890"
-			echo "%s commit 10"
-			echo "0987654321"
-		`, oid, secondOID))
+			printf "%[1]s blob 10%[3]s"
+			printf "1234567890%[3]s"
+			printf "%[2]s commit 10%[3]s"
+			printf "0987654321%[3]s"
+		`, oid, secondOID, lineEnding))
 
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
@@ -210,9 +211,9 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	t.Run("truncated object", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
-			echo "%s blob 10"
+			printf "%s blob 10%s"
 			printf "123"
-		`, oid))
+		`, oid, lineEnding))
 
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
 		require.True(t, queue.isDirty())
@@ -250,6 +251,7 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	lineEnding := detectEncodedLineEnding(t, ctx, cfg)
 
 	requireRevision := func(t *testing.T, queue *requestQueue, rev git.Revision) {
 		object, err := queue.ReadObject(ctx)
@@ -278,9 +280,9 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 	t.Run("single request", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
 			IFS= read -r -d '' revision
-			echo "%s blob ${#revision}"
-			echo "${revision}"
-		`, oid))
+			printf "%[1]s blob ${#revision}%[2]s"
+			printf "${revision}%[2]s"
+		`, oid, lineEnding))
 
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
 		require.NoError(t, queue.Flush(ctx))
@@ -292,10 +294,10 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
 			while IFS= read -r -d '' revision
 			do
-				echo "%s blob ${#revision}"
-				echo "${revision}"
+				printf "%[1]s blob ${#revision}%[2]s"
+				printf "${revision}%[2]s"
 			done
-		`, oid))
+		`, oid, lineEnding))
 
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
 		require.NoError(t, queue.RequestObject(ctx, "bar"))
@@ -320,10 +322,10 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 					exit 1
 				fi
 
-				echo "%s blob ${#revision}"
-				echo "${revision}"
+				printf "%[1]s blob ${#revision}%[2]s"
+				printf "${revision}%[2]s"
 			done
-		`, oid))
+		`, oid, lineEnding))
 
 		for _, revision := range []git.Revision{
 			"foo",
@@ -346,6 +348,8 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 	expectedInfo := &ObjectInfo{oid, "blob", 955, gittest.DefaultObjectHash.Format}
+
+	lineEnding := detectEncodedLineEnding(t, ctx, cfg)
 
 	requireRevision := func(t *testing.T, queue *requestQueue) {
 		info, err := queue.ReadInfo(ctx)
@@ -373,8 +377,8 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 	t.Run("single request", func(t *testing.T) {
 		_, queue := newInterceptedInfoQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
 			IFS= read -r -d '' revision
-			echo "%s blob 955"
-		`, oid))
+			printf "%[1]s blob 955%[2]s"
+		`, oid, lineEnding))
 
 		require.NoError(t, queue.RequestInfo(ctx, "foo"))
 		require.NoError(t, queue.Flush(ctx))
@@ -386,9 +390,9 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 		_, queue := newInterceptedInfoQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
 			while IFS= read -r -d '' revision
 			do
-				echo "%s blob 955"
+				printf "%s blob 955%s"
 			done
-		`, oid))
+		`, oid, lineEnding))
 
 		require.NoError(t, queue.RequestInfo(ctx, "foo"))
 		require.NoError(t, queue.RequestInfo(ctx, "bar"))
@@ -413,9 +417,9 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 					exit 1
 				fi
 
-				echo "%s blob 955"
+				printf "%s blob 955%s"
 			done
-		`, oid))
+		`, oid, lineEnding))
 
 		for _, revision := range []git.Revision{
 			"foo",
@@ -438,12 +442,13 @@ func TestRequestQueue_CommandStats(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	lineEnding := detectEncodedLineEnding(t, ctx, cfg)
 
 	_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
 			IFS= read -r -d '' revision
-			echo "%s blob ${#revision}"
-			echo "${revision}"
-		`, oid))
+			printf "%[1]s blob ${#revision}%[2]s"
+			printf "${revision}%[2]s"
+		`, oid, lineEnding))
 
 	require.NoError(t, queue.RequestObject(ctx, "foo"))
 	require.NoError(t, queue.Flush(ctx))
@@ -511,4 +516,11 @@ func newInterceptedInfoQueue(t *testing.T, ctx context.Context, cfg config.Cfg, 
 	t.Cleanup(cleanup)
 
 	return reader, queue
+}
+
+func detectEncodedLineEnding(t *testing.T, ctx context.Context, cfg config.Cfg) string {
+	if catfileSupportsNul(t, ctx, cfg) {
+		return "\\x00"
+	}
+	return "\\n"
 }

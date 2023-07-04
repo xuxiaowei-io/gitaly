@@ -150,14 +150,25 @@ func newObjectInfoReader(
 	repo git.RepositoryExecutor,
 	counter *prometheus.CounterVec,
 ) (*objectInfoReader, error) {
+	gitVersion, err := repo.GitVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting Git version: %w", err)
+	}
+
+	flags := []git.Option{
+		git.Flag{Name: "--batch-check"},
+		git.Flag{Name: "--buffer"},
+		git.Flag{Name: "-z"},
+	}
+
+	if gitVersion.CatfileSupportsNulTerminatedOutput() {
+		flags = append(flags, git.Flag{Name: "-Z"})
+	}
+
 	batchCmd, err := repo.Exec(ctx,
 		git.Command{
-			Name: "cat-file",
-			Flags: []git.Option{
-				git.Flag{Name: "--batch-check"},
-				git.Flag{Name: "--buffer"},
-				git.Flag{Name: "-z"},
-			},
+			Name:  "cat-file",
+			Flags: flags,
 		},
 		git.WithSetupStdin(),
 	)
@@ -175,9 +186,10 @@ func newObjectInfoReader(
 		objectHash: objectHash,
 		counter:    counter,
 		queue: requestQueue{
-			objectHash: objectHash,
-			stdout:     bufio.NewReader(batchCmd),
-			stdin:      bufio.NewWriter(batchCmd),
+			objectHash:      objectHash,
+			isNulTerminated: gitVersion.CatfileSupportsNulTerminatedOutput(),
+			stdout:          bufio.NewReader(batchCmd),
+			stdin:           bufio.NewWriter(batchCmd),
 		},
 	}
 

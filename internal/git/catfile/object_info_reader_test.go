@@ -424,6 +424,33 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.Equal(t, &blobInfo, info)
 	})
 
+	t.Run("missing object with newline", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestInfo(ctx, "does\nnot\nexist"))
+		require.NoError(t, queue.Flush(ctx))
+
+		_, err = queue.ReadInfo(ctx)
+		if !catfileSupportsNul(t, ctx, cfg) {
+			require.Equal(t, fmt.Errorf("invalid info line: %q", "does"), err)
+			return
+		}
+		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+
+		// Requesting another object info after the previous one has failed should continue
+		// to work alright.
+		require.NoError(t, queue.RequestInfo(ctx, blobOID.Revision()))
+		require.NoError(t, queue.Flush(ctx))
+		info, err := queue.ReadInfo(ctx)
+		require.NoError(t, err)
+		require.Equal(t, &blobInfo, info)
+	})
+
 	t.Run("requesting multiple queues fails", func(t *testing.T) {
 		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
