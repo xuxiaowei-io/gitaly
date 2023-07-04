@@ -80,7 +80,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	if err := updater.Prepare(); err != nil {
 		var alreadyLockedErr updateref.AlreadyLockedError
 		if errors.As(err, &alreadyLockedErr) {
-			return nil, structerr.NewFailedPrecondition("cannot lock references").WithDetail(
+			return nil, structerr.NewAborted("cannot lock references").WithDetail(
 				&gitalypb.DeleteRefsError{
 					Error: &gitalypb.DeleteRefsError_ReferencesLocked{
 						ReferencesLocked: &gitalypb.ReferencesLockedError{
