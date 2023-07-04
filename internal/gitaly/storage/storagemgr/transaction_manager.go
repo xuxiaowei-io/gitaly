@@ -1161,6 +1161,10 @@ func packFilePath(walFiles string) string {
 // reference changes. The old tips in the transaction are verified against the current actual tips.
 // It returns the write-ahead log entry for the transaction if it was successfully verified.
 func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) ([]*gitalypb.LogEntry_ReferenceUpdate, error) {
+	if len(transaction.referenceUpdates) == 0 {
+		return nil, nil
+	}
+
 	var referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate
 	for referenceName, update := range transaction.referenceUpdates {
 		if err := git.ValidateReference(string(referenceName)); err != nil {
