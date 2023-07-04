@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
@@ -393,7 +394,12 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestObject(ctx, treeWithNewlines.Revision()+":path\nwith\nnewline"))
+		err = queue.RequestObject(ctx, treeWithNewlines.Revision()+":path\nwith\nnewline")
+		if !catfileSupportsNul(t, ctx, cfg) {
+			require.Equal(t, structerr.NewInvalidArgument("Git too old to support requests with newlines"), err)
+			return
+		}
+		require.NoError(t, err)
 		require.NoError(t, queue.Flush(ctx))
 
 		info, err := queue.ReadInfo(ctx)
@@ -432,14 +438,15 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestInfo(ctx, "does\nnot\nexist"))
+		err = queue.RequestInfo(ctx, "does\nnot\nexist")
+		if !catfileSupportsNul(t, ctx, cfg) {
+			require.Equal(t, structerr.NewInvalidArgument("Git too old to support requests with newlines"), err)
+			return
+		}
+		require.NoError(t, err)
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadInfo(ctx)
-		if !catfileSupportsNul(t, ctx, cfg) {
-			require.Equal(t, fmt.Errorf("invalid info line: %q", "does"), err)
-			return
-		}
 		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
 
 		// Requesting another object info after the previous one has failed should continue

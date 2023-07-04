@@ -115,6 +115,10 @@ func (q *requestQueue) requestRevision(ctx context.Context, cmd string, revision
 		return structerr.NewInvalidArgument("revision must not contain NUL bytes")
 	}
 
+	if !q.isNulTerminated && strings.Contains(revision.String(), "\n") {
+		return structerr.NewInvalidArgument("Git too old to support requests with newlines")
+	}
+
 	if q.isClosed() {
 		return fmt.Errorf("cannot request revision: %w", os.ErrClosed)
 	}
