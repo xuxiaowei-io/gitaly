@@ -20,8 +20,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
-func TestParseObjectInfo_success(t *testing.T) {
+func TestParseObjectInfo(t *testing.T) {
 	t.Parallel()
+
+	oid := gittest.DefaultObjectHash.EmptyTreeOID
 
 	for _, tc := range []struct {
 		desc               string
@@ -44,27 +46,6 @@ func TestParseObjectInfo_success(t *testing.T) {
 			input:       "bla missing\n",
 			expectedErr: NotFoundError{fmt.Errorf("object not found")},
 		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			reader := bufio.NewReader(strings.NewReader(tc.input))
-
-			objectInfo, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
-			require.Equal(t, tc.expectedErr, err)
-			require.Equal(t, tc.expectedObjectInfo, objectInfo)
-		})
-	}
-}
-
-func TestParseObjectInfo_errors(t *testing.T) {
-	t.Parallel()
-
-	oid := gittest.DefaultObjectHash.EmptyTreeOID
-
-	for _, tc := range []struct {
-		desc        string
-		input       string
-		expectedErr error
-	}{
 		{
 			desc:        "missing newline",
 			input:       fmt.Sprintf("%s commit 222", oid),
@@ -98,8 +79,9 @@ func TestParseObjectInfo_errors(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tc.input))
 
-			_, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
+			objectInfo, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
 			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedObjectInfo, objectInfo)
 		})
 	}
 }
