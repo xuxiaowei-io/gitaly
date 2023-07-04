@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 const (
@@ -105,6 +107,10 @@ func (q *requestQueue) RequestInfo(ctx context.Context, revision git.Revision) e
 }
 
 func (q *requestQueue) requestRevision(ctx context.Context, cmd string, revision git.Revision) error {
+	if strings.Contains(revision.String(), "\000") {
+		return structerr.NewInvalidArgument("revision must not contain NUL bytes")
+	}
+
 	if q.isClosed() {
 		return fmt.Errorf("cannot request revision: %w", os.ErrClosed)
 	}

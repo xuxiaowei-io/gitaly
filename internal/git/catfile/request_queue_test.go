@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
@@ -91,6 +92,15 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 		// The queue must be dirty when we failed due to an unexpected error.
 		require.True(t, queue.isDirty())
+	})
+
+	t.Run("invalid request", func(t *testing.T) {
+		_, queue := newInterceptedObjectQueue(t, ctx, cfg, `#!/usr/bin/env bash
+			false
+		`)
+
+		require.Equal(t, structerr.NewInvalidArgument("revision must not contain NUL bytes"), queue.RequestObject(ctx, "foo\000bar"))
+		require.False(t, queue.isDirty())
 	})
 
 	t.Run("read with unexpected exit", func(t *testing.T) {
