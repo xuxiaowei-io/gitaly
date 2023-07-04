@@ -720,7 +720,8 @@ ${PROTOC_GEN_DOC}:    TOOL_PACKAGE = github.com/pseudomuto/protoc-gen-doc/cmd/pr
 ${DELVE}:             TOOL_PACKAGE = github.com/go-delve/delve/cmd/dlv
 
 ${TEST_REPO}:
-	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
+	# Skip writing the reverse index as otherwise our tests will get confused.
+	${GIT} -c pack.writeReverseIndex=false clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
 	@ # Git notes aren't fetched by default with git clone
 	${GIT} -C $@ fetch ${GIT_QUIET} origin refs/notes/*:refs/notes/*
 	${Q}rm -rf $@/refs
