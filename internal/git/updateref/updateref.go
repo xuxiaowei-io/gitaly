@@ -16,11 +16,12 @@ import (
 // AlreadyLockedError indicates a reference cannot be locked because another
 // process has already locked it.
 type AlreadyLockedError struct {
-	Ref string
+	// ReferenceName is the name of the reference that is already locked.
+	ReferenceName string
 }
 
-func (e *AlreadyLockedError) Error() string {
-	return fmt.Sprintf("reference is already locked: %q", e.Ref)
+func (e AlreadyLockedError) Error() string {
+	return fmt.Sprintf("reference is already locked: %q", e.ReferenceName)
 }
 
 // InvalidReferenceFormatError indicates a reference name was invalid.
@@ -381,7 +382,7 @@ func (u *Updater) handleIOError(fallbackErr error) error {
 
 	matches := refLockedRegex.FindSubmatch(stderr)
 	if len(matches) > 1 {
-		return &AlreadyLockedError{Ref: string(matches[1])}
+		return AlreadyLockedError{ReferenceName: string(matches[1])}
 	}
 
 	matches = refInvalidFormatRegex.FindSubmatch(stderr)

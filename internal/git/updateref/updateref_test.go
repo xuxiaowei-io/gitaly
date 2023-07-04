@@ -427,12 +427,9 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 
 	// Preparing this second updater should fail though because we notice that the reference is
 	// locked.
-	err = secondUpdater.Prepare()
-	var alreadyLockedErr *AlreadyLockedError
-	require.ErrorAs(t, err, &alreadyLockedErr)
-	require.Equal(t, err, &AlreadyLockedError{
-		Ref: "refs/heads/master",
-	})
+	require.Equal(t, AlreadyLockedError{
+		ReferenceName: "refs/heads/master",
+	}, secondUpdater.Prepare())
 
 	// Whereas committing the first transaction should succeed.
 	require.NoError(t, firstUpdater.Commit())
