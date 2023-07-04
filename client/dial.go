@@ -79,6 +79,7 @@ type DNSResolverBuilderConfig dnsresolver.BuilderConfig
 func DefaultDNSResolverBuilderConfig() *DNSResolverBuilderConfig {
 	return &DNSResolverBuilderConfig{
 		RefreshRate:     5 * time.Minute,
+		LookupTimeout:   15 * time.Second,
 		Logger:          logrus.StandardLogger(),
 		Backoff:         backoff.NewDefaultExponential(rand.New(rand.NewSource(time.Now().UnixNano()))),
 		DefaultGrpcPort: "443",

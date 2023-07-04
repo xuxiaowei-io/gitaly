@@ -123,9 +123,10 @@ func buildResolverTarget(s *testhelper.FakeDNSServer, addr string) resolver.Targ
 
 func newTestDNSBuilder(t *testing.T) *Builder {
 	return NewBuilder(&BuilderConfig{
-		RefreshRate: 0,
-		Logger:      testhelper.NewDiscardingLogger(t),
-		Backoff:     &fakeBackoff{},
+		RefreshRate:   0,
+		LookupTimeout: 10 * time.Second,
+		Logger:        testhelper.NewDiscardingLogger(t),
+		Backoff:       &fakeBackoff{},
 	})
 }
 
