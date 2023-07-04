@@ -23,19 +23,22 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	repo := s.localrepo(request.GetRepository())
+	_, quarantineRepo, err := s.quarantinedRepo(ctx, request.GetRepository())
+	if err != nil {
+		return err
+	}
 
-	ours, err := repo.ResolveRevision(ctx, git.Revision(request.OurCommitOid+"^{commit}"))
+	ours, err := quarantineRepo.ResolveRevision(ctx, git.Revision(request.OurCommitOid+"^{commit}"))
 	if err != nil {
 		return structerr.NewFailedPrecondition("could not lookup 'our' OID: %w", err)
 	}
 
-	theirs, err := repo.ResolveRevision(ctx, git.Revision(request.TheirCommitOid+"^{commit}"))
+	theirs, err := quarantineRepo.ResolveRevision(ctx, git.Revision(request.TheirCommitOid+"^{commit}"))
 	if err != nil {
 		return structerr.NewFailedPrecondition("could not lookup 'their' OID: %w", err)
 	}
 
-	return s.conflictFilesWithGitMergeTree(ctx, request, stream, ours, theirs, repo)
+	return s.conflictFilesWithGitMergeTree(ctx, request, stream, ours, theirs, quarantineRepo)
 }
 
 func (s *server) conflictFilesWithGitMergeTree(
