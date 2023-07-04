@@ -51,7 +51,7 @@ func (r *RateLimiter) Limit(ctx context.Context, lockKey string, f LimitedFunc) 
 		// of traffic.
 		r.requestsDroppedMetric.Inc()
 
-		return nil, structerr.NewUnavailable("%w", ErrRateLimit).WithDetail(
+		return nil, structerr.NewResourceExhausted("%w", ErrRateLimit).WithDetail(
 			&gitalypb.LimitError{
 				ErrorMessage: ErrRateLimit.Error(),
 				RetryAfter:   durationpb.New(0),

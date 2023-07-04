@@ -53,7 +53,7 @@ func sendRawOutput(ctx context.Context, gitCmdFactory git.CommandFactory, repo *
 	}
 
 	if _, err := io.Copy(sender, cmd); err != nil {
-		return structerr.NewUnavailable("send: %w", err)
+		return structerr.NewAborted("send: %w", err)
 	}
 
 	return cmd.Wait()

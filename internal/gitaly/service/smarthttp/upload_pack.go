@@ -119,13 +119,13 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 		Args:  []string{repoPath},
 	}, commandOpts...)
 	if err != nil {
-		return nil, structerr.NewUnavailable("spawning upload-pack: %w", err)
+		return nil, structerr.NewFailedPrecondition("spawning upload-pack: %w", err)
 	}
 
 	// Use a custom buffer size to minimize the number of system calls.
 	respBytes, err := io.CopyBuffer(stdout, cmd, make([]byte, 64*1024))
 	if err != nil {
-		return nil, structerr.NewUnavailable("copying stdout from upload-pack: %w", err)
+		return nil, structerr.NewFailedPrecondition("copying stdout from upload-pack: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
@@ -137,7 +137,7 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 			return stats, nil
 		}
 
-		return nil, structerr.NewUnavailable("waiting for upload-pack: %w", err)
+		return nil, structerr.NewFailedPrecondition("waiting for upload-pack: %w", err)
 	}
 
 	ctxlogrus.Extract(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")

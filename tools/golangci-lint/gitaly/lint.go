@@ -23,6 +23,10 @@ func (p *analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
 				"included-functions",
 			),
 		}),
+		newUnavailableCodeAnalyzer(&unavailableCodeAnalyzerSettings{IncludedFunctions: p.configStringSlicesAt(
+			unavailableCodeAnalyzerName,
+			"included-functions",
+		)}),
 	}
 }
 

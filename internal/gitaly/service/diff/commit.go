@@ -109,7 +109,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 			response.EndOfPatch = true
 
 			if err := stream.Send(response); err != nil {
-				return structerr.NewUnavailable("send: %w", err)
+				return structerr.NewAborted("send: %w", err)
 			}
 		} else {
 			patch := diff.Patch
@@ -125,7 +125,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 				}
 
 				if err := stream.Send(response); err != nil {
-					return structerr.NewUnavailable("send: %w", err)
+					return structerr.NewAborted("send: %w", err)
 				}
 
 				// Use a new response so we don't send other fields (FromPath, ...) over and over
@@ -177,7 +177,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 		}
 
 		if err := stream.Send(&gitalypb.CommitDeltaResponse{Deltas: batch}); err != nil {
-			return structerr.NewUnavailable("send: %w", err)
+			return structerr.NewAborted("send: %w", err)
 		}
 
 		return nil
@@ -249,7 +249,7 @@ func (s *server) eachDiff(ctx context.Context, repo *gitalypb.Repository, subCmd
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return structerr.NewUnavailable("%w", err)
+		return structerr.NewFailedPrecondition("%w", err)
 	}
 
 	return nil

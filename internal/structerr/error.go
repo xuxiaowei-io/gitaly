@@ -177,8 +177,22 @@ func NewResourceExhausted(format string, a ...any) Error {
 	return newError(codes.ResourceExhausted, format, a...)
 }
 
-// NewUnavailable constructs a new error code with the Unavailable error code. Please refer to New
-// for further details.
+// NewUnavailable constructs a new error code with the Unavailable error code. Please refer to New for further details.
+// Please note that the Unavailable status code is a signal telling clients to retry automatically. This auto-retry
+// mechanism is handled at the library layer, without client consensus. Typically, it is used for the situations where
+// the gRPC is not available or is not responding. Here are some discrete examples:
+//
+//   - Server downtime: The server hosting the gRPC service is down for maintenance or has crashed.
+//   - Network issues: Connectivity problems between the client and server, like network congestion or a broken connection,
+//     can cause the service to appear unavailable.
+//   - Load balancing failure: In a distributed system, the load balancer may be unable to route the client's request to a
+//     healthy instance of the gRPC service. This can happen if all instances are down or if the load balancer is
+//     misconfigured.
+//   - TLS/SSL handshake failure: If there's a problem during the TLS/SSL handshake between the client and the server, the
+//     connection may fail, leading to an UNAVAILABLE status code.
+//
+// Thus, this status code should be used by interceptors or network-related components. gRPC handlers should use another
+// status code instead.
 func NewUnavailable(format string, a ...any) Error {
 	return newError(codes.Unavailable, format, a...)
 }

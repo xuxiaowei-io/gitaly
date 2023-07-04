@@ -144,6 +144,9 @@ linters-settings:
           included-functions:
             - fmt.Errorf
             - gitlab.com/gitlab-org/gitaly/v16/internal/structerr.*
+        unavailable_code:
+          included-functions:
+            - gitlab.com/gitlab-org/gitaly/v16/internal/structerr.NewUnavailable
 
 issues:
   exclude-use-default: false

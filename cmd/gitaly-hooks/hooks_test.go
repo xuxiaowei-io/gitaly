@@ -786,7 +786,8 @@ remote: error resource exhausted, please try again later
 		},
 		{
 			name: "other error - status code is hidden",
-			err:  structerr.NewUnavailable("server is not available"),
+			//nolint:gitaly-linters
+			err: structerr.NewUnavailable("server is not available"),
 			expectedStderr: `
 remote: error executing git hook
 `,
