@@ -76,10 +76,24 @@ func TestParseObjectInfo(t *testing.T) {
 			}),
 		},
 	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			reader := bufio.NewReader(strings.NewReader(tc.input))
+		t.Run("newline-terminated", func(t *testing.T) {
+			objectInfo, err := ParseObjectInfo(
+				gittest.DefaultObjectHash,
+				bufio.NewReader(strings.NewReader(tc.input)),
+				false,
+			)
 
-			objectInfo, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedObjectInfo, objectInfo)
+		})
+
+		t.Run("NUL-terminated", func(t *testing.T) {
+			objectInfo, err := ParseObjectInfo(
+				gittest.DefaultObjectHash,
+				bufio.NewReader(strings.NewReader(strings.ReplaceAll(tc.input, "\n", "\000"))),
+				true,
+			)
+
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedObjectInfo, objectInfo)
 		})

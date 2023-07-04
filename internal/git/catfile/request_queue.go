@@ -260,7 +260,7 @@ func (q *requestQueue) readInfo() (*ObjectInfo, error) {
 		return nil, fmt.Errorf("concurrent read on request queue")
 	}
 
-	return ParseObjectInfo(q.objectHash, q.stdout)
+	return ParseObjectInfo(q.objectHash, q.stdout, false)
 }
 
 func logDuration(ctx context.Context, logFieldName string) func() {

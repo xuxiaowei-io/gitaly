@@ -53,14 +53,19 @@ func IsNotFound(err error) bool {
 
 // ParseObjectInfo reads from a reader and parses the data into an ObjectInfo struct with the given
 // object hash.
-func ParseObjectInfo(objectHash git.ObjectHash, stdout *bufio.Reader) (*ObjectInfo, error) {
+func ParseObjectInfo(objectHash git.ObjectHash, stdout *bufio.Reader, nulTerminated bool) (*ObjectInfo, error) {
 restart:
-	infoLine, err := stdout.ReadString('\n')
+	var terminator byte = '\n'
+	if nulTerminated {
+		terminator = '\000'
+	}
+
+	infoLine, err := stdout.ReadString(terminator)
 	if err != nil {
 		return nil, fmt.Errorf("read info line: %w", err)
 	}
 
-	infoLine = strings.TrimSuffix(infoLine, "\n")
+	infoLine = strings.TrimSuffix(infoLine, string(terminator))
 	if strings.HasSuffix(infoLine, " missing") {
 		// We use a hack to flush stdout of git-cat-file(1), which is that we request an
 		// object that cannot exist. This causes Git to write an error and immediately flush
