@@ -131,7 +131,7 @@ GIT_VERSION ?=
 ## The Git version used for bundled Git v2.40.
 GIT_VERSION_2_40 ?= v2.40.1.gl2
 ## The Git version used for bundled Git v2.41.
-GIT_VERSION_2_41 ?= v2.41.0
+GIT_VERSION_2_41 ?= v2.41.0.gl1
 
 ## Skip overriding the Git version and instead use the Git version as specified
 ## in the Git sources. This is required when building Git from a version that
