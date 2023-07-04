@@ -481,10 +481,7 @@ func TestUploadPack_validation(t *testing.T) {
 					RelativePath: "",
 				},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 		},
 		{
 			desc: "missing repository",
@@ -781,10 +778,7 @@ func TestUploadPack_invalidStorage(t *testing.T) {
 	}, "git@localhost:test/test.git", localRepoPath)
 	require.Error(t, err)
 
-	require.Contains(t, err.Error(), testhelper.GitalyOrPraefect(
-		fmt.Sprintf("rpc error: code = InvalidArgument desc = %s", storage.NewStorageNotFoundError("foobar")),
-		fmt.Sprintf("rpc error: code = InvalidArgument desc = repo scoped: %s", storage.NewStorageNotFoundError("foobar")),
-	))
+	require.Contains(t, err.Error(), fmt.Sprintf("rpc error: code = InvalidArgument desc = %s", storage.NewStorageNotFoundError("foobar")))
 }
 
 func TestUploadPack_gitFailure(t *testing.T) {

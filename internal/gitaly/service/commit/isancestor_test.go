@@ -59,16 +59,8 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "fake-path")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"accessor call: route repository accessor: consistent storages: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "fake-path"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "fake-path")),
 			),
 		},
 	}

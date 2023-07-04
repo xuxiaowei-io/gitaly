@@ -360,7 +360,7 @@ func TestRejectBadStorage(t *testing.T) {
 
 	_, err := gitalypb.NewRepositoryServiceClient(cc).OptimizeRepository(ctx, req)
 	testhelper.RequireGrpcError(t, testhelper.ToInterceptedMetadata(
-		structerr.New("repo scoped: %w", storage.NewStorageNotFoundError("bad-name")),
+		structerr.New("%w", storage.NewStorageNotFoundError("bad-name")),
 	), err)
 }
 

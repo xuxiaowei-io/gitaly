@@ -57,10 +57,7 @@ func TestReceivePack_validation(t *testing.T) {
 				},
 				GlId: "user-123",
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
-				structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
-			),
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 		},
 		{
 			desc: "missing repository",
@@ -90,14 +87,9 @@ func TestReceivePack_validation(t *testing.T) {
 				},
 				GlId: "user-123",
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("doesnotexist"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("doesnotexist"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("doesnotexist"),
+			)),
 		},
 		{
 			desc: "stdin on first request",

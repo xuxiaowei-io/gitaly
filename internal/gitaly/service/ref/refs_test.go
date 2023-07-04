@@ -180,16 +180,8 @@ func TestFindDefaultBranchName(t *testing.T) {
 					request: &gitalypb.FindDefaultBranchNameRequest{
 						Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
-						),
-						testhelper.ToInterceptedMetadata(
-							structerr.New(
-								"accessor call: route repository accessor: consistent storages: %w",
-								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path"),
-							),
-						),
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
 					),
 				}
 			},
@@ -203,14 +195,9 @@ func TestFindDefaultBranchName(t *testing.T) {
 					request: &gitalypb.FindDefaultBranchNameRequest{
 						Repository: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"%w", storage.NewStorageNotFoundError("invalid"),
-						)),
-						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
-						)),
-					),
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("invalid"),
+					)),
 				}
 			},
 		},
@@ -487,29 +474,16 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "repository doesn't exist on disk",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"accessor call: route repository accessor: consistent storages: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
 			),
 		},
 		{
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("invalid"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("invalid"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("invalid"),
+			)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -684,14 +658,9 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 					RelativePath: "repo",
 				},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("fake"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("fake"),
+			)),
 		},
 	} {
 		t.Run(tc.description, func(t *testing.T) {

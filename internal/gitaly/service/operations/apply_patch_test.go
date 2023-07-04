@@ -95,16 +95,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			nonExistentRepository: true,
 			expected: func(t *testing.T, repoPath string) expected {
 				return expected{
-					err: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist")),
-						),
-						testhelper.ToInterceptedMetadata(
-							structerr.New(
-								"mutator call: route repository mutator: get repository id: %w",
-								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist"),
-							),
-						),
+					err: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "doesnt-exist")),
 					),
 				}
 			},

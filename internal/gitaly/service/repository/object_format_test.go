@@ -50,10 +50,7 @@ func TestObjectFormat(t *testing.T) {
 							RelativePath: "path",
 						},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrStorageNotSet),
-					),
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
 				}
 			},
 		},
@@ -66,10 +63,7 @@ func TestObjectFormat(t *testing.T) {
 							StorageName: cfg.Storages[0].Name,
 						},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
-						structerr.NewInvalidArgument("repo scoped: %w", storage.ErrRepositoryPathNotSet),
-					),
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 				}
 			},
 		},
@@ -83,16 +77,8 @@ func TestObjectFormat(t *testing.T) {
 							RelativePath: "nonexistent.git",
 						},
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(
-							structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "nonexistent.git")),
-						),
-						testhelper.ToInterceptedMetadata(
-							structerr.New(
-								"accessor call: route repository accessor: consistent storages: %w",
-								storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "nonexistent.git"),
-							),
-						),
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "nonexistent.git")),
 					),
 				}
 			},

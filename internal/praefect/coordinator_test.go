@@ -295,12 +295,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 					request: &gitalypb.UserCreateTagRequest{
 						Repository: targetRepo,
 					},
-					expectedErr: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w",
-						fmt.Errorf("get repository id: %w", datastore.ErrRepositoryNotFound),
-					)).WithMetadataItems(
-						structerr.MetadataItem{Key: "storage_name", Value: targetRepo.StorageName},
-						structerr.MetadataItem{Key: "relative_path", Value: targetRepo.RelativePath},
-					),
+					expectedErr: storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath),
 				}
 			},
 		},
@@ -1090,9 +1085,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 					return RepositoryAccessorRoute{}, datastore.ErrRepositoryNotFound
 				},
 			},
-			error: structerr.NewNotFound("%w", fmt.Errorf("accessor call: route repository accessor: %w",
-				datastore.ErrRepositoryNotFound,
-			)),
+			error: structerr.NewNotFound("%w", datastore.ErrRepositoryNotFound),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

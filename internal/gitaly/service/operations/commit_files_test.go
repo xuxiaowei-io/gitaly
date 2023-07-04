@@ -1773,13 +1773,9 @@ func testUserCommitFilesFailsIfRepositoryMissing(t *testing.T, ctx context.Conte
 	require.NoError(t, stream.Send(req))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcCode(t, err, codes.NotFound)
-	if testhelper.IsPraefectEnabled() {
-		require.Contains(t, err.Error(), "mutator call: route repository mutator: get repository id")
-		require.Contains(t, err.Error(), "not found")
-	} else {
-		require.Contains(t, err.Error(), "repository not found")
-	}
+	testhelper.RequireGrpcError(t, testhelper.ToInterceptedMetadata(
+		structerr.New("%w", storage.NewRepositoryNotFoundError(repo.StorageName, repo.RelativePath)),
+	), err)
 }
 
 func headerRequest(repo *gitalypb.Repository, user *gitalypb.User, branchName string, commitMessage []byte, startBranchName string, expectedOldOID string) *gitalypb.UserCommitFilesRequest {

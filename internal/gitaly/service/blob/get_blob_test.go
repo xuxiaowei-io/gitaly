@@ -169,14 +169,9 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("fake"),
-				)),
-				testhelper.ToInterceptedMetadata(
-					structerr.New("repo scoped: %w", storage.NewStorageNotFoundError("fake")),
-				),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("fake"),
+			)),
 		},
 		{
 			desc: "invalid relative path",
@@ -187,16 +182,8 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"accessor call: route repository accessor: consistent storages: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path")),
 			),
 		},
 		{

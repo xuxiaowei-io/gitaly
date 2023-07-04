@@ -357,12 +357,14 @@ func TestPostReceivePack_rejectViaHooks(t *testing.T) {
 func TestPostReceivePack_requestValidation(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
-
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 	defer conn.Close()
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc        string
@@ -378,14 +380,9 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 				},
 				GlId: "user-123",
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("fake"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.New(
-					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("fake"),
+			)),
 		},
 		{
 			desc:        "Repository is nil",
@@ -395,45 +392,22 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 		{
 			desc: "Empty GlId",
 			request: &gitalypb.PostReceivePackRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  cfg.Storages[0].Name,
-					RelativePath: "path/to/repo",
-				},
-				GlId: "",
+				Repository: repoProto,
+				GlId:       "",
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("empty GlId"),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"mutator call: route repository mutator: get repository id: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/to/repo"),
-					),
-				),
-			),
+			expectedErr: structerr.NewInvalidArgument("empty GlId"),
 		},
 		{
 			desc: "Data exists on first request",
 			request: &gitalypb.PostReceivePackRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  cfg.Storages[0].Name,
-					RelativePath: "path/to/repo",
-				},
-				GlId: "user-123",
-				Data: []byte("Fail"),
+				Repository: repoProto,
+				GlId:       "user-123",
+				Data:       []byte("Fail"),
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				structerr.NewInvalidArgument("non-empty Data"),
-				testhelper.ToInterceptedMetadata(
-					structerr.New(
-						"mutator call: route repository mutator: get repository id: %w",
-						storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/to/repo"),
-					),
-				),
-			),
+			expectedErr: structerr.NewInvalidArgument("non-empty Data"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			stream, err := client.PostReceivePack(ctx)
 			require.NoError(t, err)
 

@@ -687,7 +687,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 		}
 
 		if err := c.validateTargetRepo(targetRepo); err != nil {
-			return nil, structerr.NewInvalidArgument("repo scoped: %w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		}
 
 		sp, err := c.directRepositoryScopedMessage(ctx, grpcCall{
@@ -697,10 +697,6 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 			targetRepo:     targetRepo,
 		})
 		if err != nil {
-			if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
-				return nil, structerr.NewInvalidArgument("%w", err)
-			}
-
 			var additionalRepoNotFound additionalRepositoryNotFoundError
 			if errors.As(err, &additionalRepoNotFound) {
 				return nil, structerr.NewNotFound("%w", err).WithMetadataItems(
@@ -710,10 +706,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 			}
 
 			if errors.Is(err, datastore.ErrRepositoryNotFound) {
-				return nil, structerr.NewNotFound("%w", err).WithMetadataItems(
-					structerr.MetadataItem{Key: "storage_name", Value: targetRepo.GetStorageName()},
-					structerr.MetadataItem{Key: "relative_path", Value: targetRepo.GetRelativePath()},
-				)
+				return nil, storage.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)
 			}
 
 			if errors.Is(err, datastore.ErrRepositoryAlreadyExists) {
@@ -1170,6 +1163,10 @@ func (c *Coordinator) newRequestFinalizer(
 }
 
 func (c *Coordinator) validateTargetRepo(repo *gitalypb.Repository) error {
+	if repo.GetStorageName() == "" && repo.GetRelativePath() == "" {
+		return storage.ErrRepositoryNotSet
+	}
+
 	if repo.GetStorageName() == "" {
 		return storage.ErrStorageNotSet
 	}

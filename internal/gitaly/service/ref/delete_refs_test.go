@@ -272,14 +272,9 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("fake"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("fake"),
+			)),
 		},
 		{
 			desc: "Repository is nil",

@@ -349,14 +349,9 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"%w", storage.NewStorageNotFoundError("non-existent"),
-				)),
-				testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-					"repo scoped: %w", storage.NewStorageNotFoundError("non-existent"),
-				)),
-			),
+			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+				"%w", storage.NewStorageNotFoundError("non-existent"),
+			)),
 		},
 		{
 			desc: "invalid repository path",
@@ -366,15 +361,8 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: "path/not/exist",
 				},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				testhelper.ToInterceptedMetadata(
-					structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/not/exist")),
-				),
-				testhelper.ToInterceptedMetadata(
-					structerr.NewNotFound("routing repository maintenance: getting repository metadata: %w",
-						storage.NewRepositoryNotFoundError("default", "path/not/exist"),
-					),
-				),
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "path/not/exist")),
 			),
 		},
 		{

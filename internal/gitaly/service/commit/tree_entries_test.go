@@ -121,14 +121,9 @@ func TestGetTreeEntries(t *testing.T) {
 						Revision:   []byte(gittest.DefaultObjectHash.EmptyTreeOID),
 						Path:       []byte("folder"),
 					},
-					expectedErr: testhelper.GitalyOrPraefect(
-						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"%w", storage.NewStorageNotFoundError("fake"),
-						)),
-						testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-							"repo scoped: %w", storage.NewStorageNotFoundError("fake"),
-						)),
-					),
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("fake"),
+					)),
 				}
 			},
 		},

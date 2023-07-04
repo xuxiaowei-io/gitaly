@@ -28,29 +28,22 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		require.NoError(t, os.Chtimes(looseObjectPath, when, when))
 	}
 
-	t.Run("missing repository", func(t *testing.T) {
+	t.Run("unset repository", func(t *testing.T) {
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{})
 		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 	})
 
-	t.Run("relative path points to removed repository", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-		require.NoError(t, os.RemoveAll(repoPath))
+	t.Run("missing repository", func(t *testing.T) {
+		relativePath := gittest.NewRepositoryName(t)
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
-			Repository: repo,
+			Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: relativePath,
+			},
 		})
-		testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-			testhelper.ToInterceptedMetadata(
-				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, repo.GetRelativePath())),
-			),
-			// Note that Praefect reports the _rewritten_ repository path as not found. This is expected
-			// given that the repository does exist in Praefect, but is missing in Gitaly.
-			testhelper.ToInterceptedMetadata(
-				structerr.New("%w", storage.NewRepositoryNotFoundError(
-					cfg.Storages[0].Name, gittest.GetReplicaPath(t, ctx, cfg, repo),
-				)),
-			),
+		testhelper.RequireGrpcError(t, testhelper.ToInterceptedMetadata(
+			structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, relativePath)),
 		), err)
 	})
 
