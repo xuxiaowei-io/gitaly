@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 16.1.2 (2023-07-04)
+
+No changes.
+
 ## 16.1.1 (2023-06-28)
 
 No changes.
@@ -20,6 +24,10 @@ No changes.
 ### Changed (1 change)
 
 - [Use SSH for signing commits](gitlab-org/gitaly@2a1007bee30206a282312d73186ff82c379f6aa9) ([merge request](gitlab-org/gitaly!5408))
+
+## 16.0.7 (2023-07-04)
+
+No changes.
 
 ## 16.0.6 (2023-06-28)
 
@@ -108,6 +116,10 @@ No changes.
 - [datastore: Fix locking of consistent storages cache being too broad](gitlab-org/gitaly@7aac7784034000876cf9031211b51ed8872dd5ad) ([merge request](gitlab-org/gitaly!5729))
 - [housekeeping: Default-enable geometric repacking](gitlab-org/gitaly@fdd48e61b990e7b1dd2389f6abfcfcf0c3004730) ([merge request](gitlab-org/gitaly!5745))
 - [git/housekeeping: Speed up packing loose objects](gitlab-org/gitaly@7cc6bc02975d025fc67df80a775305d12334ffdc) ([merge request](gitlab-org/gitaly!5660))
+
+## 15.11.11 (2023-07-04)
+
+No changes.
 
 ## 15.11.10 (2023-06-28)
 
