@@ -86,6 +86,31 @@ func (e NonCommitObjectError) Error() string {
 	return fmt.Sprintf("pointed branch %q to a non-commit object %q", e.ReferenceName, e.ObjectID)
 }
 
+// MismatchingStateError is returned when attempting to update a reference where the expected object ID does not match
+// the actual object ID that the reference currently points to.
+type MismatchingStateError struct {
+	// ReferenceName is the name of the reference that was being updated.
+	ReferenceName string
+	// ExpectedObjectID is the expected object ID as specified by the caller.
+	ExpectedObjectID string
+	// ActualObjectID is the actual object ID that the reference was pointing to.
+	ActualObjectID string
+}
+
+func (e MismatchingStateError) Error() string {
+	return "reference does not point to expected object"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides error metadata about the expected and
+// actual object ID of the failed reference update.
+func (e MismatchingStateError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+		{Key: "expected_object_id", Value: e.ExpectedObjectID},
+		{Key: "actual_object_id", Value: e.ActualObjectID},
+	}
+}
+
 // state represents a possible state the updater can be in.
 type state string
 
@@ -333,6 +358,7 @@ var (
 	inTransactionConflictRegex   = regexp.MustCompile(`^fatal: .*: cannot lock ref '.*': cannot process '(.*)' and '(.*)' at the same time\n$`)
 	nonExistentObjectRegex       = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write ref '(.*)' with nonexistent object (.*)\n$`)
 	nonCommitObjectRegex         = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write non-commit object (.*) to branch '(.*)'\n`)
+	mismatchingStateRegex        = regexp.MustCompile(`^fatal: .*: cannot lock ref '(.*)': is at (.*) but expected (.*)\n$`)
 )
 
 func (u *Updater) setState(state string) error {
@@ -419,6 +445,15 @@ func (u *Updater) handleIOError(fallbackErr error) error {
 		return NonCommitObjectError{
 			ReferenceName: string(matches[2]),
 			ObjectID:      string(matches[1]),
+		}
+	}
+
+	matches = mismatchingStateRegex.FindSubmatch(stderr)
+	if len(matches) > 2 {
+		return MismatchingStateError{
+			ReferenceName:    string(matches[1]),
+			ExpectedObjectID: string(matches[3]),
+			ActualObjectID:   string(matches[2]),
 		}
 	}
 

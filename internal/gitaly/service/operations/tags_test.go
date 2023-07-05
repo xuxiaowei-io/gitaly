@@ -267,10 +267,11 @@ func TestUserDeleteTag(t *testing.T) {
 						User:           gittest.TestUser,
 						ExpectedOldOid: firstCommit.String(),
 					},
-					expectedError: testhelper.WithInterceptedMetadata(
+					expectedError: testhelper.WithInterceptedMetadataItems(
 						structerr.NewFailedPrecondition("Could not update refs/tags/%s. Please refresh and try again.", tagName),
-						"stderr",
-						fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/tags/%s': is at %s but expected %s\n", tagName, secondCommit, firstCommit),
+						structerr.MetadataItem{Key: "actual_object_id", Value: secondCommit},
+						structerr.MetadataItem{Key: "expected_object_id", Value: firstCommit},
+						structerr.MetadataItem{Key: "reference", Value: "refs/tags/" + tagName},
 					),
 					expectedTags: []string{"ganymede"},
 				}

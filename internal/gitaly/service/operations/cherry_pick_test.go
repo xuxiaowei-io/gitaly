@@ -269,10 +269,11 @@ func TestUserCherryPick(t *testing.T) {
 						ExpectedOldOid: data.masterCommit,
 					},
 					&gitalypb.UserCherryPickResponse{},
-					testhelper.WithInterceptedMetadata(
+					testhelper.WithInterceptedMetadataItems(
 						structerr.NewInternal("update reference with hooks: Could not update refs/heads/master. Please refresh and try again."),
-						"stderr",
-						fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/master': is at %s but expected %s\n", commit, data.masterCommit),
+						structerr.MetadataItem{Key: "actual_object_id", Value: commit},
+						structerr.MetadataItem{Key: "expected_object_id", Value: data.masterCommit},
+						structerr.MetadataItem{Key: "reference", Value: "refs/heads/master"},
 					)
 			},
 		},

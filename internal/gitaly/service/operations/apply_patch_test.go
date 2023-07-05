@@ -439,10 +439,11 @@ To restore the original branch and stop patching, run "git am --abort".
 				futureCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(currentCommit)), gittest.WithBranch(git.DefaultBranch))
 				return expected{
 					oldOID: currentCommit,
-					err: testhelper.WithInterceptedMetadata(
+					err: testhelper.WithInterceptedMetadataItems(
 						structerr.NewInternal(`update reference: Could not update %s. Please refresh and try again.`, git.DefaultRef),
-						"stderr",
-						fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/main': is at %s but expected %s\n", futureCommit, currentCommit),
+						structerr.MetadataItem{Key: "actual_object_id", Value: futureCommit},
+						structerr.MetadataItem{Key: "expected_object_id", Value: currentCommit},
+						structerr.MetadataItem{Key: "reference", Value: "refs/heads/main"},
 					),
 				}
 			},

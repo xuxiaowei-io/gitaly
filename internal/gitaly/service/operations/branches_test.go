@@ -608,8 +608,16 @@ func TestUserDeleteBranch(t *testing.T) {
 					repoPath: repoPath,
 					expectedErr: structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/%s. Please refresh and try again.", branchName).
 						WithDetail(&testproto.ErrorMetadata{
-							Key:   []byte("stderr"),
-							Value: []byte(fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/%s': is at %s but expected %s\n", branchName, secondCommit, firstCommit)),
+							Key:   []byte("actual_object_id"),
+							Value: []byte(secondCommit),
+						}).
+						WithDetail(&testproto.ErrorMetadata{
+							Key:   []byte("expected_object_id"),
+							Value: []byte(firstCommit),
+						}).
+						WithDetail(&testproto.ErrorMetadata{
+							Key:   []byte("reference"),
+							Value: []byte("refs/heads/" + branchName),
 						}).
 						WithDetail(&gitalypb.UserDeleteBranchError{
 							Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
