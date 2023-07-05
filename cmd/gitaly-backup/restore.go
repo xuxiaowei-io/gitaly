@@ -61,7 +61,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 	pool := client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
 	defer pool.Close()
 
-	manager := backup.NewManager(sink, locator, pool, cmd.backupID)
+	manager := backup.NewManager(sink, locator, pool)
 	logger := log.StandardLogger()
 
 	for _, storageName := range cmd.removeAllRepositories {

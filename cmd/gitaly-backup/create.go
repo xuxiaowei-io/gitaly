@@ -56,7 +56,7 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 	pool := client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
 	defer pool.Close()
 
-	manager := backup.NewManager(sink, locator, pool, cmd.backupID)
+	manager := backup.NewManager(sink, locator, pool)
 
 	var pipeline backup.Pipeline
 	pipeline = backup.NewLoggingPipeline(log.StandardLogger())

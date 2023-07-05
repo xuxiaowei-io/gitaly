@@ -119,23 +119,17 @@ type Manager struct {
 	conns   *client.Pool
 	locator Locator
 
-	// backupID allows setting the same full backup ID for every repository at
-	// once. We may use this to make it easier to specify a backup to restore
-	// from, rather than always selecting the latest.
-	backupID string
-
 	// repositoryFactory returns an abstraction over git repositories in order
 	// to create and restore backups.
 	repositoryFactory func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error)
 }
 
 // NewManager creates and returns initialized *Manager instance.
-func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) *Manager {
+func NewManager(sink Sink, locator Locator, pool *client.Pool) *Manager {
 	return &Manager{
-		sink:     sink,
-		conns:    pool,
-		locator:  locator,
-		backupID: backupID,
+		sink:    sink,
+		conns:   pool,
+		locator: locator,
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
 			if err := setContextServerInfo(ctx, &server, repo.GetStorageName()); err != nil {
 				return nil, err
@@ -159,13 +153,11 @@ func NewManagerLocal(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
-	backupID string,
 ) *Manager {
 	return &Manager{
-		sink:     sink,
-		conns:    nil, // Will be removed once the restore operations are part of the Repository interface.
-		locator:  locator,
-		backupID: backupID,
+		sink:    sink,
+		conns:   nil, // Will be removed once the restore operations are part of the Repository interface.
+		locator: locator,
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
 			localRepo := localrepo.New(storageLocator, gitCmdFactory, catfileCache, repo)
 
@@ -216,20 +208,15 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
 	}
 
-	backupID := req.BackupID
-	if backupID == "" {
-		backupID = mgr.backupID
-	}
-
 	var step *Step
 	if req.Incremental {
 		var err error
-		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, backupID)
+		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, req.BackupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		step = mgr.locator.BeginFull(ctx, req.VanityRepository, backupID)
+		step = mgr.locator.BeginFull(ctx, req.VanityRepository, req.BackupID)
 	}
 
 	refs, err := repo.ListRefs(ctx)
@@ -253,7 +240,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	return nil
 }
 
-// Restore restores a repository from a backup. If backupID is empty, the
+// Restore restores a repository from a backup. If req.BackupID is empty, the
 // latest backup will be used.
 func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 	if req.VanityRepository == nil {
@@ -269,19 +256,14 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	backupID := req.BackupID
-	if backupID == "" {
-		backupID = mgr.backupID
-	}
-
 	var backup *Backup
-	if backupID == "" {
+	if req.BackupID == "" {
 		backup, err = mgr.locator.FindLatest(ctx, req.VanityRepository)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		backup, err = mgr.locator.Find(ctx, req.VanityRepository, backupID)
+		backup, err = mgr.locator.Find(ctx, req.VanityRepository, req.BackupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
