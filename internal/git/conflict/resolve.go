@@ -82,8 +82,9 @@ type Resolution struct {
 
 // Resolve is used to resolve conflicts for a given blob. It expects the blob
 // to be provided as an io.Reader along with the resolutions for the provided
-// blob.
-func Resolve(src io.Reader, ours, theirs git.ObjectID, path string, resolution Resolution) (io.Reader, error) {
+// blob. Clients can also use appendNewLine to have an additional new line appended
+// to the end of the resolved buffer.
+func Resolve(src io.Reader, ours, theirs git.ObjectID, path string, resolution Resolution, appendNewLine bool) (io.Reader, error) {
 	var (
 		// conflict markers, git-merge-tree(1) appends the tree OIDs to the markers
 		start  = "<<<<<<< " + ours.String()
@@ -234,6 +235,10 @@ func Resolve(src io.Reader, ours, theirs git.ObjectID, path string, resolution R
 	_, err := resolvedContent.Write([]byte(strings.Join(resolvedLines, "\n")))
 	if err != nil {
 		return &resolvedContent, fmt.Errorf("writing bytes: %w", err)
+	}
+
+	if appendNewLine {
+		resolvedContent.Write([]byte("\n"))
 	}
 
 	return &resolvedContent, nil
