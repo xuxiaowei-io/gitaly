@@ -159,12 +159,6 @@ service InvalidService {
     };
   }
 
-  // Intercepted methods must not have operation type annotations.
-  rpc InvalidMethod15(RequestWithStorageAndRepo) returns (InvalidMethodResponse) {
-    option (gitaly.intercepted_method) = true;
-    option (gitaly.op_type) = {};
-  };
-
   rpc MaintenanceWithMissingRepository(InvalidMethodRequest) returns (InvalidMethodResponse) {
     option (gitaly.op_type).op = MAINTENANCE;
   }

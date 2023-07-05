@@ -116,8 +116,6 @@ type ValidServiceClient interface {
 	TestMethod7(ctx context.Context, in *ValidInnerNestedRequest, opts ...grpc.CallOption) (*ValidResponse, error)
 	TestMethod8(ctx context.Context, in *ValidStorageRequest, opts ...grpc.CallOption) (*ValidResponse, error)
 	TestMethod9(ctx context.Context, in *ValidStorageNestedRequest, opts ...grpc.CallOption) (*ValidResponse, error)
-	// Intercepted methods do not need operation type annotations.
-	TestMethod10(ctx context.Context, in *ValidStorageRequest, opts ...grpc.CallOption) (*ValidResponse, error)
 	TestMaintenance(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error)
 	TestMaintenanceWithExplicitScope(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error)
 	TestMaintenanceWithNestedRequest(ctx context.Context, in *ValidNestedRequest, opts ...grpc.CallOption) (*ValidResponse, error)
@@ -205,15 +203,6 @@ func (c *validServiceClient) TestMethod9(ctx context.Context, in *ValidStorageNe
 	return out, nil
 }
 
-func (c *validServiceClient) TestMethod10(ctx context.Context, in *ValidStorageRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
-	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod10", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *validServiceClient) TestMaintenance(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
 	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMaintenance", in, out, opts...)
@@ -271,8 +260,6 @@ type ValidServiceServer interface {
 	TestMethod7(context.Context, *ValidInnerNestedRequest) (*ValidResponse, error)
 	TestMethod8(context.Context, *ValidStorageRequest) (*ValidResponse, error)
 	TestMethod9(context.Context, *ValidStorageNestedRequest) (*ValidResponse, error)
-	// Intercepted methods do not need operation type annotations.
-	TestMethod10(context.Context, *ValidStorageRequest) (*ValidResponse, error)
 	TestMaintenance(context.Context, *ValidRequest) (*ValidResponse, error)
 	TestMaintenanceWithExplicitScope(context.Context, *ValidRequest) (*ValidResponse, error)
 	TestMaintenanceWithNestedRequest(context.Context, *ValidNestedRequest) (*ValidResponse, error)
@@ -308,9 +295,6 @@ func (UnimplementedValidServiceServer) TestMethod8(context.Context, *ValidStorag
 }
 func (UnimplementedValidServiceServer) TestMethod9(context.Context, *ValidStorageNestedRequest) (*ValidResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestMethod9 not implemented")
-}
-func (UnimplementedValidServiceServer) TestMethod10(context.Context, *ValidStorageRequest) (*ValidResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method TestMethod10 not implemented")
 }
 func (UnimplementedValidServiceServer) TestMaintenance(context.Context, *ValidRequest) (*ValidResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestMaintenance not implemented")
@@ -484,24 +468,6 @@ func _ValidService_TestMethod9_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ValidService_TestMethod10_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ValidStorageRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ValidServiceServer).TestMethod10(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/testproto.ValidService/TestMethod10",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ValidServiceServer).TestMethod10(ctx, req.(*ValidStorageRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ValidService_TestMaintenance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ValidRequest)
 	if err := dec(in); err != nil {
@@ -630,10 +596,6 @@ var ValidService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TestMethod9",
 			Handler:    _ValidService_TestMethod9_Handler,
-		},
-		{
-			MethodName: "TestMethod10",
-			Handler:    _ValidService_TestMethod10_Handler,
 		},
 		{
 			MethodName: "TestMaintenance",

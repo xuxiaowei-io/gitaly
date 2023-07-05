@@ -156,10 +156,6 @@ func TestNewProtoRegistry_IsInterceptedMethod(t *testing.T) {
 	t.Parallel()
 
 	for service, methods := range map[string][]string{
-		"ServerService": {
-			"ServerInfo",
-			"DiskStatistics",
-		},
 		"PraefectInfoService": {
 			"RepositoryReplicas",
 			"DatalossCheck",
