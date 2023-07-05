@@ -200,19 +200,6 @@ func (mgr *Manager) RemoveAllRepositories(ctx context.Context, req *RemoveAllRep
 	return nil
 }
 
-// CreateRequest is the request to create a backup
-type CreateRequest struct {
-	// Server contains gitaly server connection information required to call
-	// RPCs in the non-local backup.Manager configuration.
-	Server storage.ServerInfo
-	// Repository is the repository to be backed up.
-	Repository *gitalypb.Repository
-	// VanityRepository is used to determine the backup path.
-	VanityRepository *gitalypb.Repository
-	// Incremental when true will create an increment on the specified full backup.
-	Incremental bool
-}
-
 // Create creates a repository backup.
 func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	if req.VanityRepository == nil {
@@ -259,20 +246,6 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	}
 
 	return nil
-}
-
-// RestoreRequest is the request to restore from a backup
-type RestoreRequest struct {
-	// Server contains gitaly server connection information required to call
-	// RPCs in the non-local backup.Manager configuration.
-	Server storage.ServerInfo
-	// Repository is the repository to be restored.
-	Repository *gitalypb.Repository
-	// VanityRepository is used to determine the backup path.
-	VanityRepository *gitalypb.Repository
-	// AlwaysCreate forces the repository to be created even if no bundle for
-	// it exists. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
-	AlwaysCreate bool
 }
 
 // Restore restores a repository from a backup. If backupID is empty, the
