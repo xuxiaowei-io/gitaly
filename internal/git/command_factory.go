@@ -609,6 +609,11 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// comparatively high, context cancellation would still cause us to exit early in
 		// case the caller doesn't want to wait this long.
 		{Key: "core.packedRefsTimeout", Value: "10000"},
+		// Similarly, for loose references we bump the limit from 100 milliseconds to 1 second. We aim for a
+		// lower limit here as the locking for loose references is typically a lot more fine-grained. We have
+		// still observed lock contention around them though, but mostly in cases where the host system was
+		// heavily loaded by a storm of incoming RPCs.
+		{Key: "core.filesRefLockTimeout", Value: "1000"},
 	}
 
 	return config, nil
