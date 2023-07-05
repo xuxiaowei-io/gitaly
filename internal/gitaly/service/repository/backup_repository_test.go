@@ -160,11 +160,16 @@ func TestServerBackupRepository(t *testing.T) {
 			backupLocator, err := backup.ResolveLocator("pointer", backupSink)
 			require.NoError(t, err)
 
+			vanityRepo := &gitalypb.Repository{
+				StorageName:  "does-not-exist",
+				RelativePath: "@test/repo.git",
+			}
+
 			data := tc.setup(t, ctx, backupSink, backupLocator)
 
 			response, err := data.client.BackupRepository(ctx, &gitalypb.BackupRepositoryRequest{
 				Repository:       data.repo,
-				VanityRepository: data.repo,
+				VanityRepository: vanityRepo,
 				BackupId:         data.backupID,
 			})
 			if tc.expectedErr != nil {
@@ -175,7 +180,7 @@ func TestServerBackupRepository(t *testing.T) {
 			require.NoError(t, err)
 			testhelper.ProtoEqual(t, &gitalypb.BackupRepositoryResponse{}, response)
 
-			relativePath := strings.TrimSuffix(data.repo.GetRelativePath(), ".git")
+			relativePath := strings.TrimSuffix(vanityRepo.GetRelativePath(), ".git")
 			bundlePath := filepath.Join(relativePath, data.backupID, "001.bundle")
 
 			bundle, err := backupSink.GetReader(ctx, bundlePath)
