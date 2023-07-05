@@ -58,8 +58,7 @@ func TestPostReceivePack_successful(t *testing.T) {
 	})
 	repo.GlProjectPath = "project/path"
 
-	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 
 	// Below, we test whether extracting the hooks payload leads to the expected
 	// results. Part of this payload are feature flags, so we need to get them into a
@@ -153,8 +152,7 @@ func TestPostReceivePack_hiddenRefs(t *testing.T) {
 	newHead, err := repo.ResolveRevision(ctx, "HEAD")
 	require.NoError(t, err)
 
-	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 
 	for _, ref := range []string{
 		"refs/environments/1",
@@ -207,8 +205,7 @@ func TestPostReceivePack_protocolV2(t *testing.T) {
 		Seed: gittest.SeedGitLabTest,
 	})
 
-	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
@@ -237,8 +234,7 @@ func TestPostReceivePack_packfiles(t *testing.T) {
 	cfg.SocketPath = startSmartHTTPServer(t, cfg).Address()
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
@@ -297,8 +293,7 @@ func TestPostReceivePack_rejectViaGitConfigOptions(t *testing.T) {
 		Seed: gittest.SeedGitLabTest,
 	})
 
-	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
@@ -336,8 +331,7 @@ func TestPostReceivePack_rejectViaHooks(t *testing.T) {
 		Seed: gittest.SeedGitLabTest,
 	})
 
-	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
@@ -361,8 +355,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
@@ -442,8 +435,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 		Seed: gittest.SeedGitLabTest,
 	})
 
-	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 
 	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
 	tree := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
@@ -583,8 +575,7 @@ func TestPostReceivePack_fsck(t *testing.T) {
 		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 	)
 
-	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
@@ -643,8 +634,7 @@ func TestPostReceivePack_hooks(t *testing.T) {
 
 	gittest.WriteCheckNewObjectExistsHook(t, repoPath)
 
-	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
@@ -695,8 +685,7 @@ func TestPostReceivePack_transactionsViaPraefect(t *testing.T) {
 
 	gitlab.WriteShellSecretFile(t, cfg.GitlabShell.Dir, opts.SecretToken)
 
-	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
