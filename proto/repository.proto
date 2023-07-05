@@ -369,7 +369,10 @@ service RepositoryService {
 
   // RemoveAll deletes all repositories on a specified storage.
   rpc RemoveAll(RemoveAllRequest) returns (RemoveAllResponse) {
-    option (intercepted_method) = true;
+    option (op_type) = {
+      op: MUTATOR
+      scope_level: STORAGE
+    };
   }
 
   // BackupRepository creates a full backup streamed directly to
@@ -1230,7 +1233,7 @@ message FullPathResponse {
 // RemoveAll is a request for the RemoveAll RPC.
 message RemoveAllRequest {
   // StorageName of the storage to have all repositories removed from.
-  string storage_name = 1;
+  string storage_name = 1 [(storage)=true];;
 }
 
 // RemoveAllResponse is a response for the RemoveAll RPC.
