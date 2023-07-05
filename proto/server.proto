@@ -9,20 +9,38 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
 // ServerService is a service that provides information about a Gitaly server.
 service ServerService {
-  option (intercepted) = true;
+  // This comment is left unintentionally blank.
+  rpc ServerInfo(ServerInfoRequest) returns (ServerInfoResponse) {
+      option (op_type) = {
+        op: ACCESSOR
+        scope_level: STORAGE
+      };
+  }
 
   // This comment is left unintentionally blank.
-  rpc ServerInfo(ServerInfoRequest) returns (ServerInfoResponse);
-
-  // This comment is left unintentionally blank.
-  rpc DiskStatistics(DiskStatisticsRequest) returns (DiskStatisticsResponse);
+  rpc DiskStatistics(DiskStatisticsRequest) returns (DiskStatisticsResponse) {
+      option (op_type) = {
+        op: ACCESSOR
+        scope_level: STORAGE
+      };
+  }
 
   // ClockSynced checks if machine clock is synced
   // (the offset is less that the one passed in the request).
-  rpc ClockSynced(ClockSyncedRequest) returns (ClockSyncedResponse);
+  rpc ClockSynced(ClockSyncedRequest) returns (ClockSyncedResponse) {
+      option (op_type) = {
+        op: ACCESSOR
+        scope_level: STORAGE
+      };
+  }
 
   // ReadinessCheck runs the set of the checks to make sure service is in operational state.
-  rpc ReadinessCheck(ReadinessCheckRequest) returns (ReadinessCheckResponse);
+  rpc ReadinessCheck(ReadinessCheckRequest) returns (ReadinessCheckResponse) {
+      option (op_type) = {
+        op: ACCESSOR
+        scope_level: STORAGE
+      };
+  }
 }
 
 // This comment is left unintentionally blank.

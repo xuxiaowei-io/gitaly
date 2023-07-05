@@ -369,7 +369,10 @@ service RepositoryService {
 
   // RemoveAll deletes all repositories on a specified storage.
   rpc RemoveAll(RemoveAllRequest) returns (RemoveAllResponse) {
-    option (intercepted_method) = true;
+    option (op_type) = {
+      op: MUTATOR
+      scope_level: STORAGE
+    };
   }
 
   // BackupRepository creates a full backup streamed directly to
