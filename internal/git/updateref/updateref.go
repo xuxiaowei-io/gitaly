@@ -126,7 +126,16 @@ type NonCommitObjectError struct {
 }
 
 func (e NonCommitObjectError) Error() string {
-	return fmt.Sprintf("pointed branch %q to a non-commit object %q", e.ReferenceName, e.ObjectID)
+	return "target object not a commit"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the object that is not a commit as
+// well as the reference that should have been updated to point to it.
+func (e NonCommitObjectError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+		{Key: "non_commit_object", Value: e.ObjectID},
+	}
 }
 
 // MismatchingStateError is returned when attempting to update a reference where the expected object ID does not match
