@@ -82,7 +82,7 @@ func TestRepo_GetReference(t *testing.T) {
 		{
 			desc:     "fully qualified master branch",
 			ref:      "refs/heads/master",
-			expected: git.NewReference("refs/heads/master", commitID.String()),
+			expected: git.NewReference("refs/heads/master", commitID),
 		},
 		{
 			desc:        "unqualified master branch fails",
@@ -694,7 +694,7 @@ func TestGuessHead(t *testing.T) {
 				{"update-ref", "refs/heads/feature", commit1.String()},
 				{"update-ref", "refs/heads/zucchini", commit1.String()},
 			},
-			head:     git.NewReference("HEAD", commit1.String()),
+			head:     git.NewReference("HEAD", commit1),
 			expected: git.DefaultRef,
 		},
 		{
@@ -706,7 +706,7 @@ func TestGuessHead(t *testing.T) {
 				{"update-ref", "refs/heads/feature", commit1.String()},
 				{"update-ref", "refs/heads/zucchini", commit1.String()},
 			},
-			head:     git.NewReference("HEAD", commit1.String()),
+			head:     git.NewReference("HEAD", commit1),
 			expected: git.LegacyDefaultRef,
 		},
 		{
@@ -718,7 +718,7 @@ func TestGuessHead(t *testing.T) {
 				{"update-ref", "refs/heads/feature", commit1.String()},
 				{"update-ref", "refs/heads/zucchini", commit1.String()},
 			},
-			head:     git.NewReference("HEAD", commit1.String()),
+			head:     git.NewReference("HEAD", commit1),
 			expected: "refs/heads/apple",
 		},
 		{
@@ -730,7 +730,7 @@ func TestGuessHead(t *testing.T) {
 				{"update-ref", "refs/heads/feature", commit1.String()},
 				{"update-ref", "refs/heads/zucchini", commit1.String()},
 			},
-			head:     git.NewReference("HEAD", commit1.String()),
+			head:     git.NewReference("HEAD", commit1),
 			expected: "refs/heads/apple",
 		},
 		{
@@ -742,7 +742,7 @@ func TestGuessHead(t *testing.T) {
 				{"update-ref", "refs/heads/feature", commit2.String()},
 				{"update-ref", "refs/heads/zucchini", commit2.String()},
 			},
-			head:        git.NewReference("HEAD", commit1.String()),
+			head:        git.NewReference("HEAD", commit1),
 			expectedErr: fmt.Errorf("guess head: %w", git.ErrReferenceNotFound),
 		},
 	} {

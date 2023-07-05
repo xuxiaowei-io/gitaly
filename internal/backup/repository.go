@@ -72,7 +72,7 @@ func (rr *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, erro
 			return nil, fmt.Errorf("remote repository: list refs: %w", err)
 		}
 		for _, ref := range resp.GetReferences() {
-			refs = append(refs, git.NewReference(git.ReferenceName(ref.GetName()), ref.GetTarget()))
+			refs = append(refs, git.NewReference(git.ReferenceName(ref.GetName()), git.ObjectID(ref.GetTarget())))
 		}
 	}
 
@@ -295,7 +295,7 @@ func (r *localRepository) ListRefs(ctx context.Context) ([]git.Reference, error)
 	case err != nil:
 		return nil, structerr.NewInternal("local repository: list refs: %w", err)
 	default:
-		head := git.NewReference("HEAD", headOID.String())
+		head := git.NewReference("HEAD", headOID)
 		refs = append([]git.Reference{head}, refs...)
 	}
 
