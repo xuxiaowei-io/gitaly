@@ -1,10 +1,13 @@
 package diff
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -15,13 +18,21 @@ import (
 func TestFindChangedPathsRequest_success(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.FindChangedPathsBatchedValidation,
+	).Run(t, testFindChangedPathsRequestSuccess)
+}
+
+type commitRequest struct {
+	commit  string
+	parents []string
+}
+
+func testFindChangedPathsRequestSuccess(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	type commitRequest struct {
-		commit  string
-		parents []string
-	}
 	type treeRequest struct {
 		left, right string
 	}
@@ -733,7 +744,14 @@ func TestFindChangedPathsRequest_success(t *testing.T) {
 func TestFindChangedPathsRequest_deprecated(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.FindChangedPathsBatchedValidation,
+	).Run(t, testFindChangedPathsRequestDeprecated)
+}
+
+func testFindChangedPathsRequestDeprecated(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupDiffServiceWithoutRepo(t)
 
 	type setupData struct {
@@ -926,7 +944,14 @@ func TestFindChangedPathsRequest_deprecated(t *testing.T) {
 func TestFindChangedPathsRequest_failing(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.FindChangedPathsBatchedValidation,
+	).Run(t, testFindChangedPathsRequestFailing)
+}
+
+func testFindChangedPathsRequestFailing(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupDiffServiceWithoutRepo(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1077,5 +1102,102 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			_, err := stream.Recv()
 			testhelper.RequireGrpcError(t, tc.err, err)
 		})
+	}
+}
+
+func BenchmarkFindChangedPaths_1Commit(b *testing.B) {
+	testhelper.NewFeatureSets(featureflag.FindChangedPathsBatchedValidation).
+		Bench(b, benchmarkFindChangedPaths(1))
+}
+
+func BenchmarkFindChangedPaths_10Commits(b *testing.B) {
+	testhelper.NewFeatureSets(featureflag.FindChangedPathsBatchedValidation).
+		Bench(b, benchmarkFindChangedPaths(10))
+}
+
+func BenchmarkFindChangedPaths_100Commits(b *testing.B) {
+	testhelper.NewFeatureSets(featureflag.FindChangedPathsBatchedValidation).
+		Bench(b, benchmarkFindChangedPaths(100))
+}
+
+func benchmarkFindChangedPaths(commitNum int) func(b *testing.B, ctx context.Context) {
+	return func(b *testing.B, ctx context.Context) {
+		cfg, client := setupDiffServiceWithoutRepo(b)
+
+		repo, repoPath := gittest.CreateRepository(b, ctx, cfg)
+
+		var commits []commitRequest
+		var expectedPaths []*gitalypb.ChangedPaths
+		for i := 0; i < commitNum; i++ {
+			oldCommit := gittest.WriteCommit(b, cfg, repoPath,
+				gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: fmt.Sprintf("modified-%d.txt", i), Mode: "100644", Content: "before"},
+				),
+			)
+			newCommit := gittest.WriteCommit(b, cfg, repoPath,
+				gittest.WithParents(oldCommit),
+				gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: fmt.Sprintf("added-%d.txt", i), Mode: "100755", Content: "new"},
+					gittest.TreeEntry{Path: fmt.Sprintf("modified-%d.txt", i), Mode: "100644", Content: "after"},
+				),
+			)
+
+			commits = append(commits, commitRequest{
+				commit: newCommit.String(),
+			},
+			)
+
+			expectedPaths = append(
+				expectedPaths,
+				&gitalypb.ChangedPaths{
+					Status:  gitalypb.ChangedPaths_ADDED,
+					Path:    []byte(fmt.Sprintf("added-%d.txt", i)),
+					OldMode: 0o000000,
+					NewMode: 0o100755,
+				},
+				&gitalypb.ChangedPaths{
+					Status:  gitalypb.ChangedPaths_MODIFIED,
+					Path:    []byte(fmt.Sprintf("modified-%d.txt", i)),
+					OldMode: 0o100644,
+					NewMode: 0o100644,
+				},
+			)
+		}
+
+		rpcRequest := &gitalypb.FindChangedPathsRequest{
+			Repository:          repo,
+			MergeCommitDiffMode: gitalypb.FindChangedPathsRequest_MERGE_COMMIT_DIFF_MODE_ALL_PARENTS,
+		}
+
+		for _, commitReq := range commits {
+			req := &gitalypb.FindChangedPathsRequest_Request{
+				Type: &gitalypb.FindChangedPathsRequest_Request_CommitRequest_{
+					CommitRequest: &gitalypb.FindChangedPathsRequest_Request_CommitRequest{
+						CommitRevision:        commitReq.commit,
+						ParentCommitRevisions: commitReq.parents,
+					},
+				},
+			}
+			rpcRequest.Requests = append(rpcRequest.Requests, req)
+		}
+
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			stream, err := client.FindChangedPaths(ctx, rpcRequest)
+			require.NoError(b, err)
+
+			var paths []*gitalypb.ChangedPaths
+			for {
+				fetchedPaths, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				require.NoError(b, err)
+
+				paths = append(paths, fetchedPaths.GetPaths()...)
+			}
+			require.Equal(b, expectedPaths, paths)
+		}
 	}
 }
