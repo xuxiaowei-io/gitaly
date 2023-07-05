@@ -105,7 +105,16 @@ type NonExistentObjectError struct {
 }
 
 func (e NonExistentObjectError) Error() string {
-	return fmt.Sprintf("pointed reference %q to a non-existent object %q", e.ReferenceName, e.ObjectID)
+	return "target object missing"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the missing object as well as the
+// reference that should have been updated to point to it.
+func (e NonExistentObjectError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+		{Key: "missing_object", Value: e.ObjectID},
+	}
 }
 
 // NonCommitObjectError is returned when attempting to point a branch to an object that is not an object.
