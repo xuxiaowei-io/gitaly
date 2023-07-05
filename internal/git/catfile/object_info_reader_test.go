@@ -16,12 +16,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
-func TestParseObjectInfo_success(t *testing.T) {
+func TestParseObjectInfo(t *testing.T) {
 	t.Parallel()
+
+	oid := gittest.DefaultObjectHash.EmptyTreeOID
 
 	for _, tc := range []struct {
 		desc               string
@@ -44,27 +47,6 @@ func TestParseObjectInfo_success(t *testing.T) {
 			input:       "bla missing\n",
 			expectedErr: NotFoundError{fmt.Errorf("object not found")},
 		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			reader := bufio.NewReader(strings.NewReader(tc.input))
-
-			objectInfo, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
-			require.Equal(t, tc.expectedErr, err)
-			require.Equal(t, tc.expectedObjectInfo, objectInfo)
-		})
-	}
-}
-
-func TestParseObjectInfo_errors(t *testing.T) {
-	t.Parallel()
-
-	oid := gittest.DefaultObjectHash.EmptyTreeOID
-
-	for _, tc := range []struct {
-		desc        string
-		input       string
-		expectedErr error
-	}{
 		{
 			desc:        "missing newline",
 			input:       fmt.Sprintf("%s commit 222", oid),
@@ -95,11 +77,26 @@ func TestParseObjectInfo_errors(t *testing.T) {
 			}),
 		},
 	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			reader := bufio.NewReader(strings.NewReader(tc.input))
+		t.Run("newline-terminated", func(t *testing.T) {
+			objectInfo, err := ParseObjectInfo(
+				gittest.DefaultObjectHash,
+				bufio.NewReader(strings.NewReader(tc.input)),
+				false,
+			)
 
-			_, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
 			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedObjectInfo, objectInfo)
+		})
+
+		t.Run("NUL-terminated", func(t *testing.T) {
+			objectInfo, err := ParseObjectInfo(
+				gittest.DefaultObjectHash,
+				bufio.NewReader(strings.NewReader(strings.ReplaceAll(tc.input, "\n", "\000"))),
+				true,
+			)
+
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedObjectInfo, objectInfo)
 		})
 	}
 }
@@ -236,6 +233,10 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		}),
 		Format: gittest.DefaultObjectHash.Format,
 	}
+
+	treeWithNewlines := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "path\nwith\nnewline", Mode: "100644", OID: blobOID},
+	})
 
 	t.Run("reader is dirty with acquired queue", func(t *testing.T) {
 		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
@@ -385,6 +386,27 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
 	})
 
+	t.Run("reading object with newline", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		err = queue.RequestObject(ctx, treeWithNewlines.Revision()+":path\nwith\nnewline")
+		if !catfileSupportsNul(t, ctx, cfg) {
+			require.Equal(t, structerr.NewInvalidArgument("Git too old to support requests with newlines"), err)
+			return
+		}
+		require.NoError(t, err)
+		require.NoError(t, queue.Flush(ctx))
+
+		info, err := queue.ReadInfo(ctx)
+		require.NoError(t, err)
+		require.Equal(t, &blobInfo, info)
+	})
+
 	t.Run("can continue reading after NotFoundError", func(t *testing.T) {
 		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
@@ -394,6 +416,34 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		defer cleanup()
 
 		require.NoError(t, queue.RequestInfo(ctx, "does-not-exist"))
+		require.NoError(t, queue.Flush(ctx))
+
+		_, err = queue.ReadInfo(ctx)
+		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+
+		// Requesting another object info after the previous one has failed should continue
+		// to work alright.
+		require.NoError(t, queue.RequestInfo(ctx, blobOID.Revision()))
+		require.NoError(t, queue.Flush(ctx))
+		info, err := queue.ReadInfo(ctx)
+		require.NoError(t, err)
+		require.Equal(t, &blobInfo, info)
+	})
+
+	t.Run("missing object with newline", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		err = queue.RequestInfo(ctx, "does\nnot\nexist")
+		if !catfileSupportsNul(t, ctx, cfg) {
+			require.Equal(t, structerr.NewInvalidArgument("Git too old to support requests with newlines"), err)
+			return
+		}
+		require.NoError(t, err)
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadInfo(ctx)

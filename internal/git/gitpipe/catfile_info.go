@@ -228,7 +228,7 @@ func CatfileInfoAllObjects(
 
 		reader := bufio.NewReader(cmd)
 		for {
-			objectInfo, err := catfile.ParseObjectInfo(objectHash, reader)
+			objectInfo, err := catfile.ParseObjectInfo(objectHash, reader, false)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					break

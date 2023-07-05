@@ -53,14 +53,19 @@ func IsNotFound(err error) bool {
 
 // ParseObjectInfo reads from a reader and parses the data into an ObjectInfo struct with the given
 // object hash.
-func ParseObjectInfo(objectHash git.ObjectHash, stdout *bufio.Reader) (*ObjectInfo, error) {
+func ParseObjectInfo(objectHash git.ObjectHash, stdout *bufio.Reader, nulTerminated bool) (*ObjectInfo, error) {
 restart:
-	infoLine, err := stdout.ReadString('\n')
+	var terminator byte = '\n'
+	if nulTerminated {
+		terminator = '\000'
+	}
+
+	infoLine, err := stdout.ReadString(terminator)
 	if err != nil {
 		return nil, fmt.Errorf("read info line: %w", err)
 	}
 
-	infoLine = strings.TrimSuffix(infoLine, "\n")
+	infoLine = strings.TrimSuffix(infoLine, string(terminator))
 	if strings.HasSuffix(infoLine, " missing") {
 		// We use a hack to flush stdout of git-cat-file(1), which is that we request an
 		// object that cannot exist. This causes Git to write an error and immediately flush
@@ -145,13 +150,25 @@ func newObjectInfoReader(
 	repo git.RepositoryExecutor,
 	counter *prometheus.CounterVec,
 ) (*objectInfoReader, error) {
+	gitVersion, err := repo.GitVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting Git version: %w", err)
+	}
+
+	flags := []git.Option{
+		git.Flag{Name: "--batch-check"},
+		git.Flag{Name: "--buffer"},
+		git.Flag{Name: "-z"},
+	}
+
+	if gitVersion.CatfileSupportsNulTerminatedOutput() {
+		flags = append(flags, git.Flag{Name: "-Z"})
+	}
+
 	batchCmd, err := repo.Exec(ctx,
 		git.Command{
-			Name: "cat-file",
-			Flags: []git.Option{
-				git.Flag{Name: "--batch-check"},
-				git.Flag{Name: "--buffer"},
-			},
+			Name:  "cat-file",
+			Flags: flags,
 		},
 		git.WithSetupStdin(),
 	)
@@ -169,9 +186,10 @@ func newObjectInfoReader(
 		objectHash: objectHash,
 		counter:    counter,
 		queue: requestQueue{
-			objectHash: objectHash,
-			stdout:     bufio.NewReader(batchCmd),
-			stdin:      bufio.NewWriter(batchCmd),
+			objectHash:      objectHash,
+			isNulTerminated: gitVersion.CatfileSupportsNulTerminatedOutput(),
+			stdout:          bufio.NewReader(batchCmd),
+			stdin:           bufio.NewWriter(batchCmd),
 		},
 	}
 

@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 const (
@@ -59,6 +61,10 @@ type requestQueue struct {
 	// objects. If set to `false`, then this can only be used to read object info.
 	isObjectQueue bool
 
+	// isNulTerminated indicates whether `stdout` is NUL terminated or not. This corresponds to the `-Z`
+	// option that can be passed to git-cat-file(1).
+	isNulTerminated bool
+
 	stdout *bufio.Reader
 	stdin  *bufio.Writer
 
@@ -105,6 +111,14 @@ func (q *requestQueue) RequestInfo(ctx context.Context, revision git.Revision) e
 }
 
 func (q *requestQueue) requestRevision(ctx context.Context, cmd string, revision git.Revision) error {
+	if strings.Contains(revision.String(), "\000") {
+		return structerr.NewInvalidArgument("revision must not contain NUL bytes")
+	}
+
+	if !q.isNulTerminated && strings.Contains(revision.String(), "\n") {
+		return structerr.NewInvalidArgument("Git too old to support requests with newlines")
+	}
+
 	if q.isClosed() {
 		return fmt.Errorf("cannot request revision: %w", os.ErrClosed)
 	}
@@ -116,7 +130,7 @@ func (q *requestQueue) requestRevision(ctx context.Context, cmd string, revision
 		return fmt.Errorf("writing object request: %w", err)
 	}
 
-	if err := q.stdin.WriteByte('\n'); err != nil {
+	if err := q.stdin.WriteByte('\000'); err != nil {
 		atomic.AddInt64(&q.counters.outstandingRequests, -1)
 		return fmt.Errorf("terminating object request: %w", err)
 	}
@@ -135,7 +149,7 @@ func (q *requestQueue) Flush(ctx context.Context) error {
 		return fmt.Errorf("writing flush command: %w", err)
 	}
 
-	if err := q.stdin.WriteByte('\n'); err != nil {
+	if err := q.stdin.WriteByte('\000'); err != nil {
 		return fmt.Errorf("terminating flush command: %w", err)
 	}
 
@@ -254,7 +268,7 @@ func (q *requestQueue) readInfo() (*ObjectInfo, error) {
 		return nil, fmt.Errorf("concurrent read on request queue")
 	}
 
-	return ParseObjectInfo(q.objectHash, q.stdout)
+	return ParseObjectInfo(q.objectHash, q.stdout, q.isNulTerminated)
 }
 
 func logDuration(ctx context.Context, logFieldName string) func() {

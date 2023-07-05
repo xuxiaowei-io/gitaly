@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
@@ -139,6 +140,9 @@ func TestObjectContentReader_queue(t *testing.T) {
 
 	foobarBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	barfooBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
+	treeWithNewlines := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "path\nwith\nnewline", Mode: "100644", OID: foobarBlob},
+	})
 
 	t.Run("reader is dirty with acquired queue", func(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
@@ -303,6 +307,30 @@ func TestObjectContentReader_queue(t *testing.T) {
 		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
 	})
 
+	t.Run("reading object with newline", func(t *testing.T) {
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		err = queue.RequestObject(ctx, treeWithNewlines.Revision()+":path\nwith\nnewline")
+		if !catfileSupportsNul(t, ctx, cfg) {
+			require.Equal(t, structerr.NewInvalidArgument("Git too old to support requests with newlines"), err)
+			return
+		}
+		require.NoError(t, err)
+		require.NoError(t, queue.Flush(ctx))
+
+		object, err := queue.ReadObject(ctx)
+		require.NoError(t, err)
+
+		contents, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", string(contents))
+	})
+
 	t.Run("can continue reading after NotFoundError", func(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
@@ -312,6 +340,37 @@ func TestObjectContentReader_queue(t *testing.T) {
 		defer cleanup()
 
 		require.NoError(t, queue.RequestObject(ctx, "does-not-exist"))
+		require.NoError(t, queue.Flush(ctx))
+
+		_, err = queue.ReadObject(ctx)
+		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+
+		// Requesting another object after the previous one has failed should continue to
+		// work alright.
+		require.NoError(t, queue.RequestObject(ctx, foobarBlob.Revision()))
+		require.NoError(t, queue.Flush(ctx))
+		object, err := queue.ReadObject(ctx)
+		require.NoError(t, err)
+
+		contents, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", string(contents))
+	})
+
+	t.Run("missing object with newline", func(t *testing.T) {
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		err = queue.RequestObject(ctx, "does\nnot\nexist")
+		if !catfileSupportsNul(t, ctx, cfg) {
+			require.Equal(t, structerr.NewInvalidArgument("Git too old to support requests with newlines"), err)
+			return
+		}
+		require.NoError(t, err)
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadObject(ctx)

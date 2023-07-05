@@ -48,7 +48,7 @@ func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Command, opts ..
 }
 
 func (e *repoExecutor) GitVersion(ctx context.Context) (git.Version, error) {
-	return git.Version{}, nil
+	return e.gitCmdFactory.GitVersion(ctx)
 }
 
 func (e *repoExecutor) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
@@ -108,4 +108,11 @@ func (o *staticObject) Read(p []byte) (int, error) {
 
 func (o *staticObject) WriteTo(w io.Writer) (int64, error) {
 	return io.Copy(w, o.reader)
+}
+
+func catfileSupportsNul(t *testing.T, ctx context.Context, cfg config.Cfg) bool {
+	t.Helper()
+	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
+	require.NoError(t, err)
+	return gitVersion.CatfileSupportsNulTerminatedOutput()
 }
