@@ -83,7 +83,16 @@ type InTransactionConflictError struct {
 }
 
 func (e InTransactionConflictError) Error() string {
-	return fmt.Sprintf("%q and %q conflict in the same transaction", e.FirstReferenceName, e.SecondReferenceName)
+	return "conflicting reference updates in the same transaction"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of the first and second
+// conflicting reference names.
+func (e InTransactionConflictError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "first_reference", Value: e.FirstReferenceName},
+		{Key: "second_reference", Value: e.SecondReferenceName},
+	}
 }
 
 // NonExistentObjectError is returned when attempting to point a reference to an object that does not
