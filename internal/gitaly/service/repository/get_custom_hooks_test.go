@@ -2,7 +2,6 @@ package repository
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -150,33 +149,33 @@ func TestGetCustomHooks_nonexistentHooks(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc         string
-		streamReader func(*testing.T, context.Context, *gitalypb.Repository, gitalypb.RepositoryServiceClient) *tar.Reader
+		streamReader func(*testing.T, context.Context, *gitalypb.Repository, gitalypb.RepositoryServiceClient) io.Reader
 	}{
 		{
 			desc: "GetCustomHooks",
-			streamReader: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) *tar.Reader {
+			streamReader: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) io.Reader {
 				request := &gitalypb.GetCustomHooksRequest{Repository: repo}
 				stream, err := client.GetCustomHooks(ctx, request)
 				require.NoError(t, err)
 
-				return tar.NewReader(streamio.NewReader(func() ([]byte, error) {
+				return streamio.NewReader(func() ([]byte, error) {
 					response, err := stream.Recv()
 					return response.GetData(), err
-				}))
+				})
 			},
 		},
 		{
 			desc: "BackupCustomHooks",
-			streamReader: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) *tar.Reader {
+			streamReader: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) io.Reader {
 				request := &gitalypb.BackupCustomHooksRequest{Repository: repo}
 				//nolint:staticcheck
 				stream, err := client.BackupCustomHooks(ctx, request)
 				require.NoError(t, err)
 
-				return tar.NewReader(streamio.NewReader(func() ([]byte, error) {
+				return streamio.NewReader(func() ([]byte, error) {
 					response, err := stream.Recv()
 					return response.GetData(), err
-				}))
+				})
 			},
 		},
 	} {
@@ -185,13 +184,9 @@ func TestGetCustomHooks_nonexistentHooks(t *testing.T) {
 			cfg, client := setupRepositoryServiceWithoutRepo(t)
 			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-			reader := tc.streamReader(t, ctx, repo, client)
-
-			buf := bytes.NewBuffer(nil)
-			_, err := io.Copy(buf, reader)
+			buf, err := io.ReadAll(tc.streamReader(t, ctx, repo, client))
 			require.NoError(t, err)
-
-			require.Empty(t, buf.String(), "Returned stream should be empty")
+			require.Empty(t, buf, "Returned stream should be empty")
 		})
 	}
 }
