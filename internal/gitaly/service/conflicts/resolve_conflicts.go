@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -142,11 +141,10 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	quarantineDir, err := quarantine.New(ctx, header.GetRepository(), s.locator)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository())
 	if err != nil {
-		return structerr.NewInternal("creating object quarantine: %w", err)
+		return err
 	}
-	quarantineRepo := s.localrepo(quarantineDir.QuarantinedRepo())
 
 	if err := s.repoWithBranchCommit(ctx,
 		quarantineRepo,
