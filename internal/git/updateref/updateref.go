@@ -39,7 +39,15 @@ type InvalidReferenceFormatError struct {
 }
 
 func (e InvalidReferenceFormatError) Error() string {
-	return fmt.Sprintf("invalid reference format: %q", e.ReferenceName)
+	return "invalid reference format"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of the reference that was
+// invalid.
+func (e InvalidReferenceFormatError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+	}
 }
 
 // FileDirectoryConflictError is returned when an operation would causes a file-directory conflict
