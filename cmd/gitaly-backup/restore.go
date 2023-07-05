@@ -100,6 +100,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 			Repository:       &repo,
 			VanityRepository: &repo,
 			AlwaysCreate:     req.AlwaysCreate,
+			BackupID:         cmd.backupID,
 		}))
 	}
 

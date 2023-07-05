@@ -216,15 +216,20 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
 	}
 
+	backupID := req.BackupID
+	if backupID == "" {
+		backupID = mgr.backupID
+	}
+
 	var step *Step
 	if req.Incremental {
 		var err error
-		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, mgr.backupID)
+		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, backupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		step = mgr.locator.BeginFull(ctx, req.VanityRepository, mgr.backupID)
+		step = mgr.locator.BeginFull(ctx, req.VanityRepository, backupID)
 	}
 
 	refs, err := repo.ListRefs(ctx)
@@ -264,14 +269,19 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
+	backupID := req.BackupID
+	if backupID == "" {
+		backupID = mgr.backupID
+	}
+
 	var backup *Backup
-	if mgr.backupID == "" {
+	if backupID == "" {
 		backup, err = mgr.locator.FindLatest(ctx, req.VanityRepository)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		backup, err = mgr.locator.Find(ctx, req.VanityRepository, mgr.backupID)
+		backup, err = mgr.locator.Find(ctx, req.VanityRepository, backupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}

@@ -82,6 +82,7 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 			Repository:       &repo,
 			VanityRepository: &repo,
 			Incremental:      cmd.incremental,
+			BackupID:         cmd.backupID,
 		}))
 	}
 

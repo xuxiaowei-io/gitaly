@@ -29,6 +29,9 @@ type CreateRequest struct {
 	VanityRepository *gitalypb.Repository
 	// Incremental when true will create an increment on the specified full backup.
 	Incremental bool
+	// BackupID is used to determine a unique path for the backup when a full
+	// backup is created.
+	BackupID string
 }
 
 // RestoreRequest is the request to restore from a backup
@@ -43,6 +46,9 @@ type RestoreRequest struct {
 	// AlwaysCreate forces the repository to be created even if no bundle for
 	// it exists. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
 	AlwaysCreate bool
+	// BackupID is the ID of the full backup to restore. If not specified, the
+	// latest backup is restored..
+	BackupID string
 }
 
 // Command handles a specific backup operation

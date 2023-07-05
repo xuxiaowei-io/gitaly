@@ -32,6 +32,7 @@ func (s *server) RestoreRepository(ctx context.Context, in *gitalypb.RestoreRepo
 		Repository:       in.GetRepository(),
 		VanityRepository: in.GetVanityRepository(),
 		AlwaysCreate:     in.GetAlwaysCreate(),
+		BackupID:         in.GetBackupId(),
 	}); err != nil {
 		return nil, structerr.NewInternal("restore repository: %w", err)
 	}
