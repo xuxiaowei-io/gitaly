@@ -268,7 +268,7 @@ func TestUserDeleteTag(t *testing.T) {
 						ExpectedOldOid: firstCommit.String(),
 					},
 					expectedError: testhelper.WithInterceptedMetadataItems(
-						structerr.NewFailedPrecondition("Could not update refs/tags/%s. Please refresh and try again.", tagName),
+						structerr.NewFailedPrecondition("reference update: reference does not point to expected object"),
 						structerr.MetadataItem{Key: "actual_object_id", Value: secondCommit},
 						structerr.MetadataItem{Key: "expected_object_id", Value: firstCommit},
 						structerr.MetadataItem{Key: "reference", Value: "refs/tags/" + tagName},

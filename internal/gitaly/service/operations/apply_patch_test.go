@@ -440,7 +440,7 @@ To restore the original branch and stop patching, run "git am --abort".
 				return expected{
 					oldOID: currentCommit,
 					err: testhelper.WithInterceptedMetadataItems(
-						structerr.NewInternal(`update reference: Could not update %s. Please refresh and try again.`, git.DefaultRef),
+						structerr.NewInternal("update reference: reference update: reference does not point to expected object"),
 						structerr.MetadataItem{Key: "actual_object_id", Value: futureCommit},
 						structerr.MetadataItem{Key: "expected_object_id", Value: currentCommit},
 						structerr.MetadataItem{Key: "reference", Value: "refs/heads/main"},

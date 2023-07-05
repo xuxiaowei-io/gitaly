@@ -191,7 +191,7 @@ func testUserMergeBranch(t *testing.T, ctx context.Context) {
 					secondRequest:          &gitalypb.UserMergeBranchRequest{Apply: true},
 					secondExpectedResponse: &gitalypb.OperationBranchUpdate{},
 					secondExpectedErr: func(response *gitalypb.UserMergeBranchResponse) error {
-						return structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again.").
+						return structerr.NewFailedPrecondition("reference update: reference does not point to expected object").
 							WithDetail(&testproto.ErrorMetadata{
 								Key:   []byte("actual_object_id"),
 								Value: []byte(secondCommit),
@@ -727,7 +727,7 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 
 	secondResponse, err := mergeBidi.Recv()
 	testhelper.RequireGrpcError(t,
-		structerr.NewFailedPrecondition("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again.").
+		structerr.NewFailedPrecondition("reference update: reference does not point to expected object").
 			WithDetail(&testproto.ErrorMetadata{
 				Key:   []byte("actual_object_id"),
 				Value: []byte(concurrentCommitID),

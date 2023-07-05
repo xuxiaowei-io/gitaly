@@ -368,7 +368,7 @@ func TestUserRevert(t *testing.T) {
 						ExpectedOldOid: firstCommitID.String(),
 					},
 					expectedError: testhelper.WithInterceptedMetadataItems(
-						structerr.NewInternal("update reference with hooks: Could not update refs/heads/%s. Please refresh and try again.", branchName),
+						structerr.NewInternal("update reference with hooks: reference update: reference does not point to expected object"),
 						structerr.MetadataItem{Key: "actual_object_id", Value: secondCommitID},
 						structerr.MetadataItem{Key: "expected_object_id", Value: firstCommitID},
 						structerr.MetadataItem{Key: "reference", Value: "refs/heads/" + branchName},

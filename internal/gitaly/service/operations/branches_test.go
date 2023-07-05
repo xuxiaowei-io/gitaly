@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -390,7 +391,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			startPoint: "master",
 			user:       gittest.TestUser,
 			err: testhelper.WithInterceptedMetadata(
-				structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again."),
+				structerr.NewFailedPrecondition("reference update: state update to %q failed: %w", "prepare", io.EOF),
 				"stderr",
 				"fatal: prepare: cannot lock ref 'refs/heads/master': reference already exists\n",
 			),
@@ -402,7 +403,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			startPoint: "master",
 			user:       gittest.TestUser,
 			err: testhelper.WithInterceptedMetadataItems(
-				structerr.NewFailedPrecondition("Could not update refs/heads/improve. Please refresh and try again."),
+				structerr.NewFailedPrecondition("reference update: file directory conflict"),
 				structerr.MetadataItem{Key: "conflicting_reference", Value: "refs/heads/improve"},
 				structerr.MetadataItem{Key: "existing_reference", Value: "refs/heads/improve/awesome"},
 			),
@@ -610,7 +611,7 @@ func TestUserDeleteBranch(t *testing.T) {
 						ExpectedOldOid: firstCommit.String(),
 					},
 					repoPath: repoPath,
-					expectedErr: structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/%s. Please refresh and try again.", branchName).
+					expectedErr: structerr.NewFailedPrecondition("reference update failed: reference update: reference does not point to expected object").
 						WithDetail(&testproto.ErrorMetadata{
 							Key:   []byte("actual_object_id"),
 							Value: []byte(secondCommit),
@@ -759,7 +760,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 		BranchName: []byte("concurrent-update"),
 		User:       gittest.TestUser,
 	})
-	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again.").
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: reference update: reference is already locked").
 		WithDetail(&testproto.ErrorMetadata{
 			Key:   []byte("reference"),
 			Value: []byte("refs/heads/concurrent-update"),

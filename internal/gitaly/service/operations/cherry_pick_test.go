@@ -270,7 +270,7 @@ func TestUserCherryPick(t *testing.T) {
 					},
 					&gitalypb.UserCherryPickResponse{},
 					testhelper.WithInterceptedMetadataItems(
-						structerr.NewInternal("update reference with hooks: Could not update refs/heads/master. Please refresh and try again."),
+						structerr.NewInternal("update reference with hooks: reference update: reference does not point to expected object"),
 						structerr.MetadataItem{Key: "actual_object_id", Value: commit},
 						structerr.MetadataItem{Key: "expected_object_id", Value: data.masterCommit},
 						structerr.MetadataItem{Key: "reference", Value: "refs/heads/master"},
