@@ -95,7 +95,12 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 			RelativePath:  req.RelativePath,
 			GlProjectPath: req.GlProjectPath,
 		}
-		pipeline.Handle(ctx, backup.NewRestoreCommand(manager, req.ServerInfo, &repo, req.AlwaysCreate))
+		pipeline.Handle(ctx, backup.NewRestoreCommand(manager, backup.RestoreRequest{
+			Server:           req.ServerInfo,
+			Repository:       &repo,
+			VanityRepository: &repo,
+			AlwaysCreate:     req.AlwaysCreate,
+		}))
 	}
 
 	if err := pipeline.Done(); err != nil {

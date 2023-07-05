@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -170,9 +169,9 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 		ctx := testhelper.Context(t)
 
 		commands := []Command{
-			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}, false),
-			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "b.git", StorageName: "skip"}, false),
-			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "c.git", StorageName: "error"}, false),
+			NewRestoreCommand(strategy, RestoreRequest{Repository: &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}}),
+			NewRestoreCommand(strategy, RestoreRequest{Repository: &gitalypb.Repository{RelativePath: "b.git", StorageName: "skip"}}),
+			NewRestoreCommand(strategy, RestoreRequest{Repository: &gitalypb.Repository{RelativePath: "c.git", StorageName: "error"}}),
 		}
 		for _, cmd := range commands {
 			p.Handle(ctx, cmd)

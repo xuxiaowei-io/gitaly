@@ -90,25 +90,21 @@ func (cmd CreateCommand) Execute(ctx context.Context) error {
 
 // RestoreCommand restores a backup for a repository
 type RestoreCommand struct {
-	strategy     Strategy
-	server       storage.ServerInfo
-	repository   *gitalypb.Repository
-	alwaysCreate bool
+	strategy Strategy
+	request  RestoreRequest
 }
 
 // NewRestoreCommand builds a RestoreCommand
-func NewRestoreCommand(strategy Strategy, server storage.ServerInfo, repo *gitalypb.Repository, alwaysCreate bool) *RestoreCommand {
+func NewRestoreCommand(strategy Strategy, request RestoreRequest) *RestoreCommand {
 	return &RestoreCommand{
-		strategy:     strategy,
-		server:       server,
-		repository:   repo,
-		alwaysCreate: alwaysCreate,
+		strategy: strategy,
+		request:  request,
 	}
 }
 
 // Repository is the repository that will be acted on
 func (cmd RestoreCommand) Repository() *gitalypb.Repository {
-	return cmd.repository
+	return cmd.request.Repository
 }
 
 // Name is the name of the command
@@ -118,11 +114,7 @@ func (cmd RestoreCommand) Name() string {
 
 // Execute performs the restore
 func (cmd RestoreCommand) Execute(ctx context.Context) error {
-	return cmd.strategy.Restore(ctx, &RestoreRequest{
-		Server:       cmd.server,
-		Repository:   cmd.repository,
-		AlwaysCreate: cmd.alwaysCreate,
-	})
+	return cmd.strategy.Restore(ctx, &cmd.request)
 }
 
 // PipelineErrors represents a summary of errors by repository
