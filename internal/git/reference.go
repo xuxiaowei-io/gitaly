@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 
@@ -123,6 +124,81 @@ func NewSymbolicReference(name ReferenceName, target ReferenceName) Reference {
 		Name:       name,
 		Target:     string(target),
 		IsSymbolic: true,
+	}
+}
+
+// ValidateReference checks whether a reference looks valid. It aims to be a faithful implementation of Git's own
+// `check_or_sanitize_refname()` function and all divergent behaviour is considered to be a bug. Please also refer to
+// https://git-scm.com/docs/git-check-ref-format#_description for further information on the actual rules.
+func ValidateReference(name string) error {
+	if name == "HEAD" {
+		return fmt.Errorf("HEAD reference not allowed")
+	}
+
+	// TODO: this can eventually be converted to use `strings.CutPrefix()`.
+	if !strings.HasPrefix(name, "refs/") {
+		return fmt.Errorf("reference is not fully qualified")
+	}
+	name = name[len("refs/"):]
+
+	if len(name) == 0 {
+		return fmt.Errorf("refs/ is not a valid reference")
+	}
+
+	if strings.HasSuffix(name, "/") {
+		return fmt.Errorf("reference must not end with slash")
+	}
+
+	if strings.HasSuffix(name, ".") {
+		return fmt.Errorf("reference must not end with dot")
+	}
+
+	if strings.Contains(name, "@{") {
+		return fmt.Errorf("reference must not contain @{")
+	}
+
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("reference must not contain double dots")
+	}
+
+	for _, c := range name {
+		switch c {
+		case ' ', '\t', '\n':
+			return fmt.Errorf("reference must not contain space characters")
+		case ':', '?', '[', '\\', '^', '~', '*', '\177':
+			return fmt.Errorf("reference must not contain special characters")
+		}
+
+		// Note that we treat some of the characters below 32 specially in the switch above so
+		// that we can report back more precise error messages.
+		if c < 32 {
+			return fmt.Errorf("reference must not contain control characters")
+		}
+	}
+
+	// We need to check the components individually as components aren't allowed to have some specific constructs.
+	for {
+		component, tail, _ := strings.Cut(name, "/")
+
+		if component == "" {
+			if tail != "" {
+				return fmt.Errorf("empty component is not allowed")
+			}
+
+			// Otherwise, if both component and tail are empty, we have fully verified the complete
+			// reference and can thus return successfully.
+			return nil
+		}
+
+		if strings.HasPrefix(component, ".") {
+			return fmt.Errorf("component must not start with dot")
+		}
+
+		if strings.HasSuffix(component, ".lock") {
+			return fmt.Errorf("component must not end with .lock")
+		}
+
+		name = tail
 	}
 }
 
