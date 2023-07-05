@@ -61,25 +61,21 @@ type Pipeline interface {
 
 // CreateCommand creates a backup for a repository
 type CreateCommand struct {
-	strategy    Strategy
-	server      storage.ServerInfo
-	repository  *gitalypb.Repository
-	incremental bool
+	strategy Strategy
+	request  CreateRequest
 }
 
 // NewCreateCommand builds a CreateCommand
-func NewCreateCommand(strategy Strategy, server storage.ServerInfo, repo *gitalypb.Repository, incremental bool) *CreateCommand {
+func NewCreateCommand(strategy Strategy, request CreateRequest) *CreateCommand {
 	return &CreateCommand{
-		strategy:    strategy,
-		server:      server,
-		repository:  repo,
-		incremental: incremental,
+		strategy: strategy,
+		request:  request,
 	}
 }
 
 // Repository is the repository that will be acted on
 func (cmd CreateCommand) Repository() *gitalypb.Repository {
-	return cmd.repository
+	return cmd.request.Repository
 }
 
 // Name is the name of the command
@@ -89,11 +85,7 @@ func (cmd CreateCommand) Name() string {
 
 // Execute performs the backup
 func (cmd CreateCommand) Execute(ctx context.Context) error {
-	return cmd.strategy.Create(ctx, &CreateRequest{
-		Server:      cmd.server,
-		Repository:  cmd.repository,
-		Incremental: cmd.incremental,
-	})
+	return cmd.strategy.Create(ctx, &cmd.request)
 }
 
 // RestoreCommand restores a backup for a repository

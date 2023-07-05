@@ -77,7 +77,12 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 			RelativePath:  sr.RelativePath,
 			GlProjectPath: sr.GlProjectPath,
 		}
-		pipeline.Handle(ctx, backup.NewCreateCommand(manager, sr.ServerInfo, &repo, cmd.incremental))
+		pipeline.Handle(ctx, backup.NewCreateCommand(manager, backup.CreateRequest{
+			Server:           sr.ServerInfo,
+			Repository:       &repo,
+			VanityRepository: &repo,
+			Incremental:      cmd.incremental,
+		}))
 	}
 
 	if err := pipeline.Done(); err != nil {

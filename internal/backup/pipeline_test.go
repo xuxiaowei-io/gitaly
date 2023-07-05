@@ -71,8 +71,8 @@ func TestParallelPipeline(t *testing.T) {
 				ctx := testhelper.Context(t)
 
 				for i := 0; i < 10; i++ {
-					p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "storage1"}, false))
-					p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "storage2"}, false))
+					p.Handle(ctx, NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{StorageName: "storage1"}}))
+					p.Handle(ctx, NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{StorageName: "storage2"}}))
 				}
 				require.NoError(t, p.Done())
 			})
@@ -90,7 +90,7 @@ func TestParallelPipeline(t *testing.T) {
 		cancel()
 		<-ctx.Done()
 
-		p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "default"}, false))
+		p.Handle(ctx, NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{StorageName: "default"}}))
 
 		err := p.Done()
 		require.EqualError(t, err, "pipeline: context canceled")
@@ -138,9 +138,9 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 		ctx := testhelper.Context(t)
 
 		commands := []Command{
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}, false),
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "b.git", StorageName: "skip"}, false),
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "c.git", StorageName: "error"}, false),
+			NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}}),
+			NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "b.git", StorageName: "skip"}}),
+			NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "c.git", StorageName: "error"}}),
 		}
 		for _, cmd := range commands {
 			p.Handle(ctx, cmd)
