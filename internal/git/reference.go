@@ -1,12 +1,8 @@
 package git
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"strings"
-
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 )
 
 // InternalReferenceType is the type of an internal reference.
@@ -200,30 +196,4 @@ func ValidateReference(name string) error {
 
 		name = tail
 	}
-}
-
-// CheckRefFormat checks whether a fully-qualified refname is well
-// well-formed using git-check-ref-format
-func CheckRefFormat(ctx context.Context, gitCmdFactory CommandFactory, refName string) (bool, error) {
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
-		Command{
-			Name: "check-ref-format",
-			Args: []string{refName},
-		},
-		WithStdout(io.Discard),
-		WithStderr(io.Discard),
-	)
-	if err != nil {
-		return false, err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		if code, ok := command.ExitStatus(err); ok && code == 1 {
-			return false, nil
-		}
-
-		return false, err
-	}
-
-	return true, nil
 }
