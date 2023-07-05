@@ -109,11 +109,6 @@ service ValidService {
     };
   }
 
-  // Intercepted methods do not need operation type annotations.
-  rpc TestMethod10(ValidStorageRequest) returns (ValidResponse) {
-    option (gitaly.intercepted_method) = true;
-  }
-
   rpc TestMaintenance(ValidRequest) returns (ValidResponse) {
     option (gitaly.op_type) = {
       op: MAINTENANCE

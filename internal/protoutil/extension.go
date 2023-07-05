@@ -28,12 +28,7 @@ func IsInterceptedMethod(s *descriptorpb.ServiceDescriptorProto, m *descriptorpb
 		return false, fmt.Errorf("is service intercepted: %w", err)
 	}
 
-	isMethodIntercepted, err := getBoolExtension(m.GetOptions(), gitalypb.E_InterceptedMethod)
-	if err != nil {
-		return false, fmt.Errorf("is method intercepted: %w", err)
-	}
-
-	return isServiceIntercepted || isMethodIntercepted, nil
+	return isServiceIntercepted, nil
 }
 
 // GetRepositoryExtension gets the repository extension from a field descriptor

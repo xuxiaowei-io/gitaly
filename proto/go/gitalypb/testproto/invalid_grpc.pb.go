@@ -137,8 +137,6 @@ type InvalidServiceClient interface {
 	InvalidMethod13(ctx context.Context, in *InvalidTargetType, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
 	// should fail if multiple storage is specified for storage scoped RPC
 	InvalidMethod14(ctx context.Context, in *RequestWithMultipleNestedStorage, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
-	// Intercepted methods must not have operation type annotations.
-	InvalidMethod15(ctx context.Context, in *RequestWithStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
 	MaintenanceWithMissingRepository(ctx context.Context, in *InvalidMethodRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
 	MaintenanceWithUnflaggedRepository(ctx context.Context, in *RequestWithNestedRepoNotFlagged, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
 	MaintenanceWithWrongNestedRepositoryType(ctx context.Context, in *RequestWithWrongTypeRepository, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
@@ -274,15 +272,6 @@ func (c *invalidServiceClient) InvalidMethod14(ctx context.Context, in *RequestW
 	return out, nil
 }
 
-func (c *invalidServiceClient) InvalidMethod15(ctx context.Context, in *RequestWithStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
-	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod15", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *invalidServiceClient) MaintenanceWithMissingRepository(ctx context.Context, in *InvalidMethodRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
 	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithMissingRepository", in, out, opts...)
@@ -385,8 +374,6 @@ type InvalidServiceServer interface {
 	InvalidMethod13(context.Context, *InvalidTargetType) (*InvalidMethodResponse, error)
 	// should fail if multiple storage is specified for storage scoped RPC
 	InvalidMethod14(context.Context, *RequestWithMultipleNestedStorage) (*InvalidMethodResponse, error)
-	// Intercepted methods must not have operation type annotations.
-	InvalidMethod15(context.Context, *RequestWithStorageAndRepo) (*InvalidMethodResponse, error)
 	MaintenanceWithMissingRepository(context.Context, *InvalidMethodRequest) (*InvalidMethodResponse, error)
 	MaintenanceWithUnflaggedRepository(context.Context, *RequestWithNestedRepoNotFlagged) (*InvalidMethodResponse, error)
 	MaintenanceWithWrongNestedRepositoryType(context.Context, *RequestWithWrongTypeRepository) (*InvalidMethodResponse, error)
@@ -440,9 +427,6 @@ func (UnimplementedInvalidServiceServer) InvalidMethod13(context.Context, *Inval
 }
 func (UnimplementedInvalidServiceServer) InvalidMethod14(context.Context, *RequestWithMultipleNestedStorage) (*InvalidMethodResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InvalidMethod14 not implemented")
-}
-func (UnimplementedInvalidServiceServer) InvalidMethod15(context.Context, *RequestWithStorageAndRepo) (*InvalidMethodResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InvalidMethod15 not implemented")
 }
 func (UnimplementedInvalidServiceServer) MaintenanceWithMissingRepository(context.Context, *InvalidMethodRequest) (*InvalidMethodResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MaintenanceWithMissingRepository not implemented")
@@ -715,24 +699,6 @@ func _InvalidService_InvalidMethod14_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _InvalidService_InvalidMethod15_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RequestWithStorageAndRepo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(InvalidServiceServer).InvalidMethod15(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/testproto.InvalidService/InvalidMethod15",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InvalidServiceServer).InvalidMethod15(ctx, req.(*RequestWithStorageAndRepo))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _InvalidService_MaintenanceWithMissingRepository_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InvalidMethodRequest)
 	if err := dec(in); err != nil {
@@ -935,10 +901,6 @@ var InvalidService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InvalidMethod14",
 			Handler:    _InvalidService_InvalidMethod14_Handler,
-		},
-		{
-			MethodName: "InvalidMethod15",
-			Handler:    _InvalidService_InvalidMethod15_Handler,
 		},
 		{
 			MethodName: "MaintenanceWithMissingRepository",
