@@ -415,6 +415,97 @@ func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctx context.Contex
 	}
 }
 
+func TestServer_UserCherryPick_mergeCommit(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(
+		featureflag.CherryPickPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserCherryPickMergeCommit)
+}
+
+func testServerUserCherryPickMergeCommit(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	skipSHA256WithGit2goCherryPick(t, ctx)
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	baseCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithMessage("add apple"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+
+	leftCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithMessage("add banana"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+		))
+	rightCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithMessage("add coconut"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "c", Content: "coconut"},
+		))
+	rightCommitID = gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(rightCommitID),
+		gittest.WithMessage("add dragon fruit"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "c", Content: "coconut"},
+			gittest.TreeEntry{Mode: "100644", Path: "d", Content: "dragon fruit"},
+		))
+	cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(leftCommitID, rightCommitID),
+		gittest.WithMessage("merge coconut & dragon fruit into banana"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+			gittest.TreeEntry{Mode: "100644", Path: "c", Content: "coconut"},
+			gittest.TreeEntry{Mode: "100644", Path: "d", Content: "dragon fruit"},
+		))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
+	require.NoError(t, err)
+
+	destinationBranch := "cherry-picking-dst"
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithMessage("add zucchini"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "z", Content: "zucchini"},
+		),
+	)
+
+	request := &gitalypb.UserCherryPickRequest{
+		Repository: repoProto,
+		User:       gittest.TestUser,
+		Commit:     cherryPickedCommit,
+		BranchName: []byte(destinationBranch),
+		Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
+	}
+
+	response, err := client.UserCherryPick(ctx, request)
+	require.NoError(t, err)
+
+	gittest.RequireTree(t, cfg, repoPath, response.BranchUpdate.CommitId,
+		[]gittest.TreeEntry{
+			{Mode: "100644", Path: "a", Content: "apple"},
+			{Mode: "100644", Path: "c", Content: "coconut"},
+			{Mode: "100644", Path: "d", Content: "dragon fruit"},
+			{Mode: "100644", Path: "z", Content: "zucchini"},
+		})
+}
+
 func TestServer_UserCherryPick_stableID(t *testing.T) {
 	t.Parallel()
 
@@ -1038,8 +1129,8 @@ func testServerUserCherryPickReverse(t *testing.T, ctx context.Context) {
 		{Mode: "100644", Path: "a", Content: "apple"},
 		{Mode: "100644", Path: "b", Content: "banana"},
 		// The above are in the destination, the below are committed one by one in the source
-		{Mode: "100644", Path: "c", Content: "cherry"},
-		{Mode: "100644", Path: "d", Content: "date"},
+		{Mode: "100644", Path: "c", Content: "coconut"},
+		{Mode: "100644", Path: "d", Content: "dragon fruit"},
 		{Mode: "100644", Path: "e", Content: "eggplant"},
 		{Mode: "100644", Path: "f", Content: "fig"},
 	}
