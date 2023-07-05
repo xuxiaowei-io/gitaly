@@ -401,7 +401,11 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "improve",
 			startPoint: "master",
 			user:       gittest.TestUser,
-			err:        status.Errorf(codes.FailedPrecondition, "Could not update refs/heads/improve. Please refresh and try again."),
+			err: testhelper.WithInterceptedMetadataItems(
+				structerr.NewFailedPrecondition("Could not update refs/heads/improve. Please refresh and try again."),
+				structerr.MetadataItem{Key: "conflicting_reference", Value: "refs/heads/improve"},
+				structerr.MetadataItem{Key: "existing_reference", Value: "refs/heads/improve/awesome"},
+			),
 		},
 	}
 

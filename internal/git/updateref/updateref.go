@@ -60,7 +60,16 @@ type FileDirectoryConflictError struct {
 }
 
 func (e FileDirectoryConflictError) Error() string {
-	return fmt.Sprintf("%q conflicts with %q", e.ConflictingReferenceName, e.ExistingReferenceName)
+	return "file directory conflict"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of preexisting and
+// conflicting reference names.
+func (e FileDirectoryConflictError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "conflicting_reference", Value: e.ConflictingReferenceName},
+		{Key: "existing_reference", Value: e.ExistingReferenceName},
+	}
 }
 
 // InTransactionConflictError is returned when attempting to modify two references in the same transaction
