@@ -75,14 +75,6 @@ func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
 }
 
-// HashObjectFsck detects whether or not the given Git version will do fsck
-// checks when git-hash-object writes objects.
-func (v Version) HashObjectFsck() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 40, patch: 0,
-	})
-}
-
 // PatchIDRespectsBinaries detects whether the given Git version correctly handles binary diffs when
 // computing a patch ID. Previous to Git v2.39.0, git-patch-id(1) just completely ignored any binary
 // diffs and thus would consider two diffs the same even if a binary changed.

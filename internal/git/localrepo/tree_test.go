@@ -22,9 +22,6 @@ func TestTreeEntry_Write(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
-	require.NoError(t, err)
-
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
@@ -201,14 +198,12 @@ func TestTreeEntry_Write(t *testing.T) {
 			err := tree.Write(ctx, repo)
 			oid := tree.OID
 			if tc.expectedErrString != "" {
-				if gitVersion.HashObjectFsck() {
-					switch e := err.(type) {
-					case structerr.Error:
-						stderr := e.Metadata()["stderr"].(string)
-						strings.Contains(stderr, tc.expectedErrString)
-					default:
-						strings.Contains(err.Error(), tc.expectedErrString)
-					}
+				switch e := err.(type) {
+				case structerr.Error:
+					stderr := e.Metadata()["stderr"].(string)
+					strings.Contains(stderr, tc.expectedErrString)
+				default:
+					strings.Contains(err.Error(), tc.expectedErrString)
 				}
 				return
 			}
