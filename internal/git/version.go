@@ -75,16 +75,6 @@ func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
 }
 
-// MidxDeletesRedundantBitmaps detects whether the given Git version deletes redundant pack-based
-// bitmaps when writing multi-pack-indices. This feature has been added via 55d902cd61
-// (builtin/repack.c: remove redundant pack-based bitmaps, 2022-10-17), which is part of Git
-// v2.39.0 and newer.
-func (v Version) MidxDeletesRedundantBitmaps() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 39, patch: 0,
-	})
-}
-
 // GeometricRepackingSupportsAlternates detects whether the given Git version knows to perform
 // geometric repacking in repositories which are connected to an alternate object database. This
 // used to not work due to various different bugs which have been fixed via de56e80363 (Merge branch
