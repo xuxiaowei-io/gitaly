@@ -19,9 +19,6 @@ func TestGetPatchID(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
-	require.NoError(t, err)
-
 	type setupData struct {
 		request          *gitalypb.GetPatchIDRequest
 		expectedResponse *gitalypb.GetPatchIDResponse
@@ -155,19 +152,15 @@ func TestGetPatchID(t *testing.T) {
 							// This was fixed in Git v2.39.0 so that "index" lines will
 							// now be hashed to correctly account for binary changes. As
 							// a result, the patch ID has changed.
-							if gitVersion.PatchIDRespectsBinaries() {
-								switch gittest.DefaultObjectHash.Format {
-								case "sha1":
-									return "13e4e9b9cd44ec511bac24fdbdeab9b74ba3000b"
-								case "sha256":
-									return "32f6beb9a210ac89a3e15e44dcd174c87c904e9d"
-								default:
-									require.FailNow(t, "unsupported object hash")
-									return ""
-								}
+							switch gittest.DefaultObjectHash.Format {
+							case "sha1":
+								return "13e4e9b9cd44ec511bac24fdbdeab9b74ba3000b"
+							case "sha256":
+								return "32f6beb9a210ac89a3e15e44dcd174c87c904e9d"
+							default:
+								require.FailNow(t, "unsupported object hash")
+								return ""
 							}
-
-							return "715883c1b90a5b4450072e22fefec769ad346266"
 						}(),
 					},
 				}
@@ -200,25 +193,15 @@ func TestGetPatchID(t *testing.T) {
 					},
 					expectedResponse: &gitalypb.GetPatchIDResponse{
 						PatchId: func() string {
-							if gitVersion.PatchIDRespectsBinaries() {
-								// When respecting binary diffs we indeed have a
-								// different patch ID compared to the preceding
-								// testcase.
-								switch gittest.DefaultObjectHash.Format {
-								case "sha1":
-									return "f678855867b112ac2c5466260b3b3a5e75fca875"
-								case "sha256":
-									return "10443cf318b577ea41526825ba034aaaedfeaa4b"
-								default:
-									require.FailNow(t, "unsupported object hash")
-									return ""
-								}
+							switch gittest.DefaultObjectHash.Format {
+							case "sha1":
+								return "f678855867b112ac2c5466260b3b3a5e75fca875"
+							case "sha256":
+								return "10443cf318b577ea41526825ba034aaaedfeaa4b"
+							default:
+								require.FailNow(t, "unsupported object hash")
+								return ""
 							}
-
-							// But when git-patch-id(1) is not paying respect to binary
-							// diffs we incorrectly return the same patch ID. This is
-							// nothing we can easily fix though.
-							return "715883c1b90a5b4450072e22fefec769ad346266"
 						}(),
 					},
 				}

@@ -75,15 +75,6 @@ func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
 }
 
-// PatchIDRespectsBinaries detects whether the given Git version correctly handles binary diffs when
-// computing a patch ID. Previous to Git v2.39.0, git-patch-id(1) just completely ignored any binary
-// diffs and thus would consider two diffs the same even if a binary changed.
-func (v Version) PatchIDRespectsBinaries() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 39, patch: 0,
-	})
-}
-
 // MidxDeletesRedundantBitmaps detects whether the given Git version deletes redundant pack-based
 // bitmaps when writing multi-pack-indices. This feature has been added via 55d902cd61
 // (builtin/repack.c: remove redundant pack-based bitmaps, 2022-10-17), which is part of Git
