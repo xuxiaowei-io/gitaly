@@ -76,7 +76,10 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			// exist in pooled repositories.
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
-				Strategy:            RepackObjectsStrategyIncremental,
+				Strategy: geometricOrIncremental(ctx,
+					RepackObjectsStrategyGeometric,
+					RepackObjectsStrategyIncremental,
+				),
 				WriteMultiPackIndex: true,
 			},
 		},
@@ -381,31 +384,6 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 				},
 				RepackObjectsConfig{},
 			),
-		},
-		{
-			desc: "no geometric repack in object pool member with old Git version",
-			strategy: HeuristicalOptimizationStrategy{
-				gitVersion: git.NewVersion(2, 39, 0, 0),
-				info: stats.RepositoryInfo{
-					Packfiles: stats.PackfilesInfo{
-						Count:          9,
-						LastFullRepack: time.Now(),
-						MultiPackIndex: stats.MultiPackIndexInfo{
-							Exists:        true,
-							PackfileCount: 1,
-						},
-					},
-					Alternates: stats.AlternatesInfo{
-						ObjectDirectories: []string{"object-pool"},
-					},
-				},
-			},
-			expectedNeeded: true,
-			expectedConfig: RepackObjectsConfig{
-				Strategy:            RepackObjectsStrategyFullWithCruft,
-				WriteBitmap:         false,
-				WriteMultiPackIndex: true,
-			},
 		},
 		{
 			desc: "geometric repack in object pool member with recent Git version",

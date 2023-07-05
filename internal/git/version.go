@@ -75,22 +75,6 @@ func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
 }
 
-// GeometricRepackingSupportsAlternates detects whether the given Git version knows to perform
-// geometric repacking in repositories which are connected to an alternate object database. This
-// used to not work due to various different bugs which have been fixed via de56e80363 (Merge branch
-// 'ps/fix-geom-repack-with-alternates' into next, 2023-04-18).
-//
-// The patches will be part of Git v2.41.0 and have been backported to Git v2.40.0.gl1.
-func (v Version) GeometricRepackingSupportsAlternates() bool {
-	if v.major == 2 && v.minor == 40 && v.gl > 0 {
-		return true
-	}
-
-	return !v.LessThan(Version{
-		major: 2, minor: 41,
-	})
-}
-
 // CatfileSupportsNulTerminatedOutput detects whether git-cat-file(1) knows the `-Z` switch, which causes it to
 // NUL-terminate both stdin and stdout. This new switch has been introduced upstream via a9ea4c23dc (Merge branch
 // 'ps/cat-file-null-output', 2023-06-22).

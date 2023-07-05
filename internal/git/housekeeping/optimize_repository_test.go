@@ -457,9 +457,6 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
-	require.NoError(t, err)
-
 	earlierDate := time.Date(2022, 12, 1, 0, 0, 0, 0, time.Local)
 	laterDate := time.Date(2022, 12, 1, 12, 0, 0, 0, time.Local)
 
@@ -488,11 +485,6 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 	}
 
 	geometricOrIncrementalMetric := geometricOrIncremental(ctx, "packed_objects_geometric", "packed_objects_incremental")
-
-	geometricIfSupported := geometricOrIncrementalMetric
-	if !gitVersion.GeometricRepackingSupportsAlternates() {
-		geometricIfSupported = "packed_objects_incremental"
-	}
 
 	type metric struct {
 		name, status string
@@ -836,7 +828,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return setupData{
 					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
-						{name: geometricIfSupported, status: "success", count: 1},
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
@@ -892,7 +884,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return setupData{
 					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
-						{name: geometricIfSupported, status: "success", count: 1},
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
@@ -928,12 +920,11 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 						{name: "total", status: "success", count: 1},
 					},
 					expectedMetricsForPool: []metric{
-						{name: func() string {
-							if gitVersion.GeometricRepackingSupportsAlternates() {
-								return geometricOrIncremental(ctx, "packed_objects_full_with_unreachable", "packed_objects_full_with_loose_unreachable")
-							}
-							return "packed_objects_full_with_loose_unreachable"
-						}(), status: "success", count: 1},
+						{
+							name:   geometricOrIncremental(ctx, "packed_objects_full_with_unreachable", "packed_objects_full_with_loose_unreachable"),
+							status: "success",
+							count:  1,
+						},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},
 					},
@@ -1015,7 +1006,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				return setupData{
 					repo: localrepo.NewTestRepo(t, cfg, repo),
 					expectedMetrics: []metric{
-						{name: geometricIfSupported, status: "success", count: 1},
+						{name: geometricOrIncrementalMetric, status: "success", count: 1},
 						{name: "written_commit_graph_full", status: "success", count: 1},
 						{name: "written_multi_pack_index", status: "success", count: 1},
 						{name: "total", status: "success", count: 1},

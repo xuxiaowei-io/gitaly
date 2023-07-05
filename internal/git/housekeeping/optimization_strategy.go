@@ -62,22 +62,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		return false, RepackObjectsConfig{}
 	}
 
-	// There is a bug in Git that causes geometric repacking to fail in some circumstances when
-	// the repository is connected to an object pool. While we're upstreaming the fix via
-	// https://gitlab.com/gitlab-org/git/-/issues/152 we thus disable geometric repacks in any
-	// repository that has alternates.
-	//
-	// While this is kind of annoying, it ultimately shouldn't be too bad in most contexts as
-	// the majority of objects of a repository with object pool should be in the object pool
-	// anyway. We should eventually remove this condition though once the fix has landed.
-	//
-	// We have upstreamed fixes for this that are about to arrive in Git v2.41. Furthermore, we
-	// have backported them into Git v2.40.0.gl1. So if we detect that the current Git version
-	// does indeed support geometric repacking then we can enable this even when the repository
-	// is part of an object pool.
-	canUseGeometricRepacking := len(s.info.Alternates.ObjectDirectories) == 0 || s.gitVersion.GeometricRepackingSupportsAlternates()
-
-	if canUseGeometricRepacking && featureflag.GeometricRepacking.IsEnabled(ctx) {
+	if featureflag.GeometricRepacking.IsEnabled(ctx) {
 		nonCruftPackfilesCount := s.info.Packfiles.Count - s.info.Packfiles.CruftCount
 		timeSinceLastFullRepack := time.Since(s.info.Packfiles.LastFullRepack)
 
