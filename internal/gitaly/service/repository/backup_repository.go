@@ -54,7 +54,7 @@ func (s *server) validateBackupRepositoryRequest(in *gitalypb.BackupRepositoryRe
 		return err
 	}
 	if err := s.locator.ValidateRepository(in.GetVanityRepository(),
-		storage.WithSkipRepositoryExistenceCheck(),
+		storage.WithSkipStorageExistenceCheck(),
 	); err != nil {
 		return err
 	}
