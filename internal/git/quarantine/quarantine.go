@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -104,6 +105,7 @@ func migrate(sourcePath, targetPath string) error {
 	}
 	sortEntries(entries)
 
+	syncer := safe.NewSyncer()
 	for _, entry := range entries {
 		if entry.Name() == "." {
 			continue
@@ -123,12 +125,24 @@ func migrate(sourcePath, targetPath string) error {
 				return fmt.Errorf("migrating directory %q: %w", nestedSourcePath, err)
 			}
 
+			if err := syncer.Sync(nestedTargetPath); err != nil {
+				return fmt.Errorf("sync directory: %w", err)
+			}
+
 			continue
 		}
 
 		if err := finalizeObjectFile(nestedSourcePath, nestedTargetPath); err != nil {
 			return fmt.Errorf("migrating object file %q: %w", nestedSourcePath, err)
 		}
+
+		if err := syncer.Sync(nestedTargetPath); err != nil {
+			return fmt.Errorf("sync object: %w", err)
+		}
+	}
+
+	if err := syncer.Sync(targetPath); err != nil {
+		return fmt.Errorf("sync object directory: %w", err)
 	}
 
 	if err := os.Remove(sourcePath); err != nil {

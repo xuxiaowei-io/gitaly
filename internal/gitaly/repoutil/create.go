@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -219,10 +220,24 @@ func Create(
 		return structerr.NewFailedPrecondition("preparatory vote: %w", err)
 	}
 
+	syncer := safe.NewSyncer()
+	if err := syncer.SyncRecursive(newRepoDir.Path()); err != nil {
+		return fmt.Errorf("sync recursive: %w", err)
+	}
+
 	// Now that we have locked the repository and all Gitalies have agreed that they
 	// want to do the same change we can move the repository into place.
 	if err := os.Rename(newRepoDir.Path(), targetPath); err != nil {
 		return fmt.Errorf("moving repository into place: %w", err)
+	}
+
+	storagePath, err := locator.GetStorageByName(repository.GetStorageName())
+	if err != nil {
+		return fmt.Errorf("get storage by name: %w", err)
+	}
+
+	if err := syncer.SyncHierarchy(storagePath, repository.GetRelativePath()); err != nil {
+		return fmt.Errorf("sync hierarchy: %w", err)
 	}
 
 	if err := transaction.VoteOnContext(ctx, txManager, vote, voting.Committed); err != nil {

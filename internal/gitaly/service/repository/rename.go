@@ -94,6 +94,20 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 		return fmt.Errorf("moving repository into place: %w", err)
 	}
 
+	storagePath, err := s.locator.GetStorageByName(targetRepo.GetStorageName())
+	if err != nil {
+		return fmt.Errorf("get storage by name: %w", err)
+	}
+
+	syncer := safe.NewSyncer()
+	if err := syncer.SyncHierarchy(storagePath, targetRepo.GetRelativePath()); err != nil {
+		return fmt.Errorf("sync hierarchy: %w", err)
+	}
+
+	if err := syncer.SyncParent(sourcePath); err != nil {
+		return fmt.Errorf("sync parent: %w", err)
+	}
+
 	return nil
 }
 

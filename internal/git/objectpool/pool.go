@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -127,7 +128,15 @@ func (o *ObjectPool) Remove(ctx context.Context) (err error) {
 		return nil
 	}
 
-	return os.RemoveAll(path)
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("remove all: %w", err)
+	}
+
+	if err := safe.NewSyncer().SyncParent(path); err != nil {
+		return fmt.Errorf("sync parent: %w", err)
+	}
+
+	return nil
 }
 
 // FromRepo returns an instance of ObjectPool that the repository points to
