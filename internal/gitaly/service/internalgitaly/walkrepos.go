@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -50,6 +51,11 @@ func walkStorage(
 		relPath, err := filepath.Rel(storagePath, path)
 		if err != nil {
 			return err
+		}
+
+		// Don't walk Gitaly's internal files.
+		if relPath == config.GitalyDataPrefix {
+			return fs.SkipDir
 		}
 
 		if locator.ValidateRepository(&gitalypb.Repository{
