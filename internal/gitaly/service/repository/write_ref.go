@@ -3,6 +3,7 @@ package repository
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -90,11 +91,16 @@ func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRef
 		return fmt.Errorf("start reference transaction: %w", err)
 	}
 
-	if err = u.Update(git.ReferenceName(req.GetRef()), newObjectID, oldObjectID); err != nil {
+	if err := u.Update(git.ReferenceName(req.GetRef()), newObjectID, oldObjectID); err != nil {
 		return fmt.Errorf("error when creating update-ref command: %w", err)
 	}
 
-	if err = u.Commit(); err != nil {
+	if err := u.Commit(); err != nil {
+		var alreadyLockedErr updateref.AlreadyLockedError
+		if errors.As(err, &alreadyLockedErr) {
+			return structerr.NewAborted("reference is locked already").WithMetadata("reference", alreadyLockedErr.ReferenceName)
+		}
+
 		return fmt.Errorf("error when running update-ref command: %w", err)
 	}
 

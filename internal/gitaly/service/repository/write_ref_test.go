@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -370,4 +371,40 @@ func TestWriteRef(t *testing.T) {
 			require.Equal(t, setup.expectedVotes, txManager.Votes())
 		})
 	}
+}
+
+func TestWriteRef_locked(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+	// Lock the reference that we're about to update via the RPC call.
+	updater, err := updateref.New(ctx, repo)
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, updater)
+	require.NoError(t, updater.Start())
+	require.NoError(t, updater.Update(
+		git.ReferenceName("refs/heads/locked-branch"),
+		commitID,
+		gittest.DefaultObjectHash.ZeroOID,
+	))
+	require.NoError(t, updater.Prepare())
+
+	_, err = client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+		Repository: repoProto,
+		Ref:        []byte("refs/heads/locked-branch"),
+		Revision:   []byte(commitID),
+	})
+	testhelper.RequireGrpcError(t,
+		testhelper.WithInterceptedMetadata(
+			structerr.NewAborted("reference is locked already"),
+			"reference", "refs/heads/locked-branch",
+		),
+		err,
+	)
 }
