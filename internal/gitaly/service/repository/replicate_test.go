@@ -43,15 +43,7 @@ func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
-	cfg := cfgBuilder.Build(t)
-
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalySSH(t, cfg)
-
-	repoClient, serverSocketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = serverSocketPath
-
+	
 	type setupData struct {
 		source              *gitalypb.Repository
 		target              *gitalypb.Repository
@@ -60,7 +52,7 @@ func TestReplicateRepository(t *testing.T) {
 		expectedError       error
 	}
 
-	setupSourceAndTarget := func(t *testing.T, createTarget bool) (*gitalypb.Repository, string, *gitalypb.Repository, string) {
+	setupSourceAndTarget := func(t *testing.T, cfg config.Cfg, createTarget bool) (*gitalypb.Repository, string, *gitalypb.Repository, string) {
 		t.Helper()
 
 		source, sourcePath := gittest.CreateRepository(t, ctx, cfg)
@@ -83,13 +75,14 @@ func TestReplicateRepository(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc  string
-		setup func(t *testing.T) setupData
+		desc       string
+		serverOpts []testserver.GitalyServerOpt
+		setup      func(t *testing.T, cfg config.Cfg) setupData
 	}{
 		{
 			desc: "replicate config",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Write a modified Git config file to the source repository to verify it is
 				// getting created in the target repository as expected.
@@ -103,8 +96,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate info attributes",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Write an info attributes file to the source repository to verify it is getting
 				// created in the target repository as expected.
@@ -121,8 +114,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate branch",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Create a new branch that only exists in the source repository to verify that it
 				// is getting created in the target repository as expected.
@@ -136,8 +129,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate unreachable object with snapshot-base replication",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Create a loose object in the source repository to verify that it is getting
 				// created in the target repository as expected. This ensures that snapshot
@@ -157,8 +150,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate custom hooks",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Set up custom hooks in source repository to verify that the hooks are getting
 				// created in the target repository as expected.
@@ -174,8 +167,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate internal references to new target",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Create internal references in the source repository to verify that they are
 				// getting created in the newly created target repository as expected. Regardless of
@@ -193,8 +186,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate internal references to existing target",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, targetPath := setupSourceAndTarget(t, true)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, targetPath := setupSourceAndTarget(t, cfg, true)
 
 				// Create the same commit in both repositories so that they're in a known-good
 				// state.
@@ -218,7 +211,7 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "empty target repository",
-			setup: func(t *testing.T) setupData {
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				source, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				// Set up a request with no target repository specified to verify that validation
@@ -232,7 +225,7 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "empty source repository",
-			setup: func(t *testing.T) setupData {
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				// Set up a request with no source repository specified to verify that validation
 				// fails and the RPC returns an error as expected.
 				return setupData{
@@ -247,7 +240,7 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "target and source repository have same storage",
-			setup: func(t *testing.T) setupData {
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				// Set up a request with a source and target repository that share the same storage
 				// to verify that validation fails and the RPC returns an error as expected.
 				source, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -262,8 +255,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "invalid target repository",
-			setup: func(t *testing.T) setupData {
-				source, _, target, targetPath := setupSourceAndTarget(t, true)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, _, target, targetPath := setupSourceAndTarget(t, cfg, true)
 
 				// Delete Git data to make target repository invalid to verify that replication
 				// proceeds and the invalid target repository is overwritten. No error is expected
@@ -280,8 +273,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "invalid source repository",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Delete Git data to make the source repository invalid to verify that repository
 				// validation fails on the source and the RPC returns an error as expected.
@@ -298,8 +291,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "invalid source and target repository",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, targetPath := setupSourceAndTarget(t, true)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, targetPath := setupSourceAndTarget(t, cfg, true)
 
 				// Delete Git data to make the source and target repositories invalid to verify that
 				// repository validation fails and the RPC returns an error as expected.
@@ -318,8 +311,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "fail to fetch source repository",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, true)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, true)
 
 				// Corrupt the repository by writing garbage into HEAD to verify the RPC fails to
 				// fetch the source repository and returns an error as expected.
@@ -334,12 +327,12 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "fsck disabled for fetch",
-			setup: func(t *testing.T) setupData {
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				// To validate that fsck is disabled, `git-fetch(1)` must be used to replicate
 				// objects in the source repository. If the target repository already exists prior
 				// to replication, snapshot replication is skipped ensuring all necessary objects in
 				// the source repository are replicated to the target via `git-fetch(1)`.
-				source, sourcePath, target, _ := setupSourceAndTarget(t, true)
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, true)
 
 				// Write a tree into the source repository that's known-broken. For this object to
 				// be fetched into the target repository `fsck` must be disabled.
@@ -374,7 +367,16 @@ func TestReplicateRepository(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			setup := tc.setup(t)
+			cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
+			cfg := cfgBuilder.Build(t)
+
+			testcfg.BuildGitalyHooks(t, cfg)
+			testcfg.BuildGitalySSH(t, cfg)
+
+			repoClient, serverSocketPath := runRepositoryService(t, cfg, tc.serverOpts...)
+			cfg.SocketPath = serverSocketPath
+
+			setup := tc.setup(t, cfg)
 
 			ctx := testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 			_, err := repoClient.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
