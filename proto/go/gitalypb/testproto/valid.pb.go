@@ -582,7 +582,7 @@ var file_testproto_valid_proto_rawDesc = []byte{
 	0x6f, 0x74, 0x6f, 0x2e, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
 	0x1a, 0x18, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x56, 0x61, 0x6c,
 	0x69, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x1a, 0x04, 0xf0, 0x97, 0x28, 0x01,
-	0x32, 0xd0, 0x09, 0x0a, 0x0c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
+	0x32, 0x80, 0x09, 0x0a, 0x0c, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
 	0x65, 0x12, 0x47, 0x0a, 0x0a, 0x54, 0x65, 0x73, 0x74, 0x4d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x12,
 	0x17, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x56, 0x61, 0x6c, 0x69,
 	0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x70,
@@ -623,12 +623,7 @@ var file_testproto_valid_proto_rawDesc = []byte{
 	0x72, 0x61, 0x67, 0x65, 0x4e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
 	0x74, 0x1a, 0x18, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x56, 0x61,
 	0x6c, 0x69, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x08, 0xfa, 0x97, 0x28,
-	0x04, 0x08, 0x01, 0x10, 0x02, 0x12, 0x4e, 0x0a, 0x0c, 0x54, 0x65, 0x73, 0x74, 0x4d, 0x65, 0x74,
-	0x68, 0x6f, 0x64, 0x31, 0x30, 0x12, 0x1e, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2e, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2e, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x04, 0x80, 0x98, 0x28, 0x01, 0x12, 0x4c, 0x0a, 0x0f, 0x54, 0x65, 0x73, 0x74, 0x4d, 0x61, 0x69,
+	0x04, 0x08, 0x01, 0x10, 0x02, 0x12, 0x4c, 0x0a, 0x0f, 0x54, 0x65, 0x73, 0x74, 0x4d, 0x61, 0x69,
 	0x6e, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x63, 0x65, 0x12, 0x17, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
 	0x74, 0x1a, 0x18, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x56, 0x61,
@@ -711,29 +706,27 @@ var file_testproto_valid_proto_depIdxs = []int32{
 	7,  // 13: testproto.ValidService.TestMethod7:input_type -> testproto.ValidInnerNestedRequest
 	2,  // 14: testproto.ValidService.TestMethod8:input_type -> testproto.ValidStorageRequest
 	5,  // 15: testproto.ValidService.TestMethod9:input_type -> testproto.ValidStorageNestedRequest
-	2,  // 16: testproto.ValidService.TestMethod10:input_type -> testproto.ValidStorageRequest
-	0,  // 17: testproto.ValidService.TestMaintenance:input_type -> testproto.ValidRequest
-	0,  // 18: testproto.ValidService.TestMaintenanceWithExplicitScope:input_type -> testproto.ValidRequest
-	4,  // 19: testproto.ValidService.TestMaintenanceWithNestedRequest:input_type -> testproto.ValidNestedRequest
-	6,  // 20: testproto.ValidService.TestMaintenanceWithNestedSharedRequest:input_type -> testproto.ValidNestedSharedRequest
-	7,  // 21: testproto.ValidService.TestMutatorWithInnerNestedRequest:input_type -> testproto.ValidInnerNestedRequest
-	3,  // 22: testproto.InterceptedService.TestMethod:output_type -> testproto.ValidResponse
-	3,  // 23: testproto.ValidService.TestMethod:output_type -> testproto.ValidResponse
-	3,  // 24: testproto.ValidService.TestMethod2:output_type -> testproto.ValidResponse
-	3,  // 25: testproto.ValidService.TestMethod3:output_type -> testproto.ValidResponse
-	3,  // 26: testproto.ValidService.TestMethod5:output_type -> testproto.ValidResponse
-	3,  // 27: testproto.ValidService.TestMethod6:output_type -> testproto.ValidResponse
-	3,  // 28: testproto.ValidService.TestMethod7:output_type -> testproto.ValidResponse
-	3,  // 29: testproto.ValidService.TestMethod8:output_type -> testproto.ValidResponse
-	3,  // 30: testproto.ValidService.TestMethod9:output_type -> testproto.ValidResponse
-	3,  // 31: testproto.ValidService.TestMethod10:output_type -> testproto.ValidResponse
-	3,  // 32: testproto.ValidService.TestMaintenance:output_type -> testproto.ValidResponse
-	3,  // 33: testproto.ValidService.TestMaintenanceWithExplicitScope:output_type -> testproto.ValidResponse
-	3,  // 34: testproto.ValidService.TestMaintenanceWithNestedRequest:output_type -> testproto.ValidResponse
-	3,  // 35: testproto.ValidService.TestMaintenanceWithNestedSharedRequest:output_type -> testproto.ValidResponse
-	3,  // 36: testproto.ValidService.TestMutatorWithInnerNestedRequest:output_type -> testproto.ValidResponse
-	22, // [22:37] is the sub-list for method output_type
-	7,  // [7:22] is the sub-list for method input_type
+	0,  // 16: testproto.ValidService.TestMaintenance:input_type -> testproto.ValidRequest
+	0,  // 17: testproto.ValidService.TestMaintenanceWithExplicitScope:input_type -> testproto.ValidRequest
+	4,  // 18: testproto.ValidService.TestMaintenanceWithNestedRequest:input_type -> testproto.ValidNestedRequest
+	6,  // 19: testproto.ValidService.TestMaintenanceWithNestedSharedRequest:input_type -> testproto.ValidNestedSharedRequest
+	7,  // 20: testproto.ValidService.TestMutatorWithInnerNestedRequest:input_type -> testproto.ValidInnerNestedRequest
+	3,  // 21: testproto.InterceptedService.TestMethod:output_type -> testproto.ValidResponse
+	3,  // 22: testproto.ValidService.TestMethod:output_type -> testproto.ValidResponse
+	3,  // 23: testproto.ValidService.TestMethod2:output_type -> testproto.ValidResponse
+	3,  // 24: testproto.ValidService.TestMethod3:output_type -> testproto.ValidResponse
+	3,  // 25: testproto.ValidService.TestMethod5:output_type -> testproto.ValidResponse
+	3,  // 26: testproto.ValidService.TestMethod6:output_type -> testproto.ValidResponse
+	3,  // 27: testproto.ValidService.TestMethod7:output_type -> testproto.ValidResponse
+	3,  // 28: testproto.ValidService.TestMethod8:output_type -> testproto.ValidResponse
+	3,  // 29: testproto.ValidService.TestMethod9:output_type -> testproto.ValidResponse
+	3,  // 30: testproto.ValidService.TestMaintenance:output_type -> testproto.ValidResponse
+	3,  // 31: testproto.ValidService.TestMaintenanceWithExplicitScope:output_type -> testproto.ValidResponse
+	3,  // 32: testproto.ValidService.TestMaintenanceWithNestedRequest:output_type -> testproto.ValidResponse
+	3,  // 33: testproto.ValidService.TestMaintenanceWithNestedSharedRequest:output_type -> testproto.ValidResponse
+	3,  // 34: testproto.ValidService.TestMutatorWithInnerNestedRequest:output_type -> testproto.ValidResponse
+	21, // [21:35] is the sub-list for method output_type
+	7,  // [7:21] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name

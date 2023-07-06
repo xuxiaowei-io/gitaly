@@ -38,7 +38,6 @@ func TestLintFile(t *testing.T) {
 				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod11", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithNestedStorageAndRepo.inner_message.storage_name]")),
 				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod13", errors.New("unexpected count of storage field 0, expected 1, found storage label at: []")),
 				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod14", errors.New("unexpected count of storage field 2, expected 1, found storage label at: [RequestWithMultipleNestedStorage.inner_message.storage_name RequestWithMultipleNestedStorage.storage_name]")),
-				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod15", errors.New("operation type defined on an intercepted method")),
 				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithMissingRepository", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
 				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithUnflaggedRepository", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
 				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithWrongNestedRepositoryType", errors.New("wrong type of field RequestWithWrongTypeRepository.header.repository, expected .gitaly.Repository, got .testproto.InvalidMethodResponse")),
