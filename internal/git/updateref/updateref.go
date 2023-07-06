@@ -16,11 +16,12 @@ import (
 // AlreadyLockedError indicates a reference cannot be locked because another
 // process has already locked it.
 type AlreadyLockedError struct {
-	Ref string
+	// ReferenceName is the name of the reference that is already locked.
+	ReferenceName string
 }
 
-func (e *AlreadyLockedError) Error() string {
-	return fmt.Sprintf("reference is already locked: %q", e.Ref)
+func (e AlreadyLockedError) Error() string {
+	return fmt.Sprintf("reference is already locked: %q", e.ReferenceName)
 }
 
 // InvalidReferenceFormatError indicates a reference name was invalid.
@@ -326,7 +327,7 @@ func (u *Updater) write(format string, args ...interface{}) error {
 }
 
 var (
-	refLockedRegex               = regexp.MustCompile(`^fatal: prepare: cannot lock ref '(.+?)': Unable to create '.*': File exists.`)
+	refLockedRegex               = regexp.MustCompile(`^fatal: (prepare|commit): cannot lock ref '(.+?)': Unable to create '.*': File exists.`)
 	refInvalidFormatRegex        = regexp.MustCompile(`^fatal: invalid ref format: (.*)\n$`)
 	referenceExistsConflictRegex = regexp.MustCompile(`^fatal: .*: cannot lock ref '(.*)': '(.*)' exists; cannot create '.*'\n$`)
 	inTransactionConflictRegex   = regexp.MustCompile(`^fatal: .*: cannot lock ref '.*': cannot process '(.*)' and '(.*)' at the same time\n$`)
@@ -380,8 +381,8 @@ func (u *Updater) handleIOError(fallbackErr error) error {
 	stderr := u.stderr.Bytes()
 
 	matches := refLockedRegex.FindSubmatch(stderr)
-	if len(matches) > 1 {
-		return &AlreadyLockedError{Ref: string(matches[1])}
+	if len(matches) > 2 {
+		return AlreadyLockedError{ReferenceName: string(matches[2])}
 	}
 
 	matches = refInvalidFormatRegex.FindSubmatch(stderr)

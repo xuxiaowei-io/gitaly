@@ -3,7 +3,6 @@ package updateref
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -408,34 +407,52 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto, git.WithSkipHooks())
-
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-	// Create the first updater that prepares the reference transaction so that the reference
-	// we're about to update is locked.
-	firstUpdater, err := New(ctx, repo)
-	require.NoError(t, err)
-	require.NoError(t, firstUpdater.Start())
-	require.NoError(t, firstUpdater.Update("refs/heads/master", commitID, ""))
-	require.NoError(t, firstUpdater.Prepare())
+	for _, tc := range []struct {
+		desc string
+		lock func(*Updater) error
+	}{
+		{
+			desc: "prepare",
+			lock: func(u *Updater) error {
+				return u.Prepare()
+			},
+		},
+		{
+			desc: "commit",
+			lock: func(u *Updater) error {
+				return u.Commit()
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ref := git.ReferenceName("refs/heads/" + tc.desc)
 
-	// Now we create a second updater that tries to update the same reference.
-	secondUpdater, err := New(ctx, repo)
-	require.NoError(t, err)
-	require.NoError(t, secondUpdater.Start())
-	require.NoError(t, secondUpdater.Update("refs/heads/master", commitID, ""))
+			// Create the first updater that prepares the reference transaction so that the reference
+			// we're about to update is locked.
+			firstUpdater, err := New(ctx, repo)
+			require.NoError(t, err)
+			require.NoError(t, firstUpdater.Start())
+			require.NoError(t, firstUpdater.Update(ref, commitID, ""))
+			require.NoError(t, firstUpdater.Prepare())
 
-	// Preparing this second updater should fail though because we notice that the reference is
-	// locked.
-	err = secondUpdater.Prepare()
-	var alreadyLockedErr *AlreadyLockedError
-	require.ErrorAs(t, err, &alreadyLockedErr)
-	require.Equal(t, err, &AlreadyLockedError{
-		Ref: "refs/heads/master",
-	})
+			// Now we create a second updater that tries to update the same reference.
+			secondUpdater, err := New(ctx, repo)
+			require.NoError(t, err)
+			require.NoError(t, secondUpdater.Start())
+			require.NoError(t, secondUpdater.Update(ref, commitID, ""))
 
-	// Whereas committing the first transaction should succeed.
-	require.NoError(t, firstUpdater.Commit())
+			// Try locking the reference via the second updater. This should fail now because the reference
+			// is locked already.
+			require.Equal(t, AlreadyLockedError{
+				ReferenceName: string(ref),
+			}, tc.lock(secondUpdater))
+
+			// Whereas committing the first transaction should succeed.
+			require.NoError(t, firstUpdater.Commit())
+		})
+	}
 }
 
 func TestUpdater_bulkOperation(t *testing.T) {
@@ -521,14 +538,9 @@ func TestUpdater_cancel(t *testing.T) {
 
 	require.NoError(t, failingUpdater.Start())
 	require.NoError(t, failingUpdater.Delete(git.ReferenceName("refs/heads/main")))
-
-	err = failingUpdater.Commit()
-	require.EqualError(t, err, fmt.Sprintf("state update to %q failed: %v", "commit", io.EOF))
-	var structErr structerr.Error
-	require.True(t, errors.As(err, &structErr))
-	// The error message returned by git-update-ref(1) is simply too long to fully verify it, so
-	// we just check that it matches a specific substring.
-	require.Contains(t, structErr.Metadata()["stderr"], "fatal: commit: cannot lock ref 'refs/heads/main'")
+	require.Equal(t, AlreadyLockedError{
+		ReferenceName: "refs/heads/main",
+	}, failingUpdater.Commit())
 
 	// We now cancel the initial updater. Afterwards, it should be possible again to update the
 	// ref because locks should have been released.

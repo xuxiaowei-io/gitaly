@@ -237,7 +237,7 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 	response, err := client.DeleteRefs(ctx, request)
 
 	require.Nil(t, response)
-	detailedErr := structerr.NewFailedPrecondition("cannot lock references").WithDetail(
+	detailedErr := structerr.NewAborted("cannot lock references").WithDetail(
 		&gitalypb.DeleteRefsError{
 			Error: &gitalypb.DeleteRefsError_ReferencesLocked{
 				ReferencesLocked: &gitalypb.ReferencesLockedError{

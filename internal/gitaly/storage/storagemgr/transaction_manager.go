@@ -1313,7 +1313,7 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 
 	// If we get an error due to existing stale reference locks, we should clear it up
 	// and retry running git-update-ref(1).
-	var updateRefError *updateref.AlreadyLockedError
+	var updateRefError updateref.AlreadyLockedError
 	if errors.As(err, &updateRefError) {
 		// Before clearing stale reference locks, we add should ensure that housekeeping doesn't
 		// run git-pack-refs(1), which could create new reference locks. So we add an inhibitor.
