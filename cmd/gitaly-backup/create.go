@@ -31,6 +31,7 @@ type createSubcommand struct {
 	layout          string
 	incremental     bool
 	backupID        string
+	serverSide      bool
 }
 
 func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
@@ -40,23 +41,33 @@ func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.layout, "layout", "pointer", "how backup files are located. Either pointer or legacy.")
 	fs.BoolVar(&cmd.incremental, "incremental", false, "creates an incremental backup if possible.")
 	fs.StringVar(&cmd.backupID, "id", time.Now().UTC().Format("20060102150405"), "the backup ID used when creating a full backup.")
+	fs.BoolVar(&cmd.serverSide, "server-side", false, "use server-side backups. Note: The feature is not ready for production use.")
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
-	sink, err := backup.ResolveSink(ctx, cmd.backupPath)
-	if err != nil {
-		return fmt.Errorf("create: resolve sink: %w", err)
-	}
-
-	locator, err := backup.ResolveLocator(cmd.layout, sink)
-	if err != nil {
-		return fmt.Errorf("create: resolve locator: %w", err)
-	}
-
 	pool := client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
 	defer pool.Close()
 
-	manager := backup.NewManager(sink, locator, pool)
+	var manager backup.Strategy
+	if cmd.serverSide {
+		if cmd.backupPath != "" {
+			return fmt.Errorf("create: path cannot be used with server-side backups")
+		}
+
+		manager = backup.NewServerSideAdapter(pool)
+	} else {
+		sink, err := backup.ResolveSink(ctx, cmd.backupPath)
+		if err != nil {
+			return fmt.Errorf("create: resolve sink: %w", err)
+		}
+
+		locator, err := backup.ResolveLocator(cmd.layout, sink)
+		if err != nil {
+			return fmt.Errorf("create: resolve locator: %w", err)
+		}
+
+		manager = backup.NewManager(sink, locator, pool)
+	}
 
 	var pipeline backup.Pipeline
 	pipeline = backup.NewLoggingPipeline(log.StandardLogger())

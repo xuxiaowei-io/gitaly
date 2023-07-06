@@ -58,6 +58,7 @@ Gitaly and Gitaly Cluster.
    |  `-id`                |  string   |  no      |  Used to determine a unique path for the backup when a full backup is created. |
    |  `-layout`            |  string   |  no      |  How backup files are located. Either `pointer` (default) or `legacy`. |
    |  `-incremental`       |  bool     |  no      |  Indicates whether to create an incremental backup. |
+   |  `-server-side`       |  bool     |  no      |  Indicates whether to use server-side backups. Note: The feature is not ready for production use. |
 
 ## Directly restore repository data
 
