@@ -269,24 +269,9 @@ func (e Error) errorChain() []Error {
 	return result
 }
 
-// Metadata returns the Error's metadata. The metadata will contain the combination of all added
-// metadata of this error as well as any wrapped Errors.
-//
-// When the same metada key exists multiple times in the error chain, then the value that is
-// highest up the callchain will be returned. This is done because in general, the higher up the
-// callchain one is the more context is available.
+// Metadata returns the Error's metadata. Please refer to `ExtractMetadata()` for the exact semantics of this function.
 func (e Error) Metadata() map[string]any {
-	result := map[string]any{}
-
-	for _, err := range e.errorChain() {
-		for _, m := range err.metadata {
-			if _, exists := result[m.Key]; !exists {
-				result[m.Key] = m.Value
-			}
-		}
-	}
-
-	return result
+	return ExtractMetadata(e)
 }
 
 // MetadataItems returns a copy of all metadata items added to this error. This function has the
@@ -355,4 +340,41 @@ func (e Error) WithDetail(detail proto.Message) Error {
 func (e Error) WithGRPCCode(code codes.Code) Error {
 	e.code = code
 	return e
+}
+
+// ErrorMetadater is an interface that can be implemented by error types in order to provide custom metadata items
+// without itself being a `structerr.Error`.
+type ErrorMetadater interface {
+	// ErrorMetadata returns the list of metadata items attached to this error.
+	ErrorMetadata() []MetadataItem
+}
+
+// ExtractMetadata extracts metadata from the given error if any of the errors in its chain contain any. Errors may
+// contain in case they are either a `structerr.Error` or in case they implement the `ErrorMetadater` interface. The
+// metadata will contain the combination of all added metadata of this error as well as any wrapped Errors.
+//
+// When the same metada key exists multiple times in the error chain, then the value that is
+// highest up the callchain will be returned. This is done because in general, the higher up the
+// callchain one is the more context is available.
+func ExtractMetadata(err error) map[string]any {
+	metadata := map[string]any{}
+
+	for ; err != nil; err = errors.Unwrap(err) {
+		var metadataItems []MetadataItem
+		if structerr, ok := err.(Error); ok {
+			metadataItems = structerr.metadata
+		} else if errorMetadater, ok := err.(ErrorMetadater); ok {
+			metadataItems = errorMetadater.ErrorMetadata()
+		} else {
+			continue
+		}
+
+		for _, m := range metadataItems {
+			if _, exists := metadata[m.Key]; !exists {
+				metadata[m.Key] = m.Value
+			}
+		}
+	}
+
+	return metadata
 }

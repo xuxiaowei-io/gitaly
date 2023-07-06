@@ -328,9 +328,11 @@ func TestUpdater_update(t *testing.T) {
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update("refs/heads/main", newCommitID, otherCommitID))
 
-	require.Equal(t, structerr.New("%w", fmt.Errorf("state update to %q failed: %w", "commit", io.EOF)).WithMetadata(
-		"stderr", fmt.Sprintf("fatal: commit: cannot lock ref 'refs/heads/main': is at %s but expected %s\n", oldCommitID, otherCommitID),
-	), updater.Commit())
+	require.Equal(t, MismatchingStateError{
+		ReferenceName:    "refs/heads/main",
+		ExpectedObjectID: otherCommitID.String(),
+		ActualObjectID:   oldCommitID.String(),
+	}, updater.Commit())
 	require.Equal(t, invalidStateTransitionError{expected: stateIdle, actual: stateClosed}, updater.Start())
 
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), oldCommitID)

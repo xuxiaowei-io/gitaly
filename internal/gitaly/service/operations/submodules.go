@@ -253,7 +253,10 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			return &gitalypb.UserUpdateSubmoduleResponse{
-				CommitError: err.Error(),
+				// TODO: this needs to be converted to a structured error, and once done we should stop
+				// returning this Ruby-esque error message in favor of the actual error that was
+				// returned by `updateReferenceWithHooks()`.
+				CommitError: fmt.Sprintf("Could not update %s. Please refresh and try again.", updateRefError.Reference),
 			}, nil
 		}
 

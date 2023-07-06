@@ -1164,10 +1164,11 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			repoPath:       repoPath,
 			branchName:     "few-commits",
 			expectedOldOID: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/few-commits~1")),
-			expectedError: testhelper.WithInterceptedMetadata(
-				structerr.NewFailedPrecondition("Could not update refs/heads/few-commits. Please refresh and try again."),
-				"stderr",
-				"fatal: prepare: cannot lock ref 'refs/heads/few-commits': is at 0031876facac3f2b2702a0e53a26e89939a42209 but expected bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb\n",
+			expectedError: testhelper.WithInterceptedMetadataItems(
+				structerr.NewFailedPrecondition("reference update: reference does not point to expected object"),
+				structerr.MetadataItem{Key: "actual_object_id", Value: "0031876facac3f2b2702a0e53a26e89939a42209"},
+				structerr.MetadataItem{Key: "expected_object_id", Value: "bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"},
+				structerr.MetadataItem{Key: "reference", Value: "refs/heads/few-commits"},
 			),
 		},
 		{

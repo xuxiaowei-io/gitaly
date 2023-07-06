@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -390,7 +391,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			startPoint: "master",
 			user:       gittest.TestUser,
 			err: testhelper.WithInterceptedMetadata(
-				structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again."),
+				structerr.NewFailedPrecondition("reference update: state update to %q failed: %w", "prepare", io.EOF),
 				"stderr",
 				"fatal: prepare: cannot lock ref 'refs/heads/master': reference already exists\n",
 			),
@@ -401,7 +402,11 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "improve",
 			startPoint: "master",
 			user:       gittest.TestUser,
-			err:        status.Errorf(codes.FailedPrecondition, "Could not update refs/heads/improve. Please refresh and try again."),
+			err: testhelper.WithInterceptedMetadataItems(
+				structerr.NewFailedPrecondition("reference update: file directory conflict"),
+				structerr.MetadataItem{Key: "conflicting_reference", Value: "refs/heads/improve"},
+				structerr.MetadataItem{Key: "existing_reference", Value: "refs/heads/improve/awesome"},
+			),
 		},
 	}
 
@@ -606,10 +611,18 @@ func TestUserDeleteBranch(t *testing.T) {
 						ExpectedOldOid: firstCommit.String(),
 					},
 					repoPath: repoPath,
-					expectedErr: structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/%s. Please refresh and try again.", branchName).
+					expectedErr: structerr.NewFailedPrecondition("reference update failed: reference update: reference does not point to expected object").
 						WithDetail(&testproto.ErrorMetadata{
-							Key:   []byte("stderr"),
-							Value: []byte(fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/%s': is at %s but expected %s\n", branchName, secondCommit, firstCommit)),
+							Key:   []byte("actual_object_id"),
+							Value: []byte(secondCommit),
+						}).
+						WithDetail(&testproto.ErrorMetadata{
+							Key:   []byte("expected_object_id"),
+							Value: []byte(firstCommit),
+						}).
+						WithDetail(&testproto.ErrorMetadata{
+							Key:   []byte("reference"),
+							Value: []byte("refs/heads/" + branchName),
 						}).
 						WithDetail(&gitalypb.UserDeleteBranchError{
 							Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
@@ -747,8 +760,12 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 		BranchName: []byte("concurrent-update"),
 		User:       gittest.TestUser,
 	})
-	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again.").WithDetail(
-		&gitalypb.UserDeleteBranchError{
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: reference update: reference is already locked").
+		WithDetail(&testproto.ErrorMetadata{
+			Key:   []byte("reference"),
+			Value: []byte("refs/heads/concurrent-update"),
+		}).
+		WithDetail(&gitalypb.UserDeleteBranchError{
 			Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
 				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
 					OldOid:        commitID.String(),
@@ -756,8 +773,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 					ReferenceName: []byte("refs/heads/concurrent-update"),
 				},
 			},
-		},
-	), err)
+		}), err)
 	require.Nil(t, response)
 }
 

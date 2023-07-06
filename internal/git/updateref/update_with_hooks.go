@@ -125,7 +125,7 @@ func (e Error) Unwrap() error {
 }
 
 func (e Error) Error() string {
-	return fmt.Sprintf("Could not update %s. Please refresh and try again.", e.Reference)
+	return fmt.Sprintf("reference update: %v", e.Cause.Error())
 }
 
 // NewUpdaterWithHooks creates a new instance of a struct that will update a Git reference.

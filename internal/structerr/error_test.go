@@ -325,6 +325,18 @@ func TestError_Is(t *testing.T) {
 	}
 }
 
+type customWithMetadataError struct{}
+
+func (customWithMetadataError) Error() string {
+	return "custom error"
+}
+
+func (customWithMetadataError) ErrorMetadata() []MetadataItem {
+	return []MetadataItem{
+		{Key: "custom", Value: "error"},
+	}
+}
+
 func TestError_Metadata(t *testing.T) {
 	t.Parallel()
 
@@ -338,6 +350,7 @@ func TestError_Metadata(t *testing.T) {
 			expectedItemsByKey[item.Key] = item.Value
 		}
 		require.Equal(t, expectedItemsByKey, err.Metadata())
+		require.Equal(t, expectedItemsByKey, ExtractMetadata(err))
 	}
 
 	t.Run("without metadata", func(t *testing.T) {
@@ -476,6 +489,18 @@ func TestError_Metadata(t *testing.T) {
 		requireItems(t, err, []MetadataItem{
 			{Key: "a", Value: "overridden"},
 			{Key: "b", Value: "b"},
+		})
+	})
+
+	t.Run("custom type with metadata", func(t *testing.T) {
+		err := New("top-level: %w", customWithMetadataError{})
+
+		require.Equal(t, Error{
+			err:  fmt.Errorf("top-level: %w", customWithMetadataError{}),
+			code: codes.Unknown,
+		}, err)
+		requireItems(t, err, []MetadataItem{
+			{Key: "custom", Value: "error"},
 		})
 	})
 }

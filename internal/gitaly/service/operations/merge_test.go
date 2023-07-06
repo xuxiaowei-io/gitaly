@@ -191,10 +191,18 @@ func testUserMergeBranch(t *testing.T, ctx context.Context) {
 					secondRequest:          &gitalypb.UserMergeBranchRequest{Apply: true},
 					secondExpectedResponse: &gitalypb.OperationBranchUpdate{},
 					secondExpectedErr: func(response *gitalypb.UserMergeBranchResponse) error {
-						return structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again.").
+						return structerr.NewFailedPrecondition("reference update: reference does not point to expected object").
 							WithDetail(&testproto.ErrorMetadata{
-								Key:   []byte("stderr"),
-								Value: []byte(fmt.Sprintf("fatal: prepare: cannot lock ref 'refs/heads/master': is at %s but expected %s\n", secondCommit, data.masterCommit)),
+								Key:   []byte("actual_object_id"),
+								Value: []byte(secondCommit),
+							}).
+							WithDetail(&testproto.ErrorMetadata{
+								Key:   []byte("expected_object_id"),
+								Value: []byte(data.masterCommit),
+							}).
+							WithDetail(&testproto.ErrorMetadata{
+								Key:   []byte("reference"),
+								Value: []byte("refs/heads/" + data.branch),
 							}).
 							WithDetail(&gitalypb.UserMergeBranchError{
 								Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
@@ -719,10 +727,18 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 
 	secondResponse, err := mergeBidi.Recv()
 	testhelper.RequireGrpcError(t,
-		structerr.NewFailedPrecondition("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again.").
+		structerr.NewFailedPrecondition("reference update: reference does not point to expected object").
 			WithDetail(&testproto.ErrorMetadata{
-				Key:   []byte("stderr"),
-				Value: []byte("fatal: prepare: cannot lock ref 'refs/heads/gitaly-merge-test-branch': is at 549090fbeacc6607bc70648d3ba554c355e670c5 but expected 281d3a76f31c812dbf48abce82ccf6860adedd81\n"),
+				Key:   []byte("actual_object_id"),
+				Value: []byte(concurrentCommitID),
+			}).
+			WithDetail(&testproto.ErrorMetadata{
+				Key:   []byte("expected_object_id"),
+				Value: []byte("281d3a76f31c812dbf48abce82ccf6860adedd81"),
+			}).
+			WithDetail(&testproto.ErrorMetadata{
+				Key:   []byte("reference"),
+				Value: []byte("refs/heads/" + mergeBranchName),
 			}).
 			WithDetail(&gitalypb.UserMergeBranchError{
 				Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{

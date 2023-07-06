@@ -21,7 +21,15 @@ type AlreadyLockedError struct {
 }
 
 func (e AlreadyLockedError) Error() string {
-	return fmt.Sprintf("reference is already locked: %q", e.ReferenceName)
+	return "reference is already locked"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of the reference that was
+// locked already.
+func (e AlreadyLockedError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+	}
 }
 
 // InvalidReferenceFormatError indicates a reference name was invalid.
@@ -31,7 +39,15 @@ type InvalidReferenceFormatError struct {
 }
 
 func (e InvalidReferenceFormatError) Error() string {
-	return fmt.Sprintf("invalid reference format: %q", e.ReferenceName)
+	return "invalid reference format"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of the reference that was
+// invalid.
+func (e InvalidReferenceFormatError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+	}
 }
 
 // FileDirectoryConflictError is returned when an operation would causes a file-directory conflict
@@ -44,7 +60,16 @@ type FileDirectoryConflictError struct {
 }
 
 func (e FileDirectoryConflictError) Error() string {
-	return fmt.Sprintf("%q conflicts with %q", e.ConflictingReferenceName, e.ExistingReferenceName)
+	return "file directory conflict"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of preexisting and
+// conflicting reference names.
+func (e FileDirectoryConflictError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "conflicting_reference", Value: e.ConflictingReferenceName},
+		{Key: "existing_reference", Value: e.ExistingReferenceName},
+	}
 }
 
 // InTransactionConflictError is returned when attempting to modify two references in the same transaction
@@ -58,7 +83,16 @@ type InTransactionConflictError struct {
 }
 
 func (e InTransactionConflictError) Error() string {
-	return fmt.Sprintf("%q and %q conflict in the same transaction", e.FirstReferenceName, e.SecondReferenceName)
+	return "conflicting reference updates in the same transaction"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of the first and second
+// conflicting reference names.
+func (e InTransactionConflictError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "first_reference", Value: e.FirstReferenceName},
+		{Key: "second_reference", Value: e.SecondReferenceName},
+	}
 }
 
 // NonExistentObjectError is returned when attempting to point a reference to an object that does not
@@ -71,7 +105,16 @@ type NonExistentObjectError struct {
 }
 
 func (e NonExistentObjectError) Error() string {
-	return fmt.Sprintf("pointed reference %q to a non-existent object %q", e.ReferenceName, e.ObjectID)
+	return "target object missing"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the missing object as well as the
+// reference that should have been updated to point to it.
+func (e NonExistentObjectError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+		{Key: "missing_object", Value: e.ObjectID},
+	}
 }
 
 // NonCommitObjectError is returned when attempting to point a branch to an object that is not an object.
@@ -83,7 +126,41 @@ type NonCommitObjectError struct {
 }
 
 func (e NonCommitObjectError) Error() string {
-	return fmt.Sprintf("pointed branch %q to a non-commit object %q", e.ReferenceName, e.ObjectID)
+	return "target object not a commit"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the object that is not a commit as
+// well as the reference that should have been updated to point to it.
+func (e NonCommitObjectError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+		{Key: "non_commit_object", Value: e.ObjectID},
+	}
+}
+
+// MismatchingStateError is returned when attempting to update a reference where the expected object ID does not match
+// the actual object ID that the reference currently points to.
+type MismatchingStateError struct {
+	// ReferenceName is the name of the reference that was being updated.
+	ReferenceName string
+	// ExpectedObjectID is the expected object ID as specified by the caller.
+	ExpectedObjectID string
+	// ActualObjectID is the actual object ID that the reference was pointing to.
+	ActualObjectID string
+}
+
+func (e MismatchingStateError) Error() string {
+	return "reference does not point to expected object"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides error metadata about the expected and
+// actual object ID of the failed reference update.
+func (e MismatchingStateError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+		{Key: "expected_object_id", Value: e.ExpectedObjectID},
+		{Key: "actual_object_id", Value: e.ActualObjectID},
+	}
 }
 
 // state represents a possible state the updater can be in.
@@ -333,6 +410,7 @@ var (
 	inTransactionConflictRegex   = regexp.MustCompile(`^fatal: .*: cannot lock ref '.*': cannot process '(.*)' and '(.*)' at the same time\n$`)
 	nonExistentObjectRegex       = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write ref '(.*)' with nonexistent object (.*)\n$`)
 	nonCommitObjectRegex         = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write non-commit object (.*) to branch '(.*)'\n`)
+	mismatchingStateRegex        = regexp.MustCompile(`^fatal: .*: cannot lock ref '(.*)': is at (.*) but expected (.*)\n$`)
 )
 
 func (u *Updater) setState(state string) error {
@@ -419,6 +497,15 @@ func (u *Updater) handleIOError(fallbackErr error) error {
 		return NonCommitObjectError{
 			ReferenceName: string(matches[2]),
 			ObjectID:      string(matches[1]),
+		}
+	}
+
+	matches = mismatchingStateRegex.FindSubmatch(stderr)
+	if len(matches) > 2 {
+		return MismatchingStateError{
+			ReferenceName:    string(matches[1]),
+			ExpectedObjectID: string(matches[3]),
+			ActualObjectID:   string(matches[2]),
 		}
 	}
 
