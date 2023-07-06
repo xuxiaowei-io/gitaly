@@ -1,7 +1,6 @@
 package housekeeping_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -26,12 +24,8 @@ import (
 
 func TestPruneIfNeeded(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testPruneIfNeeded)
-}
 
-func testPruneIfNeeded(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
@@ -53,9 +47,9 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				filepath.Join("ab/12345"),
 			},
 			expectedLogEntries: map[string]string{
-				geometricOrIncrementalLog(ctx): "success",
-				"written_bitmap":               "success",
-				"written_multi_pack_index":     "success",
+				"packed_objects_geometric": "success",
+				"written_bitmap":           "success",
+				"written_multi_pack_index": "success",
 			},
 		},
 		{
@@ -64,9 +58,9 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				filepath.Join("17/12345"),
 			},
 			expectedLogEntries: map[string]string{
-				geometricOrIncrementalLog(ctx): "success",
-				"written_bitmap":               "success",
-				"written_multi_pack_index":     "success",
+				"packed_objects_geometric": "success",
+				"written_bitmap":           "success",
+				"written_multi_pack_index": "success",
 			},
 		},
 		{
@@ -78,9 +72,9 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				filepath.Join("17/12345"),
 			},
 			expectedLogEntries: map[string]string{
-				geometricOrIncrementalLog(ctx): "success",
-				"written_bitmap":               "success",
-				"written_multi_pack_index":     "success",
+				"packed_objects_geometric": "success",
+				"written_bitmap":           "success",
+				"written_multi_pack_index": "success",
 			},
 		},
 		{
@@ -98,9 +92,9 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				return looseObjects
 			}(),
 			expectedLogEntries: map[string]string{
-				geometricOrIncrementalLog(ctx): "success",
-				"written_bitmap":               "success",
-				"written_multi_pack_index":     "success",
+				"packed_objects_geometric": "success",
+				"written_bitmap":           "success",
+				"written_multi_pack_index": "success",
 			},
 		},
 		{
@@ -121,9 +115,9 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				return &t
 			}(),
 			expectedLogEntries: map[string]string{
-				geometricOrIncrementalLog(ctx): "success",
-				"written_bitmap":               "success",
-				"written_multi_pack_index":     "success",
+				"packed_objects_geometric": "success",
+				"written_bitmap":           "success",
+				"written_multi_pack_index": "success",
 			},
 		},
 		{
@@ -144,10 +138,10 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				return &t
 			}(),
 			expectedLogEntries: map[string]string{
-				geometricOrIncrementalLog(ctx): "success",
-				"pruned_objects":               "success",
-				"written_bitmap":               "success",
-				"written_multi_pack_index":     "success",
+				"packed_objects_geometric": "success",
+				"pruned_objects":           "success",
+				"written_bitmap":           "success",
+				"written_multi_pack_index": "success",
 			},
 		},
 	} {
@@ -185,11 +179,4 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 			require.Equal(t, tc.expectedLogEntries, hook.Entries[len(hook.Entries)-1].Data["optimizations"])
 		})
 	}
-}
-
-func geometricOrIncrementalLog(ctx context.Context) string {
-	if featureflag.GeometricRepacking.IsEnabled(ctx) {
-		return "packed_objects_geometric"
-	}
-	return "packed_objects_incremental"
 }

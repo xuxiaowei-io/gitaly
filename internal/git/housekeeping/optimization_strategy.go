@@ -5,7 +5,6 @@ import (
 	"math"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 )
@@ -62,189 +61,20 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		return false, RepackObjectsConfig{}
 	}
 
-	if featureflag.GeometricRepacking.IsEnabled(ctx) {
-		nonCruftPackfilesCount := s.info.Packfiles.Count - s.info.Packfiles.CruftCount
-		timeSinceLastFullRepack := time.Since(s.info.Packfiles.LastFullRepack)
-
-		fullRepackCfg := RepackObjectsConfig{
-			// We use the full-with-unreachable strategy to also pack all unreachable
-			// objects into the packfile. This only happens for object pools though,
-			// as they should never delete objects.
-			Strategy: RepackObjectsStrategyFullWithUnreachable,
-			// We cannot write bitmaps when there are alternates as we don't have full
-			// closure of all objects in the packfile.
-			WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
-			// We rewrite all packfiles into a single one and thus change the layout
-			// that was indexed by the multi-pack-index. We thus need to update it, as
-			// well.
-			WriteMultiPackIndex: true,
-		}
-		if !s.info.IsObjectPool {
-			// When we don't have an object pool at hand we want to be able to expire
-			// unreachable objects. We thus use cruft packs with an expiry date.
-			fullRepackCfg.Strategy = RepackObjectsStrategyFullWithCruft
-			fullRepackCfg.CruftExpireBefore = s.expireBefore
-		}
-
-		geometricRepackCfg := RepackObjectsConfig{
-			Strategy: RepackObjectsStrategyGeometric,
-			// We cannot write bitmaps when there are alternates as we don't have full
-			// closure of all objects in the packfile.
-			WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
-			// We're rewriting packfiles that may be part of the multi-pack-index, so we
-			// do want to update it to reflect the new layout.
-			WriteMultiPackIndex: true,
-		}
-
-		// Incremental repacks only pack unreachable objects into a new pack. As we only
-		// perform this kind of repack in the case where the overall repository structure
-		// looks good to us we try to do use the least amount of resources to update them.
-		// We thus neither update the multi-pack-index nor do we update bitmaps.
-		incrementalRepackCfg := RepackObjectsConfig{
-			Strategy:            RepackObjectsStrategyIncrementalWithUnreachable,
-			WriteBitmap:         false,
-			WriteMultiPackIndex: false,
-		}
-
-		// When alternative object directories have been modified since our last full repack
-		// then we have likely joined an object pool since then. This means that we'll want
-		// to perform a full repack in order to deduplicate objects that are part of the
-		// object pool.
-		if s.info.Alternates.LastModified.After(s.info.Packfiles.LastFullRepack) {
-			return true, fullRepackCfg
-		}
-
-		// It is mandatory for us that we perform regular full repacks in repositories so
-		// that we can evict objects which are unreachable into a separate cruft pack. So in
-		// the case where we have more than one non-cruft packfiles and the time since our
-		// last full repack is longer than the grace period we'll perform a full repack.
-		//
-		// This heuristic is simple on purpose: customers care about when objects will be
-		// declared as unreachable and when the pruning grace period starts as it impacts
-		// usage quotas. So with this simple policy we can tell customers that we evict and
-		// expire unreachable objects on a regular schedule.
-		//
-		// On the other hand, for object pools, we also need to perform regular full
-		// repacks. The reason is different though, as we don't ever delete objects from
-		// pool repositories anyway.
-		//
-		// Geometric repacking does not take delta islands into account as it does not
-		// perform a graph walk. We need proper delta islands though so that packfiles can
-		// be efficiently served across forks of a repository.
-		//
-		// Once a full repack has been performed, the deltas will be carried forward even
-		// across geometric repacks. That being said, the quality of our delta islands will
-		// regress over time as new objects are pulled into the pool repository.
-		//
-		// So we perform regular full repacks in the repository to ensure that the delta
-		// islands will be "freshened" again. If geometric repacks ever learn to take delta
-		// islands into account we can get rid of this condition and only do geometric
-		// repacks.
-		if nonCruftPackfilesCount > 1 && timeSinceLastFullRepack > FullRepackCooldownPeriod {
-			return true, fullRepackCfg
-		}
-
-		// In case both packfiles and loose objects are in a good state, but we don't yet
-		// have a multi-pack-index we perform an incremental repack to generate one. We need
-		// to have multi-pack-indices for the next heuristic, so it's bad if it was missing.
-		if !s.info.Packfiles.MultiPackIndex.Exists {
-			return true, geometricRepackCfg
-		}
-
-		// Last but not least, we also need to take into account whether new packfiles have
-		// been written into the repository since our last geometric repack. This is
-		// necessary so that we can enforce the geometric sequence of packfiles and to make
-		// sure that the multi-pack-index tracks those new packfiles.
-		//
-		// To calculate this we use the number of packfiles tracked by the multi-pack index:
-		// the difference between the total number of packfiles and the number of packfiles
-		// tracked by the index is the amount of packfiles written since the last geometric
-		// repack. As we only update the MIDX during housekeeping this metric should in
-		// theory be accurate.
-		//
-		// Theoretically, we could perform a geometric repack whenever there is at least one
-		// untracked packfile as git-repack(1) would exit early in case it finds that the
-		// geometric sequence is kept. But there are multiple reasons why we want to avoid
-		// this:
-		//
-		// - We would end up spawning git-repack(1) on almost every single repository
-		//   optimization, but ideally we want to be lazy and do only as much work as is
-		//   really required.
-		//
-		// - While we wouldn't need to repack objects in case the geometric sequence is kept
-		//   anyway, we'd still need to update the multi-pack-index. This action scales with
-		//   the number of overall objects in the repository.
-		//
-		// Instead, we use a strategy that heuristically determines whether the repository
-		// has too many untracked packfiles and scale the number with the combined size of
-		// all packfiles. The intent is to perform geometric repacks less often the larger
-		// the repository, also because larger repositories tend to be more active, too.
-		//
-		// The formula we use is:
-		//
-		//	log(total_packfile_size) / log(1.8)
-		//
-		// Which gives us the following allowed number of untracked packfiles:
-		//
-		// -----------------------------------------------------
-		// | total packfile size | allowed untracked packfiles |
-		// -----------------------------------------------------
-		// | none or <10MB       |  2                          |
-		// | 10MB                |  3                          |
-		// | 100MB               |  7                          |
-		// | 500MB               | 10                          |
-		// | 1GB                 | 11                          |
-		// | 5GB                 | 14                          |
-		// | 10GB                | 15                          |
-		// | 100GB               | 19                          |
-		// -----------------------------------------------------
-		allowedLowerLimit := 2.0
-		allowedUpperLimit := math.Log(float64(s.info.Packfiles.Size/1024/1024)) / math.Log(1.8)
-		actualLimit := math.Max(allowedLowerLimit, allowedUpperLimit)
-
-		untrackedPackfiles := s.info.Packfiles.Count - s.info.Packfiles.MultiPackIndex.PackfileCount
-
-		if untrackedPackfiles > uint64(actualLimit) {
-			return true, geometricRepackCfg
-		}
-
-		// If there are loose objects then we want to roll them up into a new packfile.
-		// Loose objects naturally accumulate during day-to-day operations, e.g. when
-		// executing RPCs part of the OperationsService which write objects into the repo
-		// directly.
-		//
-		// As we have already verified that the packfile structure looks okay-ish to us, we
-		// don't need to perform a geometric repack here as that could be expensive: we
-		// might end up soaking up packfiles because the geometric sequence is not intact,
-		// but more importantly we would end up writing the multi-pack-index and potentially
-		// a bitmap. Writing these data structures introduces overhead that scales with the
-		// number of objects in the repository.
-		//
-		// So instead, we only do an incremental repack of all loose objects, regardless of
-		// their reachability. This is the cheapest we can do: we don't need to compute
-		// whether objects are reachable and we don't need to update any data structures
-		// that scale with the repository size.
-		if s.info.LooseObjects.Count > looseObjectLimit {
-			return true, incrementalRepackCfg
-		}
-
-		return false, RepackObjectsConfig{}
-	}
+	nonCruftPackfilesCount := s.info.Packfiles.Count - s.info.Packfiles.CruftCount
+	timeSinceLastFullRepack := time.Since(s.info.Packfiles.LastFullRepack)
 
 	fullRepackCfg := RepackObjectsConfig{
-		// We use the full-with-unreachable strategy to also pack all unreachable objects
-		// into the packfile. This only happens for object pools though, as they should
-		// never delete objects.
-		//
-		// Note that this is quite inefficient, as all unreachable objects will be exploded
-		// into loose objects now. This is fixed in our geometric repacking strategy, where
-		// we append unreachable objects to the new pack.
-		Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
-		// We cannot write bitmaps when there are alternates as we don't have full closure
-		// of all objects in the packfile.
+		// We use the full-with-unreachable strategy to also pack all unreachable
+		// objects into the packfile. This only happens for object pools though,
+		// as they should never delete objects.
+		Strategy: RepackObjectsStrategyFullWithUnreachable,
+		// We cannot write bitmaps when there are alternates as we don't have full
+		// closure of all objects in the packfile.
 		WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
-		// We want to always update the multi-pack-index while we're already at it repacking
-		// some of the objects.
+		// We rewrite all packfiles into a single one and thus change the layout
+		// that was indexed by the multi-pack-index. We thus need to update it, as
+		// well.
 		WriteMultiPackIndex: true,
 	}
 	if !s.info.IsObjectPool {
@@ -254,86 +84,145 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		fullRepackCfg.CruftExpireBefore = s.expireBefore
 	}
 
-	incrementalRepackCfg := RepackObjectsConfig{
-		Strategy: RepackObjectsStrategyIncremental,
-		// We cannot write bitmaps when there are alternates as we don't have full closure
-		// of all objects in the packfile.
+	geometricRepackCfg := RepackObjectsConfig{
+		Strategy: RepackObjectsStrategyGeometric,
+		// We cannot write bitmaps when there are alternates as we don't have full
+		// closure of all objects in the packfile.
 		WriteBitmap: len(s.info.Alternates.ObjectDirectories) == 0,
-		// We want to always update the multi-pack-index while we're already at it repacking
-		// some of the objects.
+		// We're rewriting packfiles that may be part of the multi-pack-index, so we
+		// do want to update it to reflect the new layout.
 		WriteMultiPackIndex: true,
 	}
 
-	// When alternative object directories have been modified since our last full repack then we
-	// have likely joined an object pool since then. This means that we'll want to perform a
-	// full repack in order to deduplicate objects that are part of the object pool.
+	// Incremental repacks only pack unreachable objects into a new pack. As we only
+	// perform this kind of repack in the case where the overall repository structure
+	// looks good to us we try to do use the least amount of resources to update them.
+	// We thus neither update the multi-pack-index nor do we update bitmaps.
+	incrementalRepackCfg := RepackObjectsConfig{
+		Strategy:            RepackObjectsStrategyIncrementalWithUnreachable,
+		WriteBitmap:         false,
+		WriteMultiPackIndex: false,
+	}
+
+	// When alternative object directories have been modified since our last full repack
+	// then we have likely joined an object pool since then. This means that we'll want
+	// to perform a full repack in order to deduplicate objects that are part of the
+	// object pool.
 	if s.info.Alternates.LastModified.After(s.info.Packfiles.LastFullRepack) {
 		return true, fullRepackCfg
 	}
 
-	// Whenever we do an incremental repack we create a new packfile, and as a result Git may
-	// have to look into every one of the packfiles to find objects. This is less efficient the
-	// more packfiles we have, but we cannot repack the whole repository every time either given
-	// that this may take a lot of time.
+	// It is mandatory for us that we perform regular full repacks in repositories so
+	// that we can evict objects which are unreachable into a separate cruft pack. So in
+	// the case where we have more than one non-cruft packfiles and the time since our
+	// last full repack is longer than the grace period we'll perform a full repack.
 	//
-	// Instead, we determine whether the repository has "too many" packfiles. "Too many" is
-	// relative though: for small repositories it's fine to do full repacks regularly, but for
-	// large repositories we need to be more careful. We thus use a heuristic of "repository
-	// largeness": we take the total size of all packfiles, and then the maximum allowed number
-	// of packfiles is `log(total_packfile_size) / log(1.3)` for normal repositories and
-	// `log(total_packfile_size) / log(10.0)` for pools. This gives the following allowed number
-	// of packfiles:
+	// This heuristic is simple on purpose: customers care about when objects will be
+	// declared as unreachable and when the pruning grace period starts as it impacts
+	// usage quotas. So with this simple policy we can tell customers that we evict and
+	// expire unreachable objects on a regular schedule.
 	//
-	// -----------------------------------------------------------------------------------
-	// | total packfile size | allowed packfiles for repos | allowed packfiles for pools |
-	// -----------------------------------------------------------------------------------
-	// | none or <10MB         | 5                           | 2                         |
-	// | 10MB                  | 8                           | 2                         |
-	// | 100MB                 | 17                          | 2                         |
-	// | 500MB                 | 23                          | 2                         |
-	// | 1GB                   | 26                          | 3                         |
-	// | 5GB                   | 32                          | 3                         |
-	// | 10GB                  | 35                          | 4                         |
-	// | 100GB                 | 43                          | 5                         |
-	// -----------------------------------------------------------------------------------
+	// On the other hand, for object pools, we also need to perform regular full
+	// repacks. The reason is different though, as we don't ever delete objects from
+	// pool repositories anyway.
 	//
-	// The goal is to have a comparatively quick ramp-up of allowed packfiles as the repository
-	// size grows, but then slow down such that we're effectively capped and don't end up with
-	// an excessive amount of packfiles. On the other hand, pool repositories are potentially
-	// reused as basis for many forks and should thus be packed much more aggressively.
+	// Geometric repacking does not take delta islands into account as it does not
+	// perform a graph walk. We need proper delta islands though so that packfiles can
+	// be efficiently served across forks of a repository.
 	//
-	// This is a heuristic and thus imperfect by necessity. We may tune it as we gain experience
-	// with the way it behaves.
-	lowerLimit, log := 5.0, 1.3
-	if s.info.IsObjectPool {
-		lowerLimit, log = 2.0, 10.0
-	}
-
-	if uint64(math.Max(lowerLimit,
-		math.Log(float64(s.info.Packfiles.Size/1024/1024))/math.Log(log))) <= s.info.Packfiles.Count {
+	// Once a full repack has been performed, the deltas will be carried forward even
+	// across geometric repacks. That being said, the quality of our delta islands will
+	// regress over time as new objects are pulled into the pool repository.
+	//
+	// So we perform regular full repacks in the repository to ensure that the delta
+	// islands will be "freshened" again. If geometric repacks ever learn to take delta
+	// islands into account we can get rid of this condition and only do geometric
+	// repacks.
+	if nonCruftPackfilesCount > 1 && timeSinceLastFullRepack > FullRepackCooldownPeriod {
 		return true, fullRepackCfg
 	}
 
-	// Most Git commands do not write packfiles directly, but instead write loose objects into
-	// the object database. So while we now know that there ain't too many packfiles, we still
-	// need to check whether we have too many objects.
-	//
-	// In this case it doesn't make a lot of sense to scale incremental repacks with the repo's
-	// size: we only pack loose objects, so the time to pack them doesn't scale with repository
-	// size but with the number of loose objects we have. git-gc(1) uses a threshold of 6700
-	// loose objects to start an incremental repack, but one needs to keep in mind that Git
-	// typically has defaults which are better suited for the client-side instead of the
-	// server-side in most commands.
-	//
-	// In our case we typically want to ensure that our repositories are much better packed than
-	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
-	if s.info.LooseObjects.Count > looseObjectLimit {
-		return true, incrementalRepackCfg
+	// In case both packfiles and loose objects are in a good state, but we don't yet
+	// have a multi-pack-index we perform an incremental repack to generate one. We need
+	// to have multi-pack-indices for the next heuristic, so it's bad if it was missing.
+	if !s.info.Packfiles.MultiPackIndex.Exists {
+		return true, geometricRepackCfg
 	}
 
-	// In case both packfiles and loose objects are in a good state, but we don't yet have a
-	// multi-pack-index we perform an incremental repack to generate one.
-	if !s.info.Packfiles.MultiPackIndex.Exists {
+	// Last but not least, we also need to take into account whether new packfiles have
+	// been written into the repository since our last geometric repack. This is
+	// necessary so that we can enforce the geometric sequence of packfiles and to make
+	// sure that the multi-pack-index tracks those new packfiles.
+	//
+	// To calculate this we use the number of packfiles tracked by the multi-pack index:
+	// the difference between the total number of packfiles and the number of packfiles
+	// tracked by the index is the amount of packfiles written since the last geometric
+	// repack. As we only update the MIDX during housekeeping this metric should in
+	// theory be accurate.
+	//
+	// Theoretically, we could perform a geometric repack whenever there is at least one
+	// untracked packfile as git-repack(1) would exit early in case it finds that the
+	// geometric sequence is kept. But there are multiple reasons why we want to avoid
+	// this:
+	//
+	// - We would end up spawning git-repack(1) on almost every single repository
+	//   optimization, but ideally we want to be lazy and do only as much work as is
+	//   really required.
+	//
+	// - While we wouldn't need to repack objects in case the geometric sequence is kept
+	//   anyway, we'd still need to update the multi-pack-index. This action scales with
+	//   the number of overall objects in the repository.
+	//
+	// Instead, we use a strategy that heuristically determines whether the repository
+	// has too many untracked packfiles and scale the number with the combined size of
+	// all packfiles. The intent is to perform geometric repacks less often the larger
+	// the repository, also because larger repositories tend to be more active, too.
+	//
+	// The formula we use is:
+	//
+	//	log(total_packfile_size) / log(1.8)
+	//
+	// Which gives us the following allowed number of untracked packfiles:
+	//
+	// -----------------------------------------------------
+	// | total packfile size | allowed untracked packfiles |
+	// -----------------------------------------------------
+	// | none or <10MB       |  2                          |
+	// | 10MB                |  3                          |
+	// | 100MB               |  7                          |
+	// | 500MB               | 10                          |
+	// | 1GB                 | 11                          |
+	// | 5GB                 | 14                          |
+	// | 10GB                | 15                          |
+	// | 100GB               | 19                          |
+	// -----------------------------------------------------
+	allowedLowerLimit := 2.0
+	allowedUpperLimit := math.Log(float64(s.info.Packfiles.Size/1024/1024)) / math.Log(1.8)
+	actualLimit := math.Max(allowedLowerLimit, allowedUpperLimit)
+
+	untrackedPackfiles := s.info.Packfiles.Count - s.info.Packfiles.MultiPackIndex.PackfileCount
+
+	if untrackedPackfiles > uint64(actualLimit) {
+		return true, geometricRepackCfg
+	}
+
+	// If there are loose objects then we want to roll them up into a new packfile.
+	// Loose objects naturally accumulate during day-to-day operations, e.g. when
+	// executing RPCs part of the OperationsService which write objects into the repo
+	// directly.
+	//
+	// As we have already verified that the packfile structure looks okay-ish to us, we
+	// don't need to perform a geometric repack here as that could be expensive: we
+	// might end up soaking up packfiles because the geometric sequence is not intact,
+	// but more importantly we would end up writing the multi-pack-index and potentially
+	// a bitmap. Writing these data structures introduces overhead that scales with the
+	// number of objects in the repository.
+	//
+	// So instead, we only do an incremental repack of all loose objects, regardless of
+	// their reachability. This is the cheapest we can do: we don't need to compute
+	// whether objects are reachable and we don't need to update any data structures
+	// that scale with the repository size.
+	if s.info.LooseObjects.Count > looseObjectLimit {
 		return true, incrementalRepackCfg
 	}
 

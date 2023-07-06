@@ -2,12 +2,10 @@ package housekeeping
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -15,11 +13,8 @@ import (
 
 func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testHeuristicalOptimizationStrategyShouldRepackObjects)
-}
 
-func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc           string
@@ -45,10 +40,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			},
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
-				Strategy: geometricOrIncremental(ctx,
-					RepackObjectsStrategyGeometric,
-					RepackObjectsStrategyIncremental,
-				),
+				Strategy:            RepackObjectsStrategyGeometric,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -76,10 +68,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			// exist in pooled repositories.
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
-				Strategy: geometricOrIncremental(ctx,
-					RepackObjectsStrategyGeometric,
-					RepackObjectsStrategyIncremental,
-				),
+				Strategy:            RepackObjectsStrategyGeometric,
 				WriteMultiPackIndex: true,
 			},
 		},
@@ -97,10 +86,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			},
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
-				Strategy: geometricOrIncremental(ctx,
-					RepackObjectsStrategyGeometric,
-					RepackObjectsStrategyIncremental,
-				),
+				Strategy:            RepackObjectsStrategyGeometric,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -157,15 +143,12 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					},
 				},
 			},
-			expectedNeeded: geometricOrIncremental(ctx, true, false),
-			expectedConfig: geometricOrIncremental(ctx,
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyFullWithCruft,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-				RepackObjectsConfig{},
-			),
+			expectedNeeded: true,
+			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyFullWithCruft,
+				WriteBitmap:         true,
+				WriteMultiPackIndex: true,
+			},
 		},
 		{
 			desc: "old tracked packfiles with cruft pack will not be repacked",
@@ -206,15 +189,8 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					},
 				},
 			},
-			expectedNeeded: geometricOrIncremental(ctx, false, true),
-			expectedConfig: geometricOrIncremental(ctx,
-				RepackObjectsConfig{},
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-			),
+			expectedNeeded: false,
+			expectedConfig: RepackObjectsConfig{},
 		},
 		{
 			desc: "old tracked packfiles in pool repository will be repacked",
@@ -235,18 +211,11 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 				},
 			},
 			expectedNeeded: true,
-			expectedConfig: geometricOrIncremental(ctx,
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyFullWithUnreachable,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-			),
+			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyFullWithUnreachable,
+				WriteBitmap:         true,
+				WriteMultiPackIndex: true,
+			},
 		},
 		{
 			desc: "few untracked packfiles will not get repacked",
@@ -266,15 +235,8 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					},
 				},
 			},
-			expectedNeeded: geometricOrIncremental(ctx, false, true),
-			expectedConfig: geometricOrIncremental(ctx,
-				RepackObjectsConfig{},
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyFullWithCruft,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-			),
+			expectedNeeded: false,
+			expectedConfig: RepackObjectsConfig{},
 		},
 		{
 			desc: "many untracked packfiles will get repacked",
@@ -295,18 +257,11 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 				},
 			},
 			expectedNeeded: true,
-			expectedConfig: geometricOrIncremental(ctx,
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyGeometric,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyFullWithCruft,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-			),
+			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyGeometric,
+				WriteBitmap:         true,
+				WriteMultiPackIndex: true,
+			},
 		},
 		{
 			desc: "larger packfiles allow more untracked packfiles",
@@ -345,15 +300,12 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					},
 				},
 			},
-			expectedNeeded: geometricOrIncremental(ctx, true, false),
-			expectedConfig: geometricOrIncremental(ctx,
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyGeometric,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-				RepackObjectsConfig{},
-			),
+			expectedNeeded: true,
+			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyGeometric,
+				WriteBitmap:         true,
+				WriteMultiPackIndex: true,
+			},
 		},
 		{
 			desc: "more tracked packfiles than exist will repack to update MIDX",
@@ -375,15 +327,12 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					},
 				},
 			},
-			expectedNeeded: geometricOrIncremental(ctx, true, false),
-			expectedConfig: geometricOrIncremental(ctx,
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyGeometric,
-					WriteBitmap:         true,
-					WriteMultiPackIndex: true,
-				},
-				RepackObjectsConfig{},
-			),
+			expectedNeeded: true,
+			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyGeometric,
+				WriteBitmap:         true,
+				WriteMultiPackIndex: true,
+			},
 		},
 		{
 			desc: "geometric repack in object pool member with recent Git version",
@@ -404,18 +353,11 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 				},
 			},
 			expectedNeeded: true,
-			expectedConfig: geometricOrIncremental(ctx,
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyGeometric,
-					WriteBitmap:         false,
-					WriteMultiPackIndex: true,
-				},
-				RepackObjectsConfig{
-					Strategy:            RepackObjectsStrategyFullWithCruft,
-					WriteBitmap:         false,
-					WriteMultiPackIndex: true,
-				},
-			),
+			expectedConfig: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyGeometric,
+				WriteBitmap:         false,
+				WriteMultiPackIndex: true,
+			},
 		},
 		{
 			desc: "alternates modified after last full repack",
@@ -465,129 +407,6 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			repackNeeded, repackCfg := tc.strategy.ShouldRepackObjects(ctx)
 			require.Equal(t, tc.expectedNeeded, repackNeeded)
 			require.Equal(t, tc.expectedConfig, repackCfg)
-		})
-	}
-
-	for _, outerTC := range []struct {
-		packfileSizeInMB         uint64
-		requiredPackfiles        uint64
-		requiredPackfilesForPool uint64
-	}{
-		{
-			packfileSizeInMB:         1,
-			requiredPackfiles:        5,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSizeInMB:         5,
-			requiredPackfiles:        6,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSizeInMB:         10,
-			requiredPackfiles:        8,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSizeInMB:         50,
-			requiredPackfiles:        14,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSizeInMB:         100,
-			requiredPackfiles:        17,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSizeInMB:         500,
-			requiredPackfiles:        23,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSizeInMB:         1001,
-			requiredPackfiles:        26,
-			requiredPackfilesForPool: 3,
-		},
-	} {
-		// These tests don't really make any sense in the context of geometric repacking as
-		// we don't care for the size of packfiles anymore. The test can be deleted once the
-		// old strategy has been removed.
-		if featureflag.GeometricRepacking.IsEnabled(ctx) {
-			break
-		}
-
-		t.Run(fmt.Sprintf("packfile with %dMB", outerTC.packfileSizeInMB), func(t *testing.T) {
-			for _, tc := range []struct {
-				desc              string
-				isPool            bool
-				alternates        []string
-				requiredPackfiles uint64
-			}{
-				{
-					desc:              "normal repository",
-					isPool:            false,
-					requiredPackfiles: outerTC.requiredPackfiles,
-				},
-				{
-					desc:              "pooled repository",
-					isPool:            false,
-					alternates:        []string{"something"},
-					requiredPackfiles: outerTC.requiredPackfiles,
-				},
-				{
-					desc:              "object pool",
-					isPool:            true,
-					requiredPackfiles: outerTC.requiredPackfilesForPool,
-				},
-			} {
-				t.Run(tc.desc, func(t *testing.T) {
-					expireBefore := time.Now()
-					strategy := HeuristicalOptimizationStrategy{
-						info: stats.RepositoryInfo{
-							IsObjectPool: tc.isPool,
-							Packfiles: stats.PackfilesInfo{
-								Size:  outerTC.packfileSizeInMB * 1024 * 1024,
-								Count: tc.requiredPackfiles - 1,
-								Bitmap: stats.BitmapInfo{
-									Exists: true,
-								},
-								MultiPackIndex: stats.MultiPackIndexInfo{
-									Exists: true,
-								},
-							},
-							Alternates: stats.AlternatesInfo{
-								ObjectDirectories: tc.alternates,
-							},
-						},
-						expireBefore: expireBefore,
-					}
-
-					if tc.isPool {
-						expireBefore = time.Time{}
-					}
-
-					repackNeeded, _ := strategy.ShouldRepackObjects(ctx)
-					require.False(t, repackNeeded)
-
-					// Now we add the last packfile that should bring us across
-					// the boundary of having to repack.
-					strategy.info.Packfiles.Count++
-
-					repackNeeded, repackCfg := strategy.ShouldRepackObjects(ctx)
-					require.True(t, repackNeeded)
-					require.Equal(t, RepackObjectsConfig{
-						Strategy: func() RepackObjectsStrategy {
-							if !tc.isPool {
-								return RepackObjectsStrategyFullWithCruft
-							}
-							return RepackObjectsStrategyFullWithLooseUnreachable
-						}(),
-						WriteBitmap:         len(tc.alternates) == 0,
-						WriteMultiPackIndex: true,
-						CruftExpireBefore:   expireBefore,
-					}, repackCfg)
-				})
-			}
 		})
 	}
 
@@ -655,15 +474,10 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 				require.Equal(t, RepackObjectsConfig{
 					Strategy: func() RepackObjectsStrategy {
 						if repackNeeded {
-							return geometricOrIncremental(ctx,
-								RepackObjectsStrategyIncrementalWithUnreachable,
-								RepackObjectsStrategyIncremental,
-							)
+							return RepackObjectsStrategyIncrementalWithUnreachable
 						}
 						return ""
 					}(),
-					WriteBitmap:         repackNeeded && geometricOrIncremental(ctx, false, true),
-					WriteMultiPackIndex: repackNeeded && geometricOrIncremental(ctx, false, true),
 				}, repackCfg)
 			})
 		}
@@ -810,11 +624,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.GeometricRepacking).Run(t, testHeuristicalOptimizationStrategyNeedsWriteCommitGraph)
-}
-
-func testHeuristicalOptimizationStrategyNeedsWriteCommitGraph(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc           string
