@@ -28,9 +28,6 @@ func TestRepackObjects(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
-	require.NoError(t, err)
-
 	// repack is a custom helper function that repacks while explicitly disabling the update of
 	// server info. This is done so that we assert that the actual repacking logic doesn't write
 	// the server info.
@@ -262,16 +259,8 @@ func TestRepackObjects(t *testing.T) {
 				hasBitmap:    true,
 			},
 			stateAfterRepack: objectsState{
-				packfiles: 2,
-				// Git v2.38.0 does not yet remove redundant pack-based bitmaps.
-				// This is getting fixed via 55d902cd61 (builtin/repack.c: remove
-				// redundant pack-based bitmaps, 2022-10-17), which is part of Git
-				// v2.39.0 and newer.
-				//
-				// Local tests don't show that this is a problem. Most importantly,
-				// Git does not seem to warn about these bitmaps. So let's just
-				// ignore them for now.
-				hasBitmap:               !gitVersion.MidxDeletesRedundantBitmaps(),
+				packfiles:               2,
+				hasBitmap:               false,
 				hasMultiPackIndex:       true,
 				hasMultiPackIndexBitmap: true,
 			},

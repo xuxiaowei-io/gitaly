@@ -14,9 +14,9 @@ import (
 // - https://docs.gitlab.com/ee/install/installation.html#software-requirements
 // - https://docs.gitlab.com/ee/update/ (see e.g. https://docs.gitlab.com/ee/update/#1440)
 var minimumVersion = Version{
-	versionString: "2.40.0",
+	versionString: "2.41.0",
 	major:         2,
-	minor:         40,
+	minor:         41,
 	patch:         0,
 	rc:            false,
 
@@ -73,49 +73,6 @@ func (v Version) String() string {
 // supported by Gitaly.
 func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
-}
-
-// HashObjectFsck detects whether or not the given Git version will do fsck
-// checks when git-hash-object writes objects.
-func (v Version) HashObjectFsck() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 40, patch: 0,
-	})
-}
-
-// PatchIDRespectsBinaries detects whether the given Git version correctly handles binary diffs when
-// computing a patch ID. Previous to Git v2.39.0, git-patch-id(1) just completely ignored any binary
-// diffs and thus would consider two diffs the same even if a binary changed.
-func (v Version) PatchIDRespectsBinaries() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 39, patch: 0,
-	})
-}
-
-// MidxDeletesRedundantBitmaps detects whether the given Git version deletes redundant pack-based
-// bitmaps when writing multi-pack-indices. This feature has been added via 55d902cd61
-// (builtin/repack.c: remove redundant pack-based bitmaps, 2022-10-17), which is part of Git
-// v2.39.0 and newer.
-func (v Version) MidxDeletesRedundantBitmaps() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 39, patch: 0,
-	})
-}
-
-// GeometricRepackingSupportsAlternates detects whether the given Git version knows to perform
-// geometric repacking in repositories which are connected to an alternate object database. This
-// used to not work due to various different bugs which have been fixed via de56e80363 (Merge branch
-// 'ps/fix-geom-repack-with-alternates' into next, 2023-04-18).
-//
-// The patches will be part of Git v2.41.0 and have been backported to Git v2.40.0.gl1.
-func (v Version) GeometricRepackingSupportsAlternates() bool {
-	if v.major == 2 && v.minor == 40 && v.gl > 0 {
-		return true
-	}
-
-	return !v.LessThan(Version{
-		major: 2, minor: 41,
-	})
 }
 
 // CatfileSupportsNulTerminatedOutput detects whether git-cat-file(1) knows the `-Z` switch, which causes it to
