@@ -269,24 +269,9 @@ func (e Error) errorChain() []Error {
 	return result
 }
 
-// Metadata returns the Error's metadata. The metadata will contain the combination of all added
-// metadata of this error as well as any wrapped Errors.
-//
-// When the same metada key exists multiple times in the error chain, then the value that is
-// highest up the callchain will be returned. This is done because in general, the higher up the
-// callchain one is the more context is available.
+// Metadata returns the Error's metadata. Please refer to `ExtractMetadata()` for the exact semantics of this function.
 func (e Error) Metadata() map[string]any {
-	result := map[string]any{}
-
-	for _, err := range e.errorChain() {
-		for _, m := range err.metadata {
-			if _, exists := result[m.Key]; !exists {
-				result[m.Key] = m.Value
-			}
-		}
-	}
-
-	return result
+	return ExtractMetadata(e)
 }
 
 // MetadataItems returns a copy of all metadata items added to this error. This function has the
@@ -355,4 +340,26 @@ func (e Error) WithDetail(detail proto.Message) Error {
 func (e Error) WithGRPCCode(code codes.Code) Error {
 	e.code = code
 	return e
+}
+
+// ExtractMetadata extracts metadata from the given error if any of the errors in its chain contain any. The metadata
+// will contain the combination of all added metadata of this error as well as any wrapped Errors.
+//
+// When the same metada key exists multiple times in the error chain, then the value that is
+// highest up the callchain will be returned. This is done because in general, the higher up the
+// callchain one is the more context is available.
+func ExtractMetadata(err error) map[string]any {
+	metadata := map[string]any{}
+
+	for ; err != nil; err = errors.Unwrap(err) {
+		if structErr, ok := err.(Error); ok {
+			for _, m := range structErr.metadata {
+				if _, exists := metadata[m.Key]; !exists {
+					metadata[m.Key] = m.Value
+				}
+			}
+		}
+	}
+
+	return metadata
 }

@@ -338,6 +338,7 @@ func TestError_Metadata(t *testing.T) {
 			expectedItemsByKey[item.Key] = item.Value
 		}
 		require.Equal(t, expectedItemsByKey, err.Metadata())
+		require.Equal(t, expectedItemsByKey, ExtractMetadata(err))
 	}
 
 	t.Run("without metadata", func(t *testing.T) {

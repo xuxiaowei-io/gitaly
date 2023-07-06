@@ -2,7 +2,6 @@ package testserver
 
 import (
 	"context"
-	"errors"
 	"sort"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -26,13 +25,7 @@ func StructErrStreamInterceptor(srv interface{}, stream grpc.ServerStream, info 
 }
 
 func interceptedError(err error) error {
-	var structErr structerr.Error
-	if errors.As(err, &structErr) {
-		metadata := structErr.Metadata()
-		if len(metadata) == 0 {
-			return err
-		}
-
+	if metadata := structerr.ExtractMetadata(err); len(metadata) > 0 {
 		keys := make([]string, 0, len(metadata))
 		for key := range metadata {
 			keys = append(keys, key)
