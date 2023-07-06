@@ -2,6 +2,7 @@ package internalgitaly
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -30,7 +31,7 @@ func walkStorage(
 		return structerr.NewNotFound("looking up storage: %w", err)
 	}
 
-	return filepath.Walk(storagePath, func(path string, info os.FileInfo, err error) error {
+	return filepath.WalkDir(storagePath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil
