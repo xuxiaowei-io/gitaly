@@ -219,8 +219,7 @@ func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
-	defer testhelper.MustClose(t, conn)
+	client := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 
 	c, err := client.InfoRefsUploadPack(ctx, &gitalypb.InfoRefsRequest{
 		Repository:  repo,
@@ -242,8 +241,7 @@ func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 func makeInfoRefsUploadPackRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
 	t.Helper()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, serverSocketPath, token)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -343,8 +341,7 @@ func TestInfoRefsReceivePack_validate(t *testing.T) {
 func makeInfoRefsReceivePackRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
 	t.Helper()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
-	defer conn.Close()
+	client := newSmartHTTPClient(t, serverSocketPath, token)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -20,10 +20,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const (
-	pktFlushStr = "0000"
-)
-
 func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
@@ -75,17 +71,20 @@ func runSmartHTTPServer(t *testing.T, cfg config.Cfg, opts ...ServerOpt) string 
 	return gitalyServer.Address()
 }
 
-func newSmartHTTPClient(t *testing.T, serverSocketPath, token string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
+func newSmartHTTPClient(t *testing.T, serverSocketPath, token string) gitalypb.SmartHTTPServiceClient {
 	t.Helper()
 
-	connOpts := []grpc.DialOption{
+	conn, err := grpc.Dial(serverSocketPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
-	}
-	conn, err := grpc.Dial(serverSocketPath, connOpts...)
+	)
 	require.NoError(t, err)
 
-	return gitalypb.NewSmartHTTPServiceClient(conn), conn
+	t.Cleanup(func() {
+		testhelper.MustClose(t, conn)
+	})
+
+	return gitalypb.NewSmartHTTPServiceClient(conn)
 }
 
 func newMuxedSmartHTTPClient(t *testing.T, ctx context.Context, serverSocketPath, token string, serverFactory backchannel.ServerFactory) gitalypb.SmartHTTPServiceClient {
