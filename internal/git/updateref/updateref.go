@@ -21,7 +21,15 @@ type AlreadyLockedError struct {
 }
 
 func (e AlreadyLockedError) Error() string {
-	return fmt.Sprintf("reference is already locked: %q", e.ReferenceName)
+	return "reference is already locked"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of the reference that was
+// locked already.
+func (e AlreadyLockedError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+	}
 }
 
 // InvalidReferenceFormatError indicates a reference name was invalid.

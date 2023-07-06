@@ -755,8 +755,12 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 		BranchName: []byte("concurrent-update"),
 		User:       gittest.TestUser,
 	})
-	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again.").WithDetail(
-		&gitalypb.UserDeleteBranchError{
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again.").
+		WithDetail(&testproto.ErrorMetadata{
+			Key:   []byte("reference"),
+			Value: []byte("refs/heads/concurrent-update"),
+		}).
+		WithDetail(&gitalypb.UserDeleteBranchError{
 			Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
 				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
 					OldOid:        commitID.String(),
@@ -764,8 +768,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 					ReferenceName: []byte("refs/heads/concurrent-update"),
 				},
 			},
-		},
-	), err)
+		}), err)
 	require.Nil(t, response)
 }
 
