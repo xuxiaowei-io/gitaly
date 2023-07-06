@@ -22,7 +22,7 @@ end
 
 GITALY_TEAM = gitlab.api.all_group_members("gl-gitaly").flat_map{ |i| i.username }
 
-required_labels = %w[devops::systems]
+required_labels = []
 required_labels << "group::gitaly" if GITALY_TEAM.include?(gitlab.mr_author)
 
 helper.labels_to_add.concat(required_labels | inherited_labels)
