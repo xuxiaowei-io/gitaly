@@ -139,6 +139,31 @@ func TestMethodInfo_getRepo(t *testing.T) {
 	}
 }
 
+func TestMethodInfo_NewRequest(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc            string
+		fullMethod      string
+		expectedRequest proto.Message
+	}{
+		{
+			fullMethod:      "/gitaly.BlobService/GetBlobs",
+			expectedRequest: &gitalypb.GetBlobsRequest{},
+		},
+		{
+			fullMethod:      "/gitaly.RepositoryService/CreateRepository",
+			expectedRequest: &gitalypb.CreateRepositoryRequest{},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			methodInfo, err := GitalyProtoPreregistered.LookupMethod(tc.fullMethod)
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, tc.expectedRequest, methodInfo.NewRequest())
+		})
+	}
+}
+
 func TestMethodInfo_Storage(t *testing.T) {
 	t.Parallel()
 

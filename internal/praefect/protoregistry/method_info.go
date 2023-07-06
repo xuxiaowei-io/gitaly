@@ -63,10 +63,11 @@ var protoScope = map[gitalypb.OperationMsg_Scope]Scope{
 // for message type "OperationMsg" shared.proto in ./proto for
 // more documentation.
 type MethodInfo struct {
-	Operation      OpType
-	Scope          Scope
-	requestName    string // protobuf message name for input type
-	requestFactory protoFactory
+	Operation   OpType
+	Scope       Scope
+	requestName string // protobuf message name for input type
+	// requestType is the RPC's request type.
+	requestType    protoreflect.MessageType
 	fullMethodName string
 }
 
@@ -173,30 +174,17 @@ func (mi MethodInfo) getStorageField(msg proto.Message) (valueField, error) {
 // UnmarshalRequestProto will unmarshal the bytes into the method's request
 // message type
 func (mi MethodInfo) UnmarshalRequestProto(b []byte) (proto.Message, error) {
-	return mi.requestFactory(b)
+	req := mi.NewRequest()
+	if err := proto.Unmarshal(b, req); err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
-type protoFactory func([]byte) (proto.Message, error)
-
-func methodReqFactory(method *descriptorpb.MethodDescriptorProto) (protoFactory, error) {
-	// for some reason, the descriptor prepends a dot not expected in Go
-	inputTypeName := strings.TrimPrefix(method.GetInputType(), ".")
-
-	inputType, err := protoreg.GlobalTypes.FindMessageByName(protoreflect.FullName(inputTypeName))
-	if err != nil {
-		return nil, fmt.Errorf("no message type found for %w", err)
-	}
-
-	f := func(buf []byte) (proto.Message, error) {
-		pb := inputType.New().Interface()
-		if err := proto.Unmarshal(buf, pb); err != nil {
-			return nil, err
-		}
-
-		return pb, nil
-	}
-
-	return f, nil
+// NewRequest instantiates a new instance of the method's request type.
+func (mi MethodInfo) NewRequest() proto.Message {
+	return mi.requestType.New().Interface()
 }
 
 func parseMethodInfo(
@@ -227,9 +215,9 @@ func parseMethodInfo(
 	// the two copies consistent for comparisons.
 	requestName := strings.TrimLeft(methodDesc.GetInputType(), ".")
 
-	reqFactory, err := methodReqFactory(methodDesc)
+	requestType, err := protoreg.GlobalTypes.FindMessageByName(protoreflect.FullName(requestName))
 	if err != nil {
-		return MethodInfo{}, err
+		return MethodInfo{}, fmt.Errorf("no message type found for %w", err)
 	}
 
 	scope, ok := protoScope[opMsg.GetScopeLevel()]
@@ -241,7 +229,7 @@ func parseMethodInfo(
 		Operation:      opCode,
 		Scope:          scope,
 		requestName:    requestName,
-		requestFactory: reqFactory,
+		requestType:    requestType,
 		fullMethodName: fullMethodName,
 	}
 
