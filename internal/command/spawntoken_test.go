@@ -88,6 +88,7 @@ func TestGetSpawnToken_CommandStats(t *testing.T) {
 	customFields := log.CustomFieldsFromContext(ctx)
 	require.NotNil(t, customFields)
 	require.Contains(t, customFields.Fields(), "command.spawn_token_wait_ms")
+	require.Contains(t, customFields.Fields(), "command.spawn_token_fork_ms")
 }
 
 // This test modifies a global config, hence should never run in parallel
@@ -117,5 +118,6 @@ func TestGetSpawnToken_CommandStats_timeout(t *testing.T) {
 	logrusFields := customFields.Fields()
 
 	require.GreaterOrEqual(t, logrusFields["command.spawn_token_wait_ms"], 0)
+	require.NotContains(t, logrusFields, "command.spawn_token_fork_ms")
 	require.Equal(t, logrusFields["command.spawn_token_error"], "spawn token timeout")
 }

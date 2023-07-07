@@ -83,20 +83,21 @@ func (m *SpawnTokenManager) GetSpawnToken(ctx context.Context) (putToken func(),
 	// requests from piling up behind the ForkLock if forking for some reason
 	// slows down. This has happened in real life, see
 	// https://gitlab.com/gitlab-org/gitaly/issues/823.
-	start := time.Now()
+	startQueuing := time.Now()
 
 	span, ctx := tracing.StartSpanIfHasParent(ctx, "command.getSpawnToken", nil)
 	defer span.Finish()
 
 	select {
 	case m.spawnTokens <- struct{}{}:
-		m.recordTime(ctx, start, "")
-
+		m.recordQueuingTime(ctx, startQueuing, "")
+		startForking := time.Now()
 		return func() {
 			<-m.spawnTokens
+			m.recordForkTime(ctx, startForking)
 		}, nil
 	case <-time.After(m.spawnConfig.Timeout):
-		m.recordTime(ctx, start, "spawn token timeout")
+		m.recordQueuingTime(ctx, startQueuing, "spawn token timeout")
 		m.spawnTimeoutCount.Inc()
 
 		msg := fmt.Sprintf("process spawn timed out after %v", m.spawnConfig.Timeout)
@@ -109,7 +110,7 @@ func (m *SpawnTokenManager) GetSpawnToken(ctx context.Context) (putToken func(),
 	}
 }
 
-func (*SpawnTokenManager) recordTime(ctx context.Context, start time.Time, msg string) {
+func (*SpawnTokenManager) recordQueuingTime(ctx context.Context, start time.Time, msg string) {
 	delta := time.Since(start)
 
 	if customFields := log.CustomFieldsFromContext(ctx); customFields != nil {
@@ -117,5 +118,13 @@ func (*SpawnTokenManager) recordTime(ctx context.Context, start time.Time, msg s
 		if len(msg) != 0 {
 			customFields.RecordMetadata("command.spawn_token_error", msg)
 		}
+	}
+}
+
+func (*SpawnTokenManager) recordForkTime(ctx context.Context, start time.Time) {
+	delta := time.Since(start)
+
+	if customFields := log.CustomFieldsFromContext(ctx); customFields != nil {
+		customFields.RecordSum("command.spawn_token_fork_ms", int(delta.Milliseconds()))
 	}
 }
