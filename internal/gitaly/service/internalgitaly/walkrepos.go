@@ -1,85 +1,25 @@
 package internalgitaly
 
 import (
-	"context"
 	"io/fs"
-	"os"
-	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/walk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (s *server) WalkRepos(req *gitalypb.WalkReposRequest, stream gitalypb.InternalGitaly_WalkReposServer) error {
-	if err := walkStorage(stream.Context(), s.locator, req.GetStorageName(), stream); err != nil {
+	sendRepo := func(relPath string, gitDirInfo fs.FileInfo) error {
+		return stream.Send(&gitalypb.WalkReposResponse{
+			RelativePath:     relPath,
+			ModificationTime: timestamppb.New(gitDirInfo.ModTime()),
+		})
+	}
+
+	if err := walk.FindRepositories(stream.Context(), s.locator, req.GetStorageName(), sendRepo); err != nil {
 		return structerr.NewInternal("%w", err)
 	}
 
 	return nil
-}
-
-func walkStorage(
-	ctx context.Context,
-	locator storage.Locator,
-	storageName string,
-	stream gitalypb.InternalGitaly_WalkReposServer,
-) error {
-	storagePath, err := locator.GetStorageByName(storageName)
-	if err != nil {
-		return structerr.NewNotFound("looking up storage: %w", err)
-	}
-
-	return filepath.WalkDir(storagePath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-
-			return err
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			// keep walking
-		}
-
-		relPath, err := filepath.Rel(storagePath, path)
-		if err != nil {
-			return err
-		}
-
-		// Don't walk Gitaly's internal files.
-		if relPath == config.GitalyDataPrefix {
-			return fs.SkipDir
-		}
-
-		if locator.ValidateRepository(&gitalypb.Repository{
-			StorageName:  storageName,
-			RelativePath: relPath,
-		}) == nil {
-			gitDirInfo, err := os.Stat(path)
-			if err != nil {
-				return err
-			}
-
-			if err := stream.Send(&gitalypb.WalkReposResponse{
-				RelativePath:     relPath,
-				ModificationTime: timestamppb.New(gitDirInfo.ModTime()),
-			}); err != nil {
-				return err
-			}
-
-			// once we know we are inside a git directory, we don't
-			// want to continue walking inside since that is
-			// resource intensive and unnecessary
-			return filepath.SkipDir
-		}
-
-		return nil
-	})
 }
