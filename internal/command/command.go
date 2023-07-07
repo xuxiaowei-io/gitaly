@@ -117,7 +117,20 @@ var (
 	// envInjector is responsible for injecting environment variables required for tracing into
 	// the child process.
 	envInjector = labkittracing.NewEnvInjector()
+
+	// globalSpawnTokenManager is responsible for limiting the total number of commands that can spawn at a time in a
+	// Gitaly process.
+	globalSpawnTokenManager *SpawnTokenManager
 )
+
+func init() {
+	var err error
+	globalSpawnTokenManager, err = NewSpawnTokenManagerFromEnv()
+	if err != nil {
+		panic(err)
+	}
+	prometheus.MustRegister(globalSpawnTokenManager)
+}
 
 const (
 	// maxStderrBytes is at most how many bytes will be written to stderr
@@ -188,8 +201,12 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 		opt(&cfg)
 	}
 
+	spawnTokenManager := cfg.spawnTokenManager
+	if spawnTokenManager == nil {
+		spawnTokenManager = globalSpawnTokenManager
+	}
 	spawnStartTime := time.Now()
-	putToken, err := getSpawnToken(ctx)
+	putToken, err := spawnTokenManager.GetSpawnToken(ctx)
 	if err != nil {
 		return nil, err
 	}

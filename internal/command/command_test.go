@@ -170,23 +170,16 @@ func TestNew_rejectContextWithoutDone(t *testing.T) {
 
 func TestNew_spawnTimeout(t *testing.T) {
 	ctx := testhelper.Context(t)
-
-	defer func(ch chan struct{}, t time.Duration) {
-		spawnTokens = ch
-		spawnConfig.Timeout = t
-	}(spawnTokens, spawnConfig.Timeout)
-
-	// This unbuffered channel will behave like a full/blocked buffered channel.
-	spawnTokens = make(chan struct{})
-	// Speed up the test by lowering the timeout
 	spawnTimeout := 200 * time.Millisecond
-	spawnConfig.Timeout = spawnTimeout
+	spawnTokenManager := NewSpawnTokenManager(SpawnConfig{
+		Timeout:     spawnTimeout,
+		MaxParallel: 0,
+	})
 
 	tick := time.After(spawnTimeout / 2)
-
 	errCh := make(chan error)
 	go func() {
-		_, err := New(ctx, []string{"true"})
+		_, err := New(ctx, []string{"true"}, WithSpawnTokenManager(spawnTokenManager))
 		errCh <- err
 	}()
 
