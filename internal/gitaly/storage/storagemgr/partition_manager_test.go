@@ -104,7 +104,9 @@ func TestPartitionManager(t *testing.T) {
 		for _, sp := range pm.storages {
 			sp.mu.Lock()
 			for _, ptn := range sp.partitions {
-				if ptn.shuttingDown {
+				// The stopPartition step stops the transaction manager directly without calling stop
+				// on the partition, so we check the manager diretly here as well.
+				if ptn.isStopping() || ptn.transactionManager.isStopping() {
 					waitFor = append(waitFor, ptn.shutdown)
 				}
 			}
@@ -701,7 +703,10 @@ func TestPartitionManager(t *testing.T) {
 					require.Contains(t, openTransactionData, step.transactionID, "test error: transaction manager stopped before being started")
 
 					data := openTransactionData[step.transactionID]
-					data.ptn.stop()
+					// Stop the TransactionManager directly. Stopping through the partition would change the
+					// state used to sync which should only be changed when the shutdown is initiated through
+					// the normal means.
+					data.ptn.transactionManager.Stop()
 
 					blockOnPartitionShutdown(t, partitionManager)
 				case finalizeTransaction:
