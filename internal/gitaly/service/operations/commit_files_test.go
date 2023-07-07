@@ -35,7 +35,6 @@ func TestUserCommitFiles(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).Run(t, testUserCommitFiles)
 }
@@ -975,7 +974,6 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).Run(t, testUserCommitFilesStableCommitID)
 }
@@ -1039,7 +1037,6 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).Run(t, testUserCommitFilesQuarantine)
 }
@@ -1097,7 +1094,6 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).
 		Run(t, testSuccessfulUserCommitFilesRequest)
@@ -1260,7 +1256,6 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).
 		Run(t, testSuccessfulUserCommitFilesRequestMove)
@@ -1325,7 +1320,6 @@ func TestSuccessUserCommitFilesRequestForceCommit(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).
 		Run(t, testSuccessUserCommitFilesRequestForceCommit)
@@ -1377,7 +1371,6 @@ func TestSuccessUserCommitFilesRequestStartSha(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).
 		Run(t, testSuccessUserCommitFilesRequestStartSha)
@@ -1417,7 +1410,6 @@ func TestSuccessUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).
 		Run(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
@@ -1429,7 +1421,6 @@ func TestSuccessUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) 
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).
 		Run(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
@@ -1479,7 +1470,6 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).
 		Run(t, testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature)
@@ -1537,7 +1527,6 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).Run(t, testFailedUserCommitFilesRequestDueToHooks)
 }
@@ -1592,7 +1581,6 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).Run(t, testFailedUserCommitFilesRequestDueToIndexError)
 }
@@ -1671,7 +1659,6 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CommitFilesInGit,
 		featureflag.GPGSigning,
 	).Run(t, testFailedUserCommitFilesRequest)
 }

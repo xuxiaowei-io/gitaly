@@ -12,7 +12,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
@@ -410,40 +409,6 @@ func (s *Server) userCommitFilesGit(
 	)
 }
 
-func (s *Server) userCommitFilesGit2Go(
-	ctx context.Context,
-	header *gitalypb.UserCommitFilesRequestHeader,
-	parentCommitOID git.ObjectID,
-	quarantineRepo *localrepo.Repo,
-	repoPath string,
-	actions []git2go.Action,
-) (git.ObjectID, error) {
-	now, err := dateFromProto(header)
-	if err != nil {
-		return "", structerr.NewInvalidArgument("%w", err)
-	}
-
-	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)
-	author := committer
-	if len(header.CommitAuthorName) > 0 && len(header.CommitAuthorEmail) > 0 {
-		author = git2go.NewSignature(string(header.CommitAuthorName), string(header.CommitAuthorEmail), now)
-	}
-
-	commitID, err := s.git2goExecutor.Commit(ctx, quarantineRepo, git2go.CommitCommand{
-		Repository: repoPath,
-		Author:     author,
-		Committer:  committer,
-		Message:    string(header.CommitMessage),
-		Parent:     parentCommitOID.String(),
-		Actions:    actions,
-	})
-	if err != nil {
-		return "", fmt.Errorf("%w", err)
-	}
-
-	return commitID, nil
-}
-
 func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommitFilesRequestHeader, stream gitalypb.OperationService_UserCommitFilesServer) error {
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository())
 	if err != nil {
@@ -606,28 +571,14 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	var commitID git.ObjectID
-
-	if featureflag.CommitFilesInGit.IsEnabled(ctx) {
-		commitID, err = s.userCommitFilesGit(
-			ctx,
-			header,
-			parentCommitOID,
-			quarantineRepo,
-			repoPath,
-			actions,
-		)
-	} else {
-		commitID, err = s.userCommitFilesGit2Go(
-			ctx,
-			header,
-			parentCommitOID,
-			quarantineRepo,
-			repoPath,
-			actions,
-		)
-	}
-
+	commitID, err := s.userCommitFilesGit(
+		ctx,
+		header,
+		parentCommitOID,
+		quarantineRepo,
+		repoPath,
+		actions,
+	)
 	if err != nil {
 		if errors.Is(err, localrepo.ErrDisallowedCharacters) {
 			return structerr.NewInvalidArgument("%w", ErrSignatureMissingNameOrEmail)
