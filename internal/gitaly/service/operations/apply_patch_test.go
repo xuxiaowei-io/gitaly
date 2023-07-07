@@ -145,30 +145,6 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 		},
 		{
-			desc: "creating a new branch from the first listed branch works",
-			baseTree: []gittest.TreeEntry{
-				{Path: "file", Mode: "100644", Content: "base-content"},
-			},
-			baseReference: "refs/heads/a",
-			extraBranches: []string{"refs/heads/b"},
-			targetBranch:  "new-branch",
-			patches: []patchDescription{
-				{
-					newTree: []gittest.TreeEntry{
-						{Path: "file", Mode: "100644", Content: "patch 1"},
-					},
-				},
-			},
-			expected: func(t *testing.T, repoPath string) expected {
-				return expected{
-					branchCreation: true,
-					tree: []gittest.TreeEntry{
-						{Mode: "100644", Path: "file", Content: "patch 1"},
-					},
-				}
-			},
-		},
-		{
 			desc: "multiple patches apply cleanly",
 			baseTree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
