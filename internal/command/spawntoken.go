@@ -34,9 +34,12 @@ type SpawnConfig struct {
 
 // SpawnTokenManager limits the number of goroutines that can spawn a process at a time.
 type SpawnTokenManager struct {
-	spawnTokens       chan struct{}
-	spawnConfig       SpawnConfig
-	spawnTimeoutCount prometheus.Counter
+	spawnTokens               chan struct{}
+	spawnConfig               SpawnConfig
+	spawnTimeoutCount         prometheus.Counter
+	spawnTokenWaitingLength   prometheus.Gauge
+	spawnWaitingTimeHistogram prometheus.Histogram
+	spawnForkingTimeHistogram prometheus.Histogram
 }
 
 // Describe is used to describe Prometheus metrics.
@@ -47,6 +50,9 @@ func (m *SpawnTokenManager) Describe(descs chan<- *prometheus.Desc) {
 // Collect is used to collect Prometheus metrics.
 func (m *SpawnTokenManager) Collect(metrics chan<- prometheus.Metric) {
 	m.spawnTimeoutCount.Collect(metrics)
+	m.spawnTokenWaitingLength.Collect(metrics)
+	m.spawnWaitingTimeHistogram.Collect(metrics)
+	m.spawnForkingTimeHistogram.Collect(metrics)
 }
 
 // NewSpawnTokenManager creates a SpawnTokenManager object from the input config
@@ -58,6 +64,26 @@ func NewSpawnTokenManager(config SpawnConfig) *SpawnTokenManager {
 			prometheus.CounterOpts{
 				Name: "gitaly_spawn_timeouts_total",
 				Help: "Number of process spawn timeouts",
+			},
+		),
+		spawnTokenWaitingLength: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "gitaly_spawn_token_waiting_length",
+				Help: "The current length of the queue waiting for spawn tokens",
+			},
+		),
+		spawnWaitingTimeHistogram: prometheus.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "gitaly_spawn_waiting_time_seconds",
+				Help:    "Histogram of time waiting for spawn tokens",
+				Buckets: []float64{0.001, 0.005, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 5.0, 10.0},
+			},
+		),
+		spawnForkingTimeHistogram: prometheus.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "gitaly_spawn_forking_time_seconds",
+				Help:    "Histogram of actual forking time after spawn tokens are acquired",
+				Buckets: []float64{0.001, 0.005, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 5.0, 10.0},
 			},
 		),
 	}
@@ -83,21 +109,24 @@ func (m *SpawnTokenManager) GetSpawnToken(ctx context.Context) (putToken func(),
 	// requests from piling up behind the ForkLock if forking for some reason
 	// slows down. This has happened in real life, see
 	// https://gitlab.com/gitlab-org/gitaly/issues/823.
-	startQueuing := time.Now()
+	startWaiting := time.Now()
+	m.spawnTokenWaitingLength.Inc()
+	defer m.spawnTokenWaitingLength.Dec()
 
 	span, ctx := tracing.StartSpanIfHasParent(ctx, "command.getSpawnToken", nil)
 	defer span.Finish()
 
 	select {
 	case m.spawnTokens <- struct{}{}:
-		m.recordQueuingTime(ctx, startQueuing, "")
+		m.recordQueuingTime(ctx, startWaiting, "")
+
 		startForking := time.Now()
 		return func() {
 			<-m.spawnTokens
 			m.recordForkTime(ctx, startForking)
 		}, nil
 	case <-time.After(m.spawnConfig.Timeout):
-		m.recordQueuingTime(ctx, startQueuing, "spawn token timeout")
+		m.recordQueuingTime(ctx, startWaiting, "spawn token timeout")
 		m.spawnTimeoutCount.Inc()
 
 		msg := fmt.Sprintf("process spawn timed out after %v", m.spawnConfig.Timeout)
@@ -110,8 +139,9 @@ func (m *SpawnTokenManager) GetSpawnToken(ctx context.Context) (putToken func(),
 	}
 }
 
-func (*SpawnTokenManager) recordQueuingTime(ctx context.Context, start time.Time, msg string) {
+func (m *SpawnTokenManager) recordQueuingTime(ctx context.Context, start time.Time, msg string) {
 	delta := time.Since(start)
+	m.spawnWaitingTimeHistogram.Observe(delta.Seconds())
 
 	if customFields := log.CustomFieldsFromContext(ctx); customFields != nil {
 		customFields.RecordSum("command.spawn_token_wait_ms", int(delta.Milliseconds()))
@@ -121,8 +151,9 @@ func (*SpawnTokenManager) recordQueuingTime(ctx context.Context, start time.Time
 	}
 }
 
-func (*SpawnTokenManager) recordForkTime(ctx context.Context, start time.Time) {
+func (m *SpawnTokenManager) recordForkTime(ctx context.Context, start time.Time) {
 	delta := time.Since(start)
+	m.spawnForkingTimeHistogram.Observe(delta.Seconds())
 
 	if customFields := log.CustomFieldsFromContext(ctx); customFields != nil {
 		customFields.RecordSum("command.spawn_token_fork_ms", int(delta.Milliseconds()))

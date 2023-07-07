@@ -69,13 +69,6 @@ var (
 		},
 		[]string{"grpc_service", "grpc_method", "cmd", "subcmd", "ctxswitchtype", "git_version"},
 	)
-	spawnTokenAcquiringSeconds = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_command_spawn_token_acquiring_seconds_total",
-			Help: "Sum of time spent waiting for a spawn token",
-		},
-		[]string{"grpc_service", "grpc_method", "cmd", "git_version"},
-	)
 
 	// exportedEnvVars contains a list of environment variables
 	// that are always exported to child processes on spawn
@@ -205,17 +198,11 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	if spawnTokenManager == nil {
 		spawnTokenManager = globalSpawnTokenManager
 	}
-	spawnStartTime := time.Now()
 	putToken, err := spawnTokenManager.GetSpawnToken(ctx)
 	if err != nil {
 		return nil, err
 	}
-	service, method := methodFromContext(ctx)
 	cmdName := path.Base(nameAndArgs[0])
-	spawnTokenAcquiringSeconds.
-		WithLabelValues(service, method, cmdName, cfg.gitVersion).
-		Add(getSpawnTokenAcquiringSeconds(spawnStartTime))
-
 	defer putToken()
 
 	logPid := -1
@@ -545,10 +532,6 @@ func (c *Command) Env() []string {
 // Pid is an accessor for the pid
 func (c *Command) Pid() int {
 	return c.cmd.Process.Pid
-}
-
-var getSpawnTokenAcquiringSeconds = func(t time.Time) float64 {
-	return time.Since(t).Seconds()
 }
 
 type stdinSentinel struct{}
