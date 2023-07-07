@@ -94,8 +94,8 @@ func (sm *storageManager) transactionFinalizerFactory(ptn *partition) func() {
 
 // partition contains the transaction manager and tracks the number of in-flight transactions for the partition.
 type partition struct {
-	// shuttingDown is set when the partition shutdown was initiated due to being idle.
-	shuttingDown bool
+	// shuttingDown is closed when the partition has no longer any active transactions.
+	shuttingDown chan struct{}
 	// shutdown is closed to signal when the partition is finished shutting down. Clients stumbling on the
 	// partition when it is shutting down wait on this channel to know when the partition has shut down and they
 	// should retry.
@@ -108,8 +108,18 @@ type partition struct {
 
 // stop stops the partition's transaction manager.
 func (ptn *partition) stop() {
-	ptn.shuttingDown = true
+	close(ptn.shuttingDown)
 	ptn.transactionManager.Stop()
+}
+
+// isStopping returns whether partition shutdown has been initiated.
+func (ptn *partition) isStopping() bool {
+	select {
+	case <-ptn.shuttingDown:
+		return true
+	default:
+		return false
+	}
 }
 
 // NewPartitionManager returns a new PartitionManager.
@@ -193,7 +203,8 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 		ptn, ok := storageMgr.partitions[relativePath]
 		if !ok {
 			ptn = &partition{
-				shutdown: make(chan struct{}),
+				shuttingDown: make(chan struct{}),
+				shutdown:     make(chan struct{}),
 			}
 
 			stagingDir, err := os.MkdirTemp(storageMgr.stagingDirectory, "")
@@ -226,6 +237,14 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 
 				close(ptn.shutdown)
 
+				// If the TransactionManager returned due to an error, it could be that there are still
+				// in-flight transactions operating on their staged state. Removing the staging directory
+				// while they are active can lead to unexpected errors. Wait with the removal until they've
+				// all finished, and only then remove the staging directory.
+				//
+				// All transactions must eventually finish, so we don't wait on a context cancellation here.
+				<-ptn.shuttingDown
+
 				if err := os.RemoveAll(stagingDir); err != nil {
 					logger.WithError(err).Error("failed removing partition's staging directory")
 				}
@@ -234,7 +253,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 			}()
 		}
 
-		if ptn.shuttingDown {
+		if ptn.isStopping() {
 			// If the partition is in the process of shutting down, the partition should not be
 			// used. The lock is released while waiting for the partition to complete shutdown as to
 			// not block other partitions from processing transactions. Once shutdown is complete, a

@@ -911,6 +911,16 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 // Stop stops the transaction processing causing Run to return.
 func (mgr *TransactionManager) Stop() { mgr.stop() }
 
+// isStopping returns whether stopping of the manager was initiated.
+func (mgr *TransactionManager) isStopping() bool {
+	select {
+	case <-mgr.stopCalled:
+		return true
+	default:
+		return false
+	}
+}
+
 // initialize initializes the TransactionManager's state from the database. It loads the appendend and the applied
 // indexes and initializes the notification channels that synchronize transaction beginning with log entry applying.
 func (mgr *TransactionManager) initialize(ctx context.Context) error {
