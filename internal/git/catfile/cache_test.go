@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -203,7 +204,12 @@ func TestCache_autoExpiry(t *testing.T) {
 }
 
 func TestCache_ObjectReader(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand).Run(t, testCacheObjectReader)
+}
+
+func testCacheObjectReader(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -303,7 +309,12 @@ func TestCache_ObjectReader(t *testing.T) {
 }
 
 func TestCache_ObjectInfoReader(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand).Run(t, testCacheObjectInfoReader)
+}
+
+func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
