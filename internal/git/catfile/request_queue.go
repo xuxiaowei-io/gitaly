@@ -22,13 +22,13 @@ const (
 	// infoCommand is the command expected by the `--batch-command` mode of git-cat-file(1)
 	// for reading an objects info.
 	infoCommand = "info"
-	// flushCommand is the command we send to git-cat-file(1) to cause it to flush its stdout.
+	// flushCommandHack is the command we send to git-cat-file(1) to cause it to flush its stdout.
 	// Note that this is a hack: git-cat-file(1) doesn't really support flushing, but it will
 	// flush whenever it encounters an object it doesn't know. The flush command we use is thus
 	// chosen such that it cannot ever refer to a valid object: refs may not contain whitespace,
 	// so this command cannot refer to a ref. Adding "FLUSH" is just for the sake of making it
 	// easier to spot what's going on in case we ever mistakenly see this output in the wild.
-	flushCommand = "\tFLUSH\t"
+	flushCommandHack = "\tFLUSH\t"
 )
 
 type queueCounters struct {
@@ -145,7 +145,7 @@ func (q *requestQueue) Flush(ctx context.Context) error {
 		return fmt.Errorf("cannot flush: %w", os.ErrClosed)
 	}
 
-	if _, err := q.stdin.WriteString(flushCommand); err != nil {
+	if _, err := q.stdin.WriteString(flushCommandHack); err != nil {
 		return fmt.Errorf("writing flush command: %w", err)
 	}
 
