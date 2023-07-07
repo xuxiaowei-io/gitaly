@@ -14,7 +14,7 @@ type requestCustomFieldsKey struct{}
 // the object out with CustomFieldsFromContext.
 type CustomFields struct {
 	numericFields map[string]int
-	stringFields  map[string]string
+	anyFields     map[string]any
 	sync.Mutex
 }
 
@@ -45,11 +45,11 @@ func (fields *CustomFields) RecordMax(key string, value int) {
 }
 
 // RecordMetadata records a string metadata for the given key.
-func (fields *CustomFields) RecordMetadata(key string, value string) {
+func (fields *CustomFields) RecordMetadata(key string, value any) {
 	fields.Lock()
 	defer fields.Unlock()
 
-	fields.stringFields[key] = value
+	fields.anyFields[key] = value
 }
 
 // Fields returns all the fields as logrus.Fields
@@ -61,7 +61,7 @@ func (fields *CustomFields) Fields() logrus.Fields {
 	for k, v := range fields.numericFields {
 		f[k] = v
 	}
-	for k, v := range fields.stringFields {
+	for k, v := range fields.anyFields {
 		f[k] = v
 	}
 	return f
@@ -77,6 +77,6 @@ func CustomFieldsFromContext(ctx context.Context) *CustomFields {
 func InitContextCustomFields(ctx context.Context) context.Context {
 	return context.WithValue(ctx, requestCustomFieldsKey{}, &CustomFields{
 		numericFields: make(map[string]int),
-		stringFields:  make(map[string]string),
+		anyFields:     make(map[string]any),
 	})
 }

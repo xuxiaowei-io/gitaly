@@ -1,6 +1,7 @@
 package log_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -73,17 +74,46 @@ func TestStatsFromContext_RecordMax(t *testing.T) {
 }
 
 func TestStatsFromContext_RecordMetadata(t *testing.T) {
-	ctx := testhelper.Context(t)
+	for _, tc := range []struct {
+		desc           string
+		setup          func(context.Context)
+		expectedFields logrus.Fields
+	}{
+		{
+			desc: "record a string metadata",
+			setup: func(ctx context.Context) {
+				customFields := log.CustomFieldsFromContext(ctx)
+				customFields.RecordMetadata("foo", "bar")
+			},
+			expectedFields: logrus.Fields{"foo": "bar"},
+		},
+		{
+			desc: "override metadata of the same key",
+			setup: func(ctx context.Context) {
+				customFields := log.CustomFieldsFromContext(ctx)
+				customFields.RecordMetadata("foo", "bar")
+				customFields.RecordMetadata("foo", "baz") // override the existing value
+			},
+			expectedFields: logrus.Fields{"foo": "baz"},
+		},
+		{
+			desc: "record metadata with different types",
+			setup: func(ctx context.Context) {
+				customFields := log.CustomFieldsFromContext(ctx)
+				customFields.RecordMetadata("hello", 1234)
+				customFields.RecordMetadata("hi", []int{1, 2, 3, 4})
+			},
+			expectedFields: logrus.Fields{
+				"hello": 1234,
+				"hi":    []int{1, 2, 3, 4},
+			},
+		},
+	} {
+		ctx := log.InitContextCustomFields(testhelper.Context(t))
+		tc.setup(ctx)
 
-	ctx = log.InitContextCustomFields(ctx)
-
-	customFields := log.CustomFieldsFromContext(ctx)
-
-	customFields.RecordMetadata("foo", "bar")
-	require.NotNil(t, customFields)
-	require.Equal(t, customFields.Fields(), logrus.Fields{"foo": "bar"})
-
-	customFields.RecordMetadata("foo", "baz") // override the existing value
-	require.NotNil(t, customFields)
-	require.Equal(t, customFields.Fields(), logrus.Fields{"foo": "baz"})
+		customFields := log.CustomFieldsFromContext(ctx)
+		require.NotNil(t, customFields)
+		require.Equal(t, customFields.Fields(), tc.expectedFields)
+	}
 }
