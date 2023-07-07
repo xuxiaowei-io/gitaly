@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/customfieldshandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/sentryhandler"
@@ -111,7 +110,6 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 			grpcstats.FieldsProducer,
 			featureflag.FieldsProducer,
 			structerr.FieldsProducer,
-			limithandler.FieldsProducer,
 		),
 	)
 
@@ -121,7 +119,6 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
 		customfieldshandler.StreamInterceptor,
-		limithandler.StatsStreamInterceptor,
 		grpcmwlogrus.StreamServerInterceptor(s.logger,
 			grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
 			logMsgProducer,
@@ -138,7 +135,6 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		metadatahandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
 		customfieldshandler.UnaryInterceptor,
-		limithandler.StatsUnaryInterceptor,
 		grpcmwlogrus.UnaryServerInterceptor(s.logger,
 			grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
 			logMsgProducer,

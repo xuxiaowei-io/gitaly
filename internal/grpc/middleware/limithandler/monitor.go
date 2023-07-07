@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // ConcurrencyMonitor allows the concurrency monitor to be observed.
@@ -71,9 +72,10 @@ func newPerRPCPromMonitor(
 
 // Queued is called when a request has been queued.
 func (p *PromMonitor) Queued(ctx context.Context, key string, queueLength int) {
-	if stats := limitStatsFromContext(ctx); stats != nil {
-		stats.SetLimitingKey(p.limitingType, key)
-		stats.SetConcurrencyQueueLength(queueLength)
+	if stats := log.CustomFieldsFromContext(ctx); stats != nil {
+		stats.RecordMetadata("limit.limiting_type", p.limitingType)
+		stats.RecordMetadata("limit.limiting_key", key)
+		stats.RecordMetadata("limit.concurrency_queue_length", queueLength)
 	}
 	p.queuedMetric.Inc()
 }
@@ -88,8 +90,8 @@ func (p *PromMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
 	p.inProgressMetric.Inc()
 	p.acquiringSecondsMetric.Observe(acquireTime.Seconds())
 
-	if stats := limitStatsFromContext(ctx); stats != nil {
-		stats.AddConcurrencyQueueMs(acquireTime.Milliseconds())
+	if stats := log.CustomFieldsFromContext(ctx); stats != nil {
+		stats.RecordMetadata("limit.concurrency_queue_ms", acquireTime.Milliseconds())
 	}
 }
 
@@ -100,11 +102,12 @@ func (p *PromMonitor) Exit(ctx context.Context) {
 
 // Dropped is called when a request is dropped.
 func (p *PromMonitor) Dropped(ctx context.Context, key string, length int, acquireTime time.Duration, reason string) {
-	if stats := limitStatsFromContext(ctx); stats != nil {
-		stats.SetLimitingKey(p.limitingType, key)
-		stats.SetConcurrencyQueueLength(length)
-		stats.SetConcurrencyDroppedReason(reason)
-		stats.AddConcurrencyQueueMs(acquireTime.Milliseconds())
+	if stats := log.CustomFieldsFromContext(ctx); stats != nil {
+		stats.RecordMetadata("limit.limiting_type", p.limitingType)
+		stats.RecordMetadata("limit.limiting_key", key)
+		stats.RecordMetadata("limit.concurrency_queue_length", length)
+		stats.RecordMetadata("limit.concurrency_dropped", reason)
+		stats.RecordMetadata("limit.concurrency_queue_ms", acquireTime.Milliseconds())
 	}
 	p.requestsDroppedMetric.WithLabelValues(reason).Inc()
 }

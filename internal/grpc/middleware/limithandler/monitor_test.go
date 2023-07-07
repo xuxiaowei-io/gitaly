@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	promconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -63,7 +64,7 @@ func TestNewPerRPCPromMonitor(t *testing.T) {
 
 	t.Run("request is dequeued successfully", func(t *testing.T) {
 		rpcMonitor := createNewMonitor()
-		ctx := InitLimitStats(testhelper.Context(t))
+		ctx := log.InitContextCustomFields(testhelper.Context(t))
 
 		rpcMonitor.Queued(ctx, fullMethod, 5)
 		rpcMonitor.Enter(ctx, time.Second)
@@ -101,7 +102,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 			"acquiring_seconds",
 		))
 
-		stats := limitStatsFromContext(ctx)
+		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
 		require.Equal(t, logrus.Fields{
 			"limit.limiting_type":            TypePerRPC,
@@ -132,7 +133,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 0
 
 	t.Run("request is dropped after queueing", func(t *testing.T) {
 		rpcMonitor := createNewMonitor()
-		ctx := InitLimitStats(testhelper.Context(t))
+		ctx := log.InitContextCustomFields(testhelper.Context(t))
 
 		rpcMonitor.Queued(ctx, fullMethod, 5)
 		rpcMonitor.Dropped(ctx, fullMethod, 5, time.Second, "load")
@@ -173,7 +174,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 			"acquiring_seconds",
 		))
 
-		stats := limitStatsFromContext(ctx)
+		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
 		require.Equal(t, logrus.Fields{
 			"limit.limiting_type":            TypePerRPC,
@@ -186,7 +187,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 
 	t.Run("request is dropped before queueing", func(t *testing.T) {
 		rpcMonitor := createNewMonitor()
-		ctx := InitLimitStats(testhelper.Context(t))
+		ctx := log.InitContextCustomFields(testhelper.Context(t))
 		rpcMonitor.Dropped(ctx, fullMethod, 5, time.Second, "load")
 
 		expectedMetrics := `# HELP acquiring_seconds seconds to acquire
@@ -225,7 +226,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 0
 			"acquiring_seconds",
 		))
 
-		stats := limitStatsFromContext(ctx)
+		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
 		require.Equal(t, logrus.Fields{
 			"limit.limiting_type":            TypePerRPC,
@@ -239,7 +240,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 0
 
 func TestNewPackObjectsConcurrencyMonitor(t *testing.T) {
 	t.Run("request is dequeued successfully", func(t *testing.T) {
-		ctx := InitLimitStats(testhelper.Context(t))
+		ctx := log.InitContextCustomFields(testhelper.Context(t))
 		packObjectsConcurrencyMonitor := NewPackObjectsConcurrencyMonitor(
 			promconfig.DefaultConfig().GRPCLatencyBuckets,
 		)
@@ -280,7 +281,7 @@ gitaly_pack_objects_queued 1
 			"gitaly_pack_objects_dropped_total",
 		))
 
-		stats := limitStatsFromContext(ctx)
+		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
 		require.Equal(t, logrus.Fields{
 			"limit.limiting_type":            TypePackObjects,
@@ -310,7 +311,7 @@ gitaly_pack_objects_queued 0
 	})
 
 	t.Run("request is dropped after queueing", func(t *testing.T) {
-		ctx := InitLimitStats(testhelper.Context(t))
+		ctx := log.InitContextCustomFields(testhelper.Context(t))
 		packObjectsConcurrencyMonitor := NewPackObjectsConcurrencyMonitor(
 			promconfig.DefaultConfig().GRPCLatencyBuckets,
 		)
@@ -354,7 +355,7 @@ gitaly_pack_objects_queued 1
 			"gitaly_pack_objects_dropped_total",
 		))
 
-		stats := limitStatsFromContext(ctx)
+		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
 		require.Equal(t, logrus.Fields{
 			"limit.limiting_type":            TypePackObjects,
@@ -366,7 +367,7 @@ gitaly_pack_objects_queued 1
 	})
 
 	t.Run("request is dropped before queueing", func(t *testing.T) {
-		ctx := InitLimitStats(testhelper.Context(t))
+		ctx := log.InitContextCustomFields(testhelper.Context(t))
 		packObjectsConcurrencyMonitor := NewPackObjectsConcurrencyMonitor(
 			promconfig.DefaultConfig().GRPCLatencyBuckets,
 		)
@@ -409,7 +410,7 @@ gitaly_pack_objects_queued 0
 			"gitaly_pack_objects_dropped_total",
 		))
 
-		stats := limitStatsFromContext(ctx)
+		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
 		require.Equal(t, logrus.Fields{
 			"limit.limiting_type":            TypePackObjects,
