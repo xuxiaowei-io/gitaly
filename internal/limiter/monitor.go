@@ -1,4 +1,4 @@
-package limithandler
+package limiter
 
 import (
 	"context"
@@ -31,7 +31,7 @@ func NewNoopConcurrencyMonitor() ConcurrencyMonitor {
 	return &noopConcurrencyMonitor{}
 }
 
-// PromMonitor keeps track of prometheus metrics for limithandlers.
+// PromMonitor keeps track of prometheus metrics for limiters.
 // It conforms to both the ConcurrencyMonitor, and prometheus.Collector
 // interfaces.
 type PromMonitor struct {
@@ -46,9 +46,9 @@ type PromMonitor struct {
 	acquiringSecondsHistogramVec *prometheus.HistogramVec
 }
 
-// newPerRPCPromMonitor creates a new ConcurrencyMonitor that tracks limiter
+// NewPerRPCPromMonitor creates a new ConcurrencyMonitor that tracks limiter
 // activity in Prometheus.
-func newPerRPCPromMonitor(
+func NewPerRPCPromMonitor(
 	system, fullMethod string,
 	queuedMetric, inProgressMetric *prometheus.GaugeVec,
 	acquiringSecondsVec *prometheus.HistogramVec,

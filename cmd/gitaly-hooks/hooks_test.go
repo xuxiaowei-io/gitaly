@@ -29,8 +29,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -660,8 +660,8 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 }
 
 func TestGitalyServerReturnsError(t *testing.T) {
-	resourceExhaustedErr := structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
-		ErrorMessage: limithandler.ErrMaxQueueTime.Error(),
+	resourceExhaustedErr := structerr.NewResourceExhausted("%w", limiter.ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
+		ErrorMessage: limiter.ErrMaxQueueTime.Error(),
 		RetryAfter:   durationpb.New(0),
 	})
 
@@ -765,8 +765,8 @@ func TestGitalyServerReturnsError_packObjects(t *testing.T) {
 	}{
 		{
 			name: "resource exhausted with LimitError detail",
-			err: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
-				ErrorMessage: limithandler.ErrMaxQueueTime.Error(),
+			err: structerr.NewResourceExhausted("%w", limiter.ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
+				ErrorMessage: limiter.ErrMaxQueueTime.Error(),
 				RetryAfter:   durationpb.New(0),
 			}),
 			expectedStderr: `

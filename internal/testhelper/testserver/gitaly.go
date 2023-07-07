@@ -34,6 +34,7 @@ import (
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -263,7 +264,7 @@ type gitalyServerDeps struct {
 	catfileCache        catfile.Cache
 	diskCache           cache.Cache
 	packObjectsCache    streamcache.Cache
-	packObjectsLimiter  limithandler.Limiter
+	packObjectsLimiter  limiter.Limiter
 	limitHandler        *limithandler.LimiterMiddleware
 	git2goExecutor      *git2go.Executor
 	updaterWithHooks    *updateref.UpdaterWithHooks
@@ -323,11 +324,11 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	if gsd.packObjectsLimiter == nil {
-		gsd.packObjectsLimiter = limithandler.NewConcurrencyLimiter(
+		gsd.packObjectsLimiter = limiter.NewConcurrencyLimiter(
 			0,
 			0,
 			nil,
-			limithandler.NewNoopConcurrencyMonitor(),
+			limiter.NewNoopConcurrencyMonitor(),
 		)
 	}
 
@@ -462,7 +463,7 @@ func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
 
 // WithPackObjectsLimiter sets the PackObjectsLimiter that will be
 // used for gitaly services initialization.
-func WithPackObjectsLimiter(limiter *limithandler.ConcurrencyLimiter) GitalyServerOpt {
+func WithPackObjectsLimiter(limiter *limiter.ConcurrencyLimiter) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.packObjectsLimiter = limiter
 		return deps

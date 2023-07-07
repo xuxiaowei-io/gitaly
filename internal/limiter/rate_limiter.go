@@ -1,4 +1,4 @@
-package limithandler
+package limiter
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
@@ -35,7 +34,7 @@ var ErrRateLimit = errors.New("rate limit reached")
 func (r *RateLimiter) Limit(ctx context.Context, lockKey string, f LimitedFunc) (interface{}, error) {
 	span, _ := tracing.StartSpanIfHasParent(
 		ctx,
-		"limithandler.RateLimiterLimit",
+		"limiter.RateLimiterLimit",
 		tracing.Tags{"key": lockKey},
 	)
 	defer span.Finish()
@@ -103,33 +102,4 @@ func NewRateLimiter(
 	}
 
 	return r
-}
-
-// WithRateLimiters sets up a middleware with limiters that limit requests
-// based on its rate per second per RPC
-func WithRateLimiters(ctx context.Context) SetupFunc {
-	return func(cfg config.Cfg, middleware *LimiterMiddleware) {
-		result := make(map[string]Limiter)
-
-		for _, limitCfg := range cfg.RateLimiting {
-			if limitCfg.Burst > 0 && limitCfg.Interval > 0 {
-				serviceName, methodName := splitMethodName(limitCfg.RPC)
-				rateLimiter := NewRateLimiter(
-					limitCfg.Interval.Duration(),
-					limitCfg.Burst,
-					helper.NewTimerTicker(5*time.Minute),
-					middleware.requestsDroppedMetric.With(prometheus.Labels{
-						"system":       "gitaly",
-						"grpc_service": serviceName,
-						"grpc_method":  methodName,
-						"reason":       "rate",
-					}),
-				)
-				result[limitCfg.RPC] = rateLimiter
-				go rateLimiter.PruneUnusedLimiters(ctx)
-			}
-		}
-
-		middleware.methodLimiters = result
-	}
 }

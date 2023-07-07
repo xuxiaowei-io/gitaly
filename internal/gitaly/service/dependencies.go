@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 )
 
@@ -33,7 +34,7 @@ type Dependencies struct {
 	CatfileCache        catfile.Cache
 	DiskCache           cache.Cache
 	PackObjectsCache    streamcache.Cache
-	PackObjectsLimiter  limithandler.Limiter
+	PackObjectsLimiter  limiter.Limiter
 	LimitHandler        *limithandler.LimiterMiddleware
 	Git2goExecutor      *git2go.Executor
 	UpdaterWithHooks    *updateref.UpdaterWithHooks
@@ -119,7 +120,7 @@ func (dc *Dependencies) GetHousekeepingManager() housekeeping.Manager {
 }
 
 // GetPackObjectsLimiter returns the pack-objects limiter.
-func (dc *Dependencies) GetPackObjectsLimiter() limithandler.Limiter {
+func (dc *Dependencies) GetPackObjectsLimiter() limiter.Limiter {
 	return dc.PackObjectsLimiter
 }
 

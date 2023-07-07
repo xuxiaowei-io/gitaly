@@ -1,4 +1,4 @@
-package limithandler
+package limiter
 
 import (
 	"bytes"
@@ -52,7 +52,7 @@ func TestNewPerRPCPromMonitor(t *testing.T) {
 				"reason",
 			},
 		)
-		return newPerRPCPromMonitor(
+		return NewPerRPCPromMonitor(
 			system,
 			fullMethod,
 			queuedMetric,
