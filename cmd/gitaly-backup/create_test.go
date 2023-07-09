@@ -1,18 +1,17 @@
-//go:build !gitaly_test_sha256
-
 package main
 
 import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -31,10 +30,8 @@ func TestCreateSubcommand(t *testing.T) {
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 5; i++ {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed:         gittest.SeedGitLabTest,
-			RelativePath: fmt.Sprintf("repo-%d", i),
-		})
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 		repos = append(repos, repo)
 	}
 
@@ -68,7 +65,7 @@ func TestCreateSubcommand(t *testing.T) {
 		"create: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
-		bundlePath := filepath.Join(path, repo.RelativePath, "the-new-backup", "001.bundle")
+		bundlePath := filepath.Join(path, strings.TrimSuffix(repo.RelativePath, ".git"), "the-new-backup", "001.bundle")
 		require.FileExists(t, bundlePath)
 	}
 }
@@ -91,10 +88,8 @@ func TestCreateSubcommand_serverSide(t *testing.T) {
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 5; i++ {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed:         gittest.SeedGitLabTest,
-			RelativePath: fmt.Sprintf("repo-%d", i),
-		})
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 		repos = append(repos, repo)
 	}
 
@@ -127,7 +122,7 @@ func TestCreateSubcommand_serverSide(t *testing.T) {
 		"create: pipeline: 1 failures encountered:\n - invalid: server-side create: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
-		bundlePath := filepath.Join(backupRoot, repo.RelativePath, "the-new-backup", "001.bundle")
+		bundlePath := filepath.Join(backupRoot, strings.TrimSuffix(repo.RelativePath, ".git"), "the-new-backup", "001.bundle")
 		require.FileExists(t, bundlePath)
 	}
 }
