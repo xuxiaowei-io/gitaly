@@ -58,6 +58,31 @@ func TestRemove(t *testing.T) {
 			},
 			expectedErr: structerr.NewFailedPrecondition("repository is already locked"),
 		},
+		{
+			desc: "unfinished deletion doesn't fail subsequent deletions",
+			createRepo: func(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string) {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				require.NoError(t,
+					remove(
+						ctx,
+						config.NewLocator(cfg),
+						transaction.NewTrackingManager(),
+						repo,
+						// Pass a no-op removeAll to leave the temporary directory in place. Previous unfinished
+						// deletion for the same relative path should not cause any conflicts.
+						func(string) error { return nil },
+					),
+				)
+
+				return gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           repo.RelativePath,
+				})
+			},
+		},
 	} {
 		tc := tc
 
