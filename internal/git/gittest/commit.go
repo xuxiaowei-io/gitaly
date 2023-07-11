@@ -25,7 +25,7 @@ var (
 	// commits.
 	DefaultCommitterMail = "scrooge@mcduck.com"
 	// DefaultCommitTime is the default time used as written by WriteCommit().
-	DefaultCommitTime = time.Date(2019, 11, 3, 11, 27, 59, 0, time.FixedZone("", 60*60))
+	DefaultCommitTime = time.Date(2019, 11, 3, 11, 27, 59, 0, time.FixedZone("UTC+1", 1*60*60))
 	// DefaultCommitterSignature is the default signature in the format like it would be present
 	// in commits: "$name <$email> $unixtimestamp $timezone".
 	DefaultCommitterSignature = fmt.Sprintf(
@@ -180,7 +180,7 @@ func WriteCommit(tb testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCo
 	}
 
 	if writeCommitConfig.authorDate.IsZero() {
-		writeCommitConfig.authorDate = time.Date(2019, 11, 3, 11, 27, 59, 0, time.FixedZone("UTC+1", 1*60*60))
+		writeCommitConfig.authorDate = DefaultCommitTime
 	}
 
 	if writeCommitConfig.committerName == "" {
@@ -188,7 +188,7 @@ func WriteCommit(tb testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCo
 	}
 
 	if writeCommitConfig.committerDate.IsZero() {
-		writeCommitConfig.committerDate = time.Date(2019, 11, 3, 11, 27, 59, 0, time.FixedZone("UTC+1", 1*60*60))
+		writeCommitConfig.committerDate = DefaultCommitTime
 	}
 
 	// Use 'commit-tree' instead of 'commit' because we are in a bare

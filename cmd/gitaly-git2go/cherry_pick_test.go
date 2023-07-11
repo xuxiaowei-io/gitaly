@@ -208,7 +208,11 @@ func TestCherryPick(t *testing.T) {
 
 			commit, err := repo.LookupCommit(commitOid)
 			require.NoError(t, err)
-			require.Equal(t, &DefaultAuthor, commit.Author())
+
+			// The computed author does not include the timezone string "UTC+1".
+			expectedAuthor := DefaultAuthor
+			expectedAuthor.When = expectedAuthor.When.In(time.FixedZone("", 1*60*60))
+			require.Equal(t, &expectedAuthor, commit.Author())
 			require.Equal(t, &committer, commit.Committer())
 
 			tree, err := commit.Tree()
