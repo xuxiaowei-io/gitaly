@@ -1,0 +1,378 @@
+package limiter
+
+import (
+	"context"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+)
+
+func TestAdaptiveCalculator_alreadyStarted(t *testing.T) {
+	t.Parallel()
+
+	calculator := NewAdaptiveCalculator(10*time.Millisecond, testhelper.NewDiscardingLogEntry(t), nil, nil)
+
+	stop, err := calculator.Start(testhelper.Context(t))
+	require.NoError(t, err)
+
+	stop2, err := calculator.Start(testhelper.Context(t))
+	require.Errorf(t, err, "adaptive calculator: already started")
+	require.Nil(t, stop2)
+
+	stop()
+}
+
+func TestAdaptiveCalculator_realTimerTicker(t *testing.T) {
+	t.Parallel()
+
+	logger, hook := test.NewNullLogger()
+	logger.SetLevel(logrus.InfoLevel)
+
+	limit := newTestLimit("testLimit", 25, 100, 10, 0.5)
+	watcher := newTestWatcher("testWatcher", []string{"", "", "", "", ""}, nil)
+
+	calibration := 10 * time.Millisecond
+	calculator := NewAdaptiveCalculator(calibration, logger.WithContext(testhelper.Context(t)), []AdaptiveLimiter{limit}, []ResourceWatcher{watcher})
+
+	stop, err := calculator.Start(testhelper.Context(t))
+	require.NoError(t, err)
+	time.Sleep(10 * calibration)
+	stop()
+
+	require.Equal(t, []int{25, 26, 27, 28, 29, 30}, limit.currents[:6])
+	assertLogs(t, []string{}, hook.AllEntries())
+}
+
+func TestAdaptiveCalculator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		desc     string
+		limits   []AdaptiveLimiter
+		watchers []ResourceWatcher
+		// The first captured limit is the initial limit
+		expectedLimits map[string][]int
+		expectedLogs   []string
+		waitEvents     int
+	}{
+		{
+			desc:       "Empty watchers",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit", 25, 100, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{},
+			expectedLimits: map[string][]int{
+				"testLimit": {25, 26, 27, 28, 29, 30},
+			},
+		},
+		{
+			desc:           "Empty limits and watchers",
+			waitEvents:     5,
+			limits:         []AdaptiveLimiter{},
+			watchers:       []ResourceWatcher{},
+			expectedLimits: map[string][]int{},
+		},
+		{
+			desc:       "Additive increase",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit", 25, 100, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher", []string{"", "", "", "", ""}, nil),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit": {25, 26, 27, 28, 29, 30},
+			},
+		},
+		{
+			desc:       "Additive increase until reaching the max limit",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit", 25, 27, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher", []string{"", "", "", "", ""}, nil),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit": {25, 26, 27, 27, 27, 27},
+			},
+		},
+		{
+			desc:       "Additive increase until a backoff event",
+			waitEvents: 7,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit", 25, 100, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher", []string{"", "", "", "", "cgroup exceeds limit", "", ""}, nil),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit": {25, 26, 27, 28, 29, 14, 15, 16},
+			},
+			expectedLogs: []string{
+				`level=info msg="Multiplicative decrease" limit=testLimit new_limit=14 previous_limit=29 reason="cgroup exceeds limit" watcher=testWatcher`,
+			},
+		},
+		{
+			desc:       "Multiplicative decrease until reaching min limit",
+			waitEvents: 6,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit", 25, 100, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher", []string{"", "", "reason 1", "reason 2", "reason 3", ""}, nil),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit": {25, 26, 27, 13, 10, 10, 11},
+			},
+			expectedLogs: []string{
+				`level=info msg="Multiplicative decrease" limit=testLimit new_limit=13 previous_limit=27 reason="reason 1" watcher=testWatcher`,
+				`level=info msg="Multiplicative decrease" limit=testLimit new_limit=10 previous_limit=13 reason="reason 2" watcher=testWatcher`,
+				`level=info msg="Multiplicative decrease" limit=testLimit new_limit=10 previous_limit=10 reason="reason 3" watcher=testWatcher`,
+			},
+		},
+		{
+			desc:       "Additive increase multiple limits",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher", []string{"", "", "", "", ""}, nil),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 28, 29, 30},
+				"testLimit2": {15, 16, 17, 18, 19, 20},
+			},
+		},
+		{
+			desc:       "Additive increase multiple limits until a backoff event",
+			waitEvents: 7,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher", []string{"", "", "", "", "", "cgroup exceeds limit", ""}, nil),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 28, 29, 30, 15, 16},
+				"testLimit2": {15, 16, 17, 18, 19, 20, 10, 11},
+			},
+			expectedLogs: []string{
+				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=15 previous_limit=30 reason="cgroup exceeds limit" watcher=testWatcher`,
+				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=20 reason="cgroup exceeds limit" watcher=testWatcher`,
+			},
+		},
+		{
+			desc:       "Additive increase multiple limits until a backoff event with multiple watchers",
+			waitEvents: 10,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher1", []string{"", "", "", "", "", "", "", "", "cgroup exceeds limit 1", ""}, nil),
+				newTestWatcher("testWatcher2", []string{"", "", "", "", "", "", "", "", "", ""}, nil),
+				newTestWatcher("testWatcher3", []string{"", "", "cgroup exceeds limit 2", "", "", "", "", "", ""}, nil),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 13, 14, 15, 16, 17, 18, 10, 11},
+				"testLimit2": {15, 16, 17, 10, 11, 12, 13, 14, 15, 10, 11},
+			},
+			expectedLogs: []string{
+				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=13 previous_limit=27 reason="cgroup exceeds limit 2" watcher=testWatcher3`,
+				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=17 reason="cgroup exceeds limit 2" watcher=testWatcher3`,
+				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=10 previous_limit=18 reason="cgroup exceeds limit 1" watcher=testWatcher1`,
+				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=15 reason="cgroup exceeds limit 1" watcher=testWatcher1`,
+			},
+		},
+		{
+			desc:       "Additive increase multiple limits until multiple watchers return multiple errors",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher1", []string{"", "", "cgroup exceeds limit 1", "", ""}, nil),
+				newTestWatcher("testWatcher2", []string{"", "", "", "", ""}, nil),
+				newTestWatcher("testWatcher3", []string{"", "", "cgroup exceeds limit 2", "", ""}, nil),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 13, 14, 15},
+				"testLimit2": {15, 16, 17, 10, 11, 12},
+			},
+			expectedLogs: []string{
+				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=13 previous_limit=27 reason="cgroup exceeds limit 2" watcher=testWatcher3`,
+				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=17 reason="cgroup exceeds limit 2" watcher=testWatcher3`,
+			},
+		},
+		{
+			desc:       "a watcher returns an error",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher1", []string{"", "", "", "", ""}, []error{nil, nil, nil, nil, nil}),
+				newTestWatcher("testWatcher2", []string{"", "", "", "", ""}, []error{nil, nil, nil, fmt.Errorf("unexpected"), nil}),
+				newTestWatcher("testWatcher3", []string{"", "", "", "", ""}, []error{nil, fmt.Errorf("unexpected"), nil, nil, nil}),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 28, 29, 30},
+				"testLimit2": {15, 16, 17, 18, 19, 20},
+			},
+			expectedLogs: []string{
+				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher3`,
+				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher2`,
+			},
+		},
+		{
+			desc:       "a watcher returns an error at the same time another watcher returns backoff event",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher1", []string{"", "", "", "backoff please", ""}, []error{nil, nil, nil, nil, nil}),
+				newTestWatcher("testWatcher2", []string{"", "", "", "", ""}, []error{nil, nil, nil, fmt.Errorf("unexpected"), nil}),
+				newTestWatcher("testWatcher3", []string{"", "", "", "", ""}, []error{nil, fmt.Errorf("unexpected"), nil, nil, nil}),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 28, 14, 15},
+				"testLimit2": {15, 16, 17, 18, 10, 11},
+			},
+			expectedLogs: []string{
+				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher3`,
+				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher2`,
+				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=28 reason="backoff please" watcher=testWatcher1`,
+				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=18 reason="backoff please" watcher=testWatcher1`,
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			logger, hook := test.NewNullLogger()
+			logger.SetLevel(logrus.InfoLevel)
+
+			ticker := helper.NewManualTicker()
+
+			calibration := 10 * time.Millisecond
+			calculator := NewAdaptiveCalculator(calibration, logger.WithContext(testhelper.Context(t)), tc.limits, tc.watchers)
+			calculator.tickerCreator = func(duration time.Duration) helper.Ticker { return ticker }
+
+			stop, err := calculator.Start(testhelper.Context(t))
+			require.NoError(t, err)
+			for i := 0; i <= tc.waitEvents; i++ {
+				ticker.Tick()
+			}
+			stop()
+
+			for name, expectedLimits := range tc.expectedLimits {
+				limit := findLimitWithName(tc.limits, name)
+				require.NotNil(t, limit, "not found limit with name %q", name)
+				require.Equal(t, expectedLimits, limit.currents[:tc.waitEvents+1])
+			}
+
+			assertLogs(t, tc.expectedLogs, hook.AllEntries())
+		})
+	}
+}
+
+func assertLogs(t *testing.T, expectedLogs []string, entries []*logrus.Entry) {
+	require.Equal(t, len(expectedLogs), len(entries))
+	for index, expectedLog := range expectedLogs {
+		msg, err := entries[index].String()
+		require.NoError(t, err)
+		require.Contains(t, msg, expectedLog)
+	}
+}
+
+func findLimitWithName(limits []AdaptiveLimiter, name string) *testLimit {
+	for _, l := range limits {
+		limit := l.(*testLimit)
+		if limit.name == name {
+			return limit
+		}
+	}
+	return nil
+}
+
+type testLimit struct {
+	currents       []int
+	name           string
+	initial        int
+	max            int
+	min            int
+	backoffBackoff float64
+}
+
+func newTestLimit(name string, initial int, max int, min int, backoff float64) *testLimit {
+	return &testLimit{name: name, initial: initial, max: max, min: min, backoffBackoff: backoff}
+}
+
+func (l *testLimit) Name() string { return l.name }
+func (l *testLimit) Current() int {
+	if len(l.currents) == 0 {
+		return 0
+	}
+	return l.currents[len(l.currents)-1]
+}
+func (l *testLimit) Update(val int) { l.currents = append(l.currents, val) }
+func (l *testLimit) Setting() AdaptiveSetting {
+	return AdaptiveSetting{
+		Initial:        l.initial,
+		Max:            l.max,
+		Min:            l.min,
+		BackoffBackoff: l.backoffBackoff,
+	}
+}
+
+type testWatcher struct {
+	name   string
+	events []*BackoffEvent
+	errors []error
+	index  int
+}
+
+func (w *testWatcher) Name() string {
+	return w.name
+}
+
+func (w *testWatcher) Poll(context.Context) (*BackoffEvent, error) {
+	index := w.index
+	if index >= len(w.events) {
+		index = len(w.events) - 1
+	}
+	var err error
+	if w.errors != nil {
+		err = w.errors[index]
+	}
+	w.index++
+	return w.events[index], err
+}
+
+func newTestWatcher(name string, reasons []string, errors []error) *testWatcher {
+	var events []*BackoffEvent
+	for _, reason := range reasons {
+		event := &BackoffEvent{
+			ShouldBackoff: reason != "",
+			Reason:        reason,
+			WatcherName:   name,
+		}
+		events = append(events, event)
+	}
+	return &testWatcher{name: name, events: events, errors: errors}
+}

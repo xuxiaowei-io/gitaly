@@ -1,0 +1,194 @@
+package limiter
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"sync"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+)
+
+// BackoffEvent is a signal that the current system is under pressure. It's returned by the watchers under the
+// management of the AdaptiveCalculator at calibration points.
+type BackoffEvent struct {
+	WatcherName   string
+	ShouldBackoff bool
+	Reason        string
+}
+
+// ResourceWatcher is an interface of the watchers that monitor the system resources.
+type ResourceWatcher interface {
+	// Name returns the name of the resource watcher
+	Name() string
+	// Poll returns a backoff event when a watcher determine something goes wrong with the resource it is
+	// monitoring. If everything is fine, it returns `nil`. Watchers are expected to respect the cancellation of
+	// the input context.
+	Poll(context.Context) (*BackoffEvent, error)
+}
+
+// AdaptiveCalculator is responsible for calculating the adaptive limits based on additive increase/multiplicative
+// decrease (AIMD) algorithm. This method involves gradually increasing the limit during normal process functioning
+// but quickly reducing it when an issue (backoff event) occurs. It receives a list of AdaptiveLimiter and a list of
+// ResourceWatcher. Although the limits may have different settings (Initial, Min, Max, BackoffFactor), they all move
+// as a whole. The caller accesses the current limits via AdaptiveLimiter.Current method.
+//
+// When the calculator starts, each limit value is set to its Initial limit. Periodically, the calculator polls the
+// backoff events from the watchers. The current value of each limit is re-calibrated as follows:
+// * limit = limit + 1 if there is no backoff event since the last calibration. The new limit cannot exceed max limit.
+// * limit = limit * BackoffFactor otherwise. The new limit cannot be lower than min limit.
+//
+// A watcher returning an error is treated as a no backoff event.
+type AdaptiveCalculator struct {
+	sync.Mutex
+
+	logger *logrus.Entry
+	// started tells whether the calculator already starts. One calculator is allowed to be used once.
+	started bool
+	// calibration is the time duration until the next calibration event.
+	calibration time.Duration
+	// limits are the list of adaptive limits managed by this calculator.
+	limits []AdaptiveLimiter
+	// watchers stores a list of resource watchers that return the backoff events when queried.
+	watchers []ResourceWatcher
+	// lastBackoffEvent stores the last backoff event collected from the watchers.
+	lastBackoffEvent *BackoffEvent
+	// tickerCreator is a custom function that returns a Ticker. It's mostly used in test the manual ticker
+	tickerCreator func(duration time.Duration) helper.Ticker
+}
+
+// NewAdaptiveCalculator constructs a AdaptiveCalculator object. It's the responsibility of the caller to validate
+// the correctness of input AdaptiveLimiter and ResourceWatcher.
+func NewAdaptiveCalculator(calibration time.Duration, logger *logrus.Entry, limits []AdaptiveLimiter, watchers []ResourceWatcher) *AdaptiveCalculator {
+	return &AdaptiveCalculator{
+		logger:           logger,
+		calibration:      calibration,
+		limits:           limits,
+		watchers:         watchers,
+		lastBackoffEvent: nil,
+	}
+}
+
+// Start resets the current limit values and start a goroutine to poll the backoff events. This method exits after the
+// mentioned goroutine starts.
+func (c *AdaptiveCalculator) Start(ctx context.Context) (func(), error) {
+	c.Lock()
+	defer c.Unlock()
+
+	if c.started {
+		return nil, fmt.Errorf("adaptive calculator: already started")
+	}
+	c.started = true
+
+	// Reset all limits to their initial limits
+	for _, limit := range c.limits {
+		limit.Update(limit.Setting().Initial)
+	}
+
+	done := make(chan struct{})
+	completed := make(chan struct{})
+
+	go func(ctx context.Context) {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		defer close(completed)
+
+		tickerCreator := c.tickerCreator
+		if tickerCreator == nil {
+			tickerCreator = helper.NewTimerTicker
+		}
+		timer := tickerCreator(c.calibration)
+		for {
+			// Reset the timer to the next calibration point. It accounts for the resource polling latencies.
+			timer.Reset()
+			select {
+			case <-timer.C():
+				// If multiple watchers fire multiple backoff events, the calculator decreases once.
+				// Usually, resources are highly correlated. When the memory level raises too high,
+				// the CPU usage also increases due to page faulting, memory reclaim, GC activities, etc.
+				// We might also have multiple watchers for the same resources, for example, memory
+				// usage watcher and page fault counter. Hence, re-calibrating after each event will
+				// cut the limits too aggressively.
+				c.pollBackoffEvent(ctx)
+				c.calibrateLimits()
+
+				// Reset backoff event
+				c.setLastBackoffEvent(nil)
+			case <-done:
+				timer.Stop()
+				return
+			}
+		}
+	}(ctx)
+
+	return func() {
+		close(done)
+		<-completed
+	}, nil
+}
+
+func (c *AdaptiveCalculator) pollBackoffEvent(ctx context.Context) {
+	// Set a timeout to prevent resource watcher runs forever. The deadline
+	// is the next calibration event.
+	ctx, cancel := context.WithTimeout(ctx, c.calibration)
+	defer cancel()
+
+	for _, w := range c.watchers {
+		logger := c.logger.WithField("watcher", w.Name())
+
+		event, err := w.Poll(ctx)
+		if err != nil {
+			logger.Errorf("poll from resource watcher: %s", err)
+			continue
+		}
+		if event.ShouldBackoff {
+			c.setLastBackoffEvent(event)
+		}
+	}
+}
+
+func (c *AdaptiveCalculator) calibrateLimits() {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, limit := range c.limits {
+		setting := limit.Setting()
+
+		var newLimit int
+		logger := c.logger.WithField("limit", limit.Name())
+
+		if c.lastBackoffEvent == nil {
+			// Additive increase, one unit at a time
+			newLimit = limit.Current() + 1
+			if newLimit > setting.Max {
+				newLimit = setting.Max
+			}
+			logger.WithFields(map[string]interface{}{
+				"previous_limit": limit.Current(),
+				"new_limit":      newLimit,
+			}).Debugf("Additive increase")
+		} else {
+			// Multiplicative decrease
+			newLimit = int(math.Floor(float64(limit.Current()) * setting.BackoffBackoff))
+			if newLimit < setting.Min {
+				newLimit = setting.Min
+			}
+			logger.WithFields(map[string]interface{}{
+				"previous_limit": limit.Current(),
+				"new_limit":      newLimit,
+				"watcher":        c.lastBackoffEvent.WatcherName,
+				"reason":         c.lastBackoffEvent.Reason,
+			}).Infof("Multiplicative decrease")
+		}
+		limit.Update(newLimit)
+	}
+}
+
+func (c *AdaptiveCalculator) setLastBackoffEvent(event *BackoffEvent) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.lastBackoffEvent = event
+}
