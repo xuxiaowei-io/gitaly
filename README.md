@@ -17,7 +17,7 @@ Fault-tolerant horizontal scaling of Git storage in GitLab, and particularly, on
 
 Almost all application code accesses Git repositories via Gitaly (with the exception of Rugged which we're working on removing).
 
-Gitaly offers both non-replicated and replicated storage, known as Gitaly Cluster (see https://docs.gitlab.com/ee/administration/gitaly/).
+Besides "git over RPC", Gitaly offers an optional [high-availability solution](#high-availability).
 
 We are building features according to our [roadmap][roadmap].
 
@@ -51,7 +51,6 @@ High-level architecture overview:
 
 ![Gitaly architecture](doc/img/architecture.svg)
 
-
 ### Gitaly clients
 
 As of Q4 2018, the following GitLab components act as Gitaly clients:
@@ -74,10 +73,10 @@ package.
 
 ## High Availability
 
-Gitaly offers a High Availability solution known as Gitaly Cluster (https://docs.gitlab.com/ee/administration/gitaly/).
+Gitaly offers a High Availability solution known as Gitaly Cluster ([product documentation](https://docs.gitlab.com/ee/administration/gitaly/)).
 
 - In its current iteration, client traffic goes through a new component, [Praefect](https://docs.gitlab.com/ee/administration/gitaly/praefect.html), which then replicates data to multiple Gitaly servers, and stores state in a PostgreSQL database.
-- We are working on a new distributed replication solution referred to as Raft, in https://gitlab.com/groups/gitlab-org/-/epics/8903.
+- We are working on a new distributed replication solution referred to as Raft: [epic](https://gitlab.com/groups/gitlab-org/-/epics/8903).
 
 ## Further reading
 
