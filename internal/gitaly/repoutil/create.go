@@ -108,6 +108,7 @@ func Create(
 			Flags: append([]git.Option{
 				git.Flag{Name: "--bare"},
 				git.Flag{Name: "--quiet"},
+				git.Flag{Name: fmt.Sprintf("--object-format=sha256")},
 			}, cfg.gitOptions...),
 			Args: []string{newRepoDir.Path()},
 		}, git.WithStderr(stderr))
