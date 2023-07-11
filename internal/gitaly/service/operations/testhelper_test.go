@@ -99,6 +99,7 @@ func runOperationServiceServer(tb testing.TB, cfg config.Cfg, options ...testser
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetUpdaterWithHooks(),
+			deps.GetCfg().Git.SigningKey,
 		)
 
 		gitalypb.RegisterOperationServiceServer(srv, operationServer)

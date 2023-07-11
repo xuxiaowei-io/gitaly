@@ -139,6 +139,7 @@ func testUserCreateBranchTransactions(t *testing.T, ctx context.Context) {
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetUpdaterWithHooks(),
+			deps.GetCfg().Git.SigningKey,
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 			deps.GetHookManager(),
@@ -843,6 +844,7 @@ func testUserDeleteBranchTransaction(t *testing.T, ctx context.Context) {
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetUpdaterWithHooks(),
+			deps.GetCfg().Git.SigningKey,
 		))
 	})
 
