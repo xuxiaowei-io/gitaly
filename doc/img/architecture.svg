@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   sodipodi:docname="gitaly.svg"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="true"
+     inkscape:lockguides="false"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     inkscape:zoom="1.5554293"
+     inkscape:cx="472.85981"
+     inkscape:cy="496.326"
+     inkscape:window-width="2556"
+     inkscape:window-height="2120"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <inkscape:grid
+       type="xygrid"
+       id="grid194" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2">
+    <marker
+       style="overflow:visible;"
+       id="Arrow1Mend"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow1Mend"
+       inkscape:isstock="true">
+      <path
+         transform="scale(0.4) rotate(180) translate(10,0)"
+         style="fill-rule:evenodd;fill:context-stroke;stroke:context-stroke;stroke-width:1.0pt;"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         id="path132273" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Mstart"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow1Mstart"
+       inkscape:isstock="true">
+      <path
+         transform="scale(0.4) translate(10,0)"
+         style="fill-rule:evenodd;fill:context-stroke;stroke:context-stroke;stroke-width:1.0pt"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         id="path132270" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Sstart"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow1Sstart"
+       inkscape:isstock="true">
+      <path
+         transform="scale(0.2) translate(6,0)"
+         style="fill-rule:evenodd;fill:context-stroke;stroke:context-stroke;stroke-width:1.0pt"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         id="path132276" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Mstart"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow2Mstart"
+       inkscape:isstock="true">
+      <path
+         transform="scale(0.6) translate(0,0)"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         style="stroke:context-stroke;fill-rule:evenodd;fill:context-stroke;stroke-width:0.62500000;stroke-linejoin:round"
+         id="path132288" />
+    </marker>
+    <marker
+       style="overflow:visible;"
+       id="Arrow1Send"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow1Send"
+       inkscape:isstock="true">
+      <path
+         transform="scale(0.2) rotate(180) translate(6,0)"
+         style="fill-rule:evenodd;fill:context-stroke;stroke:context-stroke;stroke-width:1.0pt;"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         id="path132279" />
+    </marker>
+    <marker
+       style="overflow:visible;"
+       id="Arrow2Lend"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="scale(1.1) rotate(180) translate(1,0)"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         style="stroke:context-stroke;fill-rule:evenodd;fill:context-stroke;stroke-width:0.62500000;stroke-linejoin:round;"
+         id="path132285" />
+    </marker>
+    <inkscape:path-effect
+       effect="powerstroke"
+       id="path-effect131343"
+       is_visible="true"
+       lpeversion="1"
+       offset_points="1,4.99214"
+       not_jump="false"
+       sort_points="true"
+       interpolator_type="CubicBezierJohan"
+       interpolator_beta="0.2"
+       start_linecap_type="zerowidth"
+       linejoin_type="extrp_arc"
+       miter_limit="4"
+       scale_width="1"
+       end_linecap_type="zerowidth" />
+    <rect
+       x="60"
+       y="270"
+       width="150"
+       height="60"
+       id="rect55112" />
+    <marker
+       style="overflow:visible"
+       id="Arrow1Send-9"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow1Send"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-0.2,0,0,-0.2,-1.2,0)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         id="path132279-5" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Send-9-3"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow1Send"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-0.2,0,0,-0.2,-1.2,0)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         id="path132279-5-4" />
+    </marker>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g37487"
+       transform="translate(24.010246)">
+      <rect
+         style="fill:#ffcc00;fill-rule:evenodd;stroke-width:0.272862"
+         id="rect31-2"
+         width="39.48975"
+         height="15.874998"
+         x="111.32275"
+         y="39.6875" />
+      <text
+         xml:space="preserve"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+         x="119.47247"
+         y="48.792885"
+         id="text16486"><tspan
+           sodipodi:role="line"
+           id="tspan16484"
+           style="stroke-width:0.264583"
+           x="119.47247"
+           y="48.792885">gitlab-shell</tspan></text>
+    </g>
+    <g
+       id="g37487-7"
+       transform="translate(-23.8125)">
+      <g
+         id="g45759">
+        <rect
+           style="fill:#ffcc00;fill-rule:evenodd;stroke-width:0.385885"
+           id="rect31-2-6-7"
+           width="39.48975"
+           height="31.749996"
+           x="63.697746"
+           y="39.6875" />
+        <text
+           xml:space="preserve"
+           style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+           x="72.228844"
+           y="56.730385"
+           id="text41837"><tspan
+             sodipodi:role="line"
+             id="tspan41835"
+             style="stroke-width:0.264583"
+             x="72.228844"
+             y="56.730385">gitlab-rails</tspan></text>
+      </g>
+      <g
+         id="g45754">
+        <rect
+           style="fill:#ffcc00;fill-rule:evenodd;stroke-width:0.385885"
+           id="rect31-2-6"
+           width="39.48975"
+           height="31.749996"
+           x="111.32275"
+           y="39.6875" />
+        <text
+           xml:space="preserve"
+           style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+           x="119.83834"
+           y="57.140694"
+           id="text44535"><tspan
+             sodipodi:role="line"
+             style="stroke-width:0.264583"
+             x="119.83834"
+             y="57.140694"
+             id="tspan44537">Workhorse</tspan></text>
+      </g>
+    </g>
+    <g
+       id="g37482"
+       transform="translate(24.010246)">
+      <rect
+         style="fill:#ff6600;fill-rule:evenodd;stroke-width:0.272862"
+         id="rect31-2-8"
+         width="39.48975"
+         height="15.874998"
+         x="111.32275"
+         y="55.5625" />
+      <text
+         xml:space="preserve"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;text-align:center;text-anchor:middle;stroke-width:0.264583"
+         x="131.06349"
+         y="62.432365"
+         id="text25738"><tspan
+           sodipodi:role="line"
+           id="tspan25736"
+           style="text-align:center;text-anchor:middle;stroke-width:0.264583"
+           x="131.06349"
+           y="62.432365">command-line</tspan><tspan
+           sodipodi:role="line"
+           style="text-align:center;text-anchor:middle;stroke-width:0.264583"
+           x="131.06349"
+           y="67.72403"
+           id="tspan25740">client</tspan></text>
+    </g>
+    <rect
+       style="fill:#cccccc;stroke-width:0.264583"
+       id="rect45814"
+       width="87.3125"
+       height="15.875"
+       x="87.510246"
+       y="71.4375" />
+    <text
+       xml:space="preserve"
+       style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="101.67065"
+       y="80.542885"
+       id="text47962"><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="101.67065"
+         y="80.542885"
+         id="tspan60642">Gitaly gRPC Go Client Stubs</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text55110"
+       style="line-height:1.25;font-family:sans-serif;font-size:16px;white-space:pre;shape-inside:url(#rect55112)" />
+    <rect
+       style="fill:#cccccc;stroke-width:0.264583"
+       id="rect56238"
+       width="39.6875"
+       height="15.875"
+       x="39.885246"
+       y="71.4375" />
+    <text
+       xml:space="preserve"
+       style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="41.522369"
+       y="77.897057"
+       id="text57716"><tspan
+         sodipodi:role="line"
+         id="tspan57714"
+         style="stroke-width:0.264583"
+         x="41.522369"
+         y="77.897057">Gitaly gRPC</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="41.522369"
+         y="83.188721"
+         id="tspan57718">Ruby client stubs</tspan></text>
+    <rect
+       style="fill:#cccccc;stroke-width:0.264583"
+       id="rect67015"
+       width="134.9375"
+       height="15.875"
+       x="39.6875"
+       y="111.125" />
+    <rect
+       style="fill:#aaccff;stroke-width:0.264583;fill-opacity:1"
+       id="rect67017"
+       width="134.9375"
+       height="39.6875"
+       x="39.6875"
+       y="127" />
+    <text
+       xml:space="preserve"
+       style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="47.113335"
+       y="119.0625"
+       id="text90321"><tspan
+         sodipodi:role="line"
+         id="tspan90319"
+         style="stroke-width:0.264583"
+         x="47.113335"
+         y="119.0625">Gitaly gRPC server interfaces</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:8.46667px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="46.875622"
+       y="137.07538"
+       id="text94009"><tspan
+         sodipodi:role="line"
+         id="tspan94007"
+         style="font-size:8.46667px;stroke-width:0.264583"
+         x="46.875622"
+         y="137.07538">Gitaly Service</tspan></text>
+    <g
+       id="g112939"
+       transform="translate(-15.875,-23.8125)">
+      <rect
+         style="fill:#2a7fff;fill-opacity:1;stroke-width:0.264583"
+         id="rect105228"
+         width="95.25"
+         height="15.875"
+         x="71.4375"
+         y="166.6875" />
+      <text
+         xml:space="preserve"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+         x="91.491081"
+         y="175.79289"
+         id="text107586"><tspan
+           sodipodi:role="line"
+           id="tspan107584"
+           style="stroke-width:0.264583"
+           x="91.491081"
+           y="175.79289">git integration (git spawn)</tspan></text>
+    </g>
+    <rect
+       style="fill:#cccccc;fill-opacity:1;stroke-width:0.264583"
+       id="rect113115"
+       width="134.9375"
+       height="15.875"
+       x="39.6875"
+       y="190.5" />
+    <text
+       xml:space="preserve"
+       style="font-size:8.46667px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="46.520088"
+       y="200.77327"
+       id="text121676"><tspan
+         sodipodi:role="line"
+         id="tspan121674"
+         style="font-size:8.46667px;stroke-width:0.264583"
+         x="46.520088"
+         y="200.77327">Filesystem</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none;marker-end:url(#Arrow1Send)"
+       d="m 55.562499,87.312499 c 0,23.812501 0,23.812501 0,23.812501"
+       id="path131345" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none;marker-end:url(#Arrow1Send)"
+       d="m 103.1875,87.312499 c 0,23.812501 0,23.812501 0,23.812501"
+       id="path131347" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1Send-9)"
+       d="m 103.1875,166.6875 c 0,23.8125 0,23.8125 0,23.8125"
+       id="path131347-5" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1Send-9-3)"
+       d="m 55.5625,166.6875 c 0,23.8125 0,23.8125 0,23.8125"
+       id="path131347-5-1" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none;marker-end:url(#Arrow1Send)"
+       d="m 150.8125,87.312499 c 0,23.812501 0,23.812501 0,23.812501"
+       id="path131349" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.367288;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:0.367288, 0.367288;stroke-dashoffset:0;stroke-opacity:1;marker-start:url(#Arrow1Mstart)"
+       d="m 39.862302,63.379804 c -21.350354,55.732036 0,79.617186 0,79.617186"
+       id="path132843" />
+    <text
+       xml:space="preserve"
+       style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="-119.42251"
+       y="35.543396"
+       id="text141289"
+       transform="rotate(-90)"><tspan
+         sodipodi:role="line"
+         id="tspan141287"
+         style="stroke-width:0.264583"
+         x="-119.42251"
+         y="35.543396">Authorization</tspan></text>
+    <g
+       id="g152703"
+       transform="translate(-15.875,-0.4402771)">
+      <rect
+         style="fill:#ffcc00;fill-opacity:1;stroke-width:0.499999;stroke-miterlimit:4;stroke-dasharray:0.499999, 0.499999;stroke-dashoffset:0"
+         id="rect141855"
+         width="55.5625"
+         height="7.9375"
+         x="23.8125"
+         y="175.06528" />
+      <text
+         xml:space="preserve"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+         x="34.849567"
+         y="180.20192"
+         id="text151136"><tspan
+           sodipodi:role="line"
+           id="tspan151134"
+           style="stroke-width:0.264583"
+           x="34.849567"
+           y="180.20192">libgit2 / Rugged</tspan></text>
+    </g>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458299;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:0.26458299, 0.79374896;stroke-dashoffset:0;marker-end:url(#Arrow1Mend)"
+       d="M 39.6875,55.562499 C 0,119.0625 31.75,174.625 31.75,174.625"
+       id="path152774" />
+  </g>
+</svg>
