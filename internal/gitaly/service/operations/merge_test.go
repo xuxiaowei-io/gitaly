@@ -3,6 +3,7 @@
 package operations
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/packet"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -23,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -34,6 +38,13 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+//go:generate rm -rf testdata/gpg-keys testdata/signing_gpg_key testdata/signing_gpg_key.pub
+//go:generate mkdir -p testdata/gpg-keys
+//go:generate chmod 0700 testdata/gpg-keys
+//go:generate gpg --homedir testdata/gpg-keys --generate-key --batch testdata/genkey.in
+//go:generate gpg --homedir testdata/gpg-keys --export --output testdata/signing_gpg_key.pub
+//go:generate gpg --homedir testdata/gpg-keys --export-secret-keys --output testdata/signing_gpg_key
 
 var (
 	commitToMerge         = "e63f41fe459e62e1228fcef60d7189127aeba95a"
@@ -48,7 +59,16 @@ func TestUserMergeBranch(t *testing.T) {
 }
 
 func testUserMergeBranch(t *testing.T, ctx context.Context) {
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	var opts []testserver.GitalyServerOpt
+	if featureflag.GPGSigning.IsEnabled(ctx) {
+		opts = append(opts, testserver.WithSigningKey("testdata/signing_gpg_key"))
+	}
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, opts...)
+
+	if featureflag.GPGSigning.IsEnabled(ctx) {
+		testcfg.BuildGitalyGPG(t, cfg)
+	}
 
 	type setupData struct {
 		commitToMerge string
@@ -321,6 +341,25 @@ func testUserMergeBranch(t *testing.T, ctx context.Context) {
 						require.Regexp(t, masterCommitID.String()+" .* refs/heads/"+branchToMerge, lines[0], "expected env of hook %q to contain reference change", h)
 					}
 				}
+			}
+
+			if featureflag.GPGSigning.IsEnabled(ctx) {
+				data, err := repo.ReadObject(ctx, git.ObjectID(branchToMerge))
+				require.NoError(t, err)
+
+				gpgsig, dataWithoutGpgSig := signature.ExtractSignature(t, ctx, data)
+
+				pubKey := testhelper.MustReadFile(t, "testdata/signing_gpg_key.pub")
+				keyring, err := openpgp.ReadKeyRing(bytes.NewReader(pubKey))
+				require.NoError(t, err)
+
+				_, err = openpgp.CheckArmoredDetachedSignature(
+					keyring,
+					strings.NewReader(dataWithoutGpgSig),
+					strings.NewReader(gpgsig),
+					&packet.Config{},
+				)
+				require.NoError(t, err)
 			}
 		})
 	}
