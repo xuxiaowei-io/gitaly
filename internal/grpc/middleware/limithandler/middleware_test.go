@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -142,7 +143,7 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 		// Now we spawn a second RPC call. As the concurrency limit is satisfied we'll be
 		// put into queue and will eventually return with an error.
 		_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
-		testhelper.RequireGrpcError(t, structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueTime).WithDetail(
+		testhelper.RequireGrpcError(t, structerr.NewResourceExhausted("%w", limiter.ErrMaxQueueTime).WithDetail(
 			&gitalypb.LimitError{
 				ErrorMessage: "maximum time in concurrency queue reached",
 				RetryAfter:   durationpb.New(0),
@@ -272,7 +273,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			maxConcurrency:        3,
 			expectedRequestCount:  4,
 			expectedResponseCount: 4,
-			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
+			expectedErr: structerr.NewResourceExhausted("%w", limiter.ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
 					ErrorMessage: "maximum queue size reached",
 					RetryAfter:   durationpb.New(0),
@@ -302,7 +303,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			maxConcurrency:        3,
 			expectedRequestCount:  4,
 			expectedResponseCount: 4,
-			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
+			expectedErr: structerr.NewResourceExhausted("%w", limiter.ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
 					ErrorMessage: "maximum queue size reached",
 					RetryAfter:   durationpb.New(0),
@@ -334,7 +335,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			maxConcurrency:        3,
 			expectedRequestCount:  4,
 			expectedResponseCount: 4,
-			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
+			expectedErr: structerr.NewResourceExhausted("%w", limiter.ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
 					ErrorMessage: "maximum queue size reached",
 					RetryAfter:   durationpb.New(0),
@@ -388,7 +389,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			// + 1 (queued stream) * (10 requests per stream)
 			expectedRequestCount:  40,
 			expectedResponseCount: 4,
-			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
+			expectedErr: structerr.NewResourceExhausted("%w", limiter.ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
 					ErrorMessage: "maximum queue size reached",
 					RetryAfter:   durationpb.New(0),
@@ -652,7 +653,7 @@ func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 		limitErr, ok := details[0].(*gitalypb.LimitError)
 		require.True(t, ok)
 
-		assert.Equal(t, limithandler.ErrMaxQueueSize.Error(), limitErr.ErrorMessage)
+		assert.Equal(t, limiter.ErrMaxQueueSize.Error(), limitErr.ErrorMessage)
 		assert.Equal(t, durationpb.New(0), limitErr.RetryAfter)
 
 		errs++
@@ -732,7 +733,7 @@ func TestRateLimitHandler(t *testing.T) {
 			limitErr, ok := details[0].(*gitalypb.LimitError)
 			require.True(t, ok)
 
-			assert.Equal(t, limithandler.ErrRateLimit.Error(), limitErr.ErrorMessage)
+			assert.Equal(t, limiter.ErrRateLimit.Error(), limitErr.ErrorMessage)
 			assert.Equal(t, durationpb.New(0), limitErr.RetryAfter)
 		}
 

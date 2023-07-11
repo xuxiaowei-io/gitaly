@@ -2,10 +2,14 @@ package limithandler
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"google.golang.org/grpc"
 )
 
@@ -28,17 +32,9 @@ func LimitConcurrencyByRepo(ctx context.Context) string {
 	return ""
 }
 
-// Limiter limits incoming requests
-type Limiter interface {
-	Limit(ctx context.Context, lockKey string, f LimitedFunc) (interface{}, error)
-}
-
-// LimitedFunc represents a function that will be limited
-type LimitedFunc func() (resp interface{}, err error)
-
 // LimiterMiddleware contains rate limiter state
 type LimiterMiddleware struct {
-	methodLimiters        map[string]Limiter
+	methodLimiters        map[string]limiter.Limiter
 	getLockKey            GetLockKey
 	requestsDroppedMetric *prometheus.CounterVec
 	collect               func(metrics chan<- prometheus.Metric)
@@ -165,4 +161,124 @@ func (w *wrappedStream) RecvMsg(m interface{}) error {
 	case err := <-errs:
 		return err
 	}
+}
+
+// WithConcurrencyLimiters sets up middleware to limit the concurrency of
+// requests based on RPC and repository
+func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
+	acquiringSecondsMetric := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "gitaly",
+			Subsystem: "concurrency_limiting",
+			Name:      "acquiring_seconds",
+			Help:      "Histogram of time calls are rate limited (in seconds)",
+			Buckets:   cfg.Prometheus.GRPCLatencyBuckets,
+		},
+		[]string{"system", "grpc_service", "grpc_method"},
+	)
+	inProgressMetric := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "gitaly",
+			Subsystem: "concurrency_limiting",
+			Name:      "in_progress",
+			Help:      "Gauge of number of concurrent in-progress calls",
+		},
+		[]string{"system", "grpc_service", "grpc_method"},
+	)
+	queuedMetric := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "gitaly",
+			Subsystem: "concurrency_limiting",
+			Name:      "queued",
+			Help:      "Gauge of number of queued calls",
+		},
+		[]string{"system", "grpc_service", "grpc_method"},
+	)
+
+	middleware.collect = func(metrics chan<- prometheus.Metric) {
+		acquiringSecondsMetric.Collect(metrics)
+		inProgressMetric.Collect(metrics)
+		queuedMetric.Collect(metrics)
+	}
+
+	result := make(map[string]limiter.Limiter)
+	for _, limit := range cfg.Concurrency {
+		limit := limit
+
+		newTickerFunc := func() helper.Ticker {
+			return helper.NewManualTicker()
+		}
+
+		if limit.MaxQueueWait > 0 {
+			newTickerFunc = func() helper.Ticker {
+				return helper.NewTimerTicker(limit.MaxQueueWait.Duration())
+			}
+		}
+
+		result[limit.RPC] = limiter.NewConcurrencyLimiter(
+			limit.MaxPerRepo,
+			limit.MaxQueueSize,
+			newTickerFunc,
+			limiter.NewPerRPCPromMonitor(
+				"gitaly", limit.RPC,
+				queuedMetric, inProgressMetric, acquiringSecondsMetric, middleware.requestsDroppedMetric,
+			),
+		)
+	}
+
+	// Set default for ReplicateRepository.
+	replicateRepositoryFullMethod := "/gitaly.RepositoryService/ReplicateRepository"
+	if _, ok := result[replicateRepositoryFullMethod]; !ok {
+		result[replicateRepositoryFullMethod] = limiter.NewConcurrencyLimiter(
+			1,
+			0,
+			func() helper.Ticker {
+				return helper.NewManualTicker()
+			},
+			limiter.NewPerRPCPromMonitor(
+				"gitaly", replicateRepositoryFullMethod,
+				queuedMetric, inProgressMetric, acquiringSecondsMetric, middleware.requestsDroppedMetric,
+			),
+		)
+	}
+
+	middleware.methodLimiters = result
+}
+
+// WithRateLimiters sets up a middleware with limiters that limit requests
+// based on its rate per second per RPC
+func WithRateLimiters(ctx context.Context) SetupFunc {
+	return func(cfg config.Cfg, middleware *LimiterMiddleware) {
+		result := make(map[string]limiter.Limiter)
+
+		for _, limitCfg := range cfg.RateLimiting {
+			if limitCfg.Burst > 0 && limitCfg.Interval > 0 {
+				serviceName, methodName := splitMethodName(limitCfg.RPC)
+				rateLimiter := limiter.NewRateLimiter(
+					limitCfg.Interval.Duration(),
+					limitCfg.Burst,
+					helper.NewTimerTicker(5*time.Minute),
+					middleware.requestsDroppedMetric.With(prometheus.Labels{
+						"system":       "gitaly",
+						"grpc_service": serviceName,
+						"grpc_method":  methodName,
+						"reason":       "rate",
+					}),
+				)
+				result[limitCfg.RPC] = rateLimiter
+				go rateLimiter.PruneUnusedLimiters(ctx)
+			}
+		}
+
+		middleware.methodLimiters = result
+	}
+}
+
+func splitMethodName(fullMethodName string) (string, string) {
+	fullMethodName = strings.TrimPrefix(fullMethodName, "/") // remove leading slash
+	service, method, ok := strings.Cut(fullMethodName, "/")
+	if !ok {
+		return "unknown", "unknown"
+	}
+	return service, method
 }

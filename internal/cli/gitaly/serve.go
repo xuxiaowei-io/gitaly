@@ -40,6 +40,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	glog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
@@ -269,7 +270,7 @@ func run(cfg config.Cfg) error {
 		limithandler.WithRateLimiters(ctx),
 	)
 
-	packObjectsMonitor := limithandler.NewPackObjectsConcurrencyMonitor(
+	packObjectsMonitor := limiter.NewPackObjectsConcurrencyMonitor(
 		cfg.Prometheus.GRPCLatencyBuckets,
 	)
 	newTickerFunc := func() helper.Ticker {
@@ -280,7 +281,7 @@ func run(cfg config.Cfg) error {
 			return helper.NewTimerTicker(cfg.PackObjectsLimiting.MaxQueueWait.Duration())
 		}
 	}
-	packObjectsLimiter := limithandler.NewConcurrencyLimiter(
+	packObjectsLimiter := limiter.NewConcurrencyLimiter(
 		cfg.PackObjectsLimiting.MaxConcurrency,
 		cfg.PackObjectsLimiting.MaxQueueLength,
 		newTickerFunc,

@@ -22,8 +22,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	hookPkg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -854,10 +854,10 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 			cfg := cfgWithCache(t, 0)
 
 			ticker := helper.NewManualTicker()
-			monitor := limithandler.NewPackObjectsConcurrencyMonitor(
+			monitor := limiter.NewPackObjectsConcurrencyMonitor(
 				cfg.Prometheus.GRPCLatencyBuckets,
 			)
-			limiter := limithandler.NewConcurrencyLimiter(
+			limiter := limiter.NewConcurrencyLimiter(
 				1,
 				0,
 				func() helper.Ticker { return ticker },
