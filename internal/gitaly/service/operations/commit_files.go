@@ -385,6 +385,7 @@ func (s *Server) userCommitFilesGit(
 		CommitterEmail: strings.TrimSpace(string(header.User.Email)),
 		Message:        string(header.CommitMessage),
 		TreeID:         treeish,
+		SigningKey:     s.signingKey,
 	}
 
 	if cfg.AuthorName == "" {
