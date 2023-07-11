@@ -17,7 +17,7 @@ Fault-tolerant horizontal scaling of Git storage in GitLab, and particularly, on
 
 Almost all application code accesses Git repositories via Gitaly (with the exception of Rugged which we're working on removing).
 
-Besides "git over RPC", Gitaly offers an optional [high-availability solution](#high-availability).
+Besides "Git over RPC" functionality, Gitaly also offers an optional [high-availability solution](#high-availability).
 
 We are building features according to our [roadmap][roadmap].
 
