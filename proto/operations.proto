@@ -74,6 +74,16 @@ service OperationService {
     };
   }
 
+  // UserRebaseToRef rebases source_sha on top of first_parent_ref and updates
+  // target_ref to point to that new commit. If target_ref already exists, then
+  // it will be overwritten. This operation is intended to be used on internal
+  // refs (e.g. refs/merge-requests/*) and does not call hooks.
+  rpc UserRebaseToRef(UserRebaseToRefRequest) returns (UserRebaseToRefResponse) {
+    option (op_type) = {
+      op: MUTATOR
+    };
+  }
+
   // UserMergeBranch tries to merge the given commit into the target branch.
   // The merge commit is created with the given user as author/committer and
   // the given message.
@@ -471,6 +481,41 @@ message UserMergeToRefResponse {
   reserved "pre_receive_error";
   reserved 2;
 }
+
+// UserRebaseToRefRequest contains the request parameters for the UserRebaseToRef RPC
+message UserRebaseToRefRequest {
+  // Repository is the repository in which the rebase shall be computed.
+  Repository repository = 1 [(target_repository)=true];
+  // User is the user as which the rebased commits shall be created.
+  User user = 2;
+  // SourceSha is the object ID of the commit to be rebased.
+  string source_sha = 3;
+  // TargetRef is the fully qualified reference that will be overwritten or created
+  // with the rebased commits.
+  bytes target_ref = 5;
+  // FirstParentRef is the name of the reference on top of which SourceSha
+  // should be rebased.
+  bytes first_parent_ref = 7;
+  // Timestamp is the optional timestamp to use for the rebased commits as
+  // committer date. If it's not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 9;
+  // ExpectedOldOid is the object ID to which TargetRef is expected to point.
+  // This is used as a safety guard to avoid races when TargetRef has been
+  // updated meanwhile to point to a different object ID.
+  //
+  // If unset, TargetRef will be overwritten regardless of its current state.
+  // If set, it must either contain a valid, full object ID or the zero object
+  // ID in case the ref should be created. Otherwise, this RPC will return an
+  // error.
+  string expected_old_oid = 10;
+}
+
+// UserRebaseToRefResponse contains the response data for the UserRebaseToRef RPC
+message UserRebaseToRefResponse {
+  // CommitId is the object ID of the HEAD of the rebased ref.
+  string commit_id = 1;
+}
+
 
 // OperationBranchUpdate contains the details of a branch update.
 message OperationBranchUpdate {
