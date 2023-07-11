@@ -5,19 +5,16 @@ package diff
 import (
 	"fmt"
 	"io"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
-	"google.golang.org/grpc/codes"
 )
 
 func TestRawDiff_successful(t *testing.T) {
@@ -114,20 +111,22 @@ func TestRawPatch_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupDiffService(t, ctx)
-	testcfg.BuildGitalyGit2Go(t, cfg)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	locator := config.NewLocator(cfg)
-	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
-
-	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
-	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	oldBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("old\n"))
+	newBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("new\n"))
+	leftCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Mode: "100644", OID: oldBlob},
+	))
+	rightCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(leftCommit), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Mode: "100644", OID: newBlob},
+	))
 
 	stream, err := client.RawPatch(ctx, &gitalypb.RawPatchRequest{
 		Repository:    repoProto,
-		LeftCommitId:  leftCommit,
-		RightCommitId: rightCommit,
+		LeftCommitId:  leftCommit.String(),
+		RightCommitId: rightCommit.String(),
 	})
 	require.NoError(t, err)
 
@@ -137,104 +136,79 @@ func TestRawPatch_successful(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	signature := git2go.Signature{
-		Name:  gittest.DefaultCommitterName,
-		Email: gittest.DefaultCommitterMail,
-		When:  gittest.DefaultCommitTime,
-	}
+	// Note that the date in From is actually static. This is actually hardcoded in Git itself, please refer to
+	// git-format-patch(1).
+	expectedPatch := fmt.Sprintf(
+		`From %s Mon Sep 17 00:00:00 2001
+From: %s <%s>
+Date: %s
+Subject: [PATCH] message
 
-	// Now that we have read the patch in we verify that it indeed round-trips to the same tree
-	// as the right commit is referring to by reapplying the diff on top of the left commit.
-	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(t, ctx, cfg, repoProto), git2go.ApplyParams{
-		Repository:   repoPath,
-		Committer:    signature,
-		ParentCommit: leftCommit,
-		Patches: git2go.NewSlicePatchIterator([]git2go.Patch{{
-			Author:  signature,
-			Message: "Applying received raw patch",
-			Diff:    rawPatch,
-		}}),
-	})
-	require.NoError(t, err)
+---
+ file | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	// Peel both right commit and patched commit to their trees and assert that they refer to
-	// the same one.
-	require.Equal(t,
-		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", rightCommit+"^{tree}"),
-		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", patchedCommitID.String()+"^{tree}"),
-	)
+diff --git a/file b/file
+index %s..%s 100644
+--- a/file
++++ b/file
+@@ -1 +1 @@
+-old
++new
+--%c
+GitLab
+
+`, rightCommit, gittest.DefaultCommitterName, gittest.DefaultCommitterMail, gittest.DefaultCommitTime.Format("Mon, 2 Jan 2006 15:04:05 -0700"), oldBlob[:7], newBlob[:7], ' ')
+	require.Equal(t, expectedPatch, string(rawPatch))
 }
 
 func TestRawPatch_inputValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	testCases := []struct {
-		desc    string
-		request *gitalypb.RawPatchRequest
-		code    codes.Code
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commit := gittest.WriteCommit(t, cfg, repoPath)
+
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.RawPatchRequest
+		expectedErr error
 	}{
 		{
 			desc: "empty left commit",
 			request: &gitalypb.RawPatchRequest{
 				Repository:    repo,
 				LeftCommitId:  "",
-				RightCommitId: "e395f646b1499e8e0279445fc99a0596a65fab7e",
+				RightCommitId: commit.String(),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: structerr.NewInvalidArgument("empty LeftCommitId"),
 		},
 		{
 			desc: "empty right commit",
 			request: &gitalypb.RawPatchRequest{
 				Repository:    repo,
 				RightCommitId: "",
-				LeftCommitId:  "e395f646b1499e8e0279445fc99a0596a65fab7e",
+				LeftCommitId:  commit.String(),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: structerr.NewInvalidArgument("empty RightCommitId"),
 		},
 		{
 			desc: "empty repo",
 			request: &gitalypb.RawPatchRequest{
 				Repository:    nil,
-				RightCommitId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-				LeftCommitId:  "e395f646b1499e8e0279445fc99a0596a65fab7e",
+				RightCommitId: commit.String(),
+				LeftCommitId:  commit.String(),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			c, _ := client.RawPatch(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, drainRawPatchResponse(c), testCase.code)
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, _ := client.RawPatch(ctx, tc.request)
+			testhelper.RequireGrpcError(t, tc.expectedErr, drainRawPatchResponse(stream))
 		})
 	}
-}
-
-func TestRawPatch_gitlabSignature(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
-
-	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
-	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
-	rpcRequest := &gitalypb.RawPatchRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
-
-	c, err := client.RawPatch(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	reader := streamio.NewReader(func() ([]byte, error) {
-		response, err := c.Recv()
-		return response.GetData(), err
-	})
-
-	patch, err := io.ReadAll(reader)
-	require.NoError(t, err)
-
-	require.Regexp(t, regexp.MustCompile(`\n-- \nGitLab\s+$`), string(patch))
 }
 
 func drainRawDiffResponse(c gitalypb.DiffService_RawDiffClient) error {
