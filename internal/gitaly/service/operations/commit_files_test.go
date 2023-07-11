@@ -959,6 +959,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					continue
 				}
 
+				require.NoError(t, err)
 				require.Equal(t, step.branchCreated, resp.BranchUpdate.BranchCreated, "step %d", i+1)
 				require.Equal(t, step.repoCreated, resp.BranchUpdate.RepoCreated, "step %d", i+1)
 				gittest.RequireTree(t, cfg, repoPath, branch, step.treeEntries)
