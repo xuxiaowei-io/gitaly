@@ -908,6 +908,10 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 					},
 				}, secondResponse)
 				require.NoError(t, err)
+
+				response, err := mergeBidi.Recv()
+				require.Equal(t, io.EOF, err)
+				require.Nil(t, response)
 			}
 
 			currentBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", mergeBranchName)
