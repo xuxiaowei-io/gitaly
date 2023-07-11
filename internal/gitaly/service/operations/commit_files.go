@@ -128,12 +128,12 @@ func validatePath(rootPath, relPath string) (string, error) {
 // applyAction applies an action to an TreeEntry.
 func applyAction(
 	ctx context.Context,
-	action git2go.Action,
+	action commitAction,
 	root *localrepo.TreeEntry,
 	repo *localrepo.Repo,
 ) error {
 	switch action := action.(type) {
-	case git2go.ChangeFileMode:
+	case changeFileMode:
 		if err := root.Modify(
 			action.Path,
 			func(entry *localrepo.TreeEntry) error {
@@ -151,7 +151,7 @@ func applyAction(
 			}); err != nil {
 			return translateToGit2GoError(err, action.Path)
 		}
-	case git2go.UpdateFile:
+	case updateFile:
 		if err := root.Modify(
 			action.Path,
 			func(entry *localrepo.TreeEntry) error {
@@ -160,7 +160,7 @@ func applyAction(
 			}); err != nil {
 			return translateToGit2GoError(err, action.Path)
 		}
-	case git2go.MoveFile:
+	case moveFile:
 		entry, err := root.Get(action.Path)
 		if err != nil {
 			return translateToGit2GoError(err, action.Path)
@@ -194,7 +194,7 @@ func applyAction(
 		); err != nil {
 			return translateToGit2GoError(err, action.NewPath)
 		}
-	case git2go.CreateDirectory:
+	case createDirectory:
 		if entry, err := root.Get(action.Path); err != nil && !errors.Is(err, localrepo.ErrEntryNotFound) {
 			return translateToGit2GoError(err, action.Path)
 		} else if entry != nil {
@@ -235,7 +235,7 @@ func applyAction(
 
 			return translateToGit2GoError(err, action.Path)
 		}
-	case git2go.CreateFile:
+	case createFile:
 		mode := "100644"
 		if action.ExecutableMode {
 			mode = "100755"
@@ -253,7 +253,7 @@ func applyAction(
 		); err != nil {
 			return translateToGit2GoError(err, action.Path)
 		}
-	case git2go.DeleteFile:
+	case deleteFile:
 		if err := root.Delete(
 			action.Path,
 		); err != nil {
@@ -312,7 +312,7 @@ func (s *Server) userCommitFilesGit(
 	parentCommitOID git.ObjectID,
 	quarantineRepo *localrepo.Repo,
 	repoPath string,
-	actions []git2go.Action,
+	actions []commitAction,
 ) (git.ObjectID, error) {
 	now, err := dateFromProto(header)
 	if err != nil {
@@ -498,7 +498,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	actions := make([]git2go.Action, 0, len(pbActions))
+	actions := make([]commitAction, 0, len(pbActions))
 	for _, pbAction := range pbActions {
 		if _, ok := gitalypb.UserCommitFilesActionHeader_ActionType_name[int32(pbAction.header.Action)]; !ok {
 			return structerr.NewInvalidArgument("NoMethodError: undefined method `downcase' for %d:Integer", pbAction.header.Action)
@@ -521,13 +521,13 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 				return fmt.Errorf("write created blob: %w", err)
 			}
 
-			actions = append(actions, git2go.CreateFile{
+			actions = append(actions, createFile{
 				OID:            blobID.String(),
 				Path:           path,
 				ExecutableMode: pbAction.header.ExecuteFilemode,
 			})
 		case gitalypb.UserCommitFilesActionHeader_CHMOD:
-			actions = append(actions, git2go.ChangeFileMode{
+			actions = append(actions, changeFileMode{
 				Path:           path,
 				ExecutableMode: pbAction.header.ExecuteFilemode,
 			})
@@ -545,7 +545,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 					return err
 				}
 			}
-			actions = append(actions, git2go.MoveFile{
+			actions = append(actions, moveFile{
 				Path:    prevPath,
 				NewPath: path,
 				OID:     oid.String(),
@@ -556,16 +556,16 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 				return fmt.Errorf("write updated blob: %w", err)
 			}
 
-			actions = append(actions, git2go.UpdateFile{
+			actions = append(actions, updateFile{
 				Path: path,
 				OID:  oid.String(),
 			})
 		case gitalypb.UserCommitFilesActionHeader_DELETE:
-			actions = append(actions, git2go.DeleteFile{
+			actions = append(actions, deleteFile{
 				Path: path,
 			})
 		case gitalypb.UserCommitFilesActionHeader_CREATE_DIR:
-			actions = append(actions, git2go.CreateDirectory{
+			actions = append(actions, createDirectory{
 				Path: path,
 			})
 		}
@@ -741,4 +741,77 @@ func validateUserCommitFilesHeader(locator storage.Locator, header *gitalypb.Use
 	}
 
 	return nil
+}
+
+// commitAction represents an action taken to build a commit.
+type commitAction interface{ action() }
+
+// isAction is used ensuring type safety for actions.
+type isAction struct{}
+
+func (isAction) action() {}
+
+// changeFileMode sets a file's mode to either regular or executable file.
+// FileNotFoundError is returned when attempting to change a non-existent
+// file's mode.
+type changeFileMode struct {
+	isAction
+	// Path is the path of the whose mode to change.
+	Path string
+	// ExecutableMode indicates whether the file mode should be changed to executable or not.
+	ExecutableMode bool
+}
+
+// createDirectory creates a directory in the given path with a '.gitkeep' file inside.
+// FileExistsError is returned if a file already exists at the provided path.
+// DirectoryExistsError is returned if a directory already exists at the provided
+// path.
+type createDirectory struct {
+	isAction
+	// Path is the path of the directory to create.
+	Path string
+}
+
+// createFile creates a file using the provided path, mode and oid as the blob.
+// FileExistsError is returned if a file exists at the given path.
+type createFile struct {
+	isAction
+	// Path is the path of the file to create.
+	Path string
+	// ExecutableMode indicates whether the file mode should be executable or not.
+	ExecutableMode bool
+	// OID is the id of the object that contains the content of the file.
+	OID string
+}
+
+// deleteFile deletes a file or a directory from the provided path.
+// FileNotFoundError is returned if the file does not exist.
+type deleteFile struct {
+	isAction
+	// Path is the path of the file to delete.
+	Path string
+}
+
+// moveFile moves a file or a directory to the new path.
+// FileNotFoundError is returned if the file does not exist.
+type moveFile struct {
+	isAction
+	// Path is the path of the file to move.
+	Path string
+	// NewPath is the new path of the file.
+	NewPath string
+	// OID is the id of the object that contains the content of the file. If set,
+	// the file contents are updated to match the object, otherwise the file keeps
+	// the existing content.
+	OID string
+}
+
+// updateFile updates a file at the given path to point to the provided
+// OID. FileNotFoundError is returned if the file does not exist.
+type updateFile struct {
+	isAction
+	// Path is the path of the file to update.
+	Path string
+	// OID is the id of the object that contains the new content of the file.
+	OID string
 }
