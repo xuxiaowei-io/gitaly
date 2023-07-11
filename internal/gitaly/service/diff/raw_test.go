@@ -3,6 +3,7 @@
 package diff
 
 import (
+	"fmt"
 	"io"
 	"regexp"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -22,20 +24,23 @@ func TestRawDiff_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupDiffService(t, ctx)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	locator := config.NewLocator(cfg)
-	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
-
-	leftCommit := "57290e673a4c87f51294f5216672cbc58d485d25"
-	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	oldBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("old\n"))
+	newBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("new\n"))
+	leftCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Mode: "100644", OID: oldBlob},
+	))
+	rightCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Mode: "100644", OID: newBlob},
+	))
 
 	stream, err := client.RawDiff(ctx, &gitalypb.RawDiffRequest{
 		Repository:    repoProto,
-		LeftCommitId:  leftCommit,
-		RightCommitId: rightCommit,
+		LeftCommitId:  leftCommit.String(),
+		RightCommitId: rightCommit.String(),
 	})
 	require.NoError(t, err)
 
@@ -45,78 +50,62 @@ func TestRawDiff_successful(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	signature := git2go.Signature{
-		Name:  gittest.DefaultCommitterName,
-		Email: gittest.DefaultCommitterMail,
-		When:  gittest.DefaultCommitTime,
-	}
-
-	// Now that we have read the patch in we verify that it indeed round-trips to the same tree
-	// as the right commit is referring to by reapplying the diff on top of the left commit.
-	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(t, ctx, cfg, repoProto), git2go.ApplyParams{
-		Repository:   repoPath,
-		Committer:    signature,
-		ParentCommit: leftCommit,
-		Patches: git2go.NewSlicePatchIterator([]git2go.Patch{{
-			Author:  signature,
-			Message: "Applying received raw diff",
-			Diff:    rawDiff,
-		}}),
-	})
-	require.NoError(t, err)
-
-	// Peel both right commit and patched commit to their trees and assert that they refer to
-	// the same one.
-	require.Equal(t,
-		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", rightCommit+"^{tree}"),
-		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", patchedCommitID.String()+"^{tree}"),
-	)
+	require.Equal(t, fmt.Sprintf(`diff --git a/file b/file
+index %s..%s 100644
+--- a/file
++++ b/file
+@@ -1 +1 @@
+-old
++new
+`, oldBlob, newBlob), string(rawDiff))
 }
 
 func TestRawDiff_inputValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	testCases := []struct {
-		desc    string
-		request *gitalypb.RawDiffRequest
-		code    codes.Code
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commit := gittest.WriteCommit(t, cfg, repoPath)
+
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.RawDiffRequest
+		expectedErr error
 	}{
 		{
 			desc: "empty left commit",
 			request: &gitalypb.RawDiffRequest{
 				Repository:    repo,
 				LeftCommitId:  "",
-				RightCommitId: "e395f646b1499e8e0279445fc99a0596a65fab7e",
+				RightCommitId: commit.String(),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: structerr.NewInvalidArgument("empty LeftCommitId"),
 		},
 		{
 			desc: "empty right commit",
 			request: &gitalypb.RawDiffRequest{
 				Repository:    repo,
+				LeftCommitId:  commit.String(),
 				RightCommitId: "",
-				LeftCommitId:  "e395f646b1499e8e0279445fc99a0596a65fab7e",
 			},
-			code: codes.InvalidArgument,
+			expectedErr: structerr.NewInvalidArgument("empty RightCommitId"),
 		},
 		{
 			desc: "empty repo",
 			request: &gitalypb.RawDiffRequest{
 				Repository:    nil,
-				RightCommitId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-				LeftCommitId:  "e395f646b1499e8e0279445fc99a0596a65fab7e",
+				RightCommitId: commit.String(),
+				LeftCommitId:  commit.String(),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			c, _ := client.RawDiff(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, drainRawDiffResponse(c), testCase.code)
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.RawDiff(ctx, tc.request)
+			require.NoError(t, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, drainRawDiffResponse(stream))
 		})
 	}
 }
