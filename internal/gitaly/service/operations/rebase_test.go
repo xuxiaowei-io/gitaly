@@ -4,6 +4,7 @@ package operations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -52,7 +53,7 @@ func TestUserRebaseConfirmable_successful(t *testing.T) {
 	preReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
 	postReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
-	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchOID, repoCopyProto, "master")
+	headerRequest := buildUserRebaseConfirmableHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchOID, repoCopyProto, "master")
 	headerRequest.GetHeader().GitPushOptions = pushOptions
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
@@ -62,7 +63,7 @@ func TestUserRebaseConfirmable_successful(t *testing.T) {
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
-	applyRequest := buildApplyRequest(true)
+	applyRequest := buildUserRebaseConfirmableApplyRequest(true)
 	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
 
 	secondResponse, err := rebaseStream.Recv()
@@ -157,7 +158,7 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 
 	response, err := stream.Recv()
 	require.NoError(t, err)
-	require.NoError(t, stream.Send(buildApplyRequest(true)))
+	require.NoError(t, stream.Send(buildUserRebaseConfirmableApplyRequest(true)))
 
 	rebaseOID := git.ObjectID(response.GetRebaseSha())
 
@@ -252,12 +253,12 @@ func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
 
-			headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoProto, "master")
+			headerRequest := buildUserRebaseConfirmableHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoProto, "master")
 			require.NoError(t, rebaseStream.Send(headerRequest))
 			_, err = rebaseStream.Recv()
 			require.NoError(t, err)
 
-			require.NoError(t, rebaseStream.Send(buildApplyRequest(true)), "apply rebase")
+			require.NoError(t, rebaseStream.Send(buildUserRebaseConfirmableApplyRequest(true)), "apply rebase")
 			secondResponse, err := rebaseStream.Recv()
 			require.NoError(t, err)
 			require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
@@ -310,7 +311,7 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	require.NoError(t, err, "receive first response")
 	require.Equal(t, "c52b98024db0d3af0ccb20ed2a3a93a21cfbba87", response.GetRebaseSha())
 
-	applyRequest := buildApplyRequest(true)
+	applyRequest := buildUserRebaseConfirmableApplyRequest(true)
 	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
 
 	response, err = rebaseStream.Recv()
@@ -364,31 +365,31 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 	}{
 		{
 			desc: "repository not set",
-			req:  buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "master"),
+			req:  buildUserRebaseConfirmableHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "master"),
 		},
 		{
 			desc: "empty User",
-			req:  buildHeaderRequest(repo, nil, "1", rebaseBranchName, branchCommitID, repoCopy, "master"),
+			req:  buildUserRebaseConfirmableHeaderRequest(repo, nil, "1", rebaseBranchName, branchCommitID, repoCopy, "master"),
 		},
 		{
 			desc: "empty Branch",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", "", branchCommitID, repoCopy, "master"),
+			req:  buildUserRebaseConfirmableHeaderRequest(repo, gittest.TestUser, "1", "", branchCommitID, repoCopy, "master"),
 		},
 		{
 			desc: "empty BranchSha",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, "", repoCopy, "master"),
+			req:  buildUserRebaseConfirmableHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, "", repoCopy, "master"),
 		},
 		{
 			desc: "empty RemoteRepository",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master"),
+			req:  buildUserRebaseConfirmableHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master"),
 		},
 		{
 			desc: "empty RemoteBranch",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, ""),
+			req:  buildUserRebaseConfirmableHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, ""),
 		},
 		{
 			desc: "invalid branch name",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "+dev:master"),
+			req:  buildUserRebaseConfirmableHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "+dev:master"),
 		},
 	}
 
@@ -457,7 +458,7 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 
 			branchCommitID := gittest.ResolveRevision(t, cfg, testRepoPath, rebaseBranchName)
 
-			headerRequest := buildHeaderRequest(testRepo, gittest.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchCommitID, testRepoCopy, "master")
+			headerRequest := buildUserRebaseConfirmableHeaderRequest(testRepo, gittest.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchCommitID, testRepoCopy, "master")
 
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
@@ -503,7 +504,7 @@ func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchCommitID, testRepoCopy, "master")
+	headerRequest := buildUserRebaseConfirmableHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchCommitID, testRepoCopy, "master")
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
@@ -512,7 +513,7 @@ func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
-	applyRequest := buildApplyRequest(false)
+	applyRequest := buildUserRebaseConfirmableApplyRequest(false)
 	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
 
 	secondResponse, err := rebaseStream.Recv()
@@ -549,7 +550,7 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
 
-			headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchCommitID, repoCopyProto, "master")
+			headerRequest := buildUserRebaseConfirmableHeaderRequest(repoProto, gittest.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchCommitID, repoCopyProto, "master")
 			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 			firstResponse, err := rebaseStream.Recv()
@@ -558,7 +559,7 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 			_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 			require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
-			applyRequest := buildApplyRequest(true)
+			applyRequest := buildUserRebaseConfirmableApplyRequest(true)
 			require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
 
 			secondResponse, err := rebaseStream.Recv()
@@ -604,7 +605,7 @@ func TestUserRebaseConfirmable_gitError(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", targetBranch, targetBranchCommitID, repoCopyProto, "master")
+	headerRequest := buildUserRebaseConfirmableHeaderRequest(repoProto, gittest.TestUser, "1", targetBranch, targetBranchCommitID, repoCopyProto, "master")
 
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
@@ -674,7 +675,7 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	// Send the first request to tell the server to perform the rebase.
 	stream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
-	require.NoError(t, stream.Send(buildHeaderRequest(
+	require.NoError(t, stream.Send(buildUserRebaseConfirmableHeaderRequest(
 		localRepoProto, gittest.TestUser, "1", "local", localCommitID, remoteRepoProto, "remote",
 	)))
 	firstResponse, err := stream.Recv()
@@ -684,7 +685,7 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
 	// Send the second request to tell the server to apply the rebase.
-	require.NoError(t, stream.Send(buildApplyRequest(true)))
+	require.NoError(t, stream.Send(buildUserRebaseConfirmableApplyRequest(true)))
 	secondResponse, err := stream.Recv()
 	require.NoError(t, err)
 	require.True(t, secondResponse.GetRebaseApplied())
@@ -738,7 +739,7 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	// Send the first request to tell the server to perform the rebase.
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
-	require.NoError(t, rebaseStream.Send(buildHeaderRequest(
+	require.NoError(t, rebaseStream.Send(buildUserRebaseConfirmableHeaderRequest(
 		localRepoProto, gittest.TestUser, "1", "local", rootCommitID, remoteRepoProto, "remote",
 	)))
 	firstResponse, err := rebaseStream.Recv()
@@ -748,7 +749,7 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
 	// Send the second request to tell the server to apply the rebase.
-	require.NoError(t, rebaseStream.Send(buildApplyRequest(true)))
+	require.NoError(t, rebaseStream.Send(buildUserRebaseConfirmableApplyRequest(true)))
 	secondResponse, err := rebaseStream.Recv()
 	require.NoError(t, err)
 	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
@@ -780,7 +781,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 		{
 			desc: "no repository provided",
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
-				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
+				return buildUserRebaseConfirmableHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
 			},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
@@ -790,7 +791,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				repo := proto.Clone(repoProto).(*gitalypb.Repository)
 				repo.StorageName = "@this-storage-does-not-exist"
 
-				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
+				return buildUserRebaseConfirmableHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
 			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 				"%w", storage.NewStorageNotFoundError("@this-storage-does-not-exist"),
@@ -802,7 +803,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				repo := proto.Clone(repoProto).(*gitalypb.Repository)
 				repo.RelativePath = ""
 
-				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
+				return buildUserRebaseConfirmableHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
 		},
@@ -822,7 +823,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 	}
 }
 
-func buildHeaderRequest(repo *gitalypb.Repository, user *gitalypb.User, rebaseID string, branchName string, commitID git.ObjectID, remoteRepo *gitalypb.Repository, remoteBranch string) *gitalypb.UserRebaseConfirmableRequest {
+func buildUserRebaseConfirmableHeaderRequest(repo *gitalypb.Repository, user *gitalypb.User, rebaseID string, branchName string, commitID git.ObjectID, remoteRepo *gitalypb.Repository, remoteBranch string) *gitalypb.UserRebaseConfirmableRequest {
 	return &gitalypb.UserRebaseConfirmableRequest{
 		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
 			Header: &gitalypb.UserRebaseConfirmableRequest_Header{
@@ -838,10 +839,228 @@ func buildHeaderRequest(repo *gitalypb.Repository, user *gitalypb.User, rebaseID
 	}
 }
 
-func buildApplyRequest(apply bool) *gitalypb.UserRebaseConfirmableRequest {
+func buildUserRebaseConfirmableApplyRequest(apply bool) *gitalypb.UserRebaseConfirmableRequest {
 	return &gitalypb.UserRebaseConfirmableRequest{
 		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Apply{
 			Apply: apply,
 		},
 	}
+}
+
+func TestUserRebaseToRef_successful(t *testing.T) {
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, testhelper.Context(t))
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	mergeBaseOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first commit"))
+
+	sourceOID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("commit source SHA"),
+		gittest.WithParents(mergeBaseOID),
+		gittest.WithTree(gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{Path: "file", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("source blob"))},
+		})),
+	)
+
+	firstParentRef := "refs/heads/main"
+	firstParentRefBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("first parent ref blob"))
+	firstParentRefTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "other-file", Mode: "100644", OID: firstParentRefBlobID},
+	})
+	firstParentRefOID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithReference(firstParentRef),
+		gittest.WithMessage("first parent ref commit"),
+		gittest.WithParents(mergeBaseOID),
+		gittest.WithTree(firstParentRefTreeID),
+	)
+
+	targetRef := "refs/merge-requests/1234/train"
+
+	request := &gitalypb.UserRebaseToRefRequest{
+		Repository:     repoProto,
+		User:           gittest.TestUser,
+		SourceSha:      sourceOID.String(),
+		FirstParentRef: []byte(firstParentRef),
+		TargetRef:      []byte(targetRef),
+		Timestamp:      &timestamppb.Timestamp{Seconds: 100000000},
+	}
+
+	response, err := client.UserRebaseToRef(ctx, request)
+	require.NoError(t, err, "rebase error")
+
+	rebasedCommitID := gittest.ResolveRevision(t, cfg, repoPath, response.CommitId)
+	require.NotEqual(t, rebasedCommitID, firstParentRefOID.String(), "no rebase occurred")
+
+	currentTargetRefOID := gittest.ResolveRevision(t, cfg, repoPath, targetRef)
+	require.Equal(t, currentTargetRefOID.String(), response.CommitId, "target ref does not point to rebased commit")
+
+	_, err = repo.ReadCommit(ctx, git.Revision(response.CommitId))
+	require.NoError(t, err, "rebased commit is unreadable")
+
+	currentParentRefOID := gittest.ResolveRevision(t, cfg, repoPath, firstParentRef)
+	require.Equal(t, currentParentRefOID, firstParentRefOID, "first parent ref got mutated")
+}
+
+func TestUserRebaseToRef_failure(t *testing.T) {
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, testhelper.Context(t))
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	mergeBaseOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first commit"))
+
+	validTargetRef := []byte("refs/merge-requests/x/merge")
+	validTargetRefOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("commit to target ref"))
+	validSourceOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("commit source SHA"), gittest.WithParents(mergeBaseOID))
+	validSourceSha := validSourceOID.String()
+	validFirstParentRef := []byte("refs/heads/main")
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first parent ref commit"), gittest.WithReference(string(validFirstParentRef)), gittest.WithParents(mergeBaseOID))
+
+	testCases := []struct {
+		desc           string
+		repo           *gitalypb.Repository
+		user           *gitalypb.User
+		targetRef      []byte
+		sourceSha      string
+		firstParentRef []byte
+		expectedOldOID string
+		expectedError  error
+	}{
+		{
+			desc:           "empty repository",
+			user:           gittest.TestUser,
+			targetRef:      validTargetRef,
+			sourceSha:      validSourceSha,
+			firstParentRef: validFirstParentRef,
+			expectedError:  structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+		},
+		{
+			desc:           "empty user",
+			repo:           repo,
+			sourceSha:      validSourceSha,
+			targetRef:      validTargetRef,
+			firstParentRef: validFirstParentRef,
+			expectedError:  structerr.NewInvalidArgument("%w", errors.New("empty User")),
+		},
+		{
+			desc:           "empty source SHA",
+			repo:           repo,
+			user:           gittest.TestUser,
+			firstParentRef: validFirstParentRef,
+			targetRef:      validTargetRef,
+			expectedError:  structerr.NewInvalidArgument("%w", errors.New("empty SourceSha")),
+		},
+		{
+			desc:           "non-existing source SHA commit",
+			repo:           repo,
+			user:           gittest.TestUser,
+			targetRef:      validTargetRef,
+			sourceSha:      "f001",
+			firstParentRef: validFirstParentRef,
+			expectedError:  structerr.NewInvalidArgument("%w", errors.New("invalid SourceSha")),
+		},
+		{
+			desc:          "empty first parent ref",
+			repo:          repo,
+			user:          gittest.TestUser,
+			targetRef:     validTargetRef,
+			sourceSha:     validSourceSha,
+			expectedError: structerr.NewInvalidArgument("%w", errors.New("empty FirstParentRef")),
+		},
+		{
+			desc:           "invalid target ref",
+			repo:           repo,
+			user:           gittest.TestUser,
+			targetRef:      []byte("refs/heads/branch"),
+			sourceSha:      validSourceSha,
+			firstParentRef: validFirstParentRef,
+			expectedError:  structerr.NewInvalidArgument("%w", errors.New("invalid TargetRef")),
+		},
+		{
+			desc:           "non-existing first parent ref",
+			repo:           repo,
+			user:           gittest.TestUser,
+			targetRef:      validTargetRef,
+			sourceSha:      validSourceSha,
+			firstParentRef: []byte("refs/heads/branch"),
+			expectedError:  structerr.NewInvalidArgument("invalid FirstParentRef"),
+		},
+		{
+			desc:           "target_ref not at expected_old_oid",
+			repo:           repo,
+			user:           gittest.TestUser,
+			targetRef:      validTargetRef,
+			sourceSha:      validSourceSha,
+			firstParentRef: validFirstParentRef,
+			expectedOldOID: validSourceSha, // arbitrary valid SHA
+			expectedError:  structerr.NewFailedPrecondition("could not update %s. Please refresh and try again", validTargetRef),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			// reset target ref between tests
+			gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(validTargetRef), validTargetRefOID)
+
+			request := &gitalypb.UserRebaseToRefRequest{
+				Repository:     tc.repo,
+				User:           tc.user,
+				TargetRef:      tc.targetRef,
+				SourceSha:      tc.sourceSha,
+				FirstParentRef: tc.firstParentRef,
+				ExpectedOldOid: tc.expectedOldOID,
+			}
+			_, err := client.UserRebaseToRef(ctx, request)
+			testhelper.RequireGrpcError(t, err, tc.expectedError)
+		})
+	}
+}
+
+func TestUserRebaseToRef_conflict(t *testing.T) {
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, testhelper.Context(t))
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	mergeBaseOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first commit"))
+
+	firstParentRef := "refs/heads/main"
+	firstParentRefBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("first parent ref blob"))
+	firstParentRefTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "file", Mode: "100644", OID: firstParentRefBlobID},
+	})
+	firstParentRefOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first parent ref commit"), gittest.WithTree(firstParentRefTreeID), gittest.WithReference(firstParentRef), gittest.WithParents(mergeBaseOID))
+
+	sourceBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("source blob"))
+
+	sourceOID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("source commit"),
+		gittest.WithParents(mergeBaseOID),
+		gittest.WithTree(gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{Path: "file", Mode: "100644", OID: sourceBlobID},
+		})),
+	)
+
+	targetRef := "refs/merge-requests/9999/merge"
+	targetRefOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference(targetRef))
+
+	request := &gitalypb.UserRebaseToRefRequest{
+		Repository:     repoProto,
+		User:           gittest.TestUser,
+		TargetRef:      []byte(targetRef),
+		SourceSha:      sourceOID.String(),
+		FirstParentRef: []byte(firstParentRef),
+	}
+	response, err := client.UserRebaseToRef(ctx, request)
+
+	require.Nil(t, response)
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition(fmt.Sprintf("failed to rebase %s on %s while preparing %s due to conflict", sourceOID, firstParentRefOID, targetRef)), err)
+
+	currentTargetRefOID := gittest.ResolveRevision(t, cfg, repoPath, targetRef)
+	require.Equal(t, targetRefOID, currentTargetRefOID, "target ref should not change when the rebase fails due to GitError")
 }
