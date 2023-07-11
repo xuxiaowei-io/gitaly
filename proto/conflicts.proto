@@ -43,6 +43,7 @@ message ListConflictFilesRequest {
   // tree conflicts. If set to true, then responses may contain conflict files
   // where some of the paths are unset.
   bool allow_tree_conflicts = 4;
+  bool skip_file_contents = 5;
 }
 
 // This comment is left unintentionally blank.

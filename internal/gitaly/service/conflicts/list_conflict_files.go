@@ -127,6 +127,10 @@ func (s *server) conflictFilesWithGitMergeTree(
 			},
 		})
 
+		if request.SkipFileContents {
+			continue
+		}
+
 		path := conflict.ourPath
 		if path == "" {
 			path = conflict.theirPath

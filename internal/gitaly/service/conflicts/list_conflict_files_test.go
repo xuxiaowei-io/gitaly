@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -588,7 +589,7 @@ func TestListConflictFiles(t *testing.T) {
 	}
 }
 
-func getConflictFiles(t *testing.T, c gitalypb.ConflictsService_ListConflictFilesClient) ([]*conflictFile, error) {
+func getConflictFiles(t testing.TB, c gitalypb.ConflictsService_ListConflictFilesClient) ([]*conflictFile, error) {
 	t.Helper()
 
 	var files []*conflictFile
@@ -625,4 +626,110 @@ func getConflictFiles(t *testing.T, c gitalypb.ConflictsService_ListConflictFile
 	}
 
 	return files, nil
+}
+
+func BenchmarkListConflictFilesWithContent(b *testing.B) {
+	benchData := map[string]struct {
+		size int
+	}{
+		"with size 1":    {size: 1},
+		"with size 10":   {size: 10},
+		"with size 100":  {size: 100},
+		"with size 1000": {size: 1000},
+	}
+	b.ResetTimer()
+
+	for benchName, data := range benchData {
+		b.StopTimer()
+
+		ctx := testhelper.Context(b)
+		cfg, client := setupConflictsService(b, nil)
+		repo, repoPath := gittest.CreateRepository(b, ctx, cfg)
+
+		ourTreeEntries := []gittest.TreeEntry{}
+		theirTreeEntries := []gittest.TreeEntry{}
+
+		for i := 0; i < data.size; i++ {
+			ourTreeEntries = append(ourTreeEntries, gittest.TreeEntry{Path: fmt.Sprintf("%d", i), Mode: "100644", Content: strings.Repeat("a", 100000)})
+			theirTreeEntries = append(theirTreeEntries, gittest.TreeEntry{Path: fmt.Sprintf("%d", i), Mode: "100644", Content: strings.Repeat("b", 100000)})
+		}
+
+		ourCommitID := gittest.WriteCommit(b, cfg, repoPath, gittest.WithTreeEntries(
+			ourTreeEntries...,
+		))
+		theirCommitID := gittest.WriteCommit(b, cfg, repoPath, gittest.WithTreeEntries(
+			theirTreeEntries...,
+		))
+
+		request := &gitalypb.ListConflictFilesRequest{
+			Repository:       repo,
+			OurCommitOid:     ourCommitID.String(),
+			TheirCommitOid:   theirCommitID.String(),
+			SkipFileContents: false,
+		}
+
+		b.StartTimer()
+		b.Run(benchName, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				c, err := client.ListConflictFiles(ctx, request)
+				require.NoError(b, err)
+
+				_, err = getConflictFiles(b, c)
+				require.NoError(b, err)
+			}
+		})
+	}
+}
+
+func BenchmarkListConflictFilesWithoutContent(b *testing.B) {
+	benchData := map[string]struct {
+		size int
+	}{
+		"with size 1":    {size: 1},
+		"with size 10":   {size: 10},
+		"with size 100":  {size: 100},
+		"with size 1000": {size: 1000},
+	}
+	b.ResetTimer()
+
+	for benchName, data := range benchData {
+		b.StopTimer()
+
+		ctx := testhelper.Context(b)
+		cfg, client := setupConflictsService(b, nil)
+		repo, repoPath := gittest.CreateRepository(b, ctx, cfg)
+
+		ourTreeEntries := []gittest.TreeEntry{}
+		theirTreeEntries := []gittest.TreeEntry{}
+
+		for i := 0; i < data.size; i++ {
+			ourTreeEntries = append(ourTreeEntries, gittest.TreeEntry{Path: fmt.Sprintf("%d", i), Mode: "100644", Content: strings.Repeat("a", 100000)})
+			theirTreeEntries = append(theirTreeEntries, gittest.TreeEntry{Path: fmt.Sprintf("%d", i), Mode: "100644", Content: strings.Repeat("b", 100000)})
+		}
+
+		ourCommitID := gittest.WriteCommit(b, cfg, repoPath, gittest.WithTreeEntries(
+			ourTreeEntries...,
+		))
+		theirCommitID := gittest.WriteCommit(b, cfg, repoPath, gittest.WithTreeEntries(
+			theirTreeEntries...,
+		))
+
+		request := &gitalypb.ListConflictFilesRequest{
+			Repository:       repo,
+			OurCommitOid:     ourCommitID.String(),
+			TheirCommitOid:   theirCommitID.String(),
+			SkipFileContents: true,
+		}
+
+		b.StartTimer()
+		b.Run(benchName, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				c, err := client.ListConflictFiles(ctx, request)
+				require.NoError(b, err)
+
+				_, err = getConflictFiles(b, c)
+				require.NoError(b, err)
+			}
+		})
+	}
 }
