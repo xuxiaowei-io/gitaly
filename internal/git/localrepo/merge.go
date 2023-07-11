@@ -35,6 +35,7 @@ var ErrMergeTreeUnrelatedHistory = errors.New("unrelated histories")
 type mergeTreeConfig struct {
 	allowUnrelatedHistories  bool
 	conflictingFileNamesOnly bool
+	mergeBase                git.Revision
 }
 
 // MergeTreeOption is a function that sets a config in mergeTreeConfig.
@@ -53,6 +54,14 @@ func WithAllowUnrelatedHistories() MergeTreeOption {
 func WithConflictingFileNamesOnly() MergeTreeOption {
 	return func(options *mergeTreeConfig) {
 		options.conflictingFileNamesOnly = true
+	}
+}
+
+// WithMergeBase lets the caller pass a revision which will be passed with the
+// --merge-base argument.
+func WithMergeBase(base git.Revision) MergeTreeOption {
+	return func(options *mergeTreeConfig) {
+		options.mergeBase = base
 	}
 }
 
@@ -80,6 +89,13 @@ func (repo *Repo) MergeTree(
 
 	if config.conflictingFileNamesOnly {
 		flags = append(flags, git.Flag{Name: "--name-only"})
+	}
+
+	if config.mergeBase != "" {
+		flags = append(flags, git.ValueFlag{
+			Name:  "--merge-base",
+			Value: config.mergeBase.String(),
+		})
 	}
 
 	objectHash, err := repo.ObjectHash(ctx)

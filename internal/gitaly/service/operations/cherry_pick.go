@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -51,56 +53,146 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		committerDate = req.Timestamp.AsTime()
 	}
 
-	newrev, err := s.git2goExecutor.CherryPick(ctx, quarantineRepo, git2go.CherryPickCommand{
-		Repository:    repoPath,
-		CommitterName: string(req.User.Name),
-		CommitterMail: string(req.User.Email),
-		CommitterDate: committerDate,
-		Message:       string(req.Message),
-		Commit:        req.Commit.Id,
-		Ours:          startRevision.String(),
-		Mainline:      mainline,
-	})
-	if err != nil {
-		var conflictErr git2go.ConflictingFilesError
-		var emptyErr git2go.EmptyError
+	var newrev git.ObjectID
 
-		switch {
-		case errors.As(err, &conflictErr):
-			conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
-			for _, conflictingFile := range conflictErr.ConflictingFiles {
-				conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
+	if featureflag.CherryPickPureGit.IsEnabled(ctx) {
+		cherryCommit, err := quarantineRepo.ReadCommit(ctx, git.Revision(req.Commit.Id))
+		if err != nil {
+			if errors.Is(err, localrepo.ErrObjectNotFound) {
+				return nil, structerr.NewNotFound("cherry-pick: commit lookup: commit not found: %q", req.Commit.Id)
 			}
+			return nil, fmt.Errorf("cherry pick: %w", err)
+		}
+		cherryDate := cherryCommit.Author.GetDate().AsTime()
+		loc, err := time.Parse("-0700", string(cherryCommit.Author.GetTimezone()))
+		if err != nil {
+			return nil, fmt.Errorf("get cherry commit location: %w", err)
+		}
+		cherryDate = cherryDate.In(loc.Location())
 
-			return nil, structerr.NewFailedPrecondition("cherry pick: %w", err).WithDetail(
-				&gitalypb.UserCherryPickError{
-					Error: &gitalypb.UserCherryPickError_CherryPickConflict{
-						CherryPickConflict: &gitalypb.MergeConflictError{
-							ConflictingFiles: conflictingFiles,
+		// Cherry-pick is implemented using git-merge-tree(1). We
+		// "merge" in the changes from the commit that is cherry-picked,
+		// compared to it's parent commit (specified as merge base).
+		treeOID, err := quarantineRepo.MergeTree(
+			ctx,
+			startRevision.String(),
+			req.Commit.Id,
+			localrepo.WithMergeBase(git.Revision(req.Commit.Id+"^")),
+			localrepo.WithConflictingFileNamesOnly(),
+		)
+		if err != nil {
+			var conflictErr *localrepo.MergeTreeConflictError
+			if errors.As(err, &conflictErr) {
+				conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFileInfo))
+				for _, conflictingFileInfo := range conflictErr.ConflictingFileInfo {
+					conflictingFiles = append(conflictingFiles, []byte(conflictingFileInfo.FileName))
+				}
+
+				return nil, structerr.NewFailedPrecondition("cherry pick: %w", err).WithDetail(
+					&gitalypb.UserCherryPickError{
+						Error: &gitalypb.UserCherryPickError_CherryPickConflict{
+							CherryPickConflict: &gitalypb.MergeConflictError{
+								ConflictingFiles: conflictingFiles,
+							},
 						},
 					},
-				},
-			)
-		case errors.As(err, &emptyErr):
-			return nil, structerr.NewFailedPrecondition("%w", err).WithDetail(
+				)
+			}
+
+			return nil, fmt.Errorf("cherry-pick command: %w", err)
+		}
+
+		oldTree, err := quarantineRepo.ResolveRevision(
+			ctx,
+			git.Revision(fmt.Sprintf("%s^{tree}", startRevision.String())),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("resolve old tree: %w", err)
+		}
+		if oldTree == treeOID {
+			return nil, structerr.NewFailedPrecondition("cherry-pick: could not apply because the result was empty").WithDetail(
 				&gitalypb.UserCherryPickError{
 					Error: &gitalypb.UserCherryPickError_ChangesAlreadyApplied{},
 				},
 			)
-		case errors.As(err, &git2go.CommitNotFoundError{}):
-			return nil, structerr.NewNotFound("%w", err)
-		case errors.Is(err, git2go.ErrInvalidArgument):
-			return nil, structerr.NewInvalidArgument("%w", err)
-		default:
-			return nil, structerr.NewInternal("cherry-pick command: %w", err)
+		}
+
+		newrev, err = quarantineRepo.WriteCommit(
+			ctx,
+			localrepo.WriteCommitConfig{
+				TreeID:         treeOID,
+				Message:        string(req.Message),
+				Parents:        []git.ObjectID{startRevision},
+				AuthorName:     string(cherryCommit.Author.Name),
+				AuthorEmail:    string(cherryCommit.Author.Email),
+				AuthorDate:     cherryDate,
+				CommitterName:  string(req.User.Name),
+				CommitterEmail: string(req.User.Email),
+				CommitterDate:  committerDate,
+			},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("write commit: %w", err)
+		}
+
+	} else {
+		newrev, err = s.git2goExecutor.CherryPick(ctx, quarantineRepo, git2go.CherryPickCommand{
+			Repository:    repoPath,
+			CommitterName: string(req.User.Name),
+			CommitterMail: string(req.User.Email),
+			CommitterDate: committerDate,
+			Message:       string(req.Message),
+			Commit:        req.Commit.Id,
+			Ours:          startRevision.String(),
+			Mainline:      mainline,
+		})
+		if err != nil {
+			var conflictErr git2go.ConflictingFilesError
+			var emptyErr git2go.EmptyError
+
+			switch {
+			case errors.As(err, &conflictErr):
+				conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
+				for _, conflictingFile := range conflictErr.ConflictingFiles {
+					conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
+				}
+
+				return nil, structerr.NewFailedPrecondition("cherry pick: %w", err).WithDetail(
+					&gitalypb.UserCherryPickError{
+						Error: &gitalypb.UserCherryPickError_CherryPickConflict{
+							CherryPickConflict: &gitalypb.MergeConflictError{
+								ConflictingFiles: conflictingFiles,
+							},
+						},
+					},
+				)
+			case errors.As(err, &emptyErr):
+				return nil, structerr.NewFailedPrecondition("%w", err).WithDetail(
+					&gitalypb.UserCherryPickError{
+						Error: &gitalypb.UserCherryPickError_ChangesAlreadyApplied{},
+					},
+				)
+			case errors.As(err, &git2go.CommitNotFoundError{}):
+				return nil, structerr.NewNotFound("%w", err)
+			case errors.Is(err, git2go.ErrInvalidArgument):
+				return nil, structerr.NewInvalidArgument("%w", err)
+			default:
+				return nil, fmt.Errorf("cherry-pick command: %w", err)
+			}
 		}
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 	branchCreated := false
 	var oldrev git.ObjectID
+
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return nil, structerr.NewInternal("detecting object hash: %w", err)
+	}
+
 	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
-		oldrev, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		oldrev, err = objectHash.FromHex(expectedOldOID)
 		if err != nil {
 			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).
 				WithMetadata("old_object_id", expectedOldOID)
@@ -116,7 +208,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		oldrev, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			branchCreated = true
-			oldrev = git.ObjectHashSHA1.ZeroOID
+			oldrev = objectHash.ZeroOID
 		} else if err != nil {
 			return nil, structerr.NewInvalidArgument("resolve ref: %w", err)
 		}

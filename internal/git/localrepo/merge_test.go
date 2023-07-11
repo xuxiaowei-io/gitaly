@@ -696,6 +696,52 @@ func TestMergeTree(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "with merge base",
+			mergeTreeOptions: []MergeTreeOption{
+				WithMergeBase("feat^"),
+			},
+			setup: func(t *testing.T, repoPath string) setupData {
+				ours := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Mode: "100644", Path: "file1", Content: "foo"},
+					),
+				)
+				theirs := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(ours),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Mode: "100644", Path: "file1", Content: "foo"},
+						gittest.TreeEntry{Mode: "100644", Path: "file2", Content: "baz"},
+					),
+				)
+				theirs = gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(theirs),
+					gittest.WithBranch("feat"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Mode: "100644", Path: "file1", Content: "foo"},
+						gittest.TreeEntry{Mode: "100644", Path: "file2", Content: "baz"},
+						gittest.TreeEntry{Mode: "100644", Path: "file3", Content: "buzz"},
+					),
+				)
+
+				return setupData{
+					ours:   ours,
+					theirs: theirs,
+					expectedTreeEntries: []gittest.TreeEntry{
+						{
+							Mode:    "100644",
+							Path:    "file1",
+							Content: "foo",
+						},
+						{
+							Mode:    "100644",
+							Path:    "file3",
+							Content: "buzz",
+						},
+					},
+				}
+			},
+		},
 	}
 
 	for _, tc := range testCases {
