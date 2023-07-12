@@ -54,3 +54,8 @@ func (fs *FilesystemSink) GetReader(ctx context.Context, relativePath string) (i
 	}
 	return f, nil
 }
+
+// Close is a no-op to implement the Sink interface
+func (fs *FilesystemSink) Close() error {
+	return nil
+}

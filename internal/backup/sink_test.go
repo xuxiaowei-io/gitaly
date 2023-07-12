@@ -104,6 +104,8 @@ func TestResolveSink(t *testing.T) {
 				require.EqualError(t, err, tc.errMsg)
 				return
 			}
+			defer testhelper.MustClose(t, sink)
+
 			tc.verify(t, sink)
 		})
 	}
