@@ -59,7 +59,7 @@ func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator
 }
 
 // Apply applies the quarantine on the repository. This is done by setting the quarantineDirectory
-// as the repository's object directory, and configuring the original object directory as an alternate.
+// as the repository's object directory, and configuring the repository's object directory as an alternate.
 func Apply(repoPath string, repo *gitalypb.Repository, quarantineDir string) (*gitalypb.Repository, error) {
 	relativePath, err := filepath.Rel(repoPath, quarantineDir)
 	if err != nil {
@@ -67,10 +67,15 @@ func Apply(repoPath string, repo *gitalypb.Repository, quarantineDir string) (*g
 	}
 
 	// All paths are relative to the repository root.
-	alternateObjectDirs := []string{"objects"}
-	if repo.GetGitObjectDirectory() != "" {
-		alternateObjectDirs = append(alternateObjectDirs, repo.GetGitObjectDirectory())
+	objectDir := repo.GitObjectDirectory
+	if objectDir == "" {
+		// Set the default object directory as an alternate if the repository didn't
+		// have the object directory overwritten yet.
+		objectDir = "objects"
 	}
+
+	alternateObjectDirs := make([]string, 0, len(repo.GetGitAlternateObjectDirectories())+1)
+	alternateObjectDirs = append(alternateObjectDirs, objectDir)
 	alternateObjectDirs = append(alternateObjectDirs, repo.GetGitAlternateObjectDirectories()...)
 
 	quarantinedRepo := proto.Clone(repo).(*gitalypb.Repository)
