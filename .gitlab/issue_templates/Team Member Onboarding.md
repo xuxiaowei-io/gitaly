@@ -17,13 +17,14 @@ Please complete all but the "Reading material" section in your first few working
   - [ ] be added to [Geekbot](https://app.geekbot.com/dashboard) for daily Slack standup updates
   - [ ] get Maintainer access to the [Gitaly Retrospective](https://gitlab.com/gl-retrospectives/enablement-section/gitaly) respository
   - [ ] get access to the [Gitaly Group calendar](https://calendar.google.com/calendar/embed?src=gitlab.com_mc911ncuk38bfngud133tjb4m8%40group.calendar.google.com&ctz=Europe%2FZurich), then add it by clicking [here](https://calendar.google.com/calendar/u/0?cid=Z2l0bGFiLmNvbV9tYzkxMW5jdWszOGJmbmd1ZDEzM3RqYjRtOEBncm91cC5jYWxlbmRhci5nb29nbGUuY29t)
-- Open issues / Access Requests to:
+- Acquire necessary access:
   - [ ] join the @gitalyteam Slack group ([example](https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/15868))
   - [ ] get access to [Stackdriver](https://about.gitlab.com/handbook/engineering/monitoring/#go-services)
   - [ ] join the `gcp-host-profiles-sg@gitlab.com` GCP group for access to [periodic profiling data](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1433#note_901717231)
   - [ ] request access to [Zendesk](https://about.gitlab.com/handbook/support/internal-support/#requesting-a-zendesk-light-agent-account)
   - [ ] create [RubyGems.org](https://rubygems.org/sign_up) account and request access to `gitaly` gem
   - [ ] join the https://groups.google.com/a/gitlab.com/g/eng-dev-trace-gitaly/members Google group to be able to use [GCP tracing](https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/21356)
+  - [ ] Log in to [Sentry](https://new-sentry.gitlab.net/settings/gitlab/teams/) via Okta and join the `#gitlab` group. This should allow you to view events and statistics related to Gitaly production.
 - If transferring from another team within GitLab:
   - [ ] update your [Team page entry](https://about.gitlab.com/handbook/git-page-update/#12-add-yourself-to-the-team-page)
   - [ ] update your Slack profile ("What I do")
