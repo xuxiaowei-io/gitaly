@@ -180,9 +180,11 @@ func TestServerSideAdapter_Restore(t *testing.T) {
 			},
 		},
 		{
-			desc: "missing backup ID",
+			desc: "missing bundle",
 			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg, backupSink backup.Sink, backupLocator backup.Locator) setupData {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					RelativePath: "@test/restore/latest/missing.git",
+				})
 
 				return setupData{
 					repo:     repo,
@@ -190,7 +192,9 @@ func TestServerSideAdapter_Restore(t *testing.T) {
 					backupID: "",
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("server-side restore: restore repository: empty BackupId"),
+			expectedErr: structerr.NewFailedPrecondition("server-side restore: restore repository: manager: repository skipped: restore bundle: \"@test/restore/latest/missing.bundle\": doesn't exist").WithDetail(
+				&gitalypb.RestoreRepositoryResponse_SkippedError{},
+			),
 		},
 	} {
 		tc := tc

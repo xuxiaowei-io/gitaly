@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
@@ -27,12 +28,18 @@ func (s *server) RestoreRepository(ctx context.Context, in *gitalypb.RestoreRepo
 		s.txManager,
 	)
 
-	if err := manager.Restore(ctx, &backup.RestoreRequest{
+	err := manager.Restore(ctx, &backup.RestoreRequest{
 		Repository:       in.GetRepository(),
 		VanityRepository: in.GetVanityRepository(),
 		AlwaysCreate:     in.GetAlwaysCreate(),
 		BackupID:         in.GetBackupId(),
-	}); err != nil {
+	})
+	switch {
+	case errors.Is(err, backup.ErrSkipped):
+		return nil, structerr.NewFailedPrecondition("restore repository: %w", err).WithDetail(
+			&gitalypb.RestoreRepositoryResponse_SkippedError{},
+		)
+	case err != nil:
 		return nil, structerr.NewInternal("restore repository: %w", err)
 	}
 

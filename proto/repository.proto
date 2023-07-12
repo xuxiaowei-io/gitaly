@@ -1273,4 +1273,7 @@ message RestoreRepositoryRequest {
 
 // RestoreRepositoryResponse is a response for the RestoreRepository RPC.
 message RestoreRepositoryResponse {
+  // SkippedError is returned when the repository restore has been skipped.
+  message SkippedError {
+  }
 }

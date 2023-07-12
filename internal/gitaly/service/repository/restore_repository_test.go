@@ -120,6 +120,29 @@ func TestRestoreRepository(t *testing.T) {
 			},
 		},
 		{
+			desc: "restore latest missing",
+			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t,
+					testserver.WithBackupSink(backupSink),
+					testserver.WithBackupLocator(backupLocator),
+				)
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					RelativePath: "@test/restore/latest/missing.git",
+				})
+
+				return setupData{
+					cfg:      cfg,
+					client:   client,
+					repo:     repo,
+					repoPath: repoPath,
+					backupID: "",
+				}
+			},
+			expectedErr: structerr.NewFailedPrecondition("restore repository: manager: repository skipped: restore bundle: \"@test/restore/latest/missing.bundle\": doesn't exist").WithDetail(
+				&gitalypb.RestoreRepositoryResponse_SkippedError{},
+			),
+		},
+		{
 			desc: "missing repository",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t,
