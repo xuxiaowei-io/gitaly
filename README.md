@@ -49,7 +49,23 @@ GitLab end up in Gitaly.
 
 High-level architecture overview:
 
-![Gitaly architecture](doc/img/architecture.svg)
+```mermaid
+graph LR
+
+  subgraph "Gitaly Service"                                                
+  Gitaly == git ==> Filesystem
+  Gitaly -- "libgit2 / Rugged" --> Filesystem[(Filesystem)]
+  end
+
+  subgraph "Clients"
+    Rails[gitlab-rails] --> Gitaly
+    Workhorse --> Gitaly
+    Shell[gitlab-shell] -- command-line\nclient --> Gitaly
+    Gitaly -. Authorization .-> Rails
+  end
+
+  Rails -. Rugged .-> Filesystem
+```
 
 ### Gitaly clients
 
