@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // remoteRepository implements git repository access over GRPC
@@ -147,6 +148,28 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 	}
 
 	return nil
+}
+
+type createBundleFromRefListSender struct {
+	stream gitalypb.RepositoryService_CreateBundleFromRefListClient
+	chunk  gitalypb.CreateBundleFromRefListRequest
+}
+
+// Reset should create a fresh response message.
+func (s *createBundleFromRefListSender) Reset() {
+	s.chunk = gitalypb.CreateBundleFromRefListRequest{}
+}
+
+// Append should append the given item to the slice in the current response message
+func (s *createBundleFromRefListSender) Append(msg proto.Message) {
+	req := msg.(*gitalypb.CreateBundleFromRefListRequest)
+	s.chunk.Repository = req.GetRepository()
+	s.chunk.Patterns = append(s.chunk.Patterns, req.Patterns...)
+}
+
+// Send should send the current response message
+func (s *createBundleFromRefListSender) Send() error {
+	return s.stream.Send(&s.chunk)
 }
 
 // Remove removes the repository. Does not return an error if the repository

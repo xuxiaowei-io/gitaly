@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -435,28 +434,6 @@ func (mgr *Manager) negatedKnownRefs(ctx context.Context, step *Step) (io.ReadCl
 	}()
 
 	return r, nil
-}
-
-type createBundleFromRefListSender struct {
-	stream gitalypb.RepositoryService_CreateBundleFromRefListClient
-	chunk  gitalypb.CreateBundleFromRefListRequest
-}
-
-// Reset should create a fresh response message.
-func (s *createBundleFromRefListSender) Reset() {
-	s.chunk = gitalypb.CreateBundleFromRefListRequest{}
-}
-
-// Append should append the given item to the slice in the current response message
-func (s *createBundleFromRefListSender) Append(msg proto.Message) {
-	req := msg.(*gitalypb.CreateBundleFromRefListRequest)
-	s.chunk.Repository = req.GetRepository()
-	s.chunk.Patterns = append(s.chunk.Patterns, req.Patterns...)
-}
-
-// Send should send the current response message
-func (s *createBundleFromRefListSender) Send() error {
-	return s.stream.Send(&s.chunk)
 }
 
 func (mgr *Manager) restoreBundle(ctx context.Context, repo Repository, path string) error {
