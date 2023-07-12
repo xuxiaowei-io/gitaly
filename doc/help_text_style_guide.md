@@ -20,12 +20,12 @@ To help users discover `gitaly` and `praefect` features through the CLI:
   Instead, list subcommands in the value of the `Description` field key. For example:
 
   ```go
-  Description: "This is a long description of all the things example command can do.\n\n" +
+  Description: `This is a long description of all the things example command can do.
 
-                "Provides the following subcommands:\n\n" +
+  Provides the following subcommands:
 
-                "- subcommand1\n\n" +
-                "- subcommand2\n\n",
+  - subcommand1
+  - subcommand2`,
   ```
 
 ## Rules for command strings
@@ -81,25 +81,19 @@ When providing values for the `Usage` field key:
 
 When providing values for the `Description` field key:
 
-- If referring to subcommands or flags, put the subcommand or flag in backticks. For example:
-
-  ```plaintext
-  `subcommand` can be run at any time with the `flag` flag.
-  ```
-
 - Can mention Gitaly, Praefect, or Gitaly Cluster. For example:
 
   ```plaintext
   Runs all of the processes for the Gitaly Cluster.
   ```
 
-If the command or subcommand requires more than just flags, add an example of invoking the command. For example:
+- If the command or subcommand requires more than just flags, add an example of invoking the command. For example:
 
-```go
-Description: "The subcommand accepts a file on stdin.\n\n" +
+  ```go
+  Description: `The subcommand accepts a file on stdin.
 
-             "Example: `command subcommand < file`." +
-```
+  Example: command subcommand < file`
+  ```
 
 ## Related topics
 

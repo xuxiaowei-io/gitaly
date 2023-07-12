@@ -42,9 +42,11 @@ import (
 
 func newServeCommand() *cli.Command {
 	return &cli.Command{
-		Name:            "serve",
-		Usage:           "launch the server daemon",
-		Description:     "Launch the Praefect server daemon.",
+		Name:  "serve",
+		Usage: "launch the server daemon",
+		Description: `Launch the Praefect server daemon.
+
+Example: praefect --config praefect.config.toml serve`,
 		Action:          serveAction,
 		HideHelpCommand: true,
 		Before: func(context *cli.Context) error {

@@ -42,7 +42,7 @@ func TestGitalyCLI(t *testing.T) {
 			desc:     "check without config",
 			args:     []string{"check"},
 			exitCode: 2,
-			stdout:   "NAME:\n   gitaly check - verify internal API is accessible\n\nUSAGE:\n   gitaly check command [command options] <configfile>\n\nDESCRIPTION:\n   Check that the internal Gitaly API is accessible.\n\n   Example: `gitaly check gitaly.config.toml`.\n\nOPTIONS:\n   --help, -h  show help\n",
+			stdout:   "NAME:\n   gitaly check - verify internal API is accessible\n\nUSAGE:\n   gitaly check command [command options] <configfile>\n\nDESCRIPTION:\n   Check that the internal Gitaly API is accessible.\n\n   Example: gitaly check gitaly.config.toml\n\nOPTIONS:\n   --help, -h  show help\n",
 			stderr:   "invalid argument(s)",
 		},
 		{
