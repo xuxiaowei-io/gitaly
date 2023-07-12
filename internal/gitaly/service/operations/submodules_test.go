@@ -34,11 +34,22 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	type setupData struct {
-		request          *gitalypb.UserUpdateSubmoduleRequest
-		expectedResponse *gitalypb.UserUpdateSubmoduleResponse
-		verify           func(t *testing.T)
-		commitID         string
-		expectedErr      error
+		request         *gitalypb.UserUpdateSubmoduleRequest
+		requireResponse func(testing.TB, string, *gitalypb.UserUpdateSubmoduleResponse)
+		verify          func(t *testing.T)
+		commitID        string
+		expectedErr     error
+	}
+
+	equalResponse := func(expected *gitalypb.UserUpdateSubmoduleResponse) func(testing.TB, string, *gitalypb.UserUpdateSubmoduleResponse) {
+		return func(tb testing.TB, expectedCommitID string, actual *gitalypb.UserUpdateSubmoduleResponse) {
+			tb.Helper()
+			if expected.BranchUpdate != nil {
+				expected.BranchUpdate.CommitId = expectedCommitID
+			}
+
+			testhelper.ProtoEqual(t, expected, actual)
+		}
 	}
 
 	testCases := []struct {
@@ -72,8 +83,8 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("sub"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
-					commitID:         commitID.String(),
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}}),
+					commitID:        commitID.String(),
 				}
 			},
 		},
@@ -102,8 +113,8 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("sub"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
-					commitID:         commitID.String(),
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}}),
+					commitID:        commitID.String(),
 				}
 			},
 		},
@@ -138,8 +149,8 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("foo/sub"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
-					commitID:         commitID.String(),
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}}),
+					commitID:        commitID.String(),
 				}
 			},
 		},
@@ -179,8 +190,8 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("sub"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
-					commitID:         commitID.String(),
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}}),
+					commitID:        commitID.String(),
 				}
 			},
 		},
@@ -219,8 +230,10 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("sub"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
-						PreReceiveError: fmt.Sprintf(`executing custom hooks: error executing "%s/custom_hooks/pre-receive": exit status 1`, repoPath),
+					requireResponse: func(tb testing.TB, expectedCommitID string, response *gitalypb.UserUpdateSubmoduleResponse) {
+						require.Regexp(tb, `^executing custom hooks: error executing ".+/custom_hooks/pre-receive": exit status 1$`, response.GetPreReceiveError())
+						response.PreReceiveError = ""
+						testhelper.ProtoEqual(tb, &gitalypb.UserUpdateSubmoduleResponse{}, response)
 					},
 					commitID: commitID.String(),
 					verify: func(t *testing.T) {
@@ -495,9 +508,9 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("foobar"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{
 						CommitError: "Invalid submodule path",
-					},
+					}),
 					verify: func(t *testing.T) {},
 				}
 			},
@@ -527,9 +540,9 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("foobar/does/not/exist"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{
 						CommitError: "Invalid submodule path",
-					},
+					}),
 					verify: func(t *testing.T) {},
 				}
 			},
@@ -558,9 +571,9 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("sub"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{
 						CommitError: fmt.Sprintf("The submodule sub is already at %s", subCommitID),
-					},
+					}),
 					verify: func(t *testing.T) {},
 				}
 			},
@@ -587,9 +600,9 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("VERSION"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{
 						CommitError: "Invalid submodule path",
-					},
+					}),
 					verify: func(t *testing.T) {},
 				}
 			},
@@ -610,9 +623,9 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						Submodule:     []byte("foobar"),
 						CommitMessage: []byte("Updating Submodule: sub"),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{
 						CommitError: "Repository is empty",
-					},
+					}),
 					verify: func(t *testing.T) {},
 				}
 			},
@@ -643,8 +656,8 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						CommitMessage:  []byte("Updating Submodule: sub"),
 						ExpectedOldOid: expectedOldOID.String(),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
-					commitID:         commitID.String(),
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}}),
+					commitID:        commitID.String(),
 				}
 			},
 		},
@@ -746,9 +759,9 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						CommitMessage:  []byte("Updating Submodule: sub"),
 						ExpectedOldOid: firstCommit.String(),
 					},
-					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+					requireResponse: equalResponse(&gitalypb.UserUpdateSubmoduleResponse{
 						CommitError: "Could not update refs/heads/master. Please refresh and try again.",
-					},
+					}),
 					commitID: commitID.String(),
 					verify:   func(t *testing.T) {},
 				}
@@ -772,9 +785,9 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 
 			// If there is no verification function, lets do the default verification of
 			// checking if the submodule was updated correctly in the main repo.
+			var expectedCommitID string
 			if setupData.verify == nil {
-				newCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", string(setupData.request.Branch)))
-				setupData.expectedResponse.BranchUpdate.CommitId = newCommitID
+				expectedCommitID = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", string(setupData.request.Branch)))
 
 				entry := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), tc.subPath)
 				parser := localrepo.NewParser(bytes.NewReader(entry), git.ObjectHashSHA1)
@@ -786,7 +799,12 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 				setupData.verify(t)
 			}
 
-			testhelper.ProtoEqual(t, setupData.expectedResponse, response)
+			if setupData.requireResponse != nil {
+				setupData.requireResponse(t, expectedCommitID, response)
+				return
+			}
+
+			require.Nil(t, response)
 		})
 	}
 }
