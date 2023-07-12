@@ -93,8 +93,17 @@ When providing values for the `Description` field key:
   Runs all of the processes for the Gitaly Cluster.
   ```
 
+If the command or subcommand requires more than just flags, add an example of invoking the command. For example:
+
+```go
+Description: "The subcommand accepts a file on stdin.\n\n" +
+
+             "Example: `command subcommand < file`." +
+```
+
 ## Related topics
 
 - [Voice and tone](https://design.gitlab.com/content/voice-and-tone) from GitLab Design System.
 - [Language](https://docs.gitlab.com/ee/development/documentation/styleguide/index.html#language) from GitLab
   Documentation Style Guide.
+- [Command Line Interface Guidelines](https://clig.dev).

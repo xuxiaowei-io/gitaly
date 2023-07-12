@@ -19,7 +19,7 @@ func init() {
 func NewApp() *cli.App {
 	return &cli.App{
 		Name:        "gitaly",
-		Usage:       "A Git RPC service",
+		Usage:       "a Git RPC service",
 		Description: "Gitaly is a Git RPC service for handling Git calls.",
 		Version:     version.GetVersionString("Gitaly"),
 		// serveAction is also here in the root to keep the CLI backwards compatible

@@ -12,7 +12,7 @@ const validationErrorCode = 2
 func newConfigurationCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "configuration",
-		Usage: "Run configuration-related commands",
+		Usage: "run configuration-related commands",
 		Description: "Run commands related to Gitaly configuration.\n\n" +
 
 			"Provides the following subcommand:\n\n" +
@@ -22,7 +22,7 @@ func newConfigurationCommand() *cli.Command {
 		Subcommands: []*cli.Command{
 			{
 				Name:  "validate",
-				Usage: "Validate Gitaly configuration",
+				Usage: "validate Gitaly configuration",
 				Description: "Check that input provided on stdin is valid Gitaly configuration.\n" +
 					"Use `validate` before starting Gitaly.\n\n" +
 
@@ -31,7 +31,9 @@ func newConfigurationCommand() *cli.Command {
 
 					"- A key, which is the path to the configuration field where the\n" +
 					"  problem is detected.\n" +
-					"- A message, with an explanation of the problem.",
+					"- A message, with an explanation of the problem.\n\n" +
+
+					"Example: `gitaly configuration validate < gitaly.config.toml`.",
 				Action: validateConfigurationAction,
 			},
 		},
