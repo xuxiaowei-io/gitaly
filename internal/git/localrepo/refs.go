@@ -178,12 +178,7 @@ func (repo *Repo) SetDefaultBranch(ctx context.Context, txManager transaction.Ma
 // setDefaultBranchWithTransaction sets the repository's HEAD to point to the given reference
 // using a safe locking file writer and commits the transaction if one exists in the context
 func (repo *Repo) setDefaultBranchWithTransaction(ctx context.Context, txManager transaction.Manager, reference git.ReferenceName) error {
-	valid, err := git.CheckRefFormat(ctx, repo.gitCmdFactory, reference.String())
-	if err != nil {
-		return fmt.Errorf("checking ref format: %w", err)
-	}
-
-	if !valid {
+	if err := git.ValidateReference(reference.String()); err != nil {
 		return fmt.Errorf("%q is a malformed refname", reference)
 	}
 

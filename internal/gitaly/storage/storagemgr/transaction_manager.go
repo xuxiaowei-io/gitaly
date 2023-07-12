@@ -1146,19 +1146,8 @@ func packFilePath(walFiles string) string {
 func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) ([]*gitalypb.LogEntry_ReferenceUpdate, error) {
 	var referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate
 	for referenceName, update := range transaction.referenceUpdates {
-		// 'git update-ref' doesn't ensure the loose references end up in the
-		// refs directory so we enforce that here.
-		if err := verifyReferencePrefix(referenceName); err != nil {
-			return nil, fmt.Errorf("verify reference prefix: %w", err)
-		}
-
-		// We'll later implement reference format verification in Gitaly. update-ref reports errors with these characters
-		// in a difficult to parse manner. For now, let's check these two illegal characters separately so we can return a
-		// proper error.
-		for _, illegalCharacter := range []byte{0, '\n'} {
-			if bytes.Contains([]byte(referenceName), []byte{illegalCharacter}) {
-				return nil, InvalidReferenceFormatError{ReferenceName: referenceName}
-			}
+		if err := git.ValidateReference(string(referenceName)); err != nil {
+			return nil, InvalidReferenceFormatError{ReferenceName: referenceName}
 		}
 
 		if !update.Force {
@@ -1208,17 +1197,6 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 	return referenceUpdates, nil
 }
 
-// verifyReferencePrefix verifies the reference is prefixed with `refs/`. This prevents writing references
-// anywhere except the `refs/` directory. Otherwise the references could be written to arbitrary directories
-// and files in the repository.
-func verifyReferencePrefix(referenceName git.ReferenceName) error {
-	if !strings.HasPrefix(referenceName.String(), "refs/") {
-		return InvalidReferenceFormatError{ReferenceName: referenceName}
-	}
-
-	return nil
-}
-
 // vefifyReferencesWithGit verifies the reference updates with git by preparing reference transaction. This ensures
 // the updates will go through when they are being applied in the log. This also catches any invalid reference names
 // and file/directory conflicts with Git's loose reference storage which can occur with references like
@@ -1239,19 +1217,7 @@ func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, refe
 func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, transaction *Transaction) error {
 	referenceName := transaction.defaultBranchUpdate.Reference
 
-	// CheckRefFormat below ensures that the reference is in a subdirectory, and can't for example be
-	// `<repo>/HEAD`. It doesn't verify the reference is within the `refs/` directory though, so do it
-	// manually here.
-	if err := verifyReferencePrefix(referenceName); err != nil {
-		return fmt.Errorf("verify reference prefix: %w", err)
-	}
-
-	valid, err := git.CheckRefFormat(ctx, mgr.commandFactory, referenceName.String())
-	if err != nil {
-		return fmt.Errorf("checking ref format: %w", err)
-	}
-
-	if !valid {
+	if err := git.ValidateReference(referenceName.String()); err != nil {
 		return InvalidReferenceFormatError{ReferenceName: referenceName}
 	}
 
