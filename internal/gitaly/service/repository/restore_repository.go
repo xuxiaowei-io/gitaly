@@ -40,10 +40,6 @@ func (s *server) RestoreRepository(ctx context.Context, in *gitalypb.RestoreRepo
 }
 
 func (s *server) validateRestoreRepositoryRequest(in *gitalypb.RestoreRepositoryRequest) error {
-	if in.GetBackupId() == "" {
-		return fmt.Errorf("empty BackupId")
-	}
-
 	if err := s.locator.ValidateRepository(in.GetRepository(),
 		storage.WithSkipRepositoryExistenceCheck(),
 	); err != nil {

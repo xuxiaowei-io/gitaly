@@ -4994,7 +4994,8 @@ type RestoreRepositoryRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// VanityRepository is used to determine the backup path.
 	VanityRepository *Repository `protobuf:"bytes,2,opt,name=vanity_repository,json=vanityRepository,proto3" json:"vanity_repository,omitempty"`
-	// BackupId is the label used to identify the backup to restore from.
+	// BackupId is the label used to identify the backup to restore from. If
+	// empty, the latest available backup is used.
 	BackupId string `protobuf:"bytes,3,opt,name=backup_id,json=backupId,proto3" json:"backup_id,omitempty"`
 	// AlwaysCreate will force the repository to exist even if no bundle is
 	// found. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044

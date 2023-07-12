@@ -36,7 +36,7 @@ func TestRestoreRepository(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "success",
+			desc: "restore backup ID",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t,
 					testserver.WithBackupSink(backupSink),
@@ -78,24 +78,46 @@ func TestRestoreRepository(t *testing.T) {
 			},
 		},
 		{
-			desc: "missing backup ID",
+			desc: "restore latest",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t,
 					testserver.WithBackupSink(backupSink),
 					testserver.WithBackupLocator(backupLocator),
 				)
 
+				_, templateRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				oid := gittest.WriteCommit(t, cfg, templateRepoPath, gittest.WithBranch(git.DefaultBranch))
+				gittest.WriteCommit(t, cfg, templateRepoPath, gittest.WithBranch("feature"), gittest.WithParents(oid))
+				checksum := gittest.ChecksumRepo(t, cfg, templateRepoPath)
+
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				step := backupLocator.BeginFull(ctx, repo, "abc123")
+
+				w, err := backupSink.GetWriter(ctx, step.BundlePath)
+				require.NoError(t, err)
+				bundle := gittest.BundleRepo(t, cfg, templateRepoPath, "-")
+				_, err = w.Write(bundle)
+				require.NoError(t, err)
+				require.NoError(t, w.Close())
+
+				w, err = backupSink.GetWriter(ctx, step.RefPath)
+				require.NoError(t, err)
+				refs := gittest.Exec(t, cfg, "-C", templateRepoPath, "show-ref", "--head")
+				_, err = w.Write(refs)
+				require.NoError(t, err)
+				require.NoError(t, w.Close())
+
+				require.NoError(t, backupLocator.Commit(ctx, step))
 
 				return setupData{
-					cfg:      cfg,
-					client:   client,
-					repo:     repo,
-					repoPath: repoPath,
-					backupID: "",
+					cfg:              cfg,
+					client:           client,
+					repo:             repo,
+					repoPath:         repoPath,
+					backupID:         "",
+					expectedChecksum: checksum,
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("restore repository: empty BackupId"),
 		},
 		{
 			desc: "missing repository",
