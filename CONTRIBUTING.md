@@ -40,9 +40,11 @@ reported by emailing contact@gitlab.com.
 This Code of Conduct is adapted from the [Contributor Covenant](https://contributor-covenant.org), version 1.1.0,
 available at [https://contributor-covenant.org/version/1/1/0/](https://contributor-covenant.org/version/1/1/0/).
 
-## Style Guide
+## Style guides
 
-The Gitaly style guide is [documented in it's own file](STYLE.md).
+For Gitaly code style, see [`STYLE.md`](STYLE.md).
+
+For help text style guidance for this project, see the [help text style guide](doc/help_text_style_guide.md).
 
 ## Commits
 
@@ -63,7 +65,7 @@ not be focused enough.
 
 `git add -p` is useful to add only relevant changes. Often you only notice that
 you require additional changes to achieve your goal when halfway through the
-implementation.  Use `git stash` to help you stay focused on this additional
+implementation. Use `git stash` to help you stay focused on this additional
 change until you have implemented it in a separate commit.
 
 ### Split up refactors and behavioral changes

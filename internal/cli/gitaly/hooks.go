@@ -28,7 +28,7 @@ const (
 func newHooksCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "hooks",
-		Usage: "Manage Git hooks",
+		Usage: "manage Git hooks",
 		Description: "Manage hooks for a Git repository.\n\n" +
 
 			"Provides the following subcommand:\n\n" +
@@ -37,23 +37,27 @@ func newHooksCommand() *cli.Command {
 		HideHelpCommand: true,
 		Subcommands: []*cli.Command{
 			{
-				Name:        "set",
-				Usage:       "Set custom hooks for a Git repository",
-				Description: "Reads a tarball containing custom Git hooks from stdin and writes the hooks to the specified repository.",
-				Action:      setHooksAction,
+				Name:  "set",
+				Usage: "set custom hooks for a Git repository",
+				Description: "Reads a tarball containing custom Git hooks from stdin and writes the hooks to the specified repository.\n\n" +
+
+					"Example: `gitaly hooks set --storage default --repository @hashed/<path_to_git_repository>/repository.git --config gitaly.config.toml < hooks_tarball.tar`.\n\n" +
+
+					"To remove custom Git hooks for a specified repository, run the set subcommand with an empty tarball file.",
+				Action: setHooksAction,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  flagStorage,
-						Usage: "Storage containing the repository",
+						Usage: "storage containing the repository",
 					},
 					&cli.StringFlag{
 						Name:     flagRepository,
-						Usage:    "Repository to set hooks for",
+						Usage:    "repository to set hooks for",
 						Required: true,
 					},
 					&cli.StringFlag{
 						Name:     flagConfig,
-						Usage:    "Path to Gitaly configuration",
+						Usage:    "path to Gitaly configuration",
 						Aliases:  []string{"c"},
 						Required: true,
 					},
