@@ -13,27 +13,26 @@ func newConfigurationCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "configuration",
 		Usage: "run configuration-related commands",
-		Description: "Run commands related to Gitaly configuration.\n\n" +
+		Description: `Run commands related to Gitaly configuration.
 
-			"Provides the following subcommand:\n\n" +
+Provides the following subcommand:
 
-			"- validate",
+- validate`,
 		HideHelpCommand: true,
 		Subcommands: []*cli.Command{
 			{
 				Name:  "validate",
 				Usage: "validate Gitaly configuration",
-				Description: "Check that input provided on stdin is valid Gitaly configuration.\n" +
-					"Use `validate` before starting Gitaly.\n\n" +
+				Description: `Check that input provided on stdin is valid Gitaly configuration.
+Use validate before starting Gitaly.
 
-					"Prints all configuration problems to stdout in JSON format.\n" +
-					"The output's structure includes:\n\n" +
+Prints all configuration problems to stdout in JSON format.
+The output's structure includes:
 
-					"- A key, which is the path to the configuration field where the\n" +
-					"  problem is detected.\n" +
-					"- A message, with an explanation of the problem.\n\n" +
+- A key, which is the path to the configuration field where the problem is detected.
+- A message, with an explanation of the problem.
 
-					"Example: `gitaly configuration validate < gitaly.config.toml`.",
+Example: gitaly configuration validate < gitaly.config.toml`,
 				Action: validateConfigurationAction,
 			},
 		},
