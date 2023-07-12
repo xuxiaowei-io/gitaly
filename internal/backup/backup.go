@@ -26,6 +26,7 @@ var (
 
 // Sink is an abstraction over the real storage used for storing/restoring backups.
 type Sink interface {
+	io.Closer
 	// GetWriter saves the written data to relativePath. It is the callers
 	// responsibility to call Close and check any subsequent errors.
 	GetWriter(ctx context.Context, relativePath string) (io.WriteCloser, error)

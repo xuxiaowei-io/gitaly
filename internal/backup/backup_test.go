@@ -48,6 +48,8 @@ func TestManager_RemoveAllRepositories(t *testing.T) {
 
 	backupRoot := testhelper.TempDir(t)
 	sink := backup.NewFilesystemSink(backupRoot)
+	defer testhelper.MustClose(t, sink)
+
 	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
@@ -169,6 +171,8 @@ func TestManager_Create(t *testing.T) {
 				customHooksPath := joinBackupPath(t, backupRoot, vanityRepo, backupID, "001.custom_hooks.tar")
 
 				sink := backup.NewFilesystemSink(backupRoot)
+				defer testhelper.MustClose(t, sink)
+
 				locator, err := backup.ResolveLocator("pointer", sink)
 				require.NoError(t, err)
 
@@ -335,6 +339,8 @@ func TestManager_Create_incremental(t *testing.T) {
 				bundlePath := joinBackupPath(t, backupRoot, repo, backupID, tc.expectedIncrement+".bundle")
 
 				sink := backup.NewFilesystemSink(backupRoot)
+				defer testhelper.MustClose(t, sink)
+
 				locator, err := backup.ResolveLocator("pointer", sink)
 				require.NoError(t, err)
 
@@ -587,6 +593,8 @@ func TestManager_Restore_latest(t *testing.T) {
 							repo, expectedChecksum := tc.setup(t)
 
 							sink := backup.NewFilesystemSink(backupRoot)
+							defer testhelper.MustClose(t, sink)
+
 							locator, err := backup.ResolveLocator(locatorName, sink)
 							require.NoError(t, err)
 
@@ -776,6 +784,8 @@ func TestManager_Restore_specific(t *testing.T) {
 					repo, expectedChecksum := tc.setup(t)
 
 					sink := backup.NewFilesystemSink(backupRoot)
+					defer testhelper.MustClose(t, sink)
+
 					locator, err := backup.ResolveLocator("pointer", sink)
 					require.NoError(t, err)
 
@@ -841,6 +851,8 @@ func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
 	defer testhelper.MustClose(t, pool)
 
 	sink := backup.NewFilesystemSink(backupRoot)
+	defer testhelper.MustClose(t, sink)
+
 	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
