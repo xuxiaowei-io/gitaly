@@ -3,9 +3,11 @@ package limiter
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
@@ -53,13 +55,14 @@ func TestAdaptiveCalculator(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		desc     string
-		limits   []AdaptiveLimiter
-		watchers []ResourceWatcher
+		desc       string
+		limits     []AdaptiveLimiter
+		watchers   []ResourceWatcher
+		waitEvents int
 		// The first captured limit is the initial limit
-		expectedLimits map[string][]int
-		expectedLogs   []string
-		waitEvents     int
+		expectedLimits  map[string][]int
+		expectedLogs    []string
+		expectedMetrics string
 	}{
 		{
 			desc:       "Empty watchers",
@@ -71,6 +74,11 @@ func TestAdaptiveCalculator(t *testing.T) {
 			expectedLimits: map[string][]int{
 				"testLimit": {25, 26, 27, 28, 29, 30},
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit"} {testLimit}
+
+`,
 		},
 		{
 			desc:           "Empty limits and watchers",
@@ -91,6 +99,11 @@ func TestAdaptiveCalculator(t *testing.T) {
 			expectedLimits: map[string][]int{
 				"testLimit": {25, 26, 27, 28, 29, 30},
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit"} {testLimit}
+
+`,
 		},
 		{
 			desc:       "Additive increase until reaching the max limit",
@@ -104,6 +117,12 @@ func TestAdaptiveCalculator(t *testing.T) {
 			expectedLimits: map[string][]int{
 				"testLimit": {25, 26, 27, 27, 27, 27},
 			},
+			// In this test, the current limit never exceeds the max value. No need to replace the value.
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit"} 27
+
+`,
 		},
 		{
 			desc:       "Additive increase until a backoff event",
@@ -120,6 +139,14 @@ func TestAdaptiveCalculator(t *testing.T) {
 			expectedLogs: []string{
 				`level=info msg="Multiplicative decrease" limit=testLimit new_limit=14 previous_limit=29 reason="cgroup exceeds limit" watcher=testWatcher`,
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher"} 1
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit"} {testLimit}
+
+`,
 		},
 		{
 			desc:       "Multiplicative decrease until reaching min limit",
@@ -138,6 +165,14 @@ func TestAdaptiveCalculator(t *testing.T) {
 				`level=info msg="Multiplicative decrease" limit=testLimit new_limit=10 previous_limit=13 reason="reason 2" watcher=testWatcher`,
 				`level=info msg="Multiplicative decrease" limit=testLimit new_limit=10 previous_limit=10 reason="reason 3" watcher=testWatcher`,
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher"} 3
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit"} {testLimit}
+
+`,
 		},
 		{
 			desc:       "Additive increase multiple limits",
@@ -153,6 +188,12 @@ func TestAdaptiveCalculator(t *testing.T) {
 				"testLimit1": {25, 26, 27, 28, 29, 30},
 				"testLimit2": {15, 16, 17, 18, 19, 20},
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+
+`,
 		},
 		{
 			desc:       "Additive increase multiple limits until a backoff event",
@@ -172,6 +213,15 @@ func TestAdaptiveCalculator(t *testing.T) {
 				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=15 previous_limit=30 reason="cgroup exceeds limit" watcher=testWatcher`,
 				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=20 reason="cgroup exceeds limit" watcher=testWatcher`,
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher"} 1
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+
+`,
 		},
 		{
 			desc:       "Additive increase multiple limits until a backoff event with multiple watchers",
@@ -195,6 +245,16 @@ func TestAdaptiveCalculator(t *testing.T) {
 				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=10 previous_limit=18 reason="cgroup exceeds limit 1" watcher=testWatcher1`,
 				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=15 reason="cgroup exceeds limit 1" watcher=testWatcher1`,
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher1"} 1
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher3"} 1
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+
+`,
 		},
 		{
 			desc:       "Additive increase multiple limits until multiple watchers return multiple errors",
@@ -216,6 +276,16 @@ func TestAdaptiveCalculator(t *testing.T) {
 				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=13 previous_limit=27 reason="cgroup exceeds limit 2" watcher=testWatcher3`,
 				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=17 reason="cgroup exceeds limit 2" watcher=testWatcher3`,
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher1"} 1
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher3"} 1
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+
+`,
 		},
 		{
 			desc:       "a watcher returns an error",
@@ -237,6 +307,16 @@ func TestAdaptiveCalculator(t *testing.T) {
 				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher3`,
 				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher2`,
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+# HELP gitaly_concurrency_limiting_watcher_errors_total Counter of the total number of watcher errors
+# TYPE gitaly_concurrency_limiting_watcher_errors_total counter
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher2"} 1
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher3"} 1
+
+`,
 		},
 		{
 			desc:       "a watcher returns an error at the same time another watcher returns backoff event",
@@ -260,6 +340,19 @@ func TestAdaptiveCalculator(t *testing.T) {
 				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=28 reason="backoff please" watcher=testWatcher1`,
 				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=18 reason="backoff please" watcher=testWatcher1`,
 			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher1"} 1
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+# HELP gitaly_concurrency_limiting_watcher_errors_total Counter of the total number of watcher errors
+# TYPE gitaly_concurrency_limiting_watcher_errors_total counter
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher2"} 1
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher3"} 1
+
+`,
 		},
 	}
 	for _, tc := range tests {
@@ -286,7 +379,18 @@ func TestAdaptiveCalculator(t *testing.T) {
 				require.Equal(t, expectedLimits, limit.currents[:tc.waitEvents+1])
 			}
 
+			// Replace the current limit in the metrics. The above test setup adds some time buffer. There
+			// might be some extra calibrations after the test finishes.
+			metrics := tc.expectedMetrics
+			for _, l := range tc.limits {
+				metrics = strings.Replace(metrics, fmt.Sprintf("{%s}", l.Name()), fmt.Sprintf("%d", l.Current()), -1)
+			}
 			assertLogs(t, tc.expectedLogs, hook.AllEntries())
+			require.NoError(t, testutil.CollectAndCompare(calculator, strings.NewReader(metrics),
+				"gitaly_concurrency_limiting_current_limit",
+				"gitaly_concurrency_limiting_backoff_events_total",
+				"gitaly_concurrency_limiting_watcher_errors_total",
+			))
 		})
 	}
 }

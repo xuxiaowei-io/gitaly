@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 )
@@ -57,6 +58,13 @@ type AdaptiveCalculator struct {
 	lastBackoffEvent *BackoffEvent
 	// tickerCreator is a custom function that returns a Ticker. It's mostly used in test the manual ticker
 	tickerCreator func(duration time.Duration) helper.Ticker
+
+	// currentLimitVec is the gauge of current limit value of an adaptive concurrency limit
+	currentLimitVec *prometheus.GaugeVec
+	// watcherErrorsVec is the counter of the total number of watcher errors
+	watcherErrorsVec *prometheus.CounterVec
+	// backoffEventsVec is the counter of the total number of backoff events
+	backoffEventsVec *prometheus.CounterVec
 }
 
 // NewAdaptiveCalculator constructs a AdaptiveCalculator object. It's the responsibility of the caller to validate
@@ -68,6 +76,27 @@ func NewAdaptiveCalculator(calibration time.Duration, logger *logrus.Entry, limi
 		limits:           limits,
 		watchers:         watchers,
 		lastBackoffEvent: nil,
+		currentLimitVec: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "gitaly_concurrency_limiting_current_limit",
+				Help: "The current limit value of an adaptive concurrency limit",
+			},
+			[]string{"limit"},
+		),
+		watcherErrorsVec: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_concurrency_limiting_watcher_errors_total",
+				Help: "Counter of the total number of watcher errors",
+			},
+			[]string{"watcher"},
+		),
+		backoffEventsVec: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_concurrency_limiting_backoff_events_total",
+				Help: "Counter of the total number of backoff events",
+			},
+			[]string{"watcher"},
+		),
 	}
 }
 
@@ -84,7 +113,7 @@ func (c *AdaptiveCalculator) Start(ctx context.Context) (func(), error) {
 
 	// Reset all limits to their initial limits
 	for _, limit := range c.limits {
-		limit.Update(limit.Setting().Initial)
+		c.updateLimit(limit, limit.Setting().Initial)
 	}
 
 	done := make(chan struct{})
@@ -129,6 +158,18 @@ func (c *AdaptiveCalculator) Start(ctx context.Context) (func(), error) {
 	}, nil
 }
 
+// Describe is used to describe Prometheus metrics.
+func (c *AdaptiveCalculator) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(c, descs)
+}
+
+// Collect is used to collect Prometheus metrics.
+func (c *AdaptiveCalculator) Collect(metrics chan<- prometheus.Metric) {
+	c.currentLimitVec.Collect(metrics)
+	c.watcherErrorsVec.Collect(metrics)
+	c.backoffEventsVec.Collect(metrics)
+}
+
 func (c *AdaptiveCalculator) pollBackoffEvent(ctx context.Context) {
 	// Set a timeout to prevent resource watcher runs forever. The deadline
 	// is the next calibration event.
@@ -140,6 +181,7 @@ func (c *AdaptiveCalculator) pollBackoffEvent(ctx context.Context) {
 
 		event, err := w.Poll(ctx)
 		if err != nil {
+			c.watcherErrorsVec.WithLabelValues(w.Name()).Inc()
 			logger.Errorf("poll from resource watcher: %s", err)
 			continue
 		}
@@ -182,7 +224,7 @@ func (c *AdaptiveCalculator) calibrateLimits() {
 				"reason":         c.lastBackoffEvent.Reason,
 			}).Infof("Multiplicative decrease")
 		}
-		limit.Update(newLimit)
+		c.updateLimit(limit, newLimit)
 	}
 }
 
@@ -191,4 +233,12 @@ func (c *AdaptiveCalculator) setLastBackoffEvent(event *BackoffEvent) {
 	defer c.Unlock()
 
 	c.lastBackoffEvent = event
+	if event != nil && event.ShouldBackoff {
+		c.backoffEventsVec.WithLabelValues(event.WatcherName).Inc()
+	}
+}
+
+func (c *AdaptiveCalculator) updateLimit(limit AdaptiveLimiter, newLimit int) {
+	limit.Update(newLimit)
+	c.currentLimitVec.WithLabelValues(limit.Name()).Set(float64(newLimit))
 }
