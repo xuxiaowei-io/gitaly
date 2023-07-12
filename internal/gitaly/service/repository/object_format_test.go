@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,9 +21,16 @@ func TestObjectFormat(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
+	equalError := func(tb testing.TB, expected error) func(error) {
+		return func(actual error) {
+			tb.Helper()
+			testhelper.RequireGrpcError(tb, expected, actual)
+		}
+	}
+
 	type setupData struct {
 		request          *gitalypb.ObjectFormatRequest
-		expectedErr      error
+		requireError     func(error)
 		expectedResponse *gitalypb.ObjectFormatResponse
 	}
 
@@ -36,8 +42,8 @@ func TestObjectFormat(t *testing.T) {
 			desc: "unset repository",
 			setup: func(t *testing.T) setupData {
 				return setupData{
-					request:     &gitalypb.ObjectFormatRequest{},
-					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+					request:      &gitalypb.ObjectFormatRequest{},
+					requireError: equalError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)),
 				}
 			},
 		},
@@ -50,7 +56,7 @@ func TestObjectFormat(t *testing.T) {
 							RelativePath: "path",
 						},
 					},
-					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
+					requireError: equalError(t, structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet)),
 				}
 			},
 		},
@@ -63,7 +69,7 @@ func TestObjectFormat(t *testing.T) {
 							StorageName: cfg.Storages[0].Name,
 						},
 					},
-					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
+					requireError: equalError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet)),
 				}
 			},
 		},
@@ -77,9 +83,9 @@ func TestObjectFormat(t *testing.T) {
 							RelativePath: "nonexistent.git",
 						},
 					},
-					expectedErr: testhelper.ToInterceptedMetadata(
+					requireError: equalError(t, testhelper.ToInterceptedMetadata(
 						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "nonexistent.git")),
-					),
+					)),
 				}
 			},
 		},
@@ -138,13 +144,15 @@ func TestObjectFormat(t *testing.T) {
 					request: &gitalypb.ObjectFormatRequest{
 						Repository: repoProto,
 					},
-					expectedErr: testhelper.WithInterceptedMetadata(
-						structerr.NewInternal("detecting object hash: reading object format: exit status 128"),
-						"stderr",
-						fmt.Sprintf("error: invalid value for 'extensions.objectformat': 'blake2b'\n"+
-							"fatal: bad config line 5 in file %s\n", filepath.Join(repoPath, "config"),
-						),
-					),
+					requireError: func(actual error) {
+						testhelper.RequireStatusWithErrorMetadataRegexp(t,
+							structerr.NewInternal("detecting object hash: reading object format: exit status 128"),
+							actual,
+							map[string]string{
+								"stderr": "^error: invalid value for 'extensions.objectformat': 'blake2b'\nfatal: bad config line 5 in file .+/config\n$",
+							},
+						)
+					},
 				}
 			},
 		},
@@ -156,7 +164,12 @@ func TestObjectFormat(t *testing.T) {
 
 			setupData := tc.setup(t)
 			response, err := client.ObjectFormat(ctx, setupData.request)
-			testhelper.RequireGrpcError(t, setupData.expectedErr, err)
+			if setupData.requireError != nil {
+				setupData.requireError(err)
+				return
+			}
+
+			require.NoError(t, err)
 			testhelper.ProtoEqual(t, setupData.expectedResponse, response)
 		})
 	}

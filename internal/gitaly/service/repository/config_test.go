@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestGetConfig(t *testing.T) {
@@ -71,7 +70,8 @@ func TestGetConfig(t *testing.T) {
 		require.NoError(t, os.Remove(configPath))
 
 		config, err := getConfig(t, client, repo)
-		testhelper.RequireGrpcError(t, status.Errorf(codes.NotFound, "opening gitconfig: open %s: no such file or directory", configPath), err)
+		testhelper.RequireGrpcCode(t, err, codes.NotFound)
+		require.Regexp(t, "^rpc error: code = NotFound desc = opening gitconfig: open .+/config: no such file or directory$", err.Error())
 		require.Equal(t, "", config)
 	})
 

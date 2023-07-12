@@ -125,13 +125,19 @@ func TestFindRefsByOID_failure(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRefServiceWithoutRepo(t)
 
+	equalError := func(t *testing.T, expected error) func(error) {
+		return func(actual error) {
+			testhelper.RequireGrpcError(t, expected, actual)
+		}
+	}
+
 	testCases := []struct {
 		desc  string
-		setup func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error)
+		setup func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, func(error))
 	}{
 		{
 			desc: "no ref exists for OID",
-			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
+			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, func(error)) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("no ref exists for OID"))
 
@@ -143,7 +149,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		},
 		{
 			desc: "repository is corrupted",
-			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
+			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, func(error)) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("no ref exists for OID"))
 				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/corrupted-repo-branch", oid.String())
@@ -153,15 +159,20 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				return &gitalypb.FindRefsByOIDRequest{
 						Repository: repo,
 						Oid:        oid.String(),
-					}, testhelper.WithInterceptedMetadata(
-						structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, "objects"),
-						"repository_path", repoPath,
-					)
+					}, func(actual error) {
+						testhelper.RequireStatusWithErrorMetadataRegexp(t,
+							structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, "objects"),
+							actual,
+							map[string]string{
+								"repository_path": ".+",
+							},
+						)
+					}
 			},
 		},
 		{
 			desc: "repository is missing",
-			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
+			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, func(error)) {
 				relativePath := gittest.NewRepositoryName(t)
 
 				return &gitalypb.FindRefsByOIDRequest{
@@ -170,14 +181,14 @@ func TestFindRefsByOID_failure(t *testing.T) {
 							RelativePath: relativePath,
 						},
 						Oid: strings.Repeat("a", gittest.DefaultObjectHash.EncodedLen()),
-					}, testhelper.ToInterceptedMetadata(
+					}, equalError(t, testhelper.ToInterceptedMetadata(
 						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, relativePath)),
-					)
+					))
 			},
 		},
 		{
 			desc: "oid is not a commit",
-			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
+			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, func(error)) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				oid := gittest.WriteBlob(t, cfg, repoPath, []byte("the blob"))
 
@@ -189,7 +200,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		},
 		{
 			desc: "oid prefix too short",
-			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
+			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, func(error)) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("oid prefix too short"))
 				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/short-oid", oid.String())
@@ -197,7 +208,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				return &gitalypb.FindRefsByOIDRequest{
 					Repository: repo,
 					Oid:        oid.String()[:2],
-				}, structerr.NewInvalidArgument("for-each-ref pipeline command: exit status 129")
+				}, equalError(t, structerr.NewInvalidArgument("for-each-ref pipeline command: exit status 129"))
 			},
 		},
 	}
@@ -208,11 +219,16 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			request, expectedErr := tc.setup(t)
+			request, requireError := tc.setup(t)
 
 			response, err := client.FindRefsByOID(ctx, request)
 			require.Empty(t, response.GetRefs())
-			testhelper.RequireGrpcError(t, expectedErr, err)
+			if requireError != nil {
+				requireError(err)
+				return
+			}
+
+			require.NoError(t, err)
 		})
 	}
 }

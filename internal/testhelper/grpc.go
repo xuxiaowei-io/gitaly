@@ -72,6 +72,42 @@ func RequireGrpcError(tb testing.TB, expected, actual error) {
 	ProtoEqual(tb, status.Convert(expected).Proto(), status.Convert(actual).Proto())
 }
 
+// RequireStatusWithErrorMetadataRegexp asserts that expected and actual error match each other. Both are expected to
+// be status errors. The error metadata in the status is matched against regular expressions defined in expectedMetadata.
+// expectedMetadata is keyed by error metadata key, and the value is a regex string that the value is expected to match.
+//
+// This method is useful when the error metadata contains values that should not be asserted for equality like changing paths.
+// If the metadata is expected to be equal, use an equality assertion instead.
+func RequireStatusWithErrorMetadataRegexp(tb testing.TB, expected, actual error, expectedMetadata map[string]string) {
+	tb.Helper()
+
+	actualStatus, ok := status.FromError(actual)
+	require.True(tb, ok, "actual was not a status: %+v", actual)
+
+	actualDetails := actualStatus.Details()
+
+	actualWithoutMetadata := actualStatus.Proto()
+	actualWithoutMetadata.Details = nil
+	RequireGrpcError(tb, expected, status.ErrorProto(actualWithoutMetadata))
+
+	actualKeys := make([]string, 0, len(actualDetails))
+	for _, detail := range actualDetails {
+		actualKeys = append(actualKeys, string(detail.(*testproto.ErrorMetadata).Key))
+	}
+
+	expectedKeys := make([]string, 0, len(expectedMetadata))
+	for key := range expectedMetadata {
+		expectedKeys = append(expectedKeys, key)
+	}
+
+	require.ElementsMatch(tb, expectedKeys, actualKeys, "actual metadata keys don't match expected")
+
+	for _, detail := range actualDetails {
+		metadata := detail.(*testproto.ErrorMetadata)
+		require.Regexp(tb, expectedMetadata[string(metadata.Key)], string(metadata.Value), "metadata key %q's value didn't match expected", metadata.Key)
+	}
+}
+
 // MergeOutgoingMetadata merges provided metadata-s and returns context with resulting value.
 func MergeOutgoingMetadata(ctx context.Context, md ...metadata.MD) context.Context {
 	ctxmd, ok := metadata.FromOutgoingContext(ctx)
@@ -97,6 +133,17 @@ func MergeIncomingMetadata(ctx context.Context, md ...metadata.MD) context.Conte
 // metadata into structured errors via the StructErrUnaryInterceptor and StructErrStreamInterceptor so that we can
 // test that metadata has been set as expected on the client-side of a gRPC call.
 func WithInterceptedMetadata(err structerr.Error, key string, value any) structerr.Error {
+	if key == "relative_path" {
+		// There are a number of tests that assert the returned error metadata for equality.
+		// The relative path might be rewritten before the handler which leads to the equality
+		// checks failing. Override the returned relative path so the actual values are not asserted,
+		// just that the key is present.
+		//
+		// This is not really an ideal fix as this overrides a value magically. To remove this, we'll
+		// have to adjust every test that is asserting the relative paths to not do so.
+		value = "OVERRIDDEN_BY_TESTHELPER"
+	}
+
 	return err.WithDetail(&testproto.ErrorMetadata{
 		Key:   []byte(key),
 		Value: []byte(fmt.Sprintf("%v", value)),

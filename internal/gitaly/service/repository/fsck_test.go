@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,10 +21,14 @@ func TestFsck(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
+	equalResponse := func(tb testing.TB, expected *gitalypb.FsckResponse) func(*gitalypb.FsckResponse) {
+		return func(actual *gitalypb.FsckResponse) { testhelper.ProtoEqual(tb, expected, actual) }
+	}
+
 	type setupData struct {
-		repo             *gitalypb.Repository
-		expectedErr      error
-		expectedResponse *gitalypb.FsckResponse
+		repo            *gitalypb.Repository
+		expectedErr     error
+		requireResponse func(*gitalypb.FsckResponse)
 	}
 
 	for _, tc := range []struct {
@@ -47,8 +50,8 @@ func TestFsck(t *testing.T) {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{
-					repo:             repo,
-					expectedResponse: &gitalypb.FsckResponse{},
+					repo:            repo,
+					requireResponse: equalResponse(t, &gitalypb.FsckResponse{}),
 				}
 			},
 		},
@@ -59,8 +62,8 @@ func TestFsck(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 				return setupData{
-					repo:             repo,
-					expectedResponse: &gitalypb.FsckResponse{},
+					repo:            repo,
+					requireResponse: equalResponse(t, &gitalypb.FsckResponse{}),
 				}
 			},
 		},
@@ -76,9 +79,8 @@ func TestFsck(t *testing.T) {
 
 				return setupData{
 					repo: repo,
-					expectedResponse: &gitalypb.FsckResponse{
-						//nolint:gitaly-linters
-						Error: []byte(fmt.Sprintf("fatal: not a git repository: '%s'\n", repoPath)),
+					requireResponse: func(actual *gitalypb.FsckResponse) {
+						require.Regexp(t, "^fatal: not a git repository: '.+'\n$", string(actual.Error))
 					},
 				}
 			},
@@ -103,9 +105,9 @@ func TestFsck(t *testing.T) {
 
 				return setupData{
 					repo: repo,
-					expectedResponse: &gitalypb.FsckResponse{
+					requireResponse: equalResponse(t, &gitalypb.FsckResponse{
 						Error: []byte(expectedErr),
-					},
+					}),
 				}
 			},
 		},
@@ -120,8 +122,8 @@ func TestFsck(t *testing.T) {
 				gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
 
 				return setupData{
-					repo:             repo,
-					expectedResponse: &gitalypb.FsckResponse{},
+					repo:            repo,
+					requireResponse: equalResponse(t, &gitalypb.FsckResponse{}),
 				}
 			},
 		},
@@ -150,9 +152,9 @@ func TestFsck(t *testing.T) {
 
 				return setupData{
 					repo: repo,
-					expectedResponse: &gitalypb.FsckResponse{
+					requireResponse: equalResponse(t, &gitalypb.FsckResponse{
 						Error: []byte(expectedErr),
-					},
+					}),
 				}
 			},
 		},
@@ -167,8 +169,13 @@ func TestFsck(t *testing.T) {
 			response, err := client.Fsck(ctx, &gitalypb.FsckRequest{
 				Repository: setupData.repo,
 			})
-			testhelper.RequireGrpcError(t, setupData.expectedErr, err)
-			testhelper.ProtoEqual(t, setupData.expectedResponse, response)
+			if setupData.expectedErr != nil {
+				testhelper.RequireGrpcError(t, setupData.expectedErr, err)
+				return
+			}
+
+			require.NoError(t, err)
+			setupData.requireResponse(response)
 		})
 	}
 }
