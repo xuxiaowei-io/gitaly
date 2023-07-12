@@ -127,6 +127,11 @@ func (s *server) conflictFilesWithGitMergeTree(
 			},
 		})
 
+		// Clients do not want the contents of the conflicted files, so we skip this section.
+		if request.GetSkipContent() {
+			continue
+		}
+
 		path := conflict.ourPath
 		if path == "" {
 			path = conflict.theirPath

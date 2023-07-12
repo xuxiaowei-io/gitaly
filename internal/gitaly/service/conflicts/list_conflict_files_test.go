@@ -85,6 +85,52 @@ func TestListConflictFiles(t *testing.T) {
 			},
 		},
 		{
+			"Lists the expected conflict files without content",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsService(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "apple"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "banana"},
+				))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "peach"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: theirCommitID.String(),
+					SkipContent:    true,
+				}
+
+				return setupData{
+					client:  client,
+					request: request,
+					expectedFiles: []*conflictFile{
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid: ourCommitID.String(),
+								TheirPath: []byte("a"),
+								OurPath:   []byte("a"),
+								OurMode:   int32(0o100644),
+							},
+						},
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid: ourCommitID.String(),
+								TheirPath: []byte("b"),
+								OurPath:   []byte("b"),
+								OurMode:   int32(0o100644),
+							},
+						},
+					},
+				}
+			},
+		},
+		{
 			"Lists the expected conflict files with short OIDs",
 			func(tb testing.TB, ctx context.Context) setupData {
 				cfg, client := setupConflictsService(tb, nil)
