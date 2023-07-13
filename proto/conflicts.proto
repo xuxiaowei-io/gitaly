@@ -31,18 +31,22 @@ service ConflictsService {
 
 }
 
-// This comment is left unintentionally blank.
+// ListConflictFilesRequest is the request for the ListConflictFilesRequest rpc.
 message ListConflictFilesRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository for which we want to list the conflicted files.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // OurCommitOid is the tree-ish OID to merge into.
   string our_commit_oid = 2;
-  // This comment is left unintentionally blank.
+  // TheirCommitOid is the tree-ish OID to merge from.
   string their_commit_oid = 3;
   // AllowTreeConflicts will not cause the request to fail in case there are
   // tree conflicts. If set to true, then responses may contain conflict files
   // where some of the paths are unset.
   bool allow_tree_conflicts = 4;
+  // SkipContent will skip the parsing and streaming of conflicted file's content.
+  // This can be useful when we only want to know if there is a conflict and which files
+  // are conflicted but don't care about the contents of the conflicted files.
+  bool skip_content = 5;
 }
 
 // This comment is left unintentionally blank.
