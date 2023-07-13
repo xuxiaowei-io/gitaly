@@ -5,6 +5,7 @@ package operations
 import (
 	"crypto/sha1"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -224,7 +225,22 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 		response, err := client.UserUpdateBranch(ctx, request)
 		require.NoError(t, err)
 		require.Contains(t, response.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername)
-		require.Contains(t, response.PreReceiveError, "PWD="+repoPath)
+
+		var gitDir, pwd string
+		for _, env := range strings.Split(response.PreReceiveError, " ") {
+			components := strings.Split(env, "=")
+			if components[0] == "GIT_DIR" {
+				gitDir = components[1]
+			}
+
+			if components[0] == "PWD" {
+				pwd = components[1]
+			}
+		}
+
+		// Assert that the working directory of the hook is the repository's root directory.
+		require.NotEmpty(t, gitDir)
+		require.Equal(t, gitDir, pwd)
 
 		responseOk := &gitalypb.UserUpdateBranchResponse{
 			PreReceiveError: response.PreReceiveError,

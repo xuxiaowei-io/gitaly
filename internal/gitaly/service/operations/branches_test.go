@@ -984,51 +984,49 @@ func TestBranchHookOutput(t *testing.T) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		desc           string
-		hookContent    string
-		output         func(hookPath string) string
-		expectedStderr string
-		expectedStdout string
+		desc                string
+		hookContent         string
+		expectedErrorRegexp string
+		expectedStderr      string
+		expectedStdout      string
 	}{
 		{
-			desc:        "empty stdout and empty stderr",
-			hookContent: "#!/bin/sh\nexit 1",
-			output: func(hookPath string) string {
-				return fmt.Sprintf("executing custom hooks: error executing %q: exit status 1", hookPath)
-			},
+			desc:                "empty stdout and empty stderr",
+			hookContent:         "#!/bin/sh\nexit 1",
+			expectedErrorRegexp: `executing custom hooks: error executing .+: exit status 1`,
 		},
 		{
-			desc:           "empty stdout and some stderr",
-			hookContent:    "#!/bin/sh\necho stderr >&2\nexit 1",
-			output:         func(string) string { return "stderr\n" },
-			expectedStderr: "stderr\n",
+			desc:                "empty stdout and some stderr",
+			hookContent:         "#!/bin/sh\necho stderr >&2\nexit 1",
+			expectedErrorRegexp: "stderr\n",
+			expectedStderr:      "stderr\n",
 		},
 		{
-			desc:           "some stdout and empty stderr",
-			hookContent:    "#!/bin/sh\necho stdout\nexit 1",
-			output:         func(string) string { return "stdout\n" },
-			expectedStdout: "stdout\n",
+			desc:                "some stdout and empty stderr",
+			hookContent:         "#!/bin/sh\necho stdout\nexit 1",
+			expectedErrorRegexp: "stdout\n",
+			expectedStdout:      "stdout\n",
 		},
 		{
-			desc:           "some stdout and some stderr",
-			hookContent:    "#!/bin/sh\necho stdout\necho stderr >&2\nexit 1",
-			output:         func(string) string { return "stderr\n" },
-			expectedStderr: "stderr\n",
-			expectedStdout: "stdout\n",
+			desc:                "some stdout and some stderr",
+			hookContent:         "#!/bin/sh\necho stdout\necho stderr >&2\nexit 1",
+			expectedErrorRegexp: "stderr\n",
+			expectedStderr:      "stderr\n",
+			expectedStdout:      "stdout\n",
 		},
 		{
-			desc:           "whitespace stdout and some stderr",
-			hookContent:    "#!/bin/sh\necho '   '\necho stderr >&2\nexit 1",
-			output:         func(string) string { return "stderr\n" },
-			expectedStderr: "stderr\n",
-			expectedStdout: "   \n",
+			desc:                "whitespace stdout and some stderr",
+			hookContent:         "#!/bin/sh\necho '   '\necho stderr >&2\nexit 1",
+			expectedErrorRegexp: "stderr\n",
+			expectedStderr:      "stderr\n",
+			expectedStdout:      "   \n",
 		},
 		{
-			desc:           "some stdout and whitespace stderr",
-			hookContent:    "#!/bin/sh\necho stdout\necho '   ' >&2\nexit 1",
-			output:         func(string) string { return "stdout\n" },
-			expectedStderr: "   \n",
-			expectedStdout: "stdout\n",
+			desc:                "some stdout and whitespace stderr",
+			hookContent:         "#!/bin/sh\necho stdout\necho '   ' >&2\nexit 1",
+			expectedErrorRegexp: "stdout\n",
+			expectedStderr:      "   \n",
+			expectedStdout:      "stdout\n",
 		},
 	}
 
@@ -1060,8 +1058,7 @@ func TestBranchHookOutput(t *testing.T) {
 					User:       gittest.TestUser,
 				}
 
-				hookFilename := gittest.WriteCustomHook(t, repoPath, hookTestCase.hookName, []byte(testCase.hookContent))
-				expectedError := testCase.output(hookFilename)
+				gittest.WriteCustomHook(t, repoPath, hookTestCase.hookName, []byte(testCase.hookContent))
 
 				_, err := client.UserCreateBranch(ctx, createRequest)
 
@@ -1081,7 +1078,16 @@ func TestBranchHookOutput(t *testing.T) {
 				defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-d", branchNameInput)
 
 				deleteResponse, err := client.UserDeleteBranch(ctx, deleteRequest)
-				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("deletion denied by custom hooks: running %s hooks: %s", hookTestCase.hookName, expectedError).WithDetail(
+
+				actualStatus, ok := status.FromError(err)
+				require.True(t, ok)
+
+				statusWithoutMessage := actualStatus.Proto()
+				statusWithoutMessage.Message = "OVERRIDDEN"
+
+				// Assert the message separately as it references the hook path which may change and fail the equality check.
+				require.Regexp(t, fmt.Sprintf(`^rpc error: code = PermissionDenied desc = deletion denied by custom hooks: running %s hooks: %s$`, hookTestCase.hookName, testCase.expectedErrorRegexp), err)
+				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied(statusWithoutMessage.Message).WithDetail(
 					&gitalypb.UserDeleteBranchError{
 						Error: &gitalypb.UserDeleteBranchError_CustomHook{
 							CustomHook: &gitalypb.CustomHookError{
@@ -1091,7 +1097,7 @@ func TestBranchHookOutput(t *testing.T) {
 							},
 						},
 					},
-				), err)
+				), status.ErrorProto(statusWithoutMessage))
 				require.Nil(t, deleteResponse)
 			})
 		}

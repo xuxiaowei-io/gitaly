@@ -1427,51 +1427,49 @@ func TestTagHookOutput(t *testing.T) {
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, tc := range []struct {
-		desc           string
-		hookContent    string
-		expectedStdout string
-		expectedStderr string
-		expectedErr    func(hookPath string) string
+		desc                string
+		hookContent         string
+		expectedStdout      string
+		expectedStderr      string
+		expectedErrorRegexp string
 	}{
 		{
-			desc:        "empty stdout and empty stderr",
-			hookContent: "#!/bin/sh\nexit 1",
-			expectedErr: func(hookPath string) string {
-				return fmt.Sprintf("executing custom hooks: error executing %q: exit status 1", hookPath)
-			},
+			desc:                "empty stdout and empty stderr",
+			hookContent:         "#!/bin/sh\nexit 1",
+			expectedErrorRegexp: `^executing custom hooks: error executing .+: exit status 1$`,
 		},
 		{
-			desc:           "empty stdout and some stderr",
-			hookContent:    "#!/bin/sh\necho stderr >&2\nexit 1",
-			expectedStderr: "stderr\n",
-			expectedErr:    func(string) string { return "stderr\n" },
+			desc:                "empty stdout and some stderr",
+			hookContent:         "#!/bin/sh\necho stderr >&2\nexit 1",
+			expectedStderr:      "stderr\n",
+			expectedErrorRegexp: `^stderr\n$`,
 		},
 		{
-			desc:           "some stdout and empty stderr",
-			hookContent:    "#!/bin/sh\necho stdout\nexit 1",
-			expectedStdout: "stdout\n",
-			expectedErr:    func(string) string { return "stdout\n" },
+			desc:                "some stdout and empty stderr",
+			hookContent:         "#!/bin/sh\necho stdout\nexit 1",
+			expectedStdout:      "stdout\n",
+			expectedErrorRegexp: `^stdout\n$`,
 		},
 		{
-			desc:           "some stdout and some stderr",
-			hookContent:    "#!/bin/sh\necho stdout\necho stderr >&2\nexit 1",
-			expectedStdout: "stdout\n",
-			expectedStderr: "stderr\n",
-			expectedErr:    func(string) string { return "stderr\n" },
+			desc:                "some stdout and some stderr",
+			hookContent:         "#!/bin/sh\necho stdout\necho stderr >&2\nexit 1",
+			expectedStdout:      "stdout\n",
+			expectedStderr:      "stderr\n",
+			expectedErrorRegexp: `^stderr\n$`,
 		},
 		{
-			desc:           "whitespace stdout and some stderr",
-			hookContent:    "#!/bin/sh\necho '   '\necho stderr >&2\nexit 1",
-			expectedStdout: "   \n",
-			expectedStderr: "stderr\n",
-			expectedErr:    func(string) string { return "stderr\n" },
+			desc:                "whitespace stdout and some stderr",
+			hookContent:         "#!/bin/sh\necho '   '\necho stderr >&2\nexit 1",
+			expectedStdout:      "   \n",
+			expectedStderr:      "stderr\n",
+			expectedErrorRegexp: `^stderr\n$`,
 		},
 		{
-			desc:           "some stdout and whitespace stderr",
-			hookContent:    "#!/bin/sh\necho stdout\necho '   ' >&2\nexit 1",
-			expectedStdout: "stdout\n",
-			expectedStderr: "   \n",
-			expectedErr:    func(string) string { return "stdout\n" },
+			desc:                "some stdout and whitespace stderr",
+			hookContent:         "#!/bin/sh\necho stdout\necho '   ' >&2\nexit 1",
+			expectedStdout:      "stdout\n",
+			expectedStderr:      "   \n",
+			expectedErrorRegexp: `^stdout\n$`,
 		},
 	} {
 		for _, hookTC := range []struct {
@@ -1497,7 +1495,7 @@ func TestTagHookOutput(t *testing.T) {
 				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 				gittest.WriteTag(t, cfg, repoPath, "to-be-deleted", commitID.Revision())
 
-				hookFilename := gittest.WriteCustomHook(t, repoPath, hookTC.hook, []byte(tc.hookContent))
+				gittest.WriteCustomHook(t, repoPath, hookTC.hook, []byte(tc.hookContent))
 
 				t.Run("UserCreateTag", func(t *testing.T) {
 					t.Parallel()
@@ -1532,9 +1530,11 @@ func TestTagHookOutput(t *testing.T) {
 						User:       gittest.TestUser,
 					})
 					require.NoError(t, err)
-					testhelper.ProtoEqual(t, &gitalypb.UserDeleteTagResponse{
-						PreReceiveError: tc.expectedErr(hookFilename),
-					}, response)
+
+					preReceiveErr := response.PreReceiveError
+					response.PreReceiveError = ""
+					testhelper.ProtoEqual(t, &gitalypb.UserDeleteTagResponse{}, response)
+					require.Regexp(t, tc.expectedErrorRegexp, preReceiveErr)
 				})
 			})
 		}
