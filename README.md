@@ -54,7 +54,7 @@ graph LR
 
   subgraph "Gitaly Service"                                                
   Gitaly == git ==> Filesystem
-  Gitaly -- "libgit2 / Rugged" --> Filesystem[(Filesystem)]
+  Gitaly -- "libgit2" --> Filesystem[(Filesystem)]
   end
 
   subgraph "Clients"
@@ -65,6 +65,34 @@ graph LR
   end
 
   Rails -. Rugged .-> Filesystem
+```
+
+In [High Availability](#high-availability) mode, the current implementation looks like this (some details omitted):
+
+```mermaid
+graph LR
+
+  subgraph "Gitaly Nodes"                                                
+  Gitaly == git ==> Filesystem
+  Gitaly -- "libgit2" --> Filesystem[(Filesystem)]
+  end
+
+  subgraph "Praefects"
+    LB[typical setup uses a loadbalancer] --> P1
+    LB --> P2
+    P1[Praefect 1]
+    P2[Praefect N]
+    P1 --> PG[(PostgreSQL)]
+    P2 --> PG
+  end
+
+  subgraph "Clients"
+    Rails[gitlab-rails]
+    Workhorse 
+    Shell[gitlab-shell]
+  end
+  
+Clients --> Praefects --> Gitaly
 ```
 
 ### Gitaly clients
@@ -91,8 +119,8 @@ package.
 
 Gitaly offers a High Availability solution known as Gitaly Cluster ([product documentation](https://docs.gitlab.com/ee/administration/gitaly/)).
 
-- In its current iteration, client traffic goes through a new component, [Praefect](https://docs.gitlab.com/ee/administration/gitaly/praefect.html), which then replicates data to multiple Gitaly servers, and stores state in a PostgreSQL database.
-- We are working on a new distributed replication solution referred to as Raft: [epic](https://gitlab.com/groups/gitlab-org/-/epics/8903).
+- In its current iteration, client traffic goes through [Praefect](https://docs.gitlab.com/ee/administration/gitaly/praefect.html), which then replicates data to multiple Gitaly servers, and stores state in a PostgreSQL database (see [Design](#design) above)
+- We are working on a new distributed replication solution referred to as Raft, notably removing the need for Praefect and its database, and offering stricter consistency guarantees. See this [epic](https://gitlab.com/groups/gitlab-org/-/epics/8903) for details on the new design and its progress.
 
 ## Further reading
 
