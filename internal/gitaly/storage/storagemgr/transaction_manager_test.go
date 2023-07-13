@@ -134,6 +134,30 @@ func indexFileDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
 	}
 }
 
+// reverseIndexFileDirectoryEntry returns a DirectoryEntry that asserts the given pack file reverse index is valid.
+func reverseIndexFileDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
+	return testhelper.DirectoryEntry{
+		Mode: perm.SharedReadOnlyFile,
+		ParseContent: func(tb testing.TB, path string, content []byte) any {
+			tb.Helper()
+
+			// We cannot run git-verify-pack(1) directly against a reverse index file, so we validate the
+			// header to fail fast when possible. If this passes but the '.rev' file is invalid, the
+			// '.idx' check will fail.
+			buf := make([]byte, 4)
+			f, err := os.Open(path)
+			require.NoError(tb, err)
+			defer testhelper.MustClose(tb, f)
+
+			_, err = f.Read(buf)
+			require.NoError(tb, err)
+			require.Equal(tb, []byte{'R', 'I', 'D', 'X'}, buf)
+
+			return nil
+		},
+	}
+}
+
 func TestTransactionManager(t *testing.T) {
 	umask := perm.GetUmask()
 
@@ -2047,6 +2071,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
 					}): indexFileDirectoryEntry(setup.Config),
 					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.rev",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
 					}): packFileDirectoryEntry(
@@ -2151,6 +2179,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.idx",
 					}): indexFileDirectoryEntry(setup.Config),
 					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-4274682fcb6a4dbb1a59ba7dd8577402e61ccbd2.rev",
+						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-4274682fcb6a4dbb1a59ba7dd8577402e61ccbd2.pack",
 						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.pack",
 					}): packFileDirectoryEntry(
@@ -2166,6 +2198,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA1.Format:   "pack-d8f8b445de2d8e0164e38e669c904aaaebb55ecc.idx",
 						git.ObjectHashSHA256.Format: "pack-eb1f9d6108dede6b5b0b934e5a4871d8ed49692c7024df15cff7da78a81315d6.idx",
 					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/3/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-d8f8b445de2d8e0164e38e669c904aaaebb55ecc.rev",
+						git.ObjectHashSHA256.Format: "pack-eb1f9d6108dede6b5b0b934e5a4871d8ed49692c7024df15cff7da78a81315d6.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
 					"/wal/packs/3/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-d8f8b445de2d8e0164e38e669c904aaaebb55ecc.pack",
 						git.ObjectHashSHA256.Format: "pack-eb1f9d6108dede6b5b0b934e5a4871d8ed49692c7024df15cff7da78a81315d6.pack",
@@ -2230,6 +2266,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.idx",
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
 					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.rev",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
 					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
@@ -2316,6 +2356,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
 					}): indexFileDirectoryEntry(setup.Config),
 					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.rev",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
 					}): packFileDirectoryEntry(
@@ -2386,6 +2430,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.idx",
 					}): indexFileDirectoryEntry(setup.Config),
 					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-4274682fcb6a4dbb1a59ba7dd8577402e61ccbd2.rev",
+						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-4274682fcb6a4dbb1a59ba7dd8577402e61ccbd2.pack",
 						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.pack",
 					}): packFileDirectoryEntry(
@@ -2432,6 +2480,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA1.Format:   "pack-8c505e1fb0a42014b48c24b0af5f98ca30160ae2.idx",
 						git.ObjectHashSHA256.Format: "pack-23ee29e512957946104c856d8430256d2b67e53265633b4432129f52eacbaa4e.idx",
 					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-8c505e1fb0a42014b48c24b0af5f98ca30160ae2.rev",
+						git.ObjectHashSHA256.Format: "pack-23ee29e512957946104c856d8430256d2b67e53265633b4432129f52eacbaa4e.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
 					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-8c505e1fb0a42014b48c24b0af5f98ca30160ae2.pack",
 						git.ObjectHashSHA256.Format: "pack-23ee29e512957946104c856d8430256d2b67e53265633b4432129f52eacbaa4e.pack",
@@ -2516,6 +2568,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
 					}): indexFileDirectoryEntry(setup.Config),
 					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.rev",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
 					}): packFileDirectoryEntry(
@@ -2596,6 +2652,10 @@ func TestTransactionManager(t *testing.T) {
 						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.idx",
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.idx",
 					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.rev",
+						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.rev",
+					}): reverseIndexFileDirectoryEntry(setup.Config),
 					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
 						git.ObjectHashSHA1.Format:   "pack-452292f7e0c6bcca1b42c53aaac4537416b5dbb9.pack",
 						git.ObjectHashSHA256.Format: "pack-735ad245db57a16c41525c9101c42594d090c7021b51aa12d9104a4eea4223c5.pack",
