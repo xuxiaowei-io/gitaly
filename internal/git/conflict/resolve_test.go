@@ -15,11 +15,12 @@ func TestResolve(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		src        io.Reader
-		ours       git.ObjectID
-		theirs     git.ObjectID
-		path       string
-		resolution Resolution
+		src           io.Reader
+		ours          git.ObjectID
+		theirs        git.ObjectID
+		path          string
+		resolution    Resolution
+		appendNewLine bool
 	}
 	tests := []struct {
 		name            string
@@ -52,6 +53,34 @@ we can both agree on this line though
 			resolvedContent: []byte(`# this file is very conflicted
 we want this line
 we can both agree on this line though`),
+		},
+		{
+			name: "select ours with newline",
+			args: args{
+				src: strings.NewReader(fmt.Sprintf(`# this file is very conflicted
+<<<<<<< %s
+we want this line
+=======
+but they want this line
+>>>>>>> %s
+we can both agree on this line though
+`, gittest.DefaultObjectHash.EmptyTreeOID, gittest.DefaultObjectHash.EmptyTreeOID)),
+				ours:   gittest.DefaultObjectHash.EmptyTreeOID,
+				theirs: gittest.DefaultObjectHash.EmptyTreeOID,
+				path:   "conflict.txt",
+				resolution: Resolution{
+					NewPath: "conflict.txt",
+					OldPath: "conflict.txt",
+					Sections: map[string]string{
+						"dc1c302824bab8da29f7c06fec1c77cf16b975e6_2_2": "head",
+					},
+				},
+				appendNewLine: true,
+			},
+			resolvedContent: []byte(`# this file is very conflicted
+we want this line
+we can both agree on this line though
+`),
 		},
 		{
 			name: "select theirs",
@@ -167,7 +196,7 @@ we can both agree on this line though
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			resolvedReader, err := Resolve(tt.args.src, tt.args.ours, tt.args.theirs, tt.args.path, tt.args.resolution)
+			resolvedReader, err := Resolve(tt.args.src, tt.args.ours, tt.args.theirs, tt.args.path, tt.args.resolution, tt.args.appendNewLine)
 			if err != nil || tt.expectedErr != nil {
 				require.Equal(t, tt.expectedErr, err)
 				return

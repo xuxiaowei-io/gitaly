@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -169,23 +171,40 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return errors.New("Rugged::InvalidError: unable to parse OID - contains invalid characters")
 	}
 
-	result, err := s.git2goExecutor.Resolve(ctx, quarantineRepo, git2go.ResolveCommand{
-		MergeCommand: git2go.MergeCommand{
-			Repository: repoPath,
-			AuthorName: string(header.User.Name),
-			AuthorMail: string(header.User.Email),
-			AuthorDate: authorDate,
-			Message:    string(header.CommitMessage),
-			Ours:       header.GetOurCommitOid(),
-			Theirs:     header.GetTheirCommitOid(),
-		},
-		Resolutions: resolutions,
-	})
-	if err != nil {
-		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return structerr.NewInvalidArgument("%w", err)
+	var result git2go.ResolveResult
+	if !featureflag.ResolveConflictsViaGit.IsEnabled(ctx) {
+		result, err = s.git2goExecutor.Resolve(ctx, quarantineRepo, git2go.ResolveCommand{
+			MergeCommand: git2go.MergeCommand{
+				Repository: repoPath,
+				AuthorName: string(header.User.Name),
+				AuthorMail: string(header.User.Email),
+				AuthorDate: authorDate,
+				Message:    string(header.CommitMessage),
+				Ours:       header.GetOurCommitOid(),
+				Theirs:     header.GetTheirCommitOid(),
+			},
+			Resolutions: resolutions,
+		})
+		if err != nil {
+			if errors.Is(err, git2go.ErrInvalidArgument) {
+				return structerr.NewInvalidArgument("%w", err)
+			}
+			return err
 		}
-		return err
+	} else {
+		result, err = s.resolveConflictsWithGit(
+			ctx,
+			header.GetOurCommitOid(),
+			header.GetTheirCommitOid(),
+			quarantineRepo,
+			resolutions,
+			authorDate,
+			header.User,
+			header.GetCommitMessage(),
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	commitOID, err := git.ObjectHashSHA1.FromHex(result.CommitID)
@@ -206,6 +225,170 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 	}
 
 	return nil
+}
+
+func (s *server) resolveConflictsWithGit(
+	ctx context.Context,
+	ours, theirs string,
+	repo *localrepo.Repo,
+	resolutions []conflict.Resolution,
+	authorDate time.Time,
+	user *gitalypb.User,
+	commitMessage []byte,
+) (git2go.ResolveResult, error) {
+	var result git2go.ResolveResult
+
+	treeOID, err := repo.MergeTree(ctx, ours, theirs, localrepo.WithAllowUnrelatedHistories())
+
+	var mergeConflictErr *localrepo.MergeTreeConflictError
+	if errors.As(err, &mergeConflictErr) {
+		conflictedFiles := mergeConflictErr.ConflictedFiles()
+		checkedConflictedFiles := make(map[string]bool)
+		for _, conflictedFile := range conflictedFiles {
+			checkedConflictedFiles[conflictedFile] = false
+		}
+
+		tree, err := repo.ReadTree(ctx, treeOID.Revision(), localrepo.WithRecursive())
+		if err != nil {
+			return result, structerr.NewInternal("getting tree: %w", err)
+		}
+
+		objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
+		if err != nil {
+			return result, structerr.NewInternal("getting objectreader: %w", err)
+		}
+		defer cancel()
+
+		for _, resolution := range resolutions {
+			path := resolution.OldPath
+
+			if _, ok := checkedConflictedFiles[path]; !ok {
+				// Note: this emulates the Ruby error that occurs when
+				// there are no conflicts for a resolution
+				return result, errors.New("NoMethodError: undefined method `resolve_lines' for nil:NilClass")
+			}
+
+			// We mark the file as checked, any remaining files, which don't have a resolution
+			// associated, will throw an error.
+			checkedConflictedFiles[path] = true
+
+			conflictedBlob, err := tree.Get(path)
+			if err != nil {
+				return result, structerr.NewInternal("path not found in merged-tree: %w", err)
+			}
+
+			if conflictedBlob.Type != localrepo.Blob {
+				return result, structerr.NewInternal("entry should be of type blob").
+					WithMetadataItems(
+						structerr.MetadataItem{Key: "path", Value: path},
+						structerr.MetadataItem{Key: "type", Value: conflictedBlob.Type},
+					)
+			}
+
+			// We first read the object completely to see if the content is similar
+			// to the content in the resolution.
+			if resolution.Content != "" {
+				object, err := objectReader.Object(ctx, conflictedBlob.OID.Revision())
+				if err != nil {
+					return result, structerr.NewInternal("retrieving object: %w", err)
+				}
+
+				content, err := io.ReadAll(object)
+				if err != nil {
+					return result, structerr.NewInternal("reading object: %w", err)
+				}
+
+				// Git2Go conflict markers have filenames and git-merge-tree(1) has commit OIDs.
+				// Rails uses the older form, so to check if the content is the same, we need to
+				// adhere to this.
+				//
+				// Should be fixed with: https://gitlab.com/gitlab-org/git/-/issues/168
+				content = bytes.ReplaceAll(content, []byte(ours), []byte(resolution.OldPath))
+				content = bytes.ReplaceAll(content, []byte(theirs), []byte(resolution.NewPath))
+
+				if bytes.Equal([]byte(resolution.Content), content) {
+					// This is to keep the error consistent with git2go implementation
+					return result, structerr.NewInvalidArgument("Resolved content has no changes for file %s", path)
+				}
+			}
+
+			object, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:%s", ours, resolution.OldPath)))
+			if err != nil {
+				return result, structerr.NewInternal("retrieving object: %w", err)
+			}
+
+			// Rails expects files ending with newlines to retain them post conflict, but
+			// git swallows ending newlines. So we manually append them if necessary.
+			needsNewLine := false
+
+			oursContent, err := io.ReadAll(object)
+			if err != nil {
+				return result, structerr.NewInternal("reading object: %w", err)
+			}
+			if len(oursContent) > 0 {
+				needsNewLine = oursContent[len(oursContent)-1] == '\n'
+			}
+
+			object, err = objectReader.Object(ctx, conflictedBlob.OID.Revision())
+			if err != nil {
+				return result, structerr.NewInternal("retrieving object: %w", err)
+			}
+
+			resolvedContent, err := conflict.Resolve(object, git.ObjectID(ours), git.ObjectID(theirs), path, resolution, needsNewLine)
+			if err != nil {
+				return result, structerr.NewInternal("%w", err)
+			}
+
+			blobOID, err := repo.WriteBlob(ctx, filepath.Base(path), resolvedContent)
+			if err != nil {
+				return result, structerr.NewInternal("writing blob: %w", err)
+			}
+
+			err = tree.Add(path, localrepo.TreeEntry{
+				OID:  blobOID,
+				Mode: conflictedBlob.Mode,
+				Path: filepath.Base(path),
+				Type: localrepo.Blob,
+			}, localrepo.WithOverwriteFile())
+			if err != nil {
+				return result, structerr.NewInternal("add to tree: %w", err)
+			}
+		}
+
+		for conflictedFile, checked := range checkedConflictedFiles {
+			if !checked {
+				return result, fmt.Errorf("Missing resolutions for the following files: %s", conflictedFile) //nolint // this is to stay consistent with rugged-rails error
+			}
+		}
+
+		err = tree.Write(ctx, repo)
+		if err != nil {
+			return result, structerr.NewInternal("write tree: %w", err)
+		}
+
+		treeOID = tree.OID
+	} else if err != nil {
+		return result, structerr.NewInternal("merge-tree: %w", err)
+	}
+
+	commitOID, err := repo.WriteCommit(ctx, localrepo.WriteCommitConfig{
+		Parents:        []git.ObjectID{git.ObjectID(ours), git.ObjectID(theirs)},
+		CommitterDate:  authorDate,
+		CommitterEmail: string(user.GetEmail()),
+		CommitterName:  string(user.GetName()),
+		AuthorDate:     authorDate,
+		AuthorEmail:    string(user.GetEmail()),
+		AuthorName:     string(user.GetName()),
+		Message:        string(commitMessage),
+		TreeID:         treeOID,
+	})
+	if err != nil {
+		return result, structerr.NewInternal("writing commit: %w", err)
+	}
+
+	result.CommitID = commitOID.String()
+
+	return result, nil
 }
 
 func sameRepo(left, right storage.Repository) bool {
