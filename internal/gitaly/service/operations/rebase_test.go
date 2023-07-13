@@ -166,6 +166,10 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, response.GetRebaseApplied())
 
+	response, err = stream.Recv()
+	require.Equal(t, io.EOF, err)
+	require.Nil(t, response)
+
 	rebaseCommit, err := localrepo.NewTestRepo(t, cfg, repoProto).ReadCommit(ctx, rebaseOID.Revision())
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
