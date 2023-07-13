@@ -104,9 +104,7 @@ As of Q4 2018, the following GitLab components act as Gitaly clients:
 - [`gitlab-shell`](https://gitlab.com/gitlab-org/gitlab-shell/tree/main):
   for `git clone`, `git push` etc. via SSH.
 - [`gitlab-workhorse`](https://gitlab.com/gitlab-org/gitlab/-/blob/master/workhorse/internal/gitaly/gitaly.go):
-  for `git clone` via HTTPS and for slow requests that serve raw Git
-  data.
-  ([example](https://gitlab.com/gitlab-org/gitaly/raw/master/README.md))
+  for `git clone` via HTTPS and for slow requests that serve raw Git data.
 - [`gitaly-ssh`](https://gitlab.com/gitlab-org/gitaly/tree/master/cmd/gitaly-ssh):
   for internal Git data transfers between Gitaly servers.
 
