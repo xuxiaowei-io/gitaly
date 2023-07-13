@@ -52,7 +52,7 @@ High-level architecture overview:
 ```mermaid
 graph LR
 
-  subgraph "Gitaly Service"                                                
+  subgraph "Gitaly Service"
   Gitaly == git ==> Filesystem
   Gitaly -- "libgit2" --> Filesystem[(Filesystem)]
   end
