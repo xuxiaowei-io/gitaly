@@ -25,13 +25,13 @@ func (s *server) RestoreRepository(ctx context.Context, in *gitalypb.RestoreRepo
 		s.gitCmdFactory,
 		s.catfileCache,
 		s.txManager,
-		in.GetBackupId(),
 	)
 
 	if err := manager.Restore(ctx, &backup.RestoreRequest{
 		Repository:       in.GetRepository(),
 		VanityRepository: in.GetVanityRepository(),
 		AlwaysCreate:     in.GetAlwaysCreate(),
+		BackupID:         in.GetBackupId(),
 	}); err != nil {
 		return nil, structerr.NewInternal("restore repository: %w", err)
 	}

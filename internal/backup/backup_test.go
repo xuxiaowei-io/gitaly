@@ -32,8 +32,6 @@ import (
 func TestManager_RemoveAllRepositories(t *testing.T) {
 	t.Parallel()
 
-	const backupID = "abc123"
-
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
@@ -53,7 +51,7 @@ func TestManager_RemoveAllRepositories(t *testing.T) {
 	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
-	fsBackup := backup.NewManager(sink, locator, pool, backupID)
+	fsBackup := backup.NewManager(sink, locator, pool)
 	err = fsBackup.RemoveAllRepositories(ctx, &backup.RemoveAllRepositoriesRequest{
 		Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 		StorageName: repo.StorageName,
@@ -84,7 +82,7 @@ func TestManager_Create(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool, backupID)
+				return backup.NewManager(sink, locator, pool)
 			},
 		},
 		{
@@ -100,7 +98,7 @@ func TestManager_Create(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, backupID)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager)
 			},
 		},
 	} {
@@ -181,6 +179,7 @@ func TestManager_Create(t *testing.T) {
 					Server:           storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 					Repository:       repo,
 					VanityRepository: vanityRepo,
+					BackupID:         backupID,
 				})
 				if tc.err == nil {
 					require.NoError(t, err)
@@ -242,7 +241,7 @@ func TestManager_Create_incremental(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool, backupID)
+				return backup.NewManager(sink, locator, pool)
 			},
 		},
 		{
@@ -258,7 +257,7 @@ func TestManager_Create_incremental(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, backupID)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager)
 			},
 		},
 	} {
@@ -349,6 +348,7 @@ func TestManager_Create_incremental(t *testing.T) {
 					Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 					Repository:  repo,
 					Incremental: true,
+					BackupID:    backupID,
 				})
 				if tc.expectedErr == nil {
 					require.NoError(t, err)
@@ -387,7 +387,7 @@ func TestManager_Restore_latest(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool, "")
+				return backup.NewManager(sink, locator, pool)
 			},
 		},
 		{
@@ -403,7 +403,7 @@ func TestManager_Restore_latest(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, "")
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager)
 			},
 		},
 	} {
@@ -604,6 +604,7 @@ func TestManager_Restore_latest(t *testing.T) {
 								Repository:       repo,
 								VanityRepository: repo,
 								AlwaysCreate:     tc.alwaysCreate,
+								BackupID:         "",
 							})
 							if tc.expectedErrAs != nil {
 								require.ErrorAs(t, err, &tc.expectedErrAs)
@@ -664,7 +665,7 @@ func TestManager_Restore_specific(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool, backupID)
+				return backup.NewManager(sink, locator, pool)
 			},
 		},
 		{
@@ -680,7 +681,7 @@ func TestManager_Restore_specific(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, backupID)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager)
 			},
 		},
 	} {
@@ -795,6 +796,7 @@ func TestManager_Restore_specific(t *testing.T) {
 						Repository:       repo,
 						VanityRepository: repo,
 						AlwaysCreate:     tc.alwaysCreate,
+						BackupID:         backupID,
 					})
 					if tc.expectedErrAs != nil {
 						require.ErrorAs(t, err, &tc.expectedErrAs)
@@ -856,12 +858,13 @@ func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
 	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
-	fsBackup := backup.NewManager(sink, locator, pool, "unused-backup-id")
+	fsBackup := backup.NewManager(sink, locator, pool)
 
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	require.NoError(t, fsBackup.Create(ctx, &backup.CreateRequest{
 		Repository: repo,
+		BackupID:   "abc123",
 	}))
 	require.NoError(t, fsBackup.Restore(ctx, &backup.RestoreRequest{
 		Repository: repo,

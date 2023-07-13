@@ -26,12 +26,12 @@ func (s *server) BackupRepository(ctx context.Context, in *gitalypb.BackupReposi
 		s.gitCmdFactory,
 		s.catfileCache,
 		s.txManager,
-		in.BackupId,
 	)
 
 	err := manager.Create(ctx, &backup.CreateRequest{
 		Repository:       in.Repository,
 		VanityRepository: in.VanityRepository,
+		BackupID:         in.BackupId,
 	})
 
 	switch {

@@ -119,23 +119,17 @@ type Manager struct {
 	conns   *client.Pool
 	locator Locator
 
-	// backupID allows setting the same full backup ID for every repository at
-	// once. We may use this to make it easier to specify a backup to restore
-	// from, rather than always selecting the latest.
-	backupID string
-
 	// repositoryFactory returns an abstraction over git repositories in order
 	// to create and restore backups.
 	repositoryFactory func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error)
 }
 
 // NewManager creates and returns initialized *Manager instance.
-func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) *Manager {
+func NewManager(sink Sink, locator Locator, pool *client.Pool) *Manager {
 	return &Manager{
-		sink:     sink,
-		conns:    pool,
-		locator:  locator,
-		backupID: backupID,
+		sink:    sink,
+		conns:   pool,
+		locator: locator,
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
 			if err := setContextServerInfo(ctx, &server, repo.GetStorageName()); err != nil {
 				return nil, err
@@ -159,13 +153,11 @@ func NewManagerLocal(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
-	backupID string,
 ) *Manager {
 	return &Manager{
-		sink:     sink,
-		conns:    nil, // Will be removed once the restore operations are part of the Repository interface.
-		locator:  locator,
-		backupID: backupID,
+		sink:    sink,
+		conns:   nil, // Will be removed once the restore operations are part of the Repository interface.
+		locator: locator,
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
 			localRepo := localrepo.New(storageLocator, gitCmdFactory, catfileCache, repo)
 
@@ -200,19 +192,6 @@ func (mgr *Manager) RemoveAllRepositories(ctx context.Context, req *RemoveAllRep
 	return nil
 }
 
-// CreateRequest is the request to create a backup
-type CreateRequest struct {
-	// Server contains gitaly server connection information required to call
-	// RPCs in the non-local backup.Manager configuration.
-	Server storage.ServerInfo
-	// Repository is the repository to be backed up.
-	Repository *gitalypb.Repository
-	// VanityRepository is used to determine the backup path.
-	VanityRepository *gitalypb.Repository
-	// Incremental when true will create an increment on the specified full backup.
-	Incremental bool
-}
-
 // Create creates a repository backup.
 func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	if req.VanityRepository == nil {
@@ -232,12 +211,12 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	var step *Step
 	if req.Incremental {
 		var err error
-		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, mgr.backupID)
+		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, req.BackupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		step = mgr.locator.BeginFull(ctx, req.VanityRepository, mgr.backupID)
+		step = mgr.locator.BeginFull(ctx, req.VanityRepository, req.BackupID)
 	}
 
 	refs, err := repo.ListRefs(ctx)
@@ -261,21 +240,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	return nil
 }
 
-// RestoreRequest is the request to restore from a backup
-type RestoreRequest struct {
-	// Server contains gitaly server connection information required to call
-	// RPCs in the non-local backup.Manager configuration.
-	Server storage.ServerInfo
-	// Repository is the repository to be restored.
-	Repository *gitalypb.Repository
-	// VanityRepository is used to determine the backup path.
-	VanityRepository *gitalypb.Repository
-	// AlwaysCreate forces the repository to be created even if no bundle for
-	// it exists. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
-	AlwaysCreate bool
-}
-
-// Restore restores a repository from a backup. If backupID is empty, the
+// Restore restores a repository from a backup. If req.BackupID is empty, the
 // latest backup will be used.
 func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 	if req.VanityRepository == nil {
@@ -292,13 +257,13 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 	}
 
 	var backup *Backup
-	if mgr.backupID == "" {
+	if req.BackupID == "" {
 		backup, err = mgr.locator.FindLatest(ctx, req.VanityRepository)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		backup, err = mgr.locator.Find(ctx, req.VanityRepository, mgr.backupID)
+		backup, err = mgr.locator.Find(ctx, req.VanityRepository, req.BackupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}

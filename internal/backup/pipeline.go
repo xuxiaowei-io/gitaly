@@ -18,6 +18,39 @@ type Strategy interface {
 	Restore(context.Context, *RestoreRequest) error
 }
 
+// CreateRequest is the request to create a backup
+type CreateRequest struct {
+	// Server contains gitaly server connection information required to call
+	// RPCs in the non-local backup.Manager configuration.
+	Server storage.ServerInfo
+	// Repository is the repository to be backed up.
+	Repository *gitalypb.Repository
+	// VanityRepository is used to determine the backup path.
+	VanityRepository *gitalypb.Repository
+	// Incremental when true will create an increment on the specified full backup.
+	Incremental bool
+	// BackupID is used to determine a unique path for the backup when a full
+	// backup is created.
+	BackupID string
+}
+
+// RestoreRequest is the request to restore from a backup
+type RestoreRequest struct {
+	// Server contains gitaly server connection information required to call
+	// RPCs in the non-local backup.Manager configuration.
+	Server storage.ServerInfo
+	// Repository is the repository to be restored.
+	Repository *gitalypb.Repository
+	// VanityRepository is used to determine the backup path.
+	VanityRepository *gitalypb.Repository
+	// AlwaysCreate forces the repository to be created even if no bundle for
+	// it exists. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
+	AlwaysCreate bool
+	// BackupID is the ID of the full backup to restore. If not specified, the
+	// latest backup is restored..
+	BackupID string
+}
+
 // Command handles a specific backup operation
 type Command interface {
 	Repository() *gitalypb.Repository
@@ -34,25 +67,21 @@ type Pipeline interface {
 
 // CreateCommand creates a backup for a repository
 type CreateCommand struct {
-	strategy    Strategy
-	server      storage.ServerInfo
-	repository  *gitalypb.Repository
-	incremental bool
+	strategy Strategy
+	request  CreateRequest
 }
 
 // NewCreateCommand builds a CreateCommand
-func NewCreateCommand(strategy Strategy, server storage.ServerInfo, repo *gitalypb.Repository, incremental bool) *CreateCommand {
+func NewCreateCommand(strategy Strategy, request CreateRequest) *CreateCommand {
 	return &CreateCommand{
-		strategy:    strategy,
-		server:      server,
-		repository:  repo,
-		incremental: incremental,
+		strategy: strategy,
+		request:  request,
 	}
 }
 
 // Repository is the repository that will be acted on
 func (cmd CreateCommand) Repository() *gitalypb.Repository {
-	return cmd.repository
+	return cmd.request.Repository
 }
 
 // Name is the name of the command
@@ -62,34 +91,26 @@ func (cmd CreateCommand) Name() string {
 
 // Execute performs the backup
 func (cmd CreateCommand) Execute(ctx context.Context) error {
-	return cmd.strategy.Create(ctx, &CreateRequest{
-		Server:      cmd.server,
-		Repository:  cmd.repository,
-		Incremental: cmd.incremental,
-	})
+	return cmd.strategy.Create(ctx, &cmd.request)
 }
 
 // RestoreCommand restores a backup for a repository
 type RestoreCommand struct {
-	strategy     Strategy
-	server       storage.ServerInfo
-	repository   *gitalypb.Repository
-	alwaysCreate bool
+	strategy Strategy
+	request  RestoreRequest
 }
 
 // NewRestoreCommand builds a RestoreCommand
-func NewRestoreCommand(strategy Strategy, server storage.ServerInfo, repo *gitalypb.Repository, alwaysCreate bool) *RestoreCommand {
+func NewRestoreCommand(strategy Strategy, request RestoreRequest) *RestoreCommand {
 	return &RestoreCommand{
-		strategy:     strategy,
-		server:       server,
-		repository:   repo,
-		alwaysCreate: alwaysCreate,
+		strategy: strategy,
+		request:  request,
 	}
 }
 
 // Repository is the repository that will be acted on
 func (cmd RestoreCommand) Repository() *gitalypb.Repository {
-	return cmd.repository
+	return cmd.request.Repository
 }
 
 // Name is the name of the command
@@ -99,11 +120,7 @@ func (cmd RestoreCommand) Name() string {
 
 // Execute performs the restore
 func (cmd RestoreCommand) Execute(ctx context.Context) error {
-	return cmd.strategy.Restore(ctx, &RestoreRequest{
-		Server:       cmd.server,
-		Repository:   cmd.repository,
-		AlwaysCreate: cmd.alwaysCreate,
-	})
+	return cmd.strategy.Restore(ctx, &cmd.request)
 }
 
 // PipelineErrors represents a summary of errors by repository

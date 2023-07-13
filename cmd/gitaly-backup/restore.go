@@ -61,7 +61,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 	pool := client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
 	defer pool.Close()
 
-	manager := backup.NewManager(sink, locator, pool, cmd.backupID)
+	manager := backup.NewManager(sink, locator, pool)
 	logger := log.StandardLogger()
 
 	for _, storageName := range cmd.removeAllRepositories {
@@ -95,7 +95,13 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 			RelativePath:  req.RelativePath,
 			GlProjectPath: req.GlProjectPath,
 		}
-		pipeline.Handle(ctx, backup.NewRestoreCommand(manager, req.ServerInfo, &repo, req.AlwaysCreate))
+		pipeline.Handle(ctx, backup.NewRestoreCommand(manager, backup.RestoreRequest{
+			Server:           req.ServerInfo,
+			Repository:       &repo,
+			VanityRepository: &repo,
+			AlwaysCreate:     req.AlwaysCreate,
+			BackupID:         cmd.backupID,
+		}))
 	}
 
 	if err := pipeline.Done(); err != nil {
