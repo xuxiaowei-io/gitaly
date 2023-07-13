@@ -14,12 +14,6 @@ func init() {
 }
 
 var registeredTypes = map[reflect.Type]struct{}{
-	reflect.TypeOf(ChangeFileMode{}):         {},
-	reflect.TypeOf(CreateDirectory{}):        {},
-	reflect.TypeOf(CreateFile{}):             {},
-	reflect.TypeOf(DeleteFile{}):             {},
-	reflect.TypeOf(MoveFile{}):               {},
-	reflect.TypeOf(UpdateFile{}):             {},
 	reflect.TypeOf(wrapError{}):              {},
 	reflect.TypeOf(IndexError{}):             {},
 	reflect.TypeOf(UnknownIndexError("")):    {},

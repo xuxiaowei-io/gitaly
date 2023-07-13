@@ -1,12 +1,9 @@
 package git2go
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -104,29 +101,3 @@ func (err IndexError) StructuredError() structerr.Error {
 type InvalidArgumentError string
 
 func (err InvalidArgumentError) Error() string { return string(err) }
-
-// CommitCommand contains the information and the steps to build a commit.
-type CommitCommand struct {
-	// Repository is the path of the repository to operate on.
-	Repository string
-	// Author is the author of the commit.
-	Author Signature
-	// Committer is the committer of the commit.
-	Committer Signature
-	// Message is message of the commit.
-	Message string
-	// Parent is the OID of the commit to use as the parent of this commit.
-	Parent string
-	// Actions are the steps to build the commit.
-	Actions []Action
-	// SigningKey is a path to the key to sign commit using OpenPGP
-	SigningKey string
-}
-
-// Commit builds a commit from the actions, writes it to the object database and
-// returns its object id.
-func (b *Executor) Commit(ctx context.Context, repo storage.Repository, c CommitCommand) (git.ObjectID, error) {
-	c.SigningKey = b.signingKey
-
-	return b.runWithGob(ctx, repo, "commit", c)
-}
