@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -23,6 +24,16 @@ func Remove(
 	txManager transaction.Manager,
 	repository storage.Repository,
 ) error {
+	return remove(ctx, locator, txManager, repository, os.RemoveAll)
+}
+
+func remove(
+	ctx context.Context,
+	locator storage.Locator,
+	txManager transaction.Manager,
+	repository storage.Repository,
+	removeAll func(string) error,
+) error {
 	path, err := locator.GetRepoPath(repository, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return structerr.NewInternal("%w", err)
@@ -36,9 +47,6 @@ func Remove(
 	if err := os.MkdirAll(tempDir, perm.SharedDir); err != nil {
 		return structerr.NewInternal("%w", err)
 	}
-
-	base := filepath.Base(path)
-	destDir := filepath.Join(tempDir, base+"+removed")
 
 	// Check whether the repository exists. If not, then there is nothing we can
 	// remove. Historically, we didn't return an error in this case, which was just
@@ -77,19 +85,26 @@ func Remove(
 		return structerr.NewInternal("vote on rename: %w", err)
 	}
 
+	destDir, err := os.MkdirTemp(tempDir, filepath.Base(path)+"+removed-*")
+	if err != nil {
+		return fmt.Errorf("mkdir temp: %w", err)
+	}
+
+	defer func() {
+		if err := removeAll(destDir); err != nil {
+			ctxlogrus.Extract(ctx).WithError(err).Error("failed removing repository from temporary directory")
+		}
+	}()
+
 	// We move the repository into our temporary directory first before we start to
 	// delete it. This is done such that we don't leave behind a partially-removed and
 	// thus likely corrupt repository.
-	if err := os.Rename(path, destDir); err != nil {
+	if err := os.Rename(path, filepath.Join(destDir, "repo")); err != nil {
 		return structerr.NewInternal("staging repository for removal: %w", err)
 	}
 
 	if err := safe.NewSyncer().SyncParent(path); err != nil {
 		return fmt.Errorf("sync removal: %w", err)
-	}
-
-	if err := os.RemoveAll(destDir); err != nil {
-		return structerr.NewInternal("removing repository: %w", err)
 	}
 
 	if err := voteOnAction(ctx, txManager, repository, voting.Committed); err != nil {
