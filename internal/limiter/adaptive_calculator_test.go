@@ -354,10 +354,199 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher3"} 1
 
 `,
 		},
+		{
+			desc:       "a watcher returns context canceled error",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher1", []string{"", "", "", "", ""}, []error{nil, nil, nil, nil, context.Canceled}),
+				newTestWatcher("testWatcher2", []string{"", "", "", "", ""}, []error{nil, nil, nil, nil, context.Canceled}),
+				newTestWatcher("testWatcher3", []string{"", "", "", "", ""}, []error{nil, nil, nil, nil, context.Canceled}),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 28, 29, 30},
+				"testLimit2": {15, 16, 17, 18, 19, 20},
+			},
+			expectedLogs: []string{},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+
+`,
+		},
+		{
+			desc:       "a watcher returns some timeout errors",
+			waitEvents: 5,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher("testWatcher", []string{"", "", "", "", ""}, []error{nil, context.DeadlineExceeded, context.DeadlineExceeded, nil, nil}),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 28, 29, 30},
+				"testLimit2": {15, 16, 17, 18, 19, 20},
+			},
+			expectedLogs: []string{
+				// Not enough timeout to trigger a backoff event
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+# HELP gitaly_concurrency_limiting_watcher_errors_total Counter of the total number of watcher errors
+# TYPE gitaly_concurrency_limiting_watcher_errors_total counter
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher"} 2
+
+`,
+		},
+		{
+			desc:       "a watcher returns 5 consecutive timeout errors",
+			waitEvents: 6,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher(
+					"testWatcher",
+					[]string{"", "", "", "", "", ""},
+					[]error{context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, nil},
+				),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 28, 29, 14, 15},
+				"testLimit2": {15, 16, 17, 18, 19, 10, 11},
+			},
+			expectedLogs: []string{
+				// The last timeout triggers a backoff event, then increases again
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=29 reason="5 consecutive polling timeout errors" watcher=testWatcher`,
+				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=19 reason="5 consecutive polling timeout errors" watcher=testWatcher`,
+			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher"} 1
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+# HELP gitaly_concurrency_limiting_watcher_errors_total Counter of the total number of watcher errors
+# TYPE gitaly_concurrency_limiting_watcher_errors_total counter
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher"} 5
+
+`,
+		},
+		{
+			desc:       "a watcher returns 6 consecutive timeout errors",
+			waitEvents: 7,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher(
+					"testWatcher",
+					[]string{"", "", "", "", "", "", ""},
+					[]error{context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, nil},
+				),
+			},
+			expectedLimits: map[string][]int{
+				// The one next to the last triggers an event, but the last timeout does not trigger one.
+				"testLimit1": {25, 26, 27, 28, 29, 14, 15, 16},
+				"testLimit2": {15, 16, 17, 18, 19, 10, 11, 12},
+			},
+			expectedLogs: []string{
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=29 reason="5 consecutive polling timeout errors" watcher=testWatcher`,
+				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=19 reason="5 consecutive polling timeout errors" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher"} 1
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+# HELP gitaly_concurrency_limiting_watcher_errors_total Counter of the total number of watcher errors
+# TYPE gitaly_concurrency_limiting_watcher_errors_total counter
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher"} 6
+
+`,
+		},
+		{
+			desc:       "multiple watchers returns 5 consecutive timeout errors",
+			waitEvents: 6,
+			limits: []AdaptiveLimiter{
+				newTestLimit("testLimit1", 25, 100, 10, 0.5),
+				newTestLimit("testLimit2", 15, 30, 10, 0.5),
+			},
+			watchers: []ResourceWatcher{
+				newTestWatcher(
+					"testWatcher1",
+					[]string{"", "", "", "", "", ""},
+					[]error{context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, nil},
+				),
+				newTestWatcher(
+					"testWatcher2",
+					[]string{"", "", "", "", "", ""},
+					[]error{context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded, nil},
+				),
+			},
+			expectedLimits: map[string][]int{
+				"testLimit1": {25, 26, 27, 28, 29, 14, 15},
+				"testLimit2": {15, 16, 17, 18, 19, 10, 11},
+			},
+			expectedLogs: []string{
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
+				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=29 reason="5 consecutive polling timeout errors" watcher=testWatcher2`,
+				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=19 reason="5 consecutive polling timeout errors" watcher=testWatcher2`,
+			},
+			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
+# TYPE gitaly_concurrency_limiting_backoff_events_total counter
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher1"} 1
+gitaly_concurrency_limiting_backoff_events_total{watcher="testWatcher2"} 1
+# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
+# TYPE gitaly_concurrency_limiting_current_limit gauge
+gitaly_concurrency_limiting_current_limit{limit="testLimit1"} {testLimit1}
+gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
+# HELP gitaly_concurrency_limiting_watcher_errors_total Counter of the total number of watcher errors
+# TYPE gitaly_concurrency_limiting_watcher_errors_total counter
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher1"} 5
+gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher2"} 5
+
+`,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			logger, hook := test.NewNullLogger()
+			hook.Reset()
 			logger.SetLevel(logrus.InfoLevel)
 
 			ticker := helper.NewManualTicker()

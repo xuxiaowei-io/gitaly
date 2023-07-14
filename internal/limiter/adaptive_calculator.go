@@ -5,11 +5,18 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+)
+
+const (
+	// MaximumWatcherTimeout is the number of maximum allowed timeout when polling backoff events from watchers.
+	// When this threshold is reached, a timeout polling is treated as a backoff event.
+	MaximumWatcherTimeout = 5
 )
 
 // BackoffEvent is a signal that the current system is under pressure. It's returned by the watchers under the
@@ -54,6 +61,9 @@ type AdaptiveCalculator struct {
 	limits []AdaptiveLimiter
 	// watchers stores a list of resource watchers that return the backoff events when queried.
 	watchers []ResourceWatcher
+	// watcherTimeouts is a map of counters for consecutive timeouts. The counter is reset when the associated
+	// watcher returns a non-error event or exceeds MaximumWatcherTimeout.
+	watcherTimeouts map[ResourceWatcher]*atomic.Int32
 	// lastBackoffEvent stores the last backoff event collected from the watchers.
 	lastBackoffEvent *BackoffEvent
 	// tickerCreator is a custom function that returns a Ticker. It's mostly used in test the manual ticker
@@ -70,11 +80,17 @@ type AdaptiveCalculator struct {
 // NewAdaptiveCalculator constructs a AdaptiveCalculator object. It's the responsibility of the caller to validate
 // the correctness of input AdaptiveLimiter and ResourceWatcher.
 func NewAdaptiveCalculator(calibration time.Duration, logger *logrus.Entry, limits []AdaptiveLimiter, watchers []ResourceWatcher) *AdaptiveCalculator {
+	watcherTimeouts := map[ResourceWatcher]*atomic.Int32{}
+	for _, watcher := range watchers {
+		watcherTimeouts[watcher] = &atomic.Int32{}
+	}
+
 	return &AdaptiveCalculator{
 		logger:           logger,
 		calibration:      calibration,
 		limits:           limits,
 		watchers:         watchers,
+		watcherTimeouts:  watcherTimeouts,
 		lastBackoffEvent: nil,
 		currentLimitVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -141,7 +157,7 @@ func (c *AdaptiveCalculator) Start(ctx context.Context) (func(), error) {
 				// usage watcher and page fault counter. Hence, re-calibrating after each event will
 				// cut the limits too aggressively.
 				c.pollBackoffEvent(ctx)
-				c.calibrateLimits()
+				c.calibrateLimits(ctx)
 
 				// Reset backoff event
 				c.setLastBackoffEvent(nil)
@@ -177,23 +193,52 @@ func (c *AdaptiveCalculator) pollBackoffEvent(ctx context.Context) {
 	defer cancel()
 
 	for _, w := range c.watchers {
-		logger := c.logger.WithField("watcher", w.Name())
+		// If the context is cancelled, return early.
+		if ctx.Err() != nil {
+			return
+		}
 
+		logger := c.logger.WithField("watcher", w.Name())
 		event, err := w.Poll(ctx)
 		if err != nil {
-			c.watcherErrorsVec.WithLabelValues(w.Name()).Inc()
-			logger.Errorf("poll from resource watcher: %s", err)
+			if err == context.DeadlineExceeded {
+				c.watcherTimeouts[w].Add(1)
+				// If the watcher timeouts for a number of consecutive times, treat it as a
+				// backoff event.
+				if timeoutCount := c.watcherTimeouts[w].Load(); timeoutCount >= MaximumWatcherTimeout {
+					c.setLastBackoffEvent(&BackoffEvent{
+						WatcherName:   w.Name(),
+						ShouldBackoff: true,
+						Reason:        fmt.Sprintf("%d consecutive polling timeout errors", timeoutCount),
+					})
+					// Reset the timeout counter. The next MaximumWatcherTimeout will trigger
+					// another backoff event.
+					c.watcherTimeouts[w].Store(0)
+				}
+			}
+
+			if err != context.Canceled {
+				c.watcherErrorsVec.WithLabelValues(w.Name()).Inc()
+				logger.Errorf("poll from resource watcher: %s", err)
+			}
+
 			continue
 		}
+		// Reset the timeout counter if the watcher polls successfully.
+		c.watcherTimeouts[w].Store(0)
 		if event.ShouldBackoff {
 			c.setLastBackoffEvent(event)
 		}
 	}
 }
 
-func (c *AdaptiveCalculator) calibrateLimits() {
+func (c *AdaptiveCalculator) calibrateLimits(ctx context.Context) {
 	c.Lock()
 	defer c.Unlock()
+
+	if ctx.Err() != nil {
+		return
+	}
 
 	for _, limit := range c.limits {
 		setting := limit.Setting()
