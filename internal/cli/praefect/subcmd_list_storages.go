@@ -11,16 +11,27 @@ import (
 func newListStoragesCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "list-storages",
-		Usage: "show virtual storages and their associated storages",
-		Description: "This command lists virtual storages and their associated storages.\n" +
-			"Passing a virtual-storage argument will print out the storage associated with\n" +
-			"that particular virtual storage.\n",
+		Usage: "list physical storages for virtual storages",
+		Description: `List the physical storages connected to virtual storages.
+
+Returns a table with the following columns:
+
+- VIRTUAL_STORAGE: Name of the virtual storage Praefect provides to clients.
+- NODE: Name the physical storage connected to the virtual storage.
+- ADDRESS: Address of the Gitaly node that manages the physial storage for the virtual storage.
+
+If the virtual-storage flag:
+
+- Is specified, lists only physical storages for the specified virtual storage.
+- Is not specified, lists physical storages for all virtual storages.
+
+Example: praefect --config praefect.config.toml list-storages --virtual-storage default`,
 		HideHelpCommand: true,
 		Action:          listStoragesAction,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  paramVirtualStorage,
-				Usage: "name of the virtual storage to list storages for",
+				Usage: "name of the virtual storage to list physical storages for",
 			},
 		},
 		Before: func(ctx *cli.Context) error {
