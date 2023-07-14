@@ -121,9 +121,17 @@ func (s *ServerFactory) Create(secure bool) (*grpc.Server, error) {
 		return nil, fmt.Errorf("load certificate key pair: %w", err)
 	}
 
+	// The Go language maintains a list of cipher suites that do not have known security issues.
+	// This list of cipher suites should be used instead of the default list.
+	var secureCiphers []uint16
+	for _, cipher := range tls.CipherSuites() {
+		secureCiphers = append(secureCiphers, cipher.ID)
+	}
+
 	s.secure = append(s.secure, s.createGRPC(credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS12,
+		CipherSuites: secureCiphers,
 	})))
 
 	return s.secure[len(s.secure)-1], nil

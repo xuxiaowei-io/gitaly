@@ -90,9 +90,17 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 			return nil, fmt.Errorf("error reading certificate and key paths: %w", err)
 		}
 
+		// The Go language maintains a list of cipher suites that do not have known security issues.
+		// This list of cipher suites should be used instead of the default list.
+		var secureCiphers []uint16
+		for _, cipher := range tls.CipherSuites() {
+			secureCiphers = append(secureCiphers, cipher.ID)
+		}
+
 		transportCredentials = credentials.NewTLS(&tls.Config{
 			Certificates: []tls.Certificate{cert},
 			MinVersion:   tls.VersionTLS12,
+			CipherSuites: secureCiphers,
 		})
 	}
 
