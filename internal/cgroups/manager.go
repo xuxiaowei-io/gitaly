@@ -5,13 +5,11 @@ package cgroups
 import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
-	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 )
 
-func newCgroupManager(cfg cgroupscfg.Config, pid int) Manager {
+func newCgroupManager(_ cgroups.Config, _ int) Manager {
 	return &NoopManager{}
 }
 
-func pruneOldCgroups(cfg cgroups.Config, logger log.FieldLogger) {
-	return
-}
+// No-op. The actual pruning operations are implemented in Cgroup V1/V2 managers.
+func pruneOldCgroups(_ cgroups.Config, _ log.FieldLogger) {}
