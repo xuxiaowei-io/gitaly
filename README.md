@@ -2,9 +2,7 @@
 
 **Quick Links**:
   [**Roadmap**][roadmap] |
-  [Want to Contribute?](https://gitlab.com/gitlab-org/gitaly/issues?scope=all&state=opened&label_name[]=Accepting%20merge%20requests) |
-  [GitLab Gitaly Issues](https://gitlab.com/groups/gitlab-org/-/issues?scope=all&state=opened&label_name%5B%5D=Gitaly) |
-  [GitLab Gitaly Merge Requests](https://gitlab.com/groups/gitlab-org/-/merge_requests?label_name%5B%5D=Gitaly) |
+  [Want to Contribute?](#contributing) |
 
 Gitaly is a Git [RPC](https://en.wikipedia.org/wiki/Remote_procedure_call)
 service for handling all the Git calls made by GitLab.
@@ -15,48 +13,19 @@ To see where it fits in please look at [GitLab's architecture](https://docs.gitl
 
 Fault-tolerant horizontal scaling of Git storage in GitLab, and particularly, on [GitLab.com](https://gitlab.com).
 
-This will be achieved by focusing on two areas (in this order):
-
-1. **Migrate from repository access via NFS to `gitaly-proto`, GitLab's new Git RPC protocol**
-1. **Evolve from large Gitaly servers managed as "pets" to smaller Gitaly servers that are "cattle"**
-
 ## Current Status
 
-As of GitLab 11.5, almost all application code accesses Git repositories
-through Gitaly instead of direct disk access. GitLab.com production no
-longer uses direct disk access to touch Git repositories; the [NFS
-mounts have been
-removed](https://about.gitlab.com/2018/09/12/the-road-to-gitaly-1-0/).
+Almost all application code accesses Git repositories via Gitaly (with the exception of Rugged which we're working on removing).
 
-For performance reasons some RPCs can be performed through NFS still. An
-effort is made to mitigate performance issues by removing [Gitaly N+1](https://gitlab.com/groups/gitlab-org/-/epics/827).
-Once that is no longer necessary we can conclude the migration project by
-[removing the Git repository storage paths from GitLab Rails configuration](https://gitlab.com/gitlab-org/gitaly/issues/1282).
+Besides "Git over RPC" functionality, Gitaly also offers an optional [high-availability solution](#high-availability).
 
-In the meantime we are building features according to our [roadmap][roadmap].
-
-If you're interested in seeing how well Gitaly is performing on
-GitLab.com, read about our [observability story](doc/observability.md)!
-
-### Overall
-
-![image](https://gitlab.com/gitlab-org/gitaly/uploads/c3aa987884d5e78c3567a3a7469ea6c2/overview.png)
-
-[Dashboard](https://dashboards.gitlab.net/d/gitaly-main/gitaly-overview) (The link can be accessed by GitLab team members.)
-
-### By Feature
-
-![image](https://gitlab.com/gitlab-org/gitaly/uploads/3e8a5616863fa17c5bf08cb67c1bb385/feature.png)
-
-[Dashboard](https://dashboards.gitlab.net/d/000000198/gitaly-features-overview?orgId=1) (The link can be accessed by GitLab team members.)
+We are building features according to our [roadmap][roadmap].
 
 ## Installation
 
-Most users won't install Gitaly on its own. It is already included in
-[your GitLab installation](https://about.gitlab.com/install/).
+Most users won't install Gitaly on its own. It is already included in [your GitLab installation](https://about.gitlab.com/install/).
 
-Gitaly requires Go 1.19 or Go 1.20. Run `make` to compile the executables
-required by Gitaly.
+Gitaly requires Go 1.19 or Go 1.20. Run `make` to compile the executables required by Gitaly.
 
 Gitaly uses `git`. Versions `2.41.0` and newer are supported.
 
@@ -66,7 +35,7 @@ The administration and reference guide is [documented in the GitLab project](htt
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and a [list of quick win issues](https://gitlab.com/gitlab-org/gitaly/-/issues/?sort=due_date&state=opened&label_name%5B%5D=quick%20win&first_page_size=20).
 
 ## Name
 
@@ -80,9 +49,51 @@ GitLab end up in Gitaly.
 
 High-level architecture overview:
 
-![Gitaly Architecture](https://docs.google.com/drawings/d/14-5NHGvsOVaAJZl2w7pIli8iDUqed2eIbvXdff5jneo/pub?w=2096&h=1536)
+```mermaid
+graph LR
 
-[Edit this diagram directly in Google Drawings](https://docs.google.com/drawings/d/14-5NHGvsOVaAJZl2w7pIli8iDUqed2eIbvXdff5jneo/edit)
+  subgraph "Gitaly Service"
+  Gitaly == git ==> Filesystem
+  Gitaly -- "libgit2" --> Filesystem[(Filesystem)]
+  end
+
+  subgraph "Clients"
+    Rails[gitlab-rails] --> Gitaly
+    Workhorse --> Gitaly
+    Shell[gitlab-shell] -- command-line\nclient --> Gitaly
+    Gitaly -. Authorization .-> Rails
+  end
+
+  Rails -. Rugged .-> Filesystem
+```
+
+In [High Availability](#high-availability) mode, the current implementation looks like this (some details omitted):
+
+```mermaid
+graph LR
+
+  subgraph "Gitaly Nodes"                                                
+  Gitaly == git ==> Filesystem
+  Gitaly -- "libgit2" --> Filesystem[(Filesystem)]
+  end
+
+  subgraph "Praefects"
+    LB[typical setup uses a loadbalancer] --> P1
+    LB --> P2
+    P1[Praefect 1]
+    P2[Praefect N]
+    P1 --> PG[(PostgreSQL)]
+    P2 --> PG
+  end
+
+  subgraph "Clients"
+    Rails[gitlab-rails]
+    Workhorse 
+    Shell[gitlab-shell]
+  end
+  
+Clients --> Praefects --> Gitaly
+```
 
 ### Gitaly clients
 
@@ -93,9 +104,7 @@ As of Q4 2018, the following GitLab components act as Gitaly clients:
 - [`gitlab-shell`](https://gitlab.com/gitlab-org/gitlab-shell/tree/main):
   for `git clone`, `git push` etc. via SSH.
 - [`gitlab-workhorse`](https://gitlab.com/gitlab-org/gitlab/-/blob/master/workhorse/internal/gitaly/gitaly.go):
-  for `git clone` via HTTPS and for slow requests that serve raw Git
-  data.
-  ([example](https://gitlab.com/gitlab-org/gitaly/raw/master/README.md))
+  for `git clone` via HTTPS and for slow requests that serve raw Git data.
 - [`gitaly-ssh`](https://gitlab.com/gitlab-org/gitaly/tree/master/cmd/gitaly-ssh):
   for internal Git data transfers between Gitaly servers.
 
@@ -106,32 +115,10 @@ package.
 
 ## High Availability
 
-We are working on a high-availability (HA) solution for Gitaly based on
-asynchronous replication. A Gitaly server would be made highly available
-by assigning one or more standby servers ("secondaries") to it, each of
-which contains a full copy of all the repository data on the primary
-Gitaly server.
+Gitaly offers a High Availability solution known as Gitaly Cluster ([product documentation](https://docs.gitlab.com/ee/administration/gitaly/)).
 
-To implement this we are building a new GitLab component called
-Praefect, which is hosted alongside the rest of Gitaly in this
-repository. As we currently envision it, Praefect will have four
-responsibilities:
-
-- route RPC traffic to the primary Gitaly server
-- inspect RPC traffic and mark repositories as dirty if the RPC is a
-  "mutator"
-- ensure dirty repositories have their changes replicated to the
-  secondary Gitaly servers
-- in the event of a failure on the primary, demote it to secondary and
-  elect a new primary
-
-Praefect has internal state: it needs to be able to "remember" which
-repositories are in need of replication, and which Gitaly server is the
-primary. [We will use Postgres to store Praefect's internal state](doc/rfcs/praefect-queue-storage.md).
-
-As of December 2019 we are busy rolling out the Postgres integration in
-Praefect. The minimum supported Postgres version is 9.6, just like the
-rest of GitLab.
+- In its current iteration, client traffic goes through [Praefect](https://docs.gitlab.com/ee/administration/gitaly/praefect.html), which then replicates data to multiple Gitaly servers, and stores state in a PostgreSQL database (see [Design](#design) above).
+- We are working on a new distributed replication solution referred to as Raft, notably removing the need for Praefect and its database, and offering stricter consistency guarantees. See this [epic](https://gitlab.com/groups/gitlab-org/-/epics/8903) for details on the new design and its progress.
 
 ## Further reading
 
@@ -237,5 +224,5 @@ For more information on how to set it up, see the [LabKit monitoring docs](https
 - [Gitaly Basics, 2017-05-01](https://docs.google.com/presentation/d/1cLslUbXVkniOaeJ-r3s5AYF0kQep8VeNfvs0XSGrpA0/edit#slide=id.g1c73db867d_0_0)
 - [Git Paris meetup, 2017-02-22](https://docs.google.com/presentation/d/19OZUalFMIDM8WujXrrIyCuVb_oVeaUzpb-UdGThOvAo/edit?usp=sharing) a high-level overview of what our plans are and where we are.
 
-[roadmap]: https://gitlab.com/groups/gitlab-org/-/roadmap?scope=all&label_name[]=group%3A%3Agitaly
+[roadmap]: https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/#roadmap
 [LabKit]: https://gitlab.com/gitlab-org/labkit/
