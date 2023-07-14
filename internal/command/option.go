@@ -22,6 +22,7 @@ type config struct {
 
 	cgroupsManager        cgroups.Manager
 	cgroupsAddCommandOpts []cgroups.AddCommandOption
+	spawnTokenManager     *SpawnTokenManager
 }
 
 // Option is an option that can be passed to `New()` for controlling how the command is being
@@ -93,6 +94,14 @@ func WithCgroup(cgroupsManager cgroups.Manager, opts ...cgroups.AddCommandOption
 	return func(cfg *config) {
 		cfg.cgroupsManager = cgroupsManager
 		cfg.cgroupsAddCommandOpts = opts
+	}
+}
+
+// WithSpawnTokenManager assigns a spawn token manager for the command. If this option is not set, the command uses
+// the process-global spawn token manager.
+func WithSpawnTokenManager(spawnTokenManager *SpawnTokenManager) Option {
+	return func(cfg *config) {
+		cfg.spawnTokenManager = spawnTokenManager
 	}
 }
 
