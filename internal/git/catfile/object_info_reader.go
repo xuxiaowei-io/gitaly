@@ -71,7 +71,7 @@ restart:
 		// object that cannot exist. This causes Git to write an error and immediately flush
 		// stdout. The only downside is that we need to filter this error here, but that's
 		// acceptable while git-cat-file(1) doesn't yet have any way to natively flush.
-		if strings.HasPrefix(infoLine, flushCommand) {
+		if strings.HasPrefix(infoLine, flushCommandHack) {
 			goto restart
 		}
 
@@ -108,26 +108,11 @@ type ObjectInfoReader interface {
 	// Info requests information about the revision pointed to by the given revision.
 	Info(context.Context, git.Revision) (*ObjectInfo, error)
 
-	// InfoQueue returns an ObjectInfoQueue that can be used to batch multiple object info
+	// ObjectQueue returns an ObjectQueue that can be used to batch multiple object info
 	// requests. Using the queue is more efficient than using `Info()` when requesting a bunch
-	// of objects. The returned function must be executed after use of the ObjectInfoQueue has
+	// of objects. The returned function must be executed after use of the ObjectQueue has
 	// finished.
-	InfoQueue(context.Context) (ObjectInfoQueue, func(), error)
-}
-
-// ObjectInfoQueue allows for requesting and reading object info independently of each other. The
-// number of RequestInfo and ReadInfo calls must match. ReadInfo must be executed after the
-// object has been requested already. The order of objects returned by ReadInfo is the same as the
-// order in which object info has been requested. Users of this interface must call `Flush()` after
-// all requests have been queued up such that all requested objects will be readable.
-type ObjectInfoQueue interface {
-	// RequestInfo requests the given revision from git-cat-file(1).
-	RequestInfo(context.Context, git.Revision) error
-	// ReadInfo reads object info which has previously been requested.
-	ReadInfo(context.Context) (*ObjectInfo, error)
-	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
-	// have been requested up to this point.
-	Flush(context.Context) error
+	ObjectQueue(context.Context) (ObjectQueue, func(), error)
 }
 
 // objectInfoReader is a reader for Git object information. This reader is implemented via a
@@ -215,7 +200,7 @@ func (o *objectInfoReader) isDirty() bool {
 
 func (o *objectInfoReader) infoQueue(ctx context.Context, tracedMethod string) (*requestQueue, func(), error) {
 	if !atomic.CompareAndSwapInt32(&o.queueInUse, 0, 1) {
-		return nil, nil, fmt.Errorf("object info queue already in use")
+		return nil, nil, fmt.Errorf("object queue already in use")
 	}
 
 	trace := startTrace(ctx, o.counter, tracedMethod)
@@ -250,7 +235,7 @@ func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*Ob
 	return objectInfo, nil
 }
 
-func (o *objectInfoReader) InfoQueue(ctx context.Context) (ObjectInfoQueue, func(), error) {
+func (o *objectInfoReader) ObjectQueue(ctx context.Context) (ObjectQueue, func(), error) {
 	queue, cleanup, err := o.infoQueue(ctx, "catfile.InfoQueue")
 	if err != nil {
 		return nil, nil, err

@@ -22,13 +22,16 @@ const (
 	// infoCommand is the command expected by the `--batch-command` mode of git-cat-file(1)
 	// for reading an objects info.
 	infoCommand = "info"
-	// flushCommand is the command we send to git-cat-file(1) to cause it to flush its stdout.
+	// flushCommand is the command expected by the `--batch-command` mode of git-cat-file(1)
+	// for flushing out to stdout.
+	flushCommand = "flush"
+	// flushCommandHack is the command we send to git-cat-file(1) to cause it to flush its stdout.
 	// Note that this is a hack: git-cat-file(1) doesn't really support flushing, but it will
 	// flush whenever it encounters an object it doesn't know. The flush command we use is thus
 	// chosen such that it cannot ever refer to a valid object: refs may not contain whitespace,
 	// so this command cannot refer to a ref. Adding "FLUSH" is just for the sake of making it
 	// easier to spot what's going on in case we ever mistakenly see this output in the wild.
-	flushCommand = "\tFLUSH\t"
+	flushCommandHack = "\tFLUSH\t"
 )
 
 type queueCounters struct {
@@ -64,6 +67,10 @@ type requestQueue struct {
 	// isNulTerminated indicates whether `stdout` is NUL terminated or not. This corresponds to the `-Z`
 	// option that can be passed to git-cat-file(1).
 	isNulTerminated bool
+
+	// isBatchCommand indicates whether `--batch-command` is used. We use this to determine if
+	// commands need to be passed to git-cat-file(1).
+	isBatchCommand bool
 
 	stdout *bufio.Reader
 	stdin  *bufio.Writer
@@ -125,7 +132,12 @@ func (q *requestQueue) requestRevision(ctx context.Context, cmd string, revision
 
 	atomic.AddInt64(&q.counters.outstandingRequests, 1)
 
-	if _, err := q.stdin.WriteString(revision.String()); err != nil {
+	input := revision.String()
+	if q.isBatchCommand {
+		input = cmd + " " + input
+	}
+
+	if _, err := q.stdin.WriteString(input); err != nil {
 		atomic.AddInt64(&q.counters.outstandingRequests, -1)
 		return fmt.Errorf("writing object request: %w", err)
 	}
@@ -145,7 +157,12 @@ func (q *requestQueue) Flush(ctx context.Context) error {
 		return fmt.Errorf("cannot flush: %w", os.ErrClosed)
 	}
 
-	if _, err := q.stdin.WriteString(flushCommand); err != nil {
+	cmd := flushCommandHack
+	if q.isBatchCommand {
+		cmd = flushCommand
+	}
+
+	if _, err := q.stdin.WriteString(cmd); err != nil {
 		return fmt.Errorf("writing flush command: %w", err)
 	}
 
@@ -167,7 +184,7 @@ func (fn readerFunc) Read(buf []byte) (int, error) { return fn(buf) }
 func (q *requestQueue) ReadObject(ctx context.Context) (*Object, error) {
 	defer logDuration(ctx, "read_object")()
 
-	if !q.isObjectQueue {
+	if !q.isObjectQueue && !q.isBatchCommand {
 		panic("object queue used to read object info")
 	}
 
@@ -235,7 +252,7 @@ func (q *requestQueue) ReadObject(ctx context.Context) (*Object, error) {
 func (q *requestQueue) ReadInfo(ctx context.Context) (*ObjectInfo, error) {
 	defer logDuration(ctx, "read_info")()
 
-	if q.isObjectQueue {
+	if q.isObjectQueue && !q.isBatchCommand {
 		panic("object queue used to read object info")
 	}
 
