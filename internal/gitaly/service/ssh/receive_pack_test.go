@@ -123,10 +123,11 @@ func TestReceivePack_success(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	gitCmdFactory, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = runSSHServer(t, cfg)
 
 	remoteRepo, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
