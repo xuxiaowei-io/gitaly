@@ -39,11 +39,11 @@ func TestPostReceivePack_successful(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
-	gitCmdFactory, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 
-	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
-		testserver.WithGitCommandFactory(gitCmdFactory),
-	})
+	testcfg.BuildGitalyHooks(t, cfg)
+	hookOutputFile := gittest.CaptureHookEnv(t, cfg)
+
+	server := startSmartHTTPServer(t, cfg)
 	cfg.SocketPath = server.Address()
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -409,10 +409,8 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory, _ := gittest.CaptureHookEnv(t, cfg)
-	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
-		testserver.WithGitCommandFactory(gitCmdFactory),
-	})
+	testcfg.BuildGitalyHooks(t, cfg)
+	server := startSmartHTTPServer(t, cfg)
 	cfg.SocketPath = server.Address()
 
 	client := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)

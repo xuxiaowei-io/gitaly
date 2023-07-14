@@ -2,10 +2,11 @@ package gittest
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
@@ -44,16 +45,28 @@ func WriteCustomHook(tb testing.TB, repoPath, name string, content []byte) strin
 	return fullPath
 }
 
-// CaptureHookEnv creates a Git command factory which injects a bogus 'update' Git hook to sniff out
-// what environment variables get set for hooks.
-func CaptureHookEnv(tb testing.TB, cfg config.Cfg) (git.CommandFactory, string) {
+// CaptureHookEnv wraps the 'gitaly-hooks' binary with a script that dumps the environment
+// variables the update hook received prior to executing the actual hook. It returns the path
+// to the file that the dump is written to.
+func CaptureHookEnv(tb testing.TB, cfg config.Cfg) string {
+	tb.Helper()
+
 	hooksPath := testhelper.TempDir(tb)
 	hookOutputFile := filepath.Join(hooksPath, "hook.env")
 
-	testhelper.WriteExecutable(tb, filepath.Join(hooksPath, "update"), []byte(fmt.Sprintf(
-		`#!/usr/bin/env bash
-		env | grep -e ^GIT -e ^GL_ >%q
-	`, hookOutputFile)))
+	binPath := cfg.BinaryPath("gitaly-hooks")
+	originalBinPath := filepath.Join(filepath.Dir(binPath), "gitaly-hooks-original")
 
-	return NewCommandFactory(tb, cfg, git.WithHooksPath(hooksPath)), hookOutputFile
+	require.NoError(tb, os.Rename(binPath, originalBinPath))
+
+	testhelper.WriteExecutable(tb, binPath, []byte(fmt.Sprintf(
+		`#!/usr/bin/env bash
+if [ "$(basename "$0")" == update ]; then
+	env | grep -e ^GIT -e ^GL_ >%q
+fi
+exec -a "$0" %s "$@"
+`, hookOutputFile, originalBinPath,
+	)))
+
+	return hookOutputFile
 }
