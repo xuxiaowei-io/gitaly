@@ -3,11 +3,13 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -22,7 +24,15 @@ import (
 func TestUserRevert(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testUserRevert)
+}
+
+func testUserRevert(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	branchName := "revert-branch"
@@ -413,7 +423,15 @@ func TestUserRevert(t *testing.T) {
 
 func TestServer_UserRevert_quarantine(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertQuarantine)
+}
+
+func testServerUserRevertQuarantine(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -454,7 +472,15 @@ func TestServer_UserRevert_quarantine(t *testing.T) {
 
 func TestServer_UserRevert_stableID(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertStableID)
+}
+
+func testServerUserRevertStableID(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -509,7 +535,15 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertSuccessfulIntoEmptyRepo)
+}
+
+func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, startRepoProto, _, client := setupOperationsService(t, ctx)
 
 	startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
@@ -554,7 +588,15 @@ func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 
 func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertSuccessfulGitHooks)
+}
+
+func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -592,7 +634,15 @@ func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 
 func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertFailedDueToPreReceiveError)
+}
+
+func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -627,7 +677,15 @@ func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
 
 func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertFailedDueToCreateTreeErrorConflict)
+}
+
+func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -656,7 +714,15 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
 
 func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertFailedDueToCreateTreeErrorEmpty)
+}
+
+func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -689,7 +755,15 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
 
 func TestServer_UserRevert_failedDueToCommitError(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertFailedDueToCommitError)
+}
+
+func testServerUserRevertFailedDueToCommitError(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 

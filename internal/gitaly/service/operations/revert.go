@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
@@ -40,41 +42,125 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, structerr.NewInternal("get path: %w", err)
 	}
 
-	var mainline uint
-	if len(req.Commit.ParentIds) > 1 {
-		mainline = 1
-	}
-
 	authorDate, err := dateFromProto(req)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	newrev, err := s.git2goExecutor.Revert(ctx, quarantineRepo, git2go.RevertCommand{
-		Repository: repoPath,
-		AuthorName: string(req.User.Name),
-		AuthorMail: string(req.User.Email),
-		AuthorDate: authorDate,
-		Message:    string(req.Message),
-		Ours:       startRevision.String(),
-		Revert:     req.Commit.Id,
-		Mainline:   mainline,
-	})
-	if err != nil {
-		if errors.As(err, &git2go.HasConflictsError{}) {
+	var newrev git.ObjectID
+
+	if featureflag.RevertPureGit.IsEnabled(ctx) {
+		oursCommit, err := quarantineRepo.ReadCommit(ctx, startRevision.Revision())
+		if err != nil {
+			if errors.Is(err, localrepo.ErrObjectNotFound) {
+				return nil, structerr.NewNotFound("ours commit lookup: commit not found").
+					WithMetadata("revision", startRevision)
+			}
+
+			return nil, structerr.NewInternal("read commit: %w", err)
+		}
+		revertCommit, err := quarantineRepo.ReadCommit(ctx, git.Revision(req.Commit.Id))
+		if err != nil {
+			if errors.Is(err, localrepo.ErrObjectNotFound) {
+				return nil, structerr.NewNotFound("revert commit lookup: commit not found").
+					WithMetadata("revision", req.Commit.Id)
+			}
+
+			return nil, structerr.NewInternal("read commit: %w", err)
+		}
+
+		var theirs git.ObjectID
+		if len(revertCommit.ParentIds) > 0 {
+			// Use the first parent as `theirs` to implement mainline = 1.
+			theirs = git.ObjectID(revertCommit.ParentIds[0])
+		} else {
+			// Both "ours" and "theirs" must exist for git-merge-tree. When the commit
+			// to be reverted has no parents, it is safe to assume its parent is a
+			// commit with empty tree.
+			theirs, err = s.writeCommitWithEmptyTree(ctx, quarantineRepo)
+			if err != nil {
+				return nil, structerr.NewInternal("write temporary commit: %w", err)
+			}
+		}
+
+		// We "merge" in the "changes" from parent to child, which would apply the "opposite"
+		// patch to "ours", thus reverting the commit.
+		treeOID, err := quarantineRepo.MergeTree(
+			ctx,
+			oursCommit.Id,
+			theirs.String(),
+			localrepo.WithMergeBase(git.Revision(revertCommit.Id)),
+			localrepo.WithConflictingFileNamesOnly(),
+		)
+		if err != nil {
+			var conflictErr *localrepo.MergeTreeConflictError
+			if errors.As(err, &conflictErr) {
+				return &gitalypb.UserRevertResponse{
+					// it's better that this error matches the git2go for now
+					CreateTreeError:     "revert: could not apply due to conflicts",
+					CreateTreeErrorCode: gitalypb.UserRevertResponse_CONFLICT,
+				}, nil
+			}
+
+			return nil, structerr.NewInternal("merge-tree: %w", err)
+		}
+
+		if oursCommit.TreeId == treeOID.String() {
 			return &gitalypb.UserRevertResponse{
-				CreateTreeError:     err.Error(),
-				CreateTreeErrorCode: gitalypb.UserRevertResponse_CONFLICT,
-			}, nil
-		} else if errors.As(err, &git2go.EmptyError{}) {
-			return &gitalypb.UserRevertResponse{
-				CreateTreeError:     err.Error(),
+				// it's better that this error matches the git2go for now
+				CreateTreeError:     "revert: could not apply because the result was empty",
 				CreateTreeErrorCode: gitalypb.UserRevertResponse_EMPTY,
 			}, nil
-		} else if errors.Is(err, git2go.ErrInvalidArgument) {
-			return nil, structerr.NewInvalidArgument("%w", err)
-		} else {
-			return nil, structerr.NewInternal("revert command: %w", err)
+		}
+
+		newrev, err = quarantineRepo.WriteCommit(
+			ctx,
+			localrepo.WriteCommitConfig{
+				TreeID:         treeOID,
+				Message:        string(req.Message),
+				Parents:        []git.ObjectID{startRevision},
+				AuthorName:     string(req.User.Name),
+				AuthorEmail:    string(req.User.Email),
+				AuthorDate:     authorDate,
+				CommitterName:  string(req.User.Name),
+				CommitterEmail: string(req.User.Email),
+				CommitterDate:  authorDate,
+			},
+		)
+		if err != nil {
+			return nil, structerr.NewInternal("write commit: %w", err)
+		}
+	} else {
+		var mainline uint
+		if len(req.Commit.ParentIds) > 1 {
+			mainline = 1
+		}
+		newrev, err = s.git2goExecutor.Revert(ctx, quarantineRepo, git2go.RevertCommand{
+			Repository: repoPath,
+			AuthorName: string(req.User.Name),
+			AuthorMail: string(req.User.Email),
+			AuthorDate: authorDate,
+			Message:    string(req.Message),
+			Ours:       startRevision.String(),
+			Revert:     req.Commit.Id,
+			Mainline:   mainline,
+		})
+		if err != nil {
+			if errors.As(err, &git2go.HasConflictsError{}) {
+				return &gitalypb.UserRevertResponse{
+					CreateTreeError:     err.Error(),
+					CreateTreeErrorCode: gitalypb.UserRevertResponse_CONFLICT,
+				}, nil
+			} else if errors.As(err, &git2go.EmptyError{}) {
+				return &gitalypb.UserRevertResponse{
+					CreateTreeError:     err.Error(),
+					CreateTreeErrorCode: gitalypb.UserRevertResponse_EMPTY,
+				}, nil
+			} else if errors.Is(err, git2go.ErrInvalidArgument) {
+				return nil, structerr.NewInvalidArgument("%w", err)
+			} else {
+				return nil, structerr.NewInternal("revert command: %w", err)
+			}
 		}
 	}
 
@@ -138,6 +224,27 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 			RepoCreated:   !repoHadBranches,
 		},
 	}, nil
+}
+
+// writeCommitWithEmptyTree writes a dangling commit with empty tree. The commit would
+// be used temporarily by git-merge-tree to handle special scenarios such as reverting
+// commits with no parents.
+// The dangling commit will not be used anywhere permanently and will get cleaned up by
+// housekeeping.
+func (s *Server) writeCommitWithEmptyTree(ctx context.Context, quarantineRepo *localrepo.Repo) (git.ObjectID, error) {
+	const fakeName = "GitLab Bot"
+	const fakcEmail = "gitlab-bot@gitlab.com"
+	fakeDate := time.Unix(694540800, 0).UTC()
+
+	return quarantineRepo.WriteCommit(ctx, localrepo.WriteCommitConfig{
+		AuthorName:     fakeName,
+		AuthorEmail:    fakcEmail,
+		AuthorDate:     fakeDate,
+		CommitterName:  fakeName,
+		CommitterEmail: fakcEmail,
+		CommitterDate:  fakeDate,
+		TreeID:         git.ObjectHashSHA1.EmptyTreeOID,
+	})
 }
 
 type requestFetchingStartRevision interface {
