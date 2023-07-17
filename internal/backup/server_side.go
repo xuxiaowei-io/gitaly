@@ -27,12 +27,12 @@ func NewServerSideAdapter(pool *client.Pool) *ServerSideAdapter {
 }
 
 // Create calls the BackupRepository RPC.
-func (m ServerSideAdapter) Create(ctx context.Context, req *CreateRequest) error {
+func (ss ServerSideAdapter) Create(ctx context.Context, req *CreateRequest) error {
 	if err := setContextServerInfo(ctx, &req.Server, req.Repository.GetStorageName()); err != nil {
 		return fmt.Errorf("server-side create: %w", err)
 	}
 
-	client, err := m.newRepoClient(ctx, req.Server)
+	client, err := ss.newRepoClient(ctx, req.Server)
 	if err != nil {
 		return fmt.Errorf("server-side create: %w", err)
 	}
@@ -63,12 +63,12 @@ func (m ServerSideAdapter) Create(ctx context.Context, req *CreateRequest) error
 }
 
 // Restore calls the RestoreRepository RPC.
-func (m ServerSideAdapter) Restore(ctx context.Context, req *RestoreRequest) error {
+func (ss ServerSideAdapter) Restore(ctx context.Context, req *RestoreRequest) error {
 	if err := setContextServerInfo(ctx, &req.Server, req.Repository.GetStorageName()); err != nil {
 		return fmt.Errorf("server-side restore: %w", err)
 	}
 
-	client, err := m.newRepoClient(ctx, req.Server)
+	client, err := ss.newRepoClient(ctx, req.Server)
 	if err != nil {
 		return fmt.Errorf("server-side restore: %w", err)
 	}
@@ -87,12 +87,12 @@ func (m ServerSideAdapter) Restore(ctx context.Context, req *RestoreRequest) err
 }
 
 // RemoveAllRepositories removes all repositories in the specified storage name.
-func (m ServerSideAdapter) RemoveAllRepositories(ctx context.Context, req *RemoveAllRepositoriesRequest) error {
+func (ss ServerSideAdapter) RemoveAllRepositories(ctx context.Context, req *RemoveAllRepositoriesRequest) error {
 	if err := setContextServerInfo(ctx, &req.Server, req.StorageName); err != nil {
 		return fmt.Errorf("server-side remove all: %w", err)
 	}
 
-	repoClient, err := m.newRepoClient(ctx, req.Server)
+	repoClient, err := ss.newRepoClient(ctx, req.Server)
 	if err != nil {
 		return fmt.Errorf("server-side remove all: %w", err)
 	}
@@ -105,8 +105,8 @@ func (m ServerSideAdapter) RemoveAllRepositories(ctx context.Context, req *Remov
 	return nil
 }
 
-func (m ServerSideAdapter) newRepoClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RepositoryServiceClient, error) {
-	conn, err := m.pool.Dial(ctx, server.Address, server.Token)
+func (ss ServerSideAdapter) newRepoClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RepositoryServiceClient, error) {
+	conn, err := ss.pool.Dial(ctx, server.Address, server.Token)
 	if err != nil {
 		return nil, err
 	}
