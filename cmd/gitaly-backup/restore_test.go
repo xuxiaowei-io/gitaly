@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -31,9 +32,9 @@ func TestRestoreSubcommand(t *testing.T) {
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	existingRepo, existRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed:         gittest.SeedGitLabTest,
 		RelativePath: "existing_repo",
 	})
+	gittest.WriteCommit(t, cfg, existRepoPath, gittest.WithBranch(git.DefaultBranch))
 
 	path := testhelper.TempDir(t)
 	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
@@ -110,9 +111,9 @@ func TestRestoreSubcommand_serverSide(t *testing.T) {
 	)
 
 	existingRepo, existRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed:         gittest.SeedGitLabTest,
 		RelativePath: "existing_repo",
 	})
+	gittest.WriteCommit(t, cfg, existRepoPath, gittest.WithBranch(git.DefaultBranch))
 
 	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
 	gittest.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
