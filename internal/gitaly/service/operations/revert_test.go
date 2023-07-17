@@ -470,6 +470,95 @@ func testServerUserRevertQuarantine(t *testing.T, ctx context.Context) {
 	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
+func TestServer_UserRevert_mergeCommit(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(
+		featureflag.RevertPureGit,
+		featureflag.GPGSigning,
+	).Run(t, testServerUserRevertMergeCommit)
+}
+
+func testServerUserRevertMergeCommit(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	baseCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add apple"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+
+	leftCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithMessage("add banana"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+		))
+	rightCommitID01 := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithMessage("add coconut"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "c", Content: "coconut"},
+		))
+	rightCommitID02 := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(rightCommitID01),
+		gittest.WithMessage("add dragon fruit"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "c", Content: "coconut"},
+			gittest.TreeEntry{Mode: "100644", Path: "d", Content: "dragon fruit"},
+		))
+	mergedCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(leftCommitID, rightCommitID02),
+		gittest.WithMessage("merge coconut & dragon fruit into banana"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+			gittest.TreeEntry{Mode: "100644", Path: "c", Content: "coconut"},
+			gittest.TreeEntry{Mode: "100644", Path: "d", Content: "dragon fruit"},
+		))
+	mergedCommit, err := repo.ReadCommit(ctx, mergedCommitID.Revision())
+	require.NoError(t, err)
+
+	destinationBranch := "reverting-dst"
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(mergedCommitID),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithMessage("add zucchini"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+			gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+			gittest.TreeEntry{Mode: "100644", Path: "c", Content: "coconut"},
+			gittest.TreeEntry{Mode: "100644", Path: "d", Content: "dragon fruit"},
+			gittest.TreeEntry{Mode: "100644", Path: "z", Content: "zucchini"},
+		),
+	)
+
+	request := &gitalypb.UserRevertRequest{
+		Repository: repoProto,
+		User:       gittest.TestUser,
+		Commit:     mergedCommit,
+		BranchName: []byte(destinationBranch),
+		Message:    []byte("Reverting " + mergedCommit.Id),
+	}
+
+	response, err := client.UserRevert(ctx, request)
+	require.NoError(t, err)
+
+	gittest.RequireTree(t, cfg, repoPath, response.BranchUpdate.CommitId,
+		[]gittest.TreeEntry{
+			{Mode: "100644", Path: "a", Content: "apple"},
+			{Mode: "100644", Path: "b", Content: "banana"},
+			{Mode: "100644", Path: "z", Content: "zucchini"},
+		})
+}
+
 func TestServer_UserRevert_stableID(t *testing.T) {
 	t.Parallel()
 
