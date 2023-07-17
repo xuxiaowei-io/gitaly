@@ -1263,7 +1263,8 @@ message RestoreRepositoryRequest {
   Repository repository = 1 [(target_repository)=true];
   // VanityRepository is used to determine the backup path.
   Repository vanity_repository = 2;
-  // BackupId is the label used to identify the backup to restore from.
+  // BackupId is the label used to identify the backup to restore from. If
+  // empty, the latest available backup is used.
   string backup_id = 3;
   // AlwaysCreate will force the repository to exist even if no bundle is
   // found. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
@@ -1272,4 +1273,7 @@ message RestoreRepositoryRequest {
 
 // RestoreRepositoryResponse is a response for the RestoreRepository RPC.
 message RestoreRepositoryResponse {
+  // SkippedError is returned when the repository restore has been skipped.
+  message SkippedError {
+  }
 }
