@@ -28,6 +28,8 @@ func Validate(validator interface{ ValidateV2() error }, outWriter io.Writer, er
 		return false
 	}
 
+	fmt.Println("debug statement")
+
 	return true
 }
 
