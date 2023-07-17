@@ -166,13 +166,6 @@ func NewManagerLocal(
 	}
 }
 
-// RemoveAllRepositoriesRequest is the request to remove all repositories in the specified
-// storage name.
-type RemoveAllRepositoriesRequest struct {
-	Server      storage.ServerInfo
-	StorageName string
-}
-
 // RemoveAllRepositories removes all repositories in the specified storage name.
 func (mgr *Manager) RemoveAllRepositories(ctx context.Context, req *RemoveAllRepositoriesRequest) error {
 	if err := setContextServerInfo(ctx, &req.Server, req.StorageName); err != nil {

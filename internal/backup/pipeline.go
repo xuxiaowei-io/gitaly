@@ -16,6 +16,7 @@ import (
 type Strategy interface {
 	Create(context.Context, *CreateRequest) error
 	Restore(context.Context, *RestoreRequest) error
+	RemoveAllRepositories(context.Context, *RemoveAllRepositoriesRequest) error
 }
 
 // CreateRequest is the request to create a backup
@@ -49,6 +50,13 @@ type RestoreRequest struct {
 	// BackupID is the ID of the full backup to restore. If not specified, the
 	// latest backup is restored..
 	BackupID string
+}
+
+// RemoveAllRepositoriesRequest is the request to remove all repositories in the specified
+// storage name.
+type RemoveAllRepositoriesRequest struct {
+	Server      storage.ServerInfo
+	StorageName string
 }
 
 // Command handles a specific backup operation
