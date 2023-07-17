@@ -167,8 +167,14 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 	branchCreated := false
 	var oldrev git.ObjectID
+
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return nil, structerr.NewInternal("detecting object hash: %w", err)
+	}
+
 	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
-		oldrev, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		oldrev, err = objectHash.FromHex(expectedOldOID)
 		if err != nil {
 			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
 		}
@@ -184,7 +190,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		oldrev, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			branchCreated = true
-			oldrev = git.ObjectHashSHA1.ZeroOID
+			oldrev = objectHash.ZeroOID
 		} else if err != nil {
 			return nil, structerr.NewInvalidArgument("resolve ref: %w", err)
 		}
@@ -236,6 +242,11 @@ func (s *Server) writeCommitWithEmptyTree(ctx context.Context, quarantineRepo *l
 	const fakcEmail = "gitlab-bot@gitlab.com"
 	fakeDate := time.Unix(694540800, 0).UTC()
 
+	hash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	return quarantineRepo.WriteCommit(ctx, localrepo.WriteCommitConfig{
 		AuthorName:     fakeName,
 		AuthorEmail:    fakcEmail,
@@ -243,7 +254,7 @@ func (s *Server) writeCommitWithEmptyTree(ctx context.Context, quarantineRepo *l
 		CommitterName:  fakeName,
 		CommitterEmail: fakcEmail,
 		CommitterDate:  fakeDate,
-		TreeID:         git.ObjectHashSHA1.EmptyTreeOID,
+		TreeID:         hash.EmptyTreeOID,
 	})
 }
 

@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -32,6 +30,8 @@ func TestUserRevert(t *testing.T) {
 
 func testUserRevert(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
@@ -75,7 +75,7 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 		{
 			desc: "nonexistent branch + start_repository == repository",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
 					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
@@ -88,7 +88,7 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 						User:            gittest.TestUser,
 						Commit:          firstCommit,
 						BranchName:      []byte(branchName),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						Message:         []byte("Reverting " + firstCommitID),
 					},
 					expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
@@ -104,7 +104,7 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 				startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
-				firstCommitID := gittest.WriteCommit(t, cfg, startRepoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+				firstCommitID := gittest.WriteCommit(t, cfg, startRepoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
 					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 				firstCommit, err := startRepo.ReadCommit(ctx, firstCommitID.Revision())
@@ -117,7 +117,7 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 						User:            gittest.TestUser,
 						Commit:          firstCommit,
 						BranchName:      []byte(branchName),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						StartRepository: startRepoProto,
 						Message:         []byte("Reverting " + firstCommitID),
 					},
@@ -154,7 +154,7 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 		{
 			desc: "nonexistent branch + start_repository == repository with dry run",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
 					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
@@ -167,7 +167,7 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 						User:            gittest.TestUser,
 						Commit:          firstCommit,
 						BranchName:      []byte(branchName),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						Message:         []byte("Reverting " + firstCommitID),
 						DryRun:          true,
 					},
@@ -185,7 +185,7 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 				startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
-				firstCommitID := gittest.WriteCommit(t, cfg, startRepoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+				firstCommitID := gittest.WriteCommit(t, cfg, startRepoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
 					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 				firstCommit, err := startRepo.ReadCommit(ctx, firstCommitID.Revision())
@@ -198,7 +198,7 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 						User:            gittest.TestUser,
 						Commit:          firstCommit,
 						BranchName:      []byte(branchName),
-						StartBranchName: []byte("master"),
+						StartBranchName: []byte(git.DefaultBranch),
 						StartRepository: startRepoProto,
 						Message:         []byte("Reverting " + firstCommitID),
 						DryRun:          true,
@@ -406,14 +406,15 @@ func testUserRevert(t *testing.T, ctx context.Context) {
 				return
 			}
 
-			branchCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", data.repoPath, "rev-parse", branchName))
-			data.expectedResponse.BranchUpdate.CommitId = branchCommitID
+			branchCommitID, err := repo.ResolveRevision(ctx, git.Revision(branchName))
+			require.NoError(t, err)
+			data.expectedResponse.BranchUpdate.CommitId = branchCommitID.String()
 
 			// For dry-run, we only skip the `update-ref` section, so a non-existent branch
 			// will be created by `UserRevert`. But, we need to ensure that the
 			// expectedCommitID of the branch on which we requested revert doesn't change.
 			if data.expectedCommitID != "" {
-				require.Equal(t, data.expectedCommitID, branchCommitID, "dry run should point at expected commit")
+				require.Equal(t, data.expectedCommitID, branchCommitID.String(), "dry run should point at expected commit")
 			}
 
 			testhelper.ProtoEqual(t, data.expectedResponse, response)
@@ -433,8 +434,13 @@ func TestServer_UserRevert_quarantine(t *testing.T) {
 func testServerUserRevertQuarantine(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	destinationBranch := "reverting-dst"
 
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
@@ -446,27 +452,37 @@ func testServerUserRevertQuarantine(t *testing.T, ctx context.Context) {
 		exit 1
 	`, outputPath)))
 
-	commitToRevert, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
+	revertedCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add apple"),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+		),
+	)
+
+	revertedCommit, err := repo.ReadCommit(ctx, revertedCommitID.Revision())
 	require.NoError(t, err)
 
 	response, err := client.UserRevert(ctx, &gitalypb.UserRevertRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		Commit:     commitToRevert,
-		BranchName: []byte("master"),
-		Message:    []byte("Reverting commit"),
+		Commit:     revertedCommit,
+		BranchName: []byte(destinationBranch),
+		Message:    []byte("Reverting " + revertedCommit.Id),
 		Timestamp:  &timestamppb.Timestamp{Seconds: 12345},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, response)
 	require.NotEmpty(t, response.PreReceiveError)
 
+	objectHash, err := repo.ObjectHash(ctx)
+	require.NoError(t, err)
+
 	hookOutput := testhelper.MustReadFile(t, outputPath)
-	oid, err := git.ObjectHashSHA1.FromHex(text.ChompBytes(hookOutput))
+	oid, err := objectHash.FromHex(text.ChompBytes(hookOutput))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)
-
 	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
@@ -482,7 +498,10 @@ func TestServer_UserRevert_mergeCommit(t *testing.T) {
 func testServerUserRevertMergeCommit(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	baseCommitID := gittest.WriteCommit(t, cfg, repoPath,
@@ -571,38 +590,75 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 func testServerUserRevertStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitToRevert, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
+	initCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add blob1"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "blob1", Content: "foobar1"},
+		),
+	)
+	revertedCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(initCommitID),
+		gittest.WithMessage("add blob2"),
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "blob1", Content: "foobar1"},
+			gittest.TreeEntry{Mode: "100644", Path: "blob2", Content: "foobar2"},
+		),
+	)
+
+	require.Equal(t,
+		git.ObjectID(gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "d7c4ed5ffd773b3316f04fdd5d9d6f13591429ae",
+			"sha256": "eb2185ab72ce9d83c8f4f551914266d7de2d97affa208f884b594ae1b60f8130",
+		})),
+		revertedCommitID,
+	)
+
+	revertedCommit, err := repo.ReadCommit(ctx, revertedCommitID.Revision())
 	require.NoError(t, err)
 
 	response, err := client.UserRevert(ctx, &gitalypb.UserRevertRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		Commit:     commitToRevert,
-		BranchName: []byte("master"),
+		Commit:     revertedCommit,
+		BranchName: []byte(git.DefaultBranch),
 		Message:    []byte("Reverting commit"),
 		Timestamp:  &timestamppb.Timestamp{Seconds: 12345},
 	})
 	require.NoError(t, err)
 
 	require.Equal(t, &gitalypb.OperationBranchUpdate{
-		CommitId: "9c15289b0a129c562dddf7b364eb979d41173b41",
+		CommitId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "d01916c25f522190331cff8f75960881120d22a2",
+			"sha256": "28b57208e72bc2317143571997b9cfc444a51b52a43dde1c0282633a2b60de71",
+		}),
 	}, response.BranchUpdate)
 	require.Empty(t, response.CreateTreeError)
 	require.Empty(t, response.CreateTreeErrorCode)
 
-	revertedCommit, err := repo.ReadCommit(ctx, git.Revision("master"))
+	// headCommit is pointed commit after revert
+	headCommit, err := repo.ReadCommit(ctx, git.Revision(git.DefaultBranch))
 	require.NoError(t, err)
 
 	require.Equal(t, &gitalypb.GitCommit{
-		Id: "9c15289b0a129c562dddf7b364eb979d41173b41",
-		ParentIds: []string{
-			"1e292f8fedd741b75372e19097c76d327140c312",
-		},
-		TreeId:   "3a1de94946517a42fcfe4bf4986b8c61af799bd5",
+		Id: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "d01916c25f522190331cff8f75960881120d22a2",
+			"sha256": "28b57208e72bc2317143571997b9cfc444a51b52a43dde1c0282633a2b60de71",
+		}),
+		ParentIds: gittest.ObjectHashDependent(t, map[string][]string{
+			"sha1":   {"d7c4ed5ffd773b3316f04fdd5d9d6f13591429ae"},
+			"sha256": {"eb2185ab72ce9d83c8f4f551914266d7de2d97affa208f884b594ae1b60f8130"},
+		}),
+		TreeId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "b4579012566f2e5e84babb5d2bdad3824ed92bfd",
+			"sha256": "58ce56be6b8dda4a4505f9e7f2ed0b82adfbb4f3cae2edcae798710e54e1423b",
+		}),
 		Subject:  []byte("Reverting commit"),
 		Body:     []byte("Reverting commit"),
 		BodySize: 16,
@@ -618,7 +674,7 @@ func testServerUserRevertStableID(t *testing.T, ctx context.Context) {
 			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
-	}, revertedCommit)
+	}, headCommit)
 }
 
 func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
@@ -633,27 +689,44 @@ func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, startRepoProto, _, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
-	revertedCommit, err := startRepo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
+	commit1 := gittest.WriteCommit(t, cfg, startRepoPath,
+		gittest.WithMessage("add blob1"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+		),
+	)
+	commit2 := gittest.WriteCommit(t, cfg, startRepoPath,
+		gittest.WithParents(commit1),
+		gittest.WithMessage("add blob2"),
+		gittest.WithBranch(git.DefaultBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+			gittest.TreeEntry{Path: "blob2", Mode: "100644", Content: "foobar2"},
+		),
+	)
+
+	revertedCommit, err := startRepo.ReadCommit(ctx, commit2.Revision())
 	require.NoError(t, err)
 
-	masterHeadCommit, err := startRepo.ReadCommit(ctx, "master")
-	require.NoError(t, err)
-
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	destinationBranch := "revert-dst"
 
 	request := &gitalypb.UserRevertRequest{
 		Repository:      repoProto,
 		User:            gittest.TestUser,
 		Commit:          revertedCommit,
-		BranchName:      []byte("dst-branch"),
+		BranchName:      []byte(destinationBranch),
 		Message:         []byte("Reverting " + revertedCommit.Id),
 		StartRepository: startRepoProto,
-		StartBranchName: []byte("master"),
+		StartBranchName: []byte(git.DefaultBranch),
 	}
 
 	response, err := client.UserRevert(ctx, request)
@@ -672,7 +745,11 @@ func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, ctx context.Conte
 	require.Empty(t, response.CreateTreeError)
 	require.Empty(t, response.CreateTreeErrorCode)
 	require.Equal(t, request.Message, headCommit.Subject)
-	require.Equal(t, masterHeadCommit.Id, headCommit.ParentIds[0])
+	require.Equal(t, revertedCommit.Id, headCommit.ParentIds[0])
+	gittest.RequireTree(t, cfg, repoPath, response.BranchUpdate.CommitId,
+		[]gittest.TreeEntry{
+			{Path: "blob1", Mode: "100644", Content: "foobar1"},
+		})
 }
 
 func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
@@ -687,14 +764,23 @@ func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
-	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
+	revertedCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add blob1"),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+		),
+	)
+
+	revertedCommit, err := repo.ReadCommit(ctx, revertedCommitID.Revision())
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
@@ -714,6 +800,9 @@ func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 	response, err := client.UserRevert(ctx, request)
 	require.NoError(t, err)
 	require.Empty(t, response.PreReceiveError)
+	headCommit, err := repo.ReadCommit(ctx, git.Revision(destinationBranch))
+	require.NoError(t, err)
+	gittest.RequireTree(t, cfg, repoPath, headCommit.Id, nil)
 
 	for _, file := range hookOutputFiles {
 		output := string(testhelper.MustReadFile(t, file))
@@ -733,14 +822,23 @@ func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
 func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
-	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
+	revertedCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add blob1"),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+		),
+	)
+
+	revertedCommit, err := repo.ReadCommit(ctx, revertedCommitID.Revision())
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
@@ -776,15 +874,38 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
 func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
+
+	baseCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add blob"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "01\n02\n03"},
+		),
+	)
+	_ = gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithMessage("blob: update 02 to hello"),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "01\nhello\n03"},
+		),
+	)
+	revertedCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithMessage("blob: update 02 to world"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "01\nworld\n03"},
+		),
+	)
 
 	// This revert patch of the following commit cannot be applied to the destinationBranch above
-	revertedCommit, err := repo.ReadCommit(ctx, "372ab6950519549b14d220271ee2322caa44d4eb")
+	revertedCommit, err := repo.ReadCommit(ctx, revertedCommitID.Revision())
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
@@ -813,14 +934,51 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
 func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
-	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
+	baseCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add blob1 and blob2"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+			gittest.TreeEntry{Path: "blob2", Mode: "100644", Content: "foobar2"},
+		),
+	)
+
+	leftCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithMessage("add blob3"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+			gittest.TreeEntry{Path: "blob2", Mode: "100644", Content: "foobar2"},
+			gittest.TreeEntry{Path: "blob3", Mode: "100644", Content: "foobar3"},
+		),
+	)
+	// Add a commit that deletes blob2 and set to branch head
+	_ = gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(leftCommitID),
+		gittest.WithMessage("delete blob2"),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+			gittest.TreeEntry{Path: "blob3", Mode: "100644", Content: "foobar3"},
+		),
+	)
+
+	// rightCommitID also deletes blob2
+	revertedCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommitID),
+		gittest.WithMessage("delete blob2"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+		),
+	)
+	revertedCommit, err := repo.ReadCommit(ctx, revertedCommitID.Revision())
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
@@ -854,16 +1012,34 @@ func TestServer_UserRevert_failedDueToCommitError(t *testing.T) {
 func testServerUserRevertFailedDueToCommitError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	skipSHA256WithGit2goRevert(t, ctx)
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	sourceBranch := "revert-src"
 	destinationBranch := "revert-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", sourceBranch, "a5391128b0ef5d21df5dd23d98557f4ef12fae20")
 
-	revertedCommit, err := repo.ReadCommit(ctx, git.Revision(sourceBranch))
+	revertedCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add blob1"),
+		gittest.WithBranch(sourceBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+		),
+	)
+
+	// new commit added to destinationBranch
+	_ = gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("add blob2"),
+		gittest.WithBranch(destinationBranch),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "blob1", Mode: "100644", Content: "foobar1"},
+			gittest.TreeEntry{Path: "blob2", Mode: "100644", Content: "foobar2"},
+		),
+	)
+
+	revertedCommit, err := repo.ReadCommit(ctx, revertedCommitID.Revision())
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
@@ -878,4 +1054,10 @@ func testServerUserRevertFailedDueToCommitError(t *testing.T, ctx context.Contex
 	response, err := client.UserRevert(ctx, request)
 	require.NoError(t, err)
 	require.Equal(t, "Branch diverged", response.CommitError)
+}
+
+func skipSHA256WithGit2goRevert(t *testing.T, ctx context.Context) {
+	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.RevertPureGit.IsDisabled(ctx) {
+		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
+	}
 }
