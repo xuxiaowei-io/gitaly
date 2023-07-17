@@ -33,6 +33,7 @@ type restoreSubcommand struct {
 	layout                string
 	removeAllRepositories []string
 	backupID              string
+	serverSide            bool
 }
 
 func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
@@ -45,23 +46,32 @@ func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 		return nil
 	})
 	fs.StringVar(&cmd.backupID, "id", "", "ID of full backup to restore. If not specified, the latest backup is restored.")
+	fs.BoolVar(&cmd.serverSide, "server-side", false, "use server-side backups. Note: The feature is not ready for production use.")
 }
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
-	sink, err := backup.ResolveSink(ctx, cmd.backupPath)
-	if err != nil {
-		return fmt.Errorf("restore: resolve sink: %w", err)
-	}
-
-	locator, err := backup.ResolveLocator(cmd.layout, sink)
-	if err != nil {
-		return fmt.Errorf("restore: resolve locator: %w", err)
-	}
-
 	pool := client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
 	defer pool.Close()
 
-	manager := backup.NewManager(sink, locator, pool)
+	var manager backup.Strategy
+	if cmd.serverSide {
+		if cmd.backupPath != "" {
+			return fmt.Errorf("restore: path cannot be used with server-side backups")
+		}
+
+		manager = backup.NewServerSideAdapter(pool)
+	} else {
+		sink, err := backup.ResolveSink(ctx, cmd.backupPath)
+		if err != nil {
+			return fmt.Errorf("restore: resolve sink: %w", err)
+		}
+		locator, err := backup.ResolveLocator(cmd.layout, sink)
+		if err != nil {
+			return fmt.Errorf("restore: resolve locator: %w", err)
+		}
+		manager = backup.NewManager(sink, locator, pool)
+	}
+
 	logger := log.StandardLogger()
 
 	for _, storageName := range cmd.removeAllRepositories {
