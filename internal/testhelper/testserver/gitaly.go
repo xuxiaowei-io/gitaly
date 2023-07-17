@@ -271,6 +271,7 @@ type gitalyServerDeps struct {
 	housekeepingManager housekeeping.Manager
 	backupSink          backup.Sink
 	backupLocator       backup.Locator
+	signingKey          string
 }
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
@@ -360,6 +361,10 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		)
 		require.NoError(tb, err)
 		tb.Cleanup(partitionManager.Stop)
+	}
+
+	if gsd.signingKey != "" {
+		cfg.Git.SigningKey = gsd.signingKey
 	}
 
 	return &service.Dependencies{
@@ -491,6 +496,15 @@ func WithBackupSink(backupSink backup.Sink) GitalyServerOpt {
 func WithBackupLocator(backupLocator backup.Locator) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.backupLocator = backupLocator
+		return deps
+	}
+}
+
+// WithSigningKey sets the signing key path that will be used for Gitaly
+// services.
+func WithSigningKey(signingKey string) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.signingKey = signingKey
 		return deps
 	}
 }

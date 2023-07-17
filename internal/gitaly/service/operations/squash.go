@@ -150,6 +150,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 			startCommit.String(),
 			endCommit.String(),
 			true,
+			false,
 		)
 	} else {
 		commitID, err = s.mergeWithGit2Go(

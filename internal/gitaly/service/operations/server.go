@@ -28,6 +28,7 @@ type Server struct {
 	gitCmdFactory  git.CommandFactory
 	catfileCache   catfile.Cache
 	updater        *updateref.UpdaterWithHooks
+	signingKey     string
 }
 
 // NewServer creates a new instance of a grpc OperationServiceServer
@@ -40,6 +41,7 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	updater *updateref.UpdaterWithHooks,
+	signingKey string,
 ) *Server {
 	return &Server{
 		hookManager:    hookManager,
@@ -50,6 +52,7 @@ func NewServer(
 		gitCmdFactory:  gitCmdFactory,
 		catfileCache:   catfileCache,
 		updater:        updater,
+		signingKey:     signingKey,
 	}
 }
 

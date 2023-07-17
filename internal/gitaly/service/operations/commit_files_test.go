@@ -3,14 +3,18 @@
 package operations
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/packet"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -19,9 +23,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -40,7 +46,16 @@ func TestUserCommitFiles(t *testing.T) {
 }
 
 func testUserCommitFiles(t *testing.T, ctx context.Context) {
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	var opts []testserver.GitalyServerOpt
+	if featureflag.GPGSigning.IsEnabled(ctx) {
+		opts = append(opts, testserver.WithSigningKey("testdata/signing_gpg_key"))
+	}
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, opts...)
+
+	if featureflag.GPGSigning.IsEnabled(ctx) {
+		testcfg.BuildGitalyGPG(t, cfg)
+	}
 
 	const (
 		DefaultMode    = "100644"
@@ -902,15 +917,15 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 			const branch = "main"
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			for i, step := range tc.steps {
 				if step.startRepository == targetRepoSentinel {
-					step.startRepository = repo
+					step.startRepository = repoProto
 				}
 
 				headerRequest := headerRequest(
-					repo,
+					repoProto,
 					gittest.TestUser,
 					branch,
 					[]byte("commit message"),
@@ -965,6 +980,26 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 				authorDate := gittest.Exec(t, cfg, "-C", repoPath, "log", "--pretty='format:%ai'", "-1")
 				require.Contains(t, string(authorDate), gittest.TimezoneOffset)
+
+				if featureflag.GPGSigning.IsEnabled(ctx) {
+					repo := localrepo.NewTestRepo(t, cfg, repoProto)
+					data, err := repo.ReadObject(ctx, git.ObjectID(resp.BranchUpdate.CommitId))
+					require.NoError(t, err)
+
+					gpgsig, dataWithoutGpgSig := signature.ExtractSignature(t, ctx, data)
+
+					pubKey := testhelper.MustReadFile(t, "testdata/signing_gpg_key.pub")
+					keyring, err := openpgp.ReadKeyRing(bytes.NewReader(pubKey))
+					require.NoError(t, err)
+
+					_, err = openpgp.CheckArmoredDetachedSignature(
+						keyring,
+						strings.NewReader(dataWithoutGpgSig),
+						strings.NewReader(gpgsig),
+						&packet.Config{},
+					)
+					require.NoError(t, err)
+				}
 			}
 		})
 	}

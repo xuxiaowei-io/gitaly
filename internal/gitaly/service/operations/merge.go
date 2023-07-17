@@ -65,6 +65,7 @@ func (s *Server) merge(
 	ours string,
 	theirs string,
 	squash bool,
+	sign bool,
 ) (string, error) {
 	treeOID, err := quarantineRepo.MergeTree(ctx, ours, theirs, localrepo.WithAllowUnrelatedHistories(), localrepo.WithConflictingFileNamesOnly())
 	if err != nil {
@@ -76,19 +77,23 @@ func (s *Server) merge(
 		parents = append(parents, git.ObjectID(theirs))
 	}
 
+	cfg := localrepo.WriteCommitConfig{
+		TreeID:         treeOID,
+		Message:        message,
+		Parents:        parents,
+		AuthorName:     authorName,
+		AuthorEmail:    authorMail,
+		AuthorDate:     authorDate,
+		CommitterName:  committerName,
+		CommitterEmail: committerMail,
+		CommitterDate:  committerDate,
+	}
+	if sign {
+		cfg.SigningKey = s.signingKey
+	}
 	c, err := quarantineRepo.WriteCommit(
 		ctx,
-		localrepo.WriteCommitConfig{
-			TreeID:         treeOID,
-			Message:        message,
-			Parents:        parents,
-			AuthorName:     authorName,
-			AuthorEmail:    authorMail,
-			AuthorDate:     authorDate,
-			CommitterName:  committerName,
-			CommitterEmail: committerMail,
-			CommitterDate:  committerDate,
-		},
+		cfg,
 	)
 	if err != nil {
 		return "", fmt.Errorf("create commit from tree: %w", err)
@@ -157,6 +162,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		revision.String(),
 		firstRequest.CommitId,
 		false,
+		true,
 	)
 	if err != nil {
 		var conflictErr *localrepo.MergeTreeConflictError
@@ -485,6 +491,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 			string(request.Message),
 			oid.String(),
 			sourceOID.String(),
+			false,
 			false,
 		)
 	} else {
