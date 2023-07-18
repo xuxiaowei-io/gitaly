@@ -20,17 +20,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// GetBlobRequest is a request for the GetBlob RPC.
 type GetBlobRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository that shall be searched.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Object ID (SHA1) of the blob we want to get
+	// Oid is the object ID of the blob we want to get.
 	Oid string `protobuf:"bytes,2,opt,name=oid,proto3" json:"oid,omitempty"`
-	// Maximum number of bytes we want to receive. Use '-1' to get the full blob no matter how big.
+	// Limit is the maximum number of bytes we want to receive. Use '-1' to get the full blob no matter how big. Setting
+	// this to `0` will return no data.
 	Limit int64 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 }
 
@@ -87,17 +88,18 @@ func (x *GetBlobRequest) GetLimit() int64 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// GetBlobResponse is a response for the GetBlob RPC. Multiple responses will be returned when the blob is large and
+// thus doesn't fit into a single response.
 type GetBlobResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Blob size; present only in first response message
+	// Size is the size of the blob. Present only in first response message.
 	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	// Chunk of blob data
+	// Data is a chunk of data.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// Object ID of the actual blob returned. Empty if no blob was found.
+	// Oid of the actual blob returned. Empty if no blob was found.
 	Oid string `protobuf:"bytes,3,opt,name=oid,proto3" json:"oid,omitempty"`
 }
 

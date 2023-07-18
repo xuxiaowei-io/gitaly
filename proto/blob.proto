@@ -78,23 +78,25 @@ service BlobService {
 
 }
 
-// This comment is left unintentionally blank.
+// GetBlobRequest is a request for the GetBlob RPC.
 message GetBlobRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository that shall be searched.
   Repository repository = 1[(target_repository)=true];
-  // Object ID (SHA1) of the blob we want to get
+  // Oid is the object ID of the blob we want to get.
   string oid = 2;
-  // Maximum number of bytes we want to receive. Use '-1' to get the full blob no matter how big.
+  // Limit is the maximum number of bytes we want to receive. Use '-1' to get the full blob no matter how big. Setting
+  // this to `0` will return no data.
   int64 limit = 3;
 }
 
-// This comment is left unintentionally blank.
+// GetBlobResponse is a response for the GetBlob RPC. Multiple responses will be returned when the blob is large and
+// thus doesn't fit into a single response.
 message GetBlobResponse {
-  // Blob size; present only in first response message
+  // Size is the size of the blob. Present only in first response message.
   int64 size = 1;
-  // Chunk of blob data
+  // Data is a chunk of data.
   bytes data = 2;
-  // Object ID of the actual blob returned. Empty if no blob was found.
+  // Oid of the actual blob returned. Empty if no blob was found.
   string oid = 3;
 }
 
