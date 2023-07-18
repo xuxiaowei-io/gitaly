@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/metrics"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/protoregistry"
 	"google.golang.org/grpc"
 )
 
