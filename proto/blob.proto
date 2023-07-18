@@ -245,16 +245,6 @@ message LFSPointer {
   string oid = 3;
 }
 
-// This comment is left unintentionally blank.
-message NewBlobObject {
-  // This comment is left unintentionally blank.
-  int64 size = 1;
-  // This comment is left unintentionally blank.
-  string oid = 2;
-  // This comment is left unintentionally blank.
-  bytes path = 3;
-}
-
 // GetLFSPointersRequest is a request for the GetLFSPointers RPC.
 message GetLFSPointersRequest {
   // Repository is the repository for which LFS pointers should be retrieved
