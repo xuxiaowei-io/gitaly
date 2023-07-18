@@ -191,6 +191,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// information about objects.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileBatchCommand, rand.Int()%2 == 0)
 
+	// Randomly enable mailmap
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.MailmapOptions, rand.Int()%2 == 0)
+
 	for _, opt := range opts {
 		ctx = opt(ctx)
 	}

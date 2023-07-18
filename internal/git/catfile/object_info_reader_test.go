@@ -131,7 +131,7 @@ func TestObjectInfoReader(t *testing.T) {
 		require.NoError(t, err)
 
 		objectType := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-t", revision))
-		objectContents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", objectType, revision)
+		objectContents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "--use-mailmap", objectType, revision)
 
 		oiByRevision[revision] = &ObjectInfo{
 			Oid:    objectID,
