@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -282,6 +283,58 @@ func TestCatfileInfo(t *testing.T) {
 		// Which means that the queue should now be unused, so we can again use it.
 		_, err = CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, input))
 		require.NoError(t, err)
+	})
+}
+
+func TestCatfileInfoAllObjectsWithMailmap(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.MailmapOptions).Run(t, testCatfileInfoAllObjectsWithMailmap)
+}
+
+func testCatfileInfoAllObjectsWithMailmap(t *testing.T, ctx context.Context) {
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	mailmapContents := "A U Thor <author@example.com> Scrooge McDuck <scrooge@mcduck.com>"
+	blob := gittest.WriteBlob(t, cfg, repoPath, []byte(mailmapContents))
+	tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: ".mailmap", Mode: "100644", OID: blob},
+	})
+	commit := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTree(tree),
+		gittest.WithBranch("main"),
+	)
+
+	var actualObjects []CatfileInfoResult
+
+	if featureflag.MailmapOptions.IsEnabled(ctx) {
+		actualObjects = []CatfileInfoResult{
+			{ObjectInfo: &catfile.ObjectInfo{Oid: blob, Type: "blob", Size: 65, Format: gittest.DefaultObjectHash.Format}},
+			{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(t, 36, 48), Format: gittest.DefaultObjectHash.Format}},
+			{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: hashDependentObjectSize(t, 165, 189), Format: gittest.DefaultObjectHash.Format}},
+		}
+	} else {
+		actualObjects = []CatfileInfoResult{
+			{ObjectInfo: &catfile.ObjectInfo{Oid: blob, Type: "blob", Size: 65, Format: gittest.DefaultObjectHash.Format}},
+			{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(t, 36, 48), Format: gittest.DefaultObjectHash.Format}},
+			{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: hashDependentObjectSize(t, 177, 201), Format: gittest.DefaultObjectHash.Format}},
+		}
+	}
+
+	t.Run("successful with mailmap", func(t *testing.T) {
+		it := CatfileInfoAllObjects(ctx, repo)
+
+		var results []CatfileInfoResult
+		for it.Next() {
+			results = append(results, it.Result())
+		}
+		require.NoError(t, it.Err())
+
+		require.ElementsMatch(t, actualObjects, results)
 	})
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 )
 
@@ -57,6 +58,10 @@ func newObjectContentReader(
 
 	if gitVersion.CatfileSupportsNulTerminatedOutput() {
 		flags = append(flags, git.Flag{Name: "-Z"})
+	}
+
+	if featureflag.MailmapOptions.IsEnabled(ctx) {
+		flags = append([]git.Option{git.Flag{Name: "--use-mailmap"}}, flags...)
 	}
 
 	batchCmd, err := repo.Exec(ctx,
