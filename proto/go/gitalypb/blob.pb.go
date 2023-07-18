@@ -154,17 +154,17 @@ func (x *GetBlobResponse) GetOid() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// GetBlobsRequest is a request for the GetBlobs RPC.
 type GetBlobsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository that shall be searched.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision/Path pairs of the blobs we want to get.
+	// RevisionPaths identifies the set of revision/path pairs that shall be searched for blobs.
 	RevisionPaths []*GetBlobsRequest_RevisionPath `protobuf:"bytes,2,rep,name=revision_paths,json=revisionPaths,proto3" json:"revision_paths,omitempty"`
-	// Maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
+	// Limit is the maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
 	Limit int64 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 }
 
@@ -221,27 +221,36 @@ func (x *GetBlobsRequest) GetLimit() int64 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// GetBlobsResponse is a response for the GetBlobs RPC and identifies a single blob. Multiple responses can be returned
+// for the same blob in case its data is longer than the gRPC message limit. Subsequent messages for the same blob will
+// only have their data field set. Blobs which cannot be found will only have their path and revision set, but will
+// otherwise be empty.
 type GetBlobsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Blob size; present only on the first message per blob
+	// Size is the size of the blob. Present only on the first message per blob
 	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	// Chunk of blob data, could span over multiple messages.
+	// Data is a chunk of blob data, which could span over multiple messages.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// Object ID of the current blob. Only present on the first message per blob. Empty if no blob was found.
+	// Oid is the object ID of the current blob. Only present on the first message per blob. Empty if no blob was
+	// found.
 	Oid string `protobuf:"bytes,3,opt,name=oid,proto3" json:"oid,omitempty"`
-	// This comment is left unintentionally blank.
+	// IsSubmodule indicates whether the blob is a submodule.
 	IsSubmodule bool `protobuf:"varint,4,opt,name=is_submodule,json=isSubmodule,proto3" json:"is_submodule,omitempty"`
-	// This comment is left unintentionally blank.
+	// Mode is the file mode of blob as present in the tree. It is typically one of:
+	//
+	// - 0o100644 for non-executable files.
+	// - 0o100755 for executable files.
+	// - 0o160000 for submodules.
+	// - 0o040000 for subtrees.
 	Mode int32 `protobuf:"varint,5,opt,name=mode,proto3" json:"mode,omitempty"`
-	// This comment is left unintentionally blank.
+	// Revision is the revision that this blob has been traversed from.
 	Revision string `protobuf:"bytes,6,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// Path is the path of the blob inside of the tree.
 	Path []byte `protobuf:"bytes,7,opt,name=path,proto3" json:"path,omitempty"`
-	// This comment is left unintentionally blank.
+	// Type is the type of the "blob".
 	Type ObjectType `protobuf:"varint,8,opt,name=type,proto3,enum=gitaly.ObjectType" json:"type,omitempty"`
 }
 
@@ -1073,15 +1082,17 @@ func (x *ListAllLFSPointersResponse) GetLfsPointers() []*LFSPointer {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// RevisionPath is a combination of revision and path. All objects reachable in the subdirectory of the treeish
+// will be returned.
 type GetBlobsRequest_RevisionPath struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Revision is the revision that identifies the tree-ish. Must not be empty.
 	Revision string `protobuf:"bytes,1,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// Path is the path relative to the treeish revision that shall be searched for a blob. If the path is empty the
+	// root directory of the tree-ish will be searched.
 	Path []byte `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 }
 

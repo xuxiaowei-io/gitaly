@@ -20,7 +20,10 @@ service BlobService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetBlobs returns blobs identified via a revision and path.
+  //
+  // Note that the behaviour of this RPC is quite weird: it does not only return blobs, but will also return submodules
+  // as commits and trees. It's use is thus discouraged in favor of ListBlobs, which behaves more sanely.
   rpc GetBlobs(GetBlobsRequest) returns (stream GetBlobsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -95,41 +98,52 @@ message GetBlobResponse {
   string oid = 3;
 }
 
-// This comment is left unintentionally blank.
+// GetBlobsRequest is a request for the GetBlobs RPC.
 message GetBlobsRequest {
-  // This comment is left unintentionally blank.
+  // RevisionPath is a combination of revision and path. All objects reachable in the subdirectory of the treeish
+  // will be returned.
   message RevisionPath {
-    // This comment is left unintentionally blank.
+    // Revision is the revision that identifies the tree-ish. Must not be empty.
     string revision = 1;
-    // This comment is left unintentionally blank.
+    // Path is the path relative to the treeish revision that shall be searched for a blob. If the path is empty the
+    // root directory of the tree-ish will be searched.
     bytes path = 2;
   }
 
-  // This comment is left unintentionally blank.
+  // Repository is the repository that shall be searched.
   Repository repository = 1[(target_repository)=true];
-  // Revision/Path pairs of the blobs we want to get.
+  // RevisionPaths identifies the set of revision/path pairs that shall be searched for blobs.
   repeated RevisionPath revision_paths = 2;
-  // Maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
+  // Limit is the maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
   int64 limit = 3;
 }
 
-// This comment is left unintentionally blank.
+// GetBlobsResponse is a response for the GetBlobs RPC and identifies a single blob. Multiple responses can be returned
+// for the same blob in case its data is longer than the gRPC message limit. Subsequent messages for the same blob will
+// only have their data field set. Blobs which cannot be found will only have their path and revision set, but will
+// otherwise be empty.
 message GetBlobsResponse {
-  // Blob size; present only on the first message per blob
+  // Size is the size of the blob. Present only on the first message per blob
   int64 size = 1;
-  // Chunk of blob data, could span over multiple messages.
+  // Data is a chunk of blob data, which could span over multiple messages.
   bytes data = 2;
-  // Object ID of the current blob. Only present on the first message per blob. Empty if no blob was found.
+  // Oid is the object ID of the current blob. Only present on the first message per blob. Empty if no blob was
+  // found.
   string oid = 3;
-  // This comment is left unintentionally blank.
+  // IsSubmodule indicates whether the blob is a submodule.
   bool is_submodule = 4;
-  // This comment is left unintentionally blank.
+  // Mode is the file mode of blob as present in the tree. It is typically one of:
+  //
+  // - 0o100644 for non-executable files.
+  // - 0o100755 for executable files.
+  // - 0o160000 for submodules.
+  // - 0o040000 for subtrees.
   int32 mode = 5;
-  // This comment is left unintentionally blank.
+  // Revision is the revision that this blob has been traversed from.
   string revision = 6;
-  // This comment is left unintentionally blank.
+  // Path is the path of the blob inside of the tree.
   bytes path = 7;
-  // This comment is left unintentionally blank.
+  // Type is the type of the "blob".
   ObjectType type = 8;
 }
 
