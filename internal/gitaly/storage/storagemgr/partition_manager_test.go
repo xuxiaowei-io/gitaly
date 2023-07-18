@@ -72,6 +72,8 @@ func TestPartitionManager(t *testing.T) {
 		// expectedState contains the partitions by their storages and their pending transaction count at
 		// the end of the step.
 		expectedState map[string]map[string]uint
+		// expectedError is the error that is expected to be returned when rolling back the transaction.
+		expectedError error
 	}
 
 	// stopPartition stops the transaction manager for the specified repository. This is done to
@@ -150,7 +152,7 @@ func TestPartitionManager(t *testing.T) {
 
 	// transactionData holds relevant data for each transaction created during a testcase.
 	type transactionData struct {
-		txn        *Transaction
+		txn        *finalizableTransaction
 		storageMgr *storageManager
 		ptn        *partition
 	}
@@ -537,6 +539,55 @@ func TestPartitionManager(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "transaction finalized only once",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repo := setupRepository(t, cfg, cfg.Storages[0])
+
+				return setupData{
+					steps: steps{
+						begin{
+							transactionID: 1,
+							repo:          repo,
+							expectedState: map[string]map[string]uint{
+								"default": {
+									repo.GetRelativePath(): 1,
+								},
+							},
+						},
+						begin{
+							transactionID: 2,
+							repo: &gitalypb.Repository{
+								StorageName:  repo.GetStorageName(),
+								RelativePath: repo.GetRelativePath(),
+							},
+							expectedState: map[string]map[string]uint{
+								"default": {
+									repo.GetRelativePath(): 2,
+								},
+							},
+						},
+						rollback{
+							transactionID: 2,
+							expectedState: map[string]map[string]uint{
+								"default": {
+									repo.GetRelativePath(): 1,
+								},
+							},
+						},
+						rollback{
+							transactionID: 2,
+							expectedState: map[string]map[string]uint{
+								"default": {
+									repo.GetRelativePath(): 1,
+								},
+							},
+							expectedError: ErrTransactionAlreadyRollbacked,
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
@@ -642,7 +693,7 @@ func TestPartitionManager(t *testing.T) {
 					require.Contains(t, openTransactionData, step.transactionID, "test error: transaction rolled back before being started")
 
 					data := openTransactionData[step.transactionID]
-					require.NoError(t, data.txn.Rollback())
+					require.ErrorIs(t, data.txn.Rollback(), step.expectedError)
 
 					blockOnPartitionShutdown(t, partitionManager)
 					checkExpectedState(t, cfg, partitionManager, step.expectedState)
@@ -658,7 +709,7 @@ func TestPartitionManager(t *testing.T) {
 
 					data := openTransactionData[step.transactionID]
 
-					data.storageMgr.transactionFinalizerFactory(data.ptn)()
+					data.storageMgr.finalizeTransaction(data.ptn)
 				case stopManager:
 					require.False(t, partitionManagerStopped, "test error: partition manager already stopped")
 					partitionManagerStopped = true

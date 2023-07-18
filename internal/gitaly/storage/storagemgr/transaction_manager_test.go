@@ -67,10 +67,6 @@ func validCustomHooks(tb testing.TB) []byte {
 	return hooks.Bytes()
 }
 
-// noopTransactionFinalizer is a transaction finalizer for testing TransactionManager that does not
-// call back to PartitionManager.
-func noopTransactionFinalizer() {}
-
 // writePack writes a pack file and its index into the destination.
 func writePack(tb testing.TB, cfg config.Cfg, packFile []byte, destinationPack string) {
 	tb.Helper()
@@ -3024,7 +3020,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or stopped.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory, noopTransactionFinalizer)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory)
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
@@ -3065,7 +3061,7 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory, noopTransactionFinalizer)
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory)
 
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
@@ -3279,7 +3275,6 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 	testTransaction := &Transaction{
 		referenceUpdates: ReferenceUpdates{"sentinel": {}},
 		result:           make(chan error, 1),
-		finalize:         func() {},
 		finish:           func() error { return nil },
 	}
 
@@ -3437,7 +3432,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), cmdFactory, housekeepingManager, repositoryFactory, noopTransactionFinalizer)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 

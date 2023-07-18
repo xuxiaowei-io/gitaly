@@ -77,18 +77,52 @@ func (sm *storageManager) stop() {
 	}
 }
 
-// transactionFinalizerFactory is executed when a transaction completes. The pending transaction counter
-// for the partition is decremented by one and TransactionManager stopped if there are no longer
-// any pending transactions.
-func (sm *storageManager) transactionFinalizerFactory(ptn *partition) func() {
-	return func() {
-		sm.mu.Lock()
-		defer sm.mu.Unlock()
+// finalizeTransaction decrements the partition's pending transaction count and stops it if there are no more
+// transactions pending.
+func (sm *storageManager) finalizeTransaction(ptn *partition) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-		ptn.pendingTransactionCount--
-		if ptn.pendingTransactionCount == 0 {
-			ptn.stop()
-		}
+	ptn.pendingTransactionCount--
+	if ptn.pendingTransactionCount == 0 {
+		ptn.stop()
+	}
+}
+
+// finalizableTransaction wraps a transaction to track the number of in-flight transactions for a Partition.
+type finalizableTransaction struct {
+	// finalize is called when the transaction is either committed or rolled back.
+	finalize func()
+	// Transaction is the underlying transaction.
+	*Transaction
+}
+
+// Commit commits the transaction and runs the finalizer.
+func (tx *finalizableTransaction) Commit(ctx context.Context) error {
+	defer tx.finalize()
+	return tx.Transaction.Commit(ctx)
+}
+
+// Rollback rolls back the transaction and runs the finalizer.
+func (tx *finalizableTransaction) Rollback() error {
+	defer tx.finalize()
+	return tx.Transaction.Rollback()
+}
+
+// newFinalizableTransaction returns a wrapped transaction that executes finalizeTransaction when the transaction
+// is committed or rolled back.
+func (sm *storageManager) newFinalizableTransaction(ptn *partition, tx *Transaction) *finalizableTransaction {
+	finalized := false
+	return &finalizableTransaction{
+		finalize: func() {
+			if finalized {
+				return
+			}
+
+			finalized = true
+			sm.finalizeTransaction(ptn)
+		},
+		Transaction: tx,
 	}
 }
 
@@ -169,10 +203,10 @@ func stagingDirectoryPath(storagePath string) string {
 	return filepath.Join(storagePath, "staging")
 }
 
-// Begin gets the TransactionManager for the specified repository and starts a Transaction. If a
+// Begin gets the TransactionManager for the specified repository and starts a transaction. If a
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
-func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) (*Transaction, error) {
+func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) (*finalizableTransaction, error) {
 	storageMgr, ok := pm.storages[repo.GetStorageName()]
 	if !ok {
 		return nil, structerr.NewNotFound("unknown storage: %q", repo.GetStorageName())
@@ -202,7 +236,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, stagingDir, pm.commandFactory, pm.housekeepingManager, storageMgr.repoFactory, storageMgr.transactionFinalizerFactory(ptn))
+			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, stagingDir, pm.commandFactory, pm.housekeepingManager, storageMgr.repoFactory)
 
 			ptn.transactionManager = mgr
 
@@ -258,12 +292,12 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 			// inflight. A transaction failing does not necessarily mean the transaction manager has
 			// stopped running. Consequently, if there are no other pending transactions the partition
 			// should be stopped.
-			storageMgr.transactionFinalizerFactory(ptn)()
+			storageMgr.finalizeTransaction(ptn)
 
 			return nil, err
 		}
 
-		return transaction, nil
+		return storageMgr.newFinalizableTransaction(ptn, transaction), nil
 	}
 }
 
