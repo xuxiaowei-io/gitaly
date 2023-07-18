@@ -24,6 +24,7 @@ func TestAddMetadataTags(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc             string
+		fullMethod       string
 		metadata         metadata.MD
 		deadline         bool
 		expectedMetatags metadataTags
@@ -33,10 +34,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs(),
 			deadline: false,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     unknownValue,
-				authVersion:  unknownValue,
-				deadlineType: "none",
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -44,10 +47,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: false,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     "testsite",
-				authVersion:  unknownValue,
-				deadlineType: "none",
+				clientName:      unknownValue,
+				callSite:        "testsite",
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -55,10 +60,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: true,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     "testsite",
-				authVersion:  unknownValue,
-				deadlineType: unknownValue,
+				clientName:      unknownValue,
+				callSite:        "testsite",
+				authVersion:     unknownValue,
+				deadlineType:    unknownValue,
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -66,10 +73,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: true,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     unknownValue,
-				authVersion:  unknownValue,
-				deadlineType: "regular",
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "regular",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -77,10 +86,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: false,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     unknownValue,
-				authVersion:  unknownValue,
-				deadlineType: "none",
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -88,10 +99,96 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular", "client_name", "rails"),
 			deadline: true,
 			expectedMetatags: metadataTags{
-				clientName:   "rails",
-				callSite:     unknownValue,
-				authVersion:  unknownValue,
-				deadlineType: "regular",
+				clientName:      "rails",
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "regular",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
+			},
+		},
+		{
+			desc:       "with unknown method",
+			fullMethod: "/gitaly.RepositoryService/UnknownMethod",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
+			},
+		},
+		{
+			desc:       "with repository-scoped accessor",
+			fullMethod: "/gitaly.RepositoryService/ObjectFormat",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "accessor",
+				methodScope:     "repository",
+			},
+		},
+		{
+			desc:       "with repository-scoped mutator",
+			fullMethod: "/gitaly.RepositoryService/CreateRepository",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "mutator",
+				methodScope:     "repository",
+			},
+		},
+		{
+			desc:       "with repository-scoped maintenance",
+			fullMethod: "/gitaly.RepositoryService/OptimizeRepository",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "maintenance",
+				methodScope:     "repository",
+			},
+		},
+		{
+			desc:       "with repository-scoped maintenance",
+			fullMethod: "/gitaly.RepositoryService/OptimizeRepository",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "maintenance",
+				methodScope:     "repository",
+			},
+		},
+		{
+			desc:       "with storage-scoped accessor",
+			fullMethod: "/gitaly.RemoteService/FindRemoteRepository",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "accessor",
+				methodScope:     "storage",
 			},
 		},
 	} {
@@ -109,7 +206,7 @@ func TestAddMetadataTags(t *testing.T) {
 				defer cancel()
 			}
 
-			require.Equal(t, tc.expectedMetatags, addMetadataTags(ctx, "unary"))
+			require.Equal(t, tc.expectedMetatags, addMetadataTags(ctx, tc.fullMethod, "unary"))
 		})
 	}
 }
@@ -132,20 +229,24 @@ func TestGRPCTags(t *testing.T) {
 	interceptor := grpcmwtags.UnaryServerInterceptor()
 
 	_, err := interceptor(ctx, nil, nil, func(ctx context.Context, _ interface{}) (interface{}, error) {
-		metaTags := addMetadataTags(ctx, "unary")
+		metaTags := addMetadataTags(ctx, "/gitaly.RepositoryService/OptimizeRepository", "unary")
 
 		require.Equal(t, metadataTags{
-			clientName:   clientName,
-			callSite:     "unknown",
-			authVersion:  "unknown",
-			deadlineType: "none",
+			clientName:      clientName,
+			callSite:        "unknown",
+			authVersion:     "unknown",
+			deadlineType:    "none",
+			methodOperation: "maintenance",
+			methodScope:     "repository",
 		}, metaTags)
 
 		require.Equal(t, map[string]interface{}{
-			"correlation_id": correlationID,
-			ClientNameKey:    clientName,
-			DeadlineTypeKey:  "none",
-			MethodTypeKey:    "unary",
+			"correlation_id":   correlationID,
+			ClientNameKey:      clientName,
+			DeadlineTypeKey:    "none",
+			MethodTypeKey:      "unary",
+			MethodOperationKey: "maintenance",
+			MethodScopeKey:     "repository",
 		}, grpcmwtags.Extract(ctx).Values())
 
 		return nil, nil
