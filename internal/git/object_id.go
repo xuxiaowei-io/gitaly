@@ -133,6 +133,14 @@ func (h ObjectHash) FromHex(hex string) (ObjectID, error) {
 	return ObjectID(hex), nil
 }
 
+// HashData hashes the given bytes to an object ID.
+func (h ObjectHash) HashData(bytes []byte) ObjectID {
+	hash := h.Hash()
+	// hash.Write never returns an error, so we are free to ignore its error here.
+	_, _ = hash.Write(bytes)
+	return ObjectID(hex.EncodeToString(hash.Sum(nil)))
+}
+
 // ValidateHex checks if `hex` is a syntactically correct object ID for the given hash. Abbreviated
 // object IDs are not deemed to be valid. Returns an `ErrInvalidObjectID` if the `hex` is not valid.
 func (h ObjectHash) ValidateHex(hex string) error {

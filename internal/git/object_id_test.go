@@ -352,6 +352,48 @@ func TestObjectHash_EncodedLen(t *testing.T) {
 	require.Equal(t, 64, git.ObjectHashSHA256.EncodedLen())
 }
 
+func TestObjectHash_HashData(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc              string
+		data              []byte
+		expectedSHA1OID   git.ObjectID
+		expectedSHA256OID git.ObjectID
+	}{
+		{
+			desc:              "nil slice",
+			data:              nil,
+			expectedSHA1OID:   "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+			expectedSHA256OID: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		},
+		{
+			desc:              "empty slice",
+			data:              []byte{},
+			expectedSHA1OID:   "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+			expectedSHA256OID: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		},
+		{
+			desc:              "some data",
+			data:              []byte("some data"),
+			expectedSHA1OID:   "baf34551fecb48acc3da868eb85e1b6dac9de356",
+			expectedSHA256OID: "1307990e6ba5ca145eb35e99182a9bec46531bc54ddf656a602c780fa0240dee",
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Run("sha1", func(t *testing.T) {
+				require.Equal(t, tc.expectedSHA1OID, git.ObjectHashSHA1.HashData(tc.data))
+			})
+
+			t.Run("sha256", func(t *testing.T) {
+				require.Equal(t, tc.expectedSHA256OID, git.ObjectHashSHA256.HashData(tc.data))
+			})
+		})
+	}
+}
+
 func TestObjectID_Bytes(t *testing.T) {
 	for _, tc := range []struct {
 		desc          string
