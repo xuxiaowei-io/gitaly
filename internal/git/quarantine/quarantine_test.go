@@ -180,7 +180,7 @@ func TestApply(t *testing.T) {
 			expectedRepo: &gitalypb.Repository{
 				StorageName:                   repo.StorageName,
 				GitObjectDirectory:            relPath,
-				GitAlternateObjectDirectories: []string{"objects", "custom_directory"},
+				GitAlternateObjectDirectories: []string{"custom_directory"},
 				RelativePath:                  repo.RelativePath,
 				GlProjectPath:                 repo.GlProjectPath,
 				GlRepository:                  repo.GlRepository,
@@ -193,7 +193,7 @@ func TestApply(t *testing.T) {
 			expectedRepo: &gitalypb.Repository{
 				StorageName:                   repo.StorageName,
 				GitObjectDirectory:            relPath,
-				GitAlternateObjectDirectories: []string{"objects", "custom_directory", "alternate_directory"},
+				GitAlternateObjectDirectories: []string{"custom_directory", "alternate_directory"},
 				RelativePath:                  repo.RelativePath,
 				GlProjectPath:                 repo.GlProjectPath,
 				GlRepository:                  repo.GlRepository,
