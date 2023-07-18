@@ -130,6 +130,43 @@ func TestQuarantine_Migrate(t *testing.T) {
 		oldContents["objects/file"] = "foobar"
 		require.Equal(t, oldContents, newContents)
 	})
+
+	t.Run("simple change into existing quarantine", func(t *testing.T) {
+		ctx := testhelper.Context(t)
+
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+
+		repoContents := listEntries(t, repoPath)
+		require.NotContains(t, repoContents, "objects/file")
+
+		quarantine, err := New(ctx, repo, locator)
+		require.NoError(t, err)
+
+		require.Empty(t, listEntries(t, quarantine.dir.Path()))
+
+		// Quarantine the already quarantined repository and write the object there. We expect the
+		// object to be migrated from the second level quarantine to the first level quarantine. The
+		// main repository should stay untouched.
+		recursiveQuarantine, err := New(ctx, quarantine.QuarantinedRepo(), locator)
+		require.NoError(t, err)
+
+		require.NoError(t, os.WriteFile(filepath.Join(recursiveQuarantine.dir.Path(), "file"), []byte("foobar"), perm.PublicFile))
+		require.NoError(t, recursiveQuarantine.Migrate())
+
+		// The main repo should be untouched and still not contain the object.
+		require.Equal(t, repoContents, listEntries(t, repoPath))
+
+		// The quarantine should contain the object.
+		require.Equal(t,
+			map[string]string{"file": "foobar"},
+			listEntries(t, quarantine.dir.Path()),
+		)
+
+		// Recursive quarantine should no longer exist.
+		require.NoDirExists(t, recursiveQuarantine.dir.Path())
+	})
 }
 
 func TestApply(t *testing.T) {
