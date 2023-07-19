@@ -159,6 +159,9 @@ workflow:
       <<: *only_code_changes
     - if: '$CI_COMMIT_BRANCH =~ /^[\d-]+-stable$/'
       <<: *only_code_changes
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
 
 .rules_run_on_merge: &rules_run_on_merge
     # We only execute these rules in the main Gitaly repository. This is
