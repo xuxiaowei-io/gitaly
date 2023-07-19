@@ -1,10 +1,8 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
+	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -16,112 +14,168 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulCalculateChecksum(t *testing.T) {
+func TestCalculateChecksum(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	// Force the refs database of testRepo into a known state
-	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
-	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), perm.SharedDir))
+	type setupData struct {
+		request          *gitalypb.CalculateChecksumRequest
+		expectedErr      error
+		expectedResponse *gitalypb.CalculateChecksumResponse
 	}
 
-	testhelper.CopyFile(t, "testdata/checksum-test-packed-refs", filepath.Join(repoPath, "packed-refs"))
-	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
-
-	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
-
-	response, err := client.CalculateChecksum(ctx, request)
-	require.NoError(t, err)
-	require.Equal(t, "0c500d7c8a9dbf65e4cf5e58914bec45bfb6e9ab", response.Checksum)
-}
-
-func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
-
-	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
-
-	response, err := client.CalculateChecksum(ctx, request)
-	require.NoError(t, err)
-	require.Equal(t, git.ZeroChecksum, response.Checksum)
-}
-
-func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-
-	// Force an empty HEAD file
-	require.NoError(t, os.Truncate(filepath.Join(repoPath, "HEAD"), 0))
-
-	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
-
-	_, err := client.CalculateChecksum(ctx, request)
-	testhelper.RequireGrpcCode(t, err, codes.DataLoss)
-}
-
-func TestFailedCalculateChecksum(t *testing.T) {
-	t.Parallel()
-	_, client := setupRepositoryServiceWithoutRepo(t)
-
-	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
-
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.CalculateChecksumRequest
-		expectedErr error
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			desc:    "Invalid repository",
-			request: &gitalypb.CalculateChecksumRequest{Repository: invalidRepo},
-			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-				"%w", storage.NewStorageNotFoundError("fake"),
-			)),
+			desc: "unset repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.CalculateChecksumRequest{
+						Repository: nil,
+					},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
+			},
 		},
 		{
-			desc:        "Repository is nil",
-			request:     &gitalypb.CalculateChecksumRequest{},
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			desc: "nonexistent storage",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.CalculateChecksumRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "fake",
+							RelativePath: gittest.NewRepositoryName(t),
+						},
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("fake"),
+					)),
+				}
+			},
 		},
+		{
+			desc: "broken repository",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				// Force an empty HEAD file such that the repository becomes broken.
+				require.NoError(t, os.Truncate(filepath.Join(repoPath, "HEAD"), 0))
+
+				return setupData{
+					request: &gitalypb.CalculateChecksumRequest{
+						Repository: repo,
+					},
+					expectedErr: structerr.NewDataLoss("not a git repository '%s'", repoPath),
+				}
+			},
+		},
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.CalculateChecksumRequest{
+						Repository: repo,
+					},
+					expectedResponse: &gitalypb.CalculateChecksumResponse{
+						Checksum: git.ZeroChecksum,
+					},
+				}
+			},
+		},
+		{
+			desc: "populated repository",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				for _, ref := range []string{"refs/heads/branch", "refs/tags/v1.0.0", "refs/notes/note"} {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(ref), gittest.WithReference(ref))
+				}
+
+				return setupData{
+					request: &gitalypb.CalculateChecksumRequest{
+						Repository: repo,
+					},
+					expectedResponse: &gitalypb.CalculateChecksumResponse{
+						Checksum: gittest.ObjectHashDependent(t, map[string]string{
+							"sha1":   "7e3f9735e6f6c7de4f21b123cb6e34f428118a7e",
+							"sha256": "daa22f3ab9dd539002a7931e42af041429f0346f",
+						}),
+					},
+				}
+			},
+		},
+		{
+			desc: "unknown references are ignored",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				for _, ref := range []string{"refs/heads/branch", "refs/tags/v1.0.0", "refs/notes/note", "refs/unknown/namespace"} {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(ref), gittest.WithReference(ref))
+				}
+
+				return setupData{
+					request: &gitalypb.CalculateChecksumRequest{
+						Repository: repo,
+					},
+					expectedResponse: &gitalypb.CalculateChecksumResponse{
+						// Note that the checksum here is the same as in the preceding testcase.
+						// This is because any references outside of well-known namespaces are
+						// simply ignored. It's quite debatable whether this behaviour is
+						// correct, but I'm not here to judge at the time of writing this test.
+						Checksum: gittest.ObjectHashDependent(t, map[string]string{
+							"sha1":   "7e3f9735e6f6c7de4f21b123cb6e34f428118a7e",
+							"sha256": "daa22f3ab9dd539002a7931e42af041429f0346f",
+						}),
+					},
+				}
+			},
+		},
+		{
+			desc: "invalid reference",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+
+				// We write a known-broken reference into the packed-refs file. We expect that this
+				// issue should be detected and reported to the caller. The existing behaviour is
+				// somewhat weird though as it's impossible for the caller to distinguish an empty
+				// repository from a corrupt repository given that both cases return the zero checksum.
+				require.NoError(t, os.WriteFile(
+					filepath.Join(repoPath, "packed-refs"),
+					[]byte(fmt.Sprintf("# pack-refs with: peeled fully-peeled sorted\n%s refs/heads/broken:reference\n", commitID)),
+					perm.PrivateFile,
+				))
+
+				return setupData{
+					request: &gitalypb.CalculateChecksumRequest{
+						Repository: repo,
+					},
+					expectedResponse: &gitalypb.CalculateChecksumResponse{
+						Checksum: git.ZeroChecksum,
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			response, err := client.CalculateChecksum(ctx, setup.request)
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.ProtoEqual(t, setup.expectedResponse, response)
+		})
 	}
-
-	for _, testCase := range testCases {
-		testCtx := testhelper.Context(t)
-
-		_, err := client.CalculateChecksum(testCtx, testCase.request)
-		testhelper.RequireGrpcError(t, testCase.expectedErr, err)
-	}
-}
-
-func TestInvalidRefsCalculateChecksum(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(t, ctx)
-
-	// Force the refs database of testRepo into a known state
-	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
-	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), perm.SharedDir))
-	}
-	require.NoError(t, exec.Command("cp", "testdata/checksum-test-invalid-refs", filepath.Join(repoPath, "packed-refs")).Run())
-
-	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
-
-	response, err := client.CalculateChecksum(ctx, request)
-	require.NoError(t, err)
-	require.Equal(t, git.ZeroChecksum, response.Checksum)
 }
