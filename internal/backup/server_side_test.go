@@ -69,7 +69,6 @@ func TestServerSideAdapter_Create(t *testing.T) {
 					backupID: "abc123",
 				}
 			},
-			expectedErr: fmt.Errorf("server-side create: empty repository: %w", backup.ErrSkipped),
 		},
 		{
 			desc: "repository does not exist",

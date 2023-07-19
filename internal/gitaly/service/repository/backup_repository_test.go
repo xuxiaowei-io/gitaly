@@ -107,9 +107,6 @@ func TestServerBackupRepository(t *testing.T) {
 					backupID: "abc123",
 				}
 			},
-			expectedErr: structerr.NewFailedPrecondition("backup repository: manager: repository empty: repository skipped").WithDetail(
-				&gitalypb.BackupRepositoryResponse_SkippedError{},
-			),
 		},
 		{
 			desc: "missing backup sink",

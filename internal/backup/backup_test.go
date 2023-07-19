@@ -142,10 +142,9 @@ func TestManager_Create(t *testing.T) {
 					emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 					return emptyRepo, repoPath
 				},
-				createsRefList:     false,
+				createsRefList:     true,
 				createsBundle:      false,
 				createsCustomHooks: false,
-				err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
 			},
 			{
 				desc: "nonexistent repo",
@@ -158,7 +157,7 @@ func TestManager_Create(t *testing.T) {
 				createsRefList:     false,
 				createsBundle:      false,
 				createsCustomHooks: false,
-				err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
+				err:                fmt.Errorf("manager: repository not found: %w", backup.ErrSkipped),
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {

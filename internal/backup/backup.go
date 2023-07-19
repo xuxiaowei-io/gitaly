@@ -15,6 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -197,12 +199,6 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if isEmpty, err := repo.IsEmpty(ctx); err != nil {
-		return fmt.Errorf("manager: %w", err)
-	} else if isEmpty {
-		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
-	}
-
 	var step *Step
 	if req.Incremental {
 		var err error
@@ -215,9 +211,13 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	}
 
 	refs, err := repo.ListRefs(ctx)
-	if err != nil {
+	switch {
+	case status.Code(err) == codes.NotFound:
+		return fmt.Errorf("manager: repository not found: %w", ErrSkipped)
+	case err != nil:
 		return fmt.Errorf("manager: %w", err)
 	}
+
 	if err := mgr.writeRefs(ctx, step.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
@@ -311,6 +311,10 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 }
 
 func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step, refs []git.Reference) (returnErr error) {
+	if len(refs) == 0 {
+		return nil
+	}
+
 	negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 	if err != nil {
 		return fmt.Errorf("write bundle: %w", err)
