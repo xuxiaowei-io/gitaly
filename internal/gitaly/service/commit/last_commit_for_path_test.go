@@ -1,162 +1,196 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
+func TestLastCommitForPath(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	commit := testhelper.GitLabTestCommit("570e7b2abdd848b95f2f578043fc23bd6f6fd24d")
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	testCases := []struct {
-		desc     string
-		revision string
-		path     []byte
-		commit   *gitalypb.GitCommit
-	}{
-		{
-			desc:     "path present",
-			revision: "e63f41fe459e62e1228fcef60d7189127aeba95a",
-			path:     []byte("files/ruby/regex.rb"),
-			commit:   commit,
-		},
-		{
-			desc:     "path empty",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			commit:   commit,
-		},
-		{
-			desc:     "path is '/'",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			commit:   commit,
-			path:     []byte("/"),
-		},
-		{
-			desc:     "path is '*'",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			commit:   commit,
-			path:     []byte("*"),
-		},
-		{
-			desc:     "file does not exist in this commit",
-			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-			path:     []byte("files/lfs/lfs_object.iso"),
-		},
-	}
+	initialCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Content: "unmodified", Mode: "100644"},
+		gittest.TreeEntry{Path: "delete-me", Content: "something", Mode: "100644"},
+	))
+	deletedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(initialCommitID), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Content: "unmodified", Mode: "100644"},
+	))
+	modifiedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(deletedCommitID), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Content: "modified", Mode: "100644"},
+	))
+	globCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(modifiedCommitID), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Content: "modified", Mode: "100644"},
+		gittest.TreeEntry{Path: ":wq", Content: "glob", Mode: "100644"},
+	))
+	latestCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(globCommitID), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Content: "modified", Mode: "100644"},
+		gittest.TreeEntry{Path: ":wq", Content: "glob", Mode: "100644"},
+		gittest.TreeEntry{Path: "uninteresting", Content: "uninteresting", Mode: "100644"},
+	))
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			request := &gitalypb.LastCommitForPathRequest{
-				Repository: repo,
-				Revision:   []byte(testCase.revision),
-				Path:       testCase.path,
-			}
-
-			response, err := client.LastCommitForPath(ctx, request)
-			require.NoError(t, err)
-
-			testhelper.ProtoEqual(t, testCase.commit, response.GetCommit())
-		})
-	}
-}
-
-func TestFailedLastCommitForPathRequest(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	deletedCommit, err := repo.ReadCommit(ctx, deletedCommitID.Revision())
+	require.NoError(t, err)
+	modifiedCommit, err := repo.ReadCommit(ctx, modifiedCommitID.Revision())
+	require.NoError(t, err)
+	globCommit, err := repo.ReadCommit(ctx, globCommitID.Revision())
+	require.NoError(t, err)
+	latestCommit, err := repo.ReadCommit(ctx, latestCommitID.Revision())
+	require.NoError(t, err)
 
 	for _, tc := range []struct {
-		desc        string
-		request     *gitalypb.LastCommitForPathRequest
-		expectedErr error
+		desc             string
+		request          *gitalypb.LastCommitForPathRequest
+		expectedErr      error
+		expectedResponse *gitalypb.LastCommitForPathResponse
 	}{
 		{
-			desc: "Invalid repository",
+			desc: "invalid storage",
 			request: &gitalypb.LastCommitForPathRequest{
-				Repository: invalidRepo,
-				Revision:   []byte("some-branch"),
+				Repository: &gitalypb.Repository{
+					StorageName:  "fake",
+					RelativePath: gittest.NewRepositoryName(t),
+				},
+				Revision: []byte("some-branch"),
 			},
 			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 				"%w", storage.NewStorageNotFoundError("fake"),
 			)),
 		},
 		{
-			desc: "Repository is nil",
+			desc: "unset repository",
 			request: &gitalypb.LastCommitForPathRequest{
-				Revision: []byte("some-branch"),
+				Repository: nil,
 			},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
-			desc: "Revision is missing",
+			desc: "unset revision",
 			request: &gitalypb.LastCommitForPathRequest{
-				Repository: repo, Path: []byte("foo/bar"),
+				Repository: repoProto,
 			},
 			expectedErr: structerr.NewInvalidArgument("empty revision"),
 		},
 		{
-			desc: "Revision is invalid",
+			desc: "invalid revision",
 			request: &gitalypb.LastCommitForPathRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Path:       []byte("foo/bar"),
 				Revision:   []byte("--output=/meow"),
 			},
 			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
+		{
+			desc: "path present",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: repoProto,
+				Revision:   []byte(latestCommitID),
+				Path:       []byte("file"),
+			},
+			expectedResponse: &gitalypb.LastCommitForPathResponse{
+				Commit: modifiedCommit,
+			},
+		},
+		{
+			desc: "path empty",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: repoProto,
+				Revision:   []byte(latestCommitID),
+				Path:       []byte(""),
+			},
+			expectedResponse: &gitalypb.LastCommitForPathResponse{
+				Commit: latestCommit,
+			},
+		},
+		{
+			desc: "path is '/'",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: repoProto,
+				Revision:   []byte(latestCommitID),
+				Path:       []byte("/"),
+			},
+			expectedResponse: &gitalypb.LastCommitForPathResponse{
+				Commit: latestCommit,
+			},
+		},
+		{
+			desc: "path is '*'",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: repoProto,
+				Revision:   []byte(latestCommitID),
+				Path:       []byte("*"),
+			},
+			expectedResponse: &gitalypb.LastCommitForPathResponse{
+				Commit: latestCommit,
+			},
+		},
+		{
+			desc: "deleted file",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: repoProto,
+				Revision:   []byte(latestCommitID),
+				Path:       []byte("delete-me"),
+			},
+			expectedResponse: &gitalypb.LastCommitForPathResponse{
+				Commit: deletedCommit,
+			},
+		},
+		{
+			desc: "missing file",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: repoProto,
+				Revision:   []byte(latestCommitID),
+				Path:       []byte("does-not-exist"),
+			},
+			expectedResponse: &gitalypb.LastCommitForPathResponse{
+				Commit: nil,
+			},
+		},
+		{
+			desc: "glob with literal pathspec",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository:      repoProto,
+				Revision:        []byte(latestCommitID),
+				Path:            []byte(":wq"),
+				LiteralPathspec: true,
+			},
+			expectedResponse: &gitalypb.LastCommitForPathResponse{
+				Commit: globCommit,
+			},
+		},
+		{
+			desc: "glob without literal pathspec",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository:      repoProto,
+				Revision:        []byte(latestCommitID),
+				Path:            []byte(":wq"),
+				LiteralPathspec: false,
+			},
+			expectedResponse: &gitalypb.LastCommitForPathResponse{
+				Commit: nil,
+			},
+		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.LastCommitForPath(ctx, tc.request)
+			t.Parallel()
+
+			response, err := client.LastCommitForPath(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
-}
-
-func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
-
-	// This is an arbitrary blob known to exist in the test repository
-	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
-	path := ":wq"
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
-			Mode: "100644", Path: path, OID: git.ObjectID(blobID),
-		}),
-	)
-
-	request := &gitalypb.LastCommitForPathRequest{
-		Repository:      repo,
-		Revision:        []byte(commitID),
-		Path:            []byte(path),
-		LiteralPathspec: true,
-	}
-	response, err := client.LastCommitForPath(ctx, request)
-	require.NoError(t, err)
-	require.NotNil(t, response.GetCommit())
-	require.Equal(t, commitID.String(), response.GetCommit().Id)
-
-	request.LiteralPathspec = false
-	response, err = client.LastCommitForPath(ctx, request)
-	require.NoError(t, err)
-	require.Nil(t, response.GetCommit())
 }
