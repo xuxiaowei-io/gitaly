@@ -352,7 +352,6 @@ test:macos:
   tags:
     - saas-macos-medium-m1
   needs: []
-  allow_failure: true
   stage: test
   cache:
     - <<: *cache_deps_configuration
