@@ -37,21 +37,6 @@ func newRemoteRepository(repo *gitalypb.Repository, conn *grpc.ClientConn) *remo
 	}
 }
 
-// IsEmpty returns true if the repository has no branches.
-func (rr *remoteRepository) IsEmpty(ctx context.Context) (bool, error) {
-	client := rr.newRepoClient()
-	hasLocalBranches, err := client.HasLocalBranches(ctx, &gitalypb.HasLocalBranchesRequest{
-		Repository: rr.repo,
-	})
-	switch {
-	case status.Code(err) == codes.NotFound:
-		return true, nil
-	case err != nil:
-		return false, fmt.Errorf("remote repository: is empty: %w", err)
-	}
-	return !hasLocalBranches.GetValue(), nil
-}
-
 // ListRefs fetches the full set of refs and targets for the repository
 func (rr *remoteRepository) ListRefs(ctx context.Context) ([]git.Reference, error) {
 	refClient := rr.newRefClient()
@@ -286,26 +271,6 @@ func newLocalRepository(
 		repoCounter:   repoCounter,
 		repo:          repo,
 	}
-}
-
-// IsEmpty returns true if the repository has no branches.
-func (r *localRepository) IsEmpty(ctx context.Context) (bool, error) {
-	if err := r.locator.ValidateRepository(r.repo); err != nil {
-		if errors.Is(err, storage.ErrRepositoryNotFound) {
-			// Backups do not currently differentiate between non-existent and
-			// empty. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
-			return true, nil
-		}
-
-		return false, fmt.Errorf("local repository: verifying repository: %w", err)
-	}
-
-	hasBranches, err := r.repo.HasBranches(ctx)
-	if err != nil {
-		return false, fmt.Errorf("local repository: is empty: %w", err)
-	}
-
-	return !hasBranches, nil
 }
 
 // ListRefs fetches the full set of refs and targets for the repository.

@@ -80,8 +80,6 @@ type Locator interface {
 
 // Repository abstracts git access required to make a repository backup
 type Repository interface {
-	// IsEmpty returns true if the repository has no branches.
-	IsEmpty(ctx context.Context) (bool, error)
 	// ListRefs fetches the full set of refs and targets for the repository.
 	ListRefs(ctx context.Context) ([]git.Reference, error)
 	// GetCustomHooks fetches the custom hooks archive.
