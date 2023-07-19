@@ -147,12 +147,12 @@ workflow:
     - .gitlab-ci.yml
     - "go.*"
 
-.rules_should_test_all: &rules_should_test_all
+.rules_run_always: &rules_run_always
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: '$CI_COMMIT_BRANCH =~ /^[\d-]+-stable$/'
 
-.rules_should_test_code: &rules_should_test_code
+.rules_run_on_code_change: &rules_run_on_code_change
     - if: $CI_MERGE_REQUEST_IID
       <<: *only_code_changes
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -253,7 +253,7 @@ test:
       - POSTGRES_VERSION: "11-alpine"
         TEST_TARGET: [ test, test-with-praefect ]
   rules:
-    - *rules_should_test_code
+    - *rules_run_on_code_change
 
 test:pgbouncer:
   <<: *test_definition
@@ -284,7 +284,7 @@ test:pgbouncer:
     # can reach Postgres.
     TEST_TARGET: "test-with-praefect"
   rules:
-    - *rules_should_test_code
+    - *rules_run_on_code_change
 
 test:nightly:
   <<: *test_definition
@@ -308,7 +308,7 @@ test:praefect_smoke:
     - ./_build/bin/praefect -config config.praefect.toml sql-ping
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
   rules:
-    - *rules_should_test_code
+    - *rules_run_on_code_change
 
 
 test:sha256:
@@ -318,7 +318,7 @@ test:sha256:
       - TEST_TARGET: [ test, test-with-praefect ]
         TEST_WITH_SHA256: "YesPlease"
   rules:
-    - *rules_should_test_code
+    - *rules_run_on_code_change
 
 
 test:fips:
@@ -406,7 +406,7 @@ verify:docs:
   script:
     - make lint-docs
   rules:
-    - *rules_should_test_all
+    - *rules_run_always
 
 verify:
   needs: []
@@ -425,7 +425,7 @@ verify:
       - proto/go/gitalypb/*
     when: on_failure
   rules:
-    - *rules_should_test_code
+    - *rules_run_on_code_change
 
 dbschema:
   needs: []
@@ -446,7 +446,7 @@ dbschema:
       - _support/praefect-schema.sql
     when: on_failure
   rules:
-    - *rules_should_test_code
+    - *rules_run_on_code_change
 
 semgrep-sast:
   needs: []
@@ -456,7 +456,7 @@ semgrep-sast:
   rules:
     - if: $SAST_DISABLED
       when: never
-    - *rules_should_test_code
+    - *rules_run_on_code_change
 
 license_scanning:
   needs: []
@@ -464,7 +464,7 @@ license_scanning:
   rules:
     - if: $LICENSE_SCANNING_DISABLED
       when: never
-    - *rules_should_test_all
+    - *rules_run_always
   variables:
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=.'
 
@@ -474,7 +474,7 @@ secret_detection:
   rules:
     - if: $SECRET_DETECTION_DISABLED
       when: never
-    - *rules_should_test_all
+    - *rules_run_always
 
 build-proto-gem:
   needs: []
