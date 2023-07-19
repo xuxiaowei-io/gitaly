@@ -9,6 +9,7 @@ import (
 	"io"
 	"sync/atomic"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -209,15 +210,20 @@ func CatfileInfoAllObjects(
 				fmt.Sprintf("=%%(objectname) %%(objecttype) %%(objectsize:disk)")
 		}
 
+		options := []git.Option{
+			batchCheckOption,
+			git.Flag{Name: "--batch-all-objects"},
+			git.Flag{Name: "--buffer"},
+			git.Flag{Name: "--unordered"},
+		}
+		if featureflag.MailmapOptions.IsEnabled(ctx) {
+			options = append([]git.Option{git.Flag{Name: "--use-mailmap"}}, options...)
+		}
+
 		var stderr bytes.Buffer
 		cmd, err := repo.Exec(ctx, git.Command{
-			Name: "cat-file",
-			Flags: []git.Option{
-				batchCheckOption,
-				git.Flag{Name: "--batch-all-objects"},
-				git.Flag{Name: "--buffer"},
-				git.Flag{Name: "--unordered"},
-			},
+			Name:  "cat-file",
+			Flags: options,
 		}, git.WithStderr(&stderr))
 		if err != nil {
 			sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{

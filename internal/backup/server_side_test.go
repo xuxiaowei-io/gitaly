@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -237,4 +238,36 @@ func TestServerSideAdapter_Restore(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestServerSideAdapter_RemoveAllRepositories(t *testing.T) {
+	t.Parallel()
+
+	backupRoot := testhelper.TempDir(t)
+	sink := backup.NewFilesystemSink(backupRoot)
+	defer testhelper.MustClose(t, sink)
+
+	locator, err := backup.ResolveLocator("pointer", sink)
+	require.NoError(t, err)
+
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll,
+		testserver.WithBackupSink(sink),
+		testserver.WithBackupLocator(locator),
+	)
+
+	ctx := testhelper.Context(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+	pool := client.NewPool()
+	defer testhelper.MustClose(t, pool)
+
+	adapter := backup.NewServerSideAdapter(pool)
+	err = adapter.RemoveAllRepositories(ctx, &backup.RemoveAllRepositoriesRequest{
+		Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
+		StorageName: repo.StorageName,
+	})
+	require.NoError(t, err)
 }

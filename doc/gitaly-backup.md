@@ -117,6 +117,7 @@ Gitaly and Gitaly Cluster.
    |  `-id`                      |  string                |  no      |  ID of full backup to restore. If not specified, the latest backup is restored (default). |
    |  `-layout`                  |  string                |  no      |  How backup files are located. Either `pointer` (default) or `legacy`. |
    |  `-remove-all-repositories` |  comma-separated list  |  no      |  List of storage names to have all repositories removed from before restoring. You must specify `GITALY_SERVERS` for the listed storage names. |
+   |  `-server-side`             |  bool                  |  no      |  Indicates whether to use server-side backups. Note: The feature is not ready for production use. |
 
 ## Path
 
@@ -242,3 +243,42 @@ $BACKUP_DESTINATION_PATH/
    Negating the object IDs from the previous increment ensures that we stop
    traversing commits when we reach the HEAD of the branch at the time of the
    last incremental backup.
+
+## Server-side backups
+
+`gitaly-backup` usually performs a "client-side backup":
+
+- `gitaly-backup` receives a stream of backup data from Gitaly.
+- `gitaly-backup` then sends a stream of backup data to the location specified by `-path`.
+
+When `-path` is set to object storage, the entire backup is transferred over the network twice. Once from Gitaly to `gitaly-backup` and again from `gitaly-backup`
+to object storage.
+
+To make this more efficient, server-side backups stream backup data directly from the Gitaly to object storage.
+
+To use server-side backups:
+
+1. Add the `[backup]` section in `gitaly.toml` for each Gitaly node to set the server-side backup destination.
+
+   For example, `gitaly.toml`:
+
+   ```toml
+   [backup]
+   go_cloud_url = "gs://gitaly-backups"
+   # layout = "pointer"
+   ```
+
+1. Add the `-server-side` flag when invoking `gitaly-backup`. The `-path` and `-layout` flags cannot be used in server-side mode.
+
+   For example:
+
+   ```shell
+   /opt/gitlab/embedded/bin/gitaly-backup create -server-side < backup_job.json
+   ```
+
+Server-side backups use the [`gocloud.dev/blob`](https://pkg.go.dev/gocloud.dev/blob) library.
+`go_cloud_url` can be used with:
+
+- [Amazon S3](https://pkg.go.dev/gocloud.dev/blob/s3blob). For example `go_cloud_url = "s3://my-bucket?region=us-west-1"`.
+- [Azure Blob Storage](https://pkg.go.dev/gocloud.dev/blob/azureblob). For example `go_cloud_url = "azblob://my-container"`.
+- [Google Cloud Storage](https://pkg.go.dev/gocloud.dev/blob/gcsblob). For example `go_cloud_url = "gs//my-bucket"`.

@@ -59,7 +59,7 @@ func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator
 }
 
 // Apply applies the quarantine on the repository. This is done by setting the quarantineDirectory
-// as the repository's object directory, and configuring the original object directory as an alternate.
+// as the repository's object directory, and configuring the repository's object directory as an alternate.
 func Apply(repoPath string, repo *gitalypb.Repository, quarantineDir string) (*gitalypb.Repository, error) {
 	relativePath, err := filepath.Rel(repoPath, quarantineDir)
 	if err != nil {
@@ -67,10 +67,15 @@ func Apply(repoPath string, repo *gitalypb.Repository, quarantineDir string) (*g
 	}
 
 	// All paths are relative to the repository root.
-	alternateObjectDirs := []string{"objects"}
-	if repo.GetGitObjectDirectory() != "" {
-		alternateObjectDirs = append(alternateObjectDirs, repo.GetGitObjectDirectory())
+	objectDir := repo.GitObjectDirectory
+	if objectDir == "" {
+		// Set the default object directory as an alternate if the repository didn't
+		// have the object directory overwritten yet.
+		objectDir = "objects"
 	}
+
+	alternateObjectDirs := make([]string, 0, len(repo.GetGitAlternateObjectDirectories())+1)
+	alternateObjectDirs = append(alternateObjectDirs, objectDir)
 	alternateObjectDirs = append(alternateObjectDirs, repo.GetGitAlternateObjectDirectories()...)
 
 	quarantinedRepo := proto.Clone(repo).(*gitalypb.Repository)
@@ -87,15 +92,22 @@ func (d *Dir) QuarantinedRepo() *gitalypb.Repository {
 	return d.quarantinedRepo
 }
 
-// Migrate migrates all objects part of the quarantine directory into the main repository and thus
-// makes them generally available. This implementation follows the git.git's `tmp_objdir_migrate()`.
+// Migrate migrates all objects part of the quarantine directory into the repository and thus makes
+// them generally available. This implementation follows the git.git's `tmp_objdir_migrate()`.
 func (d *Dir) Migrate() error {
 	repoPath, err := d.locator.GetRepoPath(d.repo, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return fmt.Errorf("migrating quarantine: %w", err)
 	}
 
-	return migrate(d.dir.Path(), filepath.Join(repoPath, "objects"))
+	objectDir := d.repo.GitObjectDirectory
+	if objectDir == "" {
+		// Migrate the objects to the default object directory if the repository
+		// didn't have an object directory explicitly configured.
+		objectDir = "objects"
+	}
+
+	return migrate(d.dir.Path(), filepath.Join(repoPath, objectDir))
 }
 
 func migrate(sourcePath, targetPath string) error {

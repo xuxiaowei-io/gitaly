@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
