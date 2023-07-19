@@ -16,8 +16,12 @@ import (
 )
 
 var objectFiles = []*regexp.Regexp{
+	// Patterns for loose objects and packfiles in SHA1 repository.
 	regexp.MustCompile(`/[[:xdigit:]]{2}/[[:xdigit:]]{38}\z`),
 	regexp.MustCompile(`/pack/pack\-[[:xdigit:]]{40}\.(pack|idx)\z`),
+	// Patterns for loose objects and packfiles in SHA256 repository.
+	regexp.MustCompile(`/[[:xdigit:]]{2}/[[:xdigit:]]{62}\z`),
+	regexp.MustCompile(`/pack/pack\-[[:xdigit:]]{64}\.(pack|idx)\z`),
 }
 
 func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.RepositoryService_GetSnapshotServer) error {
