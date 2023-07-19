@@ -31,10 +31,10 @@ func setupCommitService(
 	ctx context.Context,
 	opts ...testserver.GitalyServerOpt,
 ) (config.Cfg, gitalypb.CommitServiceClient) {
-	cfg, _, _, client := setupCommitServiceCreateRepo(tb, ctx, func(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string) {
-		return nil, ""
-	}, opts...)
-	return cfg, client
+	cfg := testcfg.Build(tb)
+	cfg.SocketPath = startTestServices(tb, cfg, opts...)
+
+	return cfg, newCommitServiceClient(tb, cfg.SocketPath)
 }
 
 // setupCommitServiceWithRepo makes a basic configuration, creates a test repository and starts the service with the client.
@@ -43,26 +43,11 @@ func setupCommitServiceWithRepo(
 	ctx context.Context,
 	opts ...testserver.GitalyServerOpt,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
-	return setupCommitServiceCreateRepo(tb, ctx, func(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string) {
-		repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
-		})
-		return repo, repoPath
-	}, opts...)
-}
+	cfg, client := setupCommitService(tb, ctx, opts...)
 
-func setupCommitServiceCreateRepo(
-	tb testing.TB,
-	ctx context.Context,
-	createRepo func(testing.TB, context.Context, config.Cfg) (*gitalypb.Repository, string),
-	opts ...testserver.GitalyServerOpt,
-) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
-	cfg := testcfg.Build(tb)
-
-	cfg.SocketPath = startTestServices(tb, cfg, opts...)
-	client := newCommitServiceClient(tb, cfg.SocketPath)
-
-	repo, repoPath := createRepo(tb, ctx, cfg)
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	return cfg, repo, repoPath, client
 }
