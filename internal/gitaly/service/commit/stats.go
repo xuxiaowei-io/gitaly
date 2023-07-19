@@ -39,6 +39,11 @@ func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
 	repo := s.localrepo(in.GetRepository())
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	commit, err := repo.ReadCommit(ctx, git.Revision(in.Revision))
 	if err != nil {
 		return nil, err
@@ -50,7 +55,7 @@ func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 	var args []string
 
 	if len(commit.GetParentIds()) == 0 {
-		args = append(args, git.ObjectHashSHA1.EmptyTreeOID.String(), commit.Id)
+		args = append(args, objectHash.EmptyTreeOID.String(), commit.Id)
 	} else {
 		args = append(args, commit.Id+"^", commit.Id)
 	}
