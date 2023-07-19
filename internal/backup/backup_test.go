@@ -433,6 +433,7 @@ func TestManager_Restore_latest(t *testing.T) {
 			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 			gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
 			repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
+			repoBundle := gittest.BundleRepo(t, cfg, repoPath, "-")
 
 			backupRoot := testhelper.TempDir(t)
 
@@ -453,7 +454,7 @@ func TestManager_Restore_latest(t *testing.T) {
 
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
-							relativePath + ".bundle": gittest.BundleRepo(tb, cfg, repoPath, "-"),
+							relativePath + ".bundle": repoBundle,
 						})
 
 						return repo, repoChecksum
@@ -469,7 +470,7 @@ func TestManager_Restore_latest(t *testing.T) {
 						relativePath := stripRelativePath(tb, repo)
 						customHooksPath := filepath.Join(backupRoot, relativePath, "custom_hooks.tar")
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
-							relativePath + ".bundle": gittest.BundleRepo(tb, cfg, repoPath, "-"),
+							relativePath + ".bundle": repoBundle,
 						})
 
 						require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), perm.PublicDir))
@@ -545,7 +546,7 @@ func TestManager_Restore_latest(t *testing.T) {
 
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
-							relativePath + ".bundle": gittest.BundleRepo(tb, cfg, repoPath, "-"),
+							relativePath + ".bundle": repoBundle,
 						})
 
 						return repo, repoChecksum
@@ -563,7 +564,7 @@ func TestManager_Restore_latest(t *testing.T) {
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
 							filepath.Join(relativePath, "LATEST"):               backupID,
 							filepath.Join(relativePath, backupID, "LATEST"):     "001",
-							filepath.Join(relativePath, backupID, "001.bundle"): gittest.BundleRepo(tb, cfg, repoPath, "-"),
+							filepath.Join(relativePath, backupID, "001.bundle"): repoBundle,
 						})
 
 						return repo, repoChecksum
@@ -764,6 +765,7 @@ func TestManager_Restore_specific(t *testing.T) {
 			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 			gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
 			repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
+			repoBundle := gittest.BundleRepo(t, cfg, repoPath, "-")
 
 			backupRoot := testhelper.TempDir(t)
 
@@ -784,7 +786,7 @@ func TestManager_Restore_specific(t *testing.T) {
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
 							filepath.Join(relativePath, "LATEST"):               backupID,
 							filepath.Join(relativePath, backupID, "LATEST"):     "001",
-							filepath.Join(relativePath, backupID, "001.bundle"): gittest.BundleRepo(tb, cfg, repoPath, "-"),
+							filepath.Join(relativePath, backupID, "001.bundle"): repoBundle,
 						})
 
 						return repo, repoChecksum
