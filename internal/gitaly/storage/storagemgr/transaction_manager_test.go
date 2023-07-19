@@ -329,6 +329,8 @@ func TestTransactionManager(t *testing.T) {
 		CustomHooksUpdate *CustomHooksUpdate
 		// DeleteRepository deletes the repository on commit.
 		DeleteRepository bool
+		// IncludeObjects includes objects in the transaction's logged pack.
+		IncludeObjects []git.ObjectID
 	}
 
 	// AsyncDeletion can be used to commit a repository deletion asynchronously. This is necessary in tests
@@ -2356,6 +2358,122 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
+			desc: "transaction includes an unreachable object with dependencies",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{},
+				Commit{
+					QuarantinedPacks: [][]byte{
+						setup.Commits.First.Pack,
+						setup.Commits.Second.Pack,
+						setup.Commits.Third.Pack,
+					},
+					IncludeObjects: []git.ObjectID{setup.Commits.Second.OID},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-4274682fcb6a4dbb1a59ba7dd8577402e61ccbd2.idx",
+						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-4274682fcb6a4dbb1a59ba7dd8577402e61ccbd2.pack",
+						git.ObjectHashSHA256.Format: "pack-8ebabff3c37210ed37c4343255992f62a2ce113f7fb11f757de3bca157379d40.pack",
+					}): packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					),
+				},
+				Objects: []git.ObjectID{
+					setup.ObjectHash.EmptyTreeOID,
+					setup.Commits.First.OID,
+					setup.Commits.Second.OID,
+				},
+			},
+		},
+		{
+			desc: "transaction includes multiple unreachable objects",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{},
+				Commit{
+					QuarantinedPacks: [][]byte{
+						setup.Commits.First.Pack,
+						setup.Commits.Second.Pack,
+						setup.Commits.Diverging.Pack,
+					},
+					IncludeObjects: []git.ObjectID{setup.Commits.Second.OID, setup.Commits.Diverging.OID},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/wal":         {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal/packs/1": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-8c505e1fb0a42014b48c24b0af5f98ca30160ae2.idx",
+						git.ObjectHashSHA256.Format: "pack-23ee29e512957946104c856d8430256d2b67e53265633b4432129f52eacbaa4e.idx",
+					}): indexFileDirectoryEntry(setup.Config),
+					"/wal/packs/1/" + gittest.ObjectHashDependent(t, map[string]string{
+						git.ObjectHashSHA1.Format:   "pack-8c505e1fb0a42014b48c24b0af5f98ca30160ae2.pack",
+						git.ObjectHashSHA256.Format: "pack-23ee29e512957946104c856d8430256d2b67e53265633b4432129f52eacbaa4e.pack",
+					}): packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Diverging.OID,
+						},
+					),
+				},
+				Objects: []git.ObjectID{
+					setup.ObjectHash.EmptyTreeOID,
+					setup.Commits.First.OID,
+					setup.Commits.Second.OID,
+					setup.Commits.Diverging.OID,
+				},
+			},
+		},
+		{
+			desc: "transaction includes a missing object",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{},
+				Commit{
+					QuarantinedPacks: [][]byte{
+						setup.Commits.First.Pack,
+					},
+					IncludeObjects: []git.ObjectID{setup.Commits.Second.OID},
+					ExpectedError: localrepo.BadObjectError{
+						ObjectID: setup.Commits.Second.OID,
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Objects: []git.ObjectID{},
+			},
+		},
+		{
 			desc: "pack file with deletions",
 			steps: steps{
 				Prune{},
@@ -3170,6 +3288,10 @@ func TestTransactionManager(t *testing.T) {
 
 					if step.DeleteRepository {
 						transaction.DeleteRepository()
+					}
+
+					for _, objectID := range step.IncludeObjects {
+						transaction.IncludeObject(objectID)
 					}
 
 					commitCtx := ctx

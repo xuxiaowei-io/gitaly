@@ -189,6 +189,7 @@ type Transaction struct {
 	defaultBranchUpdate      *DefaultBranchUpdate
 	customHooksUpdate        *CustomHooksUpdate
 	deleteRepository         bool
+	includedObjects          map[git.ObjectID]struct{}
 }
 
 // Begin opens a new transaction. The caller must call either Commit or Rollback to release
@@ -399,6 +400,16 @@ func (txn *Transaction) SetDefaultBranch(new git.ReferenceName) {
 // are not validated. Setting a nil hooksTAR removes the hooks from the repository.
 func (txn *Transaction) SetCustomHooks(customHooksTAR []byte) {
 	txn.customHooksUpdate = &CustomHooksUpdate{CustomHooksTAR: customHooksTAR}
+}
+
+// IncludeObject includes the given object and its dependencies in the transaction's logged pack file even
+// if the object is unreachable from the references.
+func (txn *Transaction) IncludeObject(oid git.ObjectID) {
+	if txn.includedObjects == nil {
+		txn.includedObjects = map[git.ObjectID]struct{}{}
+	}
+
+	txn.includedObjects[oid] = struct{}{}
 }
 
 // walFilesPath returns the path to the directory where this transaction is staging the files that will
@@ -636,7 +647,8 @@ func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, trans
 var packPrefixRegexp = regexp.MustCompile(`^pack\t([0-9a-f]+)\n$`)
 
 // packObjects packs the objects included in the transaction into a single pack file that is ready
-// for logging. The pack file includes all unreachable objects that are about to be made reachable.
+// for logging. The pack file includes all unreachable objects that are about to be made reachable and
+// unreachable objects that have been explicitly included in the transaction.
 func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Transaction) error {
 	if transaction.quarantineDirectory == "" {
 		return nil
@@ -647,7 +659,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		return fmt.Errorf("object hash: %w", err)
 	}
 
-	heads := make([]string, 0, len(transaction.referenceUpdates))
+	heads := make([]string, 0, len(transaction.referenceUpdates)+len(transaction.includedObjects))
 	for _, update := range transaction.referenceUpdates {
 		if update.NewOID == objectHash.ZeroOID {
 			// Reference deletions can't introduce new objects so ignore them.
@@ -655,6 +667,10 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		}
 
 		heads = append(heads, update.NewOID.String())
+	}
+
+	for objectID := range transaction.includedObjects {
+		heads = append(heads, objectID.String())
 	}
 
 	if len(heads) == 0 {
