@@ -107,6 +107,7 @@ func TestManager_Create(t *testing.T) {
 		for _, tc := range []struct {
 			desc               string
 			setup              func(tb testing.TB) (*gitalypb.Repository, string)
+			createsRefList     bool
 			createsBundle      bool
 			createsCustomHooks bool
 			err                error
@@ -118,6 +119,7 @@ func TestManager_Create(t *testing.T) {
 					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 					return repo, repoPath
 				},
+				createsRefList:     true,
 				createsBundle:      true,
 				createsCustomHooks: false,
 			},
@@ -130,6 +132,7 @@ func TestManager_Create(t *testing.T) {
 					require.NoError(tb, os.WriteFile(filepath.Join(repoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), perm.PublicFile))
 					return repo, repoPath
 				},
+				createsRefList:     true,
 				createsBundle:      true,
 				createsCustomHooks: true,
 			},
@@ -139,6 +142,7 @@ func TestManager_Create(t *testing.T) {
 					emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 					return emptyRepo, repoPath
 				},
+				createsRefList:     false,
 				createsBundle:      false,
 				createsCustomHooks: false,
 				err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
@@ -151,6 +155,7 @@ func TestManager_Create(t *testing.T) {
 					nonexistentRepo.RelativePath = gittest.NewRepositoryName(t)
 					return nonexistentRepo, repoPath
 				},
+				createsRefList:     false,
 				createsBundle:      false,
 				createsCustomHooks: false,
 				err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
@@ -207,6 +212,12 @@ func TestManager_Create(t *testing.T) {
 					require.Equal(t, string(expectedRefs), string(actualRefs))
 				} else {
 					require.NoFileExists(t, bundlePath)
+				}
+
+				if tc.createsRefList {
+					require.FileExists(t, refsPath)
+				} else {
+					require.NoFileExists(t, refsPath)
 				}
 
 				if tc.createsCustomHooks {
