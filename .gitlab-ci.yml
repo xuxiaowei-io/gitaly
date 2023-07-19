@@ -140,12 +140,12 @@ workflow:
 
 .only_code_changes: &only_code_changes
   changes:
-    - "**/*.go"
-    - "**/*.proto"
-    - "**/*.sql"
+    - "**.go"
+    - "**.proto"
+    - "**.sql"
+    - "{,**/}go.{mod,sum}"
     - Makefile
     - .gitlab-ci.yml
-    - "go.*"
 
 .rules_run_always: &rules_run_always
     - if: $CI_MERGE_REQUEST_IID
