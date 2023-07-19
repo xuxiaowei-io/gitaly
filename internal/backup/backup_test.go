@@ -114,10 +114,9 @@ func TestManager_Create(t *testing.T) {
 			{
 				desc: "no hooks",
 				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-					noHooksRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-						Seed: gittest.SeedGitLabTest,
-					})
-					return noHooksRepo, repoPath
+					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+					return repo, repoPath
 				},
 				createsBundle:      true,
 				createsCustomHooks: false,
@@ -125,12 +124,11 @@ func TestManager_Create(t *testing.T) {
 			{
 				desc: "hooks",
 				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-					hooksRepo, hooksRepoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-						Seed: gittest.SeedGitLabTest,
-					})
-					require.NoError(tb, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), perm.PublicDir))
-					require.NoError(tb, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), perm.PublicFile))
-					return hooksRepo, hooksRepoPath
+					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+					require.NoError(tb, os.Mkdir(filepath.Join(repoPath, "custom_hooks"), perm.PublicDir))
+					require.NoError(tb, os.WriteFile(filepath.Join(repoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), perm.PublicFile))
+					return repo, repoPath
 				},
 				createsBundle:      true,
 				createsCustomHooks: true,
@@ -273,9 +271,8 @@ func TestManager_Create_incremental(t *testing.T) {
 			{
 				desc: "no previous backup",
 				setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-						Seed: gittest.SeedGitLabTest,
-					})
+					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 					return repo, repoPath
 				},
 				expectedIncrement: "001",
@@ -283,9 +280,8 @@ func TestManager_Create_incremental(t *testing.T) {
 			{
 				desc: "previous backup, no updates",
 				setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-						Seed: gittest.SeedGitLabTest,
-					})
+					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 					backupRepoPath := joinBackupPath(tb, backupRoot, repo)
 					backupPath := filepath.Join(backupRepoPath, backupID)
@@ -308,9 +304,8 @@ func TestManager_Create_incremental(t *testing.T) {
 			{
 				desc: "previous backup, updates",
 				setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-						Seed: gittest.SeedGitLabTest,
-					})
+					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+					commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 					backupRepoPath := joinBackupPath(tb, backupRoot, repo)
 					backupPath := filepath.Join(backupRepoPath, backupID)
@@ -326,7 +321,7 @@ func TestManager_Create_incremental(t *testing.T) {
 					require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), perm.PublicFile))
 					require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
 
-					gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("master"))
+					gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithParents(commitID))
 
 					return repo, repoPath
 				},
