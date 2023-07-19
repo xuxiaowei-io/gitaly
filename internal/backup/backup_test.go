@@ -434,6 +434,7 @@ func TestManager_Restore_latest(t *testing.T) {
 			gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
 			repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
 			repoBundle := gittest.BundleRepo(t, cfg, repoPath, "-")
+			repoRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
 			backupRoot := testhelper.TempDir(t)
 
@@ -455,6 +456,7 @@ func TestManager_Restore_latest(t *testing.T) {
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
 							relativePath + ".bundle": repoBundle,
+							relativePath + ".refs":   repoRefs,
 						})
 
 						return repo, repoChecksum
@@ -471,6 +473,7 @@ func TestManager_Restore_latest(t *testing.T) {
 						customHooksPath := filepath.Join(backupRoot, relativePath, "custom_hooks.tar")
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
 							relativePath + ".bundle": repoBundle,
+							relativePath + ".refs":   repoRefs,
 						})
 
 						require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), perm.PublicDir))
@@ -547,6 +550,7 @@ func TestManager_Restore_latest(t *testing.T) {
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
 							relativePath + ".bundle": repoBundle,
+							relativePath + ".refs":   repoRefs,
 						})
 
 						return repo, repoChecksum
@@ -565,6 +569,7 @@ func TestManager_Restore_latest(t *testing.T) {
 							filepath.Join(relativePath, "LATEST"):               backupID,
 							filepath.Join(relativePath, backupID, "LATEST"):     "001",
 							filepath.Join(relativePath, backupID, "001.bundle"): repoBundle,
+							filepath.Join(relativePath, backupID, "001.refs"):   repoRefs,
 						})
 
 						return repo, repoChecksum
@@ -616,6 +621,7 @@ func TestManager_Restore_latest(t *testing.T) {
 							"refs/heads/master",
 							"refs/heads/other",
 						)
+						refs1 := gittest.Exec(t, cfg, "-C", expectedRepoPath, "show-ref", "--head")
 
 						master2 := gittest.WriteCommit(tb, cfg, expectedRepoPath,
 							gittest.WithBranch("master"),
@@ -628,6 +634,7 @@ func TestManager_Restore_latest(t *testing.T) {
 							"refs/heads/master",
 							"refs/heads/other",
 						)
+						refs2 := gittest.Exec(t, cfg, "-C", expectedRepoPath, "show-ref", "--head")
 
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
@@ -635,6 +642,8 @@ func TestManager_Restore_latest(t *testing.T) {
 							filepath.Join(relativePath, backupID, "LATEST"):     "002",
 							filepath.Join(relativePath, backupID, "001.bundle"): bundle1,
 							filepath.Join(relativePath, backupID, "002.bundle"): bundle2,
+							filepath.Join(relativePath, backupID, "001.refs"):   refs1,
+							filepath.Join(relativePath, backupID, "002.refs"):   refs2,
 						})
 
 						checksum := new(git.Checksum)
@@ -766,6 +775,7 @@ func TestManager_Restore_specific(t *testing.T) {
 			gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
 			repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
 			repoBundle := gittest.BundleRepo(t, cfg, repoPath, "-")
+			repoRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
 			backupRoot := testhelper.TempDir(t)
 
@@ -787,6 +797,7 @@ func TestManager_Restore_specific(t *testing.T) {
 							filepath.Join(relativePath, "LATEST"):               backupID,
 							filepath.Join(relativePath, backupID, "LATEST"):     "001",
 							filepath.Join(relativePath, backupID, "001.bundle"): repoBundle,
+							filepath.Join(relativePath, backupID, "001.refs"):   repoRefs,
 						})
 
 						return repo, repoChecksum
@@ -817,6 +828,7 @@ func TestManager_Restore_specific(t *testing.T) {
 							"refs/heads/master",
 							"refs/heads/other",
 						)
+						refs1 := gittest.Exec(t, cfg, "-C", expectedRepoPath, "show-ref", "--head")
 
 						master2 := gittest.WriteCommit(tb, cfg, expectedRepoPath,
 							gittest.WithBranch("master"),
@@ -829,6 +841,7 @@ func TestManager_Restore_specific(t *testing.T) {
 							"refs/heads/master",
 							"refs/heads/other",
 						)
+						refs2 := gittest.Exec(t, cfg, "-C", expectedRepoPath, "show-ref", "--head")
 
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
@@ -836,6 +849,8 @@ func TestManager_Restore_specific(t *testing.T) {
 							filepath.Join(relativePath, backupID, "LATEST"):     "002",
 							filepath.Join(relativePath, backupID, "001.bundle"): bundle1,
 							filepath.Join(relativePath, backupID, "002.bundle"): bundle2,
+							filepath.Join(relativePath, backupID, "001.refs"):   refs1,
+							filepath.Join(relativePath, backupID, "002.refs"):   refs2,
 						})
 
 						checksum := new(git.Checksum)
