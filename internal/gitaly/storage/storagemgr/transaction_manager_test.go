@@ -147,9 +147,10 @@ func TestTransactionManager(t *testing.T) {
 	}
 
 	type testCommits struct {
-		First  testCommit
-		Second testCommit
-		Third  testCommit
+		First     testCommit
+		Second    testCommit
+		Third     testCommit
+		Diverging testCommit
 	}
 
 	type testSetup struct {
@@ -174,6 +175,7 @@ func TestTransactionManager(t *testing.T) {
 		firstCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
 		secondCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitOID))
 		thirdCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(secondCommitOID))
+		divergingCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitOID), gittest.WithMessage("diverging commit"))
 
 		cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
 		require.NoError(t, err)
@@ -233,6 +235,10 @@ func TestTransactionManager(t *testing.T) {
 				Third: testCommit{
 					OID:  thirdCommitOID,
 					Pack: packCommit(thirdCommitOID),
+				},
+				Diverging: testCommit{
+					OID:  divergingCommitOID,
+					Pack: packCommit(divergingCommitOID),
 				},
 			},
 		}
@@ -3258,6 +3264,7 @@ func TestTransactionManager(t *testing.T) {
 						setup.Commits.First.OID,
 						setup.Commits.Second.OID,
 						setup.Commits.Third.OID,
+						setup.Commits.Diverging.OID,
 					}
 				}
 
