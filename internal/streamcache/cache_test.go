@@ -3,10 +3,11 @@ package streamcache
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	mathrand "math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -220,7 +221,7 @@ func TestCache_scope(t *testing.T) {
 	// be order dependent, e.g. "last write wins". We could reverse the order
 	// now to catch that possible bug, but then we only test for one kind of
 	// bug. Let's shuffle instead, which can catch more hypothetical bugs.
-	rand.Shuffle(N, func(i, j int) {
+	mathrand.Shuffle(N, func(i, j int) {
 		output[i], output[j] = output[j], output[i]
 		input[i], input[j] = input[j], input[i]
 	})

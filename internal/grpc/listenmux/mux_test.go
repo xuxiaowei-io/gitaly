@@ -3,10 +3,10 @@ package listenmux
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"testing"
 	"time"

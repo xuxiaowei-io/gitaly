@@ -3,8 +3,8 @@ package sidechannel
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"io"
-	"math/rand"
 	"net"
 	"sync"
 	"testing"

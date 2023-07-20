@@ -2,10 +2,10 @@ package pktline
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"io"
 	"math"
-	"math/rand"
 	"strings"
 	"testing"
 

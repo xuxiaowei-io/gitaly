@@ -3,7 +3,7 @@
 package repository
 
 import (
-	"math/rand"
+	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -69,7 +69,7 @@ func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 	)
 
 	var blob [16 * 1024]byte
-	rand.Read(blob[:])
+	_, _ = rand.Read(blob[:])
 
 	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{
