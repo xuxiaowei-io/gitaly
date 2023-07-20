@@ -50,6 +50,7 @@ func (d *Diff) ClearPatch() {
 
 // Parser holds necessary state for parsing a diff stream
 type Parser struct {
+	objectHash          git.ObjectHash
 	limits              Limits
 	patchReader         *bufio.Reader
 	rawLines            [][]byte
@@ -109,17 +110,19 @@ const (
 )
 
 var (
-	rawLineRegexp    = regexp.MustCompile(`(?m)^:(\d+) (\d+) ([[:xdigit:]]{40}) ([[:xdigit:]]{40}) ([ADTUXMRC]\d*)\t(.*?)(?:\t(.*?))?$`)
-	diffHeaderRegexp = regexp.MustCompile(`(?m)^diff --git "?a/(.*?)"? "?b/(.*?)"?$`)
+	rawSHA1LineRegexp   = regexp.MustCompile(`(?m)^:(\d+) (\d+) ([[:xdigit:]]{40}) ([[:xdigit:]]{40}) ([ADTUXMRC]\d*)\t(.*?)(?:\t(.*?))?$`)
+	rawSHA256LineRegexp = regexp.MustCompile(`(?m)^:(\d+) (\d+) ([[:xdigit:]]{64}) ([[:xdigit:]]{64}) ([ADTUXMRC]\d*)\t(.*?)(?:\t(.*?))?$`)
+	diffHeaderRegexp    = regexp.MustCompile(`(?m)^diff --git "?a/(.*?)"? "?b/(.*?)"?$`)
 )
 
 // NewDiffParser returns a new Parser
-func NewDiffParser(src io.Reader, limits Limits) *Parser {
+func NewDiffParser(objectHash git.ObjectHash, src io.Reader, limits Limits) *Parser {
 	limits.enforceUpperBound()
 
 	parser := &Parser{}
 	reader := bufio.NewReader(src)
 
+	parser.objectHash = objectHash
 	parser.cacheRawLines(reader)
 	parser.patchReader = reader
 	parser.limits = limits
@@ -331,7 +334,7 @@ func (parser *Parser) initializeCurrentDiff() error {
 
 	// Raw and regular diff formats don't necessarily have the same files, since some flags (e.g. --ignore-space-change)
 	// can suppress certain kinds of diffs from showing in regular format, but raw format will always have all the files.
-	if err := parseRawLine(parser.nextRawLine(), &parser.currentDiff); err != nil {
+	if err := parseRawLine(parser.objectHash, parser.nextRawLine(), &parser.currentDiff); err != nil {
 		parser.err = err
 		return err
 	}
@@ -387,8 +390,18 @@ func (parser *Parser) handleTypeChangeDiff() {
 	parser.rawLines = append([][]byte{[]byte(newRawLine)}, parser.rawLines...)
 }
 
-func parseRawLine(line []byte, diff *Diff) error {
-	matches := rawLineRegexp.FindSubmatch(line)
+func parseRawLine(objectHash git.ObjectHash, line []byte, diff *Diff) error {
+	var regexp *regexp.Regexp
+	switch objectHash.Format {
+	case "sha1":
+		regexp = rawSHA1LineRegexp
+	case "sha256":
+		regexp = rawSHA256LineRegexp
+	default:
+		return fmt.Errorf("cannot parse raw diff line with unknown object format %q", objectHash.Format)
+	}
+
+	matches := regexp.FindSubmatch(line)
 	if len(matches) == 0 {
 		return fmt.Errorf("raw line regexp mismatch")
 	}
