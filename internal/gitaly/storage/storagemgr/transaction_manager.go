@@ -179,6 +179,7 @@ type Transaction struct {
 	snapshot Snapshot
 
 	skipVerificationFailures bool
+	initialReferenceValues   map[git.ReferenceName]git.ObjectID
 	referenceUpdates         ReferenceUpdates
 	defaultBranchUpdate      *DefaultBranchUpdate
 	customHooksUpdate        *CustomHooksUpdate
@@ -400,6 +401,49 @@ func (txn *Transaction) SkipVerificationFailures() {
 	txn.skipVerificationFailures = true
 }
 
+// RecordInitialReferenceValues records the initial values of the reference if they haven't yet been recorded. If oid is
+// not a zero OID, it's used as the initial value. If oid is a zero value, the reference's actual value is resolved.
+//
+// The reference's first recorded value is used as its old OID in the final committed update. RecordInitialReferenceValues
+// can be used to record the value without staging an update in the transaction. This is useful for example generally recording
+// the initial value in the 'prepare' phase of the reference transaction hook before any changes are made without staging
+// any updates before the 'committed' phase is reached.
+func (txn *Transaction) RecordInitialReferenceValues(ctx context.Context, initialValues map[git.ReferenceName]git.ObjectID) error {
+	if txn.initialReferenceValues == nil {
+		txn.initialReferenceValues = make(map[git.ReferenceName]git.ObjectID, len(initialValues))
+	}
+
+	for reference, oid := range initialValues {
+		if _, ok := txn.initialReferenceValues[reference]; ok {
+			// If the reference's starting value has already been recorded, we don't have to record it again.
+			continue
+		}
+
+		objectHash, err := txn.stagingRepository.ObjectHash(ctx)
+		if err != nil {
+			return fmt.Errorf("object hash: %w", err)
+		}
+
+		if objectHash.IsZeroOID(oid) {
+			// If this is a zero OID, resolve the value to see if this is a force update or the
+			// reference doesn't exist.
+			if current, err := txn.stagingRepository.ResolveRevision(ctx, reference.Revision()); err != nil {
+				if !errors.Is(err, git.ErrReferenceNotFound) {
+					return fmt.Errorf("resolve revision: %w", err)
+				}
+
+				// The reference doesn't exist, leave the value as zero oid.
+			} else {
+				oid = current
+			}
+		}
+
+		txn.initialReferenceValues[reference] = oid
+	}
+
+	return nil
+}
+
 // UpdateReferences updates the given references as part of the transaction.
 //
 // If a reference is updated multiple times during a transaction, its first recorded old OID is kept
@@ -413,6 +457,10 @@ func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
 
 	for reference, update := range updates {
 		oldOID := update.OldOID
+		if initialValue, ok := txn.initialReferenceValues[reference]; ok {
+			oldOID = initialValue
+		}
+
 		if previousUpdate, ok := txn.referenceUpdates[reference]; ok {
 			oldOID = previousUpdate.OldOID
 		}
