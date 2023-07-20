@@ -49,6 +49,11 @@ type RefServiceClient interface {
 	// FindBranch finds a branch by its unqualified name (like "master") and
 	// returns the commit it currently points to.
 	FindBranch(ctx context.Context, in *FindBranchRequest, opts ...grpc.CallOption) (*FindBranchResponse, error)
+	// UpdateReferences atomically updates a set of references to a new state. This RPC allows creating
+	// new references, deleting old references and updating existing references in a raceless way.
+	//
+	// Updating symbolic references with this RPC is not allowed.
+	UpdateReferences(ctx context.Context, opts ...grpc.CallOption) (RefService_UpdateReferencesClient, error)
 	// This comment is left unintentionally blank.
 	DeleteRefs(ctx context.Context, in *DeleteRefsRequest, opts ...grpc.CallOption) (*DeleteRefsResponse, error)
 	// This comment is left unintentionally blank.
@@ -244,6 +249,40 @@ func (c *refServiceClient) FindBranch(ctx context.Context, in *FindBranchRequest
 	return out, nil
 }
 
+func (c *refServiceClient) UpdateReferences(ctx context.Context, opts ...grpc.CallOption) (RefService_UpdateReferencesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[4], "/gitaly.RefService/UpdateReferences", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &refServiceUpdateReferencesClient{stream}
+	return x, nil
+}
+
+type RefService_UpdateReferencesClient interface {
+	Send(*UpdateReferencesRequest) error
+	CloseAndRecv() (*UpdateReferencesResponse, error)
+	grpc.ClientStream
+}
+
+type refServiceUpdateReferencesClient struct {
+	grpc.ClientStream
+}
+
+func (x *refServiceUpdateReferencesClient) Send(m *UpdateReferencesRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *refServiceUpdateReferencesClient) CloseAndRecv() (*UpdateReferencesResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(UpdateReferencesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *refServiceClient) DeleteRefs(ctx context.Context, in *DeleteRefsRequest, opts ...grpc.CallOption) (*DeleteRefsResponse, error) {
 	out := new(DeleteRefsResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RefService/DeleteRefs", in, out, opts...)
@@ -254,7 +293,7 @@ func (c *refServiceClient) DeleteRefs(ctx context.Context, in *DeleteRefsRequest
 }
 
 func (c *refServiceClient) ListBranchNamesContainingCommit(ctx context.Context, in *ListBranchNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListBranchNamesContainingCommitClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[4], "/gitaly.RefService/ListBranchNamesContainingCommit", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[5], "/gitaly.RefService/ListBranchNamesContainingCommit", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +325,7 @@ func (x *refServiceListBranchNamesContainingCommitClient) Recv() (*ListBranchNam
 }
 
 func (c *refServiceClient) ListTagNamesContainingCommit(ctx context.Context, in *ListTagNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListTagNamesContainingCommitClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[5], "/gitaly.RefService/ListTagNamesContainingCommit", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[6], "/gitaly.RefService/ListTagNamesContainingCommit", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +357,7 @@ func (x *refServiceListTagNamesContainingCommitClient) Recv() (*ListTagNamesCont
 }
 
 func (c *refServiceClient) GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[6], "/gitaly.RefService/GetTagSignatures", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[7], "/gitaly.RefService/GetTagSignatures", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +389,7 @@ func (x *refServiceGetTagSignaturesClient) Recv() (*GetTagSignaturesResponse, er
 }
 
 func (c *refServiceClient) GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[7], "/gitaly.RefService/GetTagMessages", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[8], "/gitaly.RefService/GetTagMessages", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +421,7 @@ func (x *refServiceGetTagMessagesClient) Recv() (*GetTagMessagesResponse, error)
 }
 
 func (c *refServiceClient) ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[8], "/gitaly.RefService/ListRefs", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[9], "/gitaly.RefService/ListRefs", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -453,6 +492,11 @@ type RefServiceServer interface {
 	// FindBranch finds a branch by its unqualified name (like "master") and
 	// returns the commit it currently points to.
 	FindBranch(context.Context, *FindBranchRequest) (*FindBranchResponse, error)
+	// UpdateReferences atomically updates a set of references to a new state. This RPC allows creating
+	// new references, deleting old references and updating existing references in a raceless way.
+	//
+	// Updating symbolic references with this RPC is not allowed.
+	UpdateReferences(RefService_UpdateReferencesServer) error
 	// This comment is left unintentionally blank.
 	DeleteRefs(context.Context, *DeleteRefsRequest) (*DeleteRefsResponse, error)
 	// This comment is left unintentionally blank.
@@ -504,6 +548,9 @@ func (UnimplementedRefServiceServer) RefExists(context.Context, *RefExistsReques
 }
 func (UnimplementedRefServiceServer) FindBranch(context.Context, *FindBranchRequest) (*FindBranchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindBranch not implemented")
+}
+func (UnimplementedRefServiceServer) UpdateReferences(RefService_UpdateReferencesServer) error {
+	return status.Errorf(codes.Unimplemented, "method UpdateReferences not implemented")
 }
 func (UnimplementedRefServiceServer) DeleteRefs(context.Context, *DeleteRefsRequest) (*DeleteRefsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteRefs not implemented")
@@ -693,6 +740,32 @@ func _RefService_FindBranch_Handler(srv interface{}, ctx context.Context, dec fu
 		return srv.(RefServiceServer).FindBranch(ctx, req.(*FindBranchRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _RefService_UpdateReferences_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RefServiceServer).UpdateReferences(&refServiceUpdateReferencesServer{stream})
+}
+
+type RefService_UpdateReferencesServer interface {
+	SendAndClose(*UpdateReferencesResponse) error
+	Recv() (*UpdateReferencesRequest, error)
+	grpc.ServerStream
+}
+
+type refServiceUpdateReferencesServer struct {
+	grpc.ServerStream
+}
+
+func (x *refServiceUpdateReferencesServer) SendAndClose(m *UpdateReferencesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *refServiceUpdateReferencesServer) Recv() (*UpdateReferencesRequest, error) {
+	m := new(UpdateReferencesRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func _RefService_DeleteRefs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -888,6 +961,11 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "FindAllRemoteBranches",
 			Handler:       _RefService_FindAllRemoteBranches_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "UpdateReferences",
+			Handler:       _RefService_UpdateReferences_Handler,
+			ClientStreams: true,
 		},
 		{
 			StreamName:    "ListBranchNamesContainingCommit",

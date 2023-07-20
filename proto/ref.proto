@@ -78,6 +78,16 @@ service RefService {
     };
   }
 
+  // UpdateReferences atomically updates a set of references to a new state. This RPC allows creating
+  // new references, deleting old references and updating existing references in a raceless way.
+  //
+  // Updating symbolic references with this RPC is not allowed.
+  rpc UpdateReferences(stream UpdateReferencesRequest) returns (UpdateReferencesResponse) {
+    option (op_type) = {
+      op: MUTATOR
+    };
+  }
+
   // This comment is left unintentionally blank.
   rpc DeleteRefs(DeleteRefsRequest) returns (DeleteRefsResponse) {
     option (op_type) = {
@@ -342,6 +352,53 @@ message FindBranchRequest {
 message FindBranchResponse {
   // This comment is left unintentionally blank.
   Branch branch = 1;
+}
+
+// UpdateReferencesRequest is a request for the UpdateReferences RPC.
+message UpdateReferencesRequest {
+  // Update represents a reference update.
+  message Update {
+    // Reference is the fully-qualified reference name that should be updated.
+    bytes reference = 1;
+
+    // OldObjectId is the object ID the reference should be pointing to in order to be updated.
+    // This has the intent to avoid time-of-check-time-of-use-style races when the object ID
+    // has changed.
+    //
+    // If empty, the reference will be force-updated without any such checks. If set to the
+    // all-zeroes object ID, this will verify that the branch did not exist previously.
+    bytes old_object_id = 2;
+
+    // NewObjectId is the object ID the reference should be updated to. If set to the all-zeroes
+    // object ID the branch will be deleted.
+    bytes new_object_id = 3;
+  };
+
+  // Repository is the repository where references shall be updated in.
+  Repository repository = 1 [(target_repository)=true];
+  // Updates is the set of reference updates that shall be performed.
+  repeated Update updates = 2;
+}
+
+// UpdateReferencesResponse is a response for the UpdateReferences RPC.
+message UpdateReferencesResponse {
+}
+
+// UpdateReferencesError is returned when UpdateReferences fails to update references in some specific well-defined
+// cases.
+message UpdateReferencesError {
+  oneof error {
+    // InvalidFormat is returned when one or more of the refs to be deleted
+    // have an invalid format.
+    InvalidRefFormatError invalid_format = 1;
+    // ReferencesLocked is returned when the references to be deleted are already
+    // locked by another process.
+    ReferencesLockedError references_locked = 2;
+    // ReferenceStateMismatch is return for unforced reference updates when the expected object ID does not match
+    // the actual object ID of the reference. This indicates either mismatching expectations or a race with another
+    // client that has updated the reference concurrently.
+    ReferenceStateMismatchError reference_state_mismatch = 3;
+  }
 }
 
 // This comment is left unintentionally blank.

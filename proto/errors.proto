@@ -104,6 +104,18 @@ message ReferenceNotFoundError {
   bytes reference_name = 1;
 }
 
+// ReferenceStateMismatchError is an error returned when updating a reference fails because its pointing to a different
+// object ID than expected.
+message ReferenceStateMismatchError {
+  // ReferenceName is the name of the reference that was failed to update.
+  bytes reference_name = 1;
+  // ExpectedObjectId is the object ID that the reference was expected to point to but didn't.
+  bytes expected_object_id = 2;
+  // ActualObjectId is the object ID that the reference actually pointed to at the time when it was tried to be
+  // updated.
+  bytes actual_object_id = 3;
+}
+
 // ReferenceUpdateError is an error returned when updating a reference has
 // failed.
 message ReferenceUpdateError {
