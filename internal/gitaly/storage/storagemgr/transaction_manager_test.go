@@ -352,6 +352,14 @@ func TestTransactionManager(t *testing.T) {
 		ExpectedError error
 	}
 
+	// UpdateReferences calls UpdateReferences on a transaction.
+	type UpdateReferences struct {
+		// TransactionID identifies the transaction to update references on.
+		TransactionID int
+		// ReferenceUpdates are the reference updates to make.
+		ReferenceUpdates ReferenceUpdates
+	}
+
 	// Rollback calls Rollback on a transaction.
 	type Rollback struct {
 		// TransactionID identifies the transaction to rollback.
@@ -1375,6 +1383,60 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "update reference multiple times successfully in a transaction",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+				Commit{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "update reference multiple times fails due to wrong intial value",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						// The old oid should be ignored since there's already a recorded initial value for the
+						// reference.
+						"refs/heads/main": {NewOID: setup.Commits.Third.OID},
+					},
+				},
+				Commit{
+					ExpectedError: ReferenceVerificationError{
+						ReferenceName: "refs/heads/main",
+						ExpectedOID:   setup.Commits.First.OID,
+						ActualOID:     setup.ObjectHash.ZeroOID,
+					},
 				},
 			},
 		},
@@ -3896,6 +3958,11 @@ func TestTransactionManager(t *testing.T) {
 					// determine that the deletion has actually been admitted, and is waiting for application to ensure the commit order is always
 					// as expected by the test.
 					<-transaction.admitted
+				case UpdateReferences:
+					require.Contains(t, openTransactions, step.TransactionID, "test error: reference updates aborted on committed before beginning it")
+
+					transaction := openTransactions[step.TransactionID]
+					transaction.UpdateReferences(step.ReferenceUpdates)
 				case Rollback:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction rollbacked before beginning it")
 					require.Equal(t, step.ExpectedError, openTransactions[step.TransactionID].Rollback())

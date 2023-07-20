@@ -400,10 +400,28 @@ func (txn *Transaction) SkipVerificationFailures() {
 	txn.skipVerificationFailures = true
 }
 
-// UpdateReferences updates the given references as part of the transaction. If UpdateReferences is called
-// multiple times, only the changes from the latest invocation take place.
+// UpdateReferences updates the given references as part of the transaction.
+//
+// If a reference is updated multiple times during a transaction, its first recorded old OID is kept
+// and the new OID is updated. This means updates like 'oid-1 -> oid-2 -> oid-3' will ultimately be
+// committed as 'oid-1 -> oid-3'. The intermediate states are not relevant when committing the write
+// to the actual repository.
 func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
-	txn.referenceUpdates = updates
+	if txn.referenceUpdates == nil {
+		txn.referenceUpdates = ReferenceUpdates{}
+	}
+
+	for reference, update := range updates {
+		oldOID := update.OldOID
+		if previousUpdate, ok := txn.referenceUpdates[reference]; ok {
+			oldOID = previousUpdate.OldOID
+		}
+
+		txn.referenceUpdates[reference] = ReferenceUpdate{
+			OldOID: oldOID,
+			NewOID: update.NewOID,
+		}
+	}
 }
 
 // DeleteRepository deletes the repository when the transaction is committed.
