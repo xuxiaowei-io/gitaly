@@ -1,23 +1,27 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestRefExists(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	for _, ref := range []git.ReferenceName{"refs/heads/master", "refs/tags/v1.0.0", "refs/heads/'test'", "refs/heads/ʕ•ᴥ•ʔ"} {
+		gittest.WriteRef(t, cfg, repoPath, ref, commitID)
+	}
 
 	for _, tc := range []struct {
 		desc             string
@@ -25,6 +29,21 @@ func TestRefExists(t *testing.T) {
 		expectedResponse *gitalypb.RefExistsResponse
 		expectedErr      error
 	}{
+		{
+			desc: "repository not provided",
+			request: &gitalypb.RefExistsRequest{
+				Repository: nil,
+			},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+		},
+		{
+			desc: "invalid ref name",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("in valid"),
+			},
+			expectedErr: structerr.NewInvalidArgument("invalid refname"),
+		},
 		{
 			desc: "master",
 			request: &gitalypb.RefExistsRequest{
@@ -153,33 +172,6 @@ func TestRefExists(t *testing.T) {
 			response, err := client.RefExists(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedResponse, response)
-		})
-	}
-}
-
-func TestRefExists_validate(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(t, ctx)
-	for _, tc := range []struct {
-		desc        string
-		req         *gitalypb.RefExistsRequest
-		expectedErr error
-	}{
-		{
-			desc:        "repository not provided",
-			req:         &gitalypb.RefExistsRequest{Repository: nil},
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-		},
-		{
-			desc:        "invalid ref name",
-			req:         &gitalypb.RefExistsRequest{Repository: repo, Ref: []byte("in valid")},
-			expectedErr: status.Error(codes.InvalidArgument, "invalid refname"),
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.RefExists(ctx, tc.req)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

@@ -1,12 +1,9 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -17,80 +14,62 @@ func TestCommitStatsSuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	tests := []struct {
-		desc                 string
-		revision             string
-		oid                  string
-		additions, deletions int32
-	}{
-		{
-			desc:      "multiple changes, multiple files",
-			revision:  "test-do-not-touch",
-			oid:       "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1",
-			additions: 27,
-			deletions: 59,
-		},
-		{
-			desc:      "multiple changes, multiple files, reference by commit ID",
-			revision:  "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1",
-			oid:       "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1",
-			additions: 27,
-			deletions: 59,
-		},
-		{
-			desc:      "merge commit",
-			revision:  "60ecb67",
-			oid:       "60ecb67744cb56576c30214ff52294f8ce2def98",
-			additions: 1,
-			deletions: 0,
-		},
-		{
-			desc:      "binary file",
-			revision:  "ae73cb0",
-			oid:       "ae73cb07c9eeaf35924a10f713b364d32b2dd34f",
-			additions: 0,
-			deletions: 0,
-		},
-		{
-			desc:      "initial commit",
-			revision:  "1a0b36b3",
-			oid:       "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-			additions: 43,
-			deletions: 0,
-		},
-	}
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			resp, err := client.CommitStats(ctx, &gitalypb.CommitStatsRequest{
-				Repository: repo,
-				Revision:   []byte(tc.revision),
-			})
-			require.NoError(t, err)
+	initialCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Content: "1\n2\n3\n4\n5\n", Mode: "100644"},
+		gittest.TreeEntry{Path: "b", Content: "1\n2\n3\n4\n5\n", Mode: "100644"},
+		gittest.TreeEntry{Path: "binary", Content: "1\n2\n\000\n4\n5\n", Mode: "100644"},
+	))
 
-			assert.Equal(t, tc.oid, resp.GetOid())
-			assert.Equal(t, tc.additions, resp.GetAdditions())
-			assert.Equal(t, tc.deletions, resp.GetDeletions())
-		})
-	}
-}
+	multipleChanges := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(initialCommit),
+		gittest.WithBranch("branch"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "a", Content: "1\n2\n3\n4\n4.a\n5\n", Mode: "100644"},
+			gittest.TreeEntry{Path: "b", Content: "1\n3\n4\n5\n", Mode: "100644"},
+			gittest.TreeEntry{Path: "binary", Content: "1\n2\n\000\n4\n5\n", Mode: "100644"},
+		),
+	)
 
-func TestCommitStatsFailure(t *testing.T) {
-	t.Parallel()
+	binaryChange := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Content: "1\n2\n3\n4\n5\n", Mode: "100644"},
+		gittest.TreeEntry{Path: "b", Content: "1\n2\n3\n4\n5\n", Mode: "100644"},
+		gittest.TreeEntry{Path: "binary", Content: "a\n2\n\000\n4\nd\n", Mode: "100644"},
+	))
 
-	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	merge := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(multipleChanges, binaryChange),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "a", Content: "1\n2\n3\n4\n4.a\n5\n", Mode: "100644"},
+			gittest.TreeEntry{Path: "b", Content: "1\n3\n4\n5\n", Mode: "100644"},
+			gittest.TreeEntry{Path: "binary", Content: "a\n2\n\000\n4\nd\n", Mode: "100644"},
+		),
+	)
+
+	rogueMerge := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(multipleChanges, binaryChange),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "a", Content: "1\n2\n3\n4\n4.a\n5\n", Mode: "100644"},
+			// We have a rogue merge here because "b" is different from both parents.
+			gittest.TreeEntry{Path: "b", Content: "1\n3\n4\n6\n", Mode: "100644"},
+			gittest.TreeEntry{Path: "binary", Content: "a\n2\n\000\n4\nd\n", Mode: "100644"},
+		),
+	)
 
 	for _, tc := range []struct {
-		desc        string
-		request     *gitalypb.CommitStatsRequest
-		expectedErr error
+		desc             string
+		request          *gitalypb.CommitStatsRequest
+		expectedErr      error
+		expectedResponse *gitalypb.CommitStatsResponse
 	}{
 		{
-			desc:        "no repository provided",
-			request:     &gitalypb.CommitStatsRequest{Repository: nil},
+			desc: "no repository provided",
+			request: &gitalypb.CommitStatsRequest{
+				Repository: nil,
+			},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
@@ -100,7 +79,6 @@ func TestCommitStatsFailure(t *testing.T) {
 					StorageName:  repo.GetStorageName(),
 					RelativePath: "bar.git",
 				},
-				Revision: []byte("test-do-not-touch"),
 			},
 			expectedErr: testhelper.ToInterceptedMetadata(
 				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "bar.git")),
@@ -113,7 +91,6 @@ func TestCommitStatsFailure(t *testing.T) {
 					StorageName:  "foo",
 					RelativePath: "bar.git",
 				},
-				Revision: []byte("test-do-not-touch"),
 			},
 			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 				"%w", storage.NewStorageNotFoundError("foo"),
@@ -135,10 +112,87 @@ func TestCommitStatsFailure(t *testing.T) {
 			},
 			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
+		{
+			desc: "multiple changes, multiple files",
+			request: &gitalypb.CommitStatsRequest{
+				Repository: repo,
+				Revision:   []byte("branch"),
+			},
+			expectedResponse: &gitalypb.CommitStatsResponse{
+				Oid:       multipleChanges.String(),
+				Additions: 1,
+				Deletions: 1,
+			},
+		},
+		{
+			desc: "multiple changes, multiple files, reference by commit ID",
+			request: &gitalypb.CommitStatsRequest{
+				Repository: repo,
+				Revision:   []byte(multipleChanges),
+			},
+			expectedResponse: &gitalypb.CommitStatsResponse{
+				Oid:       multipleChanges.String(),
+				Additions: 1,
+				Deletions: 1,
+			},
+		},
+		{
+			desc: "merge",
+			request: &gitalypb.CommitStatsRequest{
+				Repository: repo,
+				Revision:   []byte(merge),
+			},
+			expectedResponse: &gitalypb.CommitStatsResponse{
+				Oid:       merge.String(),
+				Additions: 0,
+				Deletions: 0,
+			},
+		},
+		{
+			desc: "rogue merge",
+			request: &gitalypb.CommitStatsRequest{
+				Repository: repo,
+				Revision:   []byte(rogueMerge),
+			},
+			expectedResponse: &gitalypb.CommitStatsResponse{
+				Oid:       rogueMerge.String(),
+				Additions: 1,
+				Deletions: 1,
+			},
+		},
+		{
+			desc: "binary file",
+			request: &gitalypb.CommitStatsRequest{
+				Repository: repo,
+				Revision:   []byte(binaryChange),
+			},
+			expectedResponse: &gitalypb.CommitStatsResponse{
+				Oid:       binaryChange.String(),
+				Additions: 10,
+				Deletions: 0,
+			},
+		},
+		{
+			desc: "initial commit",
+			request: &gitalypb.CommitStatsRequest{
+				Repository: repo,
+				Revision:   []byte(initialCommit),
+			},
+			expectedResponse: &gitalypb.CommitStatsResponse{
+				Oid:       initialCommit.String(),
+				Additions: 10,
+				Deletions: 0,
+			},
+		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.CommitStats(ctx, tc.request)
+			t.Parallel()
+
+			response, err := client.CommitStats(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
 }
