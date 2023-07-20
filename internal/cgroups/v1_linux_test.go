@@ -344,7 +344,7 @@ gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
 
 			v1Manager1 := mock.newCgroupManager(config, tt.pid)
 
-			mock.setupMockCgroupFiles(t, v1Manager1, 2)
+			mock.setupMockCgroupFiles(t, v1Manager1, mockCgroupFile{"memory.failcnt", "2"})
 			require.NoError(t, v1Manager1.Setup())
 
 			ctx := testhelper.Context(t)
