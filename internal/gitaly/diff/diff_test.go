@@ -9,28 +9,37 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+)
+
+var (
+	zeroOID = gittest.DefaultObjectHash.ZeroOID
+	oid1    = gittest.DefaultObjectHash.HashData([]byte("1"))
+	oid2    = gittest.DefaultObjectHash.HashData([]byte("2"))
+	oid3    = gittest.DefaultObjectHash.HashData([]byte("3"))
 )
 
 func TestDiffParserWithLargeDiffWithTrueCollapseDiffsFlag(t *testing.T) {
+	t.Parallel()
+
 	bigPatch := strings.Repeat("+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n", 100000)
-	rawDiff := fmt.Sprintf(`:000000 100644 0000000000000000000000000000000000000000 4cc7061661b8f52891bc1b39feb4d856b21a1067 A	big.txt
-:000000 100644 0000000000000000000000000000000000000000 3be11c69355948412925fa5e073d76d58ff3afd2 A	file-00.txt
+	rawDiff := fmt.Sprintf(`:000000 100644 %[2]s %[3]s A	big.txt
+:000000 100644 %[2]s %[4]s A	file-00.txt
 
 diff --git a/big.txt b/big.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..4cc7061661b8f52891bc1b39feb4d856b21a1067
+index %[2]s..%[3]s
 --- /dev/null
 +++ b/big.txt
 @@ -0,0 +1,100000 @@
-%sdiff --git a/file-00.txt b/file-00.txt
+%[1]sdiff --git a/file-00.txt b/file-00.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d58ff3afd2
+index %[2]s..%[4]s
 --- /dev/null
 +++ b/file-00.txt
 @@ -0,0 +1 @@
 +Lorem ipsum
-`, bigPatch)
+`, bigPatch, zeroOID, oid1, oid2)
 
 	limits := Limits{
 		EnforceLimits: true,
@@ -49,8 +58,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "4cc7061661b8f52891bc1b39feb4d856b21a1067",
+			FromID:    zeroOID.String(),
+			ToID:      oid1.String(),
 			FromPath:  []byte("big.txt"),
 			ToPath:    []byte("big.txt"),
 			Status:    'A',
@@ -60,8 +69,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "3be11c69355948412925fa5e073d76d58ff3afd2",
+			FromID:    zeroOID.String(),
+			ToID:      oid2.String(),
 			FromPath:  []byte("file-00.txt"),
 			ToPath:    []byte("file-00.txt"),
 			Status:    'A',
@@ -75,17 +84,19 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 }
 
 func TestDiffParserWithIgnoreWhitespaceChangeAndFirstPatchEmpty(t *testing.T) {
-	rawDiff := `:100644 100644 3be11c69355948412925fa5e073d76d58ff3afd2 2b3087b18e944130456ac0a6857e36b70cd33c79 M	file-00.txt
-:100644 100644 3be11c69355948412925fa5e073d76d58ff3afd2 20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42 M	file-01.txt
+	t.Parallel()
+
+	rawDiff := fmt.Sprintf(`:100644 100644 %[1]s %[2]s M	file-00.txt
+:100644 100644 %[1]s %[3]s M	file-01.txt
 
 diff --git a/file-01.txt b/file-01.txt
-index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42 100644
+index %[1]s..%[3]s 100644
 --- a/file-01.txt
 +++ b/file-01.txt
 @@ -1 +1,2 @@
  Lorem ipsum
 +Lorem ipsum
-`
+`, oid1, oid2, oid3)
 	limits := Limits{
 		EnforceLimits: true,
 		SafeMaxFiles:  3,
@@ -103,8 +114,8 @@ index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c8
 		{
 			OldMode:   0o100644,
 			NewMode:   0o100644,
-			FromID:    "3be11c69355948412925fa5e073d76d58ff3afd2",
-			ToID:      "2b3087b18e944130456ac0a6857e36b70cd33c79",
+			FromID:    oid1.String(),
+			ToID:      oid2.String(),
 			FromPath:  []byte("file-00.txt"),
 			ToPath:    []byte("file-00.txt"),
 			Status:    'M',
@@ -114,8 +125,8 @@ index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c8
 		{
 			OldMode:   0o100644,
 			NewMode:   0o100644,
-			FromID:    "3be11c69355948412925fa5e073d76d58ff3afd2",
-			ToID:      "20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42",
+			FromID:    oid1.String(),
+			ToID:      oid3.String(),
 			FromPath:  []byte("file-01.txt"),
 			ToPath:    []byte("file-01.txt"),
 			Status:    'M',
@@ -129,17 +140,19 @@ index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c8
 }
 
 func TestDiffParserWithIgnoreWhitespaceChangeAndLastPatchEmpty(t *testing.T) {
-	rawDiff := `:100644 100644 3be11c69355948412925fa5e073d76d58ff3afd2 20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42 M	file-00.txt
-:100644 100644 3be11c69355948412925fa5e073d76d58ff3afd2 2b3087b18e944130456ac0a6857e36b70cd33c79 M	file-01.txt
+	t.Parallel()
+
+	rawDiff := fmt.Sprintf(`:100644 100644 %[1]s %[2]s M	file-00.txt
+:100644 100644 %[1]s %[3]s M	file-01.txt
 
 diff --git a/file-00.txt b/file-00.txt
-index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42 100644
+index %[1]s..%[2]s 100644
 --- a/file-00.txt
 +++ b/file-00.txt
 @@ -1 +1,2 @@
  Lorem ipsum
 +Lorem ipsum
-`
+`, oid1, oid2, oid3)
 	limits := Limits{
 		EnforceLimits: true,
 		SafeMaxFiles:  3,
@@ -157,8 +170,8 @@ index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c8
 		{
 			OldMode:   0o100644,
 			NewMode:   0o100644,
-			FromID:    "3be11c69355948412925fa5e073d76d58ff3afd2",
-			ToID:      "20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42",
+			FromID:    oid1.String(),
+			ToID:      oid2.String(),
 			FromPath:  []byte("file-00.txt"),
 			ToPath:    []byte("file-00.txt"),
 			Status:    'M',
@@ -169,8 +182,8 @@ index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c8
 		{
 			OldMode:   0o100644,
 			NewMode:   0o100644,
-			FromID:    "3be11c69355948412925fa5e073d76d58ff3afd2",
-			ToID:      "2b3087b18e944130456ac0a6857e36b70cd33c79",
+			FromID:    oid1.String(),
+			ToID:      oid3.String(),
 			FromPath:  []byte("file-01.txt"),
 			ToPath:    []byte("file-01.txt"),
 			Status:    'M',
@@ -183,11 +196,13 @@ index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c8
 }
 
 func TestDiffParserWithWordDiff(t *testing.T) {
-	rawDiff := `:000000 100644 0000000000000000000000000000000000000000 4cc7061661b8f52891bc1b39feb4d856b21a1067 A	big.txt
+	t.Parallel()
+
+	rawDiff := fmt.Sprintf(`:000000 100644 %s %s A	big.txt
 
 diff --git a/big.txt b/big.txt
 new file mode 100644
-index 000000000..3a62d28e3
+index %s..%s
 --- /dev/null
 +++ b/big.txt
 @@ -0,0 +1,3 @@
@@ -197,7 +212,7 @@ index 000000000..3a62d28e3
 ~ignoreme
 +C
 ~
-`
+`, zeroOID, oid1, zeroOID[:7], oid1[:7])
 
 	limits := Limits{
 		EnforceLimits: true,
@@ -216,8 +231,8 @@ index 000000000..3a62d28e3
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    "0000000000000000000000000000000000000000",
-			ToID:      "4cc7061661b8f52891bc1b39feb4d856b21a1067",
+			FromID:    zeroOID.String(),
+			ToID:      oid1.String(),
 			FromPath:  []byte("big.txt"),
 			ToPath:    []byte("big.txt"),
 			Status:    'A',
@@ -231,24 +246,26 @@ index 000000000..3a62d28e3
 }
 
 func TestDiffParserWithLargeDiffWithFalseCollapseDiffsFlag(t *testing.T) {
+	t.Parallel()
+
 	bigPatch := strings.Repeat("+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n", 100000)
-	rawDiff := fmt.Sprintf(`:000000 100644 0000000000000000000000000000000000000000 4cc7061661b8f52891bc1b39feb4d856b21a1067 A	big.txt
-:000000 100644 0000000000000000000000000000000000000000 3be11c69355948412925fa5e073d76d58ff3afd2 A	file-00.txt
+	rawDiff := fmt.Sprintf(`:000000 100644 %[2]s %[3]s A	big.txt
+:000000 100644 %[2]s %[4]s A	file-00.txt
 
 diff --git a/big.txt b/big.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..4cc7061661b8f52891bc1b39feb4d856b21a1067
+index %[2]s..%[3]s
 --- /dev/null
 +++ b/big.txt
 @@ -0,0 +1,100000 @@
-%sdiff --git a/file-00.txt b/file-00.txt
+%[1]sdiff --git a/file-00.txt b/file-00.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d58ff3afd2
+index %[2]s..%[4]s
 --- /dev/null
 +++ b/file-00.txt
 @@ -0,0 +1 @@
 +Lorem ipsum
-`, bigPatch)
+`, bigPatch, zeroOID, oid1, oid2)
 
 	limits := Limits{
 		EnforceLimits: true,
@@ -268,8 +285,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "4cc7061661b8f52891bc1b39feb4d856b21a1067",
+			FromID:    zeroOID.String(),
+			ToID:      oid1.String(),
 			FromPath:  []byte("big.txt"),
 			ToPath:    []byte("big.txt"),
 			Status:    'A',
@@ -280,8 +297,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "3be11c69355948412925fa5e073d76d58ff3afd2",
+			FromID:    zeroOID.String(),
+			ToID:      oid2.String(),
 			FromPath:  []byte("file-00.txt"),
 			ToPath:    []byte("file-00.txt"),
 			Status:    'A',
@@ -295,23 +312,25 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 }
 
 func TestDiffParserWithLargeDiffWithFalseCollapseDiffsAndCustomPatchLimitFlag(t *testing.T) {
+	t.Parallel()
+
 	bigPatch := "@@ -0,0 +1,100000 @@\n" + strings.Repeat("+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua\n", 1000)
-	rawDiff := fmt.Sprintf(`:000000 100644 0000000000000000000000000000000000000000 4cc7061661b8f52891bc1b39feb4d856b21a1067 A	big.txt
-:000000 100644 0000000000000000000000000000000000000000 3be11c69355948412925fa5e073d76d58ff3afd2 A	file-00.txt
+	rawDiff := fmt.Sprintf(`:000000 100644 %[2]s %[3]s A	big.txt
+:000000 100644 %[2]s %[4]s A	file-00.txt
 
 diff --git a/big.txt b/big.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..4cc7061661b8f52891bc1b39feb4d856b21a1067
+index %[2]s..%[3]s
 --- /dev/null
 +++ b/big.txt
-%sdiff --git a/file-00.txt b/file-00.txt
+%[1]sdiff --git a/file-00.txt b/file-00.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d58ff3afd2
+index %[2]s..%[4]s
 --- /dev/null
 +++ b/file-00.txt
 @@ -0,0 +1 @@
 +Lorem ipsum
-`, bigPatch)
+`, bigPatch, zeroOID, oid1, oid2)
 
 	limits := Limits{
 		EnforceLimits: true,
@@ -331,8 +350,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "4cc7061661b8f52891bc1b39feb4d856b21a1067",
+			FromID:    zeroOID.String(),
+			ToID:      oid1.String(),
 			FromPath:  []byte("big.txt"),
 			ToPath:    []byte("big.txt"),
 			Status:    'A',
@@ -344,8 +363,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "3be11c69355948412925fa5e073d76d58ff3afd2",
+			FromID:    zeroOID.String(),
+			ToID:      oid2.String(),
 			FromPath:  []byte("file-00.txt"),
 			ToPath:    []byte("file-00.txt"),
 			Status:    'A',
@@ -359,22 +378,24 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 }
 
 func TestDiffParserWithLargeDiffOfSmallPatches(t *testing.T) {
-	patch := "@@ -0,0 +1,5 @@\n" + strings.Repeat("+Lorem\n", 5)
-	rawDiff := `:000000 100644 0000000000000000000000000000000000000000 b6507e5b5ce18077e3ec8aaa2291404e5051d45d A	expand-collapse/file-0.txt
-:000000 100644 0000000000000000000000000000000000000000 b6507e5b5ce18077e3ec8aaa2291404e5051d45d A	expand-collapse/file-1.txt
-:000000 100644 0000000000000000000000000000000000000000 b6507e5b5ce18077e3ec8aaa2291404e5051d45d A	expand-collapse/file-2.txt
+	t.Parallel()
 
-`
+	patch := "@@ -0,0 +1,5 @@\n" + strings.Repeat("+Lorem\n", 5)
+	rawDiff := fmt.Sprintf(`:000000 100644 %[1]s %[2]s A	expand-collapse/file-0.txt
+:000000 100644 %[1]s %[2]s A	expand-collapse/file-1.txt
+:000000 100644 %[1]s %[2]s A	expand-collapse/file-2.txt
+
+`, zeroOID, oid1)
 
 	// Create 3 files of 5 lines. The first two files added together surpass
 	// the limits, which should cause the last one to be collapsed.
 	for i := 0; i < 3; i++ {
 		rawDiff += fmt.Sprintf(`diff --git a/expand-collapse/file-%d.txt b/expand-collapse/file-%d.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e5051d45d
+index %s..%s
 --- /dev/null
 +++ b/expand-collapse/file-%d.txt
-%s`, i, i, i, patch)
+%s`, i, i, zeroOID, oid1, i, patch)
 	}
 
 	limits := Limits{
@@ -394,8 +415,8 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "b6507e5b5ce18077e3ec8aaa2291404e5051d45d",
+			FromID:    gittest.DefaultObjectHash.ZeroOID.String(),
+			ToID:      oid1.String(),
 			FromPath:  []byte("expand-collapse/file-0.txt"),
 			ToPath:    []byte("expand-collapse/file-0.txt"),
 			Status:    'A',
@@ -406,8 +427,8 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "b6507e5b5ce18077e3ec8aaa2291404e5051d45d",
+			FromID:    gittest.DefaultObjectHash.ZeroOID.String(),
+			ToID:      oid1.String(),
 			FromPath:  []byte("expand-collapse/file-1.txt"),
 			ToPath:    []byte("expand-collapse/file-1.txt"),
 			Status:    'A',
@@ -418,8 +439,8 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "b6507e5b5ce18077e3ec8aaa2291404e5051d45d",
+			FromID:    gittest.DefaultObjectHash.ZeroOID.String(),
+			ToID:      oid1.String(),
 			FromPath:  []byte("expand-collapse/file-2.txt"),
 			ToPath:    []byte("expand-collapse/file-2.txt"),
 			Status:    'A',
@@ -433,14 +454,16 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 }
 
 func TestDiffLongLine(t *testing.T) {
-	header := `:000000 100644 0000000000000000000000000000000000000000 c3ae147b03a2d1fd89b25198b3fc53028c5b0d53 A	file-0
+	t.Parallel()
+
+	header := fmt.Sprintf(`:000000 100644 %[1]s %[2]s A	file-0
 
 diff --git a/file-0 b/file-0
 new file mode 100644
-index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc53028c5b0d53
+index %[1]s..%[2]s
 --- /dev/null
 +++ b/file-0
-`
+`, zeroOID, oid1)
 	patch := "@@ -0,0 +1,100 @@\n+" + strings.Repeat("z", 100*1000)
 
 	limits := Limits{
@@ -452,8 +475,8 @@ index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc5302
 		{
 			OldMode:   0,
 			NewMode:   0o100644,
-			FromID:    git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:      "c3ae147b03a2d1fd89b25198b3fc53028c5b0d53",
+			FromID:    gittest.DefaultObjectHash.ZeroOID.String(),
+			ToID:      oid1.String(),
 			FromPath:  []byte("file-0"),
 			ToPath:    []byte("file-0"),
 			Status:    'A',
@@ -489,26 +512,28 @@ func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 
 // Test larger file type below limit, above original limit
 func TestDiffFileBeingBelowLimitForExtension(t *testing.T) {
-	header := `:000000 100644 0000000000000000000000000000000000000000 b6507e5b5ce18077e3ec8aaa2291404e5051d45d A	big.txt
-:000000 100644 0000000000000000000000000000000000000000 b6507e5b5ce18077e3ec8aaa2291404e5051d45d A	big.md
+	t.Parallel()
 
-`
+	header := fmt.Sprintf(`:000000 100644 %[1]s %[2]s A	big.txt
+:000000 100644 %[1]s %[2]s A	big.md
+
+`, zeroOID, oid1)
 	bigLine := strings.Repeat("z", 100)
 	bigPatch := "@@ -0,0 +1,100 @@\n+" + strings.Repeat(fmt.Sprintf("+%s\n", bigLine), 100)
 
-	txtHeader := `diff --git a/big.txt b/big.txt
+	txtHeader := fmt.Sprintf(`diff --git a/big.txt b/big.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..4cc7061661b8f52891bc1b39feb4d856b21a1067
+index %s..%s
 --- /dev/null
 +++ b/big.txt
-`
+`, zeroOID, oid2)
 
-	mdHeader := `diff --git a/big.md b/big.md
+	mdHeader := fmt.Sprintf(`diff --git a/big.md b/big.md
 new file mode 100644
-index 0000000000000000000000000000000000000000..4cc7061661b8f52891bc1b39feb4d856b21a1067
+index %s..%s
 --- /dev/null
 +++ b/big.md
-`
+`, zeroOID, oid2)
 	rawDiff := header + txtHeader + bigPatch + mdHeader + bigPatch
 
 	fmt.Println(len(bigPatch))
@@ -568,17 +593,17 @@ func BenchmarkParserMemory(b *testing.B) {
 
 	diffData := &bytes.Buffer{}
 	for i := 0; i < NDiffs; i++ {
-		fmt.Fprintf(diffData, ":000000 100644 0000000000000000000000000000000000000000 c3ae147b03a2d1fd89b25198b3fc53028c5b0d53 A	file-%d\n", i)
+		fmt.Fprintf(diffData, ":000000 100644 %s %s A	file-%d\n", zeroOID, oid1, i)
 	}
 	fmt.Fprintln(diffData)
 	for i := 0; i < NDiffs; i++ {
 		fmt.Fprintf(diffData, `diff --git a/file-%d b/file-%d
 new file mode 100644
-index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc53028c5b0d53
+index %s..%s
 --- /dev/null
 +++ b/file-%d
 @@ -0,0 +1,100 @@
-`, i, i, i)
+`, i, i, zeroOID, oid1, i)
 		for j := 0; j < 100; j++ {
 			fmt.Fprintln(diffData, "+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
 		}
