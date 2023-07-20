@@ -30,9 +30,18 @@ func TestGetBlobs(t *testing.T) {
 	blobBData := strings.Repeat("b", int(blobBSize))
 	blobBOID := gittest.WriteBlob(t, cfg, repoPath, []byte(blobBData))
 
+	submoduleOID := gittest.DefaultObjectHash.HashData([]byte("arbitrary data"))
+
+	subtreeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{OID: blobAOID, Path: "subfile", Mode: "100644"},
+	})
+	subtreeSize := gittest.ObjectSize(t, cfg, repoPath, subtreeOID)
+
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
 		gittest.TreeEntry{OID: blobAOID, Path: "a", Mode: "100644"},
 		gittest.TreeEntry{OID: blobBOID, Path: "b", Mode: "100644"},
+		gittest.TreeEntry{OID: submoduleOID, Path: "submodule", Mode: "160000"},
+		gittest.TreeEntry{OID: subtreeOID, Path: "dir", Mode: "040000"},
 	))
 
 	missingBlob := func(path string, revision git.ObjectID) *gitalypb.GetBlobsResponse {
@@ -208,6 +217,86 @@ func TestGetBlobs(t *testing.T) {
 					expectedResponses: []*gitalypb.GetBlobsResponse{
 						existingBlob("a", commitID, blobAOID, "", blobASize),
 						missingBlob("does-not-exist", commitID),
+					},
+				}
+			},
+		},
+		{
+			desc: "empty path",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						missingBlob("", commitID),
+					},
+				}
+			},
+		},
+		{
+			desc: "path refers to root",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("/")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						missingBlob("/", commitID),
+					},
+				}
+			},
+		},
+		{
+			desc: "path refers to subdirectory",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("dir")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						// It's somewhat weird that this RPC also returns tree
+						// objects, but that's simply the current behaviour.
+						{
+							Path:     []byte("dir"),
+							Revision: commitID.String(),
+							Oid:      subtreeOID.String(),
+							Size:     subtreeSize,
+							Mode:     0o040000,
+							Type:     gitalypb.ObjectType_TREE,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "submodule",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("submodule")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						{
+							Path:        []byte("submodule"),
+							Revision:    commitID.String(),
+							Oid:         submoduleOID.String(),
+							Mode:        0o160000,
+							Type:        gitalypb.ObjectType_COMMIT,
+							IsSubmodule: true,
+						},
 					},
 				}
 			},

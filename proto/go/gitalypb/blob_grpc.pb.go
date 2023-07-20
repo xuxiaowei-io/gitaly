@@ -26,7 +26,10 @@ type BlobServiceClient interface {
 	// ID. We use a stream to return a chunked arbitrarily large binary
 	// response
 	GetBlob(ctx context.Context, in *GetBlobRequest, opts ...grpc.CallOption) (BlobService_GetBlobClient, error)
-	// This comment is left unintentionally blank.
+	// GetBlobs returns blobs identified via a revision and path.
+	//
+	// Note that the behaviour of this RPC is quite weird: it does not only return blobs, but will also return submodules
+	// as commits and trees. It's use is thus discouraged in favor of ListBlobs, which behaves more sanely.
 	GetBlobs(ctx context.Context, in *GetBlobsRequest, opts ...grpc.CallOption) (BlobService_GetBlobsClient, error)
 	// ListBlobs will list all blobs reachable from a given set of revisions by
 	// doing a graph walk. It is not valid to pass revisions which do not resolve
@@ -291,7 +294,10 @@ type BlobServiceServer interface {
 	// ID. We use a stream to return a chunked arbitrarily large binary
 	// response
 	GetBlob(*GetBlobRequest, BlobService_GetBlobServer) error
-	// This comment is left unintentionally blank.
+	// GetBlobs returns blobs identified via a revision and path.
+	//
+	// Note that the behaviour of this RPC is quite weird: it does not only return blobs, but will also return submodules
+	// as commits and trees. It's use is thus discouraged in favor of ListBlobs, which behaves more sanely.
 	GetBlobs(*GetBlobsRequest, BlobService_GetBlobsServer) error
 	// ListBlobs will list all blobs reachable from a given set of revisions by
 	// doing a graph walk. It is not valid to pass revisions which do not resolve

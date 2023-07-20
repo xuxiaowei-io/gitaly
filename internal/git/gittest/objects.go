@@ -50,6 +50,14 @@ func ListObjects(tb testing.TB, cfg config.Cfg, repoPath string) []git.ObjectID 
 	return objects
 }
 
+// ObjectSize returns the size of the object identified by the given ID.
+func ObjectSize(tb testing.TB, cfg config.Cfg, repoPath string, objectID git.ObjectID) int64 {
+	output := Exec(tb, cfg, "-C", repoPath, "cat-file", "-s", objectID.String())
+	size, err := strconv.ParseInt(text.ChompBytes(output), 10, 64)
+	require.NoError(tb, err)
+	return size
+}
+
 // RequireObjectExists asserts that the given repository does contain an object with the specified
 // object ID.
 func RequireObjectExists(tb testing.TB, cfg config.Cfg, repoPath string, objectID git.ObjectID) {
