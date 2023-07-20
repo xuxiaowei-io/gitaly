@@ -2,12 +2,10 @@ package metadatahandler
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -20,10 +18,13 @@ const (
 )
 
 func TestAddMetadataTags(t *testing.T) {
+	t.Parallel()
+
 	baseContext := testhelper.Context(t)
 
-	testCases := []struct {
+	for _, tc := range []struct {
 		desc             string
+		fullMethod       string
 		metadata         metadata.MD
 		deadline         bool
 		expectedMetatags metadataTags
@@ -33,10 +34,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs(),
 			deadline: false,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     unknownValue,
-				authVersion:  unknownValue,
-				deadlineType: "none",
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -44,10 +47,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: false,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     "testsite",
-				authVersion:  unknownValue,
-				deadlineType: "none",
+				clientName:      unknownValue,
+				callSite:        "testsite",
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -55,10 +60,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: true,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     "testsite",
-				authVersion:  unknownValue,
-				deadlineType: unknownValue,
+				clientName:      unknownValue,
+				callSite:        "testsite",
+				authVersion:     unknownValue,
+				deadlineType:    unknownValue,
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -66,10 +73,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: true,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     unknownValue,
-				authVersion:  unknownValue,
-				deadlineType: "regular",
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "regular",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -77,10 +86,12 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: false,
 			expectedMetatags: metadataTags{
-				clientName:   unknownValue,
-				callSite:     unknownValue,
-				authVersion:  unknownValue,
-				deadlineType: "none",
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
 		{
@@ -88,52 +99,122 @@ func TestAddMetadataTags(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular", "client_name", "rails"),
 			deadline: true,
 			expectedMetatags: metadataTags{
-				clientName:   "rails",
-				callSite:     unknownValue,
-				authVersion:  unknownValue,
-				deadlineType: "regular",
+				clientName:      "rails",
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "regular",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
 			},
 		},
-	}
+		{
+			desc:       "with unknown method",
+			fullMethod: "/gitaly.RepositoryService/UnknownMethod",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: unknownValue,
+				methodScope:     unknownValue,
+			},
+		},
+		{
+			desc:       "with repository-scoped accessor",
+			fullMethod: "/gitaly.RepositoryService/ObjectFormat",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "accessor",
+				methodScope:     "repository",
+			},
+		},
+		{
+			desc:       "with repository-scoped mutator",
+			fullMethod: "/gitaly.RepositoryService/CreateRepository",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "mutator",
+				methodScope:     "repository",
+			},
+		},
+		{
+			desc:       "with repository-scoped maintenance",
+			fullMethod: "/gitaly.RepositoryService/OptimizeRepository",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "maintenance",
+				methodScope:     "repository",
+			},
+		},
+		{
+			desc:       "with repository-scoped maintenance",
+			fullMethod: "/gitaly.RepositoryService/OptimizeRepository",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "maintenance",
+				methodScope:     "repository",
+			},
+		},
+		{
+			desc:       "with storage-scoped accessor",
+			fullMethod: "/gitaly.RemoteService/FindRemoteRepository",
+			metadata:   metadata.Pairs(),
+			deadline:   false,
+			expectedMetatags: metadataTags{
+				clientName:      unknownValue,
+				callSite:        unknownValue,
+				authVersion:     unknownValue,
+				deadlineType:    "none",
+				methodOperation: "accessor",
+				methodScope:     "storage",
+			},
+		},
+	} {
+		tc := tc
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := metadata.NewIncomingContext(baseContext, testCase.metadata)
-			if testCase.deadline {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := metadata.NewIncomingContext(baseContext, tc.metadata)
+			if tc.deadline {
 				var cancel func()
 				//nolint:forbidigo // We explicitly need to test whether deadlines
 				// propagate as expected.
 				ctx, cancel = context.WithDeadline(ctx, time.Now().Add(50*time.Millisecond))
 				defer cancel()
 			}
-			require.Equal(t, testCase.expectedMetatags, addMetadataTags(ctx, "unary"))
+
+			require.Equal(t, tc.expectedMetatags, addMetadataTags(ctx, tc.fullMethod, "unary"))
 		})
 	}
 }
 
-func verifyHandler(ctx context.Context, req interface{}) (interface{}, error) {
-	require, ok := req.(*require.Assertions)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type conversion failure")
-	}
-	metaTags := addMetadataTags(ctx, "unary")
-	require.Equal(clientName, metaTags.clientName)
-
-	tags := grpcmwtags.Extract(ctx)
-	require.True(tags.Has(CorrelationIDKey))
-	require.True(tags.Has(ClientNameKey))
-	values := tags.Values()
-	require.Equal(correlationID, values[CorrelationIDKey])
-	require.Equal(clientName, values[ClientNameKey])
-
-	return nil, nil
-}
-
 func TestGRPCTags(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-
-	require := require.New(t)
-
 	ctx = metadata.NewIncomingContext(
 		correlation.ContextWithCorrelation(
 			correlation.ContextWithClientName(
@@ -147,46 +228,74 @@ func TestGRPCTags(t *testing.T) {
 
 	interceptor := grpcmwtags.UnaryServerInterceptor()
 
-	_, err := interceptor(ctx, require, nil, verifyHandler)
-	require.NoError(err)
+	_, err := interceptor(ctx, nil, nil, func(ctx context.Context, _ interface{}) (interface{}, error) {
+		metaTags := addMetadataTags(ctx, "/gitaly.RepositoryService/OptimizeRepository", "unary")
+
+		require.Equal(t, metadataTags{
+			clientName:      clientName,
+			callSite:        "unknown",
+			authVersion:     "unknown",
+			deadlineType:    "none",
+			methodOperation: "maintenance",
+			methodScope:     "repository",
+		}, metaTags)
+
+		require.Equal(t, map[string]interface{}{
+			"correlation_id":   correlationID,
+			ClientNameKey:      clientName,
+			DeadlineTypeKey:    "none",
+			MethodTypeKey:      "unary",
+			MethodOperationKey: "maintenance",
+			MethodScopeKey:     "repository",
+		}, grpcmwtags.Extract(ctx).Values())
+
+		return nil, nil
+	})
+	require.NoError(t, err)
 }
 
-func Test_extractServiceName(t *testing.T) {
-	tests := []struct {
-		name                    string
-		fullMethodName          string
-		wantService, wantMethod string
+func TestExtractServiceAndMethodName(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc            string
+		fullMethodName  string
+		expectedService string
+		expectedMethod  string
 	}{
 		{
-			name:           "blank",
-			fullMethodName: "",
-			wantService:    unknownValue,
-			wantMethod:     unknownValue,
+			desc:            "blank",
+			fullMethodName:  "",
+			expectedService: unknownValue,
+			expectedMethod:  unknownValue,
 		},
 		{
-			name:           "normal",
-			fullMethodName: "/gitaly.OperationService/method",
-			wantService:    "gitaly.OperationService",
-			wantMethod:     "method",
+			desc:            "normal",
+			fullMethodName:  "/gitaly.OperationService/method",
+			expectedService: "gitaly.OperationService",
+			expectedMethod:  "method",
 		},
 		{
-			name:           "malformed",
-			fullMethodName: "//method",
-			wantService:    "",
-			wantMethod:     "method",
+			desc:            "malformed",
+			fullMethodName:  "//method",
+			expectedService: "",
+			expectedMethod:  "method",
 		},
 		{
-			name:           "malformed",
-			fullMethodName: "/gitaly.OperationService/",
-			wantService:    "gitaly.OperationService",
-			wantMethod:     "",
+			desc:            "malformed",
+			fullMethodName:  "/gitaly.OperationService/",
+			expectedService: "gitaly.OperationService",
+			expectedMethod:  "",
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotService, gotMethod := extractServiceAndMethodName(tt.fullMethodName)
-			assert.Equal(t, tt.wantService, gotService)
-			assert.Equal(t, tt.wantMethod, gotMethod)
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			service, method := extractServiceAndMethodName(tc.fullMethodName)
+			require.Equal(t, tc.expectedService, service)
+			require.Equal(t, tc.expectedMethod, method)
 		})
 	}
 }

@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
