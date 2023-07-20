@@ -181,6 +181,34 @@ func (cvh *cgroupV1Handler) currentProcessCgroup() string {
 	return config.GetGitalyProcessTempDir(cvh.cfg.HierarchyRoot, cvh.pid)
 }
 
+func (cvh *cgroupV1Handler) stats() (Stats, error) {
+	processCgroupPath := cvh.currentProcessCgroup()
+
+	control, err := cgroup1.Load(
+		cgroup1.StaticPath(processCgroupPath),
+		cgroup1.WithHiearchy(cvh.hierarchy),
+	)
+	if err != nil {
+		return Stats{}, fmt.Errorf("failed loading cgroup %s: %w", processCgroupPath, err)
+	}
+
+	metrics, err := control.Stat()
+	if err != nil {
+		return Stats{}, fmt.Errorf("failed to fetch metrics %s: %w", processCgroupPath, err)
+	}
+
+	return Stats{
+		ParentStats: CgroupStats{
+			CPUThrottledCount:    metrics.CPU.Throttling.ThrottledPeriods,
+			CPUThrottledDuration: float64(metrics.CPU.Throttling.ThrottledTime) / float64(time.Second),
+			MemoryUsage:          metrics.Memory.Usage.Usage,
+			MemoryLimit:          metrics.Memory.Usage.Limit,
+			OOMKills:             metrics.MemoryOomControl.OomKill,
+			UnderOOM:             metrics.MemoryOomControl.UnderOom != 0,
+		},
+	}, nil
+}
+
 func defaultSubsystems(root string) ([]cgroup1.Subsystem, error) {
 	subsystems := []cgroup1.Subsystem{
 		cgroup1.NewMemory(root, cgroup1.OptionalSwap()),

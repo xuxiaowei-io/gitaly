@@ -162,6 +162,33 @@ func (cvh *cgroupV2Handler) currentProcessCgroup() string {
 	return config.GetGitalyProcessTempDir(cvh.cfg.HierarchyRoot, cvh.pid)
 }
 
+func (cvh *cgroupV2Handler) stats() (Stats, error) {
+	processCgroupPath := cvh.currentProcessCgroup()
+
+	control, err := cgroup2.Load("/"+processCgroupPath, cgroup2.WithMountpoint(cvh.cfg.Mountpoint))
+	if err != nil {
+		return Stats{}, fmt.Errorf("failed loading cgroup %s: %w", processCgroupPath, err)
+	}
+
+	metrics, err := control.Stat()
+	if err != nil {
+		return Stats{}, fmt.Errorf("failed to fetch metrics %s: %w", processCgroupPath, err)
+	}
+
+	stats := Stats{
+		ParentStats: CgroupStats{
+			CPUThrottledCount:    metrics.CPU.NrThrottled,
+			CPUThrottledDuration: float64(metrics.CPU.ThrottledUsec) / float64(time.Second),
+			MemoryUsage:          metrics.Memory.Usage,
+			MemoryLimit:          metrics.Memory.UsageLimit,
+		},
+	}
+	if metrics.MemoryEvents != nil {
+		stats.ParentStats.OOMKills = metrics.MemoryEvents.OomKill
+	}
+	return stats, nil
+}
+
 func pruneOldCgroupsV2(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
 	if err := config.PruneOldGitalyProcessDirectories(
 		logger,

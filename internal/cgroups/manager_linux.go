@@ -26,6 +26,7 @@ type cgroupHandler interface {
 	cleanup() error
 	currentProcessCgroup() string
 	repoPath(groupID int) string
+	stats() (Stats, error)
 }
 
 // CGroupManager is a manager class that implements specific methods related to cgroups
@@ -117,6 +118,12 @@ func (cgm *CGroupManager) Describe(ch chan<- *prometheus.Desc) {
 // Collect is used to collect the current values of all CGroupManager prometheus metrics
 func (cgm *CGroupManager) Collect(ch chan<- prometheus.Metric) {
 	cgm.handler.collect(ch)
+}
+
+// Stats returns cgroup accounting statistics collected by reading
+// cgroupfs files.
+func (cgm *CGroupManager) Stats() (Stats, error) {
+	return cgm.handler.stats()
 }
 
 func (cgm *CGroupManager) currentProcessCgroup() string {
