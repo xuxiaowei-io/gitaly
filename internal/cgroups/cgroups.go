@@ -29,6 +29,9 @@ type Manager interface {
 	// It is expected to be called once at Gitaly startup from any
 	// instance of the Manager.
 	Setup() error
+	// Ready returns true if this cgroup manager is configured and
+	// ready to use.
+	Ready() bool
 	// AddCommand adds a Cmd to a cgroup.
 	AddCommand(*exec.Cmd, ...AddCommandOption) (string, error)
 	// Cleanup cleans up cgroups created in Setup.

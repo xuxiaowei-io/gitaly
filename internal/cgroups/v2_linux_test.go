@@ -98,7 +98,9 @@ func TestSetup_ParentCgroupsV2(t *testing.T) {
 			v2Manager := mock.newCgroupManager(tt.cfg, pid)
 			mock.setupMockCgroupFiles(t, v2Manager)
 
+			require.False(t, v2Manager.Ready())
 			require.NoError(t, v2Manager.Setup())
+			require.True(t, v2Manager.Ready())
 
 			memoryMaxPath := filepath.Join(
 				mock.root, "gitaly", fmt.Sprintf("gitaly-%d", pid), "memory.max",
@@ -174,7 +176,10 @@ func TestSetup_RepoCgroupsV2(t *testing.T) {
 
 			v2Manager := mock.newCgroupManager(cfg, pid)
 			mock.setupMockCgroupFiles(t, v2Manager)
+
+			require.False(t, v2Manager.Ready())
 			require.NoError(t, v2Manager.Setup())
+			require.True(t, v2Manager.Ready())
 
 			for i := 0; i < 3; i++ {
 				memoryMaxPath := filepath.Join(

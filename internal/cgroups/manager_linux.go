@@ -30,8 +30,9 @@ type cgroupHandler interface {
 
 // CGroupManager is a manager class that implements specific methods related to cgroups
 type CGroupManager struct {
-	cfg cgroupscfg.Config
-	pid int
+	cfg     cgroupscfg.Config
+	pid     int
+	enabled bool
 
 	handler cgroupHandler
 }
@@ -67,7 +68,14 @@ func (cgm *CGroupManager) Setup() error {
 	if err := cgm.handler.setupRepository(cgm.configRepositoryResources()); err != nil {
 		return err
 	}
+	cgm.enabled = true
+
 	return nil
+}
+
+// Ready returns true if the Cgroup manager is configured and ready to use.
+func (cgm *CGroupManager) Ready() bool {
+	return cgm.enabled
 }
 
 // AddCommand adds a Cmd to a cgroup

@@ -10,6 +10,11 @@ import (
 type NoopManager struct{}
 
 //nolint:revive // This is unintentionally missing documentation.
+func (cg *NoopManager) Ready() bool {
+	return false
+}
+
+//nolint:revive // This is unintentionally missing documentation.
 func (cg *NoopManager) Setup() error {
 	return nil
 }

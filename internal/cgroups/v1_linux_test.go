@@ -100,7 +100,9 @@ func TestSetup_ParentCgroups(t *testing.T) {
 			tt.cfg.Mountpoint = mock.root
 
 			v1Manager := mock.newCgroupManager(tt.cfg, pid)
+			require.False(t, v1Manager.Ready())
 			require.NoError(t, v1Manager.Setup())
+			require.True(t, v1Manager.Ready())
 
 			memoryLimitPath := filepath.Join(
 				mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", pid), "memory.limit_in_bytes",
@@ -182,7 +184,9 @@ func TestSetup_RepoCgroups(t *testing.T) {
 
 			v1Manager := mock.newCgroupManager(cfg, pid)
 
+			require.False(t, v1Manager.Ready())
 			require.NoError(t, v1Manager.Setup())
+			require.True(t, v1Manager.Ready())
 
 			for i := 0; i < 3; i++ {
 				memoryLimitPath := filepath.Join(
