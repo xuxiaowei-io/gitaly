@@ -208,7 +208,12 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 		return nil, err
 	}
 
-	tree := localrepo.NewParser(cmd, git.ObjectHashSHA1)
+	objectHash, err := f.repo.ObjectHash(f.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	tree := localrepo.NewParser(cmd, objectHash)
 
 	var files []filer.File
 	for {
