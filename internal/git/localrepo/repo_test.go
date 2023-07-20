@@ -12,8 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func TestRepo(t *testing.T) {
@@ -101,6 +103,68 @@ func TestRepo_Quarantine(t *testing.T) {
 			content, err := tc.repo.ReadObject(ctx, tc.oid)
 			require.Equal(t, tc.expectedError, err)
 			require.Equal(t, tc.expectedContent, content)
+		})
+	}
+}
+
+func TestRepo_Quarantine_nonExistentRepository(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+
+	quarantineDir := filepath.Join(cfg.Storages[0].Path, "quarantine")
+
+	for _, tc := range []struct {
+		desc          string
+		inputRepo     *gitalypb.Repository
+		expectedRepo  *gitalypb.Repository
+		expectedError error
+	}{
+		{
+			desc: "non-existent storage",
+			inputRepo: &gitalypb.Repository{
+				StorageName:  "non-existent-storage",
+				RelativePath: "non-existent-relative-path",
+			},
+			expectedError: storage.ErrStorageNotFound,
+		},
+		{
+			desc: "non-existent relative-path",
+			inputRepo: &gitalypb.Repository{
+				StorageName:   cfg.Storages[0].Name,
+				RelativePath:  "non-existent-relative-path",
+				GlRepository:  "project-1",
+				GlProjectPath: "project/path",
+			},
+			expectedRepo: &gitalypb.Repository{
+				StorageName:                   cfg.Storages[0].Name,
+				RelativePath:                  "non-existent-relative-path",
+				GitObjectDirectory:            "../quarantine",
+				GitAlternateObjectDirectories: []string{"objects"},
+				GlRepository:                  "project-1",
+				GlProjectPath:                 "project/path",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			catfileCache := catfile.NewCache(cfg)
+			defer catfileCache.Stop()
+
+			repo := New(
+				config.NewLocator(cfg),
+				gittest.NewCommandFactory(t, cfg),
+				catfileCache,
+				tc.inputRepo,
+			)
+
+			quarantinedRepo, err := repo.Quarantine(quarantineDir)
+			if tc.expectedError != nil {
+				require.ErrorIs(t, err, tc.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, tc.expectedRepo, quarantinedRepo.Repository)
 		})
 	}
 }

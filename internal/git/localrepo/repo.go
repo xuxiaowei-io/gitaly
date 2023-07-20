@@ -51,7 +51,7 @@ func (repo *Repo) Quarantine(quarantineDirectory string) (*Repo, error) {
 		return nil, fmt.Errorf("unexpected repository type %t", repo.Repository)
 	}
 
-	repoPath, err := repo.Path()
+	repoPath, err := repo.locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return nil, fmt.Errorf("repo path: %w", err)
 	}
