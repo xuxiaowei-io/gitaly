@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -466,9 +464,9 @@ func TestReplicateRepository_transactional(t *testing.T) {
 	_, serverSocketPath := runRepositoryService(t, cfg, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID1 := gittest.WriteCommit(t, cfg, sourceRepoPath)
+	commitID2 := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"), gittest.WithParents(commitID1))
 
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
@@ -533,9 +531,7 @@ func TestReplicateRepository_transactional(t *testing.T) {
 
 	// We're about to change refs/heads/master, and thus the mirror-fetch will update it. The
 	// vote should reflect that.
-	oldOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "rev-parse", "refs/heads/master"))
-	newOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "rev-parse", "refs/heads/master~"))
-	replicationVote := sha1.Sum([]byte(fmt.Sprintf("%[1]s %[2]s refs/heads/master\n%[1]s %[2]s HEAD\n", oldOID, newOID)))
+	replicationVote := sha1.Sum([]byte(fmt.Sprintf("%[1]s %[2]s refs/heads/master\n", commitID2, commitID1)))
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
@@ -572,7 +568,6 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	remoteCfg := testcfg.Build(t)
 	remoteRepo, remoteRepoPath := gittest.CreateRepository(t, ctx, remoteCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 	testcfg.BuildGitalyHooks(t, remoteCfg)
 	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
@@ -582,7 +577,6 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	localCfg := testcfg.Build(t)
 	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, localCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 	localRepo := localrepo.NewTestRepo(t, localCfg, localRepoProto)
 	testcfg.BuildGitalySSH(t, localCfg)
@@ -650,7 +644,6 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
