@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package diff
 
 import (
@@ -499,7 +497,7 @@ func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 		MaxLines:      0,
 		MaxPatchBytes: 0,
 	}
-	diffParser := NewDiffParser(strings.NewReader(""), limits)
+	diffParser := NewDiffParser(gittest.DefaultObjectHash, strings.NewReader(""), limits)
 
 	require.Equal(t, diffParser.limits.SafeMaxBytes, safeMaxBytesUpperBound)
 	require.Equal(t, diffParser.limits.SafeMaxFiles, safeMaxFilesUpperBound)
@@ -569,7 +567,7 @@ index %s..%s
 func getDiffs(tb testing.TB, rawDiff string, limits Limits) []*Diff {
 	tb.Helper()
 
-	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
+	diffParser := NewDiffParser(gittest.DefaultObjectHash, strings.NewReader(rawDiff), limits)
 
 	diffs := []*Diff{}
 	for diffParser.Parse() {
@@ -611,7 +609,7 @@ index %s..%s
 
 	b.Run("parse", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			parser := NewDiffParser(bytes.NewReader(diffData.Bytes()), Limits{})
+			parser := NewDiffParser(gittest.DefaultObjectHash, bytes.NewReader(diffData.Bytes()), Limits{})
 			n := 0
 			for parser.Parse() {
 				n++
