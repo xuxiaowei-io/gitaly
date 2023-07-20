@@ -658,6 +658,7 @@ func (m mockReplicator) Replicate(ctx context.Context, event datastore.Replicati
 func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	defer cancel()
 
 	const virtualStorage = "virtal-storage"
 	const primaryStorage = "storage-1"

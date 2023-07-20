@@ -2,8 +2,8 @@ package streamcache
 
 import (
 	"bytes"
+	"crypto/rand"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
