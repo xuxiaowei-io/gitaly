@@ -32,11 +32,16 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object format: %w", err)
+	}
+
 	referenceName := git.NewReferenceNameFromBranchName(string(firstRequest.Branch))
 
 	var revision git.ObjectID
 	if expectedOldOID := firstRequest.GetExpectedOldOid(); expectedOldOID != "" {
-		revision, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		revision, err = objectHash.FromHex(expectedOldOID)
 		if err != nil {
 			return structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
 		}
@@ -102,7 +107,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return structerr.NewInternal("merge: %w", err)
 	}
 
-	mergeOID, err := git.ObjectHashSHA1.FromHex(mergeCommitID)
+	mergeOID, err := objectHash.FromHex(mergeCommitID)
 	if err != nil {
 		return structerr.NewInternal("could not parse merge ID: %w", err)
 	}

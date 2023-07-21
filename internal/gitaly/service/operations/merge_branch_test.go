@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -25,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -34,12 +31,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb/testproto"
 	"google.golang.org/protobuf/types/known/timestamppb"
-)
-
-var (
-	commitToMerge         = "e63f41fe459e62e1228fcef60d7189127aeba95a"
-	mergeBranchName       = "gitaly-merge-test-branch"
-	mergeBranchHeadBefore = "281d3a76f31c812dbf48abce82ccf6860adedd81"
 )
 
 //go:generate rm -rf testdata/gpg-keys testdata/signing_gpg_key testdata/signing_gpg_key.pub
@@ -371,6 +362,8 @@ func TestUserMergeBranch_failure(t *testing.T) {
 }
 
 func testUserMergeBranchFailure(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -529,7 +522,10 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 }
 
 func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repoProto, repoPath, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// Set up a hook that parses the merge commit and then aborts the update. Like this, we
@@ -542,15 +538,13 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 		exit 1
 	`))
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
-
 	stream, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		CommitId:   commitToMerge,
-		Branch:     []byte(mergeBranchName),
+		CommitId:   commits.right.String(),
+		Branch:     []byte("branch"),
 		Message:    []byte("Merged by Gitaly"),
 		Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 	}))
@@ -565,7 +559,7 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 			Error: &gitalypb.UserMergeBranchError_CustomHook{
 				CustomHook: &gitalypb.CustomHookError{
 					HookType: gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE,
-					Stdout:   []byte(fmt.Sprintf("%s\n", mergeBranchHeadBefore)),
+					Stdout:   []byte(fmt.Sprintf("%s\n", commits.left.String())),
 					Stderr:   []byte(fmt.Sprintf("%s\n", firstResponse.CommitId)),
 				},
 			},
@@ -573,7 +567,7 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	), err)
 	require.Nil(t, secondResponse)
 
-	oid, err := git.ObjectHashSHA1.FromHex(strings.TrimSpace(firstResponse.CommitId))
+	oid, err := gittest.DefaultObjectHash.FromHex(strings.TrimSpace(firstResponse.CommitId))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)
@@ -591,52 +585,58 @@ func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 }
 
 func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, _, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	mergeBidi, err := client.UserMergeBranch(ctx)
+	stream, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
-
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		CommitId:   commitToMerge,
-		Branch:     []byte(mergeBranchName),
+		CommitId:   commits.right.String(),
+		Branch:     []byte("branch"),
 		Message:    []byte("Merged by Gitaly"),
 		Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 	}
 
-	// Because the timestamp is
-	expectedMergeID := "f0165798887392f9148b55d54a832b005f93a38c"
+	expectedMergeID := gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "5e96169507b47c71ffb719dc3ad93d014f57617b",
+		"sha256": "a1165ec1ffbc14e1ad40dbae4c9ccb6afe6a3a4db1b7a7c5f6aa0c52999c45b1",
+	})
 
-	require.NoError(t, mergeBidi.Send(firstRequest), "send first request")
-	response, err := mergeBidi.Recv()
-	require.NoError(t, err, "receive first response")
-	require.Equal(t, response.CommitId, expectedMergeID)
+	require.NoError(t, stream.Send(firstRequest), "send first request")
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, expectedMergeID, response.CommitId)
 
-	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
-	response, err = mergeBidi.Recv()
-	require.NoError(t, err, "receive second response")
+	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}))
+	response, err = stream.Recv()
+	require.NoError(t, err)
 	require.Equal(t, expectedMergeID, response.BranchUpdate.CommitId)
 
-	_, err = mergeBidi.Recv()
+	_, err = stream.Recv()
 	require.Equal(t, io.EOF, err)
 
-	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
-	require.NoError(t, err, "look up git commit after call has finished")
-	require.Equal(t, commit, &gitalypb.GitCommit{
+	commit, err := repo.ReadCommit(ctx, "refs/heads/branch")
+	require.NoError(t, err)
+	require.Equal(t, &gitalypb.GitCommit{
 		Subject:  []byte("Merged by Gitaly"),
 		Body:     []byte("Merged by Gitaly"),
 		BodySize: 16,
 		Id:       expectedMergeID,
 		ParentIds: []string{
-			"281d3a76f31c812dbf48abce82ccf6860adedd81",
-			"e63f41fe459e62e1228fcef60d7189127aeba95a",
+			commits.left.String(),
+			commits.right.String(),
 		},
-		TreeId: "86ec18bfe87ad42a782fdabd8310f9b7ac750f51",
+		TreeId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "7ed20b777cfc00066401a4d4aa1bab50f487f346",
+			"sha256": "9ff5a6fc7476b3297e176d8c7dec1c36a7a58dd68e387570229f94cce65d299c",
+		}),
 		Author: &gitalypb.CommitAuthor{
 			Name:  gittest.TestUser.Name,
 			Email: gittest.TestUser.Email,
@@ -651,7 +651,7 @@ func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 			Date:     &timestamppb.Timestamp{Seconds: 12},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
-	})
+	}, commit)
 }
 
 func TestUserMergeBranch_abort(t *testing.T) {
@@ -664,17 +664,18 @@ func TestUserMergeBranch_abort(t *testing.T) {
 }
 
 func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, _, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		CommitId:   commitToMerge,
-		Branch:     []byte(mergeBranchName),
+		CommitId:   commits.right.String(),
+		Branch:     []byte("branch"),
 		Message:    []byte("foobar"),
 	}
 
@@ -711,10 +712,10 @@ func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
 			require.Equal(t, "", secondResponse.GetBranchUpdate().GetCommitId(), "merge should not have been applied")
 			require.Error(t, err)
 
-			commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
+			commit, err := repo.ReadCommit(ctx, "refs/heads/branch")
 			require.NoError(t, err, "look up git commit after call has finished")
 
-			require.Equal(t, mergeBranchHeadBefore, commit.Id, "branch should not change when the merge is aborted")
+			require.Equal(t, commits.left.String(), commit.Id, "branch should not change when the merge is aborted")
 		})
 	}
 }
@@ -729,38 +730,38 @@ func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 }
 
 func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, repoPath, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	mergeBidi, err := client.UserMergeBranch(ctx)
+	stream, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
-
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	mergeCommitMessage := "Merged by Gitaly"
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		CommitId:   commitToMerge,
-		Branch:     []byte(mergeBranchName),
+		CommitId:   commits.right.String(),
+		Branch:     []byte("branch"),
 		Message:    []byte(mergeCommitMessage),
 		Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 	}
 
-	require.NoError(t, mergeBidi.Send(firstRequest), "send first request")
-	firstResponse, err := mergeBidi.Recv()
+	require.NoError(t, stream.Send(firstRequest), "send first request")
+	firstResponse, err := stream.Recv()
 	require.NoError(t, err, "receive first response")
 
 	// This concurrent update of the branch we are merging into should make the merge fail.
-	concurrentCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch(mergeBranchName))
-	require.NotEqual(t, firstResponse.CommitId, concurrentCommitID)
+	concurrentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+	require.NotEqual(t, concurrentCommitID, firstResponse.CommitId)
 
-	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
-	require.NoError(t, mergeBidi.CloseSend(), "close send")
+	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
+	require.NoError(t, stream.CloseSend(), "close send")
 
-	secondResponse, err := mergeBidi.Recv()
+	secondResponse, err := stream.Recv()
 	testhelper.RequireGrpcError(t,
 		structerr.NewFailedPrecondition("reference update: reference does not point to expected object").
 			WithDetail(&testproto.ErrorMetadata{
@@ -769,18 +770,18 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 			}).
 			WithDetail(&testproto.ErrorMetadata{
 				Key:   []byte("expected_object_id"),
-				Value: []byte("281d3a76f31c812dbf48abce82ccf6860adedd81"),
+				Value: []byte(commits.left),
 			}).
 			WithDetail(&testproto.ErrorMetadata{
 				Key:   []byte("reference"),
-				Value: []byte("refs/heads/" + mergeBranchName),
+				Value: []byte("refs/heads/branch"),
 			}).
 			WithDetail(&gitalypb.UserMergeBranchError{
 				Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
 					ReferenceUpdate: &gitalypb.ReferenceUpdateError{
-						ReferenceName: []byte("refs/heads/" + mergeBranchName),
-						OldOid:        "281d3a76f31c812dbf48abce82ccf6860adedd81",
-						NewOid:        "f0165798887392f9148b55d54a832b005f93a38c",
+						ReferenceName: []byte("refs/heads/branch"),
+						OldOid:        commits.left.String(),
+						NewOid:        firstResponse.CommitId,
 					},
 				},
 			}),
@@ -788,9 +789,9 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	)
 	require.Nil(t, secondResponse)
 
-	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
+	commit, err := repo.ReadCommit(ctx, "refs/heads/branch")
 	require.NoError(t, err, "get commit after RPC finished")
-	require.Equal(t, commit.Id, concurrentCommitID.String(), "RPC should not have trampled concurrent update")
+	require.Equal(t, concurrentCommitID.String(), commit.Id, "RPC should not have trampled concurrent update")
 }
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
@@ -803,37 +804,36 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 }
 
 func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
 
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, repoPath, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	merge, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
-
-	masterOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
-	require.NoError(t, err)
-
 	// We're now creating all kinds of potentially ambiguous references in
 	// the hope that UserMergeBranch won't be confused by it.
+	ambiguousCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ambiguous commit"))
 	for _, reference := range []string{
-		mergeBranchName,
-		"heads/" + mergeBranchName,
-		"refs/heads/refs/heads/" + mergeBranchName,
-		"refs/tags/" + mergeBranchName,
-		"refs/tags/heads/" + mergeBranchName,
-		"refs/tags/refs/heads/" + mergeBranchName,
+		"branch",
+		"heads/branch",
+		"refs/heads/refs/heads/branch",
+		"refs/tags/branch",
+		"refs/tags/heads/branch",
+		"refs/tags/refs/heads/branch",
 	} {
-		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(reference), masterOID, git.ObjectHashSHA1.ZeroOID))
+		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(reference), ambiguousCommit, gittest.DefaultObjectHash.ZeroOID))
 	}
 
 	mergeCommitMessage := "Merged by Gitaly"
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
 		User:       gittest.TestUser,
-		CommitId:   commitToMerge,
-		Branch:     []byte(mergeBranchName),
+		CommitId:   commits.right.String(),
+		Branch:     []byte("branch"),
 		Message:    []byte(mergeCommitMessage),
 	}
 
@@ -850,14 +850,14 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	_, err = merge.Recv()
 	require.Equal(t, io.EOF, err)
 
-	commit, err := repo.ReadCommit(ctx, git.Revision("refs/heads/"+mergeBranchName))
+	commit, err := repo.ReadCommit(ctx, git.Revision("refs/heads/branch"))
 	require.NoError(t, err, "look up git commit after call has finished")
 
 	testhelper.ProtoEqual(t, &gitalypb.OperationBranchUpdate{CommitId: commit.Id}, response.BranchUpdate)
 	require.Equal(t, mergeCommitMessage, string(commit.Body))
 	require.Equal(t, gittest.TestUser.Name, commit.Author.Name)
 	require.Equal(t, gittest.TestUser.Email, commit.Author.Email)
-	require.Equal(t, []string{mergeBranchHeadBefore, commitToMerge}, commit.ParentIds)
+	require.Equal(t, []string{commits.left.String(), commits.right.String()}, commit.ParentIds)
 }
 
 func TestUserMergeBranch_failingHooks(t *testing.T) {
@@ -870,9 +870,10 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 }
 
 func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repo, repoPath, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 
 	hookContent := []byte("#!/bin/sh\necho 'stdout' && echo 'stderr' >&2\nexit 1")
 
@@ -909,8 +910,8 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 			firstRequest := &gitalypb.UserMergeBranchRequest{
 				Repository: repo,
 				User:       gittest.TestUser,
-				CommitId:   commitToMerge,
-				Branch:     []byte(mergeBranchName),
+				CommitId:   commits.right.String(),
+				Branch:     []byte("branch"),
 				Message:    []byte(mergeCommitMessage),
 			}
 
@@ -949,11 +950,11 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 				require.Nil(t, response)
 			}
 
-			currentBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", mergeBranchName)
+			currentBranchHead := gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/branch")
 			if !tc.shouldFail {
-				require.Equal(t, firstResponse.CommitId, text.ChompBytes(currentBranchHead), "branch head updated")
+				require.Equal(t, firstResponse.CommitId, currentBranchHead.String(), "branch head updated")
 			} else {
-				require.Equal(t, mergeBranchHeadBefore, text.ChompBytes(currentBranchHead), "branch head updated")
+				require.Equal(t, commits.left, currentBranchHead, "branch head updated")
 			}
 		})
 	}
@@ -969,16 +970,18 @@ func TestUserMergeBranch_conflict(t *testing.T) {
 }
 
 func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	const mergeIntoBranch = "mergeIntoBranch"
 	const mergeFromBranch = "mergeFromBranch"
 	const conflictingFile = "file"
 
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
 		Mode: "100644", Path: conflictingFile, Content: "data",
 	}))
-
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeFromBranch, baseCommit.String())
 
 	divergedInto := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
@@ -1029,63 +1032,84 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 }
 
 func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
-	mergeBranchHeadAfter := "ff0ac4dfa30d6b26fd14aa83a75650355270bf76"
+	t.Parallel()
+
+	type expectedData struct {
+		err      error
+		response *gitalypb.UserMergeBranchResponse
+	}
 
 	for _, tc := range []struct {
-		desc             string
-		allowed          bool
-		allowedMessage   string
-		allowedErr       error
-		expectedErr      error
-		expectedResponse *gitalypb.UserMergeBranchResponse
+		desc           string
+		allowed        bool
+		allowedMessage string
+		allowedErr     error
+		setupExpected  func(t *testing.T, branch, before, after string) expectedData
 	}{
 		{
 			desc:    "allowed",
 			allowed: true,
-			expectedResponse: &gitalypb.UserMergeBranchResponse{
-				BranchUpdate: &gitalypb.OperationBranchUpdate{
-					CommitId: mergeBranchHeadAfter,
-				},
+			setupExpected: func(t *testing.T, _, _, after string) expectedData {
+				return expectedData{
+					response: &gitalypb.UserMergeBranchResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{
+							CommitId: after,
+						},
+					},
+				}
 			},
 		},
 		{
 			desc:           "disallowed",
 			allowed:        false,
 			allowedMessage: "you shall not pass",
-			expectedErr: structerr.NewPermissionDenied("GitLab: you shall not pass").WithDetail(
-				&gitalypb.UserMergeBranchError{
-					Error: &gitalypb.UserMergeBranchError_AccessCheck{
-						AccessCheck: &gitalypb.AccessCheckError{
-							ErrorMessage: "you shall not pass",
-							Protocol:     "web",
-							UserId:       gittest.GlID,
-							Changes:      []byte(fmt.Sprintf("%s %s refs/heads/%s\n", mergeBranchHeadBefore, mergeBranchHeadAfter, mergeBranchName)),
+			setupExpected: func(t *testing.T, branch, before, after string) expectedData {
+				return expectedData{
+					err: structerr.NewPermissionDenied("GitLab: you shall not pass").WithDetail(
+						&gitalypb.UserMergeBranchError{
+							Error: &gitalypb.UserMergeBranchError_AccessCheck{
+								AccessCheck: &gitalypb.AccessCheckError{
+									ErrorMessage: "you shall not pass",
+									Protocol:     "web",
+									UserId:       gittest.GlID,
+									Changes:      []byte(fmt.Sprintf("%s %s refs/heads/%s\n", before, after, branch)),
+								},
+							},
 						},
-					},
-				},
-			),
+					),
+				}
+			},
 		},
 		{
 			desc:       "failing",
 			allowedErr: errors.New("failure"),
-			expectedErr: structerr.NewPermissionDenied("GitLab: failure").WithDetail(
-				&gitalypb.UserMergeBranchError{
-					Error: &gitalypb.UserMergeBranchError_AccessCheck{
-						AccessCheck: &gitalypb.AccessCheckError{
-							ErrorMessage: "failure",
-							Protocol:     "web",
-							UserId:       gittest.GlID,
-							Changes:      []byte(fmt.Sprintf("%s %s refs/heads/%s\n", mergeBranchHeadBefore, mergeBranchHeadAfter, mergeBranchName)),
+			setupExpected: func(t *testing.T, branch, before, after string) expectedData {
+				return expectedData{
+					err: structerr.NewPermissionDenied("GitLab: failure").WithDetail(
+						&gitalypb.UserMergeBranchError{
+							Error: &gitalypb.UserMergeBranchError_AccessCheck{
+								AccessCheck: &gitalypb.AccessCheckError{
+									ErrorMessage: "failure",
+									Protocol:     "web",
+									UserId:       gittest.GlID,
+									Changes:      []byte(fmt.Sprintf("%s %s refs/heads/%s\n", before, after, branch)),
+								},
+							},
 						},
-					},
-				},
-			),
+					),
+				}
+			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			cfg := testcfg.Build(t)
 			backchannelRegistry := backchannel.NewRegistry()
 			txManager := transaction.NewManager(cfg, backchannelRegistry)
+
 			hookManager := hook.NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), txManager, gitlab.NewMockClient(
 				t,
 				func(context.Context, gitlab.AllowedParams) (bool, string, error) {
@@ -1095,44 +1119,64 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 				gitlab.MockPostReceive,
 			))
 
-			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithCfg(
+			ctx, cfg, client := setupOperationsServiceWithCfg(
 				t, ctx, cfg,
 				testserver.WithBackchannelRegistry(backchannelRegistry),
 				testserver.WithTransactionManager(txManager),
 				testserver.WithHookManager(hookManager),
 			)
-
-			gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+			repoProto, _, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 
 			stream, err := client.UserMergeBranch(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
 				Repository: repoProto,
 				User:       gittest.TestUser,
-				CommitId:   commitToMerge,
-				Branch:     []byte(mergeBranchName),
+				CommitId:   commits.right.String(),
+				Branch:     []byte("branch"),
 				Message:    []byte("message"),
 				Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 			}))
 
 			response, err := stream.Recv()
 			require.NoError(t, err)
-			testhelper.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
-				CommitId: mergeBranchHeadAfter,
-			}, response)
-
 			require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
 				Apply: true,
 			}))
 
+			expected := tc.setupExpected(t, "branch", commits.left.String(), response.CommitId)
+
 			response, err = stream.Recv()
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-			testhelper.ProtoEqual(t, tc.expectedResponse, response)
+			testhelper.RequireGrpcError(t, expected.err, err)
+			testhelper.ProtoEqual(t, expected.response, response)
 
 			if err == nil {
 				_, err = stream.Recv()
 				require.Equal(t, io.EOF, err)
 			}
 		})
+	}
+}
+
+type mergeableCommits struct {
+	left, right git.ObjectID
+}
+
+func setupRepoWithMergeableCommits(tb testing.TB, ctx context.Context, cfg config.Cfg, branch string) (*gitalypb.Repository, string, mergeableCommits) {
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+	base := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "1\n2\n3\n4\n5\n6\n7\n8\n"},
+	))
+	left := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "1\n2\n3\n4\n5\n6\n7\nh\n"},
+	), gittest.WithBranch(branch))
+	right := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a\n2\n3\n4\n5\n6\n7\n8\n"},
+	))
+
+	return repo, repoPath, mergeableCommits{
+		left:  left,
+		right: right,
 	}
 }
