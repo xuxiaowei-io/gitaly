@@ -14,11 +14,22 @@ import (
 func newDatalossCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "dataloss",
-		Usage: "identify stale nodes",
-		Description: "The subcommand \"dataloss\" identifies Gitaly nodes which are missing data from the\n" +
-			"previous write-enabled primary node. It does so by looking through incomplete\n" +
-			"replication jobs. This is useful for identifying potential data loss from a failover\n" +
-			"event.",
+		Usage: "identify potential data loss in repositories",
+		Description: `Search through incomplete replication jobs to identify potential data loss in repositories
+with out-of-date Gitaly nodes.
+
+Detects potential data loss where repositories are no longer accessible because all of the Gitaly nodes with up-to-date
+copies are unavailable. This can happen if a primary node becomes inaccessible before completing replication to other
+Gitaly nodes.
+
+For each unavailable repository with potential data loss, the output lists:
+
+- Gitaly relative path.
+- The primary Gitaly node.
+- The up-to-date Gitaly nodes (in-sync storages).
+- Any out-of-date Gitaly nodes (outdated storages).
+
+Example: praefect --config praefect.config.toml dataloss`,
 		HideHelpCommand: true,
 		Action:          datalossAction,
 		Flags: []cli.Flag{
