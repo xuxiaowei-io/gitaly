@@ -1,6 +1,8 @@
 package diff
 
 import (
+	"fmt"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -10,7 +12,9 @@ import (
 )
 
 func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.DiffService_CommitDeltaServer) error {
-	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
+	ctx := stream.Context()
+
+	ctxlogrus.Extract(ctx).WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,
 		"RightCommitId": in.RightCommitId,
 		"Paths":         logPaths(in.Paths),
@@ -26,11 +30,16 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 
 	repo := s.localrepo(in.GetRepository())
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	cmd := git.Command{
 		Name: "diff",
 		Flags: []git.Option{
 			git.Flag{Name: "--raw"},
-			git.Flag{Name: "--abbrev=40"},
+			git.Flag{Name: fmt.Sprintf("--abbrev=%d", objectHash.EncodedLen())},
 			git.Flag{Name: "--full-index"},
 			git.Flag{Name: "--find-renames"},
 		},
@@ -57,7 +66,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 		return nil
 	}
 
-	err := s.eachDiff(stream.Context(), repo, cmd, diff.Limits{}, func(diff *diff.Diff) error {
+	if err := s.eachDiff(ctx, repo, cmd, diff.Limits{}, func(diff *diff.Diff) error {
 		delta := &gitalypb.CommitDelta{
 			FromPath: diff.FromPath,
 			ToPath:   diff.ToPath,
@@ -80,8 +89,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 		}
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
