@@ -1,6 +1,8 @@
 package diff
 
 import (
+	"fmt"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -10,7 +12,9 @@ import (
 )
 
 func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.DiffService_CommitDiffServer) error {
-	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
+	ctx := stream.Context()
+
+	ctxlogrus.Extract(ctx).WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,
 		"RightCommitId": in.RightCommitId,
 		//nolint:staticcheck // This is a deprecated field and will be remove in a upcoming release
@@ -31,12 +35,17 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 
 	repo := s.localrepo(in.GetRepository())
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object format: %w", err)
+	}
+
 	cmd := git.Command{
 		Name: "diff",
 		Flags: []git.Option{
 			git.Flag{Name: "--patch"},
 			git.Flag{Name: "--raw"},
-			git.Flag{Name: "--abbrev=40"},
+			git.Flag{Name: fmt.Sprintf("--abbrev=%d", objectHash.EncodedLen())},
 			git.Flag{Name: "--full-index"},
 			git.Flag{Name: "--find-renames=30%"},
 		},
@@ -82,7 +91,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
 
-	return s.eachDiff(stream.Context(), repo, cmd, limits, func(diff *diff.Diff) error {
+	return s.eachDiff(ctx, repo, cmd, limits, func(diff *diff.Diff) error {
 		response := &gitalypb.CommitDiffResponse{
 			FromPath:       diff.FromPath,
 			ToPath:         diff.ToPath,
