@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -324,20 +322,20 @@ func TestUserFFBranch(t *testing.T) {
 
 func TestUserFFBranch_failingHooks(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	parentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+	childID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parentID))
 
-	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
-	branchName := "test-ff-target-branch"
 	request := &gitalypb.UserFFBranchRequest{
 		Repository: repo,
-		CommitId:   commitID,
-		Branch:     []byte(branchName),
+		CommitId:   childID.String(),
+		Branch:     []byte("branch"),
 		User:       gittest.TestUser,
 	}
-
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
@@ -356,9 +354,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	branchName := "test-ff-target-branch"
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	// We're creating both a branch and a tag with the same name.
 	// If `git rev-parse` is called on the branch name directly
@@ -369,29 +365,27 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	// old revision when calling git-update-ref. As a result, the
 	// update would've failed as the branch's current revision
 	// didn't match the specified old revision.
-	gittest.Exec(t, cfg, "-C", repoPath,
-		"branch", branchName,
-		"6d394385cf567f80a8fd85055db1ab4c5295806f")
-	gittest.Exec(t, cfg, "-C", repoPath, "tag", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f~")
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("ambiguous"))
+	gittest.WriteRef(t, cfg, repoPath, "refs/tags/ambiguous", commitID)
 
-	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
 	request := &gitalypb.UserFFBranchRequest{
 		Repository: repo,
-		CommitId:   commitID,
-		Branch:     []byte(branchName),
+		CommitId:   commitID.String(),
+		Branch:     []byte("ambiguous"),
 		User:       gittest.TestUser,
 	}
 	expectedResponse := &gitalypb.UserFFBranchResponse{
 		BranchUpdate: &gitalypb.OperationBranchUpdate{
 			RepoCreated:   false,
 			BranchCreated: false,
-			CommitId:      commitID,
+			CommitId:      commitID.String(),
 		},
 	}
 
 	resp, err := client.UserFFBranch(ctx, request)
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, expectedResponse, resp)
-	newBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/"+branchName)
-	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
+	newBranchHead := gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/ambiguous")
+	require.Equal(t, commitID, newBranchHead)
 }

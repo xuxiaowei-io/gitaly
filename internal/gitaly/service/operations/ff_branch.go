@@ -28,6 +28,11 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, err
 	}
 
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	var revision git.ObjectID
 	if expectedOldOID := in.GetExpectedOldOid(); expectedOldOID != "" {
 		objectHash, err := quarantineRepo.ObjectHash(ctx)
@@ -55,7 +60,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		}
 	}
 
-	commitID, err := git.ObjectHashSHA1.FromHex(in.CommitId)
+	commitID, err := objectHash.FromHex(in.CommitId)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("cannot parse commit ID: %w", err)
 	}
