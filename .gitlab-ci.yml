@@ -56,6 +56,7 @@ workflow:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: '$CI_COMMIT_BRANCH =~ /^[\d-]+-stable$/'
+    - if: $FORCE_GITALY_CI
 
 .cache_deps:
   cache: &cache_deps_configuration
@@ -142,6 +143,7 @@ workflow:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: '$CI_COMMIT_BRANCH =~ /^[\d-]+-stable$/'
+    - if: $FORCE_GITALY_CI
 
 .rules_run_on_merge: &rules_run_on_merge
     # We only execute these rules in the main Gitaly repository. This is
