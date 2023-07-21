@@ -1,9 +1,6 @@
 package repository
 
 import (
-	"fmt"
-	"strings"
-
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -52,9 +49,4 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 	}
 
 	return stream.SendAndClose(&gitalypb.CreateRepositoryFromBundleResponse{})
-}
-
-func sanitizedError(path, format string, a ...interface{}) string {
-	str := fmt.Sprintf(format, a...)
-	return strings.Replace(str, path, "[REPO PATH]", -1)
 }

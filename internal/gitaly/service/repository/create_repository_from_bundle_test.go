@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -283,32 +282,5 @@ func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 		testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "route repository creation: reserve repository id: repository already exists"), err)
 	} else {
 		testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
-	}
-}
-
-func TestSanitizedError(t *testing.T) {
-	t.Parallel()
-	testCases := []struct {
-		path     string
-		format   string
-		a        []interface{}
-		expected string
-	}{
-		{
-			path:     "/home/git/storage",
-			format:   "failed to create from bundle in /home/git/storage/my-project",
-			expected: "failed to create from bundle in [REPO PATH]/my-project",
-		},
-		{
-			path:     "/home/git/storage",
-			format:   "failed to %s in [REPO PATH]/my-project",
-			a:        []interface{}{"create from bundle"},
-			expected: "failed to create from bundle in [REPO PATH]/my-project",
-		},
-	}
-
-	for _, tc := range testCases {
-		str := sanitizedError(tc.path, tc.format, tc.a...)
-		assert.Equal(t, tc.expected, str)
 	}
 }
