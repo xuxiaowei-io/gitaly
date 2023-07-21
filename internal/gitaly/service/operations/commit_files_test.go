@@ -975,7 +975,9 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 }
 
 func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1038,7 +1040,9 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 }
 
 func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1258,7 +1262,9 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 }
 
 func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context) {
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	branchName := "master"
 	previousFilePath := "README"
@@ -1472,7 +1478,9 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 }
 
 func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
