@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -999,7 +997,10 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	resp, err := stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	require.Equal(t, resp.BranchUpdate.CommitId, "23ec4ccd7fcc6ecf39431805bbff1cbcb6c23b9d")
+	require.Equal(t, resp.BranchUpdate.CommitId, gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "23ec4ccd7fcc6ecf39431805bbff1cbcb6c23b9d",
+		"sha256": "0ab6f5df19cb4387f5b1bdac29ea497e12ad4ebd6c50c0a6ade01c75d2f5c5ad",
+	}))
 	require.True(t, resp.BranchUpdate.BranchCreated)
 	require.True(t, resp.BranchUpdate.RepoCreated)
 	gittest.RequireTree(t, cfg, repoPath, "refs/heads/master", []gittest.TreeEntry{
@@ -1009,8 +1010,14 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	commit, err := repo.ReadCommit(ctx, "refs/heads/master")
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:       "23ec4ccd7fcc6ecf39431805bbff1cbcb6c23b9d",
-		TreeId:   "541550ddcf8a29bcd80b0800a142a7d47890cfd6",
+		Id: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "23ec4ccd7fcc6ecf39431805bbff1cbcb6c23b9d",
+			"sha256": "0ab6f5df19cb4387f5b1bdac29ea497e12ad4ebd6c50c0a6ade01c75d2f5c5ad",
+		}),
+		TreeId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "541550ddcf8a29bcd80b0800a142a7d47890cfd6",
+			"sha256": "77313ea10ef747ceeb25c7177971d55b5cc67bf41cdb56e3497e905ebcad6303",
+		}),
 		Subject:  []byte("commit message"),
 		Body:     []byte("commit message"),
 		BodySize: 14,
@@ -1081,7 +1088,7 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	), err)
 
 	hookOutput := testhelper.MustReadFile(t, outputPath)
-	oid, err := git.ObjectHashSHA1.FromHex(text.ChompBytes(hookOutput))
+	oid, err := gittest.DefaultObjectHash.FromHex(text.ChompBytes(hookOutput))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)

@@ -35,7 +35,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb/testproto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -1139,14 +1138,6 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 			}
 		})
 	}
-}
-
-func errWithDetails(tb testing.TB, err error, details ...proto.Message) error {
-	detailedErr := structerr.New("%w", err)
-	for _, detail := range details {
-		detailedErr = detailedErr.WithDetail(detail)
-	}
-	return detailedErr
 }
 
 func TestUserFFBranch(t *testing.T) {

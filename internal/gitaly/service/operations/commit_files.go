@@ -25,6 +25,8 @@ import (
 // UserCommitFiles allows for committing from a set of actions. See the protobuf documentation
 // for details.
 func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFilesServer) error {
+	ctx := stream.Context()
+
 	firstRequest, err := stream.Recv()
 	if err != nil {
 		return err
@@ -35,13 +37,20 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 		return structerr.NewInvalidArgument("empty UserCommitFilesRequestHeader")
 	}
 
-	if err = validateUserCommitFilesHeader(s.locator, header); err != nil {
+	if err := s.locator.ValidateRepository(header.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	ctx := stream.Context()
+	objectHash, err := git.DetectObjectHash(ctx, s.gitCmdFactory, header.GetRepository())
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
 
-	if err := s.userCommitFiles(ctx, header, stream); err != nil {
+	if err := validateUserCommitFilesHeader(header, objectHash); err != nil {
+		return structerr.NewInvalidArgument("%w", err)
+	}
+
+	if err := s.userCommitFiles(ctx, header, stream, objectHash); err != nil {
 		ctxlogrus.AddFields(ctx, logrus.Fields{
 			"repository_storage":       header.Repository.StorageName,
 			"repository_relative_path": header.Repository.RelativePath,
@@ -410,7 +419,12 @@ func (s *Server) userCommitFilesGit(
 	)
 }
 
-func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommitFilesRequestHeader, stream gitalypb.OperationService_UserCommitFilesServer) error {
+func (s *Server) userCommitFiles(
+	ctx context.Context,
+	header *gitalypb.UserCommitFilesRequestHeader,
+	stream gitalypb.OperationService_UserCommitFilesServer,
+	objectHash git.ObjectHash,
+) error {
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository())
 	if err != nil {
 		return err
@@ -454,7 +468,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 			return fmt.Errorf("resolve parent commit: %w", err)
 		}
 	} else {
-		parentCommitOID, err = git.ObjectHashSHA1.FromHex(header.StartSha)
+		parentCommitOID, err = objectHash.FromHex(header.StartSha)
 		if err != nil {
 			return structerr.NewInvalidArgument("cannot resolve parent commit: %w", err)
 		}
@@ -595,7 +609,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	var oldRevision git.ObjectID
 	if expectedOldOID := header.GetExpectedOldOid(); expectedOldOID != "" {
-		oldRevision, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		oldRevision, err = objectHash.FromHex(expectedOldOID)
 		if err != nil {
 			return structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
 		}
@@ -610,7 +624,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	} else {
 		oldRevision = parentCommitOID
 		if targetBranchCommit == "" {
-			oldRevision = git.ObjectHashSHA1.ZeroOID
+			oldRevision = objectHash.ZeroOID
 		} else if header.Force {
 			oldRevision = targetBranchCommit
 		}
@@ -627,7 +641,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	return stream.SendAndClose(&gitalypb.UserCommitFilesResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
 		CommitId:      commitID.String(),
 		RepoCreated:   !hasBranches,
-		BranchCreated: git.ObjectHashSHA1.IsZeroOID(oldRevision),
+		BranchCreated: objectHash.IsZeroOID(oldRevision),
 	}})
 }
 
@@ -719,10 +733,7 @@ func (s *Server) fetchMissingCommit(
 	return nil
 }
 
-func validateUserCommitFilesHeader(locator storage.Locator, header *gitalypb.UserCommitFilesRequestHeader) error {
-	if err := locator.ValidateRepository(header.GetRepository()); err != nil {
-		return err
-	}
+func validateUserCommitFilesHeader(header *gitalypb.UserCommitFilesRequestHeader, objectHash git.ObjectHash) error {
 	if header.GetUser() == nil {
 		return errors.New("empty User")
 	}
@@ -735,7 +746,7 @@ func validateUserCommitFilesHeader(locator storage.Locator, header *gitalypb.Use
 
 	startSha := header.GetStartSha()
 	if len(startSha) > 0 {
-		err := git.ObjectHashSHA1.ValidateHex(startSha)
+		err := objectHash.ValidateHex(startSha)
 		if err != nil {
 			return err
 		}
