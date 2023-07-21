@@ -1,5 +1,45 @@
 # Gitaly changelog
 
+## 16.2.0 (2023-07-21)
+
+### Added (9 changes)
+
+- [gitaly-backup: Add -server-side option to restore sub-command](gitlab-org/gitaly@29b5c25f95134abd848debb7d9feeab961a43a4c) ([merge request](gitlab-org/gitaly!6085))
+- [Introduce more metrics for spawn token](gitlab-org/gitaly@dade902f7fa9b42e5b1d42f66ee0d88bde67369f) ([merge request](gitlab-org/gitaly!6039))
+- [Add `command.spawn_token_fork_ms` log field](gitlab-org/gitaly@68c67b6639da4ef8b38d704a993e07f5a21f068c) ([merge request](gitlab-org/gitaly!6039))
+- [gitaly-backup: Add -server-side option to create sub-command](gitlab-org/gitaly@6b2124bb410d1fc163028b5567298e67c36d221a) ([merge request](gitlab-org/gitaly!6026))
+- [repository: Make WriteRef compatible with the SHA256 object format](gitlab-org/gitaly@2cd79754f57f8549d568ab01905c5fc8ea515f98) ([merge request](gitlab-org/gitaly!6001))
+- [repository: Add ObjectsSize RPC to calculate fine-grained objects size](gitlab-org/gitaly@ec141ebef04436e3fa299f41d39267686c7c1d5c) ([merge request](gitlab-org/gitaly!5980))
+- [proto: Add RestoreRepository RPC](gitlab-org/gitaly@0bcc99b328ccbdbc0a7f3bcd338f30f714130579) ([merge request](gitlab-org/gitaly!5968))
+- [gitaly: Log cause of the failed reference update](gitlab-org/gitaly@316c85c6d32c4cdbb8a6fc37d0bb2fd9e6505b5c) by @8bitlife ([merge request](gitlab-org/gitaly!5950))
+- [proto: Add BackupRepo RPC](gitlab-org/gitaly@970d8065bc644e1c7ffc3ce7db791df0160a0df9) ([merge request](gitlab-org/gitaly!5925))
+
+### Fixed (11 changes)
+
+- [Remove repository even if there is a failed deletion](gitlab-org/gitaly@b82c639357989c3f528e417ec69616e232f4eba4) ([merge request](gitlab-org/gitaly!6043))
+- [Sync object pool removals](gitlab-org/gitaly@394939627d4b076db849d2bb0ff6f20929888193) ([merge request](gitlab-org/gitaly!5999))
+- [Sync migrated quarantine directory contents](gitlab-org/gitaly@31bc44153b3ae3c43b333efe251906cab1bfdc76) ([merge request](gitlab-org/gitaly!5999))
+- [Sync repository moves](gitlab-org/gitaly@f9f00ec62d2c831b4b36130b28c791e1349a9149) ([merge request](gitlab-org/gitaly!5999))
+- [Sync repository removals](gitlab-org/gitaly@4775a42dabf21a7405c77d43c4cb24a34820b39a) ([merge request](gitlab-org/gitaly!5999))
+- [Sync repository creations to disk](gitlab-org/gitaly@f4062b3334864a3b6e8960d961f322c2015a9675) ([merge request](gitlab-org/gitaly!5999))
+- [repository service: Stop validating vanity repo in BackupRepository](gitlab-org/gitaly@c10e108368171a62310f52b1c52ddfcffe90e00a) ([merge request](gitlab-org/gitaly!6017))
+- [catfile: Refuse input with newlines for old Git versions](gitlab-org/gitaly@6ef3825682263cd5ffc3b83ef332eeaf8fff9c9e) ([merge request](gitlab-org/gitaly!5857))
+- [catfile: Fix parsing object info for missing objects containing newlines](gitlab-org/gitaly@9f9eae92c8191a315a8b62e8221290d8838c370a) ([merge request](gitlab-org/gitaly!5857))
+- [catfile: Fix requests for revisions containing newlines](gitlab-org/gitaly@1cf54f1d4c6763adbab5f35c9bcdc7e37807dde4) ([merge request](gitlab-org/gitaly!5857))
+- [git: Increase locking timeout for loose references](gitlab-org/gitaly@982472e0eacef9c7b43de3ab1f9d8288bd26bbca) ([merge request](gitlab-org/gitaly!6013))
+
+### Changed (5 changes)
+
+- [restore service: Add skipped restore error to RestoreBackup](gitlab-org/gitaly@53428f3c8e03fe6aeb50a5d3d9ca71bc72910afd) ([merge request](gitlab-org/gitaly!6068))
+- [repository service: Allow RestoreRepository to restore latest backup](gitlab-org/gitaly@ad17b616a20c44e3b84b4f490d5fb3f3315d6c83) ([merge request](gitlab-org/gitaly!6068))
+- [operations: Implement UserCherryPick in pure git](gitlab-org/gitaly@39dd6402305eed3c7a7e10c690956642b1d3f919) ([merge request](gitlab-org/gitaly!6000))
+- [Add expected_old_oid to UserMergeToRefRequest](gitlab-org/gitaly@f61fa476681a7832ad0c715c3bee24b1e20abac1) ([merge request](gitlab-org/gitaly!5953))
+- [gitaly-backup: Add backup-id option to restore command](gitlab-org/gitaly@01372a56b90352aa9fa0da3bbf1d8f158b9932ca) ([merge request](gitlab-org/gitaly!5930))
+
+### Performance (1 change)
+
+- [localrepo: Avoid getting all branches for default branch detection](gitlab-org/gitaly@bdd3c05a2cc2889260050f2714884cc24503ae1a) by @blanet ([merge request](gitlab-org/gitaly!5725))
+
 ## 16.1.2 (2023-07-04)
 
 No changes.
