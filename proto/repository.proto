@@ -178,7 +178,8 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CreateRepositoryFromBundle creates a Git repository at the specified storage and path, if it
+  // does not already exist, from the provided Git bundle.
   rpc CreateRepositoryFromBundle(stream CreateRepositoryFromBundleRequest) returns (CreateRepositoryFromBundleResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -876,15 +877,16 @@ message GetCustomHooksResponse {
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryFromBundleRequest is a request for the CreateRepositoryFromBundle RPC.
 message CreateRepositoryFromBundleRequest {
-  // Only available on the first message
+  // Repository is the repository to be created from the Git bundle. Repository should only be
+  // present in the first message of the stream.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // Data contains bytes of the Git bundle file being streamed.
   bytes data = 2;
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryFromBundleResponse is a response for the CreateRepositoryFromBundle RPC.
 message CreateRepositoryFromBundleResponse {
 }
 

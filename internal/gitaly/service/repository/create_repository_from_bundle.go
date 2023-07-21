@@ -12,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
+// CreateRepositoryFromBundle creates a Git repository at the specified storage and path, if it does
+// not already exist, from the provided Git bundle.
 func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_CreateRepositoryFromBundleServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {

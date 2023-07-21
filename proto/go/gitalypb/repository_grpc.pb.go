@@ -95,7 +95,8 @@ type RepositoryServiceClient interface {
 	// Refs will be mirrored to the target repository with the refspec
 	// "+refs/*:refs/*" and refs that do not exist in the bundle will be removed.
 	FetchBundle(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_FetchBundleClient, error)
-	// This comment is left unintentionally blank.
+	// CreateRepositoryFromBundle creates a Git repository at the specified storage and path, if it
+	// does not already exist, from the provided Git bundle.
 	CreateRepositoryFromBundle(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_CreateRepositoryFromBundleClient, error)
 	// GetConfig reads the target repository's gitconfig and streams its contents
 	// back. Returns a NotFound error in case no gitconfig was found.
@@ -1055,7 +1056,8 @@ type RepositoryServiceServer interface {
 	// Refs will be mirrored to the target repository with the refspec
 	// "+refs/*:refs/*" and refs that do not exist in the bundle will be removed.
 	FetchBundle(RepositoryService_FetchBundleServer) error
-	// This comment is left unintentionally blank.
+	// CreateRepositoryFromBundle creates a Git repository at the specified storage and path, if it
+	// does not already exist, from the provided Git bundle.
 	CreateRepositoryFromBundle(RepositoryService_CreateRepositoryFromBundleServer) error
 	// GetConfig reads the target repository's gitconfig and streams its contents
 	// back. Returns a NotFound error in case no gitconfig was found.
