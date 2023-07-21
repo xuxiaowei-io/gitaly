@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
@@ -1408,63 +1409,74 @@ func testSuccessUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context
 	require.Equal(t, newTargetBranchCommit.ParentIds, []string{startCommit.Id})
 }
 
-func TestSuccessUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
+func TestUserCommitFiles_remoteRepository(t *testing.T) {
 	t.Parallel()
-
-	testhelper.NewFeatureSets(
-		featureflag.GPGSigning,
-	).
-		Run(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
-			setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
-		}))
+	testhelper.NewFeatureSets(featureflag.GPGSigning).Run(t, testUserCommitFilesRemoteRepository)
 }
 
-func TestSuccessUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
+func testUserCommitFilesRemoteRepository(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(
-		featureflag.GPGSigning,
-	).
-		Run(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
-			setStartBranchName(header, []byte("master"))
-		}))
-}
+	for _, tc := range []struct {
+		desc         string
+		setupRequest func(*testing.T, context.Context, config.Cfg, *gitalypb.UserCommitFilesRequest) git.ObjectID
+	}{
+		{
+			desc: "object ID",
+			setupRequest: func(t *testing.T, ctx context.Context, cfg config.Cfg, request *gitalypb.UserCommitFilesRequest) git.ObjectID {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header *gitalypb.UserCommitFilesRequest)) func(*testing.T, context.Context) {
-	// Regular table driven test did not work here as there is some state shared in the helpers between the subtests.
-	// Running them in different top level tests works, so we use a parameterized function instead to share the code.
-	return func(t *testing.T, ctx context.Context) {
-		ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+				setStartSha(request, commitID.String())
+				setStartRepository(request, repoProto)
 
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+				return commitID
+			},
+		},
+		{
+			desc: "branch name",
+			setupRequest: func(t *testing.T, ctx context.Context, cfg config.Cfg, request *gitalypb.UserCommitFilesRequest) git.ObjectID {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-		newRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-		newRepo := localrepo.NewTestRepo(t, cfg, newRepoProto)
+				setStartBranchName(request, []byte("master"))
+				setStartRepository(request, repoProto)
 
-		targetBranchName := "new"
+				return commitID
+			},
+		},
+	} {
+		tc := tc
 
-		startCommit, err := repo.ReadCommit(ctx, "master")
-		require.NoError(t, err)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
 
-		headerRequest := headerRequest(newRepoProto, gittest.TestUser, targetBranchName, commitFilesMessage, "", "")
-		setHeader(headerRequest)
-		setStartRepository(headerRequest, repoProto)
+			ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-		stream, err := client.UserCommitFiles(ctx)
-		require.NoError(t, err)
-		require.NoError(t, stream.Send(headerRequest))
-		require.NoError(t, stream.Send(createFileHeaderRequest("TEST.md")))
-		require.NoError(t, stream.Send(actionContentRequest("Test")))
+			newRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+			newRepo := localrepo.NewTestRepo(t, cfg, newRepoProto)
 
-		resp, err := stream.CloseAndRecv()
-		require.NoError(t, err)
+			targetBranchName := "new"
 
-		update := resp.GetBranchUpdate()
-		newTargetBranchCommit, err := newRepo.ReadCommit(ctx, git.Revision(targetBranchName))
-		require.NoError(t, err)
+			headerRequest := headerRequest(newRepoProto, gittest.TestUser, targetBranchName, commitFilesMessage, "", "")
+			startCommitID := tc.setupRequest(t, ctx, cfg, headerRequest)
 
-		require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
-		require.Equal(t, newTargetBranchCommit.ParentIds, []string{startCommit.Id})
+			stream, err := client.UserCommitFiles(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(headerRequest))
+			require.NoError(t, stream.Send(createFileHeaderRequest("TEST.md")))
+			require.NoError(t, stream.Send(actionContentRequest("Test")))
+
+			resp, err := stream.CloseAndRecv()
+			require.NoError(t, err)
+
+			update := resp.GetBranchUpdate()
+			newTargetBranchCommit, err := newRepo.ReadCommit(ctx, git.Revision(targetBranchName))
+			require.NoError(t, err)
+
+			require.Equal(t, update.CommitId, newTargetBranchCommit.Id)
+			require.Equal(t, []string{startCommitID.String()}, newTargetBranchCommit.ParentIds)
+		})
 	}
 }
 
