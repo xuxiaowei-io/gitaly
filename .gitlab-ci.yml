@@ -205,7 +205,7 @@ build:
     - go run ./tools/test-boot ${TEST_BOOT_ARGS}
   parallel:
     matrix:
-      - GO_VERSION: [ "1.19", "1.20" ]
+      - GO_VERSION: [ "1.20" ]
         TEST_BOOT_ARGS: "--bundled-git"
       - GIT_VERSION: "v2.41.0"
   only:
@@ -232,7 +232,7 @@ build:binaries:
     expire_in: 6 months
   parallel:
     matrix:
-      - GO_VERSION: [ "1.19", "1.20" ]
+      - GO_VERSION: [ "1.20" ]
   only:
     <<: *only_code_changes
 
@@ -242,7 +242,7 @@ test:
     matrix:
       # The following jobs all test with our default Git version, which is
       # using bundled Git binaries.
-      - GO_VERSION: [ "1.19", "1.20" ]
+      - GO_VERSION: [ "1.20" ]
         TEST_TARGET: test
       - TEST_TARGET: [ test-with-praefect, race-go, test-wal, test-with-praefect-wal]
       # We also verify that things work as expected with a non-bundled Git
