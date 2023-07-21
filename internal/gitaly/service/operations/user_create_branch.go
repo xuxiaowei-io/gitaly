@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
@@ -49,14 +50,19 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, structerr.NewFailedPrecondition("revspec '%s' not found", req.StartPoint)
 	}
 
-	startPointOID, err := git.ObjectHashSHA1.FromHex(startPointCommit.Id)
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	startPointOID, err := objectHash.FromHex(startPointCommit.Id)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("could not parse start point commit ID: %w", err)
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, startPointOID, git.ObjectHashSHA1.ZeroOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, startPointOID, objectHash.ZeroOID); err != nil {
 		var customHookErr updateref.CustomHookError
 
 		if errors.As(err, &customHookErr) {

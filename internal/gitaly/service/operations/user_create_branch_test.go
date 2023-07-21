@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -7,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -30,12 +27,16 @@ func TestUserCreateBranch_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	startPoint := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
-	startPointCommit, err := repo.ReadCommit(ctx, git.Revision(startPoint))
+	startPoint := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+	))
+
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+	startPointCommit, err := localRepo.ReadCommit(ctx, startPoint.Revision())
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -47,7 +48,7 @@ func TestUserCreateBranch_successful(t *testing.T) {
 		{
 			desc:       "valid branch",
 			branchName: "new-branch",
-			startPoint: startPoint,
+			startPoint: startPoint.String(),
 			expectedBranch: &gitalypb.Branch{
 				Name:         []byte("new-branch"),
 				TargetCommit: startPointCommit,
@@ -61,7 +62,7 @@ func TestUserCreateBranch_successful(t *testing.T) {
 		{
 			desc:       "valid branch",
 			branchName: "heads/new-branch",
-			startPoint: startPoint,
+			startPoint: startPoint.String(),
 			expectedBranch: &gitalypb.Branch{
 				Name:         []byte("heads/new-branch"),
 				TargetCommit: startPointCommit,
@@ -70,7 +71,7 @@ func TestUserCreateBranch_successful(t *testing.T) {
 		{
 			desc:       "valid branch",
 			branchName: "refs/heads/new-branch",
-			startPoint: startPoint,
+			startPoint: startPoint.String(),
 			expectedBranch: &gitalypb.Branch{
 				Name:         []byte("refs/heads/new-branch"),
 				TargetCommit: startPointCommit,
@@ -78,23 +79,27 @@ func TestUserCreateBranch_successful(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			branchName := testCase.branchName
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			branchName := tc.branchName
 			request := &gitalypb.UserCreateBranchRequest{
-				Repository: repoProto,
+				Repository: repo,
 				BranchName: []byte(branchName),
-				StartPoint: []byte(testCase.startPoint),
+				StartPoint: []byte(tc.startPoint),
 				User:       gittest.TestUser,
 			}
 
 			response, err := client.UserCreateBranch(ctx, request)
-			if testCase.expectedBranch != nil {
+			if tc.expectedBranch != nil {
 				defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", branchName)
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, testCase.expectedBranch, response.Branch)
+			require.Equal(t, tc.expectedBranch, response.Branch)
 
 			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
 			require.Contains(t, string(branches), "refs/heads/"+branchName)
@@ -102,7 +107,7 @@ func TestUserCreateBranch_successful(t *testing.T) {
 	}
 }
 
-func TestUserCreateBranch_Transactions(t *testing.T) {
+func TestUserCreateBranch_transactions(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -110,8 +115,10 @@ func TestUserCreateBranch_Transactions(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	startPoint := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+	))
 
 	transactionServer := &testTransactionServer{}
 
@@ -176,7 +183,7 @@ func TestUserCreateBranch_Transactions(t *testing.T) {
 			request := &gitalypb.UserCreateBranchRequest{
 				Repository: repo,
 				BranchName: []byte("new-branch"),
-				StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
+				StartPoint: []byte(startPoint),
 				User:       gittest.TestUser,
 			}
 
@@ -192,13 +199,18 @@ func TestUserCreateBranch_hook(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	startPoint := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+	))
 
 	branchName := "new-branch"
 	request := &gitalypb.UserCreateBranchRequest{
 		Repository: repo,
 		BranchName: []byte(branchName),
-		StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
+		StartPoint: []byte(startPoint),
 		User:       gittest.TestUser,
 	}
 
@@ -221,71 +233,68 @@ func TestUserCreateBranch_startPoint(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+	), gittest.WithBranch("master"))
 
+	localrepo := localrepo.NewTestRepo(t, cfg, repo)
+	commit, err := localrepo.ReadCommit(ctx, commitID.Revision())
+	require.NoError(t, err)
+
+	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3331
+	// The `startPoint` parameter automagically resolves branch names, so
+	// heads/master => refs/heads/master. While the `branchName` parameter
+	// prepends `heads/master`, so heads/master would become refs/heads/heads/master.
+	// The issue tracks this inconsistency.
+	//
+	// We validate this behaviour by creating refs/heads + startPoint, but notice
+	// that no collisions are noticied when running `TestUserCreateBranch`, because
+	// it automagically resolves/adds `refs/heads` as required.
 	testCases := []struct {
-		desc             string
-		branchName       string
-		startPoint       string
-		startPointCommit string
-		user             *gitalypb.User
+		desc       string
+		branchName string
+		startPoint string
 	}{
-		// Similar to prefixing branchName in
-		// TestSuccessfulCreateBranchRequest() above:
-		// Unfortunately (and inconsistently), the StartPoint
-		// reference does have DWYM semantics. See
-		// https://gitlab.com/gitlab-org/gitaly/-/issues/3331
 		{
-			desc:             "the StartPoint parameter does DWYM references (boo!)",
-			branchName:       "topic",
-			startPoint:       "heads/master",
-			startPointCommit: "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0", // TODO: see below
-			user:             gittest.TestUser,
+			desc:       "the startPoint parameter resolves heads/master => refs/heads/master",
+			branchName: "topic",
+			startPoint: "heads/master",
 		},
 		{
-			desc:             "the StartPoint parameter does DWYM references (boo!) 2",
-			branchName:       "topic2",
-			startPoint:       "refs/heads/master",
-			startPointCommit: "c642fe9b8b9f28f9225d7ea953fe14e74748d53b", // TODO: see below
-			user:             gittest.TestUser,
+			desc:       "the StartPoint parameter resolves refs/heads/master => refs/heads/master",
+			branchName: "topic2",
+			startPoint: "refs/heads/master",
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+testCase.startPoint,
-				testCase.startPointCommit,
-				git.ObjectHashSHA1.ZeroOID.String(),
-			)
-			request := &gitalypb.UserCreateBranchRequest{
-				Repository: repoProto,
-				BranchName: []byte(testCase.branchName),
-				StartPoint: []byte(testCase.startPoint),
-				User:       testCase.user,
-			}
+	for _, tc := range testCases {
+		tc := tc
 
-			// BEGIN TODO: Uncomment if StartPoint started behaving sensibly
-			// like BranchName. See
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3331
-			//
-			//targetCommitOK, err := repo.ReadCommit(ctx, testCase.startPointCommit)
-			// END TODO
-			targetCommitOK, err := repo.ReadCommit(ctx, "1e292f8fedd741b75372e19097c76d327140c312")
-			require.NoError(t, err)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+				gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+			), gittest.WithBranch(tc.startPoint))
+
+			request := &gitalypb.UserCreateBranchRequest{
+				Repository: repo,
+				BranchName: []byte(tc.branchName),
+				StartPoint: []byte(tc.startPoint),
+				User:       gittest.TestUser,
+			}
 
 			response, err := client.UserCreateBranch(ctx, request)
 			require.NoError(t, err)
-			responseOk := &gitalypb.UserCreateBranchResponse{
+			testhelper.ProtoEqual(t, &gitalypb.UserCreateBranchResponse{
 				Branch: &gitalypb.Branch{
-					Name:         []byte(testCase.branchName),
-					TargetCommit: targetCommitOK,
+					Name:         []byte(tc.branchName),
+					TargetCommit: commit,
 				},
-			}
-			testhelper.ProtoEqual(t, responseOk, response)
-			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
-			require.Contains(t, string(branches), "refs/heads/"+testCase.branchName)
+			}, response)
 		})
 	}
 }
@@ -294,12 +303,17 @@ func TestUserCreateBranch_hookFailure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+	))
 
 	request := &gitalypb.UserCreateBranchRequest{
 		Repository: repo,
 		BranchName: []byte("new-branch"),
-		StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
+		StartPoint: []byte(commitID),
 		User:       gittest.TestUser,
 	}
 
@@ -326,11 +340,17 @@ func TestUserCreateBranch_hookFailure(t *testing.T) {
 	}
 }
 
-func TestUserCreateBranch_Failure(t *testing.T) {
+func TestUserCreateBranch_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+	), gittest.WithBranch("master"))
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/improve/awesome", commitID.String())
 
 	testCases := []struct {
 		desc       string
@@ -398,17 +418,21 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			request := &gitalypb.UserCreateBranchRequest{
-				Repository: testCase.repo,
-				BranchName: []byte(testCase.branchName),
-				StartPoint: []byte(testCase.startPoint),
-				User:       testCase.user,
+				Repository: tc.repo,
+				BranchName: []byte(tc.branchName),
+				StartPoint: []byte(tc.startPoint),
+				User:       tc.user,
 			}
 
 			response, err := client.UserCreateBranch(ctx, request)
-			testhelper.RequireGrpcError(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, tc.err, err)
 			require.Empty(t, response)
 		})
 	}
