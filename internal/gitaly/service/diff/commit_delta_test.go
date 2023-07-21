@@ -3,225 +3,270 @@
 package diff
 
 import (
-	"fmt"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulCommitDeltaRequest(t *testing.T) {
+func TestCommitDelta_successful(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	rightCommit := "742518b2be68fc750bb4c357c0df821a88113286"
-	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
-	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
-	c, err := client.CommitDelta(ctx, rpcRequest)
-	require.NoError(t, err)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	expectedDeltas := []diff.Diff{
-		{
-			FromID:   "faaf198af3a36dbf41961466703cc1d47c61d051",
-			ToID:     "877cee6ab11f9094e1bcdb7f1fd9c0001b572185",
-			OldMode:  0o100644,
-			NewMode:  0o100644,
-			FromPath: []byte("README.md"),
-			ToPath:   []byte("README.md"),
-		},
-		{
-			FromID:   "bdea48ee65c869eb0b86b1283069d76cce0a7254",
-			ToID:     git.ObjectHashSHA1.ZeroOID.String(),
-			OldMode:  0o100644,
-			NewMode:  0,
-			FromPath: []byte("gitaly/deleted-file"),
-			ToPath:   []byte("gitaly/deleted-file"),
-		},
-		{
-			FromID:   "aa408b4556e594f7974390ad6b86210617fbda6e",
-			ToID:     "1c69c4d2a65ad05c24ac3b6780b5748b97ffd3aa",
-			OldMode:  0o100644,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/file-with-multiple-chunks"),
-			ToPath:   []byte("gitaly/file-with-multiple-chunks"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "bc2ef601a538d69ef99d5bdafa605e63f902e8e4",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/logo-white.png"),
-			ToPath:   []byte("gitaly/logo-white.png"),
-		},
-		{
-			FromID:   "ead5a0eee1391308803cfebd8a2a8530495645eb",
-			ToID:     "ead5a0eee1391308803cfebd8a2a8530495645eb",
-			OldMode:  0o100644,
-			NewMode:  0o100755,
-			FromPath: []byte("gitaly/mode-file"),
-			ToPath:   []byte("gitaly/mode-file"),
-		},
-		{
-			FromID:   "357406f3075a57708d0163752905cc1576fceacc",
-			ToID:     "8e5177d718c561d36efde08bad36b43687ee6bf0",
-			OldMode:  0o100644,
-			NewMode:  0o100755,
-			FromPath: []byte("gitaly/mode-file-with-mods"),
-			ToPath:   []byte("gitaly/mode-file-with-mods"),
-		},
-		{
-			FromID:   "43d24af4e22580f36b1ca52647c1aff75a766a33",
-			ToID:     git.ObjectHashSHA1.ZeroOID.String(),
-			OldMode:  0o100644,
-			NewMode:  0,
-			FromPath: []byte("gitaly/named-file-with-mods"),
-			ToPath:   []byte("gitaly/named-file-with-mods"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "b464dff7a75ccc92fbd920fd9ae66a84b9d2bf94",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/no-newline-at-the-end"),
-			ToPath:   []byte("gitaly/no-newline-at-the-end"),
-		},
-		{
-			FromID:   "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
-			ToID:     "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
-			OldMode:  0o100644,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/named-file"),
-			ToPath:   []byte("gitaly/renamed-file"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "3856c00e9450a51a62096327167fc43d3be62eef",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/renamed-file-with-mods"),
-			ToPath:   []byte("gitaly/renamed-file-with-mods"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "a135e3e0d4af177a902ca57dcc4c7fc6f30858b1",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/tab\tnewline\n file"),
-			ToPath:   []byte("gitaly/tab\tnewline\n file"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-			OldMode:  0,
-			NewMode:  0o100755,
-			FromPath: []byte("gitaly/テスト.txt"),
-			ToPath:   []byte("gitaly/テスト.txt"),
-		},
-	}
+	oldBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("old readme content\n"))
+	newBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("new readme content\n"))
+	uniqueBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("this is some unique content that we use in order to identify a rename\n"))
 
-	assertExactReceivedDeltas(t, c, expectedDeltas)
-}
+	leftCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "README.md", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "deleted-file", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "mode-change", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "mode-and-content-change", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "renamed-from", Mode: "100644", OID: uniqueBlob},
+		gittest.TreeEntry{Path: "file\twith\nweird spaces", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "テスト.txt", Mode: "100644", OID: oldBlob},
+	))
+	rightCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "README.md", Mode: "100644", OID: newBlob},
+		gittest.TreeEntry{Path: "mode-change", Mode: "100755", OID: oldBlob},
+		gittest.TreeEntry{Path: "mode-and-content-change", Mode: "100755", OID: newBlob},
+		gittest.TreeEntry{Path: "create-file", Mode: "100644", OID: newBlob},
+		gittest.TreeEntry{Path: "renamed-to", Mode: "100644", OID: uniqueBlob},
+		gittest.TreeEntry{Path: "file\twith\nweird spaces", Mode: "100644", OID: newBlob},
+		gittest.TreeEntry{Path: "テスト.txt", Mode: "100644", OID: newBlob},
+	))
 
-func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
-
-	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
-	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
-	rpcRequest := &gitalypb.CommitDeltaRequest{
+	stream, err := client.CommitDelta(ctx, &gitalypb.CommitDeltaRequest{
 		Repository:    repo,
-		RightCommitId: rightCommit,
-		LeftCommitId:  leftCommit,
-		Paths: [][]byte{
-			[]byte("CONTRIBUTING.md"),
-			[]byte("README.md"),
-			[]byte("gitaly/named-file-with-mods"),
-			[]byte("gitaly/mode-file-with-mods"),
-		},
-	}
-	c, err := client.CommitDelta(ctx, rpcRequest)
+		LeftCommitId:  leftCommit.String(),
+		RightCommitId: rightCommit.String(),
+	})
 	require.NoError(t, err)
 
-	expectedDeltas := []diff.Diff{
+	expectedDeltas := []*gitalypb.CommitDelta{
 		{
-			FromID:   "c1788657b95998a2f177a4f86d68a60f2a80117f",
-			ToID:     "b87f61fe2d7b2e208b340a1f3cafea916bd27f75",
-			OldMode:  0o100644,
-			NewMode:  0o100644,
-			FromPath: []byte("CONTRIBUTING.md"),
-			ToPath:   []byte("CONTRIBUTING.md"),
-		},
-		{
-			FromID:   "faaf198af3a36dbf41961466703cc1d47c61d051",
-			ToID:     "877cee6ab11f9094e1bcdb7f1fd9c0001b572185",
+			FromId:   oldBlob.String(),
+			ToId:     newBlob.String(),
 			OldMode:  0o100644,
 			NewMode:  0o100644,
 			FromPath: []byte("README.md"),
 			ToPath:   []byte("README.md"),
 		},
 		{
-			FromID:   "357406f3075a57708d0163752905cc1576fceacc",
-			ToID:     "8e5177d718c561d36efde08bad36b43687ee6bf0",
-			OldMode:  0o100644,
-			NewMode:  0o100755,
-			FromPath: []byte("gitaly/mode-file-with-mods"),
-			ToPath:   []byte("gitaly/mode-file-with-mods"),
+			FromId:   gittest.DefaultObjectHash.ZeroOID.String(),
+			ToId:     newBlob.String(),
+			OldMode:  0,
+			NewMode:  0o100644,
+			FromPath: []byte("create-file"),
+			ToPath:   []byte("create-file"),
 		},
 		{
-			FromID:   "43d24af4e22580f36b1ca52647c1aff75a766a33",
-			ToID:     git.ObjectHashSHA1.ZeroOID.String(),
+			FromId:   oldBlob.String(),
+			ToId:     gittest.DefaultObjectHash.ZeroOID.String(),
 			OldMode:  0o100644,
 			NewMode:  0,
-			FromPath: []byte("gitaly/named-file-with-mods"),
-			ToPath:   []byte("gitaly/named-file-with-mods"),
+			FromPath: []byte("deleted-file"),
+			ToPath:   []byte("deleted-file"),
+		},
+		{
+			FromId:   oldBlob.String(),
+			ToId:     newBlob.String(),
+			OldMode:  0o100644,
+			NewMode:  0o100644,
+			FromPath: []byte("file\twith\nweird spaces"),
+			ToPath:   []byte("file\twith\nweird spaces"),
+		},
+		{
+			FromId:   oldBlob.String(),
+			ToId:     newBlob.String(),
+			OldMode:  0o100644,
+			NewMode:  0o100755,
+			FromPath: []byte("mode-and-content-change"),
+			ToPath:   []byte("mode-and-content-change"),
+		},
+		{
+			FromId:   oldBlob.String(),
+			ToId:     oldBlob.String(),
+			OldMode:  0o100644,
+			NewMode:  0o100755,
+			FromPath: []byte("mode-change"),
+			ToPath:   []byte("mode-change"),
+		},
+		{
+			FromId:   uniqueBlob.String(),
+			ToId:     uniqueBlob.String(),
+			OldMode:  0o100644,
+			NewMode:  0o100644,
+			FromPath: []byte("renamed-from"),
+			ToPath:   []byte("renamed-to"),
+		},
+		{
+			FromId:   oldBlob.String(),
+			ToId:     newBlob.String(),
+			OldMode:  0o100644,
+			NewMode:  0o100644,
+			FromPath: []byte("テスト.txt"),
+			ToPath:   []byte("テスト.txt"),
 		},
 	}
 
-	assertExactReceivedDeltas(t, c, expectedDeltas)
+	assertExactReceivedDeltas(t, stream, expectedDeltas)
 }
 
-func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
+func TestCommitDelta_withPaths(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
-	leftCommit := rightCommit + "~" // Parent of rightCommit
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	rpcRequests := []*gitalypb.CommitDeltaRequest{
-		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit}, // Repository doesn't exist
-		{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},                                                             // Repository is nil
-		{Repository: repo, RightCommitId: "", LeftCommitId: leftCommit},                                                                     // RightCommitId is empty
-		{Repository: repo, RightCommitId: rightCommit, LeftCommitId: ""},                                                                    // LeftCommitId is empty
+	oldBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("old readme content\n"))
+	newBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("new readme content\n"))
+
+	leftCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "changed-but-excluded", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "content-change", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "deleted", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "mode-change", Mode: "100644", OID: oldBlob},
+		gittest.TreeEntry{Path: "unchanged", Mode: "100644", OID: oldBlob},
+	))
+	rightCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "changed-but-excluded", Mode: "100644", OID: newBlob},
+		gittest.TreeEntry{Path: "content-change", Mode: "100644", OID: newBlob},
+		gittest.TreeEntry{Path: "mode-change", Mode: "100755", OID: oldBlob},
+		gittest.TreeEntry{Path: "unchanged", Mode: "100644", OID: oldBlob},
+	))
+
+	stream, err := client.CommitDelta(ctx, &gitalypb.CommitDeltaRequest{
+		Repository:    repo,
+		LeftCommitId:  leftCommit.String(),
+		RightCommitId: rightCommit.String(),
+		Paths: [][]byte{
+			// We include all changes except for "changed-but-excluded" here.
+			[]byte("content-change"),
+			[]byte("deleted"),
+			[]byte("mode-change"),
+			[]byte("unchanged"),
+		},
+	})
+	require.NoError(t, err)
+
+	expectedDeltas := []*gitalypb.CommitDelta{
+		{
+			FromId:   oldBlob.String(),
+			ToId:     newBlob.String(),
+			OldMode:  0o100644,
+			NewMode:  0o100644,
+			FromPath: []byte("content-change"),
+			ToPath:   []byte("content-change"),
+		},
+		{
+			FromId:   oldBlob.String(),
+			ToId:     gittest.DefaultObjectHash.ZeroOID.String(),
+			OldMode:  0o100644,
+			NewMode:  0,
+			FromPath: []byte("deleted"),
+			ToPath:   []byte("deleted"),
+		},
+		{
+			FromId:   oldBlob.String(),
+			ToId:     oldBlob.String(),
+			OldMode:  0o100644,
+			NewMode:  0o100755,
+			FromPath: []byte("mode-change"),
+			ToPath:   []byte("mode-change"),
+		},
 	}
 
-	for _, rpcRequest := range rpcRequests {
-		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			c, err := client.CommitDelta(ctx, rpcRequest)
-			require.NoError(t, err)
+	assertExactReceivedDeltas(t, stream, expectedDeltas)
+}
 
-			err = drainCommitDeltaResponse(c)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+func TestCommitDelta_validation(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupDiffServiceWithoutRepo(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commit := gittest.WriteCommit(t, cfg, repoPath)
+
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.CommitDeltaRequest
+		expectedErr error
+	}{
+		{
+			desc: "nonexistent repository",
+			request: &gitalypb.CommitDeltaRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "fake",
+					RelativePath: "path",
+				},
+			},
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.New("%w", storage.NewStorageNotFoundError("fake")),
+			),
+		},
+		{
+			desc: "unset repository",
+			request: &gitalypb.CommitDeltaRequest{
+				Repository: nil,
+			},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+		},
+		{
+			desc: "missing LeftCommitId",
+			request: &gitalypb.CommitDeltaRequest{
+				Repository:    repo,
+				LeftCommitId:  "",
+				RightCommitId: commit.String(),
+			},
+			expectedErr: structerr.NewInvalidArgument("empty LeftCommitId"),
+		},
+		{
+			desc: "missing RightCommitId",
+			request: &gitalypb.CommitDeltaRequest{
+				Repository:    repo,
+				RightCommitId: "",
+				LeftCommitId:  commit.String(),
+			},
+			expectedErr: structerr.NewInvalidArgument("empty RightCommitId"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.CommitDelta(ctx, tc.request)
+			require.NoError(t, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, drainCommitDeltaResponse(stream))
 		})
 	}
 }
 
-func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
+func TestCommitDelta_nonexistentCommit(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
-	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
-	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: repo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
-	c, err := client.CommitDelta(ctx, rpcRequest)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+	nonExistentCommitID := gittest.DefaultObjectHash.HashData([]byte("some data"))
+
+	stream, err := client.CommitDelta(ctx, &gitalypb.CommitDeltaRequest{
+		Repository:    repo,
+		LeftCommitId:  nonExistentCommitID.String(),
+		RightCommitId: nonExistentCommitID.String(),
+	})
 	require.NoError(t, err)
-
-	err = drainCommitDeltaResponse(c)
-	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("exit status 128"), drainCommitDeltaResponse(stream))
 }
 
 func drainCommitDeltaResponse(c gitalypb.DiffService_CommitDeltaClient) error {
@@ -233,10 +278,10 @@ func drainCommitDeltaResponse(c gitalypb.DiffService_CommitDeltaClient) error {
 	}
 }
 
-func assertExactReceivedDeltas(t *testing.T, client gitalypb.DiffService_CommitDeltaClient, expectedDeltas []diff.Diff) {
+func assertExactReceivedDeltas(t *testing.T, client gitalypb.DiffService_CommitDeltaClient, expectedDeltas []*gitalypb.CommitDelta) {
 	t.Helper()
 
-	counter := 0
+	var actualDeltas []*gitalypb.CommitDelta
 	for {
 		fetchedDeltas, err := client.Recv()
 		if err == io.EOF {
@@ -244,21 +289,8 @@ func assertExactReceivedDeltas(t *testing.T, client gitalypb.DiffService_CommitD
 		}
 		require.NoError(t, err)
 
-		for _, fetchedDelta := range fetchedDeltas.GetDeltas() {
-			require.GreaterOrEqual(t, len(expectedDeltas), counter, "Unexpected delta #%d received: %v", counter, fetchedDelta)
-
-			expectedDelta := expectedDeltas[counter]
-
-			require.Equal(t, expectedDelta.FromID, fetchedDelta.FromId)
-			require.Equal(t, expectedDelta.ToID, fetchedDelta.ToId)
-			require.Equal(t, expectedDelta.OldMode, fetchedDelta.OldMode)
-			require.Equal(t, expectedDelta.NewMode, fetchedDelta.NewMode)
-			require.Equal(t, expectedDelta.FromPath, fetchedDelta.FromPath)
-			require.Equal(t, expectedDelta.ToPath, fetchedDelta.ToPath)
-
-			counter++
-		}
+		actualDeltas = append(actualDeltas, fetchedDeltas.GetDeltas()...)
 	}
 
-	require.Len(t, expectedDeltas, counter, "Unexpected number of deltas")
+	testhelper.ProtoEqual(t, expectedDeltas, actualDeltas)
 }
