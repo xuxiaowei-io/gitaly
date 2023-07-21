@@ -31,6 +31,11 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 	repo := s.localrepo(request.GetRepository())
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	revision := git.Revision(request.Branch)
 	if request.FirstParentRef != nil {
 		revision = git.Revision(request.FirstParentRef)
@@ -79,14 +84,14 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 			return nil, structerr.NewFailedPrecondition("target reference is symbolic: %q", request.TargetRef)
 		}
 
-		oid, err := git.ObjectHashSHA1.FromHex(targetRef.Target)
+		oid, err := objectHash.FromHex(targetRef.Target)
 		if err != nil {
 			return nil, structerr.NewInternal("invalid target revision: %w", err)
 		}
 
 		oldTargetOID = oid
 	} else if errors.Is(err, git.ErrReferenceNotFound) {
-		oldTargetOID = git.ObjectHashSHA1.ZeroOID
+		oldTargetOID = objectHash.ZeroOID
 	} else {
 		return nil, structerr.NewInternal("could not read target reference: %w", err)
 	}
@@ -142,7 +147,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 			sourceOID, oid, string(request.TargetRef))
 	}
 
-	mergeOID, err := git.ObjectHashSHA1.FromHex(mergeCommitID)
+	mergeOID, err := objectHash.FromHex(mergeCommitID)
 	if err != nil {
 		return nil, structerr.NewInternal("parsing merge commit SHA: %w", err)
 	}

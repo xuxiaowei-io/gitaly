@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -13,10 +11,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -33,6 +31,10 @@ func TestUserMergeToRef_successful(t *testing.T) {
 }
 
 func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goMergeToRef(t, ctx)
+
+	t.Parallel()
+
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -167,22 +169,35 @@ func TestUserMergeToRef_conflicts(t *testing.T) {
 }
 
 func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goMergeToRef(t, ctx)
+
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	common := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "base"},
+	))
+	left := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(common), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "conflicting"},
+	), gittest.WithBranch("branch"))
+	right := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(common), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "change"},
+	))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	t.Run("disallow conflicts to be merged", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", "disallowed-conflicts")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, left, right, "disallowed-conflicts")
 
 		_, err := client.UserMergeToRef(ctx, request)
-		testhelper.RequireGrpcError(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
+		testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("Failed to create merge commit for source_sha %s and target_sha %s at refs/merge-requests/x/written", left, right), err)
 	})
 
 	targetRef := git.Revision("refs/merge-requests/foo")
 
 	t.Run("failing merge does not update target reference if skipping precursor update-ref", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", t.Name())
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, left, right, t.Name())
 		request.TargetRef = []byte(targetRef)
 
 		_, err := client.UserMergeToRef(ctx, request)
@@ -194,14 +209,14 @@ func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
 	})
 }
 
-func buildUserMergeToRefRequest(tb testing.TB, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, sourceSha string, targetSha string, mergeBranchName string) *gitalypb.UserMergeToRefRequest {
-	gittest.Exec(tb, cfg, "-C", repoPath, "branch", mergeBranchName, targetSha)
+func buildUserMergeToRefRequest(tb testing.TB, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, sourceSha, targetSha git.ObjectID, mergeBranchName string) *gitalypb.UserMergeToRefRequest {
+	gittest.Exec(tb, cfg, "-C", repoPath, "branch", mergeBranchName, targetSha.String())
 
 	return &gitalypb.UserMergeToRefRequest{
 		Repository:     repo,
 		User:           gittest.TestUser,
 		TargetRef:      []byte("refs/merge-requests/x/written"),
-		SourceSha:      sourceSha,
+		SourceSha:      sourceSha.String(),
 		Message:        []byte("message1"),
 		FirstParentRef: []byte("refs/heads/" + mergeBranchName),
 	}
@@ -220,25 +235,39 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 }
 
 func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goMergeToRef(t, ctx)
+
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+	common := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "1\n2\n3\n4\n5\n6\n7\n8\n"},
+	))
+	left := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(common), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "1\n2\n3\n4\n5\n6\n7\nh\n"},
+	), gittest.WithBranch("branch"))
+	right := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(common), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a\n2\n3\n4\n5\n6\n7\n8\n"},
+	))
 
 	response, err := client.UserMergeToRef(ctx, &gitalypb.UserMergeToRefRequest{
 		Repository:     repoProto,
 		User:           gittest.TestUser,
-		FirstParentRef: []byte("refs/heads/" + mergeBranchName),
+		FirstParentRef: []byte("refs/heads/branch"),
 		TargetRef:      []byte("refs/merge-requests/x/written"),
-		SourceSha:      "1450cd639e0bc6721eb02800169e464f212cde06",
+		SourceSha:      right.String(),
 		Message:        []byte("Merge message"),
 		Timestamp:      &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 	})
 	require.NoError(t, err)
-	require.Equal(t, "c7b65194ce2da804557582408ab94713983d0b70", response.CommitId)
+	require.Equal(t, gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "4f295f8bb631748c7c2d0eb628d019c7802421e3",
+		"sha256": "0af69a0b9550e3943892537d429a385cdc3d3ab309833744c7478a60055882e3",
+	}), response.CommitId)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision("refs/merge-requests/x/written"))
 	require.NoError(t, err, "look up git commit after call has finished")
@@ -246,12 +275,18 @@ func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
 		Subject:  []byte("Merge message"),
 		Body:     []byte("Merge message"),
 		BodySize: 13,
-		Id:       "c7b65194ce2da804557582408ab94713983d0b70",
+		Id: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "4f295f8bb631748c7c2d0eb628d019c7802421e3",
+			"sha256": "0af69a0b9550e3943892537d429a385cdc3d3ab309833744c7478a60055882e3",
+		}),
 		ParentIds: []string{
-			"281d3a76f31c812dbf48abce82ccf6860adedd81",
-			"1450cd639e0bc6721eb02800169e464f212cde06",
+			left.String(),
+			right.String(),
 		},
-		TreeId: "3d3c2dd807abaf36d7bd5334bf3f8c5cf61bad75",
+		TreeId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "7ed20b777cfc00066401a4d4aa1bab50f487f346",
+			"sha256": "9ff5a6fc7476b3297e176d8c7dec1c36a7a58dd68e387570229f94cce65d299c",
+		}),
 		Author: &gitalypb.CommitAuthor{
 			Name:  gittest.TestUser.Name,
 			Email: gittest.TestUser.Email,
@@ -277,6 +312,8 @@ func TestUserMergeToRef_failure(t *testing.T) {
 }
 
 func testUserMergeToRefFailure(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goMergeToRef(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -407,22 +444,28 @@ func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 }
 
 func testUserMergeToRefIgnoreHooksRequest(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goMergeToRef(t, ctx)
+
 	t.Parallel()
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
-
-	targetRef := []byte("refs/merge-requests/x/merge")
-	mergeCommitMessage := "Merged by Gitaly"
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	common := gittest.WriteCommit(t, cfg, repoPath)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(common), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a"},
+	), gittest.WithBranch("merge-me"))
+	commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(common), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "b"},
+	))
 
 	request := &gitalypb.UserMergeToRefRequest{
 		Repository: repo,
-		SourceSha:  commitToMerge,
-		Branch:     []byte(mergeBranchName),
-		TargetRef:  targetRef,
+		SourceSha:  commitToMerge.String(),
+		Branch:     []byte("merge-me"),
+		TargetRef:  []byte("refs/merge-requests/x/merge"),
 		User:       gittest.TestUser,
-		Message:    []byte(mergeCommitMessage),
+		Message:    []byte("Merge"),
 	}
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
@@ -434,5 +477,11 @@ func testUserMergeToRefIgnoreHooksRequest(t *testing.T, ctx context.Context) {
 			_, err := client.UserMergeToRef(ctx, request)
 			require.NoError(t, err)
 		})
+	}
+}
+
+func skipSHA256WithGit2goMergeToRef(t *testing.T, ctx context.Context) {
+	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.MergeToRefWithGit.IsDisabled(ctx) {
+		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
 	}
 }
