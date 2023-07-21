@@ -1,25 +1,13 @@
 package diff
 
 import (
-	"context"
-	"errors"
-	"fmt"
-
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
-
-type requestWithLeftRightCommitIds interface {
-	GetRepository() *gitalypb.Repository
-	GetLeftCommitId() string
-	GetRightCommitId() string
-}
 
 func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.DiffService_CommitDiffServer) error {
 	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
@@ -139,145 +127,4 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 
 		return nil
 	})
-}
-
-func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.DiffService_CommitDeltaServer) error {
-	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
-		"LeftCommitId":  in.LeftCommitId,
-		"RightCommitId": in.RightCommitId,
-		"Paths":         logPaths(in.Paths),
-	}).Debug("CommitDelta")
-
-	if err := validateRequest(s.locator, in); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
-	}
-
-	leftSha := in.LeftCommitId
-	rightSha := in.RightCommitId
-	paths := in.GetPaths()
-
-	repo := s.localrepo(in.GetRepository())
-
-	cmd := git.Command{
-		Name: "diff",
-		Flags: []git.Option{
-			git.Flag{Name: "--raw"},
-			git.Flag{Name: "--abbrev=40"},
-			git.Flag{Name: "--full-index"},
-			git.Flag{Name: "--find-renames"},
-		},
-		Args: []string{leftSha, rightSha},
-	}
-	if len(paths) > 0 {
-		for _, path := range paths {
-			cmd.PostSepArgs = append(cmd.PostSepArgs, string(path))
-		}
-	}
-
-	var batch []*gitalypb.CommitDelta
-	var batchSize int
-
-	flushFunc := func() error {
-		if len(batch) == 0 {
-			return nil
-		}
-
-		if err := stream.Send(&gitalypb.CommitDeltaResponse{Deltas: batch}); err != nil {
-			return structerr.NewAborted("send: %w", err)
-		}
-
-		return nil
-	}
-
-	err := s.eachDiff(stream.Context(), repo, cmd, diff.Limits{}, func(diff *diff.Diff) error {
-		delta := &gitalypb.CommitDelta{
-			FromPath: diff.FromPath,
-			ToPath:   diff.ToPath,
-			FromId:   diff.FromID,
-			ToId:     diff.ToID,
-			OldMode:  diff.OldMode,
-			NewMode:  diff.NewMode,
-		}
-
-		batch = append(batch, delta)
-		batchSize += deltaSize(diff)
-
-		if batchSize > s.MsgSizeThreshold {
-			if err := flushFunc(); err != nil {
-				return err
-			}
-
-			batch = nil
-			batchSize = 0
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	return flushFunc()
-}
-
-func validateRequest(locator storage.Locator, in requestWithLeftRightCommitIds) error {
-	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
-		return err
-	}
-	if in.GetLeftCommitId() == "" {
-		return errors.New("empty LeftCommitId")
-	}
-	if in.GetRightCommitId() == "" {
-		return errors.New("empty RightCommitId")
-	}
-
-	return nil
-}
-
-func (s *server) eachDiff(ctx context.Context, repo *localrepo.Repo, subCmd git.Command, limits diff.Limits, callback func(*diff.Diff) error) error {
-	objectHash, err := repo.ObjectHash(ctx)
-	if err != nil {
-		return fmt.Errorf("detecting object hash: %w", err)
-	}
-
-	diffConfig := git.ConfigPair{Key: "diff.noprefix", Value: "false"}
-
-	cmd, err := repo.Exec(ctx, subCmd, git.WithConfig(diffConfig))
-	if err != nil {
-		return structerr.NewInternal("cmd: %w", err)
-	}
-
-	diffParser := diff.NewDiffParser(objectHash, cmd, limits)
-
-	for diffParser.Parse() {
-		if err := callback(diffParser.Diff()); err != nil {
-			return err
-		}
-	}
-
-	if err := diffParser.Err(); err != nil {
-		return structerr.NewInternal("parse failure: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return structerr.NewFailedPrecondition("%w", err)
-	}
-
-	return nil
-}
-
-func deltaSize(diff *diff.Diff) int {
-	size := len(diff.FromID) + len(diff.ToID) +
-		4 + 4 + // OldMode and NewMode are int32 = 32/8 = 4 bytes
-		len(diff.FromPath) + len(diff.ToPath)
-
-	return size
-}
-
-func logPaths(paths [][]byte) []string {
-	result := make([]string, len(paths))
-	for i, p := range paths {
-		result[i] = string(p)
-	}
-	return result
 }
