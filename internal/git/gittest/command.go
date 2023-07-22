@@ -62,20 +62,18 @@ func ExecOpts(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string)
 }
 
 func handleExecErr(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args []string, err error) {
-	if execCfg.Stderr == nil {
-		var stderr []byte
-		if ee, ok := err.(*exec.ExitError); ok {
-			if execCfg.ExpectedExitCode == ee.ExitCode() {
-				return
-			}
-			stderr = ee.Stderr
+	var stderr []byte
+	if ee, ok := err.(*exec.ExitError); ok {
+		if execCfg.ExpectedExitCode == ee.ExitCode() {
+			return
 		}
-		tb.Log(cfg.Git.BinPath, args)
-		if len(stderr) > 0 {
-			tb.Logf("%s\n", stderr)
-		}
-		tb.Fatal(err)
+		stderr = ee.Stderr
 	}
+	tb.Log(cfg.Git.BinPath, args)
+	if len(stderr) > 0 {
+		tb.Logf("%s\n", stderr)
+	}
+	tb.Fatal(err)
 }
 
 // NewCommand creates a new Git command ready for execution.
