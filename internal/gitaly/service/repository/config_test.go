@@ -52,14 +52,16 @@ func TestGetConfig(t *testing.T) {
 		config, err := getConfig(t, client, repo)
 		require.NoError(t, err)
 
+		var darwinConfig string
+		if runtime.GOOS == "darwin" {
+			darwinConfig = "\tignorecase = true\n\tprecomposeunicode = true\n"
+		}
+
 		expectedConfig := gittest.ObjectHashDependent(t, map[string]string{
-			"sha1":   "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n",
-			"sha256": "[core]\n\trepositoryformatversion = 1\n\tfilemode = true\n\tbare = true\n[extensions]\n\tobjectformat = sha256\n",
+			"sha1":   "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n" + darwinConfig,
+			"sha256": "[core]\n\trepositoryformatversion = 1\n\tfilemode = true\n\tbare = true\n" + darwinConfig + "[extensions]\n\tobjectformat = sha256\n",
 		})
 
-		if runtime.GOOS == "darwin" {
-			expectedConfig = expectedConfig + "\tignorecase = true\n\tprecomposeunicode = true\n"
-		}
 		require.Equal(t, expectedConfig, config)
 	})
 
