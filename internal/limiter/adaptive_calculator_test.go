@@ -31,6 +31,7 @@ func TestAdaptiveCalculator_alreadyStarted(t *testing.T) {
 }
 
 func TestAdaptiveCalculator_realTimerTicker(t *testing.T) {
+	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5473", "TestAdaptiveCalculator_realTimerTicker")
 	t.Parallel()
 
 	logger, hook := test.NewNullLogger()
