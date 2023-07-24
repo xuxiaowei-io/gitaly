@@ -1197,12 +1197,12 @@ func TestRepositoryManager_CleanStaleData_unsetConfigurationTransactional(t *tes
 
 	expectedConfig := "core.repositoryformatversion\ncore.filemode\ncore.bare\n"
 
-	if gittest.DefaultObjectHash.Format == "sha256" {
-		expectedConfig = expectedConfig + "extensions.objectformat\n"
-	}
-
 	if runtime.GOOS == "darwin" {
 		expectedConfig = expectedConfig + "core.ignorecase\ncore.precomposeunicode\n"
+	}
+
+	if gittest.DefaultObjectHash.Format == "sha256" {
+		expectedConfig = expectedConfig + "extensions.objectformat\n"
 	}
 	require.Equal(t, expectedConfig, string(configKeys))
 }
