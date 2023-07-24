@@ -3,14 +3,12 @@
 package operations
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -191,12 +189,8 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 
 func TestUserRebaseConfirmable_transaction(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUserRebaseConfirmableTransaction)
-}
 
-func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(
@@ -225,14 +219,14 @@ func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
 			desc:                 "primary votes and executes hook",
 			withTransaction:      true,
 			primary:              true,
-			expectedVotes:        testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions, 5, 2),
+			expectedVotes:        5,
 			expectPreReceiveHook: true,
 		},
 		{
 			desc:                 "secondary votes but does not execute hook",
 			withTransaction:      true,
 			primary:              false,
-			expectedVotes:        testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions, 5, 2),
+			expectedVotes:        5,
 			expectPreReceiveHook: false,
 		},
 	} {

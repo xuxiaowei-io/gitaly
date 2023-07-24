@@ -2,7 +2,6 @@ package hook
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"path/filepath"
 	"testing"
@@ -43,12 +42,8 @@ func TestPostReceiveInvalidArgument(t *testing.T) {
 
 func TestHooksMissingStdin(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testHooksMissingStdin)
-}
 
-func testHooksMissingStdin(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	user, password, secretToken := "user", "password", "secret token"
 	tempDir := testhelper.TempDir(t)
 	gitlab.WriteShellSecretFile(t, tempDir, secretToken)
@@ -165,10 +160,7 @@ func testHooksMissingStdin(t *testing.T, ctx context.Context) {
 				require.NotEqual(t, int32(0), status, "exit code should be non-zero")
 			} else {
 				require.Equal(t, int32(0), status, "exit code unequal")
-				require.Equal(t, testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
-					[]transaction.PhasedVote{synchronizedVote("post-receive")},
-					[]transaction.PhasedVote{},
-				), txManager.Votes())
+				require.Equal(t, []transaction.PhasedVote{synchronizedVote("post-receive")}, txManager.Votes())
 			}
 		})
 	}

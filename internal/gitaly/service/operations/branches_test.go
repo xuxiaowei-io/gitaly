@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -113,12 +112,8 @@ func TestUserCreateBranch_successful(t *testing.T) {
 
 func TestUserCreateBranch_Transactions(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUserCreateBranchTransactions)
-}
 
-func testUserCreateBranchTransactions(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -196,7 +191,7 @@ func testUserCreateBranchTransactions(t *testing.T, ctx context.Context) {
 			transactionServer.called = 0
 			_, err = client.UserCreateBranch(ctx, request)
 			require.NoError(t, err)
-			require.Equal(t, testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions, 5, 2), transactionServer.called)
+			require.Equal(t, 5, transactionServer.called)
 		})
 	}
 }
@@ -810,12 +805,8 @@ func TestUserDeleteBranch_hooks(t *testing.T) {
 
 func TestUserDeleteBranch_transaction(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUserDeleteBranchTransaction)
-}
 
-func testUserDeleteBranchTransaction(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -870,7 +861,7 @@ func testUserDeleteBranchTransaction(t *testing.T, ctx context.Context) {
 		User:       gittest.TestUser,
 	})
 	require.NoError(t, err)
-	require.Equal(t, testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions, 5, 2), transactionServer.called)
+	require.Equal(t, 5, transactionServer.called)
 }
 
 func TestUserDeleteBranch_invalidArgument(t *testing.T) {

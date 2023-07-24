@@ -2,7 +2,6 @@ package hook
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -24,12 +23,8 @@ import (
 
 func TestUpdate_customHooks(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUpdateCustomHooks)
-}
 
-func testUpdateCustomHooks(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -181,22 +176,16 @@ func testUpdateCustomHooks(t *testing.T, ctx context.Context) {
 			newHash:        commitB,
 			hook:           "#!/bin/sh\necho foo\n",
 			expectedStdout: "foo\n",
-			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
-				[]transaction.PhasedVote{synchronizedVote("update")},
-				[]transaction.PhasedVote{},
-			),
+			expectedVotes:  []transaction.PhasedVote{synchronizedVote("update")},
 		},
 		{
-			desc:      "hook is not executed on secondary",
-			env:       []string{secondaryPayload},
-			reference: "refs/heads/master",
-			oldHash:   commitA,
-			newHash:   commitB,
-			hook:      "#!/bin/sh\necho foo\n",
-			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
-				[]transaction.PhasedVote{synchronizedVote("update")},
-				[]transaction.PhasedVote{},
-			),
+			desc:          "hook is not executed on secondary",
+			env:           []string{secondaryPayload},
+			reference:     "refs/heads/master",
+			oldHash:       commitA,
+			newHash:       commitB,
+			hook:          "#!/bin/sh\necho foo\n",
+			expectedVotes: []transaction.PhasedVote{synchronizedVote("update")},
 		},
 		{
 			desc:          "hook fails with missing reference",
@@ -247,12 +236,8 @@ func testUpdateCustomHooks(t *testing.T, ctx context.Context) {
 
 func TestUpdate_quarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUpdateQuarantine)
-}
 
-func testUpdateQuarantine(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
