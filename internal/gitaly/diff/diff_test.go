@@ -564,6 +564,36 @@ index %s..%s
 	require.Equal(t, diffs[1].Patch, []byte(nil))
 }
 
+func TestDiffTypeChange(t *testing.T) {
+	t.Parallel()
+
+	// This is a type change from a regular file to a symlink.
+	diff := fmt.Sprintf(":100644 120000 %s %s T\tREADME.md\n", oid1, oid2)
+
+	// Type changes are displayed as removal plus addition, which is why we return two diffs even though we
+	// only have a single change.
+	require.Equal(t, []*Diff{
+		{
+			OldMode:  0o100644,
+			NewMode:  0,
+			FromID:   oid1.String(),
+			ToID:     zeroOID.String(),
+			FromPath: []byte("README.md"),
+			ToPath:   []byte("README.md"),
+			Status:   'T',
+		},
+		{
+			OldMode:  0,
+			NewMode:  0o120000,
+			FromID:   zeroOID.String(),
+			ToID:     oid2.String(),
+			FromPath: []byte("README.md"),
+			ToPath:   []byte("README.md"),
+			Status:   'A',
+		},
+	}, getDiffs(t, diff, Limits{}))
+}
+
 func getDiffs(tb testing.TB, rawDiff string, limits Limits) []*Diff {
 	tb.Helper()
 
