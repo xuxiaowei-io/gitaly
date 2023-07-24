@@ -321,7 +321,9 @@ func (t *TreeEntry) recurse(
 	}
 }
 
-// Delete deletes the entry of a current tree based on the path.
+// Delete deletes the entry of a current tree based on the path. The parent
+// entry is deleted if the entry is the last child of the parent, this
+// propagates up to the root node, but the root node is never deleted.
 func (t *TreeEntry) Delete(
 	path string,
 ) error {
@@ -330,12 +332,16 @@ func (t *TreeEntry) Delete(
 		return err
 	}
 
-	return t.recurse(
+	entriesRemaining := 0
+
+	if err := t.recurse(
 		path,
 		func(currentTree, entry *TreeEntry, i int) error {
 			currentTree.Entries = append(
 				currentTree.Entries[:i],
 				currentTree.Entries[i+1:]...)
+
+			entriesRemaining = len(currentTree.Entries)
 
 			return nil
 		},
@@ -343,7 +349,19 @@ func (t *TreeEntry) Delete(
 			entry.OID = ""
 			return nil
 		},
-	)
+	); err != nil {
+		return err
+	}
+
+	// We check if the child was last child entry of the tree, if so, we delete the
+	// parent entry too.
+	//
+	// We check for "." directory because filepath.Dir resolves the root dir to ".".
+	if dir := filepath.Dir(path); entriesRemaining == 0 && dir != "." {
+		return t.Delete(dir)
+	}
+
+	return nil
 }
 
 // Get gets an entry of a current tree based on the path.
