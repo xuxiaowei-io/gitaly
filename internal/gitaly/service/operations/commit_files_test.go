@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -30,9 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -1101,118 +1098,195 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 }
 
 func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
 
-	newRepo, newRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	filePath := "héllo/wörld"
 	authorName := []byte("Jane Doe")
 	authorEmail := []byte("janedoe@gitlab.com")
+
+	type setupData struct {
+		repo                  *gitalypb.Repository
+		repoPath              string
+		branchName            string
+		startBranchName       string
+		expectedOldOID        git.ObjectID
+		expectedRepoCreated   bool
+		expectedBranchCreated bool
+		executeFilemode       bool
+		expectedError         error
+	}
+
 	testCases := []struct {
-		desc            string
-		repo            *gitalypb.Repository
-		repoPath        string
-		branchName      string
-		startBranchName string
-		expectedOldOID  string
-		repoCreated     bool
-		branchCreated   bool
-		executeFilemode bool
-		expectedError   error
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			desc:          "existing repo and branch",
-			repo:          repo,
-			repoPath:      repoPath,
-			branchName:    "feature",
-			repoCreated:   false,
-			branchCreated: false,
+			desc: "existing repo and branch",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("preexisting"))
+
+				return setupData{
+					repo:                  repo,
+					repoPath:              repoPath,
+					branchName:            "preexisting",
+					expectedRepoCreated:   false,
+					expectedBranchCreated: false,
+				}
+			},
 		},
 		{
-			desc:           "existing repo and branch + expectedOldOID",
-			repo:           repo,
-			repoPath:       repoPath,
-			branchName:     "wip",
-			expectedOldOID: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/wip")),
+			desc: "existing repo and branch + expectedOldOID",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("preexisting"))
+
+				return setupData{
+					repo:                  repo,
+					repoPath:              repoPath,
+					branchName:            "preexisting",
+					expectedOldOID:        commitID,
+					expectedRepoCreated:   false,
+					expectedBranchCreated: false,
+				}
+			},
 		},
 		{
-			desc:           "existing repo and branch + invalid expectedOldOID",
-			repo:           repo,
-			repoPath:       repoPath,
-			branchName:     "few-commits",
-			expectedOldOID: "foobar",
-			expectedError: testhelper.WithInterceptedMetadata(
-				structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())),
-				"old_object_id", "foobar"),
+			desc: "existing repo and branch + invalid expectedOldOID",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("preexisting"))
+
+				return setupData{
+					repo:           repo,
+					repoPath:       repoPath,
+					branchName:     "preexisting",
+					expectedOldOID: "foobar",
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument("invalid expected old object ID: invalid object ID: %q, expected length %d, got 6", "foobar", gittest.DefaultObjectHash.EncodedLen()),
+						"old_object_id", "foobar",
+					),
+				}
+			},
 		},
 		{
-			desc:           "existing repo and branch + valid expectedOldOID but invalid object",
-			repo:           repo,
-			repoPath:       repoPath,
-			branchName:     "few-commits",
-			expectedOldOID: gittest.DefaultObjectHash.ZeroOID.String(),
-			expectedError: testhelper.WithInterceptedMetadata(
-				structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
-				"old_object_id", gittest.DefaultObjectHash.ZeroOID),
+			desc: "existing repo and branch + valid expectedOldOID but invalid object",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("preexisting"))
+
+				return setupData{
+					repo:           repo,
+					repoPath:       repoPath,
+					branchName:     "preexisting",
+					expectedOldOID: gittest.DefaultObjectHash.ZeroOID,
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+						"old_object_id", gittest.DefaultObjectHash.ZeroOID,
+					),
+				}
+			},
 		},
 		{
-			desc:           "existing repo and branch + incorrect expectedOldOID",
-			repo:           repo,
-			repoPath:       repoPath,
-			branchName:     "few-commits",
-			expectedOldOID: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/few-commits~1")),
-			expectedError: testhelper.WithInterceptedMetadataItems(
-				structerr.NewFailedPrecondition("reference update: reference does not point to expected object"),
-				structerr.MetadataItem{Key: "actual_object_id", Value: "0031876facac3f2b2702a0e53a26e89939a42209"},
-				structerr.MetadataItem{Key: "expected_object_id", Value: "bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"},
-				structerr.MetadataItem{Key: "reference", Value: "refs/heads/few-commits"},
-			),
+			desc: "existing repo and branch + incorrect expectedOldOID",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				actualCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("preexisting"))
+				expectedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unrelated commit"))
+
+				return setupData{
+					repo:           repo,
+					repoPath:       repoPath,
+					branchName:     "preexisting",
+					expectedOldOID: expectedCommitID,
+					expectedError: testhelper.WithInterceptedMetadataItems(structerr.NewFailedPrecondition("reference update: reference does not point to expected object"),
+						structerr.MetadataItem{Key: "actual_object_id", Value: actualCommitID.String()},
+						structerr.MetadataItem{Key: "expected_object_id", Value: expectedCommitID.String()},
+						structerr.MetadataItem{Key: "reference", Value: "refs/heads/preexisting"},
+					),
+				}
+			},
 		},
 		{
-			desc:          "existing repo, new branch",
-			repo:          repo,
-			repoPath:      repoPath,
-			branchName:    "new-branch",
-			repoCreated:   false,
-			branchCreated: true,
+			desc: "existing repo, new branch",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+
+				return setupData{
+					repo:                  repo,
+					repoPath:              repoPath,
+					branchName:            "new-branch",
+					expectedRepoCreated:   false,
+					expectedBranchCreated: true,
+				}
+			},
 		},
 		{
-			desc:            "existing repo, new branch, with start branch",
-			repo:            repo,
-			repoPath:        repoPath,
-			branchName:      "new-branch-with-start-branch",
-			startBranchName: "master",
-			repoCreated:     false,
-			branchCreated:   true,
+			desc: "existing repo, new branch, with start branch",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("start-branch"))
+
+				return setupData{
+					repo:                  repo,
+					repoPath:              repoPath,
+					branchName:            "new-branch",
+					startBranchName:       "start-branch",
+					expectedRepoCreated:   false,
+					expectedBranchCreated: true,
+				}
+			},
 		},
 		{
-			desc:          "new repo",
-			repo:          newRepo,
-			repoPath:      newRepoPath,
-			branchName:    "feature",
-			repoCreated:   true,
-			branchCreated: true,
+			desc: "empty repository",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repo:                  repo,
+					repoPath:              repoPath,
+					branchName:            "new-branch",
+					expectedRepoCreated:   true,
+					expectedBranchCreated: true,
+				}
+			},
 		},
 		{
-			desc:            "create executable file",
-			repo:            repo,
-			repoPath:        repoPath,
-			branchName:      "feature-executable",
-			repoCreated:     false,
-			branchCreated:   true,
-			executeFilemode: true,
+			desc: "create executable file",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+
+				return setupData{
+					repo:                  repo,
+					repoPath:              repoPath,
+					branchName:            "new-branch",
+					executeFilemode:       true,
+					expectedRepoCreated:   false,
+					expectedBranchCreated: true,
+				}
+			},
 		},
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			headerRequest := headerRequest(tc.repo, gittest.TestUser, tc.branchName, commitFilesMessage, tc.startBranchName, tc.expectedOldOID)
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			headerRequest := headerRequest(setup.repo, gittest.TestUser, setup.branchName, commitFilesMessage, setup.startBranchName, setup.expectedOldOID.String())
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 
 			actionsRequest1 := createFileHeaderRequest(filePath)
 			actionsRequest2 := actionContentRequest("My")
 			actionsRequest3 := actionContentRequest(" content")
-			actionsRequest4 := chmodFileHeaderRequest(filePath, tc.executeFilemode)
+			actionsRequest4 := chmodFileHeaderRequest(filePath, setup.executeFilemode)
 
 			stream, err := client.UserCommitFiles(ctx)
 
@@ -1224,15 +1298,15 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			require.NoError(t, stream.Send(actionsRequest4))
 
 			resp, err := stream.CloseAndRecv()
-			if tc.expectedError != nil {
-				testhelper.RequireGrpcError(t, tc.expectedError, err)
+			if setup.expectedError != nil {
+				testhelper.RequireGrpcError(t, setup.expectedError, err)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tc.repoCreated, resp.GetBranchUpdate().GetRepoCreated())
-			require.Equal(t, tc.branchCreated, resp.GetBranchUpdate().GetBranchCreated())
+			require.Equal(t, setup.expectedRepoCreated, resp.GetBranchUpdate().GetRepoCreated())
+			require.Equal(t, setup.expectedBranchCreated, resp.GetBranchUpdate().GetBranchCreated())
 
-			headCommit, err := localrepo.NewTestRepo(t, cfg, tc.repo).ReadCommit(ctx, git.Revision(tc.branchName))
+			headCommit, err := localrepo.NewTestRepo(t, cfg, setup.repo).ReadCommit(ctx, git.Revision(setup.branchName))
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
 			require.Equal(t, gittest.TestUser.Name, headCommit.Committer.Name)
@@ -1240,12 +1314,12 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			require.Equal(t, gittest.TestUser.Email, headCommit.Committer.Email)
 			require.Equal(t, commitFilesMessage, headCommit.Subject)
 
-			fileContent := gittest.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId()+":"+filePath)
+			fileContent := gittest.Exec(t, cfg, "-C", setup.repoPath, "show", headCommit.GetId()+":"+filePath)
 			require.Equal(t, "My content", string(fileContent))
 
-			commitInfo := gittest.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId())
+			commitInfo := gittest.Exec(t, cfg, "-C", setup.repoPath, "show", headCommit.GetId())
 			expectedFilemode := "100644"
-			if tc.executeFilemode {
+			if setup.executeFilemode {
 				expectedFilemode = "100755"
 			}
 			require.Contains(t, string(commitInfo), fmt.Sprint("new file mode ", expectedFilemode))
@@ -1253,16 +1327,12 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
+func TestUserCommitFiles_move(t *testing.T) {
 	t.Parallel()
-
-	testhelper.NewFeatureSets(
-		featureflag.GPGSigning,
-	).
-		Run(t, testSuccessfulUserCommitFilesRequestMove)
+	testhelper.NewFeatureSets(featureflag.GPGSigning).Run(t, testUserCommitFilesMove)
 }
 
-func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context) {
+func testUserCommitFilesMove(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -1272,34 +1342,61 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 	filePath := "NEWREADME"
 	authorName := []byte("Jane Doe")
 	authorEmail := []byte("janedoe@gitlab.com")
+	fileContent := "file content"
 
-	for i, tc := range []struct {
-		content string
-		infer   bool
+	for _, tc := range []struct {
+		desc            string
+		content         string
+		infer           bool
+		expectedContent string
 	}{
-		{content: "", infer: false},
-		{content: "foo", infer: false},
-		{content: "", infer: true},
-		{content: "foo", infer: true},
+		{
+			desc:            "empty content without inferred content creates empty file",
+			content:         "",
+			infer:           false,
+			expectedContent: "",
+		},
+		{
+			desc:            "replace content",
+			content:         "foo",
+			infer:           false,
+			expectedContent: "foo",
+		},
+		{
+			desc:            "inferred content retains preexisting content",
+			content:         "",
+			infer:           true,
+			expectedContent: fileContent,
+		},
+		{
+			desc:            "inferred content overrides provided content",
+			content:         "foo",
+			infer:           true,
+			expectedContent: fileContent,
+		},
 	} {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+		tc := tc
 
-			origFileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", branchName+":"+previousFilePath)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg)
+			gittest.WriteCommit(t, cfg, testRepoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
+				gittest.TreeEntry{Path: "README", Mode: "100644", Content: fileContent},
+			))
+
 			headerRequest := headerRequest(testRepo, gittest.TestUser, branchName, commitFilesMessage, "", "")
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
-			actionsRequest1 := moveFileHeaderRequest(previousFilePath, filePath, tc.infer)
+			moveRequest := moveFileHeaderRequest(previousFilePath, filePath, tc.infer)
 
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(headerRequest))
-			require.NoError(t, stream.Send(actionsRequest1))
+			require.NoError(t, stream.Send(moveRequest))
 
 			if len(tc.content) > 0 {
-				actionsRequest2 := actionContentRequest(tc.content)
-				require.NoError(t, stream.Send(actionsRequest2))
+				contentRequest := actionContentRequest(tc.content)
+				require.NoError(t, stream.Send(contentRequest))
 			}
 
 			resp, err := stream.CloseAndRecv()
@@ -1309,12 +1406,7 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 			require.NotNil(t, update)
 
 			fileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", update.CommitId+":"+filePath)
-
-			if tc.infer {
-				require.Equal(t, string(origFileContent), string(fileContent))
-			} else {
-				require.Equal(t, tc.content, string(fileContent))
-			}
+			require.Equal(t, tc.expectedContent, string(fileContent))
 		})
 	}
 }
@@ -1329,24 +1421,20 @@ func TestSuccessUserCommitFilesRequestForceCommit(t *testing.T) {
 }
 
 func testSuccessUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	authorName := []byte("Jane Doe")
 	authorEmail := []byte("janedoe@gitlab.com")
 	targetBranchName := "feature"
 	startBranchName := []byte("master")
 
-	startBranchCommit, err := repo.ReadCommit(ctx, git.Revision(startBranchName))
-	require.NoError(t, err)
-
-	targetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
-	require.NoError(t, err)
-
-	mergeBaseOut := gittest.Exec(t, cfg, "-C", repoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
-	mergeBaseID := text.ChompBytes(mergeBaseOut)
-	require.NotEqual(t, mergeBaseID, targetBranchCommit.Id, "expected %s not to be an ancestor of %s", targetBranchCommit.Id, startBranchCommit.Id)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	baseCommitID := gittest.WriteCommit(t, cfg, repoPath)
+	startBranchCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseCommitID), gittest.WithMessage("master"), gittest.WithBranch("master"))
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseCommitID), gittest.WithMessage("target"), gittest.WithBranch("target"))
 
 	headerRequest := headerRequest(repoProto, gittest.TestUser, targetBranchName, commitFilesMessage, "", "")
 	setAuthorAndEmail(headerRequest, authorName, authorEmail)
@@ -1366,8 +1454,8 @@ func testSuccessUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Cont
 	newTargetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
-	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
-	require.Equal(t, newTargetBranchCommit.ParentIds, []string{startBranchCommit.Id})
+	require.Equal(t, update.CommitId, newTargetBranchCommit.Id)
+	require.Equal(t, []string{startBranchCommitID.String()}, newTargetBranchCommit.ParentIds)
 }
 
 func TestSuccessUserCommitFilesRequestStartSha(t *testing.T) {
@@ -1380,17 +1468,19 @@ func TestSuccessUserCommitFilesRequestStartSha(t *testing.T) {
 }
 
 func testSuccessUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
-	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	startCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	targetBranchName := "new"
 
-	startCommit, err := repo.ReadCommit(ctx, "master")
-	require.NoError(t, err)
-
 	headerRequest := headerRequest(repoProto, gittest.TestUser, targetBranchName, commitFilesMessage, "", "")
-	setStartSha(headerRequest, startCommit.Id)
+	setStartSha(headerRequest, startCommitID.String())
 
 	stream, err := client.UserCommitFiles(ctx)
 	require.NoError(t, err)
@@ -1405,8 +1495,8 @@ func testSuccessUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context
 	newTargetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
-	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
-	require.Equal(t, newTargetBranchCommit.ParentIds, []string{startCommit.Id})
+	require.Equal(t, update.CommitId, newTargetBranchCommit.Id)
+	require.Equal(t, []string{startCommitID.String()}, newTargetBranchCommit.ParentIds)
 }
 
 func TestUserCommitFiles_remoteRepository(t *testing.T) {
@@ -1548,7 +1638,12 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 }
 
 func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Context) {
-	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
 
 	branchName := "feature"
 	filePath := "my/file.txt"
@@ -1602,60 +1697,96 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 }
 
 func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.Context) {
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	testCases := []struct {
-		desc        string
+	type setupData struct {
 		requests    []*gitalypb.UserCommitFilesRequest
 		expectedErr error
+	}
+
+	testCases := []struct {
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
 			desc: "file already exists",
-			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage, "", ""),
-				createFileHeaderRequest("README.md"),
-				actionContentRequest("This file already exists"),
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "preexisting", Mode: "100644", Content: "something"},
+				))
+
+				return setupData{
+					requests: []*gitalypb.UserCommitFilesRequest{
+						headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage, "", ""),
+						createFileHeaderRequest("preexisting"),
+						actionContentRequest("This file already exists"),
+					},
+					expectedErr: structuredIndexError(t, &git2go.IndexError{Path: "preexisting", Type: git2go.ErrFileExists}),
+				}
 			},
-			expectedErr: structuredIndexError(t, &git2go.IndexError{Path: "README.md", Type: git2go.ErrFileExists}),
 		},
 		{
 			desc: "file doesn't exists",
-			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage, "", ""),
-				chmodFileHeaderRequest("documents/story.txt", true),
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
+
+				return setupData{
+					requests: []*gitalypb.UserCommitFilesRequest{
+						headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage, "", ""),
+						chmodFileHeaderRequest("nonexistent", true),
+					},
+					expectedErr: structuredIndexError(t, &git2go.IndexError{Path: "nonexistent", Type: git2go.ErrFileNotFound}),
+				}
 			},
-			expectedErr: structuredIndexError(t, &git2go.IndexError{Path: "documents/story.txt", Type: git2go.ErrFileNotFound}),
 		},
 		{
 			desc: "dir already exists",
-			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, gittest.TestUser, "utf-dir", commitFilesMessage, "", ""),
-				actionRequest(&gitalypb.UserCommitFilesAction{
-					UserCommitFilesActionPayload: &gitalypb.UserCommitFilesAction_Header{
-						Header: &gitalypb.UserCommitFilesActionHeader{
-							Action:        gitalypb.UserCommitFilesActionHeader_CREATE_DIR,
-							Base64Content: false,
-							FilePath:      []byte("héllo"),
-						},
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "dir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{})},
+				))
+
+				return setupData{
+					requests: []*gitalypb.UserCommitFilesRequest{
+						headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage, "", ""),
+						actionRequest(&gitalypb.UserCommitFilesAction{
+							UserCommitFilesActionPayload: &gitalypb.UserCommitFilesAction_Header{
+								Header: &gitalypb.UserCommitFilesActionHeader{
+									Action:        gitalypb.UserCommitFilesActionHeader_CREATE_DIR,
+									Base64Content: false,
+									FilePath:      []byte("dir"),
+								},
+							},
+						}),
+						actionContentRequest("This file already exists, as a directory"),
 					},
-				}),
-				actionContentRequest("This file already exists, as a directory"),
+					expectedErr: structuredIndexError(t, &git2go.IndexError{Path: "dir", Type: git2go.ErrDirectoryExists}),
+				}
 			},
-			expectedErr: structuredIndexError(t, &git2go.IndexError{Path: "héllo", Type: git2go.ErrDirectoryExists}),
 		},
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 
-			for _, req := range tc.requests {
+			for _, req := range setup.requests {
 				require.NoError(t, stream.Send(req))
 			}
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
 		})
 	}
 }
@@ -1669,9 +1800,14 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 }
 
 func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	branchName := "feature"
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName))
 
 	testCases := []struct {
 		desc        string
@@ -1686,47 +1822,47 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 		{
 			desc:        "empty User",
 			req:         headerRequest(repo, nil, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "empty User"),
+			expectedErr: structerr.NewInvalidArgument("empty User"),
 		},
 		{
 			desc:        "empty BranchName",
 			req:         headerRequest(repo, gittest.TestUser, "", commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "empty BranchName"),
+			expectedErr: structerr.NewInvalidArgument("empty BranchName"),
 		},
 		{
 			desc:        "empty CommitMessage",
 			req:         headerRequest(repo, gittest.TestUser, branchName, nil, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "empty CommitMessage"),
+			expectedErr: structerr.NewInvalidArgument("empty CommitMessage"),
 		},
 		{
 			desc:        "invalid object ID: \"foobar\"",
 			req:         setStartSha(headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, "", ""), "foobar"),
-			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())),
+			expectedErr: structerr.NewInvalidArgument(`invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen()),
 		},
 		{
 			desc:        "failed to parse signature - Signature cannot have an empty name or email 1",
 			req:         headerRequest(repo, &gitalypb.User{}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: structerr.NewInvalidArgument("commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
 			desc:        "failed to parse signature - Signature cannot have an empty name or email 2",
 			req:         headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("")}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: structerr.NewInvalidArgument("commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
 			desc:        "failed to parse signature - Signature cannot have an empty name or email 3",
 			req:         headerRequest(repo, &gitalypb.User{Name: []byte(" "), Email: []byte(" ")}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: structerr.NewInvalidArgument("commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
 			desc:        "failed to parse signature - Signature cannot have an empty name or email 4",
 			req:         headerRequest(repo, &gitalypb.User{Name: []byte("Jane Doe"), Email: []byte("")}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: structerr.NewInvalidArgument("commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
 			desc:        "failed to parse signature - Signature cannot have an empty name or email 5",
 			req:         headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("janedoe@gitlab.com")}, branchName, commitFilesMessage, "", ""),
-			expectedErr: status.Error(codes.InvalidArgument, "commit: failed to parse signature - Signature cannot have an empty name or email"),
+			expectedErr: structerr.NewInvalidArgument("commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 	}
 
