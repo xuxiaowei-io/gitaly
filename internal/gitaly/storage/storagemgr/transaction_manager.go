@@ -721,6 +721,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		if err := transaction.stagingRepository.ExecAndWait(ctx, git.Command{
 			Name:  "index-pack",
 			Flags: []git.Option{git.Flag{Name: "--stdin"}, git.Flag{Name: "--rev-index"}},
+			Args:  []string{filepath.Join(transaction.walFilesPath(), "objects.pack")},
 		}, git.WithStdin(packReader), git.WithStdout(&stdout), git.WithStderr(&stderr)); err != nil {
 			return structerr.New("index pack: %w", err).WithMetadata("stderr", stderr.String())
 		}
@@ -730,22 +731,6 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 			return structerr.New("unexpected index-pack output").WithMetadata("stdout", stdout.String())
 		}
 
-		// Move the files from the quarantine to the wal-files directory so they'll get logged as part
-		// of the directory.
-		packPrefix := fmt.Sprintf("pack-%s", matches[1])
-		for _, fileName := range []string{
-			packPrefix + ".pack",
-			packPrefix + ".idx",
-			packPrefix + ".rev",
-		} {
-			if err := os.Rename(
-				filepath.Join(transaction.quarantineDirectory, "pack", fileName),
-				filepath.Join(transaction.walFilesPath(), fileName),
-			); err != nil {
-				return fmt.Errorf("move file: %w", err)
-			}
-		}
-
 		// Sync the files and the directory entries so everything is flushed to the disk prior
 		// to moving on to committing the log entry. This way we only have to flush the directory
 		// move when we move the staged files into the log.
@@ -753,7 +738,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 			return fmt.Errorf("sync recursive: %w", err)
 		}
 
-		transaction.packPrefix = packPrefix
+		transaction.packPrefix = fmt.Sprintf("pack-%s", matches[1])
 
 		return nil
 	})
@@ -1490,14 +1475,14 @@ func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, inde
 // log into the repository's object directory.
 func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix string, logIndex LogIndex) error {
 	packDirectory := filepath.Join(mgr.repositoryPath, "objects", "pack")
-	for _, fileName := range []string{
-		packPrefix + ".pack",
-		packPrefix + ".idx",
-		packPrefix + ".rev",
+	for _, fileExtension := range []string{
+		".pack",
+		".idx",
+		".rev",
 	} {
 		if err := os.Link(
-			filepath.Join(walFilesPathForLogIndex(mgr.repositoryPath, logIndex), fileName),
-			filepath.Join(packDirectory, fileName),
+			filepath.Join(walFilesPathForLogIndex(mgr.repositoryPath, logIndex), "objects"+fileExtension),
+			filepath.Join(packDirectory, packPrefix+fileExtension),
 		); err != nil {
 			if !errors.Is(err, fs.ErrExist) {
 				return fmt.Errorf("link file: %w", err)
