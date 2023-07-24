@@ -3,7 +3,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -780,12 +778,8 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 
 func TestUserApplyPatch_transactional(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUserApplyPatchTransactional)
-}
 
-func testUserApplyPatchTransactional(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
 	ctx, _, repoProto, _, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
 
@@ -824,7 +818,7 @@ func testUserApplyPatchTransactional(t *testing.T, ctx context.Context) {
 
 	require.True(t, response.BranchUpdate.BranchCreated)
 
-	require.Equal(t, testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions, 15, 12), len(txManager.Votes()))
+	require.Equal(t, 15, len(txManager.Votes()))
 }
 
 func TestFailedPatchApplyPatch(t *testing.T) {

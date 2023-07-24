@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -64,11 +63,7 @@ func (m *GitLabHookManager) stopTransaction(ctx context.Context, payload git.Hoo
 // becomes significantly shorter, which alleviates the lock contention.
 func (m *GitLabHookManager) synchronizeHookExecution(ctx context.Context, payload git.HooksPayload, hook string) error {
 	if err := m.runWithTransaction(ctx, payload, func(ctx context.Context, tx txinfo.Transaction) error {
-		if featureflag.SynchronizeHookExecutions.IsEnabled(ctx) {
-			return m.txManager.Vote(ctx, tx, voting.VoteFromData([]byte("synchronize "+hook+" hook")), voting.Synchronized)
-		}
-
-		return nil
+		return m.txManager.Vote(ctx, tx, voting.VoteFromData([]byte("synchronize "+hook+" hook")), voting.Synchronized)
 	}); err != nil {
 		return fmt.Errorf("vote failed: %w", err)
 	}

@@ -2,7 +2,6 @@ package hook
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -377,11 +376,8 @@ exit %d
 
 func TestPreReceiveHook_Primary(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testPreReceiveHookPrimary)
-}
 
-func testPreReceiveHookPrimary(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc               string
@@ -399,10 +395,7 @@ func testPreReceiveHookPrimary(t *testing.T, ctx context.Context) {
 			allowedHandler:     allowedHandler(t, true),
 			preReceiveHandler:  preReceiveHandler(t, true),
 			expectedExitStatus: 0,
-			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
-				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
-				[]transaction.PhasedVote{},
-			),
+			expectedVotes:      []transaction.PhasedVote{synchronizedVote("pre-receive")},
 		},
 		{
 			desc:               "primary checks for permissions",
@@ -417,10 +410,7 @@ func testPreReceiveHookPrimary(t *testing.T, ctx context.Context) {
 			primary:            false,
 			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 0,
-			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
-				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
-				[]transaction.PhasedVote{},
-			),
+			expectedVotes:      []transaction.PhasedVote{synchronizedVote("pre-receive")},
 		},
 		{
 			desc:               "primary tries to increase reference counter",
@@ -437,10 +427,7 @@ func testPreReceiveHookPrimary(t *testing.T, ctx context.Context) {
 			allowedHandler:     allowedHandler(t, true),
 			preReceiveHandler:  preReceiveHandler(t, false),
 			expectedExitStatus: 0,
-			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
-				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
-				[]transaction.PhasedVote{},
-			),
+			expectedVotes:      []transaction.PhasedVote{synchronizedVote("pre-receive")},
 		},
 		{
 			desc:               "primary executes hook",
@@ -458,10 +445,7 @@ func testPreReceiveHookPrimary(t *testing.T, ctx context.Context) {
 			preReceiveHandler:  preReceiveHandler(t, true),
 			hookExitCode:       123,
 			expectedExitStatus: 0,
-			expectedVotes: testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions,
-				[]transaction.PhasedVote{synchronizedVote("pre-receive")},
-				[]transaction.PhasedVote{},
-			),
+			expectedVotes:      []transaction.PhasedVote{synchronizedVote("pre-receive")},
 		},
 	}
 

@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -455,12 +453,8 @@ func TestUserCreateTag_successful(t *testing.T) {
 
 func TestUserCreateTag_transactional(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SynchronizeHookExecutions).Run(t, testUserCreateTagTransactional)
-}
 
-func testUserCreateTagTransactional(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runOperationServiceServer(t, cfg, testserver.WithDisablePraefect())
 
@@ -568,7 +562,7 @@ func testUserCreateTagTransactional(t *testing.T, ctx context.Context) {
 				require.NoFileExists(t, hooksOutputPath)
 			}
 
-			require.Equal(t, testhelper.EnabledOrDisabledFlag(ctx, featureflag.SynchronizeHookExecutions, 5, 2), transactionServer.called)
+			require.Equal(t, 5, transactionServer.called)
 			transactionServer.called = 0
 		})
 	}
