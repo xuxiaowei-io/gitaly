@@ -159,8 +159,13 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		authorDate = header.Timestamp.AsTime()
 	}
 
-	if git.ObjectHashSHA1.ValidateHex(header.GetOurCommitOid()) != nil ||
-		git.ObjectHashSHA1.ValidateHex(header.GetTheirCommitOid()) != nil {
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	if objectHash.ValidateHex(header.GetOurCommitOid()) != nil ||
+		objectHash.ValidateHex(header.GetTheirCommitOid()) != nil {
 		return errors.New("Rugged::InvalidError: unable to parse OID - contains invalid characters")
 	}
 
