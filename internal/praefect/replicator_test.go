@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gitalycfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
@@ -40,9 +41,10 @@ import (
 
 func TestReplMgr_ProcessBacklog(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool).Run(t, testReplMgrProcessBacklog)
+}
 
-	ctx := testhelper.Context(t)
-
+func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	primaryCfg := testcfg.Build(t, testcfg.WithStorages("primary"))
 	testRepoProto, testRepoPath := gittest.CreateRepository(t, ctx, primaryCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -323,9 +325,10 @@ func getChecksumFunc(ctx context.Context, client gitalypb.RepositoryServiceClien
 
 func TestProcessBacklog_FailedJobs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool).Run(t, testProcessBacklogFailedJobs)
+}
 
-	ctx := testhelper.Context(t)
-
+func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
 	primaryCfg := testcfg.Build(t, testcfg.WithStorages("default"))
 	testRepo, _ := gittest.CreateRepository(t, ctx, primaryCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -431,8 +434,10 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 func TestProcessBacklog_Success(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool).Run(t, testProcessBacklogSuccess)
+}
 
-	ctx := testhelper.Context(t)
+func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	primaryCfg := testcfg.Build(t, testcfg.WithStorages("primary"))

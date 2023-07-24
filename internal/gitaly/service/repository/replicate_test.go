@@ -16,9 +16,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
@@ -41,26 +43,21 @@ import (
 
 func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool).Run(t, testReplicateRepository)
+}
 
-	ctx := testhelper.Context(t)
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
-	cfg := cfgBuilder.Build(t)
-
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalySSH(t, cfg)
-
-	repoClient, serverSocketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = serverSocketPath
-
+func testReplicateRepository(t *testing.T, ctx context.Context) {
 	type setupData struct {
 		source              *gitalypb.Repository
 		target              *gitalypb.Repository
+		replicateObjectPool bool
+		expectedAltInfo     stats.AlternatesInfo
 		expectedObjects     []string
 		expectedCustomHooks []string
 		expectedError       error
 	}
 
-	setupSourceAndTarget := func(t *testing.T, createTarget bool) (*gitalypb.Repository, string, *gitalypb.Repository, string) {
+	setupSourceAndTarget := func(t *testing.T, cfg config.Cfg, createTarget bool) (*gitalypb.Repository, string, *gitalypb.Repository, string) {
 		t.Helper()
 
 		source, sourcePath := gittest.CreateRepository(t, ctx, cfg)
@@ -83,13 +80,14 @@ func TestReplicateRepository(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc  string
-		setup func(t *testing.T) setupData
+		desc       string
+		serverOpts []testserver.GitalyServerOpt
+		setup      func(t *testing.T, cfg config.Cfg) setupData
 	}{
 		{
 			desc: "replicate config",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Write a modified Git config file to the source repository to verify it is
 				// getting created in the target repository as expected.
@@ -103,8 +101,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate info attributes",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Write an info attributes file to the source repository to verify it is getting
 				// created in the target repository as expected.
@@ -121,8 +119,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate branch",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Create a new branch that only exists in the source repository to verify that it
 				// is getting created in the target repository as expected.
@@ -136,8 +134,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate unreachable object with snapshot-base replication",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Create a loose object in the source repository to verify that it is getting
 				// created in the target repository as expected. This ensures that snapshot
@@ -157,8 +155,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate custom hooks",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Set up custom hooks in source repository to verify that the hooks are getting
 				// created in the target repository as expected.
@@ -174,8 +172,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate internal references to new target",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Create internal references in the source repository to verify that they are
 				// getting created in the newly created target repository as expected. Regardless of
@@ -193,8 +191,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "replicate internal references to existing target",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, targetPath := setupSourceAndTarget(t, true)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, targetPath := setupSourceAndTarget(t, cfg, true)
 
 				// Create the same commit in both repositories so that they're in a known-good
 				// state.
@@ -218,7 +216,7 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "empty target repository",
-			setup: func(t *testing.T) setupData {
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				source, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				// Set up a request with no target repository specified to verify that validation
@@ -232,7 +230,7 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "empty source repository",
-			setup: func(t *testing.T) setupData {
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				// Set up a request with no source repository specified to verify that validation
 				// fails and the RPC returns an error as expected.
 				return setupData{
@@ -247,7 +245,7 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "target and source repository have same storage",
-			setup: func(t *testing.T) setupData {
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				// Set up a request with a source and target repository that share the same storage
 				// to verify that validation fails and the RPC returns an error as expected.
 				source, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -262,8 +260,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "invalid target repository",
-			setup: func(t *testing.T) setupData {
-				source, _, target, targetPath := setupSourceAndTarget(t, true)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, _, target, targetPath := setupSourceAndTarget(t, cfg, true)
 
 				// Delete Git data to make target repository invalid to verify that replication
 				// proceeds and the invalid target repository is overwritten. No error is expected
@@ -280,8 +278,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "invalid source repository",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, false)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
 
 				// Delete Git data to make the source repository invalid to verify that repository
 				// validation fails on the source and the RPC returns an error as expected.
@@ -298,8 +296,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "invalid source and target repository",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, targetPath := setupSourceAndTarget(t, true)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, targetPath := setupSourceAndTarget(t, cfg, true)
 
 				// Delete Git data to make the source and target repositories invalid to verify that
 				// repository validation fails and the RPC returns an error as expected.
@@ -318,8 +316,8 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "fail to fetch source repository",
-			setup: func(t *testing.T) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, true)
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, true)
 
 				// Corrupt the repository by writing garbage into HEAD to verify the RPC fails to
 				// fetch the source repository and returns an error as expected.
@@ -334,12 +332,12 @@ func TestReplicateRepository(t *testing.T) {
 		},
 		{
 			desc: "fsck disabled for fetch",
-			setup: func(t *testing.T) setupData {
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				// To validate that fsck is disabled, `git-fetch(1)` must be used to replicate
 				// objects in the source repository. If the target repository already exists prior
 				// to replication, snapshot replication is skipped ensuring all necessary objects in
 				// the source repository are replicated to the target via `git-fetch(1)`.
-				source, sourcePath, target, _ := setupSourceAndTarget(t, true)
+				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, true)
 
 				// Write a tree into the source repository that's known-broken. For this object to
 				// be fetched into the target repository `fsck` must be disabled.
@@ -369,17 +367,220 @@ func TestReplicateRepository(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "source and target repository are not linked to object pool",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				// If both the source and target repository are not linked to a repository, Git
+				// alternates replication does not occur.
+				sourceProto, _, targetProto, _ := setupSourceAndTarget(t, cfg, true)
+
+				return setupData{
+					source:              sourceProto,
+					target:              targetProto,
+					replicateObjectPool: true,
+				}
+			},
+		},
+		{
+			desc: "only target repository is linked to object pool",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				sourceProto, _, targetProto, targetPath := setupSourceAndTarget(t, cfg, true)
+
+				// If only the target repository is linked to an object pool, repository replication
+				// results in the target repository disconnecting from its object pool to match the
+				// state of the source repository.
+				gittest.CreateObjectPool(t, ctx, cfg, targetProto, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				expectedAltInfo, err := stats.AlternatesInfoForRepository(targetPath)
+				require.NoError(t, err)
+				if featureflag.ReplicateRepositoryObjectPool.IsEnabled(ctx) {
+					expectedAltInfo = stats.AlternatesInfo{Exists: false}
+				}
+
+				return setupData{
+					source:              sourceProto,
+					target:              targetProto,
+					expectedAltInfo:     expectedAltInfo,
+					replicateObjectPool: true,
+				}
+			},
+		},
+		{
+			desc: "source and target linked to same object pool",
+			// Object pool replication is not currently supported by Praefect. The on disk path of
+			// object pools cannot be compared when Gitaly is running behind Praefect because
+			// repository messages are rewritten. Consequently, this test case is executed with
+			// Praefect disabled.
+			serverOpts: []testserver.GitalyServerOpt{testserver.WithDisablePraefect()},
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				sourceProto, _, targetProto, targetPath := setupSourceAndTarget(t, cfg, true)
+
+				// If both the source and target repositories are linked to the same object pool,
+				// there is no need for additional replication.
+				sourcePool, _ := gittest.CreateObjectPool(t, ctx, cfg, sourceProto, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				gittest.CreateObjectPool(t, ctx, cfg, targetProto, gittest.CreateObjectPoolConfig{
+					RelativePath:               sourcePool.GetRepository().GetRelativePath(),
+					LinkRepositoryToObjectPool: true,
+				})
+
+				targetAltInfo, err := stats.AlternatesInfoForRepository(targetPath)
+				require.NoError(t, err)
+
+				return setupData{
+					source:              sourceProto,
+					target:              targetProto,
+					expectedAltInfo:     targetAltInfo,
+					replicateObjectPool: true,
+				}
+			},
+		},
+		{
+			desc: "source and target linked to different object pool",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				sourceProto, _, targetProto, targetPath := setupSourceAndTarget(t, cfg, true)
+
+				// Both the source and target repositories being linked to different object pools is
+				// an unexpected state. If this occurs replication is aborted and an error returned.
+				gittest.CreateObjectPool(t, ctx, cfg, sourceProto, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				gittest.CreateObjectPool(t, ctx, cfg, targetProto, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				if featureflag.ReplicateRepositoryObjectPool.IsDisabled(ctx) {
+					expectedAltInfo, err := stats.AlternatesInfoForRepository(targetPath)
+					require.NoError(t, err)
+
+					return setupData{
+						source:              sourceProto,
+						target:              targetProto,
+						replicateObjectPool: true,
+						expectedAltInfo:     expectedAltInfo,
+					}
+				}
+
+				return setupData{
+					source:              sourceProto,
+					target:              targetProto,
+					replicateObjectPool: true,
+					expectedError:       structerr.NewFailedPrecondition("replicating repository: synchronizing object pools: target repository links to different object pool"),
+				}
+			},
+		},
+		{
+			desc: "source linked and target link replicated",
+			// Object pool replication is not currently supported by Praefect. Existing object pool
+			// repositories cannot be located because Praefect rewrites repository messages.
+			// Consequently, this test case is executed with Praefect disabled.
+			serverOpts: []testserver.GitalyServerOpt{testserver.WithDisablePraefect()},
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				sourceProto, sourcePath, targetProto, _ := setupSourceAndTarget(t, cfg, true)
+
+				// If only the source repository is linked to an object pool, repository replication
+				// results in the target repository linking to the required object pool to match the
+				// state of the source repository.
+				sourcePool, _ := gittest.CreateObjectPool(t, ctx, cfg, sourceProto, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				// Repository replication is currently not able to replicate object pool
+				// repositories. For the Git alternates file to be recreated on the target storage
+				// the required target object pool must already exist on the target storage. This
+				// limitation will go away once proper object pool replication is implemented.
+				gittest.CreateObjectPool(t, ctx, cfg, targetProto, gittest.CreateObjectPoolConfig{
+					RelativePath:               sourcePool.GetRepository().GetRelativePath(),
+					LinkRepositoryToObjectPool: false,
+				})
+
+				expectedAltInfo, err := stats.AlternatesInfoForRepository(sourcePath)
+				require.NoError(t, err)
+
+				if featureflag.ReplicateRepositoryObjectPool.IsDisabled(ctx) {
+					expectedAltInfo = stats.AlternatesInfo{Exists: false}
+				}
+
+				return setupData{
+					source:              sourceProto,
+					target:              targetProto,
+					expectedAltInfo:     expectedAltInfo,
+					replicateObjectPool: true,
+				}
+			},
+		},
+		{
+			desc: "target link not replicated due to missing object pool",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				sourceProto, _, targetProto, _ := setupSourceAndTarget(t, cfg, false)
+
+				// If the required object pool does not exist on the target node, the target
+				// repository will not be linked to anything.
+				gittest.CreateObjectPool(t, ctx, cfg, sourceProto, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				return setupData{
+					source:              sourceProto,
+					target:              targetProto,
+					replicateObjectPool: true,
+					expectedAltInfo:     stats.AlternatesInfo{Exists: false},
+				}
+			},
+		},
+		{
+			desc: "object pool replication disabled",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				sourceProto, _, targetProto, _ := setupSourceAndTarget(t, cfg, true)
+
+				// If object pool replication is disabled, the target repository does not recreate
+				// the object pool relationship.
+				sourcePool, _ := gittest.CreateObjectPool(t, ctx, cfg, sourceProto, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				// Repository replication is currently not able to replicate object pool
+				// repositories. For the Git alternates file to be recreated on the target storage
+				// the required target object pool must already exist on the target storage. This
+				// limitation will go away once proper object pool replication is implemented.
+				gittest.CreateObjectPool(t, ctx, cfg, targetProto, gittest.CreateObjectPoolConfig{
+					RelativePath:               sourcePool.GetRepository().GetRelativePath(),
+					LinkRepositoryToObjectPool: false,
+				})
+
+				return setupData{
+					source:              sourceProto,
+					target:              targetProto,
+					replicateObjectPool: false,
+				}
+			},
+		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			setup := tc.setup(t)
+			cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
+			cfg := cfgBuilder.Build(t)
+
+			testcfg.BuildGitalyHooks(t, cfg)
+			testcfg.BuildGitalySSH(t, cfg)
+
+			repoClient, serverSocketPath := runRepositoryService(t, cfg, tc.serverOpts...)
+			cfg.SocketPath = serverSocketPath
+
+			setup := tc.setup(t, cfg)
 
 			ctx := testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 			_, err := repoClient.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 				Repository: setup.target,
 				Source:     setup.source,
+				ReplicateObjectDeduplicationNetworkMembership: setup.replicateObjectPool,
 			})
 
 			// Verify error matches expected test case state.
@@ -388,7 +589,7 @@ func TestReplicateRepository(t *testing.T) {
 
 			// It is possible for the returned error to contain metadata that is difficult to assert
 			// equivalency. For this reason, only the status code and error message are verified.
-			require.Equal(t, expectedStatus.Code(), actualStatus.Code())
+			assert.Equal(t, expectedStatus.Code(), actualStatus.Code())
 			require.Equal(t, expectedStatus.Message(), actualStatus.Message())
 			if err != nil {
 				return
@@ -447,14 +648,23 @@ func TestReplicateRepository(t *testing.T) {
 			for _, oid := range setup.expectedObjects {
 				gittest.Exec(t, cfg, "-C", targetPath, "cat-file", "-p", oid)
 			}
+
+			targetAltInfo, err := stats.AlternatesInfoForRepository(targetPath)
+			require.NoError(t, err)
+
+			// Verify target repository Git alternates file matches expected state.
+			require.Equal(t, setup.expectedAltInfo.Exists, targetAltInfo.Exists)
+			require.Equal(t, setup.expectedAltInfo.ObjectDirectories, targetAltInfo.ObjectDirectories)
 		})
 	}
 }
 
 func TestReplicateRepository_transactional(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool).Run(t, testReplicateRepositoryTransactional)
+}
 
-	ctx := testhelper.Context(t)
+func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 

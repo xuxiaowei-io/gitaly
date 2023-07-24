@@ -311,7 +311,14 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ReplicateRepository replicates data from a source repository to target repository. On the
+  // target repository, this operation ensures synchronization of the following components:
+  //
+  // - Git config
+  // - Git attributes
+  // - Custom Git hooks,
+  // - References and objects
+  // - (Optional) Object deduplication network membership
   rpc ReplicateRepository(ReplicateRepositoryRequest) returns (ReplicateRepositoryResponse) {
     option (op_type)  = {
       op: MUTATOR
@@ -1156,15 +1163,24 @@ message RenameRepositoryRequest {
 message RenameRepositoryResponse{
 }
 
-// This comment is left unintentionally blank.
+// ReplicateRepositoryRequest is a request for the ReplicateRepository RPC.
 message ReplicateRepositoryRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the target repository that the RPC replicates to.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // Source is the source repository that the RPC replicates from. This repository can sit on a
+  // different storage node. The information for how to connect to this storage node needs to be
+  // injected into the gRPC context by the caller by setting the `gitaly-servers` metadata.
   Repository source = 2;
+  // ReplicateObjectDeduplicationNetworkMembership enables replication of the source repository's
+  // object pool to the target repository's storage and recreates the Git `alternates` link. If the
+  // source repository is not linked to an object pool, no linking or additional replication is
+  // performed. In the event the target repository is linked to an object pool, but the source
+  // repository is not part of an object deduplication network, the target repository is
+  // disconnected from its object pool.
+  bool replicate_object_deduplication_network_membership = 3;
 }
 
-// This comment is left unintentionally blank.
+// ReplicateRepositoryResponse is a response for the ReplicateRepository RPC.
 message ReplicateRepositoryResponse{
 }
 
