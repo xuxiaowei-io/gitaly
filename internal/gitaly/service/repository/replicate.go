@@ -154,16 +154,16 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 		ctxlogrus.Extract(ctx).WithField("repo_path", repoPath).Warn("removed invalid repository")
 	}
 
-	if err := s.createFromSnapshot(ctx, in); err != nil {
+	if err := s.createFromSnapshot(ctx, in.GetSource(), in.GetRepository()); err != nil {
 		return fmt.Errorf("could not create repository from snapshot: %w", err)
 	}
 
 	return nil
 }
 
-func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, in.GetRepository(), func(repo *gitalypb.Repository) error {
-		if err := s.extractSnapshot(ctx, in.GetSource(), repo); err != nil {
+func (s *server) createFromSnapshot(ctx context.Context, source, target *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, target, func(repo *gitalypb.Repository) error {
+		if err := s.extractSnapshot(ctx, source, repo); err != nil {
 			return fmt.Errorf("extracting snapshot: %w", err)
 		}
 
