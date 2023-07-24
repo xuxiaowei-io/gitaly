@@ -1300,6 +1300,28 @@ func TestTreeEntry_Delete(t *testing.T) {
 			},
 		},
 		{
+			desc: "flat tree, single entry",
+			tree: &TreeEntry{
+				OID:  "def",
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "abc",
+						Type: Blob,
+						Mode: "100644",
+						Path: "file1",
+					},
+				},
+			},
+			pathToDelete: "file1",
+			expectedTree: TreeEntry{
+				Type:    Tree,
+				Mode:    "040000",
+				Entries: []*TreeEntry{},
+			},
+		},
+		{
 			desc: "nested tree",
 			tree: &TreeEntry{
 				Type: Tree,
@@ -1355,13 +1377,6 @@ func TestTreeEntry_Delete(t *testing.T) {
 						Path: "dirA",
 						Entries: []*TreeEntry{
 							{
-								OID:     "",
-								Type:    Tree,
-								Mode:    "040000",
-								Path:    "dirB",
-								Entries: []*TreeEntry{},
-							},
-							{
 								OID:  "aa123",
 								Type: Tree,
 								Mode: "040000",
@@ -1378,6 +1393,51 @@ func TestTreeEntry_Delete(t *testing.T) {
 						},
 					},
 				},
+			},
+		},
+		{
+			desc: "nested tree with only single childs",
+			tree: &TreeEntry{
+				Type: Tree,
+				Mode: "040000",
+				Entries: []*TreeEntry{
+					{
+						OID:  "",
+						Type: Tree,
+						Mode: "040000",
+						Path: "dirA",
+						Entries: []*TreeEntry{
+							{
+								OID:  "",
+								Type: Tree,
+								Mode: "040000",
+								Path: "dirB",
+								Entries: []*TreeEntry{
+									{
+										OID:  "aa123",
+										Type: Tree,
+										Mode: "040000",
+										Path: "dirC",
+										Entries: []*TreeEntry{
+											{
+												OID:  "abcd",
+												Type: Blob,
+												Mode: "100644",
+												Path: "file1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			pathToDelete: "dirA/dirB/dirC/file1",
+			expectedTree: TreeEntry{
+				Type:    Tree,
+				Mode:    "040000",
+				Entries: []*TreeEntry{},
 			},
 		},
 		{
