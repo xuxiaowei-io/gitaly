@@ -715,12 +715,12 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 			return fmt.Errorf("create wal files directory: %w", err)
 		}
 
-		// index-pack places the pack and the index into the repository's object directory. The
-		// staging repository is configured with a quarantine so we execute it there.
+		// index-pack places the pack, index, and reverse index into the repository's object directory.
+		// The staging repository is configured with a quarantine so we execute it there.
 		var stdout, stderr bytes.Buffer
 		if err := transaction.stagingRepository.ExecAndWait(ctx, git.Command{
 			Name:  "index-pack",
-			Flags: []git.Option{git.Flag{Name: "--stdin"}},
+			Flags: []git.Option{git.Flag{Name: "--stdin"}, git.Flag{Name: "--rev-index"}},
 		}, git.WithStdin(packReader), git.WithStdout(&stdout), git.WithStderr(&stderr)); err != nil {
 			return structerr.New("index pack: %w", err).WithMetadata("stderr", stderr.String())
 		}
@@ -736,6 +736,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		for _, fileName := range []string{
 			packPrefix + ".pack",
 			packPrefix + ".idx",
+			packPrefix + ".rev",
 		} {
 			if err := os.Rename(
 				filepath.Join(transaction.quarantineDirectory, "pack", fileName),
@@ -1492,6 +1493,7 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix str
 	for _, fileName := range []string{
 		packPrefix + ".pack",
 		packPrefix + ".idx",
+		packPrefix + ".rev",
 	} {
 		if err := os.Link(
 			filepath.Join(walFilesPathForLogIndex(mgr.repositoryPath, logIndex), fileName),
