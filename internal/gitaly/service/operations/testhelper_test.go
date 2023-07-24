@@ -16,12 +16,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -186,4 +188,12 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 	return &gitalypb.VoteTransactionResponse{
 		State: gitalypb.VoteTransactionResponse_COMMIT,
 	}, nil
+}
+
+func errWithDetails(tb testing.TB, err error, details ...proto.Message) error {
+	detailedErr := structerr.New("%w", err)
+	for _, detail := range details {
+		detailedErr = detailedErr.WithDetail(detail)
+	}
+	return detailedErr
 }
