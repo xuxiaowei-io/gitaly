@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -156,11 +155,6 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	repoPath, err := s.locator.GetRepoPath(quarantineRepo)
-	if err != nil {
-		return err
-	}
-
 	authorDate := time.Now()
 	if header.Timestamp != nil {
 		authorDate = header.Timestamp.AsTime()
@@ -171,40 +165,18 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return errors.New("Rugged::InvalidError: unable to parse OID - contains invalid characters")
 	}
 
-	var result git2go.ResolveResult
-	if !featureflag.ResolveConflictsViaGit.IsEnabled(ctx) {
-		result, err = s.git2goExecutor.Resolve(ctx, quarantineRepo, git2go.ResolveCommand{
-			MergeCommand: git2go.MergeCommand{
-				Repository: repoPath,
-				AuthorName: string(header.User.Name),
-				AuthorMail: string(header.User.Email),
-				AuthorDate: authorDate,
-				Message:    string(header.CommitMessage),
-				Ours:       header.GetOurCommitOid(),
-				Theirs:     header.GetTheirCommitOid(),
-			},
-			Resolutions: resolutions,
-		})
-		if err != nil {
-			if errors.Is(err, git2go.ErrInvalidArgument) {
-				return structerr.NewInvalidArgument("%w", err)
-			}
-			return err
-		}
-	} else {
-		result, err = s.resolveConflictsWithGit(
-			ctx,
-			header.GetOurCommitOid(),
-			header.GetTheirCommitOid(),
-			quarantineRepo,
-			resolutions,
-			authorDate,
-			header.User,
-			header.GetCommitMessage(),
-		)
-		if err != nil {
-			return err
-		}
+	result, err := s.resolveConflictsWithGit(
+		ctx,
+		header.GetOurCommitOid(),
+		header.GetTheirCommitOid(),
+		quarantineRepo,
+		resolutions,
+		authorDate,
+		header.User,
+		header.GetCommitMessage(),
+	)
+	if err != nil {
+		return err
 	}
 
 	commitOID, err := git.ObjectHashSHA1.FromHex(result.CommitID)
