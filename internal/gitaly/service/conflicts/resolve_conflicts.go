@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -165,7 +164,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return errors.New("Rugged::InvalidError: unable to parse OID - contains invalid characters")
 	}
 
-	result, err := s.resolveConflictsWithGit(
+	commitOID, err := s.resolveConflictsWithGit(
 		ctx,
 		header.GetOurCommitOid(),
 		header.GetTheirCommitOid(),
@@ -175,11 +174,6 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		header.User,
 		header.GetCommitMessage(),
 	)
-	if err != nil {
-		return err
-	}
-
-	commitOID, err := git.ObjectHashSHA1.FromHex(result.CommitID)
 	if err != nil {
 		return err
 	}
@@ -207,9 +201,7 @@ func (s *server) resolveConflictsWithGit(
 	authorDate time.Time,
 	user *gitalypb.User,
 	commitMessage []byte,
-) (git2go.ResolveResult, error) {
-	var result git2go.ResolveResult
-
+) (git.ObjectID, error) {
 	treeOID, err := repo.MergeTree(ctx, ours, theirs, localrepo.WithAllowUnrelatedHistories())
 
 	var mergeConflictErr *localrepo.MergeTreeConflictError
@@ -222,12 +214,12 @@ func (s *server) resolveConflictsWithGit(
 
 		tree, err := repo.ReadTree(ctx, treeOID.Revision(), localrepo.WithRecursive())
 		if err != nil {
-			return result, structerr.NewInternal("getting tree: %w", err)
+			return "", structerr.NewInternal("getting tree: %w", err)
 		}
 
 		objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 		if err != nil {
-			return result, structerr.NewInternal("getting objectreader: %w", err)
+			return "", structerr.NewInternal("getting objectreader: %w", err)
 		}
 		defer cancel()
 
@@ -237,7 +229,7 @@ func (s *server) resolveConflictsWithGit(
 			if _, ok := checkedConflictedFiles[path]; !ok {
 				// Note: this emulates the Ruby error that occurs when
 				// there are no conflicts for a resolution
-				return result, errors.New("NoMethodError: undefined method `resolve_lines' for nil:NilClass")
+				return "", errors.New("NoMethodError: undefined method `resolve_lines' for nil:NilClass")
 			}
 
 			// We mark the file as checked, any remaining files, which don't have a resolution
@@ -246,11 +238,11 @@ func (s *server) resolveConflictsWithGit(
 
 			conflictedBlob, err := tree.Get(path)
 			if err != nil {
-				return result, structerr.NewInternal("path not found in merged-tree: %w", err)
+				return "", structerr.NewInternal("path not found in merged-tree: %w", err)
 			}
 
 			if conflictedBlob.Type != localrepo.Blob {
-				return result, structerr.NewInternal("entry should be of type blob").
+				return "", structerr.NewInternal("entry should be of type blob").
 					WithMetadataItems(
 						structerr.MetadataItem{Key: "path", Value: path},
 						structerr.MetadataItem{Key: "type", Value: conflictedBlob.Type},
@@ -262,12 +254,12 @@ func (s *server) resolveConflictsWithGit(
 			if resolution.Content != "" {
 				object, err := objectReader.Object(ctx, conflictedBlob.OID.Revision())
 				if err != nil {
-					return result, structerr.NewInternal("retrieving object: %w", err)
+					return "", structerr.NewInternal("retrieving object: %w", err)
 				}
 
 				content, err := io.ReadAll(object)
 				if err != nil {
-					return result, structerr.NewInternal("reading object: %w", err)
+					return "", structerr.NewInternal("reading object: %w", err)
 				}
 
 				// Git2Go conflict markers have filenames and git-merge-tree(1) has commit OIDs.
@@ -280,13 +272,13 @@ func (s *server) resolveConflictsWithGit(
 
 				if bytes.Equal([]byte(resolution.Content), content) {
 					// This is to keep the error consistent with git2go implementation
-					return result, structerr.NewInvalidArgument("Resolved content has no changes for file %s", path)
+					return "", structerr.NewInvalidArgument("Resolved content has no changes for file %s", path)
 				}
 			}
 
 			object, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:%s", ours, resolution.OldPath)))
 			if err != nil {
-				return result, structerr.NewInternal("retrieving object: %w", err)
+				return "", structerr.NewInternal("retrieving object: %w", err)
 			}
 
 			// Rails expects files ending with newlines to retain them post conflict, but
@@ -295,7 +287,7 @@ func (s *server) resolveConflictsWithGit(
 
 			oursContent, err := io.ReadAll(object)
 			if err != nil {
-				return result, structerr.NewInternal("reading object: %w", err)
+				return "", structerr.NewInternal("reading object: %w", err)
 			}
 			if len(oursContent) > 0 {
 				needsNewLine = oursContent[len(oursContent)-1] == '\n'
@@ -303,17 +295,17 @@ func (s *server) resolveConflictsWithGit(
 
 			object, err = objectReader.Object(ctx, conflictedBlob.OID.Revision())
 			if err != nil {
-				return result, structerr.NewInternal("retrieving object: %w", err)
+				return "", structerr.NewInternal("retrieving object: %w", err)
 			}
 
 			resolvedContent, err := conflict.Resolve(object, git.ObjectID(ours), git.ObjectID(theirs), path, resolution, needsNewLine)
 			if err != nil {
-				return result, structerr.NewInternal("%w", err)
+				return "", structerr.NewInternal("%w", err)
 			}
 
 			blobOID, err := repo.WriteBlob(ctx, filepath.Base(path), resolvedContent)
 			if err != nil {
-				return result, structerr.NewInternal("writing blob: %w", err)
+				return "", structerr.NewInternal("writing blob: %w", err)
 			}
 
 			err = tree.Add(path, localrepo.TreeEntry{
@@ -323,24 +315,24 @@ func (s *server) resolveConflictsWithGit(
 				Type: localrepo.Blob,
 			}, localrepo.WithOverwriteFile())
 			if err != nil {
-				return result, structerr.NewInternal("add to tree: %w", err)
+				return "", structerr.NewInternal("add to tree: %w", err)
 			}
 		}
 
 		for conflictedFile, checked := range checkedConflictedFiles {
 			if !checked {
-				return result, fmt.Errorf("Missing resolutions for the following files: %s", conflictedFile) //nolint // this is to stay consistent with rugged-rails error
+				return "", fmt.Errorf("Missing resolutions for the following files: %s", conflictedFile) //nolint // this is to stay consistent with rugged-rails error
 			}
 		}
 
 		err = tree.Write(ctx, repo)
 		if err != nil {
-			return result, structerr.NewInternal("write tree: %w", err)
+			return "", structerr.NewInternal("write tree: %w", err)
 		}
 
 		treeOID = tree.OID
 	} else if err != nil {
-		return result, structerr.NewInternal("merge-tree: %w", err)
+		return "", structerr.NewInternal("merge-tree: %w", err)
 	}
 
 	commitOID, err := repo.WriteCommit(ctx, localrepo.WriteCommitConfig{
@@ -355,12 +347,10 @@ func (s *server) resolveConflictsWithGit(
 		TreeID:         treeOID,
 	})
 	if err != nil {
-		return result, structerr.NewInternal("writing commit: %w", err)
+		return "", structerr.NewInternal("writing commit: %w", err)
 	}
 
-	result.CommitID = commitOID.String()
-
-	return result, nil
+	return commitOID, nil
 }
 
 func sameRepo(left, right storage.Repository) bool {
