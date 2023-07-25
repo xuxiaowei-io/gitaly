@@ -549,7 +549,9 @@ rails-specs:
   variables:
     GITALY_TEST: "true"
     FORCE_GITLAB_CI: "true"
-  allow_failure: true
+  rules:
+    - when: manual
+      allow_failure: true
 
 rails-specs-cleanup:
   stage: qa
@@ -561,6 +563,9 @@ rails-specs-cleanup:
   environment:
     name: merge-requests/$RAILS_BRANCH_FOR_JOB
     action: stop
+  rules:
+    - when: manual
+      allow_failure: true
 
 cleanup-rails-spec-test-env:
   needs: ["rails-specs-cleanup"]
@@ -572,6 +577,9 @@ cleanup-rails-spec-test-env:
      - |
        ENV_ID=$(curl -s --request GET --header "PRIVATE-TOKEN: $GITALY_PROJECT_TOKEN" "https://gitlab.com/api/v4/projects/2009901/environments" --data-urlencode "name=merge-requests/$RAILS_BRANCH_FOR_JOB" | jq '.[0].id')
        curl --fail -s --request DELETE --header "PRIVATE-TOKEN: $GITALY_PROJECT_TOKEN" "https://gitlab.com/api/v4/projects/2009901/environments/$ENV_ID"
+  rules:
+    - when: manual
+      allow_failure: true
 
 build-package-and-qa:
   needs: []
