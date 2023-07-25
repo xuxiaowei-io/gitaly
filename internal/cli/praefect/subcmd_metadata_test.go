@@ -47,7 +47,7 @@ func TestMetadataSubcommand(t *testing.T) {
 		},
 		{
 			desc:  "missing parameters fails",
-			error: errors.New("repository id or virtual storage and relative path required"),
+			error: errors.New("repository ID or virtual storage and relative path required"),
 		},
 		{
 			desc:  "repository id with virtual storage fails",
