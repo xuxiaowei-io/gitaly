@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
 )
 
 func TestCalculateChecksum(t *testing.T) {
@@ -24,8 +25,8 @@ func TestCalculateChecksum(t *testing.T) {
 
 	type setupData struct {
 		request          *gitalypb.CalculateChecksumRequest
-		expectedErr      error
 		expectedResponse *gitalypb.CalculateChecksumResponse
+		requireError     func(error)
 	}
 
 	for _, tc := range []struct {
@@ -39,7 +40,12 @@ func TestCalculateChecksum(t *testing.T) {
 					request: &gitalypb.CalculateChecksumRequest{
 						Repository: nil,
 					},
-					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+					requireError: func(actual error) {
+						testhelper.RequireGrpcError(t,
+							structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+							actual,
+						)
+					},
 				}
 			},
 		},
@@ -53,9 +59,14 @@ func TestCalculateChecksum(t *testing.T) {
 							RelativePath: gittest.NewRepositoryName(t),
 						},
 					},
-					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-						"%w", storage.NewStorageNotFoundError("fake"),
-					)),
+					requireError: func(actual error) {
+						testhelper.RequireGrpcError(t,
+							testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+								"%w", storage.NewStorageNotFoundError("fake"),
+							)),
+							actual,
+						)
+					},
 				}
 			},
 		},
@@ -71,7 +82,10 @@ func TestCalculateChecksum(t *testing.T) {
 					request: &gitalypb.CalculateChecksumRequest{
 						Repository: repo,
 					},
-					expectedErr: structerr.NewDataLoss("not a git repository '%s'", repoPath),
+					requireError: func(err error) {
+						require.Regexp(t, `^rpc error: code = DataLoss desc = not a git repository '.+'$`, err.Error())
+						testhelper.RequireGrpcCode(t, err, codes.DataLoss)
+					},
 				}
 			},
 		},
@@ -174,7 +188,12 @@ func TestCalculateChecksum(t *testing.T) {
 			setup := tc.setup(t)
 
 			response, err := client.CalculateChecksum(ctx, setup.request)
-			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			if setup.requireError != nil {
+				setup.requireError(err)
+				return
+			}
+
+			require.NoError(t, err)
 			testhelper.ProtoEqual(t, setup.expectedResponse, response)
 		})
 	}
