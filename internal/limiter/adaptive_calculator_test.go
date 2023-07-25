@@ -32,7 +32,6 @@ func TestAdaptiveCalculator_alreadyStarted(t *testing.T) {
 }
 
 func TestAdaptiveCalculator_realTimerTicker(t *testing.T) {
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5473", "TestAdaptiveCalculator_realTimerTicker")
 	t.Parallel()
 
 	logger, hook := test.NewNullLogger()
@@ -46,7 +45,7 @@ func TestAdaptiveCalculator_realTimerTicker(t *testing.T) {
 
 	stop, err := calculator.Start(testhelper.Context(t))
 	require.NoError(t, err)
-	time.Sleep(10 * calibration)
+	limit.waitForEvents(6)
 	stop()
 
 	require.Equal(t, []int{25, 26, 27, 28, 29, 30}, limit.currents[:6])
