@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -550,7 +551,10 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher2"} 5
 			hook.Reset()
 			logger.SetLevel(logrus.InfoLevel)
 
-			ticker := helper.NewManualTicker()
+			tickerDone := make(chan struct{})
+			ticker := helper.NewCountTicker(tc.waitEvents, func() {
+				close(tickerDone)
+			})
 
 			calibration := 10 * time.Millisecond
 			calculator := NewAdaptiveCalculator(calibration, logger.WithContext(testhelper.Context(t)), tc.limits, tc.watchers)
@@ -558,9 +562,12 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher2"} 5
 
 			stop, err := calculator.Start(testhelper.Context(t))
 			require.NoError(t, err)
-			for i := 0; i <= tc.waitEvents; i++ {
-				ticker.Tick()
+
+			<-tickerDone
+			for _, limit := range tc.limits {
+				limit.(*testLimit).waitForEvents(tc.waitEvents)
 			}
+
 			stop()
 
 			for name, expectedLimits := range tc.expectedLimits {
@@ -605,6 +612,8 @@ func findLimitWithName(limits []AdaptiveLimiter, name string) *testLimit {
 }
 
 type testLimit struct {
+	sync.Mutex
+
 	currents       []int
 	name           string
 	initial        int
@@ -619,12 +628,36 @@ func newTestLimit(name string, initial int, max int, min int, backoff float64) *
 
 func (l *testLimit) Name() string { return l.name }
 func (l *testLimit) Current() int {
+	l.Lock()
+	defer l.Unlock()
+
 	if len(l.currents) == 0 {
 		return 0
 	}
 	return l.currents[len(l.currents)-1]
 }
-func (l *testLimit) Update(val int) { l.currents = append(l.currents, val) }
+
+func (l *testLimit) waitForEvents(n int) {
+	for {
+		l.Lock()
+		if len(l.currents) >= n {
+			l.Unlock()
+			return
+		}
+		l.Unlock()
+
+		// Tiny sleep to prevent CPU exhaustion
+		time.Sleep(1 * time.Millisecond)
+	}
+}
+
+func (l *testLimit) Update(val int) {
+	l.Lock()
+	defer l.Unlock()
+
+	l.currents = append(l.currents, val)
+}
+
 func (l *testLimit) Setting() AdaptiveSetting {
 	return AdaptiveSetting{
 		Initial:        l.initial,
