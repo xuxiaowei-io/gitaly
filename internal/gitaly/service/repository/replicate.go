@@ -154,16 +154,16 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 		ctxlogrus.Extract(ctx).WithField("repo_path", repoPath).Warn("removed invalid repository")
 	}
 
-	if err := s.createFromSnapshot(ctx, in); err != nil {
+	if err := s.createFromSnapshot(ctx, in.GetSource(), in.GetRepository()); err != nil {
 		return fmt.Errorf("could not create repository from snapshot: %w", err)
 	}
 
 	return nil
 }
 
-func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, in.GetRepository(), func(repo *gitalypb.Repository) error {
-		if err := s.extractSnapshot(ctx, in.GetSource(), repo); err != nil {
+func (s *server) createFromSnapshot(ctx context.Context, source, target *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, target, func(repo *gitalypb.Repository) error {
+		if err := s.extractSnapshot(ctx, source, repo); err != nil {
 			return fmt.Errorf("extracting snapshot: %w", err)
 		}
 
@@ -452,16 +452,24 @@ func (s *server) syncObjectPool(ctx context.Context, sourceRepoProto, targetRepo
 	switch {
 	case errors.Is(err, objectpool.ErrInvalidPoolRepository):
 		// In the case where the source repository does link to an object pool, but the object pool
-		// does not yet exist on the target storage, the object pool must be replicated as well.
-		// This scenario is not handled yet and instead object pool replication is not performed.
-		return nil
+		// does not yet exist on the target storage, the object pool must be replicated as well. To
+		// accomplish this, a snapshot of the source object pool is extracted onto the target
+		// storage.
+		if err := s.createFromSnapshot(ctx, sourcePoolProto.GetRepository(), targetPoolProto.GetRepository()); err != nil {
+			return fmt.Errorf("replicate object pool: %w", err)
+		}
+
+		targetPool, err = objectpool.FromProto(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetPoolProto)
+		if err != nil {
+			return fmt.Errorf("get replicated object pool: %w", err)
+		}
 	case err != nil:
-		return fmt.Errorf("get target repository object pool: %w", err)
+		return fmt.Errorf("get target object pool: %w", err)
 	}
 
 	// Link the replicated repository to the object pool.
 	if err := targetPool.Link(ctx, targetRepo); err != nil {
-		return fmt.Errorf("link target repository object pool: %w", err)
+		return fmt.Errorf("link target object pool: %w", err)
 	}
 
 	return nil

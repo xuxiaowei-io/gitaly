@@ -490,10 +490,8 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 					LinkRepositoryToObjectPool: true,
 				})
 
-				// Repository replication is currently not able to replicate object pool
-				// repositories. For the Git alternates file to be recreated on the target storage
-				// the required target object pool must already exist on the target storage. This
-				// limitation will go away once proper object pool replication is implemented.
+				// If the required object pool already exists on the target storage, object pool
+				// replication is skipped and the repository is linked to the existing object pool.
 				gittest.CreateObjectPool(t, ctx, cfg, targetProto, gittest.CreateObjectPoolConfig{
 					RelativePath:               sourcePool.GetRepository().GetRelativePath(),
 					LinkRepositoryToObjectPool: false,
@@ -515,21 +513,37 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc: "target link not replicated due to missing object pool",
+			desc: "source object pool replicated to target",
+			// Object pool replication is not currently supported by Praefect. Existing object pool
+			// repositories cannot be located because Praefect rewrites repository messages.
+			// Consequently, this test case is executed with Praefect disabled.
+			serverOpts: []testserver.GitalyServerOpt{testserver.WithDisablePraefect()},
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				sourceProto, _, targetProto, _ := setupSourceAndTarget(t, cfg, false)
+				sourceProto, sourcePath, targetProto, _ := setupSourceAndTarget(t, cfg, false)
 
-				// If the required object pool does not exist on the target node, the target
-				// repository will not be linked to anything.
-				gittest.CreateObjectPool(t, ctx, cfg, sourceProto, gittest.CreateObjectPoolConfig{
+				// If the required object pool does not exist on the target storage, a snapshot copy
+				// of the object pool from the source storage will be extracted onto the target.
+				_, sourcePoolPath := gittest.CreateObjectPool(t, ctx, cfg, sourceProto, gittest.CreateObjectPoolConfig{
 					LinkRepositoryToObjectPool: true,
 				})
+
+				// Write commit to object pool to ensure that the pool and its contents are copied
+				// to the target storage.
+				commitID := gittest.WriteCommit(t, cfg, sourcePoolPath)
+
+				expectedAltInfo, err := stats.AlternatesInfoForRepository(sourcePath)
+				require.NoError(t, err)
+
+				if featureflag.ReplicateRepositoryObjectPool.IsDisabled(ctx) {
+					expectedAltInfo = stats.AlternatesInfo{Exists: false}
+				}
 
 				return setupData{
 					source:              sourceProto,
 					target:              targetProto,
 					replicateObjectPool: true,
-					expectedAltInfo:     stats.AlternatesInfo{Exists: false},
+					expectedAltInfo:     expectedAltInfo,
+					expectedObjects:     []string{commitID.String()},
 				}
 			},
 		},
@@ -544,10 +558,8 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 					LinkRepositoryToObjectPool: true,
 				})
 
-				// Repository replication is currently not able to replicate object pool
-				// repositories. For the Git alternates file to be recreated on the target storage
-				// the required target object pool must already exist on the target storage. This
-				// limitation will go away once proper object pool replication is implemented.
+				// Create the required object pool repository on the target storage, to validate
+				// that it does not get linked even though it exists.
 				gittest.CreateObjectPool(t, ctx, cfg, targetProto, gittest.CreateObjectPoolConfig{
 					RelativePath:               sourcePool.GetRepository().GetRelativePath(),
 					LinkRepositoryToObjectPool: false,
