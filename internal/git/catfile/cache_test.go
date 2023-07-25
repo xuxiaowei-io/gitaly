@@ -219,6 +219,9 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
+	version, err := repoExecutor.GitVersion(ctx)
+	require.NoError(t, err)
+
 	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 
@@ -250,12 +253,18 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 		// cache and wait for the cache to collect it.
 		cancel()
 
-		keys := keys(t, &cache.objectContentReaders)
+		var allKeys []key
+		if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
+			allKeys = keys(t, &cache.objectReaders)
+		} else {
+			allKeys = keys(t, &cache.objectContentReaders)
+		}
+
 		require.Equal(t, []key{{
 			sessionID:   "1",
 			repoStorage: repo.GetStorageName(),
 			repoRelPath: repo.GetRelativePath(),
-		}}, keys)
+		}}, allKeys)
 
 		// Assert that we can still read from the cached process.
 		_, err = reader.Object(ctx, "refs/heads/main")
@@ -324,6 +333,9 @@ func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
 
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
+	version, err := repoExecutor.GitVersion(ctx)
+	require.NoError(t, err)
+
 	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 
@@ -354,12 +366,18 @@ func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
 		// Cancel the process such it will be considered for return to the cache.
 		cancel()
 
-		keys := keys(t, &cache.objectInfoReaders)
+		var allKeys []key
+		if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
+			allKeys = keys(t, &cache.objectReaders)
+		} else {
+			allKeys = keys(t, &cache.objectInfoReaders)
+		}
+
 		require.Equal(t, []key{{
 			sessionID:   "1",
 			repoStorage: repo.GetStorageName(),
 			repoRelPath: repo.GetRelativePath(),
-		}}, keys)
+		}}, allKeys)
 
 		// Assert that we can still read from the cached process.
 		_, err = reader.Info(ctx, "refs/heads/main")

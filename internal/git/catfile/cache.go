@@ -60,6 +60,7 @@ type ProcessCache struct {
 	monitorTicker helper.Ticker
 	monitorDone   chan interface{}
 
+	objectReaders        processes
 	objectContentReaders processes
 	objectInfoReaders    processes
 
@@ -86,6 +87,9 @@ func newCache(ttl time.Duration, maxLen int, monitorTicker helper.Ticker) *Proce
 			maxLen: maxLen,
 		},
 		objectInfoReaders: processes{
+			maxLen: maxLen,
+		},
+		objectReaders: processes{
 			maxLen: maxLen,
 		},
 		catfileCacheCounter: prometheus.NewCounterVec(
@@ -151,6 +155,7 @@ func (c *ProcessCache) monitor() {
 		case <-c.monitorTicker.C():
 			c.objectContentReaders.EnforceTTL(time.Now())
 			c.objectInfoReaders.EnforceTTL(time.Now())
+			c.objectReaders.EnforceTTL(time.Now())
 			c.monitorTicker.Reset()
 		case <-c.monitorDone:
 			close(c.monitorDone)
@@ -182,9 +187,9 @@ func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExec
 	}
 
 	if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
-		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectContentReaders, func(ctx context.Context) (cacheable, error) {
+		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
 			return newObjectReader(ctx, repo, c.catfileLookupCounter)
-		}, "catfile.ObjectContentReader")
+		}, "catfile.ObjectReader")
 	} else {
 		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectContentReaders, func(ctx context.Context) (cacheable, error) {
 			return newObjectContentReader(ctx, repo, c.catfileLookupCounter)
@@ -214,9 +219,9 @@ func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.Repository
 	}
 
 	if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
-		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
+		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
 			return newObjectReader(ctx, repo, c.catfileLookupCounter)
-		}, "catfile.ObjectInfoReader")
+		}, "catfile.ObjectReader")
 	} else {
 		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
 			return newObjectInfoReader(ctx, repo, c.catfileLookupCounter)
@@ -336,12 +341,14 @@ func (c *ProcessCache) getOrCreateProcess(
 func (c *ProcessCache) reportCacheMembers() {
 	c.catfileCacheMembers.WithLabelValues("object_content_reader").Set(float64(c.objectContentReaders.EntryCount()))
 	c.catfileCacheMembers.WithLabelValues("object_info_reader").Set(float64(c.objectInfoReaders.EntryCount()))
+	c.catfileCacheMembers.WithLabelValues("object_reader").Set(float64(c.objectReaders.EntryCount()))
 }
 
 // Evict evicts all cached processes from the cache.
 func (c *ProcessCache) Evict() {
 	c.objectContentReaders.Evict()
 	c.objectInfoReaders.Evict()
+	c.objectReaders.Evict()
 }
 
 func (c *ProcessCache) returnToCache(p *processes, cacheKey key, value cacheable, cancel func()) {
