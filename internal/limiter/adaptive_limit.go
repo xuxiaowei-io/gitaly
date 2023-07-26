@@ -6,10 +6,10 @@ import (
 
 // AdaptiveSetting is a struct that holds the configuration parameters for an adaptive limiter.
 type AdaptiveSetting struct {
-	Initial        int
-	Max            int
-	Min            int
-	BackoffBackoff float64
+	Initial       int
+	Max           int
+	Min           int
+	BackoffFactor float64
 }
 
 // AfterUpdateHook is a function hook that is triggered when the current limit changes. The callers need to register a hook to

@@ -663,10 +663,10 @@ func (*testLimit) AfterUpdate(_ AfterUpdateHook) {}
 
 func (l *testLimit) Setting() AdaptiveSetting {
 	return AdaptiveSetting{
-		Initial:        l.initial,
-		Max:            l.max,
-		Min:            l.min,
-		BackoffBackoff: l.backoffBackoff,
+		Initial:       l.initial,
+		Max:           l.max,
+		Min:           l.min,
+		BackoffFactor: l.backoffBackoff,
 	}
 }
 
