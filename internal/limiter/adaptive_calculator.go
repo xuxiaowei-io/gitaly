@@ -133,9 +133,12 @@ func (c *AdaptiveCalculator) Start(ctx context.Context) (func(), error) {
 	}
 
 	done := make(chan struct{})
+	started := make(chan struct{})
 	completed := make(chan struct{})
 
 	go func(ctx context.Context) {
+		close(started)
+
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer close(completed)
@@ -168,6 +171,7 @@ func (c *AdaptiveCalculator) Start(ctx context.Context) (func(), error) {
 		}
 	}(ctx)
 
+	<-started
 	return func() {
 		close(done)
 		<-completed
