@@ -79,11 +79,15 @@ func StartPraefect(tb testing.TB, cfg config.Config) PraefectServer {
 		BinDir: tempDir,
 	})
 
+	// Redirect log output of the server to the Praefect server logger. This will cause us to write logs into a
+	// Praefect-specific file.
+	logWriter := testhelper.NewPraefectServerLogger(tb).Writer()
+	tb.Cleanup(func() { testhelper.MustClose(tb, logWriter) })
+
 	cmd := exec.Command(binaryPath, "-config", configFilePath)
-	// Logs are written to stderr, we can ignore stdout.
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = logWriter
 
 	require.NoError(tb, cmd.Start())
 
