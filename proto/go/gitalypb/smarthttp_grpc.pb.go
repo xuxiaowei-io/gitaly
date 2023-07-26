@@ -34,6 +34,8 @@ type SmartHTTPServiceClient interface {
 	// available on the server to the client via git-receive-pack(1)'s `--advertise-refs`
 	// option.
 	InfoRefsReceivePack(ctx context.Context, in *InfoRefsRequest, opts ...grpc.CallOption) (SmartHTTPService_InfoRefsReceivePackClient, error)
+	// InfoRefsPollRef provides provides an efficient way to poll a reference for updates.
+	InfoRefsPollRef(ctx context.Context, in *InfoRefsPollRefRequest, opts ...grpc.CallOption) (*InfoRefsPollRefResponse, error)
 	// PostUploadPackWithSidechannel provides the response for POST /upload-pack. It
 	// used to transfer pack files from the server to the client via sidechannels. This
 	// is invoked when the client executes `git fetch`.
@@ -117,6 +119,15 @@ func (x *smartHTTPServiceInfoRefsReceivePackClient) Recv() (*InfoRefsResponse, e
 	return m, nil
 }
 
+func (c *smartHTTPServiceClient) InfoRefsPollRef(ctx context.Context, in *InfoRefsPollRefRequest, opts ...grpc.CallOption) (*InfoRefsPollRefResponse, error) {
+	out := new(InfoRefsPollRefResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.SmartHTTPService/InfoRefsPollRef", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *smartHTTPServiceClient) PostUploadPackWithSidechannel(ctx context.Context, in *PostUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*PostUploadPackWithSidechannelResponse, error) {
 	out := new(PostUploadPackWithSidechannelResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.SmartHTTPService/PostUploadPackWithSidechannel", in, out, opts...)
@@ -173,6 +184,8 @@ type SmartHTTPServiceServer interface {
 	// available on the server to the client via git-receive-pack(1)'s `--advertise-refs`
 	// option.
 	InfoRefsReceivePack(*InfoRefsRequest, SmartHTTPService_InfoRefsReceivePackServer) error
+	// InfoRefsPollRef provides provides an efficient way to poll a reference for updates.
+	InfoRefsPollRef(context.Context, *InfoRefsPollRefRequest) (*InfoRefsPollRefResponse, error)
 	// PostUploadPackWithSidechannel provides the response for POST /upload-pack. It
 	// used to transfer pack files from the server to the client via sidechannels. This
 	// is invoked when the client executes `git fetch`.
@@ -194,6 +207,9 @@ func (UnimplementedSmartHTTPServiceServer) InfoRefsUploadPack(*InfoRefsRequest, 
 }
 func (UnimplementedSmartHTTPServiceServer) InfoRefsReceivePack(*InfoRefsRequest, SmartHTTPService_InfoRefsReceivePackServer) error {
 	return status.Errorf(codes.Unimplemented, "method InfoRefsReceivePack not implemented")
+}
+func (UnimplementedSmartHTTPServiceServer) InfoRefsPollRef(context.Context, *InfoRefsPollRefRequest) (*InfoRefsPollRefResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InfoRefsPollRef not implemented")
 }
 func (UnimplementedSmartHTTPServiceServer) PostUploadPackWithSidechannel(context.Context, *PostUploadPackWithSidechannelRequest) (*PostUploadPackWithSidechannelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PostUploadPackWithSidechannel not implemented")
@@ -256,6 +272,24 @@ func (x *smartHTTPServiceInfoRefsReceivePackServer) Send(m *InfoRefsResponse) er
 	return x.ServerStream.SendMsg(m)
 }
 
+func _SmartHTTPService_InfoRefsPollRef_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InfoRefsPollRefRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SmartHTTPServiceServer).InfoRefsPollRef(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.SmartHTTPService/InfoRefsPollRef",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SmartHTTPServiceServer).InfoRefsPollRef(ctx, req.(*InfoRefsPollRefRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SmartHTTPService_PostUploadPackWithSidechannel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PostUploadPackWithSidechannelRequest)
 	if err := dec(in); err != nil {
@@ -307,6 +341,10 @@ var SmartHTTPService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gitaly.SmartHTTPService",
 	HandlerType: (*SmartHTTPServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "InfoRefsPollRef",
+			Handler:    _SmartHTTPService_InfoRefsPollRef_Handler,
+		},
 		{
 			MethodName: "PostUploadPackWithSidechannel",
 			Handler:    _SmartHTTPService_PostUploadPackWithSidechannel_Handler,

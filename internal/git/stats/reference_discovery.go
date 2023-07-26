@@ -89,6 +89,10 @@ func (d *ReferenceDiscovery) Parse(body io.Reader) error {
 
 			state = referenceDiscoveryExpectRefWithCaps
 		case referenceDiscoveryExpectRefWithCaps:
+			if len(data) == 0 { // no refs in an empty repo
+				state = referenceDiscoveryExpectEnd
+				continue
+			}
 			split := strings.SplitN(data, "\x00", 2)
 			if len(split) != 2 {
 				return errors.New("invalid first reference line")

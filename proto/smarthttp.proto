@@ -33,6 +33,12 @@ service SmartHTTPService {
     };
   }
 
+  // InfoRefsPollRef provides an efficient way to poll a reference for updates.
+  rpc InfoRefsPollRef(InfoRefsPollRefRequest) returns (InfoRefsPollRefResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 
   // PostUploadPackWithSidechannel provides the response for POST /upload-pack. It
   // used to transfer pack files from the server to the client via sidechannels. This
@@ -70,6 +76,27 @@ message InfoRefsResponse {
   // Data is the raw data copied from the stdout of git-upload-pack(1) or
   // git-receive-pack(1) when used with the `--advertise-refs` flag.
   bytes data = 1;
+}
+
+// InfoRefsPollRefRequest is the request of InfoRefsPollRef.
+message InfoRefsPollRefRequest {
+  // Repository is the repository on which to operate.
+  Repository repository = 1 [(target_repository)=true];
+  // GitConfigOptions are parameters to use with git -c (key=value pairs).
+  repeated string git_config_options = 2;
+  // GitProtocol is the git protocol version.
+  string git_protocol = 3;
+  // Reference name to retrieve commit ID for.
+  // If set to HEAD, commit for the default branch is returned.
+  bytes ref = 4;
+}
+
+// InfoRefsPollRefRequest is the response of InfoRefsPollRef.
+message InfoRefsPollRefResponse {
+  // Commit ID. Is not set when empty_repo is true.
+  string commit_id = 1;
+  // Is true when repository doesn't have any refs.
+  bool empty_repo = 2;
 }
 
 // PostUploadPackWithSidechannelRequest is the request for the PostUploadPackWithSidechannel rpc.
