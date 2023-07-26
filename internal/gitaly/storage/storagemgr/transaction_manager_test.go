@@ -375,6 +375,14 @@ func TestTransactionManager(t *testing.T) {
 	// closed.
 	type RemoveRepository struct{}
 
+	// RepositoryAssertion asserts a given transaction's repository state matches the expected.
+	type RepositoryAssertion struct {
+		// TransactionID identifies the transaction whose snapshot to assert.
+		TransactionID int
+		// Repository is the expected state of the repository.
+		Repository RepositoryState
+	}
+
 	// StateAssertions models an assertion of the entire state managed by the TransactionManager.
 	type StateAssertion struct {
 		// Database is the expected state of the database.
@@ -2106,6 +2114,32 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
+				RepositoryAssertion{
+					TransactionID: 1,
+					Repository: RepositoryState{
+						DefaultBranch: "refs/heads/main",
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+							setup.Commits.Diverging.OID,
+						},
+					},
+				},
+				RepositoryAssertion{
+					TransactionID: 2,
+					Repository: RepositoryState{
+						DefaultBranch: "refs/heads/main",
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+							setup.Commits.Diverging.OID,
+						},
+					},
+				},
 				Commit{
 					TransactionID: 1,
 					ReferenceUpdates: ReferenceUpdates{
@@ -2115,11 +2149,64 @@ func TestTransactionManager(t *testing.T) {
 						CustomHooksTAR: validCustomHooks(t),
 					},
 				},
+				// Transaction 2 is not isolated from the changes made by transaction 1. It sees the committed
+				// changes immediately.
+				RepositoryAssertion{
+					TransactionID: 2,
+					Repository: RepositoryState{
+						DefaultBranch: "refs/heads/main",
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+							setup.Commits.Diverging.OID,
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+					},
+				},
 				Begin{
 					TransactionID: 3,
 					ExpectedSnapshot: Snapshot{
 						ReadIndex:       1,
 						CustomHookIndex: 1,
+					},
+				},
+				// Transaction 3 is should see the new changes as it began after transaction 1 was committed.
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repository: RepositoryState{
+						DefaultBranch: "refs/heads/main",
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+							setup.Commits.Diverging.OID,
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
 					},
 				},
 				Commit{
@@ -3071,6 +3158,47 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
+			desc: "deletion waits until other transactions are done",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				AsyncDeletion{
+					TransactionID: 1,
+				},
+				// The concurrent transaction should be able to read the
+				// repository despite the committed deletion.
+				RepositoryAssertion{
+					TransactionID: 2,
+					Repository: RepositoryState{
+						DefaultBranch: "refs/heads/main",
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+							setup.Commits.Diverging.OID,
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 2,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Repository: RepositoryState{
+					NotFound: true,
+				},
+			},
+		},
+		{
 			desc: "failing initialization prevents transaction beginning",
 			steps: steps{
 				StartManager{
@@ -3546,6 +3674,14 @@ func TestTransactionManager(t *testing.T) {
 					require.ElementsMatch(t, step.ExpectedObjects, gittest.ListObjects(t, setup.Config, repoPath))
 				case RemoveRepository:
 					require.NoError(t, os.RemoveAll(repoPath))
+				case RepositoryAssertion:
+					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction's snapshot asserted before beginning it")
+					transaction := openTransactions[step.TransactionID]
+
+					RequireRepositoryState(t, ctx, setup.Config,
+						setup.RepositoryFactory.Build(
+							transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
+						), step.Repository)
 				default:
 					t.Fatalf("unhandled step type: %T", step)
 				}
