@@ -350,7 +350,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	var partitionManager *storagemgr.PartitionManager
-	if _, ok := os.LookupEnv("GITALY_TEST_WAL"); ok {
+	if testhelper.IsWALEnabled() {
 		var err error
 		partitionManager, err = storagemgr.NewPartitionManager(
 			cfg.Storages,

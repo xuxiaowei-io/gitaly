@@ -1146,6 +1146,10 @@ func packFilePath(walFiles string) string {
 // reference changes. The old tips in the transaction are verified against the current actual tips.
 // It returns the write-ahead log entry for the transaction if it was successfully verified.
 func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) ([]*gitalypb.LogEntry_ReferenceUpdate, error) {
+	if len(transaction.referenceUpdates) == 0 {
+		return nil, nil
+	}
+
 	var referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate
 	for referenceName, update := range transaction.referenceUpdates {
 		if err := git.ValidateReference(string(referenceName)); err != nil {
@@ -1353,13 +1357,8 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 			}
 		}
 
-		updater, err := mgr.prepareReferenceTransaction(ctx, logEntry.ReferenceUpdates, mgr.repository)
-		if err != nil {
-			return fmt.Errorf("prepare reference transaction: %w", err)
-		}
-
-		if err := updater.Commit(); err != nil {
-			return fmt.Errorf("commit transaction: %w", err)
+		if err := mgr.applyReferenceUpdates(ctx, logEntry.ReferenceUpdates); err != nil {
+			return fmt.Errorf("apply reference updates: %w", err)
 		}
 
 		if err := mgr.applyDefaultBranchUpdate(ctx, logEntry.DefaultBranchUpdate); err != nil {
@@ -1398,6 +1397,24 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 	if resultChan, ok := mgr.awaitingTransactions[logIndex]; ok {
 		resultChan <- nil
 		delete(mgr.awaitingTransactions, logIndex)
+	}
+
+	return nil
+}
+
+// applyReferenceUpdates applies the applies the given reference updates to the repository.
+func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, updates []*gitalypb.LogEntry_ReferenceUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	updater, err := mgr.prepareReferenceTransaction(ctx, updates, mgr.repository)
+	if err != nil {
+		return fmt.Errorf("prepare reference transaction: %w", err)
+	}
+
+	if err := updater.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	return nil
