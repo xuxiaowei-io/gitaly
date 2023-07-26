@@ -185,10 +185,10 @@ func TestCache_autoExpiry(t *testing.T) {
 	// Add a process that has expired already.
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	c.objectReaders.Add(key0, value0, time.Now().Add(-time.Millisecond), cancel)
-	requireProcessesValid(t, &c.objectReaders)
+	c.objectContentReaders.Add(key0, value0, time.Now().Add(-time.Millisecond), cancel)
+	requireProcessesValid(t, &c.objectContentReaders)
 
-	require.Contains(t, keys(t, &c.objectReaders), key0, "key should still be in map")
+	require.Contains(t, keys(t, &c.objectContentReaders), key0, "key should still be in map")
 	require.False(t, value0.isClosed(), "value should not have been closed")
 
 	// We need to tick thrice to get deterministic results: the first tick is discarded before
@@ -199,7 +199,7 @@ func TestCache_autoExpiry(t *testing.T) {
 	monitorTicker.Tick()
 	monitorTicker.Tick()
 
-	require.Empty(t, keys(t, &c.objectReaders), "key should no longer be in map")
+	require.Empty(t, keys(t, &c.objectContentReaders), "key should no longer be in map")
 	require.True(t, value0.isClosed(), "value should be closed after eviction")
 }
 
@@ -219,6 +219,9 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
+	version, err := repoExecutor.GitVersion(ctx)
+	require.NoError(t, err)
+
 	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 
@@ -232,7 +235,7 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 		cancel()
 
 		require.True(t, reader.isClosed())
-		require.Empty(t, keys(t, &cache.objectReaders))
+		require.Empty(t, keys(t, &cache.objectContentReaders))
 	})
 
 	t.Run("cacheable", func(t *testing.T) {
@@ -250,12 +253,18 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 		// cache and wait for the cache to collect it.
 		cancel()
 
-		keys := keys(t, &cache.objectReaders)
+		var allKeys []key
+		if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
+			allKeys = keys(t, &cache.objectReaders)
+		} else {
+			allKeys = keys(t, &cache.objectContentReaders)
+		}
+
 		require.Equal(t, []key{{
 			sessionID:   "1",
 			repoStorage: repo.GetStorageName(),
 			repoRelPath: repo.GetRelativePath(),
-		}}, keys)
+		}}, allKeys)
 
 		// Assert that we can still read from the cached process.
 		_, err = reader.Object(ctx, "refs/heads/main")
@@ -280,7 +289,7 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 		// Cancel the process such that it will be considered for return to the cache.
 		cancel()
 
-		require.Empty(t, keys(t, &cache.objectReaders))
+		require.Empty(t, keys(t, &cache.objectContentReaders))
 
 		// The process should be killed now, so reading the object must fail.
 		_, err = io.ReadAll(object)
@@ -304,7 +313,7 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 		// Cancel the process such that it will be considered for return to the cache.
 		cancel()
 
-		require.Empty(t, keys(t, &cache.objectReaders))
+		require.Empty(t, keys(t, &cache.objectContentReaders))
 	})
 }
 
@@ -323,6 +332,9 @@ func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	repoExecutor := newRepoExecutor(t, cfg, repo)
+
+	version, err := repoExecutor.GitVersion(ctx)
+	require.NoError(t, err)
 
 	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
@@ -354,12 +366,18 @@ func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
 		// Cancel the process such it will be considered for return to the cache.
 		cancel()
 
-		keys := keys(t, &cache.objectInfoReaders)
+		var allKeys []key
+		if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
+			allKeys = keys(t, &cache.objectReaders)
+		} else {
+			allKeys = keys(t, &cache.objectInfoReaders)
+		}
+
 		require.Equal(t, []key{{
 			sessionID:   "1",
 			repoStorage: repo.GetStorageName(),
 			repoRelPath: repo.GetRelativePath(),
-		}}, keys)
+		}}, allKeys)
 
 		// Assert that we can still read from the cached process.
 		_, err = reader.Info(ctx, "refs/heads/main")
