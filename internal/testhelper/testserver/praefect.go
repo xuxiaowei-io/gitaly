@@ -19,18 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
-// praefectSpawnTokens limits the number of concurrent Praefect instances we spawn. With parallel
-// tests, it can happen that we otherwise would spawn so many Praefect executables, with two
-// consequences: first, they eat up all the hosts' memory. Second, they start to saturate Postgres
-// such that new connections start to fail becaue of too many clients. The limit of concurrent
-// instances is not scientifically chosen, but is picked such that tests do not fail on my machine
-// anymore.
-//
-// Note that this only limits concurrency for a single package. If you test multiple packages at
-// once, then these would also run concurrently, leading to `16 * len(packages)` concurrent Praefect
-// instances. To limit this, you can run `go test -p $n` to test at most `$n` concurrent packages.
-var praefectSpawnTokens = make(chan struct{}, 16)
-
 // PraefectServer encapsulates information of a running Praefect server.
 type PraefectServer struct {
 	address  string
@@ -53,11 +41,6 @@ func (ps PraefectServer) Shutdown() {
 func StartPraefect(tb testing.TB, cfg config.Config) PraefectServer {
 	tb.Helper()
 
-	praefectSpawnTokens <- struct{}{}
-	tb.Cleanup(func() {
-		<-praefectSpawnTokens
-	})
-
 	// We're precreating the Unix socket which we pass to Praefect. This closes a race where
 	// the Unix socket didn't yet exist when we tried to dial the Praefect server.
 	praefectServerSocket, err := net.Listen("unix", cfg.SocketPath)
@@ -79,11 +62,15 @@ func StartPraefect(tb testing.TB, cfg config.Config) PraefectServer {
 		BinDir: tempDir,
 	})
 
+	// Redirect log output of the server to the Praefect server logger. This will cause us to write logs into a
+	// Praefect-specific file.
+	logWriter := testhelper.NewPraefectServerLogger(tb).Writer()
+	tb.Cleanup(func() { testhelper.MustClose(tb, logWriter) })
+
 	cmd := exec.Command(binaryPath, "-config", configFilePath)
-	// Logs are written to stderr, we can ignore stdout.
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = logWriter
 
 	require.NoError(tb, cmd.Start())
 
