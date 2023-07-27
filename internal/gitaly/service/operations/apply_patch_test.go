@@ -32,7 +32,7 @@ func TestUserApplyPatch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	errPatchingFailed := status.Error(
 		codes.FailedPrecondition,
@@ -607,8 +607,12 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	parentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Mode: "100644", Content: "change me\n"},
+	))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	stream, err := client.UserApplyPatch(ctx)
@@ -625,10 +629,27 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 		},
 	}))
 
-	patch := testhelper.MustReadFile(t, "testdata/0001-A-commit-from-a-patch.patch")
 	require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Patches{
-			Patches: patch,
+			Patches: []byte(fmt.Sprintf(`From %s Mon Sep 17 00:00:00 2001
+From: Patch User <patchuser@gitlab.org>
+Date: Thu, 18 Oct 2018 13:40:35 +0200
+Subject: [PATCH] A commit from a patch
+
+---
+ file | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/file b/file
+index 3742e48..e40a3b9 100644
+--- a/file
++++ b/file
+@@ -1 +1 @@
+-change me
++changed
+--
+2.19.1
+`, parentCommitID)),
 		},
 	}))
 
@@ -639,10 +660,10 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 	patchedCommit, err := repo.ReadCommit(ctx, git.Revision("branch"))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:     "93285a1e2319749f6d2bb7c394451a70ca7dcd07",
-		TreeId: "98091f327a9fb132fcb4b490a420c276c653c4c6",
+		Id:     "0a40a105159a00a5f7804bd4484dc73986d3d9bf",
+		TreeId: "9aa427f7ab21b39efaa3efd02ead282a0584268c",
 		ParentIds: []string{
-			"1e292f8fedd741b75372e19097c76d327140c312",
+			parentCommitID.String(),
 		},
 		Subject:  []byte("A commit from a patch"),
 		Body:     []byte("A commit from a patch\n"),
@@ -667,7 +688,12 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
-	ctx, _, repoProto, _, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, testserver.WithTransactionManager(txManager))
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	parentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "file", Mode: "100644", Content: "change me\n"},
+	))
 
 	// Reset the transaction manager as the setup call above creates a repository which
 	// ends up creating some votes with Praefect enabled.
@@ -679,8 +705,6 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 		AuthInfo: backchannel.WithID(nil, 1234),
 	})
 	ctx = metadata.IncomingToOutgoing(ctx)
-
-	patch := testhelper.MustReadFile(t, "testdata/0001-A-commit-from-a-patch.patch")
 
 	stream, err := client.UserApplyPatch(ctx)
 	require.NoError(t, err)
@@ -696,23 +720,43 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 	}))
 	require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Patches{
-			Patches: patch,
+			Patches: []byte(fmt.Sprintf(`From %s Mon Sep 17 00:00:00 2001
+From: Patch User <patchuser@gitlab.org>
+Date: Thu, 18 Oct 2018 13:40:35 +0200
+Subject: [PATCH] A commit from a patch
+
+---
+ file | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/file b/file
+index 3742e48..e40a3b9 100644
+--- a/file
++++ b/file
+@@ -1 +1 @@
+-change me
++changed
+--
+2.19.1
+`, parentCommitID)),
 		},
 	}))
+
 	response, err := stream.CloseAndRecv()
 	require.NoError(t, err)
-
 	require.True(t, response.BranchUpdate.BranchCreated)
-
 	require.Equal(t, 15, len(txManager.Votes()))
 }
 
-func TestFailedValidationUserApplyPatch(t *testing.T) {
+func TestUserApplyPatch_validation(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
-	testCases := []struct {
+	ctx := testhelper.Context(t)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+	for _, tc := range []struct {
 		desc        string
 		repo        *gitalypb.Repository
 		user        *gitalypb.User
@@ -744,24 +788,28 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 			repo:        repo,
 			expectedErr: status.Error(codes.InvalidArgument, "missing User"),
 		},
-	}
+	} {
+		tc := tc
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			stream, err := client.UserApplyPatch(ctx)
 			require.NoError(t, err)
+
 			err = stream.Send(&gitalypb.UserApplyPatchRequest{
 				UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
 					Header: &gitalypb.UserApplyPatchRequest_Header{
-						Repository:   testCase.repo,
-						User:         testCase.user,
-						TargetBranch: []byte(testCase.branchName),
+						Repository:   tc.repo,
+						User:         tc.user,
+						TargetBranch: []byte(tc.branchName),
 					},
 				},
 			})
 			require.NoError(t, err)
+
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
