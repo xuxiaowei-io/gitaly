@@ -23,7 +23,6 @@ func TestUserMergeToRef_successful(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.MergeToRefWithGit,
 	).Run(
 		t,
 		testUserMergeToRefSuccessful,
@@ -31,8 +30,6 @@ func TestUserMergeToRef_successful(t *testing.T) {
 }
 
 func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goMergeToRef(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -161,7 +158,6 @@ func TestUserMergeToRef_conflicts(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.MergeToRefWithGit,
 	).Run(
 		t,
 		testUserMergeToRefConflicts,
@@ -169,8 +165,6 @@ func TestUserMergeToRef_conflicts(t *testing.T) {
 }
 
 func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goMergeToRef(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -227,7 +221,6 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.MergeToRefWithGit,
 	).Run(
 		t,
 		testUserMergeToRefStableMergeID,
@@ -235,8 +228,6 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 }
 
 func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goMergeToRef(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -307,13 +298,10 @@ func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
 func TestUserMergeToRef_failure(t *testing.T) {
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.MergeToRefWithGit,
 	).Run(t, testUserMergeToRefFailure)
 }
 
 func testUserMergeToRefFailure(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goMergeToRef(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -436,7 +424,6 @@ func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.MergeToRefWithGit,
 	).Run(
 		t,
 		testUserMergeToRefIgnoreHooksRequest,
@@ -444,8 +431,6 @@ func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 }
 
 func testUserMergeToRefIgnoreHooksRequest(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goMergeToRef(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -477,11 +462,5 @@ func testUserMergeToRefIgnoreHooksRequest(t *testing.T, ctx context.Context) {
 			_, err := client.UserMergeToRef(ctx, request)
 			require.NoError(t, err)
 		})
-	}
-}
-
-func skipSHA256WithGit2goMergeToRef(t *testing.T, ctx context.Context) {
-	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.MergeToRefWithGit.IsDisabled(ctx) {
-		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
 	}
 }
