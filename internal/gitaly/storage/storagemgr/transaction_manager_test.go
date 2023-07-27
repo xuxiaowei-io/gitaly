@@ -299,7 +299,7 @@ func TestTransactionManager(t *testing.T) {
 		// ModifyRepository allows for running modifying the repository prior the manager starting. This
 		// may be necessary to test some states that can be reached from hard crashes but not during the
 		// tests.
-		ModifyRepository func(tb testing.TB, repoPath string)
+		ModifyRepository func(tb testing.TB, cfg config.Cfg, repoPath string)
 	}
 
 	// StopManager stops a TransactionManager.
@@ -480,7 +480,7 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create reference with existing reference lock",
 			steps: steps{
 				StartManager{
-					ModifyRepository: func(_ testing.TB, repoPath string) {
+					ModifyRepository: func(_ testing.TB, _ config.Cfg, repoPath string) {
 						err := os.WriteFile(fmt.Sprintf("%s/refs/heads/main.lock", repoPath), []byte{}, 0o666)
 						require.NoError(t, err)
 					},
@@ -996,6 +996,117 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+			},
+		},
+		{
+			desc: "delete symbolic reference pointing to non-existent reference",
+			steps: steps{
+				StartManager{
+					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+						gittest.Exec(tb, cfg,
+							"-C", repoPath,
+							"symbolic-ref", "refs/heads/symbolic", "refs/heads/main",
+						)
+					},
+				},
+				Begin{},
+				Commit{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/symbolic": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.ZeroOID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "delete symbolic reference",
+			steps: steps{
+				StartManager{
+					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+						gittest.Exec(tb, cfg,
+							"-C", repoPath,
+							"symbolic-ref", "refs/heads/symbolic", "refs/heads/main",
+						)
+					},
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/symbolic": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+				},
+			},
+		},
+		{
+			desc: "update symbolic reference",
+			steps: steps{
+				StartManager{
+					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+						gittest.Exec(tb, cfg,
+							"-C", repoPath,
+							"symbolic-ref", "refs/heads/symbolic", "refs/heads/main",
+						)
+					},
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/symbolic": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+				References: []git.Reference{
+					{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+					// The symbolic reference should be converted to a normal reference if it is
+					// updated.
+					{Name: "refs/heads/symbolic", Target: setup.Commits.Second.OID.String()},
 				},
 			},
 		},
@@ -2594,7 +2705,7 @@ func TestTransactionManager(t *testing.T) {
 					// we have to test the behavior by manually creating a stale pack here.
 					//
 					// The Manager starts up and we expect the pack file to be gone at the end of the test.
-					ModifyRepository: func(tb testing.TB, repoPath string) {
+					ModifyRepository: func(_ testing.TB, _ config.Cfg, repoPath string) {
 						packFilePath := packFilePath(walFilesPathForLogIndex(repoPath, 1))
 						require.NoError(t, os.MkdirAll(filepath.Dir(packFilePath), fs.ModePerm))
 						require.NoError(t, os.WriteFile(
@@ -2859,7 +2970,7 @@ func TestTransactionManager(t *testing.T) {
 			desc: "failing initialization prevents transaction beginning",
 			steps: steps{
 				StartManager{
-					ModifyRepository: func(tb testing.TB, repoPath string) {
+					ModifyRepository: func(_ testing.TB, _ config.Cfg, repoPath string) {
 						// Remove the repository's directory and create a file in its place
 						// to fail the initialization.
 						require.NoError(t, os.RemoveAll(repoPath))
@@ -3158,7 +3269,7 @@ func TestTransactionManager(t *testing.T) {
 					require.False(t, managerRunning, "test error: manager started while it was already running")
 
 					if step.ModifyRepository != nil {
-						step.ModifyRepository(t, repoPath)
+						step.ModifyRepository(t, setup.Config, repoPath)
 					}
 
 					managerRunning = true

@@ -1243,7 +1243,7 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 	// reference locks. So we create a function which can be called again
 	// post cleanup of stale reference locks.
 	updateFunc := func() (*updateref.Updater, error) {
-		updater, err := updateref.New(ctx, repository, updateref.WithDisabledTransactions())
+		updater, err := updateref.New(ctx, repository, updateref.WithDisabledTransactions(), updateref.WithNoDeref())
 		if err != nil {
 			return nil, fmt.Errorf("new: %w", err)
 		}
