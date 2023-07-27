@@ -449,15 +449,15 @@ func (txn *Transaction) walFilesPath() string {
 type TransactionManager struct {
 	// ctx is the context used for all operations.
 	ctx context.Context
-	// stop cancels ctx and stops the transaction processing.
-	stop context.CancelFunc
+	// close cancels ctx and stops the transaction processing.
+	close context.CancelFunc
 
-	// stopCalled is closed when Stop is called. It unblock transactions that are waiting to be admitted.
-	stopCalled <-chan struct{}
-	// runDone is closed when Run returns. It unblocks transactions that are waiting for a result after
+	// closing is closed when close is called. It unblock transactions that are waiting to be admitted.
+	closing <-chan struct{}
+	// closed is closed when Run returns. It unblocks transactions that are waiting for a result after
 	// being admitted. This is differentiated from ctx.Done in order to enable testing that Run correctly
 	// releases awaiters when the transactions processing is stopped.
-	runDone chan struct{}
+	closed chan struct{}
 	// stagingDirectory is a path to a directory where this TransactionManager should stage the files of the transactions
 	// before it logs them. The TransactionManager cleans up the files during runtime but stale files may be
 	// left around after crashes. The files are temporary and any leftover files are expected to be cleaned up when
@@ -524,9 +524,9 @@ func NewTransactionManager(
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
 		ctx:                  ctx,
-		stopCalled:           ctx.Done(),
-		runDone:              make(chan struct{}),
-		stop:                 cancel,
+		close:                cancel,
+		closing:              ctx.Done(),
+		closed:               make(chan struct{}),
 		commandFactory:       cmdFactory,
 		repository:           repositoryFactory.Build(relativePath),
 		repositoryPath:       filepath.Join(storagePath, relativePath),
@@ -567,12 +567,12 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 			return unwrapExpectedError(err)
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-mgr.runDone:
+		case <-mgr.closed:
 			return ErrTransactionProcessingStopped
 		}
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-mgr.stopCalled:
+	case <-mgr.closing:
 		return ErrTransactionProcessingStopped
 	}
 }
@@ -779,8 +779,8 @@ func (mgr *TransactionManager) Run() (returnedErr error) {
 	}()
 
 	// Defer the Stop in order to release all on-going Commit calls in case of error.
-	defer close(mgr.runDone)
-	defer mgr.Stop()
+	defer close(mgr.closed)
+	defer mgr.Close()
 
 	if err := mgr.initialize(mgr.ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -898,13 +898,13 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	return nil
 }
 
-// Stop stops the transaction processing causing Run to return.
-func (mgr *TransactionManager) Stop() { mgr.stop() }
+// Close stops the transaction processing causing Run to return.
+func (mgr *TransactionManager) Close() { mgr.close() }
 
-// isStopping returns whether stopping of the manager was initiated.
-func (mgr *TransactionManager) isStopping() bool {
+// isClosing returns whether closing of the manager was initiated.
+func (mgr *TransactionManager) isClosing() bool {
 	select {
-	case <-mgr.stopCalled:
+	case <-mgr.closing:
 		return true
 	default:
 		return false

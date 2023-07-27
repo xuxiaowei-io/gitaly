@@ -16,8 +16,8 @@ type hookFunc func(hookContext)
 
 // hookContext are the control toggels available in a hook.
 type hookContext struct {
-	// stopManager calls the calls stops the TransactionManager.
-	stopManager func()
+	// closeManager calls the calls Close on the TransactionManager.
+	closeManager func()
 	// database provides access to the database for the hook handler.
 	database *badger.DB
 	tb       testing.TB
@@ -31,8 +31,8 @@ type hooks struct {
 	beforeReadLogEntry hookFunc
 	// beforeStoreLogEntry is invoked before the log entry is stored to the database.
 	beforeStoreLogEntry hookFunc
-	// beforeDeferredStop is invoked before the deferred Stop is invoked in Run.
-	beforeDeferredStop hookFunc
+	// beforeDeferredClose is invoked before the deferred Close is invoked in Run.
+	beforeDeferredClose hookFunc
 	// beforeDeleteLogEntry is invoked before a log entry is deleted from the database.
 	beforeDeleteLogEntry hookFunc
 	// beforeStoreAppliedLogIndex is invoked before a the applied log index is stored.
@@ -41,22 +41,22 @@ type hooks struct {
 
 // installHooks installs the configured hooks into the transactionManager.
 func installHooks(tb testing.TB, transactionManager *TransactionManager, database *badger.DB, hooks hooks) {
-	hookContext := hookContext{stopManager: transactionManager.stop, database: database, tb: &testingHook{TB: tb}}
+	hookContext := hookContext{closeManager: transactionManager.close, database: database, tb: &testingHook{TB: tb}}
 
-	transactionManager.stop = func() {
+	transactionManager.close = func() {
 		programCounter, _, _, ok := runtime.Caller(2)
 		require.True(tb, ok)
 
-		isDeferredStopInRun := strings.HasSuffix(
+		isDeferredCloseInRun := strings.HasSuffix(
 			runtime.FuncForPC(programCounter).Name(),
 			"gitaly.(*TransactionManager).Run",
 		)
 
-		if isDeferredStopInRun && hooks.beforeDeferredStop != nil {
-			hooks.beforeDeferredStop(hookContext)
+		if isDeferredCloseInRun && hooks.beforeDeferredClose != nil {
+			hooks.beforeDeferredClose(hookContext)
 		}
 
-		hookContext.stopManager()
+		hookContext.closeManager()
 	}
 
 	transactionManager.db = databaseHook{

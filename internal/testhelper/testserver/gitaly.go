@@ -360,7 +360,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 			gsd.logger,
 		)
 		require.NoError(tb, err)
-		tb.Cleanup(partitionManager.Stop)
+		tb.Cleanup(partitionManager.Close)
 	}
 
 	if gsd.signingKey != "" {
