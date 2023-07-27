@@ -42,7 +42,9 @@ type Manager interface {
 // NewManager returns the appropriate Cgroups manager
 func NewManager(cfg cgroups.Config, pid int) Manager {
 	if cfg.Repositories.Count > 0 {
-		return newCgroupManager(cfg, pid)
+		if manager := newCgroupManager(cfg, pid); manager != nil {
+			return manager
+		}
 	}
 
 	return &NoopManager{}

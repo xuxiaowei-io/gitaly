@@ -49,7 +49,8 @@ func newCgroupManagerWithMode(cfg cgroupscfg.Config, pid int, mode cgrps.CGMode)
 		handler = newV2Handler(cfg, pid)
 		log.Warnf("Gitaly now includes experimental support for CgroupV2. Please proceed with caution and use this experimental feature at your own risk")
 	default:
-		log.Fatalf("unknown cgroup version")
+		log.Warnf("Gitaly has encountered an issue while trying to detect the version of the system's cgroup. As a result, all subsequent commands will be executed without cgroup support. Please check the system's cgroup configuration and try again")
+		return nil
 	}
 
 	return &CGroupManager{
@@ -172,6 +173,5 @@ func pruneOldCgroupsWithMode(cfg cgroupscfg.Config, logger log.FieldLogger, mode
 	case cgrps.Unified:
 		pruneOldCgroupsV2(cfg, logger)
 	default:
-		log.Fatalf("unknown cgroup version")
 	}
 }
