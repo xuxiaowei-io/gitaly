@@ -3,230 +3,433 @@
 package commit
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func TestSuccessfulListCommitsByRefNameRequest(t *testing.T) {
+func TestListCommitsByRefName(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.ListCommitsByRefNameRequest
-		expectedIds []string
+	type testData struct {
+		branches              [][]byte
+		expectedCommitForRefs []*gitalypb.ListCommitsByRefNameResponse_CommitForRef
+	}
+
+	createTestData := func(cfg config.Cfg, repoPath string, size int) testData {
+		var (
+			branches              [][]byte
+			expectedCommitForRefs []*gitalypb.ListCommitsByRefNameResponse_CommitForRef
+		)
+
+		for i := 0; i < size; i++ {
+			treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				{Mode: "100644", Path: fmt.Sprintf("path_%d", i), Content: fmt.Sprintf("content_%d", i)},
+			})
+			branchName := fmt.Sprintf("branch_%d", i)
+			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTree(treeID))
+
+			branches = append(branches, []byte(branchName))
+			expectedCommitForRefs = append(expectedCommitForRefs, &gitalypb.ListCommitsByRefNameResponse_CommitForRef{
+				Commit: &gitalypb.GitCommit{
+					Id:        commitID.String(),
+					Body:      []byte("message"),
+					BodySize:  7,
+					Subject:   []byte("message"),
+					Author:    gittest.DefaultCommitAuthor,
+					Committer: gittest.DefaultCommitAuthor,
+					TreeId:    treeID.String(),
+				},
+				RefName: []byte(branchName),
+			})
+		}
+
+		return testData{
+			branches:              branches,
+			expectedCommitForRefs: expectedCommitForRefs,
+		}
+	}
+
+	type setupData struct {
+		request            *gitalypb.ListCommitsByRefNameRequest
+		expectedErr        error
+		expectedCommitRefs []*gitalypb.ListCommitsByRefNameResponse_CommitForRef
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData
 	}{
 		{
-			desc: "find one commit",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{[]byte("refs/heads/master")},
-			},
-			expectedIds: []string{"1e292f8fedd741b75372e19097c76d327140c312"},
-		},
-		{
-			desc: "find one commit without refs/heads/ prefix",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{[]byte("master")},
-			},
-			expectedIds: []string{"1e292f8fedd741b75372e19097c76d327140c312"},
-		},
-		{
-			desc: "find HEAD commit",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{[]byte("HEAD")},
-			},
-			expectedIds: []string{"1e292f8fedd741b75372e19097c76d327140c312"},
-		},
-		{
-			desc: "find one commit with UTF8 characters",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{[]byte("refs/heads/ʕ•ᴥ•ʔ")},
-			},
-			expectedIds: []string{"e63f41fe459e62e1228fcef60d7189127aeba95a"},
-		},
-		{
-			desc: "find one commit with non UTF8 characters",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{[]byte("refs/heads/Ääh-test-utf-8")},
-			},
-			expectedIds: []string{"7975be0116940bf2ad4321f79d02a55c5f7779aa"},
-		},
-		{
-			desc: "find multiple commits",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{
-					[]byte("refs/heads/master"),
-					[]byte("refs/heads/add-pdf-file"),
-				},
-			},
-			expectedIds: []string{
-				"1e292f8fedd741b75372e19097c76d327140c312",
-				"e774ebd33ca5de8e6ef1e633fd887bb52b9d0a7a",
+			desc: "single commit",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				testData := createTestData(cfg, repoPath, 1)
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   testData.branches,
+					},
+					expectedCommitRefs: testData.expectedCommitForRefs,
+				}
 			},
 		},
 		{
-			desc: "unknown ref names",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{
-					[]byte("refs/heads/does-not-exist-1"),
-					[]byte("refs/heads/does-not-exist-2"),
-				},
+			desc: "without refs/heads prefix",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Mode: "100644", Path: "foo", Content: "bar"},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID), gittest.WithBranch("main"))
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("main")},
+					},
+					expectedCommitRefs: []*gitalypb.ListCommitsByRefNameResponse_CommitForRef{
+						{
+							Commit: &gitalypb.GitCommit{
+								Id:        commitID.String(),
+								Body:      []byte("message"),
+								BodySize:  7,
+								Subject:   []byte("message"),
+								Author:    gittest.DefaultCommitAuthor,
+								Committer: gittest.DefaultCommitAuthor,
+								TreeId:    treeID.String(),
+							},
+							RefName: []byte("main"),
+						},
+					},
+				}
 			},
-			expectedIds: []string{},
+		},
+		{
+			desc: "without refs/heads prefix",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Mode: "100644", Path: "foo", Content: "bar"},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID), gittest.WithBranch("main"))
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("main")},
+					},
+					expectedErr: nil,
+					expectedCommitRefs: []*gitalypb.ListCommitsByRefNameResponse_CommitForRef{
+						{
+							Commit: &gitalypb.GitCommit{
+								Id:        commitID.String(),
+								Body:      []byte("message"),
+								BodySize:  7,
+								Subject:   []byte("message"),
+								Author:    gittest.DefaultCommitAuthor,
+								Committer: gittest.DefaultCommitAuthor,
+								TreeId:    treeID.String(),
+							},
+							RefName: []byte("main"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "HEAD commit",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Mode: "100644", Path: "foo", Content: "bar"},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID), gittest.WithBranch("main"))
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("HEAD")},
+					},
+					expectedCommitRefs: []*gitalypb.ListCommitsByRefNameResponse_CommitForRef{
+						{
+							Commit: &gitalypb.GitCommit{
+								Id:        commitID.String(),
+								Body:      []byte("message"),
+								BodySize:  7,
+								Subject:   []byte("message"),
+								Author:    gittest.DefaultCommitAuthor,
+								Committer: gittest.DefaultCommitAuthor,
+								TreeId:    treeID.String(),
+							},
+							RefName: []byte("HEAD"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "refname with utf-8 characters",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Mode: "100644", Path: "foo", Content: "bar"},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID), gittest.WithBranch("ʕ•ᴥ•ʔ"))
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("refs/heads/ʕ•ᴥ•ʔ")},
+					},
+					expectedCommitRefs: []*gitalypb.ListCommitsByRefNameResponse_CommitForRef{
+						{
+							Commit: &gitalypb.GitCommit{
+								Id:        commitID.String(),
+								Body:      []byte("message"),
+								BodySize:  7,
+								Subject:   []byte("message"),
+								Author:    gittest.DefaultCommitAuthor,
+								Committer: gittest.DefaultCommitAuthor,
+								TreeId:    treeID.String(),
+							},
+							RefName: []byte("refs/heads/ʕ•ᴥ•ʔ"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "refname with non utf-8 characters",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Mode: "100644", Path: "foo", Content: "bar"},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID), gittest.WithBranch("Ääh-test-utf-8"))
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("refs/heads/Ääh-test-utf-8")},
+					},
+					expectedCommitRefs: []*gitalypb.ListCommitsByRefNameResponse_CommitForRef{
+						{
+							Commit: &gitalypb.GitCommit{
+								Id:        commitID.String(),
+								Body:      []byte("message"),
+								BodySize:  7,
+								Subject:   []byte("message"),
+								Author:    gittest.DefaultCommitAuthor,
+								Committer: gittest.DefaultCommitAuthor,
+								TreeId:    treeID.String(),
+							},
+							RefName: []byte("refs/heads/Ääh-test-utf-8"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "multiple commit",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				testData := createTestData(cfg, repoPath, 2)
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   testData.branches,
+					},
+					expectedCommitRefs: testData.expectedCommitForRefs,
+				}
+			},
+		},
+		{
+			desc: "large set of commits",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				testData := createTestData(cfg, repoPath, 20)
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   testData.branches,
+					},
+					expectedCommitRefs: testData.expectedCommitForRefs,
+				}
+			},
 		},
 		{
 			desc: "find partial commits",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{
-					[]byte("refs/heads/master"),
-					[]byte("refs/heads/does-not-exist-1"),
-					[]byte("refs/heads/add-pdf-file"),
-				},
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Mode: "100644", Path: "foo", Content: "bar"},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID), gittest.WithBranch("main"))
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/main"), []byte("refs/heads/bar")},
+					},
+					expectedCommitRefs: []*gitalypb.ListCommitsByRefNameResponse_CommitForRef{
+						{
+							Commit: &gitalypb.GitCommit{
+								Id:        commitID.String(),
+								Body:      []byte("message"),
+								BodySize:  7,
+								Subject:   []byte("message"),
+								Author:    gittest.DefaultCommitAuthor,
+								Committer: gittest.DefaultCommitAuthor,
+								TreeId:    treeID.String(),
+							},
+							RefName: []byte("refs/heads/main"),
+						},
+					},
+				}
 			},
-			expectedIds: []string{
-				"1e292f8fedd741b75372e19097c76d327140c312",
-				"e774ebd33ca5de8e6ef1e633fd887bb52b9d0a7a",
+		},
+		{
+			desc: "empty commit",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("refs/heads/main")},
+					},
+					expectedCommitRefs: []*gitalypb.ListCommitsByRefNameResponse_CommitForRef{
+						{
+							Commit: &gitalypb.GitCommit{
+								Id:        commitID.String(),
+								Body:      []byte("message"),
+								BodySize:  7,
+								Subject:   []byte("message"),
+								Author:    gittest.DefaultCommitAuthor,
+								Committer: gittest.DefaultCommitAuthor,
+								TreeId:    gittest.DefaultObjectHash.EmptyTreeOID.String(),
+							},
+							RefName: []byte("refs/heads/main"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "unknown refnames",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar")},
+					},
+				}
+			},
+		},
+		{
+			desc: "invalid refnames",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("refs/foo"), []byte("bar")},
+					},
+				}
 			},
 		},
 		{
 			desc: "no query",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{},
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{},
+					},
+				}
 			},
-			expectedIds: []string{},
 		},
 		{
 			desc: "empty query",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{[]byte("")},
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						Repository: repo,
+						RefNames:   [][]byte{[]byte("")},
+					},
+				}
 			},
-			expectedIds: []string{},
 		},
 		{
-			desc: "find empty commit",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{[]byte("refs/heads/1942eed5cc108b19c7405106e81fa96125d0be22")},
+			desc: "repository not provided",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				return setupData{
+					request: &gitalypb.ListCommitsByRefNameRequest{
+						RefNames: [][]byte{[]byte("")},
+					},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
 			},
-			expectedIds: []string{"1942eed5cc108b19c7405106e81fa96125d0be22"},
-		},
-		{
-			desc: "invalid ref names",
-			request: &gitalypb.ListCommitsByRefNameRequest{
-				RefNames: [][]byte{
-					[]byte("refs/does-not-exist-1"),
-					[]byte("does-not-exist-2"),
-				},
-			},
-			expectedIds: []string{},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			request := testCase.request
-			request.Repository = repo
-
-			c, err := client.ListCommitsByRefName(ctx, request)
-			require.NoError(t, err)
-
-			receivedCommitRefs := consumeGetByRefNameResponse(t, c)
-			require.Len(t, receivedCommitRefs, len(testCase.expectedIds))
-
-			for i, commitRef := range receivedCommitRefs {
-				require.Equal(t, testCase.expectedIds[i], commitRef.Commit.Id, "mismatched commit")
-			}
-		})
-	}
-}
-
-func TestSuccessfulListCommitsByRefNameLargeRequest(t *testing.T) {
-	t.Parallel()
-	repositoryRefNames := map[string]string{
-		"bb5206fee213d983da88c47f9cf4cc6caf9c66dc": "refs/heads/feature_conflict",
-		"0031876facac3f2b2702a0e53a26e89939a42209": "refs/heads/few-commits",
-		"06041ab2037429d243a38abb55957818dd9f948d": "refs/heads/file-mode-change",
-		"48f0be4bd10c1decee6fae52f9ae6d10f77b60f4": "refs/heads/fix",
-		"ce369011c189f62c815f5971d096b26759bab0d1": "refs/heads/flat-path",
-		"d25b6d94034242f3930dfcfeb6d8d9aac3583992": "refs/heads/flat-path-2",
-		"e56497bb5f03a90a51293fc6d516788730953899": "refs/heads/flatten-dirs",
-		"ab2c9622c02288a2bbaaf35d96088cfdff31d9d9": "refs/heads/gitaly-diff-stuff",
-		"0999bb770f8dc92ab5581cc0b474b3e31a96bf5c": "refs/heads/gitaly-non-utf8-commit",
-		"94bb47ca1297b7b3731ff2a36923640991e9236f": "refs/heads/gitaly-rename-test",
-		"cb19058ecc02d01f8e4290b7e79cafd16a8839b6": "refs/heads/gitaly-stuff",
-		"e63f41fe459e62e1228fcef60d7189127aeba95a": "refs/heads/gitaly-test-ref",
-		"c809470461118b7bcab850f6e9a7ca97ac42f8ea": "refs/heads/gitaly-windows-1251",
-		"5937ac0a7beb003549fc5fd26fc247adbce4a52e": "refs/heads/improve/awesome",
-		"7df99c9ad5b8c9bfc5ae4fb7a91cc87adcce02ef": "refs/heads/jv-conflict-1",
-		"bd493d44ae3c4dd84ce89cb75be78c4708cbd548": "refs/heads/jv-conflict-2",
-		"d23bddc916b96c98ff192e198b1adee0f6871085": "refs/heads/many_files",
-		"0ed8c6c6752e8c6ea63e7b92a517bf5ac1209c80": "refs/heads/markdown",
-		"6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9": "refs/tags/v1.0.0",
-		"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b": "refs/tags/v1.1.0",
-	}
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	refNames := [][]byte{}
-	for _, refName := range repositoryRefNames {
-		refNames = append(refNames, []byte(refName))
-	}
-	req := &gitalypb.ListCommitsByRefNameRequest{
-		RefNames:   refNames,
-		Repository: repo,
-	}
-
-	c, err := client.ListCommitsByRefName(ctx, req)
-	require.NoError(t, err)
-
-	actualCommits := consumeGetByRefNameResponse(t, c)
-
-	for _, actual := range actualCommits {
-		_, ok := repositoryRefNames[actual.Commit.Id]
-		require.True(t, ok, "commit ID must be present in the input list: %s", actual.Commit.Id)
-	}
-}
-
-func TestListCommitsByRefName_validate(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-	_, client := setupCommitService(t, ctx)
-	for _, tc := range []struct {
-		desc        string
-		req         *gitalypb.ListCommitsByRefNameRequest
-		expectedErr error
-	}{
-		{
-			desc:        "repository not provided",
-			req:         &gitalypb.ListCommitsByRefNameRequest{Repository: nil},
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.ListCommitsByRefName(ctx, tc.req)
+			setup := tc.setup(t, ctx, cfg)
+
+			c, err := client.ListCommitsByRefName(ctx, setup.request)
 			require.NoError(t, err)
-			_, err = stream.Recv()
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+
+			receivedCommitRefs := consumeGetByRefNameResponse(t, c, setup.expectedErr)
+			testhelper.ProtoEqual(t, setup.expectedCommitRefs, receivedCommitRefs)
 		})
 	}
 }
 
-func consumeGetByRefNameResponse(t *testing.T, c gitalypb.CommitService_ListCommitsByRefNameClient) []*gitalypb.ListCommitsByRefNameResponse_CommitForRef {
+func consumeGetByRefNameResponse(t *testing.T, c gitalypb.CommitService_ListCommitsByRefNameClient, expectedErr error) []*gitalypb.ListCommitsByRefNameResponse_CommitForRef {
 	var receivedCommitRefs []*gitalypb.ListCommitsByRefNameResponse_CommitForRef
 	for {
 		resp, err := c.Recv()
 		if err == io.EOF {
 			break
+		} else if err != nil {
+			testhelper.RequireGrpcError(t, expectedErr, err)
+			break
 		}
-		require.NoError(t, err)
 
 		receivedCommitRefs = append(receivedCommitRefs, resp.GetCommitRefs()...)
 	}
