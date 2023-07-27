@@ -8,7 +8,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -22,11 +21,6 @@ import (
 func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMergeToRefRequest) (*gitalypb.UserMergeToRefResponse, error) {
 	if err := validateUserMergeToRefRequest(s.locator, request); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
-	}
-
-	repoPath, err := s.locator.GetRepoPath(request.Repository, storage.WithRepositoryVerificationSkipped())
-	if err != nil {
-		return nil, err
 	}
 
 	repo := s.localrepo(request.GetRepository())
@@ -96,41 +90,21 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, structerr.NewInternal("could not read target reference: %w", err)
 	}
 
-	var mergeCommitID string
-	if featureflag.MergeToRefWithGit.IsEnabled(ctx) {
-		mergeCommitID, err = s.merge(
-			ctx,
-			repo,
-			string(request.User.Name),
-			string(request.User.Email),
-			authorDate,
-			string(request.User.Name),
-			string(request.User.Email),
-			authorDate,
-			string(request.Message),
-			oid.String(),
-			sourceOID.String(),
-			false,
-			false,
-		)
-	} else {
-		mergeCommitID, err = s.mergeWithGit2Go(
-			ctx,
-			repo,
-			repoPath,
-			string(request.User.Name),
-			string(request.User.Email),
-			authorDate,
-			string(request.User.Name),
-			string(request.User.Email),
-			authorDate,
-
-			string(request.Message),
-			oid.String(),
-			sourceOID.String(),
-			false,
-		)
-	}
+	mergeCommitID, err := s.merge(
+		ctx,
+		repo,
+		string(request.User.Name),
+		string(request.User.Email),
+		authorDate,
+		string(request.User.Name),
+		string(request.User.Email),
+		authorDate,
+		string(request.Message),
+		oid.String(),
+		sourceOID.String(),
+		false,
+		false,
+	)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).WithFields(
 			logrus.Fields{
