@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -19,13 +18,22 @@ import (
 
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
-	if err := validateUserUpdateSubmoduleRequest(s.locator, req); err != nil {
+	if err := s.locator.ValidateRepository(req.GetRepository()); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
 	if err != nil {
 		return nil, err
+	}
+
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	if err := validateUserUpdateSubmoduleRequest(s.locator, objectHash, req); err != nil {
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	branches, err := quarantineRepo.GetBranches(ctx)
@@ -100,7 +108,7 @@ func (s *Server) UserUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, structerr.NewInternal("submodule subcommand: %w", err)
 	}
 
-	commitOID, err := git.ObjectHashSHA1.FromHex(commitID)
+	commitOID, err := objectHash.FromHex(commitID)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("cannot parse commit ID: %w", err)
 	}
@@ -143,11 +151,7 @@ func (s *Server) UserUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 	}, nil
 }
 
-func validateUserUpdateSubmoduleRequest(locator storage.Locator, req *gitalypb.UserUpdateSubmoduleRequest) error {
-	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
-		return err
-	}
-
+func validateUserUpdateSubmoduleRequest(locator storage.Locator, objectHash git.ObjectHash, req *gitalypb.UserUpdateSubmoduleRequest) error {
 	if req.GetUser() == nil {
 		return errors.New("empty User")
 	}
@@ -156,7 +160,7 @@ func validateUserUpdateSubmoduleRequest(locator storage.Locator, req *gitalypb.U
 		return errors.New("empty CommitSha")
 	}
 
-	if match, err := regexp.MatchString(`\A[0-9a-f]{40}\z`, req.GetCommitSha()); !match || err != nil {
+	if err := objectHash.ValidateHex(req.GetCommitSha()); err != nil {
 		return errors.New("invalid CommitSha")
 	}
 
