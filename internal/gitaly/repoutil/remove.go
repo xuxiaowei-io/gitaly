@@ -9,6 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
@@ -22,9 +23,16 @@ func Remove(
 	ctx context.Context,
 	locator storage.Locator,
 	txManager transaction.Manager,
+	repoCounter *counter.RepositoryCounter,
 	repository storage.Repository,
 ) error {
-	return remove(ctx, locator, txManager, repository, os.RemoveAll)
+	if err := remove(ctx, locator, txManager, repository, os.RemoveAll); err != nil {
+		return err
+	}
+
+	repoCounter.Decrement(repository)
+
+	return nil
 }
 
 func remove(

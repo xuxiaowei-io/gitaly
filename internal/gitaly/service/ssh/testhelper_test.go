@@ -53,6 +53,7 @@ func startSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, s
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
 			deps.GetLocator(),
@@ -60,6 +61,7 @@ func startSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, s
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
 			deps.GetHousekeepingManager(),
+			deps.GetRepositoryCounter(),
 		))
 	}, serverOpts...)
 }

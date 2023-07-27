@@ -26,6 +26,7 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 		s.locator,
 		s.gitCmdFactory,
 		s.txManager,
+		s.repositoryCounter,
 		repository,
 		func(repo *gitalypb.Repository) error {
 			// We do not want to seed the repository with any contents, so we just

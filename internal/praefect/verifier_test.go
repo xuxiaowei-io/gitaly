@@ -488,6 +488,7 @@ func TestVerifier(t *testing.T) {
 							deps.GetHousekeepingManager(),
 							deps.GetBackupSink(),
 							deps.GetBackupLocator(),
+							deps.GetRepositoryCounter(),
 						)})
 					}
 				}

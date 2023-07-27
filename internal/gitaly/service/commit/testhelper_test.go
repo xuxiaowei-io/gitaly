@@ -71,6 +71,7 @@ func startTestServices(tb testing.TB, cfg config.Cfg, opts ...testserver.GitalyS
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 	}, opts...)
 }

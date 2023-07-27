@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/unarycache"
@@ -32,6 +33,7 @@ type server struct {
 	housekeepingManager housekeeping.Manager
 	backupSink          backup.Sink
 	backupLocator       backup.Locator
+	repositoryCounter   *counter.RepositoryCounter
 
 	licenseCache *unarycache.Cache[git.ObjectID, *gitalypb.FindLicenseResponse]
 }
@@ -48,6 +50,7 @@ func NewServer(
 	housekeepingManager housekeeping.Manager,
 	backupSink backup.Sink,
 	backupLocator backup.Locator,
+	repositoryCounter *counter.RepositoryCounter,
 ) gitalypb.RepositoryServiceServer {
 	return &server{
 		locator:             locator,
@@ -61,6 +64,7 @@ func NewServer(
 		housekeepingManager: housekeepingManager,
 		backupSink:          backupSink,
 		backupLocator:       backupLocator,
+		repositoryCounter:   repositoryCounter,
 
 		licenseCache: newLicenseCache(),
 	}

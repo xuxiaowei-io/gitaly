@@ -27,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
@@ -266,6 +267,7 @@ type gitalyServerDeps struct {
 	packObjectsCache    streamcache.Cache
 	packObjectsLimiter  limiter.Limiter
 	limitHandler        *limithandler.LimiterMiddleware
+	repositoryCounter   *counter.RepositoryCounter
 	git2goExecutor      *git2go.Executor
 	updaterWithHooks    *updateref.UpdaterWithHooks
 	housekeepingManager housekeeping.Manager
@@ -337,6 +339,10 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		gsd.limitHandler = limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)
 	}
 
+	if gsd.repositoryCounter == nil {
+		gsd.repositoryCounter = counter.NewRepositoryCounter()
+	}
+
 	if gsd.git2goExecutor == nil {
 		gsd.git2goExecutor = git2go.NewExecutor(cfg, gsd.gitCmdFactory, gsd.locator)
 	}
@@ -381,6 +387,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		PackObjectsCache:    gsd.packObjectsCache,
 		PackObjectsLimiter:  gsd.packObjectsLimiter,
 		LimitHandler:        gsd.limitHandler,
+		RepositoryCounter:   gsd.repositoryCounter,
 		Git2goExecutor:      gsd.git2goExecutor,
 		UpdaterWithHooks:    gsd.updaterWithHooks,
 		HousekeepingManager: gsd.housekeepingManager,
@@ -462,6 +469,14 @@ func WithBackchannelRegistry(backchannelReg *backchannel.Registry) GitalyServerO
 func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.diskCache = diskCache
+		return deps
+	}
+}
+
+// WithRepositoryCounter sets the counter.RepositoryCounter instance that will be used for gitaly services initialisation.
+func WithRepositoryCounter(repositoryCounter *counter.RepositoryCounter) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.repositoryCounter = repositoryCounter
 		return deps
 	}
 }

@@ -43,6 +43,7 @@ func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.Gi
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 	}, opts...)
 	cfg.SocketPath = addr

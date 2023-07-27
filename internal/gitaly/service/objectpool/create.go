@@ -29,7 +29,7 @@ func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObject
 		return nil, errInvalidPoolDir
 	}
 
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, poolRepo, func(poolRepo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, poolRepo, func(poolRepo *gitalypb.Repository) error {
 		if _, err := objectpool.Create(
 			ctx,
 			s.locator,

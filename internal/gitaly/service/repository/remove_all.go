@@ -21,6 +21,8 @@ func (s *server) RemoveAll(ctx context.Context, in *gitalypb.RemoveAllRequest) (
 		return nil, structerr.NewInternal("remove all: %w", err).WithMetadata("storage", in.StorageName)
 	}
 
+	s.repositoryCounter.DeleteStorage(in.StorageName)
+
 	return &gitalypb.RemoveAllResponse{}, nil
 }
 

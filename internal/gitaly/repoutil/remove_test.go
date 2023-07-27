@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -93,6 +94,7 @@ func TestRemove(t *testing.T) {
 			cfg := testcfg.Build(t)
 			locator := config.NewLocator(cfg)
 			txManager := transaction.NewTrackingManager()
+			repoCounter := counter.NewRepositoryCounter()
 
 			repo, repoPath := tc.createRepo(t, ctx, cfg)
 
@@ -100,7 +102,7 @@ func TestRemove(t *testing.T) {
 				require.DirExists(t, repoPath)
 			}
 
-			err := Remove(ctx, locator, txManager, repo)
+			err := Remove(ctx, locator, txManager, repoCounter, repo)
 
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)

@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -17,6 +18,7 @@ type server struct {
 	catfileCache        catfile.Cache
 	txManager           transaction.Manager
 	housekeepingManager housekeeping.Manager
+	repositoryCounter   *counter.RepositoryCounter
 }
 
 // NewServer creates a new instance of a gRPC repo server
@@ -26,6 +28,7 @@ func NewServer(
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
 	housekeepingManager housekeeping.Manager,
+	repositoryCounter *counter.RepositoryCounter,
 ) gitalypb.ObjectPoolServiceServer {
 	return &server{
 		locator:             locator,
@@ -33,6 +36,7 @@ func NewServer(
 		catfileCache:        catfileCache,
 		txManager:           txManager,
 		housekeepingManager: housekeepingManager,
+		repositoryCounter:   repositoryCounter,
 	}
 }
 

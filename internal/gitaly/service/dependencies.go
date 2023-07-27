@@ -12,6 +12,7 @@ import (
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
@@ -36,6 +37,7 @@ type Dependencies struct {
 	PackObjectsCache    streamcache.Cache
 	PackObjectsLimiter  limiter.Limiter
 	LimitHandler        *limithandler.LimiterMiddleware
+	RepositoryCounter   *counter.RepositoryCounter
 	Git2goExecutor      *git2go.Executor
 	UpdaterWithHooks    *updateref.UpdaterWithHooks
 	HousekeepingManager housekeeping.Manager
@@ -102,6 +104,11 @@ func (dc *Dependencies) GetPackObjectsCache() streamcache.Cache {
 // GetLimitHandler returns the RPC limit handler.
 func (dc *Dependencies) GetLimitHandler() *limithandler.LimiterMiddleware {
 	return dc.LimitHandler
+}
+
+// GetRepositoryCounter returns the repository counter.
+func (dc *Dependencies) GetRepositoryCounter() *counter.RepositoryCounter {
+	return dc.RepositoryCounter
 }
 
 // GetGit2goExecutor returns the git2go executor.

@@ -15,7 +15,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	if err := repoutil.Remove(ctx, s.locator, s.txManager, repository); err != nil {
+	if err := repoutil.Remove(ctx, s.locator, s.txManager, s.repositoryCounter, repository); err != nil {
 		return nil, err
 	}
 

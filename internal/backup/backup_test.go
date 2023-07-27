@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -69,6 +70,7 @@ func TestManager_Create(t *testing.T) {
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	ctx := testhelper.Context(t)
+	repoCounter := counter.NewRepositoryCounter()
 
 	for _, managerTC := range []struct {
 		desc  string
@@ -98,7 +100,7 @@ func TestManager_Create(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
 			},
 		},
 	} {
@@ -228,6 +230,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 	ctx := testhelper.Context(t)
+	repoCounter := counter.NewRepositoryCounter()
 
 	for _, managerTC := range []struct {
 		desc  string
@@ -257,7 +260,7 @@ func TestManager_Create_incremental(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
 			},
 		},
 	} {
@@ -374,6 +377,7 @@ func TestManager_Restore_latest(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
+	repoCounter := counter.NewRepositoryCounter()
 
 	for _, managerTC := range []struct {
 		desc  string
@@ -403,7 +407,7 @@ func TestManager_Restore_latest(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
 			},
 		},
 	} {
@@ -652,6 +656,7 @@ func TestManager_Restore_specific(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
+	repoCounter := counter.NewRepositoryCounter()
 
 	for _, managerTC := range []struct {
 		desc  string
@@ -681,7 +686,7 @@ func TestManager_Restore_specific(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager)
+				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
 			},
 		},
 	} {

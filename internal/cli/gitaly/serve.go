@@ -33,6 +33,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -222,6 +223,9 @@ func run(cfg config.Cfg) error {
 
 	locator := config.NewLocator(cfg)
 
+	repoCounter := counter.NewRepositoryCounter()
+	prometheus.MustRegister(repoCounter)
+
 	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
 
 	prometheus.MustRegister(gitCmdFactory)
@@ -356,6 +360,7 @@ func run(cfg config.Cfg) error {
 			DiskCache:           diskCache,
 			PackObjectsCache:    streamCache,
 			PackObjectsLimiter:  packObjectsLimiter,
+			RepositoryCounter:   repoCounter,
 			Git2goExecutor:      git2goExecutor,
 			UpdaterWithHooks:    updaterWithHooks,
 			HousekeepingManager: housekeepingManager,
