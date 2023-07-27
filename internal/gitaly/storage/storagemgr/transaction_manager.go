@@ -146,9 +146,6 @@ type Transaction struct {
 	state transactionState
 	// commit commits the Transaction through the TransactionManager.
 	commit func(context.Context, *Transaction) error
-	// finalize decrements the active transaction count on the partition in the PartitionManager. This is
-	// really only a concern for the PartitionManager and will be moved out from here later.
-	finalize func()
 	// result is where the outcome of the transaction is sent ot by TransactionManager once it
 	// has been determined.
 	result chan error
@@ -212,8 +209,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	mgr.mutex.Lock()
 
 	txn := &Transaction{
-		commit:   mgr.commit,
-		finalize: mgr.transactionFinalizer,
+		commit: mgr.commit,
 		snapshot: Snapshot{
 			ReadIndex:       mgr.appendedLogIndex,
 			CustomHookIndex: mgr.customHookIndex,
@@ -311,8 +307,6 @@ func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
 	}
 
 	defer func() {
-		txn.finalize()
-
 		if err := txn.finishUnadmitted(); err != nil && returnedErr == nil {
 			returnedErr = err
 		}
@@ -327,7 +321,6 @@ func (txn *Transaction) Rollback() error {
 		return err
 	}
 
-	defer txn.finalize()
 	return txn.finishUnadmitted()
 }
 
@@ -517,9 +510,6 @@ type TransactionManager struct {
 	// housekeepingManager access to the housekeeping.Manager.
 	housekeepingManager housekeeping.Manager
 
-	// transactionFinalizer executes when a transaction is completed.
-	transactionFinalizer func()
-
 	// awaitingTransactions contains transactions waiting for their log entry to be applied to
 	// the repository. It's keyed by the log index the transaction is waiting to be applied and the
 	// value is the resultChannel that is waiting the result.
@@ -535,7 +525,6 @@ func NewTransactionManager(
 	cmdFactory git.CommandFactory,
 	housekeepingManager housekeeping.Manager,
 	repositoryFactory localrepo.StorageScopedFactory,
-	transactionFinalizer func(),
 ) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
@@ -554,7 +543,6 @@ func NewTransactionManager(
 		applyNotifications:   make(map[LogIndex]chan struct{}),
 		stagingDirectory:     stagingDir,
 		housekeepingManager:  housekeepingManager,
-		transactionFinalizer: transactionFinalizer,
 		awaitingTransactions: make(map[LogIndex]resultChannel),
 	}
 }
