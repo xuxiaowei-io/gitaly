@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
@@ -42,12 +43,17 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	newOID, err := git.ObjectHashSHA1.FromHex(string(req.Newrev))
+	objectHash, err := git.DetectObjectHash(ctx, s.gitCmdFactory, req.GetRepository())
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	newOID, err := objectHash.FromHex(string(req.Newrev))
 	if err != nil {
 		return nil, structerr.NewInternal("could not parse newrev: %w", err)
 	}
 
-	oldOID, err := git.ObjectHashSHA1.FromHex(string(req.Oldrev))
+	oldOID, err := objectHash.FromHex(string(req.Oldrev))
 	if err != nil {
 		return nil, structerr.NewInternal("could not parse oldrev: %w", err)
 	}
