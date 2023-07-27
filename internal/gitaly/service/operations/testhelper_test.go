@@ -40,13 +40,19 @@ func TestMain(m *testing.M) {
 
 func setupOperationsService(tb testing.TB, ctx context.Context, options ...testserver.GitalyServerOpt) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	cfg := testcfg.Build(tb)
-	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithCfg(tb, ctx, cfg, options...)
+
+	ctx, cfg, client := setupOperationsServiceWithCfg(tb, ctx, cfg, options...)
+
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
 	return ctx, cfg, repo, repoPath, client
 }
 
 func setupOperationsServiceWithCfg(
 	tb testing.TB, ctx context.Context, cfg config.Cfg, options ...testserver.GitalyServerOpt,
-) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
+) (context.Context, config.Cfg, gitalypb.OperationServiceClient) {
 	testcfg.BuildGitalySSH(tb, cfg)
 	testcfg.BuildGitalyGit2Go(tb, cfg)
 	testcfg.BuildGitalyHooks(tb, cfg)
@@ -60,11 +66,7 @@ func setupOperationsServiceWithCfg(
 	md := testcfg.GitalyServersMetadataFromCfg(tb, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	return ctx, cfg, repo, repoPath, client
+	return ctx, cfg, client
 }
 
 func setupOperationsServiceWithoutRepo(
