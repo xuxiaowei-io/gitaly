@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -660,8 +658,14 @@ index 3742e48..e40a3b9 100644
 	patchedCommit, err := repo.ReadCommit(ctx, git.Revision("branch"))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:     "0a40a105159a00a5f7804bd4484dc73986d3d9bf",
-		TreeId: "9aa427f7ab21b39efaa3efd02ead282a0584268c",
+		Id: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "0a40a105159a00a5f7804bd4484dc73986d3d9bf",
+			"sha256": "d1312a73a59c1b7ad9f91885a940b6663ada4a9d33b5904d056f30ac36c74b71",
+		}),
+		TreeId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "9aa427f7ab21b39efaa3efd02ead282a0584268c",
+			"sha256": "8619b637949c69641affc727b7a7772fb68125f12f2d4224b55700551ba0f68a",
+		}),
 		ParentIds: []string{
 			parentCommitID.String(),
 		},

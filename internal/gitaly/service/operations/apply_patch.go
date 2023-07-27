@@ -66,6 +66,12 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 	targetBranch := git.NewReferenceNameFromBranchName(string(header.TargetBranch))
 
 	repo := s.localrepo(header.Repository)
+
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	parentCommitID, err := repo.ResolveRevision(ctx, targetBranch.Revision()+"^{commit}")
 	if err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) {
@@ -162,14 +168,14 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		return fmt.Errorf("get patched commit: %w", gitError{ErrMsg: revParseStderr.String(), Err: err})
 	}
 
-	patchedCommit, err := git.ObjectHashSHA1.FromHex(text.ChompBytes(revParseStdout.Bytes()))
+	patchedCommit, err := objectHash.FromHex(text.ChompBytes(revParseStdout.Bytes()))
 	if err != nil {
 		return fmt.Errorf("parse patched commit oid: %w", err)
 	}
 
 	currentCommit := parentCommitID
 	if branchCreated {
-		currentCommit = git.ObjectHashSHA1.ZeroOID
+		currentCommit = objectHash.ZeroOID
 	}
 
 	// If the client provides an expected old object ID, we should use that to prevent any race
