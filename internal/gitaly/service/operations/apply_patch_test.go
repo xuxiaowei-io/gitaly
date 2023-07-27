@@ -5,10 +5,7 @@ package operations
 import (
 	"fmt"
 	"io"
-	"os"
-	"strings"
 	"testing"
-	"testing/iotest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -25,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -606,116 +602,6 @@ To restore the original branch and stop patching, run "git am --abort".
 	}
 }
 
-func TestUserApplyPatch_successful(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	testPatchReadme := "testdata/0001-A-commit-from-a-patch.patch"
-	testPatchFeature := "testdata/0001-This-does-not-apply-to-the-feature-branch.patch"
-
-	testCases := []struct {
-		desc           string
-		branchName     string
-		branchCreated  bool
-		patches        []string
-		commitMessages []string
-	}{
-		{
-			desc:           "a new branch",
-			branchName:     "patched-branch",
-			branchCreated:  true,
-			patches:        []string{testPatchReadme},
-			commitMessages: []string{"A commit from a patch"},
-		},
-		{
-			desc:           "an existing branch",
-			branchName:     "feature",
-			branchCreated:  false,
-			patches:        []string{testPatchReadme},
-			commitMessages: []string{"A commit from a patch"},
-		},
-		{
-			desc:           "multiple patches",
-			branchName:     "branch-with-multiple-patches",
-			branchCreated:  true,
-			patches:        []string{testPatchReadme, testPatchFeature},
-			commitMessages: []string{"A commit from a patch", "This does not apply to the `feature` branch"},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			stream, err := client.UserApplyPatch(ctx)
-			require.NoError(t, err)
-
-			headerRequest := applyPatchHeaderRequest(repoProto, gittest.TestUser, testCase.branchName)
-			require.NoError(t, stream.Send(headerRequest))
-
-			writer := streamio.NewWriter(func(p []byte) error {
-				patchRequest := applyPatchPatchesRequest(p)
-
-				return stream.Send(patchRequest)
-			})
-
-			for _, patchFileName := range testCase.patches {
-				func() {
-					file, err := os.Open(patchFileName)
-					require.NoError(t, err)
-					defer file.Close()
-
-					byteReader := iotest.OneByteReader(file)
-					_, err = io.Copy(writer, byteReader)
-					require.NoError(t, err)
-				}()
-			}
-
-			response, err := stream.CloseAndRecv()
-			require.NoError(t, err)
-
-			response.GetBranchUpdate()
-			require.Equal(t, testCase.branchCreated, response.GetBranchUpdate().GetBranchCreated())
-
-			branches := gittest.Exec(t, cfg, "-C", repoPath, "branch")
-			require.Contains(t, string(branches), testCase.branchName)
-
-			maxCount := fmt.Sprintf("--max-count=%d", len(testCase.commitMessages))
-
-			gitArgs := []string{
-				"-C",
-				repoPath,
-				"log",
-				testCase.branchName,
-				"--format=%H",
-				maxCount,
-				"--reverse",
-			}
-
-			output := gittest.Exec(t, cfg, gitArgs...)
-			shas := strings.Split(string(output), "\n")
-			// Throw away the last element, as that's going to be
-			// an empty string.
-			if len(shas) > 0 {
-				shas = shas[:len(shas)-1]
-			}
-
-			for index, sha := range shas {
-				commit, err := repo.ReadCommit(ctx, git.Revision(sha))
-				require.NoError(t, err)
-
-				require.NotNil(t, commit)
-				require.Equal(t, string(commit.Subject), testCase.commitMessages[index])
-				require.Equal(t, string(commit.Author.Email), "patchuser@gitlab.org")
-				require.Equal(t, string(commit.Committer.Email), string(gittest.TestUser.Email))
-			}
-		})
-	}
-}
-
 func TestUserApplyPatch_stableID(t *testing.T) {
 	t.Parallel()
 
@@ -821,27 +707,6 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 	require.Equal(t, 15, len(txManager.Votes()))
 }
 
-func TestFailedPatchApplyPatch(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
-
-	testPatch := testhelper.MustReadFile(t, "testdata/0001-This-does-not-apply-to-the-feature-branch.patch")
-
-	stream, err := client.UserApplyPatch(ctx)
-	require.NoError(t, err)
-
-	headerRequest := applyPatchHeaderRequest(repo, gittest.TestUser, "feature")
-	require.NoError(t, stream.Send(headerRequest))
-
-	patchRequest := applyPatchPatchesRequest(testPatch)
-	require.NoError(t, stream.Send(patchRequest))
-
-	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
-}
-
 func TestFailedValidationUserApplyPatch(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
@@ -898,28 +763,5 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 			_, err = stream.CloseAndRecv()
 			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
-	}
-}
-
-func applyPatchHeaderRequest(repo *gitalypb.Repository, user *gitalypb.User, branch string) *gitalypb.UserApplyPatchRequest {
-	header := &gitalypb.UserApplyPatchRequest_Header_{
-		Header: &gitalypb.UserApplyPatchRequest_Header{
-			Repository:   repo,
-			User:         user,
-			TargetBranch: []byte(branch),
-		},
-	}
-	return &gitalypb.UserApplyPatchRequest{
-		UserApplyPatchRequestPayload: header,
-	}
-}
-
-func applyPatchPatchesRequest(patches []byte) *gitalypb.UserApplyPatchRequest {
-	requestPatches := &gitalypb.UserApplyPatchRequest_Patches{
-		Patches: patches,
-	}
-
-	return &gitalypb.UserApplyPatchRequest{
-		UserApplyPatchRequestPayload: requestPatches,
 	}
 }
