@@ -251,6 +251,7 @@ func RunPraefectServer(
 		conf,
 		opt.WithLogger,
 		protoregistry.GitalyProtoPreregistered,
+		coordinator,
 		coordinator.StreamDirector,
 		opt.WithTxMgr,
 		opt.WithRepoStore,

@@ -396,6 +396,7 @@ func server(
 		srvFactory = praefect.NewServerFactory(
 			conf,
 			logger,
+			coordinator,
 			coordinator.StreamDirector,
 			nodeManager,
 			transactionManager,

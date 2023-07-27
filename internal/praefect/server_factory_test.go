@@ -178,7 +178,7 @@ func TestServerFactory(t *testing.T) {
 	}
 
 	t.Run("insecure", func(t *testing.T) {
-		praefectServerFactory := NewServerFactory(conf, logger, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
+		praefectServerFactory := NewServerFactory(conf, logger, coordinator, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
 		defer praefectServerFactory.Stop()
 
 		listener, err := net.Listen(starter.TCP, "localhost:0")
@@ -210,7 +210,7 @@ func TestServerFactory(t *testing.T) {
 	})
 
 	t.Run("secure", func(t *testing.T) {
-		praefectServerFactory := NewServerFactory(conf, logger, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
+		praefectServerFactory := NewServerFactory(conf, logger, coordinator, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
 		defer praefectServerFactory.Stop()
 
 		listener, err := net.Listen(starter.TCP, "localhost:0")
@@ -238,7 +238,7 @@ func TestServerFactory(t *testing.T) {
 	})
 
 	t.Run("stops all listening servers", func(t *testing.T) {
-		praefectServerFactory := NewServerFactory(conf, logger, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
+		praefectServerFactory := NewServerFactory(conf, logger, coordinator, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
 		defer praefectServerFactory.Stop()
 
 		var healthClients []healthpb.HealthClient
@@ -294,7 +294,7 @@ func TestServerFactory(t *testing.T) {
 	t.Run("tls key path invalid", func(t *testing.T) {
 		badTLSKeyPath := conf
 		badTLSKeyPath.TLS.KeyPath = "invalid"
-		praefectServerFactory := NewServerFactory(badTLSKeyPath, logger, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
+		praefectServerFactory := NewServerFactory(badTLSKeyPath, logger, coordinator, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
 
 		err := praefectServerFactory.Serve(nil, true)
 		require.EqualError(t, err, "load certificate key pair: open invalid: no such file or directory")
@@ -303,7 +303,7 @@ func TestServerFactory(t *testing.T) {
 	t.Run("tls cert path invalid", func(t *testing.T) {
 		badTLSKeyPath := conf
 		badTLSKeyPath.TLS.CertPath = "invalid"
-		praefectServerFactory := NewServerFactory(badTLSKeyPath, logger, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
+		praefectServerFactory := NewServerFactory(badTLSKeyPath, logger, coordinator, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, router, registry, nil, nil, nil)
 
 		err := praefectServerFactory.Serve(nil, true)
 		require.EqualError(t, err, "load certificate key pair: open invalid: no such file or directory")

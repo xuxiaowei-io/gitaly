@@ -119,6 +119,7 @@ func NewGRPCServer(
 	conf config.Config,
 	logger *logrus.Entry,
 	registry *protoregistry.Registry,
+	_ *Coordinator,
 	director proxy.StreamDirector,
 	txMgr *transactions.Manager,
 	rs datastore.RepositoryStore,
