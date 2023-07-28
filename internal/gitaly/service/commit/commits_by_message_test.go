@@ -1,216 +1,184 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var rubyFilesCommit = []*gitalypb.GitCommit{
-	{
-		Id:      "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-		Subject: []byte("Files, encoding and much more"),
-		Body:    []byte("Files, encoding and much more\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
-		Author: &gitalypb.CommitAuthor{
-			Name:     []byte("Dmitriy Zaporozhets"),
-			Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-			Date:     &timestamppb.Timestamp{Seconds: 1393488896},
-			Timezone: []byte("+0200"),
-		},
-		Committer: &gitalypb.CommitAuthor{
-			Name:     []byte("Dmitriy Zaporozhets"),
-			Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-			Date:     &timestamppb.Timestamp{Seconds: 1393488896},
-			Timezone: []byte("+0200"),
-		},
-		ParentIds:     []string{"cfe32cf61b73a0d5e9f13e774abde7ff789b1660"},
-		BodySize:      98,
-		SignatureType: gitalypb.SignatureType_PGP,
-		TreeId:        "faafbe7fe23fb83c664c78aaded9566c8f934412",
-	},
-}
-
-func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
+func TestCommitsByMessage(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	commits := []*gitalypb.GitCommit{
-		{
-			Id:        "bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb",
-			Subject:   []byte("Commit #10"),
-			Body:      []byte("Commit #10\n"),
-			Author:    dummyCommitAuthor(1500320272),
-			Committer: dummyCommitAuthor(1500320272),
-			ParentIds: []string{"9d526f87b82e2b2fd231ca44c95508e5e85624ca"},
-			BodySize:  11,
-			TreeId:    "91639b9835ff541f312fd2735f639a50bf35d472",
-		},
-		{
-			Id:        "79b06233d3dc769921576771a4e8bee4b439595d",
-			Subject:   []byte("Commit #1"),
-			Body:      []byte("Commit #1\n"),
-			Author:    dummyCommitAuthor(1500320254),
-			Committer: dummyCommitAuthor(1500320254),
-			ParentIds: []string{"1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"},
-			BodySize:  10,
-			TreeId:    "91639b9835ff541f312fd2735f639a50bf35d472",
-		},
-	}
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	testCases := []struct {
+	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Mode: "100644", Path: "ruby", Content: "foo bar"},
+	})
+
+	commitWithFileID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(`Files, encoding and much more
+
+Files, encoding and much more
+
+Signed-off-by: John Doe <john@doe.com>`), gittest.WithTreeEntries(gittest.TreeEntry{
+		OID:  treeID,
+		Mode: "040000",
+		Path: "files",
+	}), gittest.WithBranch("few-commits"))
+	commit10ID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(`Commit #10
+
+Commit #10`), gittest.WithBranch("few-commits"), gittest.WithParents(commitWithFileID))
+	commit1ID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(`Commit #1
+
+Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
+
+	localrepo := localrepo.NewTestRepo(t, cfg, repo)
+	commitWithFile, err := localrepo.ReadCommit(ctx, git.Revision(commitWithFileID))
+	require.NoError(t, err)
+	commit10, err := localrepo.ReadCommit(ctx, git.Revision(commit10ID))
+	require.NoError(t, err)
+	commit1, err := localrepo.ReadCommit(ctx, git.Revision(commit1ID))
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
 		desc            string
 		request         *gitalypb.CommitsByMessageRequest
 		expectedCommits []*gitalypb.GitCommit
+		expectedErr     error
 	}{
 		{
-			desc: "revision + query",
+			desc: "revision and query",
 			request: &gitalypb.CommitsByMessageRequest{
-				Revision: []byte("few-commits"),
-				Query:    "commit #1",
+				Revision:   []byte("few-commits"),
+				Query:      "commit #1",
+				Repository: repo,
 			},
-			expectedCommits: commits,
+			expectedCommits: []*gitalypb.GitCommit{commit1, commit10},
 		},
 		{
-			desc: "revision + query + limit",
+			desc: "revision, query and limit",
 			request: &gitalypb.CommitsByMessageRequest{
-				Revision: []byte("few-commits"),
-				Query:    "commit #1",
-				Limit:    1,
+				Revision:   []byte("few-commits"),
+				Query:      "commit #1",
+				Limit:      1,
+				Repository: repo,
 			},
-			expectedCommits: commits[0:1],
+			expectedCommits: []*gitalypb.GitCommit{commit1},
 		},
 		{
-			desc: "revision + query + offset",
+			desc: "revision, query and offset",
 			request: &gitalypb.CommitsByMessageRequest{
-				Revision: []byte("few-commits"),
-				Query:    "commit #1",
-				Offset:   1,
+				Revision:   []byte("few-commits"),
+				Query:      "commit #1",
+				Offset:     1,
+				Repository: repo,
 			},
-			expectedCommits: commits[1:],
+			expectedCommits: []*gitalypb.GitCommit{commit10},
 		},
 		{
-			desc: "query + empty revision + path",
+			desc: "query, empty revision and path",
 			request: &gitalypb.CommitsByMessageRequest{
-				Query: "much more",
-				Path:  []byte("files/ruby"),
+				Query:      "much more",
+				Path:       []byte("files/ruby"),
+				Repository: repo,
 			},
-			expectedCommits: rubyFilesCommit,
+			expectedCommits: []*gitalypb.GitCommit{commitWithFile},
 		},
 		{
-			desc: "query + empty revision + wildcard pathspec",
+			desc: "query, empty revision and wildcard pathspec",
 			request: &gitalypb.CommitsByMessageRequest{
-				Query: "much more",
-				Path:  []byte("files/*"),
+				Query:      "much more",
+				Path:       []byte("files/*"),
+				Repository: repo,
 			},
-			expectedCommits: rubyFilesCommit,
+			expectedCommits: []*gitalypb.GitCommit{commitWithFile},
 		},
 		{
-			desc: "query + empty revision + non-existent literal pathspec",
+			desc: "query, empty revision and non-existent literal pathspec",
 			request: &gitalypb.CommitsByMessageRequest{
 				Query:         "much more",
 				Path:          []byte("files/*"),
 				GlobalOptions: &gitalypb.GlobalOptions{LiteralPathspecs: true},
+				Repository:    repo,
 			},
 			expectedCommits: []*gitalypb.GitCommit{},
 		},
 		{
-			desc: "query + empty revision + path not in the commits",
+			desc: "query, empty revision and path not in the commits",
 			request: &gitalypb.CommitsByMessageRequest{
-				Query: "much more",
-				Path:  []byte("bar"),
+				Query:      "much more",
+				Path:       []byte("bar"),
+				Repository: repo,
 			},
 			expectedCommits: []*gitalypb.GitCommit{},
 		},
 		{
-			desc: "query + bad revision",
+			desc: "query and bad revision",
 			request: &gitalypb.CommitsByMessageRequest{
-				Revision: []byte("maaaaasterrrrr"),
-				Query:    "much more",
+				Revision:   []byte("maaaaasterrrrr"),
+				Query:      "much more",
+				Repository: repo,
 			},
 			expectedCommits: []*gitalypb.GitCommit{},
 		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			request := testCase.request
-			request.Repository = repo
-			c, err := client.CommitsByMessage(ctx, request)
-			require.NoError(t, err)
-
-			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
-
-			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
-
-			for i, receivedCommit := range receivedCommits {
-				testhelper.ProtoEqual(t, testCase.expectedCommits[i], receivedCommit)
-			}
-		})
-	}
-}
-
-func TestFailedCommitsByMessageRequest(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
-
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.CommitsByMessageRequest
-		expectedErr error
-	}{
 		{
-			desc:    "Invalid repository",
-			request: &gitalypb.CommitsByMessageRequest{Repository: invalidRepo, Query: "foo"},
+			desc: "invalid repository",
+			request: &gitalypb.CommitsByMessageRequest{
+				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
+				Query:      "foo",
+			},
 			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 				"%w", storage.NewStorageNotFoundError("fake"),
 			)),
 		},
 		{
-			desc:        "Repository is nil",
+			desc:        "repository is nil",
 			request:     &gitalypb.CommitsByMessageRequest{Query: "foo"},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
-			desc:        "Query is missing",
+			desc:        "query is missing",
 			request:     &gitalypb.CommitsByMessageRequest{Repository: repo},
 			expectedErr: status.Error(codes.InvalidArgument, "empty Query"),
 		},
 		{
-			desc:        "Revision is invalid",
+			desc:        "revision is invalid",
 			request:     &gitalypb.CommitsByMessageRequest{Repository: repo, Revision: []byte("--output=/meow"), Query: "not empty"},
 			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
-	}
+	} {
+		tc := tc
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			c, err := client.CommitsByMessage(ctx, testCase.request)
+		t.Run(tc.desc, func(t *testing.T) {
+			c, err := client.CommitsByMessage(ctx, tc.request)
 			require.NoError(t, err)
 
-			testhelper.RequireGrpcError(t, testCase.expectedErr, drainCommitsByMessageResponse(c))
+			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) {
+				resp, err := c.Recv()
+				if err != nil && err != io.EOF {
+					testhelper.RequireGrpcError(t, tc.expectedErr, err)
+					err = io.EOF
+				}
+				return resp, err
+			})
+
+			require.Equal(t, len(tc.expectedCommits), len(receivedCommits), "number of commits received")
+
+			for i, receivedCommit := range receivedCommits {
+				testhelper.ProtoEqual(t, tc.expectedCommits[i], receivedCommit)
+			}
 		})
 	}
-}
-
-func drainCommitsByMessageResponse(c gitalypb.CommitService_CommitsByMessageClient) error {
-	var err error
-	for err == nil {
-		_, err = c.Recv()
-	}
-	return err
 }

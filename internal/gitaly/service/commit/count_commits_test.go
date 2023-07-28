@@ -1,12 +1,9 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -17,186 +14,178 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestSuccessfulCountCommitsRequest(t *testing.T) {
+func TestCountCommits(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo1, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	repo2, repo2Path := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	commitOID := createCommits(t, cfg, repo2Path, "master", 5, "")
-	createCommits(t, cfg, repo2Path, "another-branch", 3, commitOID)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch-1"))
+	commit0 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithCommitterDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
+		gittest.WithBranch("branch-2"))
+	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithCommitterDate(time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)),
+		gittest.WithBranch("branch-2"), gittest.WithParents(commit0))
 
-	literalOptions := &gitalypb.GlobalOptions{LiteralPathspecs: true}
+	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Mode: "100644", Path: "foo", Content: "bar"},
+	})
+	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{OID: treeID, Mode: "040000", Path: "files"},
+	), gittest.WithParents(commit1))
 
-	testCases := []struct {
-		repo                *gitalypb.Repository
-		revision, path      []byte
-		all                 bool
-		options             *gitalypb.GlobalOptions
-		before, after, desc string
-		maxCount            int32
-		count               int32
-	}{
-		{
-			desc:     "revision only #1",
-			repo:     repo1,
-			revision: []byte("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
-			count:    1,
-		},
-		{
-			desc:     "revision only #2",
-			repo:     repo1,
-			revision: []byte("6d394385cf567f80a8fd85055db1ab4c5295806f"),
-			count:    2,
-		},
-		{
-			desc:     "revision only #3",
-			repo:     repo1,
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			count:    39,
-		},
-		{
-			desc:     "revision + max-count",
-			repo:     repo1,
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			maxCount: 15,
-			count:    15,
-		},
-		{
-			desc:     "non-existing revision",
-			repo:     repo1,
-			revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"),
-			count:    0,
-		},
-		{
-			desc:     "revision + before",
-			repo:     repo1,
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			before:   "2015-12-07T11:54:28+01:00",
-			count:    26,
-		},
-		{
-			desc:     "revision + before + after",
-			repo:     repo1,
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			before:   "2015-12-07T11:54:28+01:00",
-			after:    "2014-02-27T10:14:56+02:00",
-			count:    23,
-		},
-		{
-			desc:     "revision + before + after + path",
-			repo:     repo1,
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			before:   "2015-12-07T11:54:28+01:00",
-			after:    "2014-02-27T10:14:56+02:00",
-			path:     []byte("files"),
-			count:    12,
-		},
-		{
-			desc:     "revision + before + after + wildcard path",
-			repo:     repo1,
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			before:   "2015-12-07T11:54:28+01:00",
-			after:    "2014-02-27T10:14:56+02:00",
-			path:     []byte("files/*"),
-			count:    12,
-		},
-		{
-			desc:     "revision + before + after + non-existent literal pathspec",
-			repo:     repo1,
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			before:   "2015-12-07T11:54:28+01:00",
-			after:    "2014-02-27T10:14:56+02:00",
-			path:     []byte("files/*"),
-			options:  literalOptions,
-			count:    0,
-		},
-		{
-			desc:  "all refs #1",
-			repo:  repo2,
-			all:   true,
-			count: 8,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			request := &gitalypb.CountCommitsRequest{Repository: testCase.repo, GlobalOptions: testCase.options}
-
-			if testCase.all {
-				request.All = true
-			} else {
-				request.Revision = testCase.revision
-			}
-
-			if testCase.before != "" {
-				before, err := time.Parse(time.RFC3339, testCase.before)
-				require.NoError(t, err)
-				request.Before = &timestamppb.Timestamp{Seconds: before.Unix()}
-			}
-
-			if testCase.after != "" {
-				after, err := time.Parse(time.RFC3339, testCase.after)
-				require.NoError(t, err)
-				request.After = &timestamppb.Timestamp{Seconds: after.Unix()}
-			}
-
-			if testCase.maxCount != 0 {
-				request.MaxCount = testCase.maxCount
-			}
-
-			if testCase.path != nil {
-				request.Path = testCase.path
-			}
-
-			response, err := client.CountCommits(ctx, request)
-			require.NoError(t, err)
-			require.Equal(t, response.Count, testCase.count)
-		})
-	}
-}
-
-func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
+	createCommits(t, cfg, repoPath, "branch-2", 10, commit2)
 
 	for _, tc := range []struct {
-		desc        string
-		req         *gitalypb.CountCommitsRequest
-		expectedErr error
+		desc             string
+		request          *gitalypb.CountCommitsRequest
+		expectedErr      error
+		expectedResponse *gitalypb.CountCommitsResponse
 	}{
 		{
-			desc: "Repository doesn't exist",
-			req:  &gitalypb.CountCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision},
+			desc: "all commits",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				All:        true,
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 14},
+		},
+		{
+			desc: "all master",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-1"),
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 1},
+		},
+		{
+			desc: "only master",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-2"),
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 13},
+		},
+		{
+			desc: "with max count",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				All:        true,
+				MaxCount:   5,
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 5},
+		},
+		{
+			desc: "with before",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-2"),
+				Before: &timestamppb.Timestamp{
+					Seconds: time.Date(2005, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
+				},
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 2},
+		},
+		{
+			desc: "with after",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-2"),
+				After: &timestamppb.Timestamp{
+					Seconds: time.Date(2005, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
+				},
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 11},
+		},
+		{
+			desc: "with before and after",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-2"),
+				Before: &timestamppb.Timestamp{
+					Seconds: time.Date(2005, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
+				},
+				After: &timestamppb.Timestamp{
+					Seconds: time.Date(2000, 2, 1, 0, 0, 0, 0, time.UTC).Unix(),
+				},
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 1},
+		},
+		{
+			desc: "with path",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-2"),
+				Path:       []byte("files/"),
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 1},
+		},
+		{
+			desc: "with path regex",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-2"),
+				Path:       []byte("files/*"),
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 1},
+		},
+		{
+			desc: "with path and literal path specs",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-2"),
+				Path:       []byte("files/*"),
+				GlobalOptions: &gitalypb.GlobalOptions{
+					LiteralPathspecs: true,
+				},
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 0},
+		},
+		{
+			desc: "with path and before and after",
+			request: &gitalypb.CountCommitsRequest{
+				Repository: repo,
+				Revision:   []byte("branch-2"),
+				Path:       []byte("files/*"),
+				After: &timestamppb.Timestamp{
+					Seconds: time.Date(2000, 2, 1, 0, 0, 0, 0, time.UTC).Unix(),
+				},
+				Before: &timestamppb.Timestamp{
+					Seconds: time.Date(2023, 2, 1, 0, 0, 0, 0, time.UTC).Unix(),
+				},
+			},
+			expectedResponse: &gitalypb.CountCommitsResponse{Count: 1},
+		},
+		{
+			desc:    "repository doesn't exist",
+			request: &gitalypb.CountCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: []byte("branch-2")},
 			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 				"%w", storage.NewStorageNotFoundError("fake"),
 			)),
 		},
 		{
-			desc:        "Repository is nil",
-			req:         &gitalypb.CountCommitsRequest{Repository: nil, Revision: revision},
+			desc:        "repository is nil",
+			request:     &gitalypb.CountCommitsRequest{Repository: nil, Revision: []byte("branch-2")},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
-			desc:        "Revision is empty and All is false",
-			req:         &gitalypb.CountCommitsRequest{Repository: repo, Revision: nil, All: false},
+			desc:        "revision is empty and all is false",
+			request:     &gitalypb.CountCommitsRequest{Repository: repo, Revision: nil, All: false},
 			expectedErr: status.Error(codes.InvalidArgument, "empty Revision and false All"),
 		},
 		{
-			desc:        "Revision is invalid",
-			req:         &gitalypb.CountCommitsRequest{Repository: repo, Revision: []byte("--output=/meow"), All: false},
+			desc:        "revision is invalid",
+			request:     &gitalypb.CountCommitsRequest{Repository: repo, Revision: []byte("--output=/meow"), All: false},
 			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.CountCommits(ctx, tc.req)
+			resp, err := client.CountCommits(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, resp)
 		})
 	}
 }

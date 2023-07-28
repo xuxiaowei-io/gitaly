@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestMain(m *testing.M) {
@@ -87,15 +86,6 @@ func newCommitServiceClient(tb testing.TB, serviceSocketPath string) gitalypb.Co
 	tb.Cleanup(func() { conn.Close() })
 
 	return gitalypb.NewCommitServiceClient(conn)
-}
-
-func dummyCommitAuthor(ts int64) *gitalypb.CommitAuthor {
-	return &gitalypb.CommitAuthor{
-		Name:     []byte("Ahmad Sherif"),
-		Email:    []byte("ahmad+gitlab-test@gitlab.com"),
-		Date:     &timestamppb.Timestamp{Seconds: ts},
-		Timezone: []byte("+0200"),
-	}
 }
 
 type gitCommitsGetter interface {

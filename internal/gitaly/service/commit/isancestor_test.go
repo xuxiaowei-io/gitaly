@@ -1,17 +1,11 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -19,190 +13,304 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestCommitIsAncestorFailure(t *testing.T) {
+func TestCommitIsAncestor(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	queries := []struct {
-		Request     *gitalypb.CommitIsAncestorRequest
-		expectedErr error
+	type setupData struct {
+		request          *gitalypb.CommitIsAncestorRequest
+		expectedResponse *gitalypb.CommitIsAncestorResponse
+		expectedErr      error
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: nil,
-				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
-				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
+			desc: "direct ancestor",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath)
+				child := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(ancestor))
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: ancestor.String(),
+						ChildId:    child.String(),
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: true,
+					},
+				}
 			},
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "",
-				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
+			desc: "not an ancestor",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				// We add different messages here to ensure that the commit IDs are different.
+				ancestor := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ancestor"))
+				child := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("child"))
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: ancestor.String(),
+						ChildId:    child.String(),
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: false,
+					},
+				}
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty ancestor sha"),
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
-				ChildId:    "",
+			desc: "invalid ancestor",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				child := gittest.WriteCommit(t, cfg, repoPath)
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: gittest.DefaultObjectHash.EmptyTreeOID.String(),
+						ChildId:    child.String(),
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: false,
+					},
+				}
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty child sha"),
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "fake-path"},
-				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
-				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
+			desc: "invalid child",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath)
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: ancestor.String(),
+						ChildId:    gittest.DefaultObjectHash.EmptyTreeOID.String(),
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: false,
+					},
+				}
 			},
-			expectedErr: testhelper.ToInterceptedMetadata(
-				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "fake-path")),
-			),
 		},
-	}
-
-	for _, v := range queries {
-		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
-			_, err := client.CommitIsAncestor(ctx, v.Request)
-			testhelper.RequireGrpcError(t, v.expectedErr, err)
-		})
-	}
-}
-
-func TestCommitIsAncestorSuccess(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	queries := []struct {
-		Request  *gitalypb.CommitIsAncestorRequest
-		Response bool
-		ErrMsg   string
-	}{
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-				ChildId:    "372ab6950519549b14d220271ee2322caa44d4eb",
+			desc: "indirect ancestor",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath)
+				midCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(ancestor))
+				child := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(midCommit))
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: ancestor.String(),
+						ChildId:    child.String(),
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: true,
+					},
+				}
 			},
-			Response: true,
-			ErrMsg:   "Expected commit to be ancestor",
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
-				ChildId:    "38008cb17ce1466d8fec2dfa6f6ab8dcfe5cf49e",
+			desc: "with revisions",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(ancestor), gittest.WithBranch("feature"))
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: "master",
+						ChildId:    "feature",
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: true,
+					},
+				}
 			},
-			Response: false,
-			ErrMsg:   "Expected commit not to be ancestor",
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "1234123412341234123412341234123412341234",
-				ChildId:    "b83d6e391c22777fca1ed3012fce84f633d7fed0",
+			desc: "with tags",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/v1.0.0"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(ancestor), gittest.WithReference("refs/tags/v1.0.1"))
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: "refs/tags/v1.0.0",
+						ChildId:    "refs/tags/v1.0.1",
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: true,
+					},
+				}
 			},
-			Response: false,
-			ErrMsg:   "Expected invalid commit to not be ancestor",
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
-				ChildId:    "gitaly-stuff",
+			desc: "ancestor as child",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath)
+				child := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(ancestor))
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: child.String(),
+						ChildId:    ancestor.String(),
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: false,
+					},
+				}
 			},
-			Response: true,
-			ErrMsg:   "Expected `b83d6e391c22777fca1ed3012fce84f633d7fed0` to be ancestor of `gitaly-stuff`",
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "gitaly-stuff",
-				ChildId:    "master",
+			desc: "with alternates directory",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath)
+
+				altObjectsDir := "./alt-objects"
+				child := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(ancestor),
+					gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
+				)
+				repo.GitAlternateObjectDirectories = []string{altObjectsDir}
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: ancestor.String(),
+						ChildId:    child.String(),
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: true,
+					},
+				}
 			},
-			Response: false,
-			ErrMsg:   "Expected branch `gitaly-stuff` not to be ancestor of `master`",
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "refs/tags/v1.0.0",
-				ChildId:    "refs/tags/v1.1.0",
+			desc: "with alternates directory, but not set on repo",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath)
+
+				altObjectsDir := "./alt-objects"
+				child := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(ancestor),
+					gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
+				)
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: ancestor.String(),
+						ChildId:    child.String(),
+					},
+					expectedResponse: &gitalypb.CommitIsAncestorResponse{
+						Value: false,
+					},
+				}
 			},
-			Response: true,
-			ErrMsg:   "Expected tag `v1.0.0` to be ancestor of `v1.1.0`",
 		},
 		{
-			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: "refs/tags/v1.1.0",
-				ChildId:    "refs/tags/v1.0.0",
+			desc: "repo not set",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						AncestorId: gittest.DefaultObjectHash.EmptyTreeOID.String(),
+						ChildId:    gittest.DefaultObjectHash.EmptyTreeOID.String(),
+					},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
 			},
-			Response: false,
-			ErrMsg:   "Expected branch `v1.1.0` not to be ancestor of `v1.0.0`",
-		},
-	}
-
-	for _, v := range queries {
-		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
-			c, err := client.CommitIsAncestor(ctx, v.Request)
-			require.NoError(t, err)
-
-			response := c.GetValue()
-			require.Equal(t, v.Response, response, v.ErrMsg)
-		})
-	}
-}
-
-func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
-
-	parentCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "--verify", "HEAD")))
-
-	altObjectsDir := "./alt-objects"
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(parentCommitID),
-		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
-	)
-
-	testCases := []struct {
-		desc    string
-		altDirs []string
-		result  bool
-	}{
-		{
-			desc:    "present GIT_ALTERNATE_OBJECT_DIRECTORIES",
-			altDirs: []string{altObjectsDir},
-			result:  true,
 		},
 		{
-			desc:    "empty GIT_ALTERNATE_OBJECT_DIRECTORIES",
-			altDirs: []string{},
-			result:  false,
+			desc: "empty ancestor",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ancestor := gittest.WriteCommit(t, cfg, repoPath)
+				child := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(ancestor))
+
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: "",
+						ChildId:    child.String(),
+					},
+					expectedErr: status.Error(codes.InvalidArgument, "empty ancestor sha"),
+				}
+			},
 		},
-	}
+		{
+			desc: "empty child",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			repo.GitAlternateObjectDirectories = testCase.altDirs
-			request := &gitalypb.CommitIsAncestorRequest{
-				Repository: repo,
-				AncestorId: string(parentCommitID),
-				ChildId:    commitID.String(),
-			}
-			response, err := client.CommitIsAncestor(ctx, request)
-			require.NoError(t, err)
+				ancestor := gittest.WriteCommit(t, cfg, repoPath)
 
-			require.Equal(t, testCase.result, response.Value)
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: repo,
+						AncestorId: ancestor.String(),
+						ChildId:    "",
+					},
+					expectedErr: status.Error(codes.InvalidArgument, "empty child sha"),
+				}
+			},
+		},
+		{
+			desc: "invalid repository storage",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.CommitIsAncestorRequest{
+						Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "fake-path"},
+						AncestorId: gittest.DefaultObjectHash.EmptyTreeOID.String(),
+						ChildId:    gittest.DefaultObjectHash.EmptyTreeOID.String(),
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "fake-path")),
+					),
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			setup := tc.setup(t)
+
+			resp, err := client.CommitIsAncestor(ctx, setup.request)
+			testhelper.ProtoEqual(t, setup.expectedResponse, resp)
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
 		})
 	}
 }
