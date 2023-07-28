@@ -2,10 +2,12 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"sort"
 	"time"
 
@@ -199,6 +201,11 @@ func DefaultReplicationConfig() Replication {
 
 // Config is a container for everything found in the TOML config file
 type Config struct {
+	// ConfigCommand specifies the path to an executable that Praefect will run after loading the initial
+	// configuration. The executable is expected to write JSON-formatted configuration to its standard
+	// output that we will then deserialize and merge back into the initially-loaded configuration again.
+	// This is an easy mechanism to generate parts of the configuration at runtime, like for example secrets.
+	ConfigCommand          string                 `toml:"config_command,omitempty" json:"config_command"`
 	AllowLegacyElectors    bool                   `toml:"i_understand_my_election_strategy_is_unsupported_and_will_be_removed_without_warning,omitempty" json:"i_understand_my_election_strategy_is_unsupported_and_will_be_removed_without_warning"`
 	BackgroundVerification BackgroundVerification `toml:"background_verification,omitempty" json:"background_verification"`
 	Reconciliation         Reconciliation         `toml:"reconciliation,omitempty" json:"reconciliation"`
@@ -311,6 +318,22 @@ func FromReader(reader io.Reader) (Config, error) {
 	}
 	if err := toml.NewDecoder(reader).Decode(conf); err != nil {
 		return Config{}, err
+	}
+
+	if conf.ConfigCommand != "" {
+		output, err := exec.Command(conf.ConfigCommand).Output()
+		if err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				return Config{}, fmt.Errorf("running config command: %w, stderr: %q", err, string(exitErr.Stderr))
+			}
+
+			return Config{}, fmt.Errorf("running config command: %w", err)
+		}
+
+		if err := json.Unmarshal(output, &conf); err != nil {
+			return Config{}, fmt.Errorf("unmarshalling generated config: %w", err)
+		}
 	}
 
 	conf.setDefaults()
