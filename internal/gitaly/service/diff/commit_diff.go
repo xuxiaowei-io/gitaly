@@ -17,9 +17,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	ctxlogrus.Extract(ctx).WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,
 		"RightCommitId": in.RightCommitId,
-		//nolint:staticcheck // This is a deprecated field and will be remove in a upcoming release
-		"IgnoreWhitespaceChange": in.IgnoreWhitespaceChange,
-		"Paths":                  logPaths(in.Paths),
+		"Paths":         logPaths(in.Paths),
 	}).Debug("CommitDiff")
 
 	if err := validateRequest(s.locator, in); err != nil {
@@ -28,8 +26,6 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 
 	leftSha := in.LeftCommitId
 	rightSha := in.RightCommitId
-	//nolint:staticcheck // This is a deprecated field and will be remove in a upcoming release
-	ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
 	whitespaceChanges := in.GetWhitespaceChanges()
 	paths := in.GetPaths()
 
@@ -54,9 +50,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 
 	if whitespaceChanges == gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE_ALL {
 		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--ignore-all-space"})
-	} else if whitespaceChanges == gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE || ignoreWhitespaceChange {
-		// ignoreWhitespaceChange is a deprecated field which we will eventually remove, for
-		// now when `whitespaceChanges` is undefined we refer to ignoreWhitespaceChange.
+	} else if whitespaceChanges == gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE {
 		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--ignore-space-change"})
 	}
 
