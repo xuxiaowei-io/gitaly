@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
@@ -7,10 +5,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -19,149 +20,186 @@ import (
 )
 
 func TestListAllCommits(t *testing.T) {
-	receiveCommits := func(t *testing.T, stream gitalypb.CommitService_ListAllCommitsClient) []*gitalypb.GitCommit {
-		t.Helper()
-
-		var commits []*gitalypb.GitCommit
-		for {
-			response, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			require.NoError(t, err)
-
-			commits = append(commits, response.Commits...)
-		}
-
-		return commits
-	}
-	ctx := testhelper.Context(t)
-
-	t.Run("empty repo", func(t *testing.T) {
-		cfg, client := setupCommitService(t, ctx)
-
-		repo, _ := gittest.CreateRepository(t, ctx, cfg)
-
-		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
-			Repository: repo,
-		})
-		require.NoError(t, err)
-
-		require.Empty(t, receiveCommits(t, stream))
-	})
-
-	t.Run("normal repo", func(t *testing.T) {
-		_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
-			Repository: repo,
-		})
-		require.NoError(t, err)
-
-		commits := receiveCommits(t, stream)
-		require.Greater(t, len(commits), 350)
-
-		// Build a map of received commits by their OID so that we can easily compare a
-		// subset via `testhelper.ProtoEqual()`. Ideally, we'd just use `require.Subset()`,
-		// but that doesn't work with protobuf messages.
-		commitsByID := make(map[string]*gitalypb.GitCommit)
-		for _, commit := range commits {
-			commitsByID[commit.Id] = commit
-		}
-
-		// We've got quite a bunch of commits, so let's only compare a small subset to be
-		// sure that commits are correctly read.
-		for _, oid := range []string{
-			"0031876facac3f2b2702a0e53a26e89939a42209",
-			"48ca272b947f49eee601639d743784a176574a09",
-			"335bc94d5b7369b10251e612158da2e4a4aaa2a5",
-			"bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb",
-		} {
-			testhelper.ProtoEqual(t, gittest.CommitsByID[oid], commitsByID[oid])
-		}
-	})
-
-	t.Run("pagination", func(t *testing.T) {
-		_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
-			Repository: repo,
-			PaginationParams: &gitalypb.PaginationParameter{
-				PageToken: "1039376155a0d507eba0ea95c29f8f5b983ea34b",
-				Limit:     1,
-			},
-		})
-		require.NoError(t, err)
-
-		testhelper.ProtoEqual(t, []*gitalypb.GitCommit{
-			gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
-		}, receiveCommits(t, stream))
-	})
-
-	t.Run("quarantine directory", func(t *testing.T) {
-		cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
-
-		quarantineDir := filepath.Join("objects", "incoming-123456")
-		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), perm.PublicDir))
-
-		repo.GitObjectDirectory = quarantineDir
-		repo.GitAlternateObjectDirectories = nil
-
-		// There are no quarantined objects yet, so none should be returned
-		// here.
-		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
-			Repository: repo,
-		})
-		require.NoError(t, err)
-		require.Empty(t, receiveCommits(t, stream))
-
-		// We cannot easily spawn a command with an object directory, so we just do so
-		// manually here and write the commit into the quarantine object directory.
-		commitID := gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)),
-		)
-
-		// We now expect only the quarantined commit to be returned.
-		stream, err = client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
-			Repository: repo,
-		})
-		require.NoError(t, err)
-
-		require.Equal(t, []*gitalypb.GitCommit{{
-			Id:        commitID.String(),
-			Subject:   []byte("message"),
-			Body:      []byte("message"),
-			BodySize:  7,
-			TreeId:    "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
-			Author:    gittest.DefaultCommitAuthor,
-			Committer: gittest.DefaultCommitAuthor,
-		}}, receiveCommits(t, stream))
-	})
-}
-
-func TestListAllCommits_validate(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, client := setupCommitService(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
+
+	type setupData struct {
+		request              *gitalypb.ListAllCommitsRequest
+		skipCommitValidation bool
+		expectedErr          error
+		expectedCommitIDs    []git.ObjectID
+	}
 
 	for _, tc := range []struct {
-		desc        string
-		req         *gitalypb.ListAllCommitsRequest
-		expectedErr error
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			desc: "no repository provided",
-			req: &gitalypb.ListAllCommitsRequest{
-				Repository: nil,
+			desc: "unset repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.ListAllCommitsRequest{
+						Repository: nil,
+					},
+					skipCommitValidation: true,
+					expectedErr:          structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
 			},
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+		},
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.ListAllCommitsRequest{
+						Repository: repo,
+					},
+				}
+			},
+		},
+		{
+			desc: "normal repository",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				reachableCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("reachable"), gittest.WithMessage("reachable"))
+				transitivelyReachableCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("transitively reachable"))
+				commitWithHistory := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(transitivelyReachableCommit), gittest.WithBranch("commit-with-history"))
+				unreachableCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+
+				return setupData{
+					request: &gitalypb.ListAllCommitsRequest{
+						Repository: repo,
+					},
+					expectedCommitIDs: []git.ObjectID{
+						transitivelyReachableCommit,
+						commitWithHistory,
+						reachableCommit,
+						unreachableCommit,
+					},
+				}
+			},
+		},
+		{
+			desc: "pagination",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				child := gittest.WriteCommit(t, cfg, repoPath)
+				parent := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(child), gittest.WithBranch("branch"))
+
+				// Git walks commits in object ID order, so we expect the smaller of both object IDs to
+				// be returned.
+				smallerOID := child
+				if parent < child {
+					smallerOID = parent
+				}
+
+				return setupData{
+					request: &gitalypb.ListAllCommitsRequest{
+						Repository: repo,
+						PaginationParams: &gitalypb.PaginationParameter{
+							Limit: 1,
+						},
+					},
+					expectedCommitIDs: []git.ObjectID{
+						smallerOID,
+					},
+				}
+			},
+		},
+		{
+			desc: "empty quarantine",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unquarantined"))
+
+				quarantineDir := filepath.Join("objects", "incoming-123456")
+				require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), perm.PublicDir))
+
+				repo.GitObjectDirectory = quarantineDir
+				repo.GitAlternateObjectDirectories = nil
+
+				return setupData{
+					request: &gitalypb.ListAllCommitsRequest{
+						Repository: repo,
+					},
+				}
+			},
+		},
+		{
+			desc: "populated quarantine",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unquarantined"))
+
+				quarantineDir := filepath.Join("objects", "incoming-123456")
+				require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), perm.PublicDir))
+
+				repo.GitObjectDirectory = quarantineDir
+				repo.GitAlternateObjectDirectories = nil
+
+				quarantinedCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithMessage("quarantined"),
+					gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)),
+				)
+
+				return setupData{
+					request: &gitalypb.ListAllCommitsRequest{
+						Repository: repo,
+					},
+					expectedCommitIDs: []git.ObjectID{
+						quarantinedCommit,
+					},
+				}
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.ListAllCommits(ctx, tc.req)
+			setup := tc.setup(t)
+
+			stream, err := client.ListAllCommits(ctx, setup.request)
 			require.NoError(t, err)
-			_, err = stream.Recv()
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+
+			var actualCommits []*gitalypb.GitCommit
+			for {
+				var response *gitalypb.ListAllCommitsResponse
+				response, err = stream.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						err = nil
+					}
+
+					break
+				}
+
+				actualCommits = append(actualCommits, response.Commits...)
+			}
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+
+			if setup.skipCommitValidation {
+				return
+			}
+
+			var expectedCommits []*gitalypb.GitCommit
+			repo := localrepo.NewTestRepo(t, cfg, setup.request.GetRepository())
+			for _, expectedCommitID := range setup.expectedCommitIDs {
+				commit, err := repo.ReadCommit(ctx, expectedCommitID.Revision())
+				require.NoError(t, err)
+				expectedCommits = append(expectedCommits, commit)
+			}
+
+			// The order isn't clearly defined, so we simply sort both slices before doing the comparison.
+			sort.Slice(expectedCommits, func(i, j int) bool {
+				return expectedCommits[i].Id < expectedCommits[j].Id
+			})
+			sort.Slice(actualCommits, func(i, j int) bool {
+				return actualCommits[i].Id < actualCommits[j].Id
+			})
+			testhelper.ProtoEqual(t, expectedCommits, actualCommits)
 		})
 	}
 }
