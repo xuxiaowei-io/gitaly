@@ -29,9 +29,6 @@ const (
 type RepackObjectsStrategy string
 
 const (
-	// RepackObjectsStrategyIncremental performs an incremental repack by writing all loose
-	// objects that are currently reachable into a new packfile.
-	RepackObjectsStrategyIncremental = RepackObjectsStrategy("incremental")
 	// RepackObjectsStrategyIncrementalWithUnreachable performs an incremental repack by writing
 	// all loose objects into a new packfile, regardless of their reachability. The loose
 	// objects will be deleted.
@@ -85,7 +82,7 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 
 	var isFullRepack bool
 	switch cfg.Strategy {
-	case RepackObjectsStrategyIncremental, RepackObjectsStrategyIncrementalWithUnreachable, RepackObjectsStrategyGeometric:
+	case RepackObjectsStrategyIncrementalWithUnreachable, RepackObjectsStrategyGeometric:
 		isFullRepack = false
 	case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
 		isFullRepack = true
@@ -198,10 +195,6 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		}
 
 		return nil
-	case RepackObjectsStrategyIncremental:
-		return performRepack(ctx, repo, cfg,
-			git.Flag{Name: "-d"},
-		)
 	case RepackObjectsStrategyFullWithLooseUnreachable:
 		return performRepack(ctx, repo, cfg,
 			git.Flag{Name: "-A"},

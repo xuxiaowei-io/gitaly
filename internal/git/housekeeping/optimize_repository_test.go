@@ -109,13 +109,13 @@ func TestRepackIfNeeded(t *testing.T) {
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
 			repackObjectsCfg: RepackObjectsConfig{
-				Strategy: RepackObjectsStrategyIncremental,
+				Strategy: RepackObjectsStrategyIncrementalWithUnreachable,
 			},
 		})
 		require.NoError(t, err)
 		require.True(t, didRepack)
 		require.Equal(t, RepackObjectsConfig{
-			Strategy: RepackObjectsStrategyIncremental,
+			Strategy: RepackObjectsStrategyIncrementalWithUnreachable,
 		}, repackObjectsCfg)
 
 		requireObjectsState(t, repo, objectsState{

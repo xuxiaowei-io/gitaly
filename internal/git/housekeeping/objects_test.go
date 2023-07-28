@@ -67,7 +67,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 			},
 			repackCfg: RepackObjectsConfig{
-				Strategy: RepackObjectsStrategyIncremental,
+				Strategy: RepackObjectsStrategyIncrementalWithUnreachable,
 			},
 			stateBeforeRepack: objectsState{
 				looseObjects: 2,
@@ -86,7 +86,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				Strategy: RepackObjectsStrategyIncremental,
+				Strategy: RepackObjectsStrategyIncrementalWithUnreachable,
 			},
 			stateBeforeRepack: objectsState{
 				packfiles:    2,
@@ -102,7 +102,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
 			},
 			repackCfg: RepackObjectsConfig{
-				Strategy:    RepackObjectsStrategyIncremental,
+				Strategy:    RepackObjectsStrategyIncrementalWithUnreachable,
 				WriteBitmap: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -158,42 +158,6 @@ func TestRepackObjects(t *testing.T) {
 			},
 		},
 		{
-			desc: "multi-pack-index with incremental repack",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-			},
-			repackCfg: RepackObjectsConfig{
-				Strategy:            RepackObjectsStrategyIncremental,
-				WriteMultiPackIndex: true,
-			},
-			stateBeforeRepack: objectsState{
-				looseObjects: 2,
-			},
-			stateAfterRepack: objectsState{
-				packfiles:         1,
-				hasMultiPackIndex: true,
-			},
-		},
-		{
-			desc: "multi-pack-index allows incremental repacks with bitmaps",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-			},
-			repackCfg: RepackObjectsConfig{
-				Strategy:            RepackObjectsStrategyIncremental,
-				WriteMultiPackIndex: true,
-				WriteBitmap:         true,
-			},
-			stateBeforeRepack: objectsState{
-				looseObjects: 2,
-			},
-			stateAfterRepack: objectsState{
-				packfiles:               1,
-				hasMultiPackIndex:       true,
-				hasMultiPackIndexBitmap: true,
-			},
-		},
-		{
 			desc: "multi-pack-index with full repack packs packfiles and loose objects",
 			setup: func(t *testing.T, repoPath string) {
 				// We seed the repository so that it contains two packfiles and one loose object.
@@ -242,30 +206,6 @@ func TestRepackObjects(t *testing.T) {
 			},
 		},
 		{
-			desc: "multi-pack-index with incremental repack removes preexisting bitmaps with newish Git",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
-				repack(t, repoPath, "-A", "-d", "-b")
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
-			},
-			repackCfg: RepackObjectsConfig{
-				Strategy:            RepackObjectsStrategyIncremental,
-				WriteBitmap:         true,
-				WriteMultiPackIndex: true,
-			},
-			stateBeforeRepack: objectsState{
-				looseObjects: 1,
-				packfiles:    1,
-				hasBitmap:    true,
-			},
-			stateAfterRepack: objectsState{
-				packfiles:               2,
-				hasBitmap:               false,
-				hasMultiPackIndex:       true,
-				hasMultiPackIndexBitmap: true,
-			},
-		},
-		{
 			desc: "multi-pack-index with full repack removes preexisting bitmaps",
 			setup: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
@@ -309,7 +249,7 @@ func TestRepackObjects(t *testing.T) {
 			desc:  "expiring cruft objects requires writing cruft packs",
 			setup: func(t *testing.T, repoPath string) {},
 			repackCfg: RepackObjectsConfig{
-				Strategy:          RepackObjectsStrategyIncremental,
+				Strategy:          RepackObjectsStrategyIncrementalWithUnreachable,
 				CruftExpireBefore: time.Now(),
 			},
 			expectedErr: structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs"),
