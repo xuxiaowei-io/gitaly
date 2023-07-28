@@ -7,7 +7,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 )
 
 func (s *Server) merge(
@@ -58,39 +57,4 @@ func (s *Server) merge(
 	}
 
 	return string(c), nil
-}
-
-func (s *Server) mergeWithGit2Go(
-	ctx context.Context,
-	repo *localrepo.Repo,
-	repoPath string,
-	authorName string,
-	authorEmail string,
-	authorDate time.Time,
-	committerName string,
-	committerEmail string,
-	committerDate time.Time,
-	message string,
-	ours string,
-	theirs string,
-	squash bool,
-) (string, error) {
-	merge, err := s.git2goExecutor.Merge(ctx, repo, git2go.MergeCommand{
-		Repository:    repoPath,
-		AuthorName:    authorName,
-		AuthorMail:    authorEmail,
-		AuthorDate:    authorDate,
-		CommitterName: committerName,
-		CommitterMail: committerEmail,
-		CommitterDate: committerDate,
-		Message:       message,
-		Ours:          ours,
-		Theirs:        theirs,
-		Squash:        squash,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return merge.CommitID, nil
 }
