@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
@@ -254,6 +252,29 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "SHA256-signed commit",
+			setup: func(t *testing.T) setupData {
+				commitID, commitData := createCommitWithSignature(t, cfg, repoPath, "gpgsig-sha256", sshSignature, "sha256-signed commit message")
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+					expectedResponses: []*gitalypb.GetCommitSignaturesResponse{
+						{
+							CommitId:   commitID.String(),
+							Signature:  []byte(sshSignature),
+							SignedText: []byte(commitData),
+							Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
+						},
+					},
+				}
+			},
+		},
+		{
 			desc: "signed by Gitaly",
 			setup: func(t *testing.T) setupData {
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -294,13 +315,22 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 						[]*gitalypb.GetCommitSignaturesResponse{
 							{
 								CommitId: commitID.String(),
-								Signature: []byte(`-----BEGIN SSH SIGNATURE-----
+								Signature: []byte(gittest.ObjectHashDependent(t, map[string]string{
+									"sha1": `-----BEGIN SSH SIGNATURE-----
 U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgVzKQNpRPvHihfJQJ+Com
 F8BdFuG2wuXh+LjXjbOs8IgAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3Nz
 aC1lZDI1NTE5AAAAQB6uCeUpvnFGR/cowe1pQyTZiTzKsi1tnez0EO8o2LtrJr+g
 k8fZo+m7jSM0TpefrL0iyHxevrbKslyXw1lJVAM=
 -----END SSH SIGNATURE-----
-`),
+`,
+									"sha256": `-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgVzKQNpRPvHihfJQJ+Com
+F8BdFuG2wuXh+LjXjbOs8IgAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3Nz
+aC1lZDI1NTE5AAAAQKgC1TFLVZOqvVs2AqCp2lhkRAUtZsDa89RgHOOsYAC3T1kB
+4lOayj2uzBahoM0gc7REITUyg5MTzfIhcIPfhAQ=
+-----END SSH SIGNATURE-----
+`,
+								})),
 								SignedText: []byte(fmt.Sprintf(
 									"tree %s\nauthor %s\ncommitter %s\n\nmessage",
 									tree.OID,
