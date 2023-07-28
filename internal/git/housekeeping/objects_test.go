@@ -124,7 +124,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
+				Strategy: RepackObjectsStrategyFullWithUnreachable,
 			},
 			stateBeforeRepack: objectsState{
 				looseObjects: 1,
@@ -145,7 +145,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				Strategy:    RepackObjectsStrategyFullWithLooseUnreachable,
+				Strategy:    RepackObjectsStrategyFullWithUnreachable,
 				WriteBitmap: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -168,7 +168,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
+				Strategy:            RepackObjectsStrategyFullWithUnreachable,
 				WriteMultiPackIndex: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -191,7 +191,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
+				Strategy:            RepackObjectsStrategyFullWithUnreachable,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -214,7 +214,7 @@ func TestRepackObjects(t *testing.T) {
 				repack(t, repoPath, "-d")
 			},
 			repackCfg: RepackObjectsConfig{
-				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
+				Strategy:            RepackObjectsStrategyFullWithUnreachable,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -614,7 +614,7 @@ func TestRepackObjects(t *testing.T) {
 			fullRepackTimestamp, err := stats.FullRepackTimestamp(repoPath)
 			require.NoError(t, err)
 			switch tc.repackCfg.Strategy {
-			case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
+			case RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
 				require.GreaterOrEqual(t, fullRepackTimestamp, timestampBeforeRepack)
 				require.LessOrEqual(t, fullRepackTimestamp, timestampAfterRepack)
 			default:
@@ -638,7 +638,7 @@ func TestRepackObjects(t *testing.T) {
 
 		gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, storage.IsPoolRepository(repoProto), func() error {
 			return RepackObjects(ctx, repo, RepackObjectsConfig{
-				Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
+				Strategy: RepackObjectsStrategyFullWithUnreachable,
 			})
 		})
 	})

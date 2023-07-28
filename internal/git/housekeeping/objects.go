@@ -33,10 +33,6 @@ const (
 	// all loose objects into a new packfile, regardless of their reachability. The loose
 	// objects will be deleted.
 	RepackObjectsStrategyIncrementalWithUnreachable = RepackObjectsStrategy("incremental_with_unreachable")
-	// RepackObjectsStrategyFullWithLooseUnreachable performs a full repack by writing all
-	// reachable objects into a new packfile. Unreachable objects will be exploded into loose
-	// objects.
-	RepackObjectsStrategyFullWithLooseUnreachable = RepackObjectsStrategy("full_with_loose_unreachable")
 	// RepackObjectsStrategyFullWithCruft performs a full repack by writing all reachable
 	// objects into a new packfile. Unreachable objects will be written into a separate cruft
 	// packfile.
@@ -84,7 +80,7 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 	switch cfg.Strategy {
 	case RepackObjectsStrategyIncrementalWithUnreachable, RepackObjectsStrategyGeometric:
 		isFullRepack = false
-	case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
+	case RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
 		isFullRepack = true
 	default:
 		return structerr.NewInvalidArgument("invalid strategy: %q", cfg.Strategy)
@@ -195,13 +191,6 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		}
 
 		return nil
-	case RepackObjectsStrategyFullWithLooseUnreachable:
-		return performRepack(ctx, repo, cfg,
-			git.Flag{Name: "-A"},
-			git.Flag{Name: "--pack-kept-objects"},
-			git.Flag{Name: "-l"},
-			git.Flag{Name: "-d"},
-		)
 	case RepackObjectsStrategyFullWithCruft:
 		options := []git.Option{
 			git.Flag{Name: "--cruft"},
