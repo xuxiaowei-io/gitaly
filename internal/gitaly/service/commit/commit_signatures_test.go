@@ -239,6 +239,21 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "garbage-signed commit",
+			setup: func(t *testing.T) setupData {
+				commitID, _ := createCommitWithSignature(t, cfg, repoPath, "gpgsig-garbage", sshSignature, "garbage-signed commit message")
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
 			desc: "signed by Gitaly",
 			setup: func(t *testing.T) setupData {
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)

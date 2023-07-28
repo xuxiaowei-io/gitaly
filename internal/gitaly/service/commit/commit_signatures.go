@@ -16,8 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
-var gpgSiganturePrefix = []byte("gpgsig")
-
 func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
 	if err := validateGetCommitSignaturesRequest(s.locator, request); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
@@ -93,9 +91,16 @@ func extractSignature(reader io.Reader) ([]byte, []byte, error) {
 			return nil, nil, err
 		}
 
-		if !sawSignature && !inSignature && bytes.HasPrefix(line, gpgSiganturePrefix) {
-			sawSignature, inSignature = true, true
-			line = bytes.TrimPrefix(line, gpgSiganturePrefix)
+		if !sawSignature && !inSignature {
+			for _, signatureField := range [][]byte{[]byte("gpgsig ")} {
+				if !bytes.HasPrefix(line, signatureField) {
+					continue
+				}
+
+				sawSignature, inSignature = true, true
+				line = bytes.TrimPrefix(line, signatureField)
+				break
+			}
 		}
 
 		if inSignature && !bytes.Equal(line, lineBreak) {
