@@ -78,17 +78,19 @@ func (ListCommitsRequest_Order) EnumDescriptor() ([]byte, []int) {
 	return file_commit_proto_rawDescGZIP(), []int{0, 0}
 }
 
+// ObjectType is the type of the returned tree entry.
+//
 // TODO: Replace this enum with ObjectType in shared.proto
 type TreeEntryResponse_ObjectType int32
 
 const (
-	// This comment is left unintentionally blank.
+	// COMMIT indicates that the tree entry is a commit, which may be the case for submodules.
 	TreeEntryResponse_COMMIT TreeEntryResponse_ObjectType = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// BLOB indicates that the tree entry is a blob.
 	TreeEntryResponse_BLOB TreeEntryResponse_ObjectType = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// TREE indicates that the tree entry is a tree, which may be the case for subdirectories.
 	TreeEntryResponse_TREE TreeEntryResponse_ObjectType = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// TAG indicates that the tree entry is a tag. This case should never happen.
 	TreeEntryResponse_TAG TreeEntryResponse_ObjectType = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -961,17 +963,18 @@ func (x *CommitIsAncestorResponse) GetValue() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// TreeEntryRequest is a request for the TreeEntry RPC.
 type TreeEntryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository for which to read the tree entry.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// commit ID or refname
+	// Revision is the revision that identifies the commit at which the tree entry is to be read. It can be either a
+	// commit ID or a reference name.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// entry path relative to repository root
+	// Path is the path of the entry that shall be read, relative to the tree of the specified revision.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
 	// Limit is the maximum number of bytes to fetch. If object is bigger, remaining bytes are not sent
 	// 0 means there is no limit.
@@ -1048,21 +1051,23 @@ func (x *TreeEntryRequest) GetMaxSize() int64 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// TreeEntryResponse is a response for the TreeEntry RPC. Multiple responses may be sent in case the tree entry's data
+// exceeds the maximum allowed message length.
 type TreeEntryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Type is the object type of the tree entry.
 	Type TreeEntryResponse_ObjectType `protobuf:"varint,1,opt,name=type,proto3,enum=gitaly.TreeEntryResponse_ObjectType" json:"type,omitempty"`
-	// SHA1 object ID
+	// Oid is the object ID of the tree entry. In case of submodules, it contains the commit ID that the submodule
+	// currently refers to.
 	Oid string `protobuf:"bytes,2,opt,name=oid,proto3" json:"oid,omitempty"`
-	// This comment is left unintentionally blank.
+	// Size is the size of the tree entry.
 	Size int64 `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
-	// file mode
+	// Mode is the mode of the tree entry.
 	Mode int32 `protobuf:"varint,4,opt,name=mode,proto3" json:"mode,omitempty"`
-	// raw object contents
+	// Data contains the raw object contents. This data may be split up across multiple messages.
 	Data []byte `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
 }
 
