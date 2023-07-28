@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
@@ -8,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -18,7 +17,31 @@ func TestTreeEntry(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	blobContent := []byte("1234567890")
+	blobID := gittest.WriteBlob(t, cfg, repoPath, blobContent)
+
+	blobWithSpacesContent := []byte("space")
+	blobWithSpacesID := gittest.WriteBlob(t, cfg, repoPath, blobWithSpacesContent)
+
+	submoduleCommit := gittest.DefaultObjectHash.HashData([]byte("submodule commit"))
+
+	subfileContent := []byte("subfile content")
+	subfileID := gittest.WriteBlob(t, cfg, repoPath, subfileContent)
+	subtreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "subfile", Mode: "100644", OID: subfileID},
+	})
+	subtreeSize := gittest.ObjectSize(t, cfg, repoPath, subtreeID)
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "blob", Mode: "100644", OID: blobID},
+		gittest.TreeEntry{Path: "blob with spaces", Mode: "100644", OID: blobWithSpacesID},
+		gittest.TreeEntry{Path: "submodule", Mode: "160000", OID: submoduleCommit},
+		gittest.TreeEntry{Path: "subtree", Mode: "040000", OID: subtreeID},
+	))
 
 	for _, tc := range []struct {
 		desc              string
@@ -33,8 +56,8 @@ func TestTreeEntry(t *testing.T) {
 					StorageName:  "fake",
 					RelativePath: "path",
 				},
-				Revision: []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72"),
-				Path:     []byte("a/b/c"),
+				Revision: []byte(commitID),
+				Path:     []byte("blob"),
 			},
 			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 				"%w", storage.NewStorageNotFoundError("fake"),
@@ -44,8 +67,8 @@ func TestTreeEntry(t *testing.T) {
 			desc: "unset repository",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: nil,
-				Revision:   []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72"),
-				Path:       []byte("a/b/c"),
+				Revision:   []byte(commitID),
+				Path:       []byte("blob"),
 			},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
@@ -54,7 +77,7 @@ func TestTreeEntry(t *testing.T) {
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
 				Revision:   nil,
-				Path:       []byte("a/b/c"),
+				Path:       []byte("blob"),
 			},
 			expectedErr: structerr.NewInvalidArgument("empty revision"),
 		},
@@ -62,7 +85,7 @@ func TestTreeEntry(t *testing.T) {
 			desc: "empty path",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72"),
+				Revision:   []byte(commitID),
 			},
 			expectedErr: structerr.NewInvalidArgument("empty Path"),
 		},
@@ -71,7 +94,7 @@ func TestTreeEntry(t *testing.T) {
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
 				Revision:   []byte("--output=/meow"),
-				Path:       []byte("a/b/c"),
+				Path:       []byte("blob"),
 			},
 			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
@@ -79,8 +102,8 @@ func TestTreeEntry(t *testing.T) {
 			desc: "negative limit",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72"),
-				Path:       []byte("a/b/c"),
+				Revision:   []byte(commitID),
+				Path:       []byte("blob"),
 				Limit:      -1,
 			},
 			expectedErr: structerr.NewInvalidArgument("negative Limit"),
@@ -89,8 +112,8 @@ func TestTreeEntry(t *testing.T) {
 			desc: "negative maximum size",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72"),
-				Path:       []byte("a/b/c"),
+				Revision:   []byte(commitID),
+				Path:       []byte("blob"),
 				MaxSize:    -1,
 			},
 			expectedErr: structerr.NewInvalidArgument("negative MaxSize"),
@@ -99,17 +122,17 @@ func TestTreeEntry(t *testing.T) {
 			desc: "object size exceeds maximum size",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"),
-				Path:       []byte("MAINTENANCE.md"),
-				MaxSize:    10,
+				Revision:   []byte(commitID),
+				Path:       []byte("blob"),
+				MaxSize:    5,
 			},
-			expectedErr: structerr.NewFailedPrecondition("object size (1367) is bigger than the maximum allowed size (10)"),
+			expectedErr: structerr.NewFailedPrecondition("object size (10) is bigger than the maximum allowed size (5)"),
 		},
 		{
 			desc: "path escapes repository",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"),
+				Revision:   []byte(commitID),
 				// Git blows up on paths like this
 				Path: []byte("../bar/.gitkeep"),
 			},
@@ -119,7 +142,7 @@ func TestTreeEntry(t *testing.T) {
 			desc: "missing file with space in path",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("deadfacedeadfacedeadfacedeadfacedeadface"),
+				Revision:   []byte(commitID),
 				Path:       []byte("with space/README.md"),
 			},
 			expectedErr: testhelper.WithInterceptedMetadata(structerr.NewNotFound("tree entry not found"), "path", "with space/README.md"),
@@ -128,7 +151,7 @@ func TestTreeEntry(t *testing.T) {
 			desc: "missing file",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
+				Revision:   []byte(commitID),
 				Path:       []byte("missing.rb"),
 			},
 			expectedErr: testhelper.WithInterceptedMetadata(structerr.NewNotFound("tree entry not found"), "path", "missing.rb"),
@@ -137,16 +160,16 @@ func TestTreeEntry(t *testing.T) {
 			desc: "without limits",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"),
-				Path:       []byte("MAINTENANCE.md"),
+				Revision:   []byte(commitID),
+				Path:       []byte("blob"),
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_BLOB,
-					Oid:  "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
-					Size: 1367,
+					Oid:  blobID.String(),
+					Size: int64(len(blobContent)),
 					Mode: 0o100644,
-					Data: testhelper.MustReadFile(t, "testdata/maintenance-md-blob.txt"),
+					Data: blobContent,
 				},
 			},
 		},
@@ -154,17 +177,17 @@ func TestTreeEntry(t *testing.T) {
 			desc: "with limit exceeding entry size",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"),
-				Path:       []byte("MAINTENANCE.md"),
-				Limit:      40 * 1024,
+				Revision:   []byte(commitID),
+				Path:       []byte("blob"),
+				Limit:      20,
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_BLOB,
-					Oid:  "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
-					Size: 1367,
+					Oid:  blobID.String(),
+					Size: int64(len(blobContent)),
 					Mode: 0o100644,
-					Data: testhelper.MustReadFile(t, "testdata/maintenance-md-blob.txt"),
+					Data: blobContent,
 				},
 			},
 		},
@@ -172,17 +195,17 @@ func TestTreeEntry(t *testing.T) {
 			desc: "with maximum size exceeding entry size",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"),
-				Path:       []byte("MAINTENANCE.md"),
-				MaxSize:    40 * 1024,
+				Revision:   []byte(commitID),
+				Path:       []byte("blob"),
+				MaxSize:    20,
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_BLOB,
-					Oid:  "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
-					Size: 1367,
+					Oid:  blobID.String(),
+					Size: int64(len(blobContent)),
 					Mode: 0o100644,
-					Data: testhelper.MustReadFile(t, "testdata/maintenance-md-blob.txt"),
+					Data: blobContent,
 				},
 			},
 		},
@@ -190,16 +213,16 @@ func TestTreeEntry(t *testing.T) {
 			desc: "path with space",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("38008cb17ce1466d8fec2dfa6f6ab8dcfe5cf49e"),
-				Path:       []byte("with space/README.md"),
+				Revision:   []byte(commitID),
+				Path:       []byte("blob with spaces"),
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_BLOB,
-					Oid:  "8c3014aceae45386c3c026a7ea4a1f68660d51d6",
-					Size: 36,
+					Oid:  blobWithSpacesID.String(),
+					Size: int64(len(blobWithSpacesContent)),
 					Mode: 0o100644,
-					Data: testhelper.MustReadFile(t, "testdata/with-space-readme-md-blob.txt"),
+					Data: blobWithSpacesContent,
 				},
 			},
 		},
@@ -207,17 +230,17 @@ func TestTreeEntry(t *testing.T) {
 			desc: "with limit that truncates the response",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("372ab6950519549b14d220271ee2322caa44d4eb"),
-				Path:       []byte("gitaly/file-with-multiple-chunks"),
-				Limit:      30 * 1024,
+				Revision:   []byte(commitID),
+				Path:       []byte("blob"),
+				Limit:      5,
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_BLOB,
-					Oid:  "1c69c4d2a65ad05c24ac3b6780b5748b97ffd3aa",
-					Size: 42220,
+					Oid:  blobID.String(),
+					Size: int64(len(blobContent)),
 					Mode: 0o100644,
-					Data: testhelper.MustReadFile(t, "testdata/file-with-multiple-chunks-truncated-blob.txt"),
+					Data: blobContent[:5],
 				},
 			},
 		},
@@ -225,13 +248,13 @@ func TestTreeEntry(t *testing.T) {
 			desc: "with submodule",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-				Path:       []byte("gitlab-grack"),
+				Revision:   []byte(commitID),
+				Path:       []byte("submodule"),
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_COMMIT,
-					Oid:  "645f6c4c82fd3f5e06f67134450a570b795e55a6",
+					Oid:  submoduleCommit.String(),
 					Mode: 0o160000,
 				},
 			},
@@ -240,14 +263,14 @@ func TestTreeEntry(t *testing.T) {
 			desc: "subdirectory without trailing slash",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("c347ca2e140aa667b968e51ed0ffe055501fe4f4"),
-				Path:       []byte("files/js"),
+				Revision:   []byte(commitID),
+				Path:       []byte("subtree"),
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_TREE,
-					Oid:  "31405c5ddef582c5a9b7a85230413ff90e2fe720",
-					Size: 83,
+					Oid:  subtreeID.String(),
+					Size: subtreeSize,
 					Mode: 0o40000,
 				},
 			},
@@ -256,14 +279,14 @@ func TestTreeEntry(t *testing.T) {
 			desc: "subdirectory with trailing slash",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("c347ca2e140aa667b968e51ed0ffe055501fe4f4"),
-				Path:       []byte("files/js/"),
+				Revision:   []byte(commitID),
+				Path:       []byte("subtree/"),
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_TREE,
-					Oid:  "31405c5ddef582c5a9b7a85230413ff90e2fe720",
-					Size: 83,
+					Oid:  subtreeID.String(),
+					Size: subtreeSize,
 					Mode: 0o40000,
 				},
 			},
@@ -272,15 +295,16 @@ func TestTreeEntry(t *testing.T) {
 			desc: "blob in subdirectory",
 			request: &gitalypb.TreeEntryRequest{
 				Repository: repo,
-				Revision:   []byte("b83d6e391c22777fca1ed3012fce84f633d7fed0"),
-				Path:       []byte("foo/bar/.gitkeep"),
+				Revision:   []byte(commitID),
+				Path:       []byte("subtree/subfile"),
 			},
 			expectedResponses: []*gitalypb.TreeEntryResponse{
 				{
 					Type: gitalypb.TreeEntryResponse_BLOB,
-					Oid:  "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-					Size: 0,
+					Oid:  subfileID.String(),
+					Size: int64(len(subfileContent)),
 					Mode: 0o100644,
+					Data: subfileContent,
 				},
 			},
 		},
