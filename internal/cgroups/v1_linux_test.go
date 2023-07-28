@@ -102,7 +102,9 @@ func TestSetup_ParentCgroups(t *testing.T) {
 			tt.cfg.Mountpoint = mock.root
 
 			v1Manager := mock.newCgroupManager(tt.cfg, pid)
+			require.False(t, v1Manager.Ready())
 			require.NoError(t, v1Manager.Setup())
+			require.True(t, v1Manager.Ready())
 
 			memoryLimitPath := filepath.Join(
 				mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", pid), "memory.limit_in_bytes",
@@ -184,7 +186,9 @@ func TestSetup_RepoCgroups(t *testing.T) {
 
 			v1Manager := mock.newCgroupManager(cfg, pid)
 
+			require.False(t, v1Manager.Ready())
 			require.NoError(t, v1Manager.Setup())
+			require.True(t, v1Manager.Ready())
 
 			for i := 0; i < 3; i++ {
 				memoryLimitPath := filepath.Join(
@@ -346,7 +350,7 @@ gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
 
 			v1Manager1 := mock.newCgroupManager(config, tt.pid)
 
-			mock.setupMockCgroupFiles(t, v1Manager1, 2)
+			mock.setupMockCgroupFiles(t, v1Manager1, mockCgroupFile{"memory.failcnt", "2"})
 			require.NoError(t, v1Manager1.Setup())
 
 			ctx := testhelper.Context(t)
@@ -540,6 +544,69 @@ func TestPruneOldCgroups(t *testing.T) {
 				require.DirExists(t, oldGitalyProcesssCPUDir)
 				require.Len(t, hook.Entries, 0)
 			}
+		})
+	}
+}
+
+func TestStatsV1(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc          string
+		mockFiles     []mockCgroupFile
+		expectedStats Stats
+	}{
+		{
+			desc: "empty statistics",
+			mockFiles: []mockCgroupFile{
+				{"memory.limit_in_bytes", "0"},
+				{"memory.usage_in_bytes", "0"},
+				{"memory.oom_control", ""},
+				{"cpu.stat", ""},
+			},
+			expectedStats: Stats{},
+		},
+		{
+			desc: "cgroupfs recorded some stats",
+			mockFiles: []mockCgroupFile{
+				{"memory.limit_in_bytes", "2000000000"},
+				{"memory.usage_in_bytes", "1234000000"},
+				{"memory.oom_control", `oom_kill_disable 1
+under_oom 1
+oom_kill 3`},
+				{"cpu.stat", `nr_periods 10
+nr_throttled 50
+throttled_time 1000000`}, // 0.001 seconds
+			},
+			expectedStats: Stats{
+				ParentStats: CgroupStats{
+					CPUThrottledCount:    50,
+					CPUThrottledDuration: 0.001,
+					MemoryUsage:          1234000000,
+					MemoryLimit:          2000000000,
+					OOMKills:             3,
+					UnderOOM:             true,
+				},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			mock := newMock(t)
+
+			config := defaultCgroupsConfig()
+			config.Repositories.Count = 1
+			config.Repositories.MemoryBytes = 2000000000
+			config.Repositories.CPUShares = 16
+			config.Mountpoint = mock.root
+
+			v1Manager := mock.newCgroupManager(config, 1)
+
+			mock.setupMockCgroupFiles(t, v1Manager, tc.mockFiles...)
+			require.NoError(t, v1Manager.Setup())
+
+			stats, err := v1Manager.Stats()
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedStats, stats)
 		})
 	}
 }

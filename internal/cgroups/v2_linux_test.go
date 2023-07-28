@@ -98,7 +98,9 @@ func TestSetup_ParentCgroupsV2(t *testing.T) {
 			v2Manager := mock.newCgroupManager(tt.cfg, pid)
 			mock.setupMockCgroupFiles(t, v2Manager)
 
+			require.False(t, v2Manager.Ready())
 			require.NoError(t, v2Manager.Setup())
+			require.True(t, v2Manager.Ready())
 
 			memoryMaxPath := filepath.Join(
 				mock.root, "gitaly", fmt.Sprintf("gitaly-%d", pid), "memory.max",
@@ -174,7 +176,10 @@ func TestSetup_RepoCgroupsV2(t *testing.T) {
 
 			v2Manager := mock.newCgroupManager(cfg, pid)
 			mock.setupMockCgroupFiles(t, v2Manager)
+
+			require.False(t, v2Manager.Ready())
 			require.NoError(t, v2Manager.Setup())
+			require.True(t, v2Manager.Ready())
 
 			for i := 0; i < 3; i++ {
 				memoryMaxPath := filepath.Join(
@@ -509,6 +514,71 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 			} else {
 				require.DirExists(t, oldGitalyProcessDir)
 			}
+		})
+	}
+}
+
+func TestStatsV2(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc          string
+		mockFiles     []mockCgroupFile
+		expectedStats Stats
+	}{
+		{
+			desc: "empty statistics",
+			mockFiles: []mockCgroupFile{
+				{"memory.current", "0"},
+				{"memory.max", "0"},
+				{"cpu.stat", ""},
+			},
+			expectedStats: Stats{},
+		},
+		{
+			desc: "cgroupfs recorded some stats",
+			mockFiles: []mockCgroupFile{
+				{"memory.max", "2000000000"},
+				{"memory.current", "1234000000"},
+				{"memory.events", `low 1
+high 2
+max 3
+oom 4
+oom_kill 5`},
+				{"nr_throttled", "50"},
+				{"throttled_usec", "1000000"},
+				{"cpu.stat", `nr_periods 10
+nr_throttled 50
+throttled_usec 1000000`}, // 0.001 seconds
+			},
+			expectedStats: Stats{
+				ParentStats: CgroupStats{
+					CPUThrottledCount:    50,
+					CPUThrottledDuration: 0.001,
+					MemoryUsage:          1234000000,
+					MemoryLimit:          2000000000,
+					OOMKills:             5,
+				},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			mock := newMockV2(t)
+
+			config := defaultCgroupsConfig()
+			config.Repositories.Count = 1
+			config.Repositories.MemoryBytes = 2000000000
+			config.Repositories.CPUShares = 16
+			config.Mountpoint = mock.root
+
+			v2Manager := mock.newCgroupManager(config, 1)
+
+			mock.setupMockCgroupFiles(t, v2Manager, tc.mockFiles...)
+			require.NoError(t, v2Manager.Setup())
+
+			stats, err := v2Manager.Stats()
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedStats, stats)
 		})
 	}
 }

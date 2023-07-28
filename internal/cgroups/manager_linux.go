@@ -26,12 +26,14 @@ type cgroupHandler interface {
 	cleanup() error
 	currentProcessCgroup() string
 	repoPath(groupID int) string
+	stats() (Stats, error)
 }
 
 // CGroupManager is a manager class that implements specific methods related to cgroups
 type CGroupManager struct {
-	cfg cgroupscfg.Config
-	pid int
+	cfg     cgroupscfg.Config
+	pid     int
+	enabled bool
 
 	handler cgroupHandler
 }
@@ -68,7 +70,14 @@ func (cgm *CGroupManager) Setup() error {
 	if err := cgm.handler.setupRepository(cgm.configRepositoryResources()); err != nil {
 		return err
 	}
+	cgm.enabled = true
+
 	return nil
+}
+
+// Ready returns true if the Cgroup manager is configured and ready to use.
+func (cgm *CGroupManager) Ready() bool {
+	return cgm.enabled
 }
 
 // AddCommand adds a Cmd to a cgroup
@@ -110,6 +119,12 @@ func (cgm *CGroupManager) Describe(ch chan<- *prometheus.Desc) {
 // Collect is used to collect the current values of all CGroupManager prometheus metrics
 func (cgm *CGroupManager) Collect(ch chan<- prometheus.Metric) {
 	cgm.handler.collect(ch)
+}
+
+// Stats returns cgroup accounting statistics collected by reading
+// cgroupfs files.
+func (cgm *CGroupManager) Stats() (Stats, error) {
+	return cgm.handler.stats()
 }
 
 func (cgm *CGroupManager) currentProcessCgroup() string {
