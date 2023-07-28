@@ -43,7 +43,8 @@ import (
 
 func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool).Run(t, testReplicateRepository)
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool, featureflag.InterceptReplicateRepository).
+		Run(t, testReplicateRepository)
 }
 
 func testReplicateRepository(t *testing.T, ctx context.Context) {
@@ -383,6 +384,10 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 		},
 		{
 			desc: "only target repository is linked to object pool",
+			// Object pool replication is not currently supported by Praefect. Existing object pool
+			// repositories cannot be located because Praefect rewrites repository messages.
+			// Consequently, this test case is executed with Praefect disabled.
+			serverOpts: []testserver.GitalyServerOpt{testserver.WithDisablePraefect()},
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				sourceProto, _, targetProto, targetPath := setupSourceAndTarget(t, cfg, true)
 
@@ -441,6 +446,10 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 		},
 		{
 			desc: "source and target linked to different object pool",
+			// Object pool replication is not currently supported by Praefect. Existing object pool
+			// repositories cannot be located because Praefect rewrites repository messages.
+			// Consequently, this test case is executed with Praefect disabled.
+			serverOpts: []testserver.GitalyServerOpt{testserver.WithDisablePraefect()},
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				sourceProto, _, targetProto, targetPath := setupSourceAndTarget(t, cfg, true)
 
