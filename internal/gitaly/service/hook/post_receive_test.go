@@ -125,6 +125,7 @@ func TestHooksMissingStdin(t *testing.T) {
 				},
 				git.PostReceiveHook,
 				featureflag.FromContext(ctx),
+				storage.ExtractTransactionID(ctx),
 			).Env()
 			require.NoError(t, err)
 
@@ -259,6 +260,7 @@ To create a merge request for okay, visit:
 				},
 				git.PostReceiveHook,
 				featureflag.FromContext(ctx),
+				storage.ExtractTransactionID(ctx),
 			).Env()
 			require.NoError(t, err)
 

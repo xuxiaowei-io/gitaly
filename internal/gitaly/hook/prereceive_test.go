@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -57,6 +58,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		receiveHooksPayload,
 		git.PreReceiveHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -70,6 +72,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		receiveHooksPayload,
 		git.PreReceiveHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -83,6 +86,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		receiveHooksPayload,
 		git.PreReceiveHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -248,6 +252,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 				},
 				git.PreReceiveHook,
 				featureflag.FromContext(ctx),
+				storage.ExtractTransactionID(ctx),
 			).Env()
 			require.NoError(t, err)
 
@@ -309,7 +314,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 			UserID:   "1234",
 			Username: "user",
 			Protocol: "web",
-		}, git.PreReceiveHook, nil).Env()
+		}, git.PreReceiveHook, nil, storage.ExtractTransactionID(ctx)).Env()
 	require.NoError(t, err)
 
 	standardEnv := []string{payload}

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -98,6 +99,7 @@ func TestPostReceive_customHook(t *testing.T) {
 		receiveHooksPayload,
 		git.PostReceiveHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -111,6 +113,7 @@ func TestPostReceive_customHook(t *testing.T) {
 		receiveHooksPayload,
 		git.PostReceiveHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -124,6 +127,7 @@ func TestPostReceive_customHook(t *testing.T) {
 		receiveHooksPayload,
 		git.PostReceiveHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -287,7 +291,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 			UserID:   "1234",
 			Username: "user",
 			Protocol: "web",
-		}, git.PostReceiveHook, nil).Env()
+		}, git.PostReceiveHook, nil, storage.ExtractTransactionID(ctx)).Env()
 	require.NoError(t, err)
 
 	standardEnv := []string{payload}
@@ -414,7 +418,7 @@ func TestPostReceive_quarantine(t *testing.T) {
 
 	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	))
+	), storagemgr.NewTransactionRegistry())
 
 	gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh
@@ -438,6 +442,7 @@ func TestPostReceive_quarantine(t *testing.T) {
 				},
 				git.PreReceiveHook,
 				featureflag.FromContext(ctx),
+				storage.ExtractTransactionID(ctx),
 			).Env()
 			require.NoError(t, err)
 

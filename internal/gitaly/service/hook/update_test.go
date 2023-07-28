@@ -53,6 +53,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 		},
 		git.UpdateHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 

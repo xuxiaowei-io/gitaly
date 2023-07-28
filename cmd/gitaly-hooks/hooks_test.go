@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -79,7 +80,11 @@ func envForHooks(tb testing.TB, ctx context.Context, cfg config.Cfg, repo *gital
 			Username: glHookValues.GLUsername,
 			Protocol: glHookValues.GLProtocol,
 			RemoteIP: glHookValues.RemoteIP,
-		}, git.AllHooks, featureFlags(ctx)).Env()
+		},
+		git.AllHooks,
+		featureFlags(ctx),
+		storage.ExtractTransactionID(ctx),
+	).Env()
 	require.NoError(tb, err)
 
 	env := append(command.AllowedEnvironment(os.Environ()), []string{
@@ -453,6 +458,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 				},
 				git.PostReceiveHook,
 				featureFlags(ctx),
+				storage.ExtractTransactionID(ctx),
 			).Env()
 			require.NoError(t, err)
 
@@ -557,6 +563,7 @@ func TestRequestedHooks(t *testing.T) {
 					nil,
 					git.AllHooks&^hook,
 					nil,
+					0,
 				).Env()
 				require.NoError(t, err)
 
@@ -579,6 +586,7 @@ func TestRequestedHooks(t *testing.T) {
 					nil,
 					hook,
 					nil,
+					0,
 				).Env()
 				require.NoError(t, err)
 

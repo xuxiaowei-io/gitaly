@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -50,6 +51,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 		},
 		git.ReferenceTransactionHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -153,6 +155,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		nil,
 		git.ReferenceTransactionHook,
 		nil,
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 

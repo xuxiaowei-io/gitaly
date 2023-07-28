@@ -152,7 +152,9 @@ func (cc *cmdCfg) configureHooks(
 		transaction,
 		userDetails,
 		requestedHooks,
-		featureflag.FromContext(ctx)).Env()
+		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
+	).Env()
 	if err != nil {
 		return err
 	}

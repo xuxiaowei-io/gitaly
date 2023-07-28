@@ -38,6 +38,7 @@ func TestHooksPayload(t *testing.T) {
 			nil,
 			git.AllHooks,
 			nil,
+			0,
 		).Env()
 		require.NoError(t, err)
 		require.True(t, strings.HasPrefix(env, git.EnvHooksPayload+"="))
@@ -53,7 +54,9 @@ func TestHooksPayload(t *testing.T) {
 			git.PreReceiveHook,
 			map[featureflag.FeatureFlag]bool{
 				{Name: "flag_key"}: true,
-			}).Env()
+			},
+			1,
+		).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{
@@ -76,6 +79,7 @@ func TestHooksPayload(t *testing.T) {
 					Enabled: true,
 				},
 			},
+			TransactionID: 1,
 		}, payload)
 	})
 
@@ -88,6 +92,7 @@ func TestHooksPayload(t *testing.T) {
 			nil,
 			git.UpdateHook,
 			nil,
+			0,
 		).Env()
 		require.NoError(t, err)
 
@@ -125,7 +130,7 @@ func TestHooksPayload(t *testing.T) {
 				UserID:   "1234",
 				Username: "user",
 				Protocol: "ssh",
-			}, git.PostReceiveHook, nil).Env()
+			}, git.PostReceiveHook, nil, 0).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{

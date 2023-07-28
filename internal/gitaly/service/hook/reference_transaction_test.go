@@ -172,6 +172,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 				nil,
 				git.ReferenceTransactionHook,
 				featureflag.FromContext(ctx),
+				storage.ExtractTransactionID(ctx),
 			).Env()
 			require.NoError(t, err)
 
