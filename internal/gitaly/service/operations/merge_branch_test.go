@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -1117,7 +1118,7 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 				},
 				gitlab.MockPreReceive,
 				gitlab.MockPostReceive,
-			))
+			), hook.NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
 
 			ctx, cfg, client := setupOperationsServiceWithCfg(
 				t, ctx, cfg,

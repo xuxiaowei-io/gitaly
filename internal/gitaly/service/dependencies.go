@@ -39,6 +39,7 @@ type Dependencies struct {
 	RepositoryCounter   *counter.RepositoryCounter
 	UpdaterWithHooks    *updateref.UpdaterWithHooks
 	HousekeepingManager housekeeping.Manager
+	TransactionRegistry *storagemgr.TransactionRegistry
 	PartitionManager    *storagemgr.PartitionManager
 	BackupSink          backup.Sink
 	BackupLocator       backup.Locator
@@ -122,6 +123,11 @@ func (dc *Dependencies) GetHousekeepingManager() housekeeping.Manager {
 // GetPackObjectsLimiter returns the pack-objects limiter.
 func (dc *Dependencies) GetPackObjectsLimiter() limiter.Limiter {
 	return dc.PackObjectsLimiter
+}
+
+// GetTransactionRegistry returns the TransactionRegistry.
+func (dc *Dependencies) GetTransactionRegistry() *storagemgr.TransactionRegistry {
+	return dc.TransactionRegistry
 }
 
 // GetPartitionManager returns the PartitionManager.

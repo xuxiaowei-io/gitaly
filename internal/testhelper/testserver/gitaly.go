@@ -303,8 +303,9 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		gsd.gitCmdFactory = gittest.NewCommandFactory(tb, cfg)
 	}
 
+	transactionRegistry := storagemgr.NewTransactionRegistry()
 	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient)
+		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient, hook.NewTransactionRegistry(transactionRegistry))
 	}
 
 	if gsd.catfileCache == nil {
@@ -382,6 +383,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		RepositoryCounter:   gsd.repositoryCounter,
 		UpdaterWithHooks:    gsd.updaterWithHooks,
 		HousekeepingManager: gsd.housekeepingManager,
+		TransactionRegistry: transactionRegistry,
 		PartitionManager:    partitionManager,
 		BackupSink:          gsd.backupSink,
 		BackupLocator:       gsd.backupLocator,

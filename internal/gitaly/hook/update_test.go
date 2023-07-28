@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -40,7 +41,7 @@ func TestUpdate_customHooks(t *testing.T) {
 	txManager := transaction.NewTrackingManager()
 	hookManager := NewManager(cfg, locator, gitCmdFactory, txManager, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	))
+	), NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
 
 	receiveHooksPayload := &git.UserDetails{
 		UserID:   "1234",
@@ -257,7 +258,7 @@ func TestUpdate_quarantine(t *testing.T) {
 
 	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	))
+	), NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
 
 	//nolint:gitaly-linters
 	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(
