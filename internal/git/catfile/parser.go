@@ -78,7 +78,7 @@ func (p *parser) ParseCommit(object git.Object) (*gitalypb.GitCommit, error) {
 			commit.Author = parseCommitAuthor(value)
 		case "committer":
 			commit.Committer = parseCommitAuthor(value)
-		case "gpgsig":
+		case "gpgsig", "gpgsig-sha256":
 			commit.SignatureType = detectSignatureType(value)
 		case "tree":
 			commit.TreeId = value
