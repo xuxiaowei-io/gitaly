@@ -181,11 +181,11 @@ func TestServerBackupRepository(t *testing.T) {
 			testhelper.ProtoEqual(t, &gitalypb.BackupRepositoryResponse{}, response)
 
 			relativePath := strings.TrimSuffix(vanityRepo.GetRelativePath(), ".git")
-			bundlePath := filepath.Join(relativePath, data.backupID, "001.bundle")
+			refsPath := filepath.Join(relativePath, data.backupID, "001.refs")
 
-			bundle, err := backupSink.GetReader(ctx, bundlePath)
+			refs, err := backupSink.GetReader(ctx, refsPath)
 			require.NoError(t, err)
-			testhelper.MustClose(t, bundle)
+			testhelper.MustClose(t, refs)
 		})
 	}
 }
