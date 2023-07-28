@@ -76,9 +76,9 @@ func TestPartitionManager(t *testing.T) {
 		expectedError error
 	}
 
-	// stopPartition stops the transaction manager for the specified repository. This is done to
+	// closePartition closes the transaction manager for the specified repository. This is done to
 	// simulate failures.
-	type stopPartition struct {
+	type closePartition struct {
 		// transactionID identifies the transaction manager associated with the transaction to stop.
 		transactionID int
 	}
@@ -90,29 +90,31 @@ func TestPartitionManager(t *testing.T) {
 		transactionID int
 	}
 
-	// stopManager stops the partition manager. This is done to simulate errors for transactions
+	// closeManager closes the partition manager. This is done to simulate errors for transactions
 	// being processed without a running partition manager.
-	type stopManager struct{}
+	type closeManager struct{}
 
-	// blockOnPartitionShutdown checks if any partitions are currently in the process of
-	// shutting down. If some are, the function waits for the shutdown process to complete before
+	// blockOnPartitionClosing checks if any partitions are currently in the process of
+	// closing. If some are, the function waits for the closing process to complete before
 	// continuing. This is required in order to accurately validate partition state.
-	blockOnPartitionShutdown := func(t *testing.T, pm *PartitionManager) {
+	blockOnPartitionClosing := func(t *testing.T, pm *PartitionManager) {
 		t.Helper()
 
 		var waitFor []chan struct{}
 		for _, sp := range pm.storages {
 			sp.mu.Lock()
 			for _, ptn := range sp.partitions {
-				if ptn.shuttingDown {
-					waitFor = append(waitFor, ptn.shutdown)
+				// The closePartition step closes the transaction manager directly without calling close
+				// on the partition, so we check the manager directly here as well.
+				if ptn.isClosing() || ptn.transactionManager.isClosing() {
+					waitFor = append(waitFor, ptn.closed)
 				}
 			}
 			sp.mu.Unlock()
 		}
 
-		for _, shutdown := range waitFor {
-			<-shutdown
+		for _, closed := range waitFor {
+			<-closed
 		}
 	}
 
@@ -407,7 +409,7 @@ func TestPartitionManager(t *testing.T) {
 								},
 							},
 						},
-						stopPartition{},
+						closePartition{},
 						commit{
 							expectedError: ErrTransactionProcessingStopped,
 						},
@@ -431,7 +433,7 @@ func TestPartitionManager(t *testing.T) {
 								},
 							},
 						},
-						stopPartition{
+						closePartition{
 							transactionID: 1,
 						},
 						begin{
@@ -460,10 +462,10 @@ func TestPartitionManager(t *testing.T) {
 
 				return setupData{
 					steps: steps{
-						stopManager{},
+						closeManager{},
 						begin{
 							repo:          repo,
-							expectedError: ErrPartitionManagerStopped,
+							expectedError: ErrPartitionManagerClosed,
 						},
 					},
 				}
@@ -476,16 +478,16 @@ func TestPartitionManager(t *testing.T) {
 
 				return setupData{
 					steps: steps{
-						stopManager{},
+						closeManager{},
 						begin{
 							transactionID: 1,
 							repo:          repo,
-							expectedError: ErrPartitionManagerStopped,
+							expectedError: ErrPartitionManagerClosed,
 						},
 						begin{
 							transactionID: 2,
 							repo:          repo,
-							expectedError: ErrPartitionManagerStopped,
+							expectedError: ErrPartitionManagerClosed,
 						},
 					},
 				}
@@ -624,7 +626,7 @@ func TestPartitionManager(t *testing.T) {
 			require.NoError(t, err)
 
 			defer func() {
-				partitionManager.Stop()
+				partitionManager.Close()
 				for _, storage := range cfg.Storages {
 					// Assert all staging directories have been emptied at the end.
 					testhelper.RequireDirectoryState(t, storage.Path, "staging", testhelper.DirectoryState{
@@ -658,7 +660,7 @@ func TestPartitionManager(t *testing.T) {
 					txn, err := partitionManager.Begin(beginCtx, step.repo)
 					require.Equal(t, step.expectedError, err)
 
-					blockOnPartitionShutdown(t, partitionManager)
+					blockOnPartitionClosing(t, partitionManager)
 					checkExpectedState(t, cfg, partitionManager, step.expectedState)
 
 					if err != nil {
@@ -687,7 +689,7 @@ func TestPartitionManager(t *testing.T) {
 
 					require.ErrorIs(t, data.txn.Commit(commitCtx), step.expectedError)
 
-					blockOnPartitionShutdown(t, partitionManager)
+					blockOnPartitionClosing(t, partitionManager)
 					checkExpectedState(t, cfg, partitionManager, step.expectedState)
 				case rollback:
 					require.Contains(t, openTransactionData, step.transactionID, "test error: transaction rolled back before being started")
@@ -695,26 +697,29 @@ func TestPartitionManager(t *testing.T) {
 					data := openTransactionData[step.transactionID]
 					require.ErrorIs(t, data.txn.Rollback(), step.expectedError)
 
-					blockOnPartitionShutdown(t, partitionManager)
+					blockOnPartitionClosing(t, partitionManager)
 					checkExpectedState(t, cfg, partitionManager, step.expectedState)
-				case stopPartition:
+				case closePartition:
 					require.Contains(t, openTransactionData, step.transactionID, "test error: transaction manager stopped before being started")
 
 					data := openTransactionData[step.transactionID]
-					data.ptn.stop()
+					// Close the TransactionManager directly. Closing through the partition would change the
+					// state used to sync which should only be changed when the closing is initiated through
+					// the normal means.
+					data.ptn.transactionManager.Close()
 
-					blockOnPartitionShutdown(t, partitionManager)
+					blockOnPartitionClosing(t, partitionManager)
 				case finalizeTransaction:
 					require.Contains(t, openTransactionData, step.transactionID, "test error: transaction finalized before being started")
 
 					data := openTransactionData[step.transactionID]
 
 					data.storageMgr.finalizeTransaction(data.ptn)
-				case stopManager:
+				case closeManager:
 					require.False(t, partitionManagerStopped, "test error: partition manager already stopped")
 					partitionManagerStopped = true
 
-					partitionManager.Stop()
+					partitionManager.Close()
 				}
 			}
 		})

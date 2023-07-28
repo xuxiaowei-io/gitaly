@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger/v4"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -162,9 +163,6 @@ type Transaction struct {
 	// to finish where needed.
 	finished chan struct{}
 
-	// initStagingDirectory is called to lazily initialize the staging directory when it is
-	// needed.
-	initStagingDirectory func() error
 	// stagingDirectory is the directory where the transaction stages its files prior
 	// to them being logged. It is cleaned up when the transaction finishes.
 	stagingDirectory string
@@ -237,16 +235,6 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 		close(readReady)
 	}
 
-	txn.initStagingDirectory = func() error {
-		stagingDirectory, err := os.MkdirTemp(mgr.stagingDirectory, "")
-		if err != nil {
-			return fmt.Errorf("mkdir temp: %w", err)
-		}
-
-		txn.stagingDirectory = stagingDirectory
-		return nil
-	}
-
 	txn.finish = func() error {
 		defer close(txn.finished)
 
@@ -265,9 +253,9 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 
 	defer func() {
 		if returnedErr != nil {
-			// finish can't return an error as the staging directory isn't yet created, and won't
-			// be attempted to be deleted.
-			_ = txn.finish()
+			if err := txn.finish(); err != nil {
+				ctxlogrus.Extract(ctx).WithError(err).Error("failed finishing unsuccessful transaction begin")
+			}
 		}
 	}()
 
@@ -281,8 +269,33 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 			return nil, ErrRepositoryNotFound
 		}
 
+		var err error
+		txn.stagingDirectory, err = os.MkdirTemp(mgr.stagingDirectory, "")
+		if err != nil {
+			return nil, fmt.Errorf("mkdir temp: %w", err)
+		}
+
+		txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
+		if err := os.MkdirAll(filepath.Join(txn.quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
+			return nil, fmt.Errorf("create quarantine directory: %w", err)
+		}
+
+		if err := mgr.setupStagingRepository(ctx, txn); err != nil {
+			return nil, fmt.Errorf("setup staging repository: %w", err)
+		}
+
 		return txn, nil
 	}
+}
+
+// RewriteRepository returns a copy of the repository that has been set up to correctly access the
+// transaction's repository.
+func (txn *Transaction) RewriteRepository(repo *gitalypb.Repository) *gitalypb.Repository {
+	rewritten := proto.Clone(repo).(*gitalypb.Repository)
+	rewritten.RelativePath = txn.stagingRepository.GetRelativePath()
+	rewritten.GitObjectDirectory = txn.stagingRepository.GetGitObjectDirectory()
+	rewritten.GitAlternateObjectDirectories = txn.stagingRepository.GetGitAlternateObjectDirectories()
+	return rewritten
 }
 
 func (txn *Transaction) updateState(newState transactionState) error {
@@ -363,24 +376,6 @@ func (txn *Transaction) DeleteRepository() {
 	txn.deleteRepository = true
 }
 
-// QuarantineDirectory returns an absolute path to the transaction's quarantine directory. The quarantine directory
-// is a Git object directory where the new objects introduced in the transaction must be written. The quarantined
-// objects needed by the updated reference tips will be included in the transaction.
-func (txn *Transaction) QuarantineDirectory() (string, error) {
-	if err := txn.initStagingDirectory(); err != nil {
-		return "", fmt.Errorf("init staging directory: %w", err)
-	}
-
-	quarantineDirectory := filepath.Join(txn.stagingDirectory, "quarantine")
-	if err := os.MkdirAll(filepath.Join(quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
-		return "", fmt.Errorf("create quarantine directory: %w", err)
-	}
-
-	txn.quarantineDirectory = quarantineDirectory
-
-	return quarantineDirectory, nil
-}
-
 // SetDefaultBranch sets the default branch as part of the transaction. If SetDefaultBranch is called
 // multiple times, only the changes from the latest invocation take place. The reference is validated
 // to exist.
@@ -454,15 +449,15 @@ func (txn *Transaction) walFilesPath() string {
 type TransactionManager struct {
 	// ctx is the context used for all operations.
 	ctx context.Context
-	// stop cancels ctx and stops the transaction processing.
-	stop context.CancelFunc
+	// close cancels ctx and stops the transaction processing.
+	close context.CancelFunc
 
-	// stopCalled is closed when Stop is called. It unblock transactions that are waiting to be admitted.
-	stopCalled <-chan struct{}
-	// runDone is closed when Run returns. It unblocks transactions that are waiting for a result after
+	// closing is closed when close is called. It unblock transactions that are waiting to be admitted.
+	closing <-chan struct{}
+	// closed is closed when Run returns. It unblocks transactions that are waiting for a result after
 	// being admitted. This is differentiated from ctx.Done in order to enable testing that Run correctly
 	// releases awaiters when the transactions processing is stopped.
-	runDone chan struct{}
+	closed chan struct{}
 	// stagingDirectory is a path to a directory where this TransactionManager should stage the files of the transactions
 	// before it logs them. The TransactionManager cleans up the files during runtime but stale files may be
 	// left around after crashes. The files are temporary and any leftover files are expected to be cleaned up when
@@ -529,9 +524,9 @@ func NewTransactionManager(
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
 		ctx:                  ctx,
-		stopCalled:           ctx.Done(),
-		runDone:              make(chan struct{}),
-		stop:                 cancel,
+		close:                cancel,
+		closing:              ctx.Done(),
+		closed:               make(chan struct{}),
 		commandFactory:       cmdFactory,
 		repository:           repositoryFactory.Build(relativePath),
 		repositoryPath:       filepath.Join(storagePath, relativePath),
@@ -555,10 +550,6 @@ type resultChannel chan error
 func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transaction) error {
 	transaction.result = make(resultChannel, 1)
 
-	if err := mgr.setupStagingRepository(ctx, transaction); err != nil {
-		return fmt.Errorf("setup staging repository: %w", err)
-	}
-
 	if err := mgr.stageHooks(ctx, transaction); err != nil {
 		return fmt.Errorf("stage hooks: %w", err)
 	}
@@ -576,12 +567,12 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 			return unwrapExpectedError(err)
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-mgr.runDone:
+		case <-mgr.closed:
 			return ErrTransactionProcessingStopped
 		}
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-mgr.stopCalled:
+	case <-mgr.closing:
 		return ErrTransactionProcessingStopped
 	}
 }
@@ -592,10 +583,6 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Transaction) error {
 	if transaction.customHooksUpdate == nil || len(transaction.customHooksUpdate.CustomHooksTAR) == 0 {
 		return nil
-	}
-
-	if err := transaction.initStagingDirectory(); err != nil {
-		return fmt.Errorf("init staging directory: %w", err)
 	}
 
 	if err := repoutil.ExtractHooks(
@@ -613,19 +600,12 @@ func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Tran
 // setupStagingRepository sets a repository that is used to stage the transaction. The staging repository
 // has the quarantine applied so the objects are available for packing and verifying the references.
 func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, transaction *Transaction) error {
-	// If the repository exists, we use it for staging the transaction.
-	transaction.stagingRepository = mgr.repository
-
-	// If the transaction has a quarantine directory, we must use it when staging the pack
-	// file and verifying the references so the objects are available.
-	if transaction.quarantineDirectory != "" {
-		quarantinedRepo, err := transaction.stagingRepository.Quarantine(transaction.quarantineDirectory)
-		if err != nil {
-			return fmt.Errorf("quarantine: %w", err)
-		}
-
-		transaction.stagingRepository = quarantinedRepo
+	quarantinedRepo, err := mgr.repository.Quarantine(transaction.quarantineDirectory)
+	if err != nil {
+		return fmt.Errorf("quarantine: %w", err)
 	}
+
+	transaction.stagingRepository = quarantinedRepo
 
 	return nil
 }
@@ -634,11 +614,47 @@ func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, trans
 // prints the packs prefix in the format `pack <digest>`.
 var packPrefixRegexp = regexp.MustCompile(`^pack\t([0-9a-f]+)\n$`)
 
+// shouldPackObjects checks whether the quarantine directory has any non-default content in it.
+// If so, this signifies objects were written into it and we should pack them.
+func shouldPackObjects(quarantineDirectory string) (bool, error) {
+	errHasNewContent := errors.New("new content found")
+
+	// The quarantine directory itself and the pack directory within it are created when the transaction
+	// begins. These don't signify new content so we ignore them.
+	preExistingDirs := map[string]struct{}{
+		quarantineDirectory:                        {},
+		filepath.Join(quarantineDirectory, "pack"): {},
+	}
+	if err := filepath.Walk(quarantineDirectory, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if _, ok := preExistingDirs[path]; ok {
+			// The pre-existing directories don't signal any new content to pack.
+			return nil
+		}
+
+		// Use an error sentinel to cancel the walk as soon as new content has been found.
+		return errHasNewContent
+	}); err != nil {
+		if errors.Is(err, errHasNewContent) {
+			return true, nil
+		}
+
+		return false, fmt.Errorf("check for objects: %w", err)
+	}
+
+	return false, nil
+}
+
 // packObjects packs the objects included in the transaction into a single pack file that is ready
 // for logging. The pack file includes all unreachable objects that are about to be made reachable and
 // unreachable objects that have been explicitly included in the transaction.
 func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Transaction) error {
-	if transaction.quarantineDirectory == "" {
+	if shouldPack, err := shouldPackObjects(transaction.quarantineDirectory); err != nil {
+		return fmt.Errorf("should pack objects: %w", err)
+	} else if !shouldPack {
 		return nil
 	}
 
@@ -763,8 +779,8 @@ func (mgr *TransactionManager) Run() (returnedErr error) {
 	}()
 
 	// Defer the Stop in order to release all on-going Commit calls in case of error.
-	defer close(mgr.runDone)
-	defer mgr.Stop()
+	defer close(mgr.closed)
+	defer mgr.Close()
 
 	if err := mgr.initialize(mgr.ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -882,8 +898,18 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	return nil
 }
 
-// Stop stops the transaction processing causing Run to return.
-func (mgr *TransactionManager) Stop() { mgr.stop() }
+// Close stops the transaction processing causing Run to return.
+func (mgr *TransactionManager) Close() { mgr.close() }
+
+// isClosing returns whether closing of the manager was initiated.
+func (mgr *TransactionManager) isClosing() bool {
+	select {
+	case <-mgr.closing:
+		return true
+	default:
+		return false
+	}
+}
 
 // initialize initializes the TransactionManager's state from the database. It loads the appendend and the applied
 // indexes and initializes the notification channels that synchronize transaction beginning with log entry applying.

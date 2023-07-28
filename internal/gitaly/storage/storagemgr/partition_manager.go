@@ -21,8 +21,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
-// ErrPartitionManagerStopped is returned when the PartitionManager stops processing transactions.
-var ErrPartitionManagerStopped = errors.New("partition manager stopped")
+// ErrPartitionManagerClosed is returned when the PartitionManager stops processing transactions.
+var ErrPartitionManagerClosed = errors.New("partition manager closed")
 
 // PartitionManager is responsible for managing the lifecycle of each TransactionManager.
 type PartitionManager struct {
@@ -47,9 +47,9 @@ type storageManager struct {
 	// stagingDirectory is the directory where all of the TransactionManager staging directories
 	// should be created.
 	stagingDirectory string
-	// stopped tracks whether the storageManager has been stopped. If it is stopped,
+	// closed tracks whether the storageManager has been closed. If it is closed,
 	// no new transactions are allowed to begin.
-	stopped bool
+	closed bool
 	// db is the handle to the key-value store used for storing the storage's database state.
 	database *badger.DB
 	// partitions contains all the active partitions. Each repository can have up to one partition.
@@ -58,14 +58,14 @@ type storageManager struct {
 	activePartitions sync.WaitGroup
 }
 
-func (sm *storageManager) stop() {
+func (sm *storageManager) close() {
 	sm.mu.Lock()
-	// Mark the storage as stopped so no new transactions can begin anymore. This
+	// Mark the storage as closed so no new transactions can begin anymore. This
 	// also means no more partitions are spawned.
-	sm.stopped = true
+	sm.closed = true
 	for _, ptn := range sm.partitions {
-		// Stop all partitions.
-		ptn.stop()
+		// Close all partitions.
+		ptn.close()
 	}
 	sm.mu.Unlock()
 
@@ -77,7 +77,7 @@ func (sm *storageManager) stop() {
 	}
 }
 
-// finalizeTransaction decrements the partition's pending transaction count and stops it if there are no more
+// finalizeTransaction decrements the partition's pending transaction count and closes it if there are no more
 // transactions pending.
 func (sm *storageManager) finalizeTransaction(ptn *partition) {
 	sm.mu.Lock()
@@ -85,7 +85,7 @@ func (sm *storageManager) finalizeTransaction(ptn *partition) {
 
 	ptn.pendingTransactionCount--
 	if ptn.pendingTransactionCount == 0 {
-		ptn.stop()
+		ptn.close()
 	}
 }
 
@@ -128,22 +128,32 @@ func (sm *storageManager) newFinalizableTransaction(ptn *partition, tx *Transact
 
 // partition contains the transaction manager and tracks the number of in-flight transactions for the partition.
 type partition struct {
-	// shuttingDown is set when the partition shutdown was initiated due to being idle.
-	shuttingDown bool
-	// shutdown is closed to signal when the partition is finished shutting down. Clients stumbling on the
-	// partition when it is shutting down wait on this channel to know when the partition has shut down and they
+	// closing is closed when the partition has no longer any active transactions.
+	closing chan struct{}
+	// closed is closed to signal when the partition is finished closing. Clients stumbling on the
+	// partition when it is closing wait on this channel to know when the partition has closed and they
 	// should retry.
-	shutdown chan struct{}
+	closed chan struct{}
 	// transactionManager manages all transactions for the partition.
 	transactionManager *TransactionManager
 	// pendingTransactionCount holds the current number of in flight transactions being processed by the manager.
 	pendingTransactionCount uint
 }
 
-// stop stops the partition's transaction manager.
-func (ptn *partition) stop() {
-	ptn.shuttingDown = true
-	ptn.transactionManager.Stop()
+// close closes the partition's transaction manager.
+func (ptn *partition) close() {
+	close(ptn.closing)
+	ptn.transactionManager.Close()
+}
+
+// isClosing returns whether partition is closing.
+func (ptn *partition) isClosing() bool {
+	select {
+	case <-ptn.closing:
+		return true
+	default:
+		return false
+	}
 }
 
 // NewPartitionManager returns a new PartitionManager.
@@ -219,15 +229,16 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 
 	for {
 		storageMgr.mu.Lock()
-		if storageMgr.stopped {
+		if storageMgr.closed {
 			storageMgr.mu.Unlock()
-			return nil, ErrPartitionManagerStopped
+			return nil, ErrPartitionManagerClosed
 		}
 
 		ptn, ok := storageMgr.partitions[relativePath]
 		if !ok {
 			ptn = &partition{
-				shutdown: make(chan struct{}),
+				closing: make(chan struct{}),
+				closed:  make(chan struct{}),
 			}
 
 			stagingDir, err := os.MkdirTemp(storageMgr.stagingDirectory, "")
@@ -258,7 +269,15 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 				delete(storageMgr.partitions, relativePath)
 				storageMgr.mu.Unlock()
 
-				close(ptn.shutdown)
+				close(ptn.closed)
+
+				// If the TransactionManager returned due to an error, it could be that there are still
+				// in-flight transactions operating on their staged state. Removing the staging directory
+				// while they are active can lead to unexpected errors. Wait with the removal until they've
+				// all finished, and only then remove the staging directory.
+				//
+				// All transactions must eventually finish, so we don't wait on a context cancellation here.
+				<-ptn.closing
 
 				if err := os.RemoveAll(stagingDir); err != nil {
 					logger.WithError(err).Error("failed removing partition's staging directory")
@@ -268,16 +287,16 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 			}()
 		}
 
-		if ptn.shuttingDown {
+		if ptn.isClosing() {
 			// If the partition is in the process of shutting down, the partition should not be
-			// used. The lock is released while waiting for the partition to complete shutdown as to
-			// not block other partitions from processing transactions. Once shutdown is complete, a
+			// used. The lock is released while waiting for the partition to complete closing as to
+			// not block other partitions from processing transactions. Once closing is complete, a
 			// new attempt is made to get a valid partition.
 			storageMgr.mu.Unlock()
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
-			case <-ptn.shutdown:
+			case <-ptn.closed:
 			}
 
 			continue
@@ -291,7 +310,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 			// The pending transaction count needs to be decremented since the transaction is no longer
 			// inflight. A transaction failing does not necessarily mean the transaction manager has
 			// stopped running. Consequently, if there are no other pending transactions the partition
-			// should be stopped.
+			// should be closed.
 			storageMgr.finalizeTransaction(ptn)
 
 			return nil, err
@@ -301,14 +320,14 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 	}
 }
 
-// Stop stops transaction processing for all storages and waits for shutdown completion.
-func (pm *PartitionManager) Stop() {
+// Close closes transaction processing for all storages and waits for closing completion.
+func (pm *PartitionManager) Close() {
 	var activeStorages sync.WaitGroup
 	for _, storageMgr := range pm.storages {
 		activeStorages.Add(1)
 		storageMgr := storageMgr
 		go func() {
-			storageMgr.stop()
+			storageMgr.close()
 			activeStorages.Done()
 		}()
 	}

@@ -176,7 +176,7 @@ func TestTransactionManager(t *testing.T) {
 	type testSetup struct {
 		Config            config.Cfg
 		CommandFactory    git.CommandFactory
-		RepositoryFactory localrepo.StorageScopedFactory
+		RepositoryFactory localrepo.Factory
 		ObjectHash        git.ObjectHash
 		NonExistentOID    git.ObjectID
 		Commits           testCommits
@@ -232,16 +232,11 @@ func TestTransactionManager(t *testing.T) {
 			return pack.Bytes()
 		}
 
-		repositoryFactory, err := localrepo.NewFactory(
-			locator, cmdFactory, catfileCache,
-		).ScopeByStorage(cfg.Storages[0].Name)
-		require.NoError(t, err)
-
 		return testSetup{
 			Config:            cfg,
 			ObjectHash:        objectHash,
 			CommandFactory:    cmdFactory,
-			RepositoryFactory: repositoryFactory,
+			RepositoryFactory: localrepo.NewFactory(locator, cmdFactory, catfileCache),
 			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
 				First: testCommit{
@@ -283,9 +278,9 @@ func TestTransactionManager(t *testing.T) {
 		BeforeDeleteLogEntry hookFunc
 		// beforeStoreAppliedLogIndex is invoked before a the applied log index is stored.
 		BeforeStoreAppliedLogIndex hookFunc
-		// WaitForTransactionsWhenStopping waits for a in-flight to finish before returning
+		// WaitForTransactionsWhenClosing waits for a in-flight to finish before returning
 		// from Run.
-		WaitForTransactionsWhenStopping bool
+		WaitForTransactionsWhenClosing bool
 	}
 
 	// StartManager starts a TransactionManager.
@@ -302,10 +297,10 @@ func TestTransactionManager(t *testing.T) {
 		ModifyRepository func(tb testing.TB, cfg config.Cfg, repoPath string)
 	}
 
-	// StopManager stops a TransactionManager.
-	type StopManager struct{}
+	// CloseManager closes a TransactionManager.
+	type CloseManager struct{}
 
-	// AssertManager asserts whether the manager has stopped and Run returned. If it has, it asserts the
+	// AssertManager asserts whether the manager has closed and Run returned. If it has, it asserts the
 	// error matched the expected. If the manager has exited with an error, AssertManager must be called
 	// or the test case fails.
 	type AssertManager struct {
@@ -377,7 +372,7 @@ func TestTransactionManager(t *testing.T) {
 	}
 
 	// RemoveRepository removes the repository from the disk. It must be run with the TransactionManager
-	// stopped.
+	// closed.
 	type RemoveRepository struct{}
 
 	// StateAssertions models an assertion of the entire state managed by the TransactionManager.
@@ -1386,7 +1381,7 @@ func TestTransactionManager(t *testing.T) {
 						CustomHookIndex: 2,
 					},
 				},
-				StopManager{},
+				CloseManager{},
 				StartManager{},
 				Begin{
 					TransactionID: 4,
@@ -1394,6 +1389,9 @@ func TestTransactionManager(t *testing.T) {
 						ReadIndex:       2,
 						CustomHookIndex: 2,
 					},
+				},
+				Rollback{
+					TransactionID: 4,
 				},
 			},
 			expectedState: StateAssertion{
@@ -1468,7 +1466,7 @@ func TestTransactionManager(t *testing.T) {
 					},
 				},
 				AssertManager{},
-				StopManager{},
+				CloseManager{},
 				StartManager{},
 				Begin{
 					TransactionID: 2,
@@ -1509,7 +1507,7 @@ func TestTransactionManager(t *testing.T) {
 						ActualOID:     setup.ObjectHash.ZeroOID,
 					},
 				},
-				StopManager{},
+				CloseManager{},
 				StartManager{},
 				Begin{
 					TransactionID: 2,
@@ -1581,7 +1579,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
-							hookCtx.stopManager()
+							hookCtx.closeManager()
 						},
 					},
 				},
@@ -1624,7 +1622,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
-							hookCtx.stopManager()
+							hookCtx.closeManager()
 						},
 					},
 				},
@@ -1688,7 +1686,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{},
-				StopManager{},
+				CloseManager{},
 				Commit{
 					ExpectedError: ErrTransactionProcessingStopped,
 				},
@@ -1730,15 +1728,15 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{
 					Hooks: testHooks{
-						BeforeAppendLogEntry: func(hookContext hookContext) { hookContext.stopManager() },
+						BeforeAppendLogEntry: func(hookContext hookContext) { hookContext.closeManager() },
 						// This ensures we are testing the context cancellation errors being unwrapped properly
 						// to an ErrTransactionProcessingStopped instead of hitting the general case when
 						// runDone is closed.
-						WaitForTransactionsWhenStopping: true,
+						WaitForTransactionsWhenClosing: true,
 					},
 				},
 				Begin{},
-				StopManager{},
+				CloseManager{},
 				Commit{
 					ExpectedError: ErrTransactionProcessingStopped,
 				},
@@ -1750,7 +1748,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
-							hookCtx.stopManager()
+							hookCtx.closeManager()
 						},
 					},
 				},
@@ -2104,6 +2102,12 @@ func TestTransactionManager(t *testing.T) {
 						CustomHookIndex: 3,
 					},
 				},
+				Rollback{
+					TransactionID: 5,
+				},
+				Rollback{
+					TransactionID: 6,
+				},
 			},
 			expectedState: StateAssertion{
 				DefaultBranch: "refs/heads/main",
@@ -2221,7 +2225,7 @@ func TestTransactionManager(t *testing.T) {
 					},
 				},
 				AssertManager{},
-				StopManager{},
+				CloseManager{},
 				StartManager{
 					// Crash the manager before the third transaction is applied. This allows us to
 					// prune before it is applied to ensure the pack file contains all necessary commits.
@@ -3216,7 +3220,10 @@ func TestTransactionManager(t *testing.T) {
 			// Setup the repository with the exact same state as what was used to build the test cases.
 			setup := setupTest(t, relativePath)
 
-			repo := setup.RepositoryFactory.Build(relativePath)
+			storageScopedFactory, err := setup.RepositoryFactory.ScopeByStorage(setup.Config.Storages[0].Name)
+			require.NoError(t, err)
+			repo := storageScopedFactory.Build(relativePath)
+
 			repoPath, err := repo.Path()
 			require.NoError(t, err)
 
@@ -3231,11 +3238,11 @@ func TestTransactionManager(t *testing.T) {
 			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, txManager)
 
 			var (
-				// managerRunning tracks whether the manager is running or stopped.
+				// managerRunning tracks whether the manager is running or closed.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory)
-				// managerErr is used for synchronizing manager stopping and returning
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+				// managerErr is used for synchronizing manager closing and returning
 				// the error from Run.
 				managerErr chan error
 				// inflightTransactions tracks the number of on going transactions calls. It is used to synchronize
@@ -3243,11 +3250,11 @@ func TestTransactionManager(t *testing.T) {
 				inflightTransactions sync.WaitGroup
 			)
 
-			// stopManager stops the manager. It waits until the manager's Run method has exited.
-			stopManager := func() {
+			// closeManager closes the manager. It waits until the manager's Run method has exited.
+			closeManager := func() {
 				t.Helper()
 
-				transactionManager.Stop()
+				transactionManager.Close()
 				managerRunning, err = checkManagerError(t, ctx, managerErr, transactionManager)
 				require.NoError(t, err)
 				require.False(t, managerRunning)
@@ -3257,10 +3264,10 @@ func TestTransactionManager(t *testing.T) {
 			// began in a test case.
 			openTransactions := map[int]*Transaction{}
 
-			// Stop the manager if it is running at the end of the test.
+			// Close the manager if it is running at the end of the test.
 			defer func() {
 				if managerRunning {
-					stopManager()
+					closeManager()
 				}
 			}()
 			for _, step := range tc.steps {
@@ -3275,13 +3282,18 @@ func TestTransactionManager(t *testing.T) {
 					managerRunning = true
 					managerErr = make(chan error)
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, setup.RepositoryFactory)
+					// The PartitionManager deletes and recreates the staging directory prior to starting a TransactionManager
+					// to clean up any stale state leftover by crashes. Do that here as well so the tests don't fail if we don't
+					// finish transactions after crash simulations.
+					require.NoError(t, os.RemoveAll(stagingDir))
+					require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
 						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
-						beforeDeferredStop: func(hookContext) {
-							if step.Hooks.WaitForTransactionsWhenStopping {
+						beforeDeferredClose: func(hookContext) {
+							if step.Hooks.WaitForTransactionsWhenClosing {
 								inflightTransactions.Wait()
 							}
 						},
@@ -3303,9 +3315,9 @@ func TestTransactionManager(t *testing.T) {
 
 						managerErr <- transactionManager.Run()
 					}()
-				case StopManager:
-					require.True(t, managerRunning, "test error: manager stopped while it was already stopped")
-					stopManager()
+				case CloseManager:
+					require.True(t, managerRunning, "test error: manager closed while it was already closed")
+					closeManager()
 				case AssertManager:
 					require.True(t, managerRunning, "test error: manager must be running for syncing")
 					managerRunning, err = checkManagerError(t, ctx, managerErr, transactionManager)
@@ -3351,12 +3363,9 @@ func TestTransactionManager(t *testing.T) {
 					}
 
 					if step.QuarantinedPacks != nil {
-						quarantineDirectory, err := transaction.QuarantineDirectory()
-						require.NoError(t, err)
-
 						for _, dir := range []string{
 							transaction.stagingDirectory,
-							quarantineDirectory,
+							transaction.quarantineDirectory,
 						} {
 							const expectedPerm = perm.PrivateDir
 							stat, err := os.Stat(dir)
@@ -3366,10 +3375,12 @@ func TestTransactionManager(t *testing.T) {
 							)
 						}
 
-						for i, pack := range step.QuarantinedPacks {
-							writePack(t, setup.Config, pack, filepath.Join(quarantineDirectory, "pack", fmt.Sprintf("%d.pack", i)))
+						rewrittenRepo := setup.RepositoryFactory.Build(
+							transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
+						)
+						for _, pack := range step.QuarantinedPacks {
+							require.NoError(t, rewrittenRepo.UnpackObjects(ctx, bytes.NewReader(pack)))
 						}
-
 					}
 
 					if step.DeleteRepository {
@@ -3513,7 +3524,7 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 		// or we are still waiting for it to return. We test whether the manager is running or not here by queueing a
 		// a transaction that will error. If the manager processes it, we know it is still running.
 		//
-		// If the manager was stopped, it might manage to admit the testTransaction but not process it. To determine
+		// If the manager was closed, it might manage to admit the testTransaction but not process it. To determine
 		// whether that was the case, we also keep waiting on the managerErr channel.
 		select {
 		case err := <-testTransaction.result:
@@ -3721,7 +3732,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			b.ReportMetric(float64(b.N*tc.transactionSize)/time.Since(began).Seconds(), "reference_updates/s")
 
 			for _, manager := range managers {
-				manager.Stop()
+				manager.Close()
 			}
 
 			managerWG.Wait()
