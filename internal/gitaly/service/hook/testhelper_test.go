@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -48,11 +49,19 @@ func newHooksClient(tb testing.TB, serverSocketPath string) (gitalypb.HookServic
 type serverOption func(*server)
 
 func runHooksServer(tb testing.TB, cfg config.Cfg, opts []serverOption, serverOpts ...testserver.GitalyServerOpt) string {
+	return runHooksServerWithTransactionRegistry(tb, cfg, opts, nil, serverOpts...)
+}
+
+func runHooksServerWithTransactionRegistry(tb testing.TB, cfg config.Cfg, opts []serverOption, txRegistry gitalyhook.TransactionRegistry, serverOpts ...testserver.GitalyServerOpt) string {
 	tb.Helper()
 
 	serverOpts = append(serverOpts, testserver.WithDisablePraefect())
 
 	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
+		if txRegistry != nil {
+			deps.GitalyHookManager = gitalyhook.NewManager(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager(), deps.GetGitlabClient(), txRegistry)
+		}
+
 		hookServer := NewServer(deps)
 		for _, opt := range opts {
 			opt(hookServer.(*server))
