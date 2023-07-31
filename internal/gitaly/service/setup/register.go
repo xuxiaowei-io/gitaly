@@ -122,7 +122,6 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 		deps.GetConnsPool(),
-		deps.GetGit2goExecutor(),
 		deps.GetUpdaterWithHooks(),
 	))
 	gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(

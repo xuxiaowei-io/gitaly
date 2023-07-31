@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -18,13 +17,12 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedConflictsServiceServer
-	locator        storage.Locator
-	gitCmdFactory  git.CommandFactory
-	catfileCache   catfile.Cache
-	pool           *client.Pool
-	hookManager    hook.Manager
-	updater        *updateref.UpdaterWithHooks
-	git2goExecutor *git2go.Executor
+	locator       storage.Locator
+	gitCmdFactory git.CommandFactory
+	catfileCache  catfile.Cache
+	pool          *client.Pool
+	hookManager   hook.Manager
+	updater       *updateref.UpdaterWithHooks
 }
 
 // NewServer creates a new instance of a grpc ConflictsServer
@@ -34,17 +32,15 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	connsPool *client.Pool,
-	git2goExecutor *git2go.Executor,
 	updater *updateref.UpdaterWithHooks,
 ) gitalypb.ConflictsServiceServer {
 	return &server{
-		hookManager:    hookManager,
-		locator:        locator,
-		gitCmdFactory:  gitCmdFactory,
-		catfileCache:   catfileCache,
-		pool:           connsPool,
-		updater:        updater,
-		git2goExecutor: git2goExecutor,
+		hookManager:   hookManager,
+		locator:       locator,
+		gitCmdFactory: gitCmdFactory,
+		catfileCache:  catfileCache,
+		pool:          connsPool,
+		updater:       updater,
 	}
 }
 

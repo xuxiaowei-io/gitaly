@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package conflicts
 
 import (
@@ -27,8 +25,6 @@ func TestMain(m *testing.M) {
 func setupConflictsService(tb testing.TB, hookManager hook.Manager) (config.Cfg, gitalypb.ConflictsServiceClient) {
 	cfg := testcfg.Build(tb)
 
-	testcfg.BuildGitalyGit2Go(tb, cfg)
-
 	serverSocketPath := runConflictsServer(tb, cfg, hookManager)
 	cfg.SocketPath = serverSocketPath
 
@@ -46,7 +42,6 @@ func runConflictsServer(tb testing.TB, cfg config.Cfg, hookManager hook.Manager)
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
 			deps.GetUpdaterWithHooks(),
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(

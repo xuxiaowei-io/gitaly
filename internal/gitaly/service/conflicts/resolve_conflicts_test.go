@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package conflicts
 
 import (
@@ -39,7 +37,6 @@ func TestResolveConflicts(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.ResolveConflictsViaGit,
 		featureflag.GPGSigning,
 	).Run(t, testResolveConflicts)
 }
@@ -737,17 +734,6 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 				filesJSON, err := json.Marshal(files)
 				require.NoError(t, err)
 
-				expectedContent := map[string]map[string][]byte{
-					"refs/heads/ours": {
-						"a": []byte("A\r\nB\r\nX\r\nD\r\nE\r\n"),
-					},
-				}
-
-				// git replaces crlf with newlines when storing to the database
-				if featureflag.ResolveConflictsViaGit.IsEnabled(ctx) {
-					expectedContent["refs/heads/ours"]["a"] = []byte("A\nB\nX\nD\nE\n")
-				}
-
 				return setupData{
 					cfg:      cfg,
 					client:   client,
@@ -770,7 +756,11 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 						{FilesJson: filesJSON},
 					},
 					expectedResponse: &gitalypb.ResolveConflictsResponse{},
-					expectedContent:  expectedContent,
+					expectedContent: map[string]map[string][]byte{
+						"refs/heads/ours": {
+							"a": []byte("A\nB\nX\nD\nE\n"),
+						},
+					},
 				}
 			},
 		},
