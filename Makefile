@@ -267,7 +267,7 @@ unexport GOROOT
 ## GOCACHE_MAX_SIZE_KB is the maximum size of Go's build cache in kilobytes before it is cleaned up.
 GOCACHE_MAX_SIZE_KB              ?= 5000000
 export GOCACHE                   ?= ${BUILD_DIR}/cache
-export GOPROXY                   ?= https://proxy.golang.org
+export GOPROXY                   ?= https://proxy.golang.org|direct
 export PATH                      := ${BUILD_DIR}/bin:${PATH}
 export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}
 # Allow the linker flag -D_THREAD_SAFE as libgit2 is compiled with it on FreeBSD
