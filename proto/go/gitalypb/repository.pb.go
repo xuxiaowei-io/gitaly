@@ -2876,15 +2876,16 @@ func (x *GetCustomHooksResponse) GetData() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryFromBundleRequest is a request for the CreateRepositoryFromBundle RPC.
 type CreateRepositoryFromBundleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Only available on the first message
+	// Repository is the repository to be created from the Git bundle. Repository should only be
+	// present in the first message of the stream.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// Data contains bytes of the Git bundle file being streamed.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -2934,7 +2935,7 @@ func (x *CreateRepositoryFromBundleRequest) GetData() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryFromBundleResponse is a response for the CreateRepositoryFromBundle RPC.
 type CreateRepositoryFromBundleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
