@@ -160,6 +160,14 @@ type partition struct {
 
 // close closes the partition's transaction manager.
 func (ptn *partition) close() {
+	// The partition may be closed either due to PartitionManager itself being closed,
+	// or due it having no more active transactions. Both of these can happen, in which
+	// case both of them would attempt to close the channel. Check first whether the
+	// channel has already been closed.
+	if ptn.isClosing() {
+		return
+	}
+
 	close(ptn.closing)
 	ptn.transactionManager.Close()
 }
