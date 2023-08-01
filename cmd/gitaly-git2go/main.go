@@ -28,7 +28,6 @@ var subcommands = map[string]subcmd{
 	"cherry-pick": &cherryPickSubcommand{},
 	"merge":       &mergeSubcommand{},
 	"rebase":      &rebaseSubcommand{},
-	"revert":      &revertSubcommand{},
 }
 
 func fatalf(logger logrus.FieldLogger, encoder *gob.Encoder, format string, args ...interface{}) {
