@@ -9,26 +9,29 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
-var gpgSiganturePrefix = []byte("gpgsig")
-
 func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
-	if err := validateGetCommitSignaturesRequest(s.locator, request); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
+	ctx := stream.Context()
+
+	if err := s.locator.ValidateRepository(request.GetRepository()); err != nil {
+		return err
 	}
 
-	return s.getCommitSignatures(request, stream)
-}
-
-func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
-	ctx := stream.Context()
 	repo := s.localrepo(request.GetRepository())
+
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	if err := validateGetCommitSignaturesRequest(objectHash, request); err != nil {
+		return structerr.NewInvalidArgument("%w", err)
+	}
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
@@ -93,9 +96,16 @@ func extractSignature(reader io.Reader) ([]byte, []byte, error) {
 			return nil, nil, err
 		}
 
-		if !sawSignature && !inSignature && bytes.HasPrefix(line, gpgSiganturePrefix) {
-			sawSignature, inSignature = true, true
-			line = bytes.TrimPrefix(line, gpgSiganturePrefix)
+		if !sawSignature && !inSignature {
+			for _, signatureField := range [][]byte{[]byte("gpgsig "), []byte("gpgsig-sha256 ")} {
+				if !bytes.HasPrefix(line, signatureField) {
+					continue
+				}
+
+				sawSignature, inSignature = true, true
+				line = bytes.TrimPrefix(line, signatureField)
+				break
+			}
 		}
 
 		if inSignature && !bytes.Equal(line, lineBreak) {
@@ -149,18 +159,14 @@ func sendResponse(
 	return nil
 }
 
-func validateGetCommitSignaturesRequest(locator storage.Locator, request *gitalypb.GetCommitSignaturesRequest) error {
-	if err := locator.ValidateRepository(request.GetRepository()); err != nil {
-		return err
-	}
-
+func validateGetCommitSignaturesRequest(objectHash git.ObjectHash, request *gitalypb.GetCommitSignaturesRequest) error {
 	if len(request.GetCommitIds()) == 0 {
 		return errors.New("empty CommitIds")
 	}
 
 	// Do not support shorthand or invalid commit SHAs
 	for _, commitID := range request.CommitIds {
-		if err := git.ObjectHashSHA1.ValidateHex(commitID); err != nil {
+		if err := objectHash.ValidateHex(commitID); err != nil {
 			return err
 		}
 	}

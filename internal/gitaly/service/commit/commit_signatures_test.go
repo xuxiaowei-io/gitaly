@@ -1,12 +1,12 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,215 +25,397 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
+const (
+	pgpSignature = `-----BEGIN PGP SIGNATURE-----
+Version: ObjectivePGP
+Comment: https://www.objectivepgp.com
+Charset: UTF-8
+
+wsFcBAABCgAGBQJecon1AAoJEDYMjTn1G2THmSsP/At/jskLdF0i7p0nKf4JLjeeqRJ4k2IUg87U
+ZwV6mbLo5XFm8Sq7CJBAGAhlOZE4BAwKALuawmgs5XMEZwK2z6AIgosGTVpmxDTTI11bXt4XIOdz
+qF7c/gUrJOZzjFXOqDsd5UuPRupwznC5eKlLbfImR+NYxKryo8JGdF5t52ph4kChcQsKlSkXuYNI
++9UgbaMclEjb0OLm+mcP9QxW+Cs9JS2Jb4Jh6XONWW1nDN3ZTDDskguIqqF47UxIgSImrmpMcEj9
+YSNU0oMoHM4+1DoXp1t99EGPoAMvO+a5g8gd1jouCIrI6KOX+GeG/TFFM0mQwg/d/N9LR049m8ed
+vgqg/lMiWUxQGL2IPpYPcgiUEqfn7ete+NMzQV5zstxF/q7Yj2BhM2L7FPHxKaoy/w5Q/DcAO4wN
+5gxVmIvbCDk5JOx8I+boIS8ZxSvIlJ5IWaPrcjg5Mc40it+WHvMqxVnCzH0c6KcXaJ2SibVb59HR
+pdRhEXXw/hRN65l/xwyM8sklQalAGu755gNJZ4k9ApBVUssZyiu+te2+bDirAcmK8/x1jvMQY6bn
+DFxBE7bMHDp24IFPaVID84Ryt3vSSBEkrUGm7OkyDESTpHCr4sfD5o3LCUCIibTqv/CAhe59mhbB
+2AXL7X+EzylKy6C1N5KUUiMTW94AuF6f8FqBoxnf
+=U6zM
+-----END PGP SIGNATURE-----`
+
+	sshSignature = `-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgtc+Qk8jhMwVZk/jFEFCM16LNQb
+30q5kK30bbetfjyTMAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5
+AAAAQADE1oOMKxqQu86XUQbhCoWx8GnnYHQ/i3mHdA0zPycIlDv8N6BRVDS6b0ja2Avj+s
+uNvjRqSEGQJ4q6vhKOnQw=
+-----END SSH SIGNATURE-----`
+)
+
+func TestGetCommitSignatures(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GPGSigning).Run(t, testSuccessfulGetCommitSignaturesRequest)
+	testhelper.NewFeatureSets(featureflag.GPGSigning).Run(t, testGetCommitSignatures)
 }
 
-func testSuccessfulGetCommitSignaturesRequest(t *testing.T, ctx context.Context) {
+func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
+	testcfg.BuildGitalyGPG(t, cfg)
 
 	cfg.Git.SigningKey = "testdata/signing_ssh_key_ed25519"
 	cfg.SocketPath = startTestServices(t, cfg)
 	client := newCommitServiceClient(t, cfg.SocketPath)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	commitData := testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee.commit")
-	commit := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(commitData)},
-		"-C", repoPath, "hash-object", "-w", "-t", "commit", "--stdin", "--literally",
-	))
-	require.Equal(t, "dc00eb001f41dfac08192ead79c2377c588b82ee", commit)
-
-	signedByGitalyOid := commitSignedByGitaly(t, ctx, repo, cfg)
-	request := &gitalypb.GetCommitSignaturesRequest{
-		Repository: repo,
-		CommitIds: []string{
-			"5937ac0a7beb003549fc5fd26fc247adbce4a52e", // has signature
-			"e63f41fe459e62e1228fcef60d7189127aeba95a", // has no signature
-			git.ObjectHashSHA1.ZeroOID.String(),        // does not exist
-			"a17a9f66543673edf0a3d1c6b93bdda3fe600f32", // has signature
-			"8cf8e80a5a0546e391823c250f2b26b9cf15ce88", // has signature and commit message > 4MB
-			"dc00eb001f41dfac08192ead79c2377c588b82ee", // has signature and commit message without newline at the end
-			"7b5160f9bb23a3d58a0accdbe89da13b96b1ece9", // SSH signature
-			signedByGitalyOid,                          // has signature created by Gitaly
-		},
+	type setupData struct {
+		request           *gitalypb.GetCommitSignaturesRequest
+		expectedErr       error
+		expectedResponses []*gitalypb.GetCommitSignaturesResponse
 	}
 
-	expectedSignatures := []*gitalypb.GetCommitSignaturesResponse{
-		{
-			CommitId:   "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
-			Signature:  testhelper.MustReadFile(t, "testdata/commit-5937ac0a7beb003549fc5fd26fc247adbce4a52e-signature"),
-			SignedText: testhelper.MustReadFile(t, "testdata/commit-5937ac0a7beb003549fc5fd26fc247adbce4a52e-signed-text"),
-			Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
-		},
-		{
-			CommitId:   "a17a9f66543673edf0a3d1c6b93bdda3fe600f32",
-			Signature:  testhelper.MustReadFile(t, "testdata/gitlab-test-commit-a17a9f66543673edf0a3d1c6b93bdda3fe600f32-signature"),
-			SignedText: testhelper.MustReadFile(t, "testdata/gitlab-test-commit-a17a9f66543673edf0a3d1c6b93bdda3fe600f32-signed-text"),
-			Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
-		},
-		{
-			CommitId:   "8cf8e80a5a0546e391823c250f2b26b9cf15ce88",
-			Signature:  testhelper.MustReadFile(t, "testdata/gitaly-test-commit-8cf8e80a5a0546e391823c250f2b26b9cf15ce88-signature"),
-			SignedText: testhelper.MustReadFile(t, "testdata/gitaly-test-commit-8cf8e80a5a0546e391823c250f2b26b9cf15ce88-signed-text"),
-			Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
-		},
-		{
-			CommitId:   "dc00eb001f41dfac08192ead79c2377c588b82ee",
-			Signature:  testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee-signed-no-newline-signature.txt"),
-			SignedText: testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee-signed-no-newline-signed-text.txt"),
-			Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
-		},
-		{
-			CommitId:   "7b5160f9bb23a3d58a0accdbe89da13b96b1ece9",
-			Signature:  testhelper.MustReadFile(t, "testdata/7b5160f9bb23a3d58a0accdbe89da13b96b1ece9-ssh-signature"),
-			SignedText: testhelper.MustReadFile(t, "testdata/7b5160f9bb23a3d58a0accdbe89da13b96b1ece9-ssh-signed-text"),
-			Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
-		},
-	}
-
-	if featureflag.GPGSigning.IsEnabled(ctx) {
-		expectedSignatures = append(expectedSignatures, &gitalypb.GetCommitSignaturesResponse{
-			CommitId:   signedByGitalyOid,
-			Signature:  testhelper.MustReadFile(t, "testdata/38176a00dc2c373ee45dfb5d0e3c459ea46ac5b5-ssh-gitaly-signature"),
-			SignedText: testhelper.MustReadFile(t, "testdata/38176a00dc2c373ee45dfb5d0e3c459ea46ac5b5-ssh-gitaly-signed-text"),
-			Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_SYSTEM,
-		})
-	}
-
-	c, err := client.GetCommitSignatures(ctx, request)
-	require.NoError(t, err)
-
-	fetchedSignatures := readAllSignaturesFromClient(t, c)
-
-	require.Len(t, fetchedSignatures, len(expectedSignatures))
-	for i, expected := range expectedSignatures {
-		// We cannot use `testhelper.ProtoEqual` here due to it being too inefficient with
-		// the data we're comparing because it contains multiple MB of signed data. This has
-		// in the past led to frequent timeouts in CI.
-		require.Equal(t, expected.CommitId, fetchedSignatures[i].CommitId)
-		require.Equal(t, expected.Signature, fetchedSignatures[i].Signature)
-		require.Equal(t, expected.SignedText, fetchedSignatures[i].SignedText)
-		require.Equal(t, expected.Signer, fetchedSignatures[i].Signer)
-	}
-}
-
-func TestFailedGetCommitSignaturesRequest(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.GetCommitSignaturesRequest
-		expectedErr error
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			desc: "no repository provided",
-			request: &gitalypb.GetCommitSignaturesRequest{
-				Repository: nil,
-				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
+			desc: "unset repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: nil,
+						CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
+					},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
 			},
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
-			desc: "empty CommitIds",
-			request: &gitalypb.GetCommitSignaturesRequest{
-				Repository: repo,
-				CommitIds:  []string{},
+			desc: "unset commit IDs",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds:  []string{},
+					},
+					expectedErr: status.Error(codes.InvalidArgument, "empty CommitIds"),
+				}
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty CommitIds"),
 		},
 		{
-			desc: "commitIDS with shorthand sha",
-			request: &gitalypb.GetCommitSignaturesRequest{
-				Repository: repo,
-				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e", "a17a9f6"},
+			desc: "abbreviated commit ID",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							gittest.DefaultObjectHash.HashData([]byte("pseudo commit")).String(),
+							"a17a9f6",
+						},
+					},
+					expectedErr: structerr.NewInvalidArgument(`invalid object ID: "a17a9f6", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen()),
+				}
 			},
-			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "a17a9f6", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen())),
 		},
-	}
+		{
+			desc: "nonexistent commit",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							gittest.DefaultObjectHash.HashData([]byte("nonexistent commit")).String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "unsigned commit",
+			setup: func(t *testing.T) setupData {
+				commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			c, err := client.GetCommitSignatures(ctx, testCase.request)
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "PGP-signed commit",
+			setup: func(t *testing.T) setupData {
+				commitID, commitData := createCommitWithSignature(t, cfg, repoPath, "gpgsig", pgpSignature, "Signed commit message\n")
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+					expectedResponses: []*gitalypb.GetCommitSignaturesResponse{
+						{
+							CommitId:   commitID.String(),
+							Signature:  []byte(pgpSignature),
+							SignedText: []byte(commitData),
+							Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "PGP-signed commit with message lacking newline",
+			setup: func(t *testing.T) setupData {
+				commitID, commitData := createCommitWithSignature(t, cfg, repoPath, "gpgsig", pgpSignature, "Signed commit message")
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+					expectedResponses: []*gitalypb.GetCommitSignaturesResponse{
+						{
+							CommitId:   commitID.String(),
+							Signature:  []byte(pgpSignature),
+							SignedText: []byte(commitData),
+							Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "PGP-signed commit with huge commit message",
+			setup: func(t *testing.T) setupData {
+				commitID, commitData := createCommitWithSignature(t, cfg, repoPath, "gpgsig", pgpSignature, strings.Repeat("a", 5*1024*1024))
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+					expectedResponses: []*gitalypb.GetCommitSignaturesResponse{
+						{
+							CommitId:   commitID.String(),
+							Signature:  []byte(pgpSignature),
+							SignedText: []byte(commitData),
+							Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "SSH-signed commit",
+			setup: func(t *testing.T) setupData {
+				commitID, commitData := createCommitWithSignature(t, cfg, repoPath, "gpgsig", sshSignature, "SSH-signed commit message\n")
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+					expectedResponses: []*gitalypb.GetCommitSignaturesResponse{
+						{
+							CommitId:   commitID.String(),
+							Signature:  []byte(sshSignature),
+							SignedText: []byte(commitData),
+							Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "garbage-signed commit",
+			setup: func(t *testing.T) setupData {
+				commitID, _ := createCommitWithSignature(t, cfg, repoPath, "gpgsig-garbage", sshSignature, "garbage-signed commit message")
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "SHA256-signed commit",
+			setup: func(t *testing.T) setupData {
+				commitID, commitData := createCommitWithSignature(t, cfg, repoPath, "gpgsig-sha256", sshSignature, "sha256-signed commit message")
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+					expectedResponses: []*gitalypb.GetCommitSignaturesResponse{
+						{
+							CommitId:   commitID.String(),
+							Signature:  []byte(sshSignature),
+							SignedText: []byte(commitData),
+							Signer:     gitalypb.GetCommitSignaturesResponse_SIGNER_USER,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "signed by Gitaly",
+			setup: func(t *testing.T) setupData {
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+				blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
+				require.NoError(t, err)
+
+				tree := &localrepo.TreeEntry{
+					Type: localrepo.Tree,
+					Mode: "040000",
+					Entries: []*localrepo.TreeEntry{
+						{Path: "file", Mode: "100644", OID: blobID},
+					},
+				}
+				require.NoError(t, tree.Write(ctx, repo))
+
+				commitID, err := repo.WriteCommit(ctx, localrepo.WriteCommitConfig{
+					TreeID:         tree.OID,
+					AuthorName:     gittest.DefaultCommitterName,
+					AuthorEmail:    gittest.DefaultCommitterMail,
+					CommitterName:  gittest.DefaultCommitterName,
+					CommitterEmail: gittest.DefaultCommitterMail,
+					AuthorDate:     gittest.DefaultCommitTime,
+					CommitterDate:  gittest.DefaultCommitTime,
+					Message:        "message",
+					SigningKey:     cfg.Git.SigningKey,
+				})
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.GetCommitSignaturesRequest{
+						Repository: repoProto,
+						CommitIds: []string{
+							commitID.String(),
+						},
+					},
+					expectedResponses: testhelper.EnabledOrDisabledFlag(ctx, featureflag.GPGSigning,
+						[]*gitalypb.GetCommitSignaturesResponse{
+							{
+								CommitId: commitID.String(),
+								Signature: []byte(gittest.ObjectHashDependent(t, map[string]string{
+									"sha1": `-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgVzKQNpRPvHihfJQJ+Com
+F8BdFuG2wuXh+LjXjbOs8IgAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3Nz
+aC1lZDI1NTE5AAAAQB6uCeUpvnFGR/cowe1pQyTZiTzKsi1tnez0EO8o2LtrJr+g
+k8fZo+m7jSM0TpefrL0iyHxevrbKslyXw1lJVAM=
+-----END SSH SIGNATURE-----
+`,
+									"sha256": `-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgVzKQNpRPvHihfJQJ+Com
+F8BdFuG2wuXh+LjXjbOs8IgAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3Nz
+aC1lZDI1NTE5AAAAQKgC1TFLVZOqvVs2AqCp2lhkRAUtZsDa89RgHOOsYAC3T1kB
+4lOayj2uzBahoM0gc7REITUyg5MTzfIhcIPfhAQ=
+-----END SSH SIGNATURE-----
+`,
+								})),
+								SignedText: []byte(fmt.Sprintf(
+									"tree %s\nauthor %s\ncommitter %s\n\nmessage",
+									tree.OID,
+									gittest.DefaultCommitterSignature,
+									gittest.DefaultCommitterSignature,
+								)),
+								Signer: gitalypb.GetCommitSignaturesResponse_SIGNER_SYSTEM,
+							},
+						},
+						nil,
+					),
+				}
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			setup := tc.setup(t)
+
+			stream, err := client.GetCommitSignatures(ctx, setup.request)
 			require.NoError(t, err)
 
+			var actualResponses []*gitalypb.GetCommitSignaturesResponse
 			for {
-				_, err = c.Recv()
+				var response *gitalypb.GetCommitSignaturesResponse
+				response, err = stream.Recv()
 				if err != nil {
+					if errors.Is(err, io.EOF) {
+						err = nil
+					}
+
 					break
 				}
-			}
 
-			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
+				// We don't need to do any fiddling when we have a commit ID, which would signify
+				// another returned commit.
+				if response.CommitId != "" {
+					actualResponses = append(actualResponses, response)
+					continue
+				}
+
+				// But when we don't have a commit ID we append both the signature and signed text so
+				// that it becomes easier to test for these values, as they might otherwise be split.
+				currentResponse := actualResponses[len(actualResponses)-1]
+				currentResponse.Signature = append(currentResponse.Signature, response.Signature...)
+				currentResponse.SignedText = append(currentResponse.SignedText, response.SignedText...)
+			}
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+
+			require.Len(t, actualResponses, len(setup.expectedResponses))
+			for i, expected := range setup.expectedResponses {
+				// We cannot use `testhelper.ProtoEqual` here due to it being too inefficient with
+				// the data we're comparing because it contains multiple MB of signed data. This has
+				// in the past led to frequent timeouts in CI.
+				require.Equal(t, expected.CommitId, actualResponses[i].CommitId)
+				require.Equal(t, string(expected.Signature), string(actualResponses[i].Signature))
+				require.Equal(t, string(expected.SignedText), string(actualResponses[i].SignedText))
+				require.Equal(t, string(expected.Signer), string(actualResponses[i].Signer))
+			}
 		})
 	}
 }
 
-func readAllSignaturesFromClient(t *testing.T, c gitalypb.CommitService_GetCommitSignaturesClient) (signatures []*gitalypb.GetCommitSignaturesResponse) {
-	t.Helper()
-
-	for {
-		resp, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		if resp.CommitId != "" {
-			signatures = append(signatures, resp)
-			// first message contains either Signature or SignedText so no need to append anything
-			continue
-		}
-
-		currentSignature := signatures[len(signatures)-1]
-
-		if len(resp.Signature) != 0 {
-			currentSignature.Signature = append(currentSignature.Signature, resp.Signature...)
-		} else if len(resp.SignedText) != 0 {
-			currentSignature.SignedText = append(currentSignature.SignedText, resp.SignedText...)
-		}
+func createCommitWithSignature(t *testing.T, cfg config.Cfg, repoPath, signatureField, signature, commitMessage string) (git.ObjectID, string) {
+	// Each line of the signature needs to start with a space so that Git recognizes it as a continuation of the
+	// field.
+	signatureLines := strings.Split(signature, "\n")
+	for i, signatureLine := range signatureLines {
+		signatureLines[i] = " " + signatureLine
 	}
 
-	return
-}
+	commitData := fmt.Sprintf(`tree %s
+author Bug Fixer <bugfixer@email.com> 1584564725 +0100
+committer Bug Fixer <bugfixer@email.com> 1584564725 +0100
 
-func commitSignedByGitaly(t *testing.T, ctx context.Context, repoProto *gitalypb.Repository, cfg config.Cfg) string {
-	testcfg.BuildGitalyGPG(t, cfg)
+%s
+`, gittest.DefaultObjectHash.EmptyTreeOID, commitMessage)
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	signedCommitData := strings.Replace(commitData, "\n\n", fmt.Sprintf("\n%s%s\n\n", signatureField, strings.Join(signatureLines, "\n")), 1)
 
-	blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
+	stdout := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+		Stdin: strings.NewReader(signedCommitData),
+	}, "-C", repoPath, "hash-object", "-w", "-t", "commit", "--stdin", "--literally")
+
+	commitID, err := gittest.DefaultObjectHash.FromHex(text.ChompBytes(stdout))
 	require.NoError(t, err)
 
-	tree := &localrepo.TreeEntry{
-		Type: localrepo.Tree,
-		Mode: "040000",
-		Entries: []*localrepo.TreeEntry{
-			{Path: "file", Mode: "100644", OID: blobID},
-		},
-	}
-	require.NoError(t, tree.Write(ctx, repo))
-
-	commitCfg := localrepo.WriteCommitConfig{
-		TreeID:         tree.OID,
-		AuthorName:     gittest.DefaultCommitterName,
-		AuthorEmail:    gittest.DefaultCommitterMail,
-		CommitterName:  gittest.DefaultCommitterName,
-		CommitterEmail: gittest.DefaultCommitterMail,
-		AuthorDate:     gittest.DefaultCommitTime,
-		CommitterDate:  gittest.DefaultCommitTime,
-		Message:        "message",
-		SigningKey:     cfg.Git.SigningKey,
-	}
-
-	oid, err := repo.WriteCommit(ctx, commitCfg)
-	require.Nil(t, err)
-
-	return oid.String()
+	return commitID, commitData
 }
