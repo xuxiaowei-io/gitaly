@@ -79,17 +79,20 @@ func TestGetSpawnToken_CommandStats(t *testing.T) {
 	t.Parallel()
 
 	ctx := log.InitContextCustomFields(testhelper.Context(t))
+	timeout := 3 * time.Second
 	manager := NewSpawnTokenManager(SpawnConfig{
-		Timeout:     10 * time.Second,
+		Timeout:     timeout,
 		MaxParallel: 1,
 	})
 
 	putFirstToken, err := manager.GetSpawnToken(ctx)
 	require.NoError(t, err)
 
+	waitSecondStarted := make(chan struct{})
 	waitSecondAcquire := make(chan struct{})
 	waitSecondPut := make(chan struct{})
 	go func() {
+		close(waitSecondStarted)
 		putSecondToken, err := manager.GetSpawnToken(ctx)
 		require.NoError(t, err)
 		close(waitSecondAcquire)
@@ -97,16 +100,30 @@ func TestGetSpawnToken_CommandStats(t *testing.T) {
 		<-waitSecondPut
 	}()
 
-	// The second goroutine is queued waiting for the first goroutine to finish
+	<-waitSecondStarted
 	expected := strings.NewReader(`
 # HELP gitaly_spawn_token_waiting_length The current length of the queue waiting for spawn tokens
 # TYPE gitaly_spawn_token_waiting_length gauge
 gitaly_spawn_token_waiting_length 1
 
-`)
-	require.NoError(t, testutil.CollectAndCompare(manager, expected,
-		"gitaly_spawn_token_waiting_length",
-	))
+	`)
+	started := time.Now()
+	// Even after the second goroutine starts, there is a small possibility for the metric collection to run before
+	// the second goroutine lines up for the token. There is no way to get a precise signal when the second
+	// goroutine is waiting. Hence, the only solution is to poll for the metric until it changes. If something goes
+	// wrong with the metrics or the second goroutine never starts (unlikely) or the metric never changes, the loop
+	// exits with a timeout error. We expect the loop exits immediately in most cases.
+	for {
+		if err := testutil.CollectAndCompare(manager, expected, "gitaly_spawn_token_waiting_length"); err == nil {
+			break
+		}
+
+		if time.Since(started) >= timeout {
+			require.FailNow(t, "timeout waiting for second goroutine to in line for token")
+			return
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
 
 	putFirstToken()
 	// Wait for the goroutine to acquire the token
