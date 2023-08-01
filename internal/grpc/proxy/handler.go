@@ -106,24 +106,9 @@ func failDestinationsWithError(params *StreamParameters, err error) {
 	}
 }
 
-// handler is where the real magic of proxying happens.
-// It is invoked like any gRPC server stream and uses the gRPC server framing to get and receive bytes from the wire,
-// forwarding it to a ClientStream established against the relevant ClientConn.
-func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) (finalErr error) {
-	// little bit of gRPC internals never hurt anyone
-	fullMethodName, ok := grpc.MethodFromServerStream(serverStream)
-	if !ok {
-		return status.Errorf(codes.Internal, "lowLevelServerStream not exists in context")
-	}
-
-	peeker := newPeeker(serverStream)
-
-	// We require that the director's returned context inherits from the serverStream.Context().
-	params, err := s.director(serverStream.Context(), fullMethodName, peeker)
-	if err != nil {
-		return err
-	}
-
+// HandleStream proxies the RPC stream to the destination storages. Only responses from the primary
+// are sent back to the client.
+func HandleStream(serverStream grpc.ServerStream, fullMethodName string, params *StreamParameters) (finalErr error) {
 	defer func() {
 		err := params.RequestFinalizer()
 		if finalErr == nil {
@@ -226,6 +211,27 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) (fina
 	}
 
 	return nil
+}
+
+// handler is where the real magic of proxying happens.
+// It is invoked like any gRPC server stream and uses the gRPC server framing to get and receive bytes from the wire,
+// forwarding it to a ClientStream established against the relevant ClientConn.
+func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error {
+	// little bit of gRPC internals never hurt anyone
+	fullMethodName, ok := grpc.MethodFromServerStream(serverStream)
+	if !ok {
+		return status.Errorf(codes.Internal, "lowLevelServerStream not exists in context")
+	}
+
+	peeker := newPeeker(serverStream)
+
+	// We require that the director's returned context inherits from the serverStream.Context().
+	params, err := s.director(serverStream.Context(), fullMethodName, peeker)
+	if err != nil {
+		return err
+	}
+
+	return HandleStream(serverStream, fullMethodName, params)
 }
 
 func cancelStreams(streams []streamAndDestination) {
