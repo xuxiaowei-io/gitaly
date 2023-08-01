@@ -26,7 +26,6 @@ type subcmd interface {
 
 var subcommands = map[string]subcmd{
 	"cherry-pick": &cherryPickSubcommand{},
-	"merge":       &mergeSubcommand{},
 	"rebase":      &rebaseSubcommand{},
 	"revert":      &revertSubcommand{},
 }
