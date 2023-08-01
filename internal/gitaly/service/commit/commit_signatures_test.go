@@ -60,6 +60,7 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 	testcfg.BuildGitalyGPG(t, cfg)
 
 	cfg.Git.SigningKey = "testdata/signing_ssh_key_ed25519"
+	cfg.Git.RotatedSigningKeys = []string{"testdata/signing_ssh_key_rsa"}
 	cfg.SocketPath = startTestServices(t, cfg)
 	client := newCommitServiceClient(t, cfg.SocketPath)
 
@@ -302,11 +303,30 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 				})
 				require.NoError(t, err)
 
+				rotatedKeyCommitID, err := repo.WriteCommit(ctx, localrepo.WriteCommitConfig{
+					TreeID:         tree.OID,
+					AuthorName:     gittest.DefaultCommitterName,
+					AuthorEmail:    gittest.DefaultCommitterMail,
+					CommitterName:  gittest.DefaultCommitterName,
+					CommitterEmail: gittest.DefaultCommitterMail,
+					AuthorDate:     gittest.DefaultCommitTime,
+					CommitterDate:  gittest.DefaultCommitTime,
+					Message:        "rotated key commit message",
+					SigningKey:     cfg.Git.RotatedSigningKeys[0],
+				})
+				require.NoError(t, err)
+
+				rsaSHA1Signature := string(testhelper.MustReadFile(t, "testdata/signing_ssh_key_rsa.sig"))
+				rsaSHA256Signature := string(testhelper.MustReadFile(t, "testdata/signing_ssh_key_rsa_sha256.sig"))
+				ed25519SHA1Signature := string(testhelper.MustReadFile(t, "testdata/signing_ssh_key_ed25519.sig"))
+				ed25519SHA256Signature := string(testhelper.MustReadFile(t, "testdata/signing_ssh_key_ed25519_sha256.sig"))
+
 				return setupData{
 					request: &gitalypb.GetCommitSignaturesRequest{
 						Repository: repoProto,
 						CommitIds: []string{
 							commitID.String(),
+							rotatedKeyCommitID.String(),
 						},
 					},
 					expectedResponses: testhelper.EnabledOrDisabledFlag(ctx, featureflag.GPGSigning,
@@ -314,23 +334,25 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 							{
 								CommitId: commitID.String(),
 								Signature: []byte(gittest.ObjectHashDependent(t, map[string]string{
-									"sha1": `-----BEGIN SSH SIGNATURE-----
-U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgVzKQNpRPvHihfJQJ+Com
-F8BdFuG2wuXh+LjXjbOs8IgAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3Nz
-aC1lZDI1NTE5AAAAQB6uCeUpvnFGR/cowe1pQyTZiTzKsi1tnez0EO8o2LtrJr+g
-k8fZo+m7jSM0TpefrL0iyHxevrbKslyXw1lJVAM=
------END SSH SIGNATURE-----
-`,
-									"sha256": `-----BEGIN SSH SIGNATURE-----
-U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgVzKQNpRPvHihfJQJ+Com
-F8BdFuG2wuXh+LjXjbOs8IgAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3Nz
-aC1lZDI1NTE5AAAAQKgC1TFLVZOqvVs2AqCp2lhkRAUtZsDa89RgHOOsYAC3T1kB
-4lOayj2uzBahoM0gc7REITUyg5MTzfIhcIPfhAQ=
------END SSH SIGNATURE-----
-`,
+									"sha1":   ed25519SHA1Signature,
+									"sha256": ed25519SHA256Signature,
 								})),
 								SignedText: []byte(fmt.Sprintf(
 									"tree %s\nauthor %s\ncommitter %s\n\nmessage",
+									tree.OID,
+									gittest.DefaultCommitterSignature,
+									gittest.DefaultCommitterSignature,
+								)),
+								Signer: gitalypb.GetCommitSignaturesResponse_SIGNER_SYSTEM,
+							},
+							{
+								CommitId: rotatedKeyCommitID.String(),
+								Signature: []byte(gittest.ObjectHashDependent(t, map[string]string{
+									"sha1":   rsaSHA1Signature,
+									"sha256": rsaSHA256Signature,
+								})),
+								SignedText: []byte(fmt.Sprintf(
+									"tree %s\nauthor %s\ncommitter %s\n\nrotated key commit message",
 									tree.OID,
 									gittest.DefaultCommitterSignature,
 									gittest.DefaultCommitterSignature,

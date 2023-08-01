@@ -13,10 +13,10 @@ func CreateCommitSignature(signingKeyPath string, contentToSign []byte) ([]byte,
 		return nil, nil
 	}
 
-	signingKey, err := signature.ParseSigningKey(signingKeyPath)
+	signingKeys, err := signature.ParseSigningKeys(signingKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse signing key: %w", err)
 	}
 
-	return signingKey.CreateSignature(contentToSign)
+	return signingKeys.CreateSignature(contentToSign)
 }

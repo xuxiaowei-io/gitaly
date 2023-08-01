@@ -24,7 +24,7 @@ func gpgApp() *cli.App {
 				return errors.New("expected --status-fd=2")
 			}
 
-			signingKey, err := signature.ParseSigningKey(cCtx.Args().First())
+			signingKeys, err := signature.ParseSigningKeys(cCtx.Args().First())
 			if err != nil {
 				return fmt.Errorf("reading signed key file %s : %w", cCtx.Args().First(), err)
 			}
@@ -34,7 +34,7 @@ func gpgApp() *cli.App {
 				return fmt.Errorf("reading contents from stdin: %w", err)
 			}
 
-			sig, err := signingKey.CreateSignature(contents)
+			sig, err := signingKeys.CreateSignature(contents)
 			if err != nil {
 				return fmt.Errorf("creating signature: %w", err)
 			}
