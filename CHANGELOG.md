@@ -44,6 +44,10 @@ No changes.
 
 - [localrepo: Avoid getting all branches for default branch detection](gitlab-org/gitaly@bdd3c05a2cc2889260050f2714884cc24503ae1a) by @blanet ([merge request](gitlab-org/gitaly!5725))
 
+## 16.1.3 (2023-08-01)
+
+No changes.
+
 ## 16.1.2 (2023-07-04)
 
 No changes.
