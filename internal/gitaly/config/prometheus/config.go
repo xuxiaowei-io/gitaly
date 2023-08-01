@@ -15,10 +15,10 @@ import (
 // Config contains additional configuration data for prometheus
 type Config struct {
 	// ScrapeTimeout is the allowed duration of a Prometheus scrape before timing out.
-	ScrapeTimeout duration.Duration `toml:"scrape_timeout,omitempty"`
+	ScrapeTimeout duration.Duration `toml:"scrape_timeout,omitempty" json:"scrape_timeout"`
 	// GRPCLatencyBuckets configures the histogram buckets used for gRPC
 	// latency measurements.
-	GRPCLatencyBuckets []float64 `toml:"grpc_latency_buckets,omitempty"`
+	GRPCLatencyBuckets []float64 `toml:"grpc_latency_buckets,omitempty" json:"grpc_latency_buckets"`
 }
 
 // DefaultConfig returns a new config with default values set.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -981,4 +982,269 @@ func TestConfig_ValidateV2(t *testing.T) {
 			cfgerror.NewValidationError(cfgerror.ErrNotSet, "virtual_storage"),
 		}, err)
 	})
+}
+
+func TestConfig_ConfigCommand(t *testing.T) {
+	t.Parallel()
+
+	modifyDefaultConfig := func(modify func(cfg *Config)) Config {
+		cfg, err := FromReader(strings.NewReader(""))
+		require.NoError(t, err)
+		modify(&cfg)
+		return cfg
+	}
+
+	writeScript := func(t *testing.T, script string) string {
+		return testhelper.WriteExecutable(t,
+			filepath.Join(testhelper.TempDir(t), "script"),
+			[]byte("#!/bin/sh\n"+script),
+		)
+	}
+
+	type setupData struct {
+		cfg         Config
+		expectedErr string
+		expectedCfg Config
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "nonexistent executable",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					cfg: Config{
+						ConfigCommand: "/does/not/exist",
+					},
+					expectedErr: "running config command: fork/exec /does/not/exist: no such file or directory",
+				}
+			},
+		},
+		{
+			desc: "command points to non-executable file",
+			setup: func(t *testing.T) setupData {
+				cmd := filepath.Join(testhelper.TempDir(t), "script")
+				require.NoError(t, os.WriteFile(cmd, nil, perm.PrivateFile))
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand: cmd,
+					},
+					expectedErr: fmt.Sprintf(
+						"running config command: fork/exec %s: permission denied", cmd,
+					),
+				}
+			},
+		},
+		{
+			desc: "executable returns error",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					cfg: Config{
+						ConfigCommand: writeScript(t, "echo error >&2 && exit 1"),
+					},
+					expectedErr: "running config command: exit status 1, stderr: \"error\\n\"",
+				}
+			},
+		},
+		{
+			desc: "invalid JSON",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					cfg: Config{
+						ConfigCommand: writeScript(t, "echo 'this is not json'"),
+					},
+					expectedErr: "unmarshalling generated config: invalid character 'h' in literal true (expecting 'r')",
+				}
+			},
+		},
+		{
+			desc: "mixed stdout and stderr",
+			setup: func(t *testing.T) setupData {
+				// We want to verify that we're able to correctly parse the output
+				// even if the process writes to both its stdout and stderr.
+				cmd := writeScript(t, "echo error >&2 && echo '{}'")
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand: cmd,
+					},
+					expectedCfg: modifyDefaultConfig(func(cfg *Config) {
+						cfg.ConfigCommand = cmd
+					}),
+				}
+			},
+		},
+		{
+			desc: "empty script",
+			setup: func(t *testing.T) setupData {
+				cmd := writeScript(t, "echo '{}'")
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand: cmd,
+					},
+					expectedCfg: modifyDefaultConfig(func(cfg *Config) {
+						cfg.ConfigCommand = cmd
+					}),
+				}
+			},
+		},
+		{
+			desc: "unknown value",
+			setup: func(t *testing.T) setupData {
+				cmd := writeScript(t, `echo '{"key_does_not_exist":"value"}'`)
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand: cmd,
+					},
+					expectedCfg: modifyDefaultConfig(func(cfg *Config) {
+						cfg.ConfigCommand = cmd
+					}),
+				}
+			},
+		},
+		{
+			desc: "generated value",
+			setup: func(t *testing.T) setupData {
+				cmd := writeScript(t, `echo '{"socket_path": "value"}'`)
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand: cmd,
+					},
+					expectedCfg: modifyDefaultConfig(func(cfg *Config) {
+						cfg.ConfigCommand = cmd
+						cfg.SocketPath = "value"
+					}),
+				}
+			},
+		},
+		{
+			desc: "overridden value",
+			setup: func(t *testing.T) setupData {
+				cmd := writeScript(t, `echo '{"socket_path": "overridden_value"}'`)
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand: cmd,
+						SocketPath:    "initial_value",
+					},
+					expectedCfg: modifyDefaultConfig(func(cfg *Config) {
+						cfg.ConfigCommand = cmd
+						cfg.SocketPath = "overridden_value"
+					}),
+				}
+			},
+		},
+		{
+			desc: "mixed configuration",
+			setup: func(t *testing.T) setupData {
+				cmd := writeScript(t, `echo '{"listen_addr": "listen_addr"}'`)
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand: cmd,
+						SocketPath:    "socket_path",
+					},
+					expectedCfg: modifyDefaultConfig(func(cfg *Config) {
+						cfg.ConfigCommand = cmd
+						cfg.SocketPath = "socket_path"
+						cfg.ListenAddr = "listen_addr"
+					}),
+				}
+			},
+		},
+		{
+			desc: "override default value",
+			setup: func(t *testing.T) setupData {
+				cmd := writeScript(t, `echo '{"storage": []}'`)
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand:       cmd,
+						GracefulStopTimeout: duration.Duration(time.Second),
+					},
+					expectedCfg: modifyDefaultConfig(func(cfg *Config) {
+						cfg.ConfigCommand = cmd
+						cfg.GracefulStopTimeout = duration.Duration(time.Second)
+					}),
+				}
+			},
+		},
+		{
+			desc: "subsections are being merged",
+			setup: func(t *testing.T) setupData {
+				cmd := writeScript(t, `cat <<-EOF
+					{
+						"failover": {
+							"bootstrap_interval": "13m"
+						}
+					}
+					EOF
+				`)
+
+				return setupData{
+					cfg: Config{
+						ConfigCommand: cmd,
+						Failover: Failover{
+							MonitorInterval: duration.Duration(14 * time.Minute),
+						},
+					},
+					expectedCfg: modifyDefaultConfig(func(cfg *Config) {
+						cfg.ConfigCommand = cmd
+						cfg.Failover.BootstrapInterval = duration.Duration(13 * time.Minute)
+						cfg.Failover.MonitorInterval = duration.Duration(14 * time.Minute)
+					}),
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			t.Run("FromReader", func(t *testing.T) {
+				var cfgBuffer bytes.Buffer
+				require.NoError(t, toml.NewEncoder(&cfgBuffer).Encode(setup.cfg))
+
+				cfg, err := FromReader(&cfgBuffer)
+
+				// We can't use `require.Equal()` for the error as it's basically impossible
+				// to reproduce the exact `exec.ExitError`.
+				if setup.expectedErr != "" {
+					require.EqualError(t, err, setup.expectedErr)
+				} else {
+					require.NoError(t, err)
+				}
+				require.Equal(t, setup.expectedCfg, cfg)
+			})
+
+			t.Run("FromFile", func(t *testing.T) {
+				cfgPath := filepath.Join(testhelper.TempDir(t), "praefect.toml")
+
+				cfgFile, err := os.Create(cfgPath)
+				require.NoError(t, err)
+				require.NoError(t, toml.NewEncoder(cfgFile).Encode(setup.cfg))
+				testhelper.MustClose(t, cfgFile)
+
+				cfg, err := FromFile(cfgPath)
+
+				// We can't use `require.Equal()` for the error as it's basically impossible
+				// to reproduce the exact `exec.ExitError`.
+				if setup.expectedErr != "" {
+					require.EqualError(t, err, setup.expectedErr)
+				} else {
+					require.NoError(t, err)
+				}
+				require.Equal(t, setup.expectedCfg, cfg)
+			})
+		})
+	}
 }
