@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagectx"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -18,6 +19,10 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	if err := repoutil.Remove(ctx, s.logger, s.locator, s.txManager, s.repositoryCounter, repository); err != nil {
 		return nil, err
 	}
+
+	storagectx.RunWithTransaction(ctx, func(tx storagectx.Transaction) {
+		tx.DeleteRepository()
+	})
 
 	return &gitalypb.RemoveRepositoryResponse{}, nil
 }

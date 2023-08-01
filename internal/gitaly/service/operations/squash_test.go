@@ -177,7 +177,11 @@ func testUserSquashTransactional(t *testing.T, ctx context.Context) {
 			// Even though the committing vote has failed, we expect objects to have
 			// been migrated after the preparatory vote. The commit should thus exist in
 			// the repository.
-			expectedExists: true,
+			//
+			// With transactions, the object is written to the repository if the transaction successfully
+			// commits. Vote failure raises an error which causes the transaction to be rolled back. We don't
+			// thus expect to have the object in the repository.
+			expectedExists: !testhelper.IsWALEnabled(),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

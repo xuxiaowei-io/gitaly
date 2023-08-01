@@ -12,6 +12,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagectx"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 )
@@ -174,6 +175,10 @@ func (repo *Repo) setDefaultBranchWithTransaction(ctx context.Context, txManager
 	if err := transaction.CommitLockedFile(ctx, txManager, lockingFileWriter); err != nil {
 		return fmt.Errorf("committing temporary HEAD: %w", err)
 	}
+
+	storagectx.RunWithTransaction(ctx, func(tx storagectx.Transaction) {
+		tx.SetDefaultBranch(reference)
+	})
 
 	return nil
 }

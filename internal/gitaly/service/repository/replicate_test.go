@@ -42,6 +42,11 @@ import (
 )
 
 func TestReplicateRepository(t *testing.T) {
+	testhelper.SkipWithWAL(t, `
+ReplicateRepository is replicating git attributes as a separate file. WAL doesn't
+support this as the separate attributes file is going to be replaced with reading the
+attributes from HEAD.`)
+
 	t.Parallel()
 	testhelper.NewFeatureSets(
 		featureflag.ReplicateRepositoryObjectPool,

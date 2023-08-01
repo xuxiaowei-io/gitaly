@@ -159,10 +159,14 @@ func TestRestoreRepository(t *testing.T) {
 					backupID: "abc123",
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"restore repository: repository: repository not set",
-				"repository not set",
-			)),
+			expectedErr: func() error {
+				errorMessage := "restore repository: repository: repository not set"
+				if testhelper.IsPraefectEnabled() || testhelper.IsWALEnabled() {
+					errorMessage = "repository not set"
+				}
+
+				return structerr.NewInvalidArgument(errorMessage)
+			}(),
 		},
 		{
 			desc: "missing backup sink",

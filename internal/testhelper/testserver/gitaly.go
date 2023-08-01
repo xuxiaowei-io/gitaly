@@ -175,7 +175,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 	tb.Cleanup(func() { testhelper.MustClose(tb, gsd.conns) })
 
 	var txMiddleware server.TransactionMiddleware
-	if deps.GetPartitionManager() != nil && deps.GetTransactionRegistry() != nil {
+	if deps.GetPartitionManager() != nil {
 		txMiddleware = server.TransactionMiddleware{
 			UnaryInterceptor: storagemgr.NewUnaryInterceptor(
 				deps.Logger, protoregistry.GitalyProtoPreregistered, deps.GetTransactionRegistry(), deps.GetPartitionManager(), deps.GetLocator(),
@@ -316,6 +316,10 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 
 	if gsd.gitCmdFactory == nil {
 		gsd.gitCmdFactory = gittest.NewCommandFactory(tb, cfg)
+	}
+
+	if gsd.transactionRegistry == nil {
+		gsd.transactionRegistry = storagemgr.NewTransactionRegistry()
 	}
 
 	if gsd.hookMgr == nil {

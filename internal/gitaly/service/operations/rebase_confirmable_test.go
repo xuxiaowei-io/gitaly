@@ -610,7 +610,11 @@ func testUserRebaseConfirmablePreReceiveError(t *testing.T, ctx context.Context)
 			), err)
 
 			_, err = localRepo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-			if hookName == "pre-receive" {
+			if testhelper.IsWALEnabled() || hookName == "pre-receive" {
+				// Previously objects were migrated to the repository if 'pre-receive' succeeded
+				// so 'update' hook failing would leave the objects in the repo. With transactions enabled,
+				// no objects end up in the repository unless the transaction is committed. We thus assert
+				// this to be the case always with transactions.
 				require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should have been discarded")
 			} else {
 				require.NoError(t, err)

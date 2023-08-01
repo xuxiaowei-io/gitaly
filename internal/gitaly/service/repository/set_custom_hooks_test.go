@@ -64,6 +64,8 @@ func TestSetCustomHooksRequest_success(t *testing.T) {
 		{
 			desc: "RestoreCustomHooks",
 			streamWriter: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) (io.Writer, func()) {
+				testhelper.SkipWithWAL(t, "This RPC is deprecated and pending removal")
+
 				//nolint:staticcheck
 				stream, err := client.RestoreCustomHooks(ctx)
 				require.NoError(t, err)
