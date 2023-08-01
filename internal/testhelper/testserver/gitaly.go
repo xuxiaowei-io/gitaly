@@ -30,6 +30,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -173,13 +174,25 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 	deps := gsd.createDependencies(tb, cfg)
 	tb.Cleanup(func() { testhelper.MustClose(tb, gsd.conns) })
 
+	var txMiddleware server.TransactionMiddleware
+	if deps.GetPartitionManager() != nil && deps.GetTransactionRegistry() != nil {
+		txMiddleware = server.TransactionMiddleware{
+			UnaryInterceptor: storagemgr.NewUnaryInterceptor(
+				deps.Logger, protoregistry.GitalyProtoPreregistered, deps.GetTransactionRegistry(), deps.GetPartitionManager(), deps.GetLocator(),
+			),
+			StreamInterceptor: storagemgr.NewStreamInterceptor(
+				deps.Logger, protoregistry.GitalyProtoPreregistered, deps.GetTransactionRegistry(), deps.GetPartitionManager(), deps.GetLocator(),
+			),
+		}
+	}
+
 	serverFactory := server.NewGitalyServerFactory(
 		cfg,
 		gsd.logger.WithField("test", tb.Name()),
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
 		[]*limithandler.LimiterMiddleware{deps.GetLimitHandler()},
-		server.TransactionMiddleware{},
+		txMiddleware,
 	)
 
 	if cfg.RuntimeDir != "" {
