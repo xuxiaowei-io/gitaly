@@ -40,6 +40,7 @@ func setup(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobService
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 	})
 	cfg.SocketPath = addr

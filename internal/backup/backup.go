@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -153,6 +154,7 @@ func NewManagerLocal(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
+	repoCounter *counter.RepositoryCounter,
 ) *Manager {
 	return &Manager{
 		sink:    sink,
@@ -161,7 +163,7 @@ func NewManagerLocal(
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
 			localRepo := localrepo.New(storageLocator, gitCmdFactory, catfileCache, repo)
 
-			return newLocalRepository(storageLocator, gitCmdFactory, txManager, localRepo), nil
+			return newLocalRepository(storageLocator, gitCmdFactory, txManager, repoCounter, localRepo), nil
 		},
 	}
 }

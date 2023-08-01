@@ -51,6 +51,7 @@ func setupDiffServiceWithoutRepo(tb testing.TB, opt ...testserver.GitalyServerOp
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 	}, opt...)
 	cfg.SocketPath = addr

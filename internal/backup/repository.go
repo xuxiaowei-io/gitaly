@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -267,6 +268,7 @@ type localRepository struct {
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	txManager     transaction.Manager
+	repoCounter   *counter.RepositoryCounter
 	repo          *localrepo.Repo
 }
 
@@ -274,12 +276,14 @@ func newLocalRepository(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	txManager transaction.Manager,
+	repoCounter *counter.RepositoryCounter,
 	repo *localrepo.Repo,
 ) *localRepository {
 	return &localRepository{
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		txManager:     txManager,
+		repoCounter:   repoCounter,
 		repo:          repo,
 	}
 }
@@ -348,7 +352,7 @@ func (r *localRepository) CreateBundle(ctx context.Context, out io.Writer, patte
 // Remove removes the repository. Does not return an error if the repository
 // cannot be found.
 func (r *localRepository) Remove(ctx context.Context) error {
-	err := repoutil.Remove(ctx, r.locator, r.txManager, r.repo)
+	err := repoutil.Remove(ctx, r.locator, r.txManager, r.repoCounter, r.repo)
 	switch {
 	case status.Code(err) == codes.NotFound:
 		return nil
@@ -365,6 +369,7 @@ func (r *localRepository) Create(ctx context.Context) error {
 		r.locator,
 		r.gitCmdFactory,
 		r.txManager,
+		r.repoCounter,
 		r.repo,
 		func(repository *gitalypb.Repository) error { return nil },
 	); err != nil {

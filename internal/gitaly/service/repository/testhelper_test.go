@@ -68,6 +68,7 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.Gita
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
 			deps.GetHookManager(),
@@ -106,6 +107,7 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.Gita
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
 			deps.GetHousekeepingManager(),
+			deps.GetRepositoryCounter(),
 		))
 	}, opts...)
 

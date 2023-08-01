@@ -26,6 +26,7 @@ func (s *server) BackupRepository(ctx context.Context, in *gitalypb.BackupReposi
 		s.gitCmdFactory,
 		s.catfileCache,
 		s.txManager,
+		s.repositoryCounter,
 	)
 
 	err := manager.Create(ctx, &backup.CreateRequest{

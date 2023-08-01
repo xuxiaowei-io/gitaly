@@ -123,6 +123,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
 			deps.GetHookManager(),

@@ -126,7 +126,7 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, repository, func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, repository, func(repo *gitalypb.Repository) error {
 		path, err := s.locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 		if err != nil {
 			return structerr.NewInternal("getting repo path: %w", err)

@@ -69,6 +69,7 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
 			deps.GetHousekeepingManager(),
+			deps.GetRepositoryCounter(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
 			deps.GetHookManager(),
@@ -88,6 +89,7 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
 }

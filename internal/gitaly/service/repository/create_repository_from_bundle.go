@@ -35,7 +35,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return request.GetData(), err
 	})
 
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, repo, func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, repo, func(repo *gitalypb.Repository) error {
 		opts := &localrepo.FetchBundleOpts{
 			UpdateHead: true,
 		}

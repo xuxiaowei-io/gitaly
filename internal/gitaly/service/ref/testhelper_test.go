@@ -83,6 +83,7 @@ func runRefServiceServer(tb testing.TB, cfg config.Cfg) string {
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 	})
 }

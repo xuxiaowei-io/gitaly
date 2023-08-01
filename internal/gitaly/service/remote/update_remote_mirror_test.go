@@ -591,6 +591,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					deps.GetHousekeepingManager(),
 					deps.GetBackupSink(),
 					deps.GetBackupLocator(),
+					deps.GetRepositoryCounter(),
 				))
 			})
 			cfg.SocketPath = addr

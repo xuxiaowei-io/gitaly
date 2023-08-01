@@ -58,6 +58,7 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) string {
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 	})
 }

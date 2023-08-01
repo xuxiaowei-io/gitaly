@@ -28,7 +28,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 	targetRepository := req.Repository
 	sourceRepository := req.SourceRepository
 
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, targetRepository, func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, targetRepository, func(repo *gitalypb.Repository) error {
 		targetPath, err := s.locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 		if err != nil {
 			return err

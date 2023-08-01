@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -66,6 +67,7 @@ func Create(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	txManager transaction.Manager,
+	repoCounter *counter.RepositoryCounter,
 	repository storage.Repository,
 	seedRepository func(repository *gitalypb.Repository) error,
 	options ...CreateOption,
@@ -243,6 +245,8 @@ func Create(
 	if err := transaction.VoteOnContext(ctx, txManager, vote, voting.Committed); err != nil {
 		return structerr.NewFailedPrecondition("committing vote: %w", err)
 	}
+
+	repoCounter.Increment(repository)
 
 	// We unlock the repository implicitly via the deferred `Close()` call.
 	return nil

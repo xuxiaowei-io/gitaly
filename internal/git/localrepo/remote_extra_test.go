@@ -52,6 +52,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
+			deps.GetRepositoryCounter(),
 		))
 	}, testserver.WithGitCommandFactory(protocolDetectingFactory))
 

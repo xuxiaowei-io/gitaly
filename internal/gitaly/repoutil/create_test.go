@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -321,6 +322,7 @@ func TestCreate(t *testing.T) {
 			// manager's data.
 			ctx := ctx
 			*txManager = transaction.MockManager{}
+			repoCounter := counter.NewRepositoryCounter()
 
 			repo := &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
@@ -342,7 +344,7 @@ func TestCreate(t *testing.T) {
 			}
 
 			var tempRepo *gitalypb.Repository
-			require.Equal(t, tc.expectedErr, Create(ctx, locator, gitCmdFactory, txManager, repo, func(tr *gitalypb.Repository) error {
+			require.Equal(t, tc.expectedErr, Create(ctx, locator, gitCmdFactory, txManager, repoCounter, repo, func(tr *gitalypb.Repository) error {
 				tempRepo = tr
 
 				// The temporary repository must have been created in Gitaly's

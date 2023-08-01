@@ -162,7 +162,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 }
 
 func (s *server) createFromSnapshot(ctx context.Context, source, target *gitalypb.Repository) error {
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, target, func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, target, func(repo *gitalypb.Repository) error {
 		if err := s.extractSnapshot(ctx, source, repo); err != nil {
 			return fmt.Errorf("extracting snapshot: %w", err)
 		}

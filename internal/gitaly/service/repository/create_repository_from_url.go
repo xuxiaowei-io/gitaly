@@ -81,7 +81,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, req.GetRepository(), func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, req.GetRepository(), func(repo *gitalypb.Repository) error {
 		targetPath, err := s.locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 		if err != nil {
 			return fmt.Errorf("getting temporary repository path: %w", err)
