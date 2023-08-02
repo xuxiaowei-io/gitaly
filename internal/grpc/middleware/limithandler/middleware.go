@@ -218,7 +218,7 @@ func WithConcurrencyLimiters(ctx context.Context) SetupFunc {
 
 			result[limit.RPC] = limiter.NewConcurrencyLimiter(
 				ctx,
-				limit.MaxPerRepo,
+				limiter.NewAdaptiveLimit("staticLimit", limiter.AdaptiveSetting{Initial: limit.MaxPerRepo}),
 				limit.MaxQueueSize,
 				newTickerFunc,
 				limiter.NewPerRPCPromMonitor(
@@ -233,7 +233,7 @@ func WithConcurrencyLimiters(ctx context.Context) SetupFunc {
 		if _, ok := result[replicateRepositoryFullMethod]; !ok {
 			result[replicateRepositoryFullMethod] = limiter.NewConcurrencyLimiter(
 				ctx,
-				1,
+				limiter.NewAdaptiveLimit("staticLimit", limiter.AdaptiveSetting{Initial: 1}),
 				0,
 				func() helper.Ticker {
 					return helper.NewManualTicker()
