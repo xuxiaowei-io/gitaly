@@ -77,8 +77,7 @@ message CommitDiffRequest {
   // WhiteSpaceChanges states which whitespace changes we should ignore. These options correlate to
   // the ones present in git-diff(1).
   enum WhitespaceChanges {
-    // WHITESPACE_CHANGES_UNSPECIFIED is used to not ignore any whitespace changes. This also defaults
-    // to the value in the deprecated field `ignore_whitespace_change` to stay backward compatible.
+    // WHITESPACE_CHANGES_UNSPECIFIED is used to not ignore any whitespace changes.
     WHITESPACE_CHANGES_UNSPECIFIED = 0;
     // WHITESPACE_CHANGES_IGNORE specifies to use the `--ignore-space-change` flag of git-diff(1).
     // Only changes in amount of whitespace are ignored.
@@ -95,7 +94,8 @@ message CommitDiffRequest {
   // This comment is left unintentionally blank.
   string right_commit_id = 3;
   // This field is deprecated, use the `whitespace_changes` field instead.
-  bool ignore_whitespace_change = 4 [deprecated=true];
+  reserved "ignore_whitespace_change";
+  reserved 4;
   // This comment is left unintentionally blank.
   repeated bytes paths = 5;
   // This comment is left unintentionally blank.
