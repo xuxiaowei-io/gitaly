@@ -412,8 +412,18 @@ type RateLimiting struct {
 // Requests that come in after the maximum number of concurrent pack objects
 // processes have been reached will wait.
 type PackObjectsLimiting struct {
-	// MaxConcurrency is the maximum number of concurrent pack objects processes
-	// for a given key.
+	// Adaptive determines the behavior of the concurrency limit. If set to true, the concurrency limit is dynamic
+	// and starts at InitialLimit, then adjusts within the range [MinLimit, MaxLimit] based on current resource
+	// usage. If set to false, the concurrency limit is static and is set to MaxConcurrency.
+	Adaptive bool `toml:"adaptive,omitempty" json:"adaptive,omitempty"`
+	// InitialLimit is the concurrency limit to start with.
+	InitialLimit int `toml:"initial_limit,omitempty" json:"initial_limit,omitempty"`
+	// MaxLimit is the minimum adaptive concurrency limit.
+	MaxLimit int `toml:"max_limit,omitempty" json:"max_limit,omitempty"`
+	// MinLimit is the mini adaptive concurrency limit.
+	MinLimit int `toml:"min_limit,omitempty" json:"min_limit,omitempty"`
+	// MaxConcurrency is the static maximum number of concurrent pack objects processes for a given key. This config
+	// is used only if Adaptive is false.
 	MaxConcurrency int `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
 	// MaxQueueWait is the maximum time a request can remain in the concurrency queue
 	// waiting to be picked up by Gitaly.

@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
@@ -42,6 +43,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter/watchers"
 	glog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
@@ -272,11 +274,43 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
 
+	adaptiveLimits := []limiter.AdaptiveLimiter{}
+
 	//  The pack-objects limit below is static at this stage. It's always equal to the initial limit, which uses
 	//  MaxConcurrency config.
-	packObjectLimit := limiter.NewAdaptiveLimit("packObjects", limiter.AdaptiveSetting{
-		Initial: cfg.PackObjectsLimiting.MaxConcurrency,
-	})
+	var packObjectLimit *limiter.AdaptiveLimit
+	if cfg.PackObjectsLimiting.Adaptive && featureflag.AdaptiveLimitPackObjects.IsEnabled(ctx) {
+		packObjectLimit = limiter.NewAdaptiveLimit("packObjects", limiter.AdaptiveSetting{
+			Initial:       cfg.PackObjectsLimiting.InitialLimit,
+			Max:           cfg.PackObjectsLimiting.MaxLimit,
+			Min:           cfg.PackObjectsLimiting.MinLimit,
+			BackoffFactor: limiter.DefaultBackoffFactor,
+		})
+		adaptiveLimits = append(adaptiveLimits, packObjectLimit)
+	} else {
+		packObjectLimit = limiter.NewAdaptiveLimit("packObjects", limiter.AdaptiveSetting{
+			Initial: cfg.PackObjectsLimiting.MaxConcurrency,
+		})
+	}
+
+	// Always initializes the calculator. Adjust pack-object limit adaptively only if the feature flag is on.
+	adaptiveCalculator := limiter.NewAdaptiveCalculator(
+		limiter.DefaultCalibrateFrequency,
+		log.NewEntry(log.StandardLogger()),
+		adaptiveLimits,
+		[]limiter.ResourceWatcher{
+			watchers.NewCgroupCPUWatcher(cgroupMgr),
+			watchers.NewCgroupMemoryWatcher(cgroupMgr),
+		},
+	)
+	prometheus.MustRegister(adaptiveCalculator)
+
+	stop, err := adaptiveCalculator.Start(ctx)
+	if err != nil {
+		log.WithError(err).Warn("error starting adaptive limiter calculator")
+	}
+	defer stop()
+
 	concurrencyLimitHandler := limithandler.New(
 		cfg,
 		limithandler.LimitConcurrencyByRepo,
