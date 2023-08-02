@@ -41,10 +41,10 @@ type keyedConcurrencyLimiter struct {
 
 	// concurrencyTokens is the channel of available concurrency tokens, where every token
 	// allows one concurrent call to the concurrency-limited function.
-	concurrencyTokens chan struct{}
+	concurrencyTokens *resizableSemaphore
 	// queueTokens is the channel of available queue tokens, where every token allows one
 	// concurrent call to be admitted to the queue.
-	queueTokens chan struct{}
+	queueTokens *resizableSemaphore
 }
 
 // acquire tries to acquire the semaphore. It may fail if the admission queue is full or if the max
@@ -55,34 +55,33 @@ func (sem *keyedConcurrencyLimiter) acquire(ctx context.Context, limitingKey str
 		// callers may wait for the concurrency token at the same time. If there are no more
 		// queueing tokens then this indicates that the queue is full and we thus return an
 		// error immediately.
-		select {
-		case sem.queueTokens <- struct{}{}:
-			// We have acquired a queueing token, so we need to release it if acquiring
-			// the concurrency token fails. If we succeed to acquire the concurrency
-			// token though then we retain the queueing token until the caller signals
-			// that the concurrency-limited function has finished. As a consequence the
-			// queue token is returned together with the concurrency token.
-			//
-			// A simpler model would be to just have `maxQueueLength` many queueing
-			// tokens. But this would add concurrency-limiting when acquiring the queue
-			// token itself, which is not what we want to do. Instead, we want to admit
-			// as many callers into the queue as the queue length permits plus the
-			// number of available concurrency tokens allows.
-			defer func() {
-				if returnedErr != nil {
-					<-sem.queueTokens
-				}
-			}()
-		default:
+		if !sem.queueTokens.TryAcquire() {
 			return ErrMaxQueueSize
 		}
+
+		// We have acquired a queueing token, so we need to release it if acquiring
+		// the concurrency token fails. If we successfully acquire the concurrency
+		// token though then we retain the queueing token until the caller signals
+		// that the concurrency-limited function has finished. As a consequence the
+		// queue token is returned together with the concurrency token.
+		//
+		// A simpler model would be to just have `maxQueueLength` many queueing
+		// tokens. But this would add concurrency-limiting when acquiring the queue
+		// token itself, which is not what we want to do. Instead, we want to admit
+		// as many callers into the queue as the queue length permits plus the
+		// number of available concurrency tokens allows.
+		defer func() {
+			if returnedErr != nil {
+				sem.queueTokens.Release()
+			}
+		}()
 	}
 
 	// We are queued now, so let's tell the monitor. Furthermore, even though we're still
 	// holding the queueing token when this function exits successfully we also tell the monitor
 	// that we have exited the queue. It is only an implementation detail anyway that we hold on
 	// to the token, so the monitor shouldn't care about that.
-	sem.monitor.Queued(ctx, limitingKey, len(sem.queueTokens))
+	sem.monitor.Queued(ctx, limitingKey, sem.queueLength())
 	defer sem.monitor.Dequeued(ctx)
 
 	// Set up the ticker that keeps us from waiting indefinitely on the concurrency token.
@@ -98,7 +97,12 @@ func (sem *keyedConcurrencyLimiter) acquire(ctx context.Context, limitingKey str
 
 	// Try to acquire the concurrency token now that we're in the queue.
 	select {
-	case sem.concurrencyTokens <- struct{}{}:
+	case acquired := <-sem.concurrencyTokens.Acquire():
+		// When the semaphore returns false, the semaphore was stopped. It's likely due to the context is
+		// cancelled. Hence, we should return the error here.
+		if !acquired {
+			return sem.concurrencyTokens.Err()
+		}
 		return nil
 	case <-ticker.C():
 		return ErrMaxQueueTime
@@ -110,14 +114,17 @@ func (sem *keyedConcurrencyLimiter) acquire(ctx context.Context, limitingKey str
 // release releases the acquired tokens.
 func (sem *keyedConcurrencyLimiter) release() {
 	if sem.queueTokens != nil {
-		<-sem.queueTokens
+		sem.queueTokens.Release()
 	}
-	<-sem.concurrencyTokens
+	sem.concurrencyTokens.Release()
 }
 
 // queueLength returns the length of token queue
 func (sem *keyedConcurrencyLimiter) queueLength() int {
-	return len(sem.queueTokens)
+	if sem.queueTokens == nil {
+		return 0
+	}
+	return int(sem.queueTokens.Current())
 }
 
 // ConcurrencyLimiter contains rate limiter state.
@@ -125,9 +132,9 @@ type ConcurrencyLimiter struct {
 	// ctx stores the context at initialization. This context is used as a stopping condition
 	// for some internal goroutines.
 	ctx context.Context
-	// maxConcurrencyLimit is the maximum number of concurrent calls to the limited function.
-	// This limit is per key.
-	maxConcurrencyLimit int64
+	// limit is the adaptive maximum number of concurrent calls to the limited function. This limit is
+	// calculated adaptively from an outside calculator.
+	limit *AdaptiveLimit
 	// maxQueueLength is the maximum number of operations allowed to wait in a queued state.
 	// This limit is global and applies before the concurrency limit. Subsequent incoming
 	// operations will be rejected with an error immediately.
@@ -148,19 +155,31 @@ type ConcurrencyLimiter struct {
 }
 
 // NewConcurrencyLimiter creates a new concurrency rate limiter.
-func NewConcurrencyLimiter(ctx context.Context, maxConcurrencyLimit, maxQueueLength int, maxQueuedTickerCreator QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
+func NewConcurrencyLimiter(ctx context.Context, limit *AdaptiveLimit, maxQueueLength int, maxQueuedTickerCreator QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
 	if monitor == nil {
 		monitor = NewNoopConcurrencyMonitor()
 	}
 
-	return &ConcurrencyLimiter{
+	limiter := &ConcurrencyLimiter{
 		ctx:                    ctx,
-		maxConcurrencyLimit:    int64(maxConcurrencyLimit),
+		limit:                  limit,
 		maxQueueLength:         int64(maxQueueLength),
 		maxQueuedTickerCreator: maxQueuedTickerCreator,
 		monitor:                monitor,
 		limitsByKey:            make(map[string]*keyedConcurrencyLimiter),
 	}
+
+	// When the capacity of the limiter is updated we also need to update the size of both the queuing tokens as
+	// well as the concurrency tokens to match the new size.
+	limit.AfterUpdate(func(val int) {
+		for _, keyedLimiter := range limiter.limitsByKey {
+			if keyedLimiter.queueTokens != nil {
+				keyedLimiter.queueTokens.Resize(int64(val) + limiter.maxQueueLength)
+			}
+			keyedLimiter.concurrencyTokens.Resize(int64(val))
+		}
+	})
+	return limiter
 }
 
 // Limit will limit the concurrency of the limited function f. There are two distinct mechanisms
@@ -180,7 +199,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, limitingKey string, f Li
 	)
 	defer span.Finish()
 
-	if c.maxConcurrencyLimit <= 0 {
+	if c.currentLimit() <= 0 {
 		return f()
 	}
 
@@ -226,15 +245,15 @@ func (c *ConcurrencyLimiter) getConcurrencyLimit(limitingKey string) *keyedConcu
 		// Set up the queue tokens in case a maximum queue length was requested. As the
 		// queue tokens are kept during the whole lifetime of the concurrency-limited
 		// function we add the concurrency tokens to the number of available token.
-		var queueTokens chan struct{}
+		var queueTokens *resizableSemaphore
 		if c.maxQueueLength > 0 {
-			queueTokens = make(chan struct{}, c.maxConcurrencyLimit+c.maxQueueLength)
+			queueTokens = NewResizableSemaphore(c.ctx, c.currentLimit()+c.maxQueueLength)
 		}
 
 		c.limitsByKey[limitingKey] = &keyedConcurrencyLimiter{
 			monitor:                c.monitor,
 			maxQueuedTickerCreator: c.maxQueuedTickerCreator,
-			concurrencyTokens:      make(chan struct{}, c.maxConcurrencyLimit),
+			concurrencyTokens:      NewResizableSemaphore(c.ctx, c.currentLimit()),
 			queueTokens:            queueTokens,
 		}
 	}
@@ -271,4 +290,8 @@ func (c *ConcurrencyLimiter) countSemaphores() int {
 	defer c.m.RUnlock()
 
 	return len(c.limitsByKey)
+}
+
+func (c *ConcurrencyLimiter) currentLimit() int64 {
+	return int64(c.limit.Current())
 }

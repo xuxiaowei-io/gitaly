@@ -265,6 +265,11 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
 
+	//  The pack-objects limit below is static at this stage. It's always equal to the initial limit, which uses
+	//  MaxConcurrency config.
+	packObjectLimit := limiter.NewAdaptiveLimit("packObjects", limiter.AdaptiveSetting{
+		Initial: cfg.PackObjectsLimiting.MaxConcurrency,
+	})
 	concurrencyLimitHandler := limithandler.New(
 		cfg,
 		limithandler.LimitConcurrencyByRepo,
@@ -290,7 +295,7 @@ func run(cfg config.Cfg) error {
 	}
 	packObjectsLimiter := limiter.NewConcurrencyLimiter(
 		ctx,
-		cfg.PackObjectsLimiting.MaxConcurrency,
+		packObjectLimit,
 		cfg.PackObjectsLimiting.MaxQueueLength,
 		newTickerFunc,
 		packObjectsMonitor,

@@ -329,7 +329,7 @@ func (gsd *gitalyServerDeps) createDependencies(ctx context.Context, tb testing.
 	if gsd.packObjectsLimiter == nil {
 		gsd.packObjectsLimiter = limiter.NewConcurrencyLimiter(
 			ctx,
-			0,
+			limiter.NewAdaptiveLimit("staticLimit", limiter.AdaptiveSetting{Initial: 0}),
 			0,
 			nil,
 			limiter.NewNoopConcurrencyMonitor(),
