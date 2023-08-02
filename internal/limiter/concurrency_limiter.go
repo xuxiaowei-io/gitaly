@@ -122,6 +122,9 @@ func (sem *keyedConcurrencyLimiter) queueLength() int {
 
 // ConcurrencyLimiter contains rate limiter state.
 type ConcurrencyLimiter struct {
+	// ctx stores the context at initialization. This context is used as a stopping condition
+	// for some internal goroutines.
+	ctx context.Context
 	// maxConcurrencyLimit is the maximum number of concurrent calls to the limited function.
 	// This limit is per key.
 	maxConcurrencyLimit int64
@@ -145,12 +148,13 @@ type ConcurrencyLimiter struct {
 }
 
 // NewConcurrencyLimiter creates a new concurrency rate limiter.
-func NewConcurrencyLimiter(maxConcurrencyLimit, maxQueueLength int, maxQueuedTickerCreator QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
+func NewConcurrencyLimiter(ctx context.Context, maxConcurrencyLimit, maxQueueLength int, maxQueuedTickerCreator QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
 	if monitor == nil {
 		monitor = NewNoopConcurrencyMonitor()
 	}
 
 	return &ConcurrencyLimiter{
+		ctx:                    ctx,
 		maxConcurrencyLimit:    int64(maxConcurrencyLimit),
 		maxQueueLength:         int64(maxQueueLength),
 		maxQueuedTickerCreator: maxQueuedTickerCreator,
