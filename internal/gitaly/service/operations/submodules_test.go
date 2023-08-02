@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -11,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -790,7 +787,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 				expectedCommitID = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", string(setupData.request.Branch)))
 
 				entry := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), tc.subPath)
-				parser := localrepo.NewParser(bytes.NewReader(entry), git.ObjectHashSHA1)
+				parser := localrepo.NewParser(bytes.NewReader(entry), gittest.DefaultObjectHash)
 				parsedEntry, err := parser.NextEntry()
 				require.NoError(t, err)
 				require.Equal(t, tc.subPath, parsedEntry.Path)

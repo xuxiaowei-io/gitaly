@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -19,18 +18,140 @@ import (
 
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
-	if err := validateUserUpdateSubmoduleRequest(s.locator, req); err != nil {
+	if err := s.locator.ValidateRepository(req.GetRepository()); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	return s.userUpdateSubmodule(ctx, req)
-}
-
-func validateUserUpdateSubmoduleRequest(locator storage.Locator, req *gitalypb.UserUpdateSubmoduleRequest) error {
-	if err := locator.ValidateRepository(req.GetRepository()); err != nil {
-		return err
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
+	if err != nil {
+		return nil, err
 	}
 
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
+	if err := validateUserUpdateSubmoduleRequest(s.locator, objectHash, req); err != nil {
+		return nil, structerr.NewInvalidArgument("%w", err)
+	}
+
+	branches, err := quarantineRepo.GetBranches(ctx)
+	if err != nil {
+		return nil, structerr.NewInternal("get branches: %w", err)
+	}
+	if len(branches) == 0 {
+		return &gitalypb.UserUpdateSubmoduleResponse{
+			CommitError: "Repository is empty",
+		}, nil
+	}
+
+	referenceName := git.NewReferenceNameFromBranchName(string(req.GetBranch()))
+
+	var oldOID git.ObjectID
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		objectHash, err := quarantineRepo.ObjectHash(ctx)
+		if err != nil {
+			return nil, structerr.NewInternal("detecting object hash: %w", err)
+		}
+
+		oldOID, err = objectHash.FromHex(expectedOldOID)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
+		}
+
+		oldOID, err = quarantineRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{object}", oldOID)))
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else {
+		oldOID, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return nil, structerr.NewInvalidArgument("Cannot find branch")
+			}
+			return nil, structerr.NewInternal("resolving revision: %w", err)
+		}
+	}
+
+	commitID, err := s.updateSubmodule(ctx, quarantineRepo, req)
+	if err != nil {
+		errStr := strings.TrimSpace(err.Error())
+
+		var resp *gitalypb.UserUpdateSubmoduleResponse
+		for _, legacyErr := range []string{
+			git2go.LegacyErrPrefixInvalidBranch,
+			git2go.LegacyErrPrefixInvalidSubmodulePath,
+			git2go.LegacyErrPrefixFailedCommit,
+		} {
+			if strings.Contains(errStr, legacyErr) {
+				resp = &gitalypb.UserUpdateSubmoduleResponse{
+					CommitError: legacyErr,
+				}
+				ctxlogrus.
+					Extract(ctx).
+					WithError(err).
+					Error("UserUpdateSubmodule: git2go subcommand failure")
+				break
+			}
+		}
+		if strings.Contains(errStr, "is already at") {
+			resp = &gitalypb.UserUpdateSubmoduleResponse{
+				CommitError: errStr,
+			}
+		}
+		if resp != nil {
+			return resp, nil
+		}
+
+		return nil, structerr.NewInternal("submodule subcommand: %w", err)
+	}
+
+	commitOID, err := objectHash.FromHex(commitID)
+	if err != nil {
+		return nil, structerr.NewInvalidArgument("cannot parse commit ID: %w", err)
+	}
+
+	if err := s.updateReferenceWithHooks(
+		ctx,
+		req.GetRepository(),
+		req.GetUser(),
+		quarantineDir,
+		referenceName,
+		commitOID,
+		oldOID,
+	); err != nil {
+		var customHookErr updateref.CustomHookError
+		if errors.As(err, &customHookErr) {
+			return &gitalypb.UserUpdateSubmoduleResponse{
+				PreReceiveError: customHookErr.Error(),
+			}, nil
+		}
+
+		var updateRefError updateref.Error
+		if errors.As(err, &updateRefError) {
+			return &gitalypb.UserUpdateSubmoduleResponse{
+				// TODO: this needs to be converted to a structured error, and once done we should stop
+				// returning this Ruby-esque error message in favor of the actual error that was
+				// returned by `updateReferenceWithHooks()`.
+				CommitError: fmt.Sprintf("Could not update %s. Please refresh and try again.", updateRefError.Reference),
+			}, nil
+		}
+
+		return nil, structerr.NewInternal("updating ref with hooks: %w", err)
+	}
+
+	return &gitalypb.UserUpdateSubmoduleResponse{
+		BranchUpdate: &gitalypb.OperationBranchUpdate{
+			CommitId:      commitID,
+			BranchCreated: false,
+			RepoCreated:   false,
+		},
+	}, nil
+}
+
+func validateUserUpdateSubmoduleRequest(locator storage.Locator, objectHash git.ObjectHash, req *gitalypb.UserUpdateSubmoduleRequest) error {
 	if req.GetUser() == nil {
 		return errors.New("empty User")
 	}
@@ -39,7 +160,7 @@ func validateUserUpdateSubmoduleRequest(locator storage.Locator, req *gitalypb.U
 		return errors.New("empty CommitSha")
 	}
 
-	if match, err := regexp.MatchString(`\A[0-9a-f]{40}\z`, req.GetCommitSha()); !match || err != nil {
+	if err := objectHash.ValidateHex(req.GetCommitSha()); err != nil {
 		return errors.New("invalid CommitSha")
 	}
 
@@ -149,125 +270,4 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 	}
 
 	return string(newCommitID), nil
-}
-
-func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
-	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	branches, err := quarantineRepo.GetBranches(ctx)
-	if err != nil {
-		return nil, structerr.NewInternal("get branches: %w", err)
-	}
-	if len(branches) == 0 {
-		return &gitalypb.UserUpdateSubmoduleResponse{
-			CommitError: "Repository is empty",
-		}, nil
-	}
-
-	referenceName := git.NewReferenceNameFromBranchName(string(req.GetBranch()))
-
-	var oldOID git.ObjectID
-	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
-		objectHash, err := quarantineRepo.ObjectHash(ctx)
-		if err != nil {
-			return nil, structerr.NewInternal("detecting object hash: %w", err)
-		}
-
-		oldOID, err = objectHash.FromHex(expectedOldOID)
-		if err != nil {
-			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
-		}
-
-		oldOID, err = quarantineRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{object}", oldOID)))
-		if err != nil {
-			return nil, structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
-				WithMetadata("old_object_id", expectedOldOID)
-		}
-	} else {
-		oldOID, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
-		if err != nil {
-			if errors.Is(err, git.ErrReferenceNotFound) {
-				return nil, structerr.NewInvalidArgument("Cannot find branch")
-			}
-			return nil, structerr.NewInternal("resolving revision: %w", err)
-		}
-	}
-
-	commitID, err := s.updateSubmodule(ctx, quarantineRepo, req)
-	if err != nil {
-		errStr := strings.TrimSpace(err.Error())
-
-		var resp *gitalypb.UserUpdateSubmoduleResponse
-		for _, legacyErr := range []string{
-			git2go.LegacyErrPrefixInvalidBranch,
-			git2go.LegacyErrPrefixInvalidSubmodulePath,
-			git2go.LegacyErrPrefixFailedCommit,
-		} {
-			if strings.Contains(errStr, legacyErr) {
-				resp = &gitalypb.UserUpdateSubmoduleResponse{
-					CommitError: legacyErr,
-				}
-				ctxlogrus.
-					Extract(ctx).
-					WithError(err).
-					Error("UserUpdateSubmodule: git2go subcommand failure")
-				break
-			}
-		}
-		if strings.Contains(errStr, "is already at") {
-			resp = &gitalypb.UserUpdateSubmoduleResponse{
-				CommitError: errStr,
-			}
-		}
-		if resp != nil {
-			return resp, nil
-		}
-
-		return nil, structerr.NewInternal("submodule subcommand: %w", err)
-	}
-
-	commitOID, err := git.ObjectHashSHA1.FromHex(commitID)
-	if err != nil {
-		return nil, structerr.NewInvalidArgument("cannot parse commit ID: %w", err)
-	}
-
-	if err := s.updateReferenceWithHooks(
-		ctx,
-		req.GetRepository(),
-		req.GetUser(),
-		quarantineDir,
-		referenceName,
-		commitOID,
-		oldOID,
-	); err != nil {
-		var customHookErr updateref.CustomHookError
-		if errors.As(err, &customHookErr) {
-			return &gitalypb.UserUpdateSubmoduleResponse{
-				PreReceiveError: customHookErr.Error(),
-			}, nil
-		}
-
-		var updateRefError updateref.Error
-		if errors.As(err, &updateRefError) {
-			return &gitalypb.UserUpdateSubmoduleResponse{
-				// TODO: this needs to be converted to a structured error, and once done we should stop
-				// returning this Ruby-esque error message in favor of the actual error that was
-				// returned by `updateReferenceWithHooks()`.
-				CommitError: fmt.Sprintf("Could not update %s. Please refresh and try again.", updateRefError.Reference),
-			}, nil
-		}
-
-		return nil, structerr.NewInternal("updating ref with hooks: %w", err)
-	}
-
-	return &gitalypb.UserUpdateSubmoduleResponse{
-		BranchUpdate: &gitalypb.OperationBranchUpdate{
-			CommitId:      commitID,
-			BranchCreated: false,
-			RepoCreated:   false,
-		},
-	}, nil
 }

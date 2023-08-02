@@ -36,7 +36,6 @@ var (
 		Email:    []byte("johndoe@gitlab.com"),
 		Timezone: gittest.Timezone,
 	}
-	branchName    = "not-merged-branch"
 	startSha      = "b83d6e391c22777fca1ed3012fce84f633d7fed0"
 	endSha        = "54cec5282aa9f21856362fe321c800c236a61615"
 	commitMessage = []byte("Squash message")
