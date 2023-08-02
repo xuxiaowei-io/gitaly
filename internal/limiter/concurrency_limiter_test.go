@@ -155,6 +155,7 @@ func TestLimiter(t *testing.T) {
 			gauge := &counter{}
 
 			limiter := NewConcurrencyLimiter(
+				ctx,
 				tt.maxConcurrency,
 				0,
 				nil,
@@ -248,7 +249,7 @@ func TestConcurrencyLimiter_queueLimit(t *testing.T) {
 	monitorCh := make(chan struct{})
 	monitor := &blockingQueueCounter{queuedCh: monitorCh}
 	ch := make(chan struct{})
-	limiter := NewConcurrencyLimiter(1, queueLimit, nil, monitor)
+	limiter := NewConcurrencyLimiter(ctx, 1, queueLimit, nil, monitor)
 
 	// occupied with one live request that takes a long time to complete
 	go func() {
@@ -333,6 +334,7 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 	monitor := &blockingDequeueCounter{dequeuedCh: dequeuedCh}
 
 	limiter := NewConcurrencyLimiter(
+		ctx,
 		1,
 		0,
 		func() helper.Ticker {

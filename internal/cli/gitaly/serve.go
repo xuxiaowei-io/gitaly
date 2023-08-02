@@ -268,7 +268,7 @@ func run(cfg config.Cfg) error {
 	concurrencyLimitHandler := limithandler.New(
 		cfg,
 		limithandler.LimitConcurrencyByRepo,
-		limithandler.WithConcurrencyLimiters,
+		limithandler.WithConcurrencyLimiters(ctx),
 	)
 
 	rateLimitHandler := limithandler.New(
@@ -289,6 +289,7 @@ func run(cfg config.Cfg) error {
 		}
 	}
 	packObjectsLimiter := limiter.NewConcurrencyLimiter(
+		ctx,
 		cfg.PackObjectsLimiting.MaxConcurrency,
 		cfg.PackObjectsLimiting.MaxQueueLength,
 		newTickerFunc,
