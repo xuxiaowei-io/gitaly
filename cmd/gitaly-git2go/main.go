@@ -27,7 +27,6 @@ type subcmd interface {
 var subcommands = map[string]subcmd{
 	"cherry-pick": &cherryPickSubcommand{},
 	"rebase":      &rebaseSubcommand{},
-	"revert":      &revertSubcommand{},
 }
 
 func fatalf(logger logrus.FieldLogger, encoder *gob.Encoder, format string, args ...interface{}) {

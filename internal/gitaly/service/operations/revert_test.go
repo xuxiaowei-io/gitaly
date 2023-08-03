@@ -23,15 +23,12 @@ func TestUserRevert(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testUserRevert)
 }
 
 func testUserRevert(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
@@ -426,15 +423,12 @@ func TestServer_UserRevert_quarantine(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertQuarantine)
 }
 
 func testServerUserRevertQuarantine(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -490,15 +484,12 @@ func TestServer_UserRevert_mergeCommit(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertMergeCommit)
 }
 
 func testServerUserRevertMergeCommit(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -582,15 +573,12 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertStableID)
 }
 
 func testServerUserRevertStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -681,15 +669,12 @@ func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertSuccessfulIntoEmptyRepo)
 }
 
 func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -756,15 +741,12 @@ func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertSuccessfulGitHooks)
 }
 
 func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -814,15 +796,12 @@ func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertFailedDueToPreReceiveError)
 }
 
 func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -866,15 +845,12 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertFailedDueToCreateTreeErrorConflict)
 }
 
 func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -926,15 +902,12 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertFailedDueToCreateTreeErrorEmpty)
 }
 
 func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1004,15 +977,12 @@ func TestServer_UserRevert_failedDueToCommitError(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.RevertPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserRevertFailedDueToCommitError)
 }
 
 func testServerUserRevertFailedDueToCommitError(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goRevert(t, ctx)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1054,10 +1024,4 @@ func testServerUserRevertFailedDueToCommitError(t *testing.T, ctx context.Contex
 	response, err := client.UserRevert(ctx, request)
 	require.NoError(t, err)
 	require.Equal(t, "Branch diverged", response.CommitError)
-}
-
-func skipSHA256WithGit2goRevert(t *testing.T, ctx context.Context) {
-	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.RevertPureGit.IsDisabled(ctx) {
-		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
-	}
 }
