@@ -83,7 +83,7 @@ func TestServerSideAdapter_Create(t *testing.T) {
 					backupID: "abc123",
 				}
 			},
-			expectedErr: fmt.Errorf("server-side create: not found: %w", backup.ErrSkipped),
+			expectedErr: fmt.Errorf("server-side create: %w: rpc error: code = NotFound desc = repository not found", backup.ErrSkipped),
 		},
 	} {
 		tc := tc
@@ -192,9 +192,7 @@ func TestServerSideAdapter_Restore(t *testing.T) {
 					backupID: "",
 				}
 			},
-			expectedErr: structerr.NewFailedPrecondition("server-side restore: restore repository: manager: repository skipped: restore bundle: \"@test/restore/latest/missing.bundle\": doesn't exist").WithDetail(
-				&gitalypb.RestoreRepositoryResponse_SkippedError{},
-			),
+			expectedErr: fmt.Errorf("server-side restore: %w: rpc error: code = FailedPrecondition desc = restore repository: manager: repository skipped: restore bundle: \"@test/restore/latest/missing.bundle\": doesn't exist", backup.ErrSkipped),
 		},
 	} {
 		tc := tc
