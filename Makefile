@@ -386,7 +386,7 @@ test: test-go test-gitaly-linters
 ## Test Go tests in tools/golangci-lint/gitaly folder
 ## That folder has its own go.mod file. Hence tests must run the context of that folder.
 test-gitaly-linters: TEST_PACKAGES := .
-test-gitaly-linters:
+test-gitaly-linters: ${GOTESTSUM}
 	${Q}cd ${SOURCE_DIR}/tools/golangci-lint/gitaly && $(call run_go_tests)
 
 .PHONY: test-go
