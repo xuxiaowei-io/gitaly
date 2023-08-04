@@ -45,14 +45,12 @@ func (ss ServerSideAdapter) Create(ctx context.Context, req *CreateRequest) erro
 	if err != nil {
 		st := status.Convert(err)
 		if st.Code() == codes.NotFound {
-			// Backups do not currently differentiate between non-existent and
-			// empty. See https://gitlab.com/gitlab-org/gitlab/-/issues/357044
-			return fmt.Errorf("server-side create: not found: %w", ErrSkipped)
+			return fmt.Errorf("server-side create: %w: %s", ErrSkipped, err.Error())
 		}
 		for _, detail := range st.Details() {
 			switch detail.(type) {
 			case *gitalypb.BackupRepositoryResponse_SkippedError:
-				return fmt.Errorf("server-side create: empty repository: %w", ErrSkipped)
+				return fmt.Errorf("server-side create: %w: %s", ErrSkipped, err.Error())
 			}
 		}
 
@@ -80,6 +78,14 @@ func (ss ServerSideAdapter) Restore(ctx context.Context, req *RestoreRequest) er
 		BackupId:         req.BackupID,
 	})
 	if err != nil {
+		st := status.Convert(err)
+		for _, detail := range st.Details() {
+			switch detail.(type) {
+			case *gitalypb.RestoreRepositoryResponse_SkippedError:
+				return fmt.Errorf("server-side restore: %w: %s", ErrSkipped, err.Error())
+			}
+		}
+
 		return structerr.New("server-side restore: %w", err)
 	}
 
