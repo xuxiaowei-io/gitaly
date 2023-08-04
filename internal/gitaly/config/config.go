@@ -170,6 +170,8 @@ type Gitlab struct {
 	RelativeURLRoot string       `toml:"relative_url_root,omitempty" json:"relative_url_root"` // For UNIX sockets only
 	HTTPSettings    HTTPSettings `toml:"http-settings,omitempty" json:"http_settings"`
 	SecretFile      string       `toml:"secret_file,omitempty" json:"secret_file"`
+	// Secret contains the Gitlab secret directly. Should not be set if secret file is specified.
+	Secret string `toml:"secret,omitempty" json:"secret"`
 }
 
 // Validate runs validation on all fields and compose all found errors.
@@ -183,9 +185,18 @@ func (gl Gitlab) Validate() error {
 		}
 	}
 
-	return errs.Append(cfgerror.FileExists(gl.SecretFile), "secret_file").
-		Append(gl.HTTPSettings.Validate(), "http-settings").
-		AsError()
+	// If both secret and secret_file are set, the configuration is considered ambiguous results a
+	// validation error. Only one of the fields should be set.
+	if gl.Secret != "" && gl.SecretFile != "" {
+		errs = errs.Append(errors.New("ambiguous secret configuration"), "secret", "secret_file")
+	}
+
+	// The secrets file is only required to exist if the secret is not directly configured.
+	if gl.Secret == "" {
+		errs = errs.Append(cfgerror.FileExists(gl.SecretFile), "secret_file")
+	}
+
+	return errs.Append(gl.HTTPSettings.Validate(), "http-settings").AsError()
 }
 
 // Hooks contains the settings required for hooks
@@ -620,7 +631,8 @@ func (cfg *Cfg) setDefaults() error {
 		cfg.GracefulRestartTimeout = duration.Duration(time.Minute)
 	}
 
-	if cfg.Gitlab.SecretFile == "" {
+	// Only set default secret file if the secret is not configured directly.
+	if cfg.Gitlab.SecretFile == "" && cfg.Gitlab.Secret == "" {
 		cfg.Gitlab.SecretFile = filepath.Join(cfg.GitlabShell.Dir, ".gitlab_shell_secret")
 	}
 
