@@ -617,3 +617,67 @@ func TestAccess_postReceive(t *testing.T) {
 		})
 	}
 }
+
+func TestNewHTTPClient_gitlabSecretConfig(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	tempDir := testhelper.TempDir(t)
+	WriteShellSecretFile(t, tempDir, "secret_file_token")
+	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
+
+	for _, tc := range []struct {
+		desc          string
+		secret        string
+		secretFile    string
+		expectedToken string
+	}{
+		{
+			desc:          "secret set",
+			secret:        "secret_token",
+			expectedToken: "secret_token",
+		},
+		{
+			desc:          "secret file set",
+			secretFile:    secretFilePath,
+			expectedToken: "secret_file_token",
+		},
+		{
+			desc: "secret and secret file set",
+			// A config with both the secret and secret file configured results in a validation
+			// error. Without validation, the directly configured secret is favored.
+			secret:        "secret_token",
+			secretFile:    secretFilePath,
+			expectedToken: "secret_token",
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				require.True(t, verifyJWT(request.Header.Get("Gitlab-Shell-Api-Request"), tc.expectedToken))
+			}))
+			defer server.Close()
+
+			httpClient, err := NewHTTPClient(
+				testhelper.NewDiscardingLogger(t),
+				config.Gitlab{
+					URL:        server.URL,
+					Secret:     tc.secret,
+					SecretFile: tc.secretFile,
+				},
+				config.TLS{},
+				prometheus.Config{},
+			)
+			require.NoError(t, err)
+
+			// Make a request with the HTTP client to invoke the server handler that validates the
+			// correct secret is sent.
+			resp, err := httpClient.Get(ctx, "")
+			require.NoError(t, err)
+			require.NoError(t, resp.Body.Close())
+		})
+	}
+}
