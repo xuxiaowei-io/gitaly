@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// DiffMode ...
+// DiffMode determines the type of diff that will be returned.
 type CommitDiffRequest_DiffMode int32
 
 const (
@@ -182,15 +182,15 @@ func (FindChangedPathsRequest_MergeCommitDiffMode) EnumDescriptor() ([]byte, []i
 	return file_diff_proto_rawDescGZIP(), []int{12, 0}
 }
 
-// Status ...
+// Status is an enum representing the type of change.
 type ChangedPaths_Status int32
 
 const (
-	// ADDED ...
+	// ADDED indicates a file was added.
 	ChangedPaths_ADDED ChangedPaths_Status = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// MODIFIED ...
+	// MODIFIED indicates a file was modified.
 	ChangedPaths_MODIFIED ChangedPaths_Status = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// DELETED ...
+	// DELETED indicates a file was deleted.
 	ChangedPaths_DELETED ChangedPaths_Status = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 	// TYPE_CHANGE ...
 	ChangedPaths_TYPE_CHANGE ChangedPaths_Status = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
@@ -243,41 +243,47 @@ func (ChangedPaths_Status) EnumDescriptor() ([]byte, []int) {
 	return file_diff_proto_rawDescGZIP(), []int{14, 0}
 }
 
-// CommitDiffRequest ...
+// CommitDiffRequest is a request for the CommitDiff RPC.
 type CommitDiffRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the one from which to get the diff.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// left_commit_id ...
+	// left_commit_id is the left commit ID in <left commit>..<right commit>.
 	LeftCommitId string `protobuf:"bytes,2,opt,name=left_commit_id,json=leftCommitId,proto3" json:"left_commit_id,omitempty"`
-	// right_commit_id ...
+	// right_commit_id is the right commit ID in <left commit>..<right commit>.
 	RightCommitId string `protobuf:"bytes,3,opt,name=right_commit_id,json=rightCommitId,proto3" json:"right_commit_id,omitempty"`
-	// paths ...
+	// paths is a list of paths that limits the diff to those specific paths.
 	Paths [][]byte `protobuf:"bytes,5,rep,name=paths,proto3" json:"paths,omitempty"`
-	// collapse_diffs ...
+	// collapse_diffs causes patches to be emptied after safe_max_files,
+	// safe_max_files, or safe_max_lines is reached.
 	CollapseDiffs bool `protobuf:"varint,6,opt,name=collapse_diffs,json=collapseDiffs,proto3" json:"collapse_diffs,omitempty"`
-	// enforce_limits ...
+	// enforce_limits causes parsing of diffs to stop if max_files, max_lines,
+	// or max_bytes is reached.
 	EnforceLimits bool `protobuf:"varint,7,opt,name=enforce_limits,json=enforceLimits,proto3" json:"enforce_limits,omitempty"`
-	// max_files ...
-	// The following set of limits are only enforced when enforce_limits == true.
+	// max_files is the maximum number of files in a diff. Once reached, parsing is stopped
+	// if enforce_limits is true.
 	MaxFiles int32 `protobuf:"varint,8,opt,name=max_files,json=maxFiles,proto3" json:"max_files,omitempty"`
-	// max_lines ...
+	// max_lines is the maximum number of lines in a diff. Once reached, parsing is stopped
+	// if enforce_limits is true.
 	MaxLines int32 `protobuf:"varint,9,opt,name=max_lines,json=maxLines,proto3" json:"max_lines,omitempty"`
-	// max_bytes ...
+	// max_bytes is the maximum number of bytes in a diff. Once reached, parsing is stopped
+	// if enforce_limits is true.
 	MaxBytes int32 `protobuf:"varint,10,opt,name=max_bytes,json=maxBytes,proto3" json:"max_bytes,omitempty"`
 	// max_patch_bytes is the limitation of a single diff patch,
 	// patches surpassing this limit are pruned by default.
 	// If this is 0 you will get back empty patches.
 	MaxPatchBytes int32 `protobuf:"varint,14,opt,name=max_patch_bytes,json=maxPatchBytes,proto3" json:"max_patch_bytes,omitempty"`
-	// safe_max_files...
-	// These limits are only enforced if collapse_diffs == true.
+	// safe_max_files is the maximum number of files in a diff. Once reached, patches are emptied if
+	// collapse_diffs is true.
 	SafeMaxFiles int32 `protobuf:"varint,11,opt,name=safe_max_files,json=safeMaxFiles,proto3" json:"safe_max_files,omitempty"`
-	// safe_max_lines ...
+	// safe_max_lines is the maximum number of lines in a diff. Once reached, patches are emptied if
+	// collapse_diffs is true.
 	SafeMaxLines int32 `protobuf:"varint,12,opt,name=safe_max_lines,json=safeMaxLines,proto3" json:"safe_max_lines,omitempty"`
-	// safe_max_bytes ...
+	// safe_max_bytes is the maximum number of bytes in a diff. Once reached, patches are emptied if
+	// collapse_diffs is true.
 	SafeMaxBytes int32 `protobuf:"varint,13,opt,name=safe_max_bytes,json=safeMaxBytes,proto3" json:"safe_max_bytes,omitempty"`
 	// diff_mode is the mode used for generating the diff. Please refer to the enum declaration for supported modes.
 	DiffMode CommitDiffRequest_DiffMode `protobuf:"varint,15,opt,name=diff_mode,json=diffMode,proto3,enum=gitaly.CommitDiffRequest_DiffMode" json:"diff_mode,omitempty"`
@@ -453,23 +459,23 @@ type CommitDiffResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// from_path ...
+	// from_path is the path that to_path is getting compared to.
 	FromPath []byte `protobuf:"bytes,1,opt,name=from_path,json=fromPath,proto3" json:"from_path,omitempty"`
-	// to_path ...
+	// to_path is the path that from_path is getting compared against.
 	ToPath []byte `protobuf:"bytes,2,opt,name=to_path,json=toPath,proto3" json:"to_path,omitempty"`
-	// from_id is the blob ID as returned via `git diff --full-index`.
+	// from_id is the id of the blob that is getting compared against.
 	FromId string `protobuf:"bytes,3,opt,name=from_id,json=fromId,proto3" json:"from_id,omitempty"`
-	// to_id ...
+	// to_id is the id of the blob that is getting compared to.
 	ToId string `protobuf:"bytes,4,opt,name=to_id,json=toId,proto3" json:"to_id,omitempty"`
-	// old_mode ...
+	// old_mode is the mode of the file getting compared against.
 	OldMode int32 `protobuf:"varint,5,opt,name=old_mode,json=oldMode,proto3" json:"old_mode,omitempty"`
-	// new_mode ...
+	// new_mode is the mode of the file getting compared to.
 	NewMode int32 `protobuf:"varint,6,opt,name=new_mode,json=newMode,proto3" json:"new_mode,omitempty"`
-	// binary ...
+	// binary indicates whether or not binary data is getting compared.
 	Binary bool `protobuf:"varint,7,opt,name=binary,proto3" json:"binary,omitempty"`
-	// raw_patch_data ...
+	// raw_patch_data is the unparsed data of the diff.
 	RawPatchData []byte `protobuf:"bytes,9,opt,name=raw_patch_data,json=rawPatchData,proto3" json:"raw_patch_data,omitempty"`
-	// end_of_patch ...
+	// end_of_patch indicates if this message represents the end of the diff.
 	EndOfPatch bool `protobuf:"varint,10,opt,name=end_of_patch,json=endOfPatch,proto3" json:"end_of_patch,omitempty"`
 	// overflow_marker Indicates if the diff file exceeded limitations, in which case
 	// there will be no patch data sent, only information about the patch.
@@ -598,19 +604,19 @@ func (x *CommitDiffResponse) GetTooLarge() bool {
 	return false
 }
 
-// CommitDeltaRequest ...
+// CommitDeltaRequest is a request for the CommitDelta RPC.
 type CommitDeltaRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the one to get the commit deltas from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// left_commit_id ...
+	// left_commit_id is the left commit ID in <left commit>..<right commit>.
 	LeftCommitId string `protobuf:"bytes,2,opt,name=left_commit_id,json=leftCommitId,proto3" json:"left_commit_id,omitempty"`
-	// right_commit_id ...
+	// right_commit_id is the right commit ID in <left commit>..<right commit>.
 	RightCommitId string `protobuf:"bytes,3,opt,name=right_commit_id,json=rightCommitId,proto3" json:"right_commit_id,omitempty"`
-	// paths ...
+	// paths is a list of paths that limits the diff to those specific paths.
 	Paths [][]byte `protobuf:"bytes,4,rep,name=paths,proto3" json:"paths,omitempty"`
 }
 
@@ -674,23 +680,24 @@ func (x *CommitDeltaRequest) GetPaths() [][]byte {
 	return nil
 }
 
-// CommitDelta ...
+// CommitDelta represents the metadata of a diff between two commits without the actual
+// patch data.
 type CommitDelta struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// from_path ...
+	// from_path is the path that to_path is getting compared to.
 	FromPath []byte `protobuf:"bytes,1,opt,name=from_path,json=fromPath,proto3" json:"from_path,omitempty"`
-	// to_path ...
+	// to_path is the path that from_path is getting compared against.
 	ToPath []byte `protobuf:"bytes,2,opt,name=to_path,json=toPath,proto3" json:"to_path,omitempty"`
-	// from_id is the blob ID as returned via `git diff --full-index`.
+	// from_id is the id of the blob that is getting compared to.
 	FromId string `protobuf:"bytes,3,opt,name=from_id,json=fromId,proto3" json:"from_id,omitempty"`
-	// to_id ...
+	// to_id is the id of the blob that is getting compared against.
 	ToId string `protobuf:"bytes,4,opt,name=to_id,json=toId,proto3" json:"to_id,omitempty"`
-	// old_mode ...
+	// old_mode is the mode of the blob getting compared against.
 	OldMode int32 `protobuf:"varint,5,opt,name=old_mode,json=oldMode,proto3" json:"old_mode,omitempty"`
-	// new_mode ...
+	// new_mode is the mode of the blob getting compared to.
 	NewMode int32 `protobuf:"varint,6,opt,name=new_mode,json=newMode,proto3" json:"new_mode,omitempty"`
 }
 
@@ -768,13 +775,13 @@ func (x *CommitDelta) GetNewMode() int32 {
 	return 0
 }
 
-// CommitDeltaResponse ...
+// CommitDeltaResponse is the response from a CommitDelta RPC call.
 type CommitDeltaResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// deltas ...
+	// deltas is a list of CommitDeltas
 	Deltas []*CommitDelta `protobuf:"bytes,1,rep,name=deltas,proto3" json:"deltas,omitempty"`
 }
 
@@ -817,17 +824,17 @@ func (x *CommitDeltaResponse) GetDeltas() []*CommitDelta {
 	return nil
 }
 
-// RawDiffRequest ...
+// RawDiffRequest is a request for the RawDiff RPC.
 type RawDiffRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the one to get the diff from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// left_commit_id ...
+	// left_commit_id is the left commit ID in <left commit>..<right commit>.
 	LeftCommitId string `protobuf:"bytes,2,opt,name=left_commit_id,json=leftCommitId,proto3" json:"left_commit_id,omitempty"`
-	// right_commit_id ...
+	// right_commit_id is the right commit ID in <left commit>..<right commit>.
 	RightCommitId string `protobuf:"bytes,3,opt,name=right_commit_id,json=rightCommitId,proto3" json:"right_commit_id,omitempty"`
 }
 
@@ -884,13 +891,14 @@ func (x *RawDiffRequest) GetRightCommitId() string {
 	return ""
 }
 
-// RawDiffResponse ...
+// RawDiffResponse is a response for the RawDiff RPC.
 type RawDiffResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// data ...
+	// data is a sequence of bytes representing the unmodified diff patch data
+	// returned from git-diff(1).
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -933,17 +941,17 @@ func (x *RawDiffResponse) GetData() []byte {
 	return nil
 }
 
-// RawPatchRequest ...
+// RawPatchRequest is a response for the RawPatch RPC.
 type RawPatchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the one to get the patch from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// left_commit_id ...
+	// left_commit_id is the left commit ID in <left commit>..<right commit>.
 	LeftCommitId string `protobuf:"bytes,2,opt,name=left_commit_id,json=leftCommitId,proto3" json:"left_commit_id,omitempty"`
-	// right_commit_id ...
+	// right_commit_id is the right commit ID in <left commit>..<right commit>
 	RightCommitId string `protobuf:"bytes,3,opt,name=right_commit_id,json=rightCommitId,proto3" json:"right_commit_id,omitempty"`
 }
 
@@ -1000,13 +1008,14 @@ func (x *RawPatchRequest) GetRightCommitId() string {
 	return ""
 }
 
-// RawPatchResponse ...
+// RawPatchResponse is a reponse for the RawPatch RPC.
 type RawPatchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// data ...
+	// data is a sequence of bytes representing the unmodified diff patch data
+	// returned from git-format-patch(1).
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -1049,17 +1058,17 @@ func (x *RawPatchResponse) GetData() []byte {
 	return nil
 }
 
-// DiffStatsRequest ...
+// DiffStatsRequest is a request for the DiffStats RPC.
 type DiffStatsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the one to get diff stats from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// left_commit_id ...
+	// left_commit_id is the left commit ID in <left commit>..<right commit>
 	LeftCommitId string `protobuf:"bytes,2,opt,name=left_commit_id,json=leftCommitId,proto3" json:"left_commit_id,omitempty"`
-	// right_commit_id ...
+	// right_commit_id is the right commit ID in <left commit>..<right commit>
 	RightCommitId string `protobuf:"bytes,3,opt,name=right_commit_id,json=rightCommitId,proto3" json:"right_commit_id,omitempty"`
 }
 
@@ -1116,19 +1125,19 @@ func (x *DiffStatsRequest) GetRightCommitId() string {
 	return ""
 }
 
-// DiffStats ...
+// DiffStats represents diff statistics for a path.
 type DiffStats struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// path ...
+	// path is the path of the change.
 	Path []byte `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// additions ...
+	// additions is the number of additions in a diff.
 	Additions int32 `protobuf:"varint,2,opt,name=additions,proto3" json:"additions,omitempty"`
-	// deletions ...
+	// deletions is the number of deletions in a diff.
 	Deletions int32 `protobuf:"varint,3,opt,name=deletions,proto3" json:"deletions,omitempty"`
-	// old_path ...
+	// old_path is the original path in the event of a rename.
 	OldPath []byte `protobuf:"bytes,4,opt,name=old_path,json=oldPath,proto3" json:"old_path,omitempty"`
 }
 
@@ -1192,13 +1201,13 @@ func (x *DiffStats) GetOldPath() []byte {
 	return nil
 }
 
-// DiffStatsResponse ...
+// DiffStatsResponse is a response for the DiffStats RPC.
 type DiffStatsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// stats ...
+	// stats is a list of DiffStats.
 	Stats []*DiffStats `protobuf:"bytes,1,rep,name=stats,proto3" json:"stats,omitempty"`
 }
 
@@ -1377,15 +1386,16 @@ func (x *FindChangedPathsResponse) GetPaths() []*ChangedPaths {
 	return nil
 }
 
-// ChangedPaths includes the path of the file, and the status of the change.
+// ChangedPaths contains information about a changed file. It includes the path
+// of the file, and the status of the change.
 type ChangedPaths struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// path ...
+	// path is the path of the change in question.
 	Path []byte `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// status ...
+	// status is the type of change.
 	Status ChangedPaths_Status `protobuf:"varint,2,opt,name=status,proto3,enum=gitaly.ChangedPaths_Status" json:"status,omitempty"`
 	// old_mode is the mode of the changed path previous to the change. May be one of the following values:
 	//

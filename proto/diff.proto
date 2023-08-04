@@ -11,35 +11,43 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // introduced between a set of commits.
 service DiffService {
 
-  // CommitDiff returns stream of CommitDiffResponse with patches chunked over messages.
+  // CommitDiff returns a diff between two different commits. The patch data is
+  // chunked across messages and get streamed back to the client.
   rpc CommitDiff(CommitDiffRequest) returns (stream CommitDiffResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // CommitDelta returns a stream so we can divide the response in chunks of deltas.
+  // CommitDelta returns the deltas between two different commits. A delta
+  // includes everthing that changed about a set of paths except for the actual
+  // diff.
   rpc CommitDelta(CommitDeltaRequest) returns (stream CommitDeltaResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // RawDiff ...
+  // RawDiff returns a diff between two commits. The output is the unmodified
+  // output from git-diff(1). This is not to be confused with git-diff(1)'s
+  // --raw mode.
   rpc RawDiff(RawDiffRequest) returns (stream RawDiffResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // RawPatch ...
+  // RawPatch returns a diff between two commits in a formatted patch.The output
+  // is the unmodified output from git-format-patch(1). This is not to be confused with
+  // git-diff(1)'s --raw mode.
   rpc RawPatch(RawPatchRequest) returns (stream RawPatchResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // DiffStats ...
+  // DiffStats returns the diff stats between two commits such as number of lines
+  // changed, etc.
   rpc DiffStats(DiffStatsRequest) returns (stream DiffStatsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -64,9 +72,9 @@ service DiffService {
   }
 }
 
-// CommitDiffRequest ...
+// CommitDiffRequest is a request for the CommitDiff RPC.
 message CommitDiffRequest {
-  // DiffMode ...
+  // DiffMode determines the type of diff that will be returned.
   enum DiffMode {
     // DEFAULT is the standard diff mode and results in a linewise diff for textfiles.
     DEFAULT = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -87,40 +95,46 @@ message CommitDiffRequest {
     WHITESPACE_CHANGES_IGNORE_ALL = 2;
   }
 
-  // repository ...
+  // repository is the one from which to get the diff.
   Repository repository = 1 [(target_repository)=true];
-  // left_commit_id ...
+  // left_commit_id is the left commit ID in <left commit>..<right commit>.
   string left_commit_id = 2;
-  // right_commit_id ...
+  // right_commit_id is the right commit ID in <left commit>..<right commit>.
   string right_commit_id = 3;
   // This field is deprecated, use the `whitespace_changes` field instead.
   reserved "ignore_whitespace_change";
   reserved 4;
-  // paths ...
-  repeated bytes paths = 5;
-  // collapse_diffs ...
-  bool collapse_diffs = 6;
-  // enforce_limits ...
-  bool enforce_limits = 7;
 
-  // max_files ...
-  // The following set of limits are only enforced when enforce_limits == true.
+  // paths is a list of paths that limits the diff to those specific paths.
+  repeated bytes paths = 5;
+  // collapse_diffs causes patches to be emptied after safe_max_files,
+  // safe_max_files, or safe_max_lines is reached.
+  bool collapse_diffs = 6;
+  // enforce_limits causes parsing of diffs to stop if max_files, max_lines,
+  // or max_bytes is reached.
+  bool enforce_limits = 7;
+  // max_files is the maximum number of files in a diff. Once reached, parsing is stopped
+  // if enforce_limits is true.
   int32 max_files = 8;
-  // max_lines ...
+  // max_lines is the maximum number of lines in a diff. Once reached, parsing is stopped
+  // if enforce_limits is true.
   int32 max_lines = 9;
-  // max_bytes ...
+  // max_bytes is the maximum number of bytes in a diff. Once reached, parsing is stopped
+  // if enforce_limits is true.
   int32 max_bytes = 10;
   // max_patch_bytes is the limitation of a single diff patch,
   // patches surpassing this limit are pruned by default.
   // If this is 0 you will get back empty patches.
   int32 max_patch_bytes = 14;
 
-  // safe_max_files...
-  // These limits are only enforced if collapse_diffs == true.
+  // safe_max_files is the maximum number of files in a diff. Once reached, patches are emptied if
+  // collapse_diffs is true.
   int32 safe_max_files = 11;
-  // safe_max_lines ...
+  // safe_max_lines is the maximum number of lines in a diff. Once reached, patches are emptied if
+  // collapse_diffs is true.
   int32 safe_max_lines = 12;
-  // safe_max_bytes ...
+  // safe_max_bytes is the maximum number of bytes in a diff. Once reached, patches are emptied if
+  // collapse_diffs is true.
   int32 safe_max_bytes = 13;
 
   // diff_mode is the mode used for generating the diff. Please refer to the enum declaration for supported modes.
@@ -147,23 +161,23 @@ message CommitDiffRequest {
 message CommitDiffResponse {
   reserved 8;
 
-  // from_path ...
+  // from_path is the path that to_path is getting compared to.
   bytes from_path = 1;
-  // to_path ...
+  // to_path is the path that from_path is getting compared against.
   bytes to_path = 2;
-  // from_id is the blob ID as returned via `git diff --full-index`.
+  // from_id is the id of the blob that is getting compared against.
   string from_id = 3;
-  // to_id ...
+  // to_id is the id of the blob that is getting compared to.
   string to_id = 4;
-  // old_mode ...
+  // old_mode is the mode of the file getting compared against.
   int32 old_mode = 5;
-  // new_mode ...
+  // new_mode is the mode of the file getting compared to.
   int32 new_mode = 6;
-  // binary ...
+  // binary indicates whether or not binary data is getting compared.
   bool binary = 7;
-  // raw_patch_data ...
+  // raw_patch_data is the unparsed data of the diff.
   bytes raw_patch_data = 9;
-  // end_of_patch ...
+  // end_of_patch indicates if this message represents the end of the diff.
   bool end_of_patch = 10;
   // overflow_marker Indicates if the diff file exceeded limitations, in which case
   // there will be no patch data sent, only information about the patch.
@@ -176,97 +190,100 @@ message CommitDiffResponse {
   bool too_large = 13;
 }
 
-// CommitDeltaRequest ...
+// CommitDeltaRequest is a request for the CommitDelta RPC.
 message CommitDeltaRequest {
-  // repository ...
+  // repository is the one to get the commit deltas from.
   Repository repository = 1 [(target_repository)=true];
-  // left_commit_id ...
+  // left_commit_id is the left commit ID in <left commit>..<right commit>.
   string left_commit_id = 2;
-  // right_commit_id ...
+  // right_commit_id is the right commit ID in <left commit>..<right commit>.
   string right_commit_id = 3;
-  // paths ...
+  // paths is a list of paths that limits the diff to those specific paths.
   repeated bytes paths = 4;
 }
 
-// CommitDelta ...
+// CommitDelta represents the metadata of a diff between two commits without the actual
+// patch data.
 message CommitDelta {
-  // from_path ...
+  // from_path is the path that to_path is getting compared to.
   bytes from_path = 1;
-  // to_path ...
+  // to_path is the path that from_path is getting compared against.
   bytes to_path = 2;
-  // from_id is the blob ID as returned via `git diff --full-index`.
+  // from_id is the id of the blob that is getting compared to.
   string from_id = 3;
-  // to_id ...
+  // to_id is the id of the blob that is getting compared against.
   string to_id = 4;
-  // old_mode ...
+  // old_mode is the mode of the blob getting compared against.
   int32 old_mode = 5;
-  // new_mode ...
+  // new_mode is the mode of the blob getting compared to.
   int32 new_mode = 6;
 }
 
-// CommitDeltaResponse ...
+// CommitDeltaResponse is the response from a CommitDelta RPC call.
 message CommitDeltaResponse {
-  // deltas ...
+  // deltas is a list of CommitDeltas
   repeated CommitDelta deltas = 1;
 }
 
-// RawDiffRequest ...
+// RawDiffRequest is a request for the RawDiff RPC.
 message RawDiffRequest {
-  // repository ...
+  // repository is the one to get the diff from.
   Repository repository = 1 [(target_repository)=true];
-  // left_commit_id ...
+  // left_commit_id is the left commit ID in <left commit>..<right commit>.
   string left_commit_id = 2;
-  // right_commit_id ...
+  // right_commit_id is the right commit ID in <left commit>..<right commit>.
   string right_commit_id = 3;
 }
 
-// RawDiffResponse ...
+// RawDiffResponse is a response for the RawDiff RPC.
 message RawDiffResponse {
-  // data ...
+  // data is a sequence of bytes representing the unmodified diff patch data
+  // returned from git-diff(1).
   bytes data = 1;
 }
 
-// RawPatchRequest ...
+// RawPatchRequest is a response for the RawPatch RPC.
 message RawPatchRequest {
-  // repository ...
+  // repository is the one to get the patch from.
   Repository repository = 1 [(target_repository)=true];
-  // left_commit_id ...
+  // left_commit_id is the left commit ID in <left commit>..<right commit>.
   string left_commit_id = 2;
-  // right_commit_id ...
+  // right_commit_id is the right commit ID in <left commit>..<right commit>
   string right_commit_id = 3;
 }
 
-// RawPatchResponse ...
+// RawPatchResponse is a reponse for the RawPatch RPC.
 message RawPatchResponse {
-  // data ...
+  // data is a sequence of bytes representing the unmodified diff patch data
+  // returned from git-format-patch(1).
   bytes data = 1;
 }
 
-// DiffStatsRequest ...
+// DiffStatsRequest is a request for the DiffStats RPC.
 message DiffStatsRequest {
-  // repository ...
+  // repository is the one to get diff stats from.
   Repository repository = 1 [(target_repository)=true];
-  // left_commit_id ...
+  // left_commit_id is the left commit ID in <left commit>..<right commit>
   string left_commit_id = 2;
-  // right_commit_id ...
+  // right_commit_id is the right commit ID in <left commit>..<right commit>
   string right_commit_id = 3;
 }
 
-// DiffStats ...
+// DiffStats represents diff statistics for a path.
 message DiffStats {
-  // path ...
+  // path is the path of the change.
   bytes path = 1;
-  // additions ...
+  // additions is the number of additions in a diff.
   int32 additions = 2;
-  // deletions ...
-  int32 deletions = 3;
-  // old_path ...
+  // deletions is the number of deletions in a diff.
+  int32 deletions = 3; 
+  // old_path is the original path in the event of a rename.
   bytes old_path = 4;
 }
 
-// DiffStatsResponse ...
+// DiffStatsResponse is a response for the DiffStats RPC.
 message DiffStatsResponse {
-  // stats ...
+  // stats is a list of DiffStats.
   repeated DiffStats stats = 1;
 }
 
@@ -343,15 +360,16 @@ message FindChangedPathsResponse {
   repeated ChangedPaths paths = 1;
 }
 
-// ChangedPaths includes the path of the file, and the status of the change.
+// ChangedPaths contains information about a changed file. It includes the path
+// of the file, and the status of the change.
 message ChangedPaths {
-  // Status ...
+  // Status is an enum representing the type of change.
   enum Status {
-    // ADDED ...
+    // ADDED indicates a file was added.
     ADDED = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // MODIFIED ...
+    // MODIFIED indicates a file was modified.
     MODIFIED = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // DELETED ...
+    // DELETED indicates a file was deleted.
     DELETED = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
     // TYPE_CHANGE ...
     TYPE_CHANGE = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
@@ -359,9 +377,9 @@ message ChangedPaths {
     COPIED = 4; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // path ...
+  // path is the path of the change in question.
   bytes path = 1;
-  // status ...
+  // status is the type of change.
   Status status = 2;
   // old_mode is the mode of the changed path previous to the change. May be one of the following values:
   //
