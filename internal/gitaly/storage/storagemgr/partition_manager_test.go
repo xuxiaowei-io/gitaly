@@ -657,7 +657,7 @@ func TestPartitionManager(t *testing.T) {
 						beginCtx = step.ctx
 					}
 
-					txn, err := partitionManager.Begin(beginCtx, step.repo)
+					txn, err := partitionManager.Begin(beginCtx, step.repo, TransactionOptions{})
 					require.Equal(t, step.expectedError, err)
 
 					blockOnPartitionClosing(t, partitionManager)

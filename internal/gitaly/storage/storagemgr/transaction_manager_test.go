@@ -313,6 +313,8 @@ func TestTransactionManager(t *testing.T) {
 		// TransactionID is the identifier given to the transaction created. This is used to identify
 		// the transaction in later steps.
 		TransactionID int
+		// TransactionOptions are the options to use in beginning this transaction.
+		TransactionOptions TransactionOptions
 		// Context is the context to use for the Begin call.
 		Context context.Context
 		// ExpectedSnapshot is the expected snapshot of the transaction.
@@ -3367,6 +3369,99 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "read-only transaction doesn't commit a log entry",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionOptions: TransactionOptions{
+						ReadOnly: true,
+					},
+				},
+				Commit{},
+			},
+		},
+		{
+			desc: "read-only transaction fails with reference updates staged",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionOptions: TransactionOptions{
+						ReadOnly: true,
+					},
+				},
+				Commit{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					ExpectedError: errReadOnlyReferenceUpdates,
+				},
+			},
+		},
+		{
+			desc: "read-only transaction fails with default branch update staged",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionOptions: TransactionOptions{
+						ReadOnly: true,
+					},
+				},
+				Commit{
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/main",
+					},
+					ExpectedError: errReadOnlyDefaultBranchUpdate,
+				},
+			},
+		},
+		{
+			desc: "read-only transaction fails with custom hooks update staged",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionOptions: TransactionOptions{
+						ReadOnly: true,
+					},
+				},
+				Commit{
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+					ExpectedError: errReadOnlyCustomHooksUpdate,
+				},
+			},
+		},
+		{
+			desc: "read-only transaction fails with repository deletion staged",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionOptions: TransactionOptions{
+						ReadOnly: true,
+					},
+				},
+				Commit{
+					DeleteRepository: true,
+					ExpectedError:    errReadOnlyRepositoryDeletion,
+				},
+			},
+		},
+		{
+			desc: "read-only transaction fails with objects staged",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionOptions: TransactionOptions{
+						ReadOnly: true,
+					},
+				},
+				Commit{
+					IncludeObjects: []git.ObjectID{setup.Commits.First.OID},
+					ExpectedError:  errReadOnlyObjectsIncluded,
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -3564,7 +3659,7 @@ func TestTransactionManager(t *testing.T) {
 						beginCtx = step.Context
 					}
 
-					transaction, err := transactionManager.Begin(beginCtx)
+					transaction, err := transactionManager.Begin(beginCtx, step.TransactionOptions)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
 						expectedSnapshot := step.ExpectedSnapshot
@@ -3575,6 +3670,14 @@ func TestTransactionManager(t *testing.T) {
 
 						require.Equal(t, expectedSnapshot, transaction.Snapshot())
 					}
+
+					if step.TransactionOptions.ReadOnly {
+						require.Empty(t,
+							transaction.quarantineDirectory,
+							"read-only transaction should not have a quarantine directory",
+						)
+					}
+
 					openTransactions[step.TransactionID] = transaction
 				case Commit:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction committed before beginning it")
@@ -3768,7 +3871,7 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 			// Begin a transaction to wait until the manager has applied all log entries currently
 			// committed. This ensures the disk state assertions run with all log entries fully applied
 			// to the repository.
-			if tx, err := mgr.Begin(ctx); err != nil {
+			if tx, err := mgr.Begin(ctx, TransactionOptions{}); err != nil {
 				// Since we already verified the manager was running by it processing the test transaction,
 				// the Begin call should succeed. The only expected error would be ErrRepositoryNotFound
 				// if the repository was deleted.
@@ -3911,7 +4014,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				require.NoError(b, err)
 
 				for j := 0; j < tc.concurrentUpdaters; j++ {
-					transaction, err := manager.Begin(ctx)
+					transaction, err := manager.Begin(ctx, TransactionOptions{})
 					require.NoError(b, err)
 					transaction.UpdateReferences(getReferenceUpdates(j, objectHash.ZeroOID, commit1))
 					require.NoError(b, transaction.Commit(ctx))
@@ -3930,7 +4033,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 					currentReferences := getReferenceUpdates(i, commit1, commit2)
 					nextReferences := getReferenceUpdates(i, commit2, commit1)
 
-					transaction, err := manager.Begin(ctx)
+					transaction, err := manager.Begin(ctx, TransactionOptions{})
 					require.NoError(b, err)
 					transaction.UpdateReferences(currentReferences)
 
@@ -3942,7 +4045,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 						defer transactionWG.Done()
 
 						for range transactionChan {
-							transaction, err := manager.Begin(ctx)
+							transaction, err := manager.Begin(ctx, TransactionOptions{})
 							require.NoError(b, err)
 							transaction.UpdateReferences(nextReferences)
 							assert.NoError(b, transaction.Commit(ctx))
