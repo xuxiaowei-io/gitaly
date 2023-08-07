@@ -40,7 +40,7 @@ require (
 	go.uber.org/goleak v1.2.1
 	gocloud.dev v0.32.0
 	golang.org/x/crypto v0.11.0
-	golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b
+	golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
 	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.10.0
 	golang.org/x/time v0.3.0
