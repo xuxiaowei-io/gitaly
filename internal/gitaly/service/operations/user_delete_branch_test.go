@@ -293,7 +293,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 							UserId:       "user-123",
 							ErrorMessage: "something something",
 							Changes: []byte(fmt.Sprintf(
-								"%s %s refs/heads/branch\n", "549090fbeacc6607bc70648d3ba554c355e670c5", git.ObjectHashSHA1.ZeroOID,
+								"%s %s refs/heads/branch\n", "549090fbeacc6607bc70648d3ba554c355e670c5", gittest.DefaultObjectHash.ZeroOID,
 							)),
 						},
 					},
@@ -313,7 +313,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 							UserId:       "user-123",
 							ErrorMessage: "something else",
 							Changes: []byte(fmt.Sprintf(
-								"%s %s refs/heads/branch\n", "549090fbeacc6607bc70648d3ba554c355e670c5", git.ObjectHashSHA1.ZeroOID,
+								"%s %s refs/heads/branch\n", "549090fbeacc6607bc70648d3ba554c355e670c5", gittest.DefaultObjectHash.ZeroOID,
 							)),
 						},
 					},
@@ -345,8 +345,9 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("concurrent-update"))
 
 	// Create a git-update-ref(1) process that's locking the "concurrent-update" branch. We do
@@ -374,7 +375,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 			Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
 				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
 					OldOid:        commitID.String(),
-					NewOid:        git.ObjectHashSHA1.ZeroOID.String(),
+					NewOid:        gittest.DefaultObjectHash.ZeroOID.String(),
 					ReferenceName: []byte("refs/heads/concurrent-update"),
 				},
 			},
@@ -387,8 +388,10 @@ func TestUserDeleteBranch_hooks(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 	branchNameInput := "to-be-deleted-soon-branch"
 
 	request := &gitalypb.UserDeleteBranchRequest{
@@ -420,17 +423,18 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	parent := gittest.WriteCommit(t, cfg, repoPath)
+	child := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parent))
 
 	// This creates a new branch "delete-me" which exists both in the packed-refs file and as a
 	// loose reference. Git will create two reference transactions for this: one transaction to
 	// delete the packed-refs reference, and one to delete the loose ref. But given that we want
 	// to be independent of how well-packed refs are, we expect to get a single transactional
 	// vote, only.
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", parent.String())
 	gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", child.String())
 
 	transactionServer := &testTransactionServer{}
 
@@ -478,7 +482,8 @@ func TestUserDeleteBranch_invalidArgument(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
 		desc     string
@@ -530,7 +535,10 @@ func TestUserDeleteBranch_hookFailure(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	branchNameInput := "to-be-deleted-soon-branch"
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
@@ -583,7 +591,10 @@ func TestBranchHookOutput(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	testCases := []struct {
 		desc                string
@@ -651,7 +662,7 @@ func TestBranchHookOutput(t *testing.T) {
 				createRequest := &gitalypb.UserCreateBranchRequest{
 					Repository: repo,
 					BranchName: []byte(branchNameInput),
-					StartPoint: []byte("master"),
+					StartPoint: []byte(git.DefaultBranch),
 					User:       gittest.TestUser,
 				}
 				deleteRequest := &gitalypb.UserDeleteBranchRequest{
