@@ -270,7 +270,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 	for _, tc := range []struct {
 		desc             string
 		allowed          func(context.Context, gitlab.AllowedParams) (bool, string, error)
-		expectedErr      error
+		expectedErr      func(commitID git.ObjectID) error
 		expectedResponse *gitalypb.UserDeleteBranchResponse
 	}{
 		{
@@ -285,40 +285,44 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 				return false, "something something", nil
 			},
-			expectedErr: structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something something").WithDetail(
-				&gitalypb.UserDeleteBranchError{
-					Error: &gitalypb.UserDeleteBranchError_AccessCheck{
-						AccessCheck: &gitalypb.AccessCheckError{
-							Protocol:     "web",
-							UserId:       "user-123",
-							ErrorMessage: "something something",
-							Changes: []byte(fmt.Sprintf(
-								"%s %s refs/heads/branch\n", "549090fbeacc6607bc70648d3ba554c355e670c5", gittest.DefaultObjectHash.ZeroOID,
-							)),
+			expectedErr: func(commitID git.ObjectID) error {
+				return structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something something").WithDetail(
+					&gitalypb.UserDeleteBranchError{
+						Error: &gitalypb.UserDeleteBranchError_AccessCheck{
+							AccessCheck: &gitalypb.AccessCheckError{
+								Protocol:     "web",
+								UserId:       "user-123",
+								ErrorMessage: "something something",
+								Changes: []byte(fmt.Sprintf(
+									"%s %s refs/heads/branch\n", commitID, gittest.DefaultObjectHash.ZeroOID,
+								)),
+							},
 						},
 					},
-				},
-			),
+				)
+			},
 		},
 		{
 			desc: "error",
 			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 				return false, "something something", errors.New("something else")
 			},
-			expectedErr: structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something else").WithDetail(
-				&gitalypb.UserDeleteBranchError{
-					Error: &gitalypb.UserDeleteBranchError_AccessCheck{
-						AccessCheck: &gitalypb.AccessCheckError{
-							Protocol:     "web",
-							UserId:       "user-123",
-							ErrorMessage: "something else",
-							Changes: []byte(fmt.Sprintf(
-								"%s %s refs/heads/branch\n", "549090fbeacc6607bc70648d3ba554c355e670c5", gittest.DefaultObjectHash.ZeroOID,
-							)),
+			expectedErr: func(commitID git.ObjectID) error {
+				return structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something else").WithDetail(
+					&gitalypb.UserDeleteBranchError{
+						Error: &gitalypb.UserDeleteBranchError_AccessCheck{
+							AccessCheck: &gitalypb.AccessCheckError{
+								Protocol:     "web",
+								UserId:       "user-123",
+								ErrorMessage: "something else",
+								Changes: []byte(fmt.Sprintf(
+									"%s %s refs/heads/branch\n", commitID, gittest.DefaultObjectHash.ZeroOID,
+								)),
+							},
 						},
 					},
-				},
-			),
+				)
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -327,14 +331,19 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 			))
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+
+			var expectedErr error
+			if tc.expectedErr != nil {
+				expectedErr = tc.expectedErr(commitID)
+			}
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
 				BranchName: []byte("branch"),
 				User:       gittest.TestUser,
 			})
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
