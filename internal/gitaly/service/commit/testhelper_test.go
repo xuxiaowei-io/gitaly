@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
@@ -123,4 +124,23 @@ func getAllCommits(tb testing.TB, getter func() (gitCommitsGetter, error)) []*gi
 
 		commits = append(commits, resp.GetCommits()...)
 	}
+}
+
+func writeCommit(
+	tb testing.TB,
+	ctx context.Context,
+	cfg config.Cfg,
+	repo *localrepo.Repo,
+	opts ...gittest.WriteCommitOption,
+) (git.ObjectID, *gitalypb.GitCommit) {
+	tb.Helper()
+
+	repoPath, err := repo.Path()
+	require.NoError(tb, err)
+
+	commitID := gittest.WriteCommit(tb, cfg, repoPath, opts...)
+	commitProto, err := repo.ReadCommit(ctx, commitID.Revision())
+	require.NoError(tb, err)
+
+	return commitID, commitProto
 }
