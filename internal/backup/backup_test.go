@@ -590,9 +590,9 @@ func TestManager_Restore_latest(t *testing.T) {
 							filepath.Join(relativePath, backupID, "001.refs"): "",
 						})
 
-						return repo, new(git.Checksum)
+						return repo, nil
 					},
-					expectExists: true,
+					expectedErrAs: backup.ErrSkipped,
 				},
 				{
 					desc:     "many incrementals",

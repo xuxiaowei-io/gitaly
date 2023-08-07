@@ -49,10 +49,6 @@ type Backup struct {
 type Step struct {
 	// BundlePath is the path of the bundle
 	BundlePath string
-	// SkippableOnNotFound defines if the bundle can be skipped when it does
-	// not exist. This allows us to maintain legacy behaviour where we always
-	// check a specific location for a bundle without knowing if it exists.
-	SkippableOnNotFound bool
 	// RefPath is the path of the ref file
 	RefPath string
 	// PreviousRefPath is the path of the previous ref file
@@ -275,7 +271,7 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 
 	for _, step := range backup.Steps {
 		if err := mgr.restoreBundle(ctx, repo, step.BundlePath); err != nil {
-			if step.SkippableOnNotFound && errors.Is(err, ErrDoesntExist) {
+			if errors.Is(err, ErrDoesntExist) {
 				// For compatibility with existing backups we need to make sure the
 				// repository exists even if there's no bundle for project
 				// repositories (not wiki or snippet repositories).  Gitaly does
