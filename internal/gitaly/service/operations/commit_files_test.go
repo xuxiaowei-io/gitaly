@@ -1603,7 +1603,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 	}{
 		{
 			desc:   "special characters at start and end",
-			user:   &gitalypb.User{Name: []byte(".,:;<>\"'\nJane Doe.,:;<>'\"\n"), Email: []byte(".,:;<>'\"\njanedoe@gitlab.com.,:;<>'\"\n"), GlId: gittest.GlID},
+			user:   &gitalypb.User{Name: []byte(",:;<>\"'\nJane Doe,:;<>'\"\n"), Email: []byte(",:;<>'\"\njanedoe@gitlab.com,:;<>'\"\n"), GlId: gittest.GlID},
 			author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@gitlab.com")},
 		},
 		{

@@ -333,7 +333,7 @@ func testWriteCommitValidation(t *testing.T, ctx context.Context) {
 			desc: "author name consists of invalid characters",
 			cfg: WriteCommitConfig{
 				TreeID:         treeID,
-				AuthorName:     ".",
+				AuthorName:     ",",
 				AuthorEmail:    "author@example.com",
 				CommitterName:  "Coe Mitter",
 				CommitterEmail: "coemitter@example.com",
