@@ -94,7 +94,7 @@ func TestRemove(t *testing.T) {
 			cfg := testcfg.Build(t)
 			locator := config.NewLocator(cfg)
 			txManager := transaction.NewTrackingManager()
-			repoCounter := counter.NewRepositoryCounter()
+			repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 
 			repo, repoPath := tc.createRepo(t, ctx, cfg)
 
