@@ -518,9 +518,9 @@ func TestManager_Restore_latest(t *testing.T) {
 							relativePath + ".refs": "",
 						})
 
-						return repo, nil
+						return repo, new(git.Checksum)
 					},
-					expectedErrAs: backup.ErrSkipped,
+					expectExists: true,
 				},
 				{
 					desc:     "empty backup, always create",
@@ -533,7 +533,7 @@ func TestManager_Restore_latest(t *testing.T) {
 							relativePath + ".refs": "",
 						})
 
-						return repo, nil
+						return repo, new(git.Checksum)
 					},
 					alwaysCreate: true,
 					expectExists: true,
@@ -590,9 +590,9 @@ func TestManager_Restore_latest(t *testing.T) {
 							filepath.Join(relativePath, backupID, "001.refs"): "",
 						})
 
-						return repo, nil
+						return repo, new(git.Checksum)
 					},
-					expectedErrAs: backup.ErrSkipped,
+					expectExists: true,
 				},
 				{
 					desc:     "many incrementals",
