@@ -1,14 +1,14 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
+	"errors"
+	"io"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -17,201 +17,167 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
+func TestFindAllCommits(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	refs, err := repo.GetReferences(ctx, "refs/")
-	require.NoError(t, err)
 
-	// Delete all preexisting refs except the two refs below to bring the repository into a
-	// known state.
-	updater, err := updateref.New(ctx, repo, updateref.WithDisabledTransactions())
-	require.NoError(t, err)
-	defer testhelper.MustClose(t, updater)
+	// We have a rather simple commit history with a single mainline branch and a feature branch with a single
+	// commit that gets merged back into it.
+	main0ID, main0 := writeCommit(t, ctx, cfg, repo)
+	main1ID, main1 := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main0ID))
+	main2ID, main2 := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main1ID))
+	branchingID, branching := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main2ID), gittest.WithCommitterDate(time.Date(2020, 1, 1, 1, 1, 1, 1, time.UTC)))
+	featureID, feature := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main2ID), gittest.WithCommitterDate(time.Date(2000, 1, 1, 1, 1, 1, 1, time.UTC)))
+	_, merge := writeCommit(t, ctx, cfg, repo, gittest.WithParents(branchingID, featureID), gittest.WithBranch("branch"))
+	_, different := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main2ID), gittest.WithBranch("different"))
 
-	require.NoError(t, updater.Start())
-	for _, ref := range refs {
-		if ref.Name == "refs/heads/few-commits" || ref.Name == "refs/heads/two-commits" {
-			continue
-		}
-		require.NoError(t, updater.Delete(ref.Name))
-	}
-	require.NoError(t, updater.Commit())
-
-	// Commits made on another branch in parallel to the normal commits below.
-	// Will be used to test topology ordering.
-	alternateCommits := []*gitalypb.GitCommit{
-		gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-		gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-		gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
-	}
-
-	// Nothing special about these commits.
-	normalCommits := []*gitalypb.GitCommit{
-		gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-		gittest.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
-		gittest.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
-		gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
-		gittest.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
-		gittest.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
-		gittest.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
-		gittest.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
-		gittest.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
-		gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
-		gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
-	}
-
-	// A commit that exists on "two-commits" branch.
-	singleCommit := []*gitalypb.GitCommit{
-		gittest.CommitsByID["304d257dcb821665ab5110318fc58a007bd104ed"],
-	}
-
-	timeOrderedCommits := []*gitalypb.GitCommit{
-		alternateCommits[0], normalCommits[0],
-		alternateCommits[1], normalCommits[1],
-		alternateCommits[2],
-	}
-	timeOrderedCommits = append(timeOrderedCommits, normalCommits[2:]...)
-	topoOrderedCommits := append(alternateCommits, normalCommits...)
-
-	testCases := []struct {
+	for _, tc := range []struct {
 		desc            string
 		request         *gitalypb.FindAllCommitsRequest
+		expectedErr     error
 		expectedCommits []*gitalypb.GitCommit
 	}{
 		{
-			desc: "all commits of a revision",
+			desc: "invalid repository",
 			request: &gitalypb.FindAllCommitsRequest{
-				Revision: []byte("few-commits"),
+				Repository: &gitalypb.Repository{
+					StorageName:  "fake",
+					RelativePath: "fake",
+				},
 			},
-			expectedCommits: timeOrderedCommits,
-		},
-		{
-			desc: "maximum number of commits of a revision",
-			request: &gitalypb.FindAllCommitsRequest{
-				MaxCount: 5,
-				Revision: []byte("few-commits"),
-			},
-			expectedCommits: timeOrderedCommits[:5],
-		},
-		{
-			desc: "skipping number of commits of a revision",
-			request: &gitalypb.FindAllCommitsRequest{
-				Skip:     5,
-				Revision: []byte("few-commits"),
-			},
-			expectedCommits: timeOrderedCommits[5:],
-		},
-		{
-			desc: "maximum number of commits of a revision plus skipping",
-			request: &gitalypb.FindAllCommitsRequest{
-				Skip:     5,
-				MaxCount: 2,
-				Revision: []byte("few-commits"),
-			},
-			expectedCommits: timeOrderedCommits[5:7],
-		},
-		{
-			desc: "all commits of a revision ordered by date",
-			request: &gitalypb.FindAllCommitsRequest{
-				Revision: []byte("few-commits"),
-				Order:    gitalypb.FindAllCommitsRequest_DATE,
-			},
-			expectedCommits: timeOrderedCommits,
-		},
-		{
-			desc: "all commits of a revision ordered by topology",
-			request: &gitalypb.FindAllCommitsRequest{
-				Revision: []byte("few-commits"),
-				Order:    gitalypb.FindAllCommitsRequest_TOPO,
-			},
-			expectedCommits: topoOrderedCommits,
-		},
-		{
-			desc:            "all commits of all branches",
-			request:         &gitalypb.FindAllCommitsRequest{},
-			expectedCommits: append(singleCommit, timeOrderedCommits...),
-		},
-		{
-			desc:            "non-existing revision",
-			request:         &gitalypb.FindAllCommitsRequest{Revision: []byte("i-do-not-exist")},
-			expectedCommits: []*gitalypb.GitCommit{},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			request := testCase.request
-			request.Repository = repoProto
-
-			c, err := client.FindAllCommits(ctx, request)
-			require.NoError(t, err)
-
-			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
-
-			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
-
-			for i, receivedCommit := range receivedCommits {
-				testhelper.ProtoEqual(t, testCase.expectedCommits[i], receivedCommit)
-			}
-		})
-	}
-}
-
-func TestFailedFindAllCommitsRequest(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
-
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.FindAllCommitsRequest
-		expectedErr error
-	}{
-		{
-			desc:    "Invalid repository",
-			request: &gitalypb.FindAllCommitsRequest{Repository: invalidRepo},
 			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 				"%w", storage.NewStorageNotFoundError("fake"),
 			)),
 		},
 		{
-			desc:        "Repository is nil",
+			desc:        "unset repository",
 			request:     &gitalypb.FindAllCommitsRequest{},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
 		{
-			desc: "Revision is invalid",
+			desc: "invalid revision",
 			request: &gitalypb.FindAllCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revision:   []byte("--output=/meow"),
 			},
 			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
-	}
+		{
+			desc: "all commits of a revision",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: repoProto,
+				Revision:   []byte("branch"),
+			},
+			expectedCommits: []*gitalypb.GitCommit{
+				merge, branching, main2, main1, main0, feature,
+			},
+		},
+		{
+			desc: "maximum number of commits of a revision",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: repoProto,
+				MaxCount:   3,
+				Revision:   []byte("branch"),
+			},
+			expectedCommits: []*gitalypb.GitCommit{
+				merge, branching, main2,
+			},
+		},
+		{
+			desc: "skipping number of commits of a revision",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: repoProto,
+				Skip:       3,
+				Revision:   []byte("branch"),
+			},
+			expectedCommits: []*gitalypb.GitCommit{
+				main1, main0, feature,
+			},
+		},
+		{
+			desc: "maximum number of commits of a revision plus skipping",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: repoProto,
+				Skip:       2,
+				MaxCount:   2,
+				Revision:   []byte("branch"),
+			},
+			expectedCommits: []*gitalypb.GitCommit{
+				main2, main1,
+			},
+		},
+		{
+			desc: "all commits of a revision ordered by date",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: repoProto,
+				Revision:   []byte("branch"),
+				Order:      gitalypb.FindAllCommitsRequest_DATE,
+			},
+			expectedCommits: []*gitalypb.GitCommit{
+				merge, branching, feature, main2, main1, main0,
+			},
+		},
+		{
+			desc: "all commits of a revision ordered by topology",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: repoProto,
+				Revision:   []byte("branch"),
+				Order:      gitalypb.FindAllCommitsRequest_TOPO,
+			},
+			expectedCommits: []*gitalypb.GitCommit{
+				// Note how feature and branching are ordered differently compared to the preceding
+				// test.
+				merge, feature, branching, main2, main1, main0,
+			},
+		},
+		{
+			desc: "all commits of all branches",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: repoProto,
+			},
+			expectedCommits: []*gitalypb.GitCommit{
+				merge, branching, different, main2, main1, main0, feature,
+			},
+		},
+		{
+			desc: "non-existing revision",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: repoProto,
+				Revision:   []byte("i-do-not-exist"),
+			},
+			expectedCommits: nil,
+		},
+	} {
+		tc := tc
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			c, err := client.FindAllCommits(ctx, testCase.request)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			stream, err := client.FindAllCommits(ctx, tc.request)
 			require.NoError(t, err)
 
-			err = drainFindAllCommitsResponse(c)
-			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
+			var actualCommits []*gitalypb.GitCommit
+			for {
+				var response *gitalypb.FindAllCommitsResponse
+				response, err = stream.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						err = nil
+					}
+
+					break
+				}
+
+				actualCommits = append(actualCommits, response.GetCommits()...)
+			}
+
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedCommits, actualCommits)
 		})
 	}
-}
-
-func drainFindAllCommitsResponse(c gitalypb.CommitService_FindAllCommitsClient) error {
-	var err error
-	for err == nil {
-		_, err = c.Recv()
-	}
-	return err
 }
