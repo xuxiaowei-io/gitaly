@@ -96,7 +96,6 @@ func (c *RepositoryCounter) countRepositories(
 			paths[prefix]++
 			return nil
 		}
-		ctx := context.Background()
 
 		if err := walk.FindRepositories(ctx, locator, stor.Name, incrementPrefix); err != nil {
 			log.WithError(err).Errorf("failed to count repositories in storage %q", stor.Name)
