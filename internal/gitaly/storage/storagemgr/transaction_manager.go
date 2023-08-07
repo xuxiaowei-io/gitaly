@@ -142,6 +142,8 @@ const (
 
 // Transaction is a unit-of-work that contains reference changes to perform on the repository.
 type Transaction struct {
+	// readOnly denotes whether or not this transaction is read-only.
+	readOnly bool
 	// state records whether the transaction is still open. Transaction is open until either Commit()
 	// or Rollback() is called on it.
 	state transactionState
@@ -187,12 +189,19 @@ type Transaction struct {
 	includedObjects          map[git.ObjectID]struct{}
 }
 
+// TransactionOptions configures transaction options when beginning a transaction.
+type TransactionOptions struct {
+	// ReadOnly indicates whether this is a read-only transaction. Read-only transactions are not
+	// configured with a quarantine directory and do not commit a log entry.
+	ReadOnly bool
+}
+
 // Begin opens a new transaction. The caller must call either Commit or Rollback to release
 // the resources tied to the transaction. The returned Transaction is not safe for concurrent use.
 //
 // The returned Transaction's read snapshot includes all writes that were committed prior to the
 // Begin call. Begin blocks until the committed writes have been applied to the repository.
-func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, returnedErr error) {
+func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOptions) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
 	// and the log indexes are loaded.
 	select {
@@ -207,7 +216,8 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 	mgr.mutex.Lock()
 
 	txn := &Transaction{
-		commit: mgr.commit,
+		readOnly: opts.ReadOnly,
+		commit:   mgr.commit,
 		snapshot: Snapshot{
 			ReadIndex:       mgr.appendedLogIndex,
 			CustomHookIndex: mgr.customHookIndex,
@@ -275,13 +285,17 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (_ *Transaction, retur
 			return nil, fmt.Errorf("mkdir temp: %w", err)
 		}
 
-		txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
-		if err := os.MkdirAll(filepath.Join(txn.quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
-			return nil, fmt.Errorf("create quarantine directory: %w", err)
-		}
+		txn.stagingRepository = mgr.repositoryFactory.Build(mgr.relativePath)
+		if !txn.readOnly {
+			txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
+			if err := os.MkdirAll(filepath.Join(txn.quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
+				return nil, fmt.Errorf("create quarantine directory: %w", err)
+			}
 
-		if err := mgr.setupStagingRepository(ctx, txn); err != nil {
-			return nil, fmt.Errorf("setup staging repository: %w", err)
+			txn.stagingRepository, err = txn.stagingRepository.Quarantine(txn.quarantineDirectory)
+			if err != nil {
+				return nil, fmt.Errorf("quarantine: %w", err)
+			}
 		}
 
 		return txn, nil
@@ -312,6 +326,15 @@ func (txn *Transaction) updateState(newState transactionState) error {
 	}
 }
 
+// Below errors are used to error out in cases when updates have been staged in a read-only transaction.
+var (
+	errReadOnlyReferenceUpdates    = errors.New("reference updates staged in a read-only transaction")
+	errReadOnlyDefaultBranchUpdate = errors.New("default branch update staged in a read-only transaction")
+	errReadOnlyCustomHooksUpdate   = errors.New("custom hooks update staged in a read-only transaction")
+	errReadOnlyRepositoryDeletion  = errors.New("repository deletion staged in a read-only transaction")
+	errReadOnlyObjectsIncluded     = errors.New("objects staged in a read-only transaction")
+)
+
 // Commit performs the changes. If no error is returned, the transaction was successful and the changes
 // have been performed. If an error was returned, the transaction may or may not be persisted.
 func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
@@ -324,6 +347,26 @@ func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
 			returnedErr = err
 		}
 	}()
+
+	if txn.readOnly {
+		// These errors are only for reporting programming mistakes where updates have been
+		// accidentally staged in a read-only transaction. The changes would not be anyway
+		// performed as read-only transactions are not committed through the manager.
+		switch {
+		case txn.referenceUpdates != nil:
+			return errReadOnlyReferenceUpdates
+		case txn.defaultBranchUpdate != nil:
+			return errReadOnlyDefaultBranchUpdate
+		case txn.customHooksUpdate != nil:
+			return errReadOnlyCustomHooksUpdate
+		case txn.deleteRepository:
+			return errReadOnlyRepositoryDeletion
+		case txn.includedObjects != nil:
+			return errReadOnlyObjectsIncluded
+		default:
+			return nil
+		}
+	}
 
 	return txn.commit(ctx, txn)
 }
@@ -465,6 +508,8 @@ type TransactionManager struct {
 	stagingDirectory string
 	// commandFactory is used to spawn git commands without a repository.
 	commandFactory git.CommandFactory
+	// repositoryFactory is used to build localrepo.Repo instances.
+	repositoryFactory localrepo.StorageScopedFactory
 
 	// repositoryExists marks whether the repository exists or not. The repository may not exist if it has
 	// never been created, or if it has been deleted.
@@ -528,6 +573,7 @@ func NewTransactionManager(
 		closing:              ctx.Done(),
 		closed:               make(chan struct{}),
 		commandFactory:       cmdFactory,
+		repositoryFactory:    repositoryFactory,
 		repository:           repositoryFactory.Build(relativePath),
 		repositoryPath:       filepath.Join(storagePath, relativePath),
 		relativePath:         relativePath,
@@ -593,19 +639,6 @@ func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Tran
 	); err != nil {
 		return fmt.Errorf("extract hooks: %w", err)
 	}
-
-	return nil
-}
-
-// setupStagingRepository sets a repository that is used to stage the transaction. The staging repository
-// has the quarantine applied so the objects are available for packing and verifying the references.
-func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, transaction *Transaction) error {
-	quarantinedRepo, err := mgr.repository.Quarantine(transaction.quarantineDirectory)
-	if err != nil {
-		return fmt.Errorf("quarantine: %w", err)
-	}
-
-	transaction.stagingRepository = quarantinedRepo
 
 	return nil
 }

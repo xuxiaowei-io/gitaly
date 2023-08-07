@@ -216,7 +216,7 @@ func stagingDirectoryPath(storagePath string) string {
 // Begin gets the TransactionManager for the specified repository and starts a transaction. If a
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
-func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) (*finalizableTransaction, error) {
+func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, opts TransactionOptions) (*finalizableTransaction, error) {
 	storageMgr, ok := pm.storages[repo.GetStorageName()]
 	if !ok {
 		return nil, structerr.NewNotFound("unknown storage: %q", repo.GetStorageName())
@@ -305,7 +305,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository) 
 		ptn.pendingTransactionCount++
 		storageMgr.mu.Unlock()
 
-		transaction, err := ptn.transactionManager.Begin(ctx)
+		transaction, err := ptn.transactionManager.Begin(ctx, opts)
 		if err != nil {
 			// The pending transaction count needs to be decremented since the transaction is no longer
 			// inflight. A transaction failing does not necessarily mean the transaction manager has
