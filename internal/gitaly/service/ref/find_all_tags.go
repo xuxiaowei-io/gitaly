@@ -191,3 +191,35 @@ func (t *tagSender) Send() error {
 		Tags: t.tags,
 	})
 }
+
+// getTagSortField returns a field that needs to be used to sort the tags.
+// If sorting is not provided the default sorting is used: by refname.
+func getTagSortField(sortBy *gitalypb.FindAllTagsRequest_SortBy) (string, error) {
+	if sortBy == nil {
+		return "", nil
+	}
+
+	var dir string
+	switch sortBy.Direction {
+	case gitalypb.SortDirection_ASCENDING:
+		dir = ""
+	case gitalypb.SortDirection_DESCENDING:
+		dir = "-"
+	default:
+		return "", fmt.Errorf("unsupported sorting direction: %s", sortBy.Direction)
+	}
+
+	var key string
+	switch sortBy.Key {
+	case gitalypb.FindAllTagsRequest_SortBy_REFNAME:
+		key = "refname"
+	case gitalypb.FindAllTagsRequest_SortBy_CREATORDATE:
+		key = "creatordate"
+	case gitalypb.FindAllTagsRequest_SortBy_VERSION_REFNAME:
+		key = "version:refname"
+	default:
+		return "", fmt.Errorf("unsupported sorting key: %s", sortBy.Key)
+	}
+
+	return dir + key, nil
+}

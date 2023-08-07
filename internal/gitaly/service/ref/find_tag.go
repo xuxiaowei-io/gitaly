@@ -69,7 +69,8 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 		git.Command{
 			Name: "tag",
 			Flags: []git.Option{
-				git.Flag{Name: "-l"}, git.ValueFlag{Name: "--format", Value: tagFormat},
+				git.Flag{Name: "-l"},
+				git.ValueFlag{Name: "--format", Value: "%(objectname) %(objecttype) %(refname:lstrip=2)"},
 			},
 			Args: []string{string(tagName)},
 		},
