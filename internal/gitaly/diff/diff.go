@@ -109,6 +109,12 @@ const (
 	maxPatchBytesUpperBound = 512000 // 500KB
 )
 
+func init() {
+	if maxBytesUpperBound > git.BigFileThresholdMB*1024*1024 {
+		panic("big file threshold smaller than maximum upper bytes bound")
+	}
+}
+
 var (
 	rawSHA1LineRegexp   = regexp.MustCompile(`(?m)^:(\d+) (\d+) ([[:xdigit:]]{40}) ([[:xdigit:]]{40}) ([ADTUXMRC]\d*)\t(.*?)(?:\t(.*?))?$`)
 	rawSHA256LineRegexp = regexp.MustCompile(`(?m)^:(\d+) (\d+) ([[:xdigit:]]{64}) ([[:xdigit:]]{64}) ([ADTUXMRC]\d*)\t(.*?)(?:\t(.*?))?$`)

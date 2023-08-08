@@ -1,10 +1,13 @@
 package diff
 
 import (
+	"context"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -15,8 +18,12 @@ import (
 
 func TestCommitDiff(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.LowerBigFileThreshold).Run(t, testCommitDiff)
+}
 
-	ctx := testhelper.Context(t)
+func testCommitDiff(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupDiffServiceWithoutRepo(t)
 
 	type setupData struct {
@@ -503,6 +510,60 @@ func TestCommitDiff(t *testing.T) {
 							ToPath:   []byte("foo"),
 						},
 					},
+				}
+			},
+		},
+		{
+			desc: "blobs exceeding core.bigFileThreshold",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				// The blobs are crafted such that the huge common data will not be in the context of
+				// the diff anymore to make this a bit more efficient.
+				data1 := strings.Repeat("1", 50*1024*1024) + "\n\n\n\na\n"
+				data2 := strings.Repeat("1", 50*1024*1024) + "\n\n\n\nb\n"
+
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte(data1))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte(data2))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "huge", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "huge", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: testhelper.EnabledOrDisabledFlag(ctx, featureflag.LowerBigFileThreshold,
+						[]*diff.Diff{
+							{
+								FromID:   blob1.String(),
+								ToID:     blob2.String(),
+								OldMode:  0o100644,
+								NewMode:  0o100644,
+								FromPath: []byte("huge"),
+								ToPath:   []byte("huge"),
+								Binary:   true,
+								Patch:    []byte("Binary files a/huge and b/huge differ\n"),
+							},
+						},
+						[]*diff.Diff{
+							{
+								FromID:   blob1.String(),
+								ToID:     blob2.String(),
+								OldMode:  0o100644,
+								NewMode:  0o100644,
+								FromPath: []byte("huge"),
+								ToPath:   []byte("huge"),
+								Binary:   false,
+								Patch:    []byte("@@ -2,4 +2,4 @@\n \n \n \n-a\n+b\n"),
+							},
+						},
+					),
 				}
 			},
 		},
