@@ -23,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/fieldextractors"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/logsanitizer"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -35,7 +34,7 @@ import (
 
 func init() {
 	for _, l := range gitalylog.Loggers {
-		urlSanitizer := logsanitizer.NewURLSanitizerHook()
+		urlSanitizer := gitalylog.NewURLSanitizerHook()
 		urlSanitizer.AddPossibleGrpcMethod(
 			"CreateRepositoryFromURL",
 			"FetchRemote",
