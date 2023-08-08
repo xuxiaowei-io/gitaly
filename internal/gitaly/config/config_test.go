@@ -2048,6 +2048,42 @@ func TestGitlab_Validate(t *testing.T) {
 				),
 			},
 		},
+		{
+			name: "secret directly configured",
+			gitLab: Gitlab{
+				URL:             "https://gitlab.com",
+				RelativeURLRoot: "api/v1",
+				HTTPSettings: HTTPSettings{
+					User:     "user",
+					Password: "psswrd",
+					CAFile:   tmpFile,
+					CAPath:   tmpDir,
+				},
+				Secret:     "secret_token",
+				SecretFile: "",
+			},
+		},
+		{
+			name: "secret and secret file configured",
+			gitLab: Gitlab{
+				URL:             "https://gitlab.com",
+				RelativeURLRoot: "api/v1",
+				HTTPSettings: HTTPSettings{
+					User:     "user",
+					Password: "psswrd",
+					CAFile:   tmpFile,
+					CAPath:   tmpDir,
+				},
+				Secret:     "secret_token",
+				SecretFile: tmpFile,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New("ambiguous secret configuration"),
+					"secret", "secret_file",
+				),
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.gitLab.Validate()

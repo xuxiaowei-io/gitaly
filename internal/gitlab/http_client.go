@@ -63,12 +63,18 @@ func NewHTTPClient(
 		return nil, fmt.Errorf("%s is not a valid url", gitlabCfg.URL)
 	}
 
-	secret, err := os.ReadFile(gitlabCfg.SecretFile)
-	if err != nil {
-		return nil, fmt.Errorf("reading secret file: %w", err)
+	secret := gitlabCfg.Secret
+
+	// Fallback to reading secret from specified file if not configured directly.
+	if secret == "" {
+		secretData, err := os.ReadFile(gitlabCfg.SecretFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading secret file: %w", err)
+		}
+		secret = string(secretData)
 	}
 
-	gitlabnetClient, err := client.NewGitlabNetClient(gitlabCfg.HTTPSettings.User, gitlabCfg.HTTPSettings.Password, string(secret), httpClient)
+	gitlabnetClient, err := client.NewGitlabNetClient(gitlabCfg.HTTPSettings.User, gitlabCfg.HTTPSettings.Password, secret, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("instantiating gitlab net client: %w", err)
 	}
