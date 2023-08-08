@@ -54,6 +54,13 @@ func init() {
 	}
 }
 
+// Config contains logging configuration values
+type Config struct {
+	Dir    string `toml:"dir,omitempty" json:"dir"`
+	Format string `toml:"format,omitempty" json:"format"`
+	Level  string `toml:"level,omitempty" json:"level"`
+}
+
 // Configure sets the format and level on all loggers. It applies level
 // mapping to the GrpcGo logger.
 func Configure(loggers []*logrus.Logger, format string, level string) {
