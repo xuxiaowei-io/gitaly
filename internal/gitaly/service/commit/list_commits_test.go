@@ -1,14 +1,14 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -17,8 +17,28 @@ import (
 )
 
 func TestListCommits(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	committerYear := func(year int) gittest.WriteCommitOption {
+		return gittest.WithCommitterDate(time.Date(year, 1, 1, 1, 1, 1, 1, time.UTC))
+	}
+
+	// We have a rather simple commit history with a single mainline branch and a feature branch with a single
+	// commit that gets merged back into it.
+	main0ID, main0 := writeCommit(t, ctx, cfg, repo, gittest.WithMessage("main 0"), committerYear(2000))
+	main1ID, main1 := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main0ID), gittest.WithMessage("main 1"), committerYear(2001))
+	main2ID, main2 := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main1ID), gittest.WithMessage("main 2"), committerYear(2002))
+	main3ID, main3 := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main2ID), gittest.WithMessage("main 3"), committerYear(2003), gittest.WithAuthorName("Different author"))
+	main4ID, main4 := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main3ID), gittest.WithMessage("main 4"), committerYear(2004))
+	branchingID, branching := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main4ID), gittest.WithMessage("branching"), committerYear(2020))
+	featureID, feature := writeCommit(t, ctx, cfg, repo, gittest.WithParents(main4ID), gittest.WithMessage("feature"), committerYear(2005))
+	mergeID, merge := writeCommit(t, ctx, cfg, repo, gittest.WithParents(branchingID, featureID), gittest.WithMessage("merge"), committerYear(2006), gittest.WithBranch("branch"))
 
 	for _, tc := range []struct {
 		desc            string
@@ -29,138 +49,105 @@ func TestListCommits(t *testing.T) {
 		{
 			desc: "single revision",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					main3ID.String(),
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-				gittest.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
-				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
-				gittest.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
-				gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
-				gittest.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
-				gittest.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
-				gittest.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
-				gittest.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
-				gittest.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
-				gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				main3, main2, main1, main0,
 			},
 		},
 		{
 			desc: "single revision with limit",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					main3ID.String(),
 				},
 				PaginationParams: &gitalypb.PaginationParameter{
 					Limit: 2,
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
+				main3, main2,
 			},
 		},
 		{
 			desc: "single revision with page token",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					main3ID.String(),
 				},
 				PaginationParams: &gitalypb.PaginationParameter{
-					PageToken: "79b06233d3dc769921576771a4e8bee4b439595d",
+					PageToken: main1ID.String(),
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				main0,
 			},
 		},
 		{
 			desc: "revision range",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"^0031876facac3f2b2702a0e53a26e89939a42209~",
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					"^" + main1ID.String(),
+					main3ID.String(),
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
+				main3, main2,
 			},
 		},
 		{
 			desc: "reverse revision range",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"^0031876facac3f2b2702a0e53a26e89939a42209~",
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					"^" + main1ID.String(),
+					main3ID.String(),
 				},
 				Reverse: true,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+				main2, main3,
 			},
 		},
 		{
 			desc: "revisions with sort topo order",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"master~2",
-					"^master~4",
-					"flat-path",
-					"^flat-path~",
+					mergeID.String(),
 				},
 				Order: gitalypb.ListCommitsRequest_TOPO,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["60ecb67744cb56576c30214ff52294f8ce2def98"],
-				gittest.CommitsByID["55bc176024cfa3baaceb71db584c7e5df900ea65"],
-				gittest.CommitsByID["e63f41fe459e62e1228fcef60d7189127aeba95a"],
-				gittest.CommitsByID["4a24d82dbca5c11c61556f3b35ca472b7463187e"],
-				// This commit is sorted differently compared to the following test.
-				gittest.CommitsByID["ce369011c189f62c815f5971d096b26759bab0d1"],
+				merge, feature, branching, main4, main3, main2, main1, main0,
 			},
 		},
 		{
 			desc: "revisions with sort date order",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"master~2",
-					"^master~4",
-					"flat-path",
-					"^flat-path~",
+					mergeID.String(),
 				},
 				Order: gitalypb.ListCommitsRequest_DATE,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["60ecb67744cb56576c30214ff52294f8ce2def98"],
-				gittest.CommitsByID["55bc176024cfa3baaceb71db584c7e5df900ea65"],
-				// This commit is sorted differently compared to the preceding test.
-				gittest.CommitsByID["ce369011c189f62c815f5971d096b26759bab0d1"],
-				gittest.CommitsByID["e63f41fe459e62e1228fcef60d7189127aeba95a"],
-				gittest.CommitsByID["4a24d82dbca5c11c61556f3b35ca472b7463187e"],
+				// Note how branching and feature are swapped compared to the preceding testcase.
+				merge, branching, feature, main4, main3, main2, main1, main0,
 			},
 		},
 		{
 			desc: "revision with pseudo-revisions",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					mergeID.String(),
 					"--not",
 					"--all",
 				},
@@ -170,132 +157,109 @@ func TestListCommits(t *testing.T) {
 		{
 			desc: "only non-merge commits",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					mergeID.String(),
 				},
 				MaxParents: 1,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-				gittest.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
-				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
-				gittest.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
-				gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
-				gittest.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
-				gittest.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
-				gittest.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
-				gittest.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
-				gittest.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
-				gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				// The merge commit is missing in this list.
+				branching, feature, main4, main3, main2, main1, main0,
 			},
 		},
 		{
 			desc: "disabled walk",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					mergeID.String(),
 				},
 				DisableWalk: true,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+				merge,
 			},
 		},
 		{
 			desc: "first-parent",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					mergeID.String(),
 				},
 				FirstParent: true,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
-				gittest.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
-				gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
-				gittest.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
-				gittest.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
-				gittest.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
-				gittest.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
-				gittest.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
-				gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				// We do not see the commit on the feature branch.
+				merge, branching, main4, main3, main2, main1, main0,
 			},
 		},
 		{
 			desc: "author",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					mergeID.String(),
 				},
-				Author: []byte("Dmitriy"),
+				Author: []byte("Different author"),
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				main3,
 			},
 		},
 		{
 			desc: "time range",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"0031876facac3f2b2702a0e53a26e89939a42209",
+					mergeID.String(),
 				},
-				After: &timestamppb.Timestamp{
-					Seconds: 1393488197,
-				},
-				Before: &timestamppb.Timestamp{
-					Seconds: 1393488199,
-				},
+				After:  timestamppb.New(time.Date(2002, 1, 1, 1, 1, 1, 1, time.UTC)),
+				Before: timestamppb.New(time.Date(2004, 1, 1, 1, 1, 1, 1, time.UTC)),
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				main4, main3, main2,
 			},
 		},
 		{
 			desc: "revisions by multiple message patterns",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"few-commits",
+					mergeID.String(),
 				},
 				CommitMessagePatterns: [][]byte{
-					[]byte("Commit #10"),
-					[]byte("Commit #9 alternate"),
+					[]byte("main 3"),
+					[]byte("feature"),
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
+				feature, main3,
 			},
 		},
 		{
 			desc: "revisions by case insensitive commit message",
 			request: &gitalypb.ListCommitsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revisions: []string{
-					"few-commits",
+					mergeID.String(),
 				},
 				IgnoreCase: true,
 				CommitMessagePatterns: [][]byte{
-					[]byte("commit #1"),
+					[]byte("MAIN 3"),
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
+				main3,
 			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			stream, err := client.ListCommits(ctx, tc.request)
 			require.NoError(t, err)
 
@@ -320,8 +284,12 @@ func TestListCommits(t *testing.T) {
 
 func TestListCommits_verify(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
 	for _, tc := range []struct {
 		desc        string
 		req         *gitalypb.ListCommitsRequest

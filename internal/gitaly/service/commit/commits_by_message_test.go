@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -22,13 +21,14 @@ func TestCommitsByMessage(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupCommitService(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Mode: "100644", Path: "ruby", Content: "foo bar"},
 	})
 
-	commitWithFileID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(`Files, encoding and much more
+	commitWithFileID, commitWithFile := writeCommit(t, ctx, cfg, repo, gittest.WithMessage(`Files, encoding and much more
 
 Files, encoding and much more
 
@@ -37,20 +37,12 @@ Signed-off-by: John Doe <john@doe.com>`), gittest.WithTreeEntries(gittest.TreeEn
 		Mode: "040000",
 		Path: "files",
 	}), gittest.WithBranch("few-commits"))
-	commit10ID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(`Commit #10
+	commit10ID, commit10 := writeCommit(t, ctx, cfg, repo, gittest.WithMessage(`Commit #10
 
 Commit #10`), gittest.WithBranch("few-commits"), gittest.WithParents(commitWithFileID))
-	commit1ID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(`Commit #1
+	_, commit1 := writeCommit(t, ctx, cfg, repo, gittest.WithMessage(`Commit #1
 
 Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
-
-	localrepo := localrepo.NewTestRepo(t, cfg, repo)
-	commitWithFile, err := localrepo.ReadCommit(ctx, git.Revision(commitWithFileID))
-	require.NoError(t, err)
-	commit10, err := localrepo.ReadCommit(ctx, git.Revision(commit10ID))
-	require.NoError(t, err)
-	commit1, err := localrepo.ReadCommit(ctx, git.Revision(commit1ID))
-	require.NoError(t, err)
 
 	for _, tc := range []struct {
 		desc            string
@@ -63,7 +55,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 			request: &gitalypb.CommitsByMessageRequest{
 				Revision:   []byte("few-commits"),
 				Query:      "commit #1",
-				Repository: repo,
+				Repository: repoProto,
 			},
 			expectedCommits: []*gitalypb.GitCommit{commit1, commit10},
 		},
@@ -73,7 +65,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 				Revision:   []byte("few-commits"),
 				Query:      "commit #1",
 				Limit:      1,
-				Repository: repo,
+				Repository: repoProto,
 			},
 			expectedCommits: []*gitalypb.GitCommit{commit1},
 		},
@@ -83,7 +75,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 				Revision:   []byte("few-commits"),
 				Query:      "commit #1",
 				Offset:     1,
-				Repository: repo,
+				Repository: repoProto,
 			},
 			expectedCommits: []*gitalypb.GitCommit{commit10},
 		},
@@ -92,7 +84,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 			request: &gitalypb.CommitsByMessageRequest{
 				Query:      "much more",
 				Path:       []byte("files/ruby"),
-				Repository: repo,
+				Repository: repoProto,
 			},
 			expectedCommits: []*gitalypb.GitCommit{commitWithFile},
 		},
@@ -101,7 +93,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 			request: &gitalypb.CommitsByMessageRequest{
 				Query:      "much more",
 				Path:       []byte("files/*"),
-				Repository: repo,
+				Repository: repoProto,
 			},
 			expectedCommits: []*gitalypb.GitCommit{commitWithFile},
 		},
@@ -111,7 +103,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 				Query:         "much more",
 				Path:          []byte("files/*"),
 				GlobalOptions: &gitalypb.GlobalOptions{LiteralPathspecs: true},
-				Repository:    repo,
+				Repository:    repoProto,
 			},
 			expectedCommits: []*gitalypb.GitCommit{},
 		},
@@ -120,7 +112,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 			request: &gitalypb.CommitsByMessageRequest{
 				Query:      "much more",
 				Path:       []byte("bar"),
-				Repository: repo,
+				Repository: repoProto,
 			},
 			expectedCommits: []*gitalypb.GitCommit{},
 		},
@@ -129,7 +121,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 			request: &gitalypb.CommitsByMessageRequest{
 				Revision:   []byte("maaaaasterrrrr"),
 				Query:      "much more",
-				Repository: repo,
+				Repository: repoProto,
 			},
 			expectedCommits: []*gitalypb.GitCommit{},
 		},
@@ -150,12 +142,12 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 		},
 		{
 			desc:        "query is missing",
-			request:     &gitalypb.CommitsByMessageRequest{Repository: repo},
+			request:     &gitalypb.CommitsByMessageRequest{Repository: repoProto},
 			expectedErr: status.Error(codes.InvalidArgument, "empty Query"),
 		},
 		{
 			desc:        "revision is invalid",
-			request:     &gitalypb.CommitsByMessageRequest{Repository: repo, Revision: []byte("--output=/meow"), Query: "not empty"},
+			request:     &gitalypb.CommitsByMessageRequest{Repository: repoProto, Revision: []byte("--output=/meow"), Query: "not empty"},
 			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 	} {

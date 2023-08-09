@@ -22,7 +22,9 @@ func TestListLastCommitsForTree(t *testing.T) {
 	cfg, client := setupCommitService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	childCommitID := gittest.WriteCommit(t, cfg, repoPath,
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	childCommitID, childCommit := writeCommit(t, ctx, cfg, repo,
 		gittest.WithMessage("unchanged"),
 		gittest.WithTreeEntries(
 			gittest.TreeEntry{Path: "changed", Mode: "100644", Content: "not-yet-changed"},
@@ -33,7 +35,7 @@ func TestListLastCommitsForTree(t *testing.T) {
 			})},
 		),
 	)
-	parentCommitID := gittest.WriteCommit(t, cfg, repoPath,
+	parentCommitID, parentCommit := writeCommit(t, ctx, cfg, repo,
 		gittest.WithMessage("changed"),
 		gittest.WithParents(childCommitID), gittest.WithTreeEntries(
 			gittest.TreeEntry{Path: "changed", Mode: "100644", Content: "changed"},
@@ -44,12 +46,6 @@ func TestListLastCommitsForTree(t *testing.T) {
 			})},
 		),
 	)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	childCommit, err := repo.ReadCommit(ctx, childCommitID.Revision())
-	require.NoError(t, err)
-	parentCommit, err := repo.ReadCommit(ctx, parentCommitID.Revision())
-	require.NoError(t, err)
 
 	commitResponse := func(path string, commit *gitalypb.GitCommit) *gitalypb.ListLastCommitsForTreeResponse_CommitForTree {
 		return &gitalypb.ListLastCommitsForTreeResponse_CommitForTree{
@@ -247,14 +243,11 @@ func TestListLastCommitsForTree(t *testing.T) {
 		{
 			desc: "path with leading dash",
 			setup: func(t *testing.T) setupData {
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+				commitID, commit := writeCommit(t, ctx, cfg, repo, gittest.WithTreeEntries(gittest.TreeEntry{
 					Path: "-test", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "something"},
 					}),
 				}))
-
-				commit, err := repo.ReadCommit(ctx, commitID.Revision())
-				require.NoError(t, err)
 
 				return setupData{
 					request: &gitalypb.ListLastCommitsForTreeRequest{
@@ -272,14 +265,11 @@ func TestListLastCommitsForTree(t *testing.T) {
 		{
 			desc: "glob with literal pathspec",
 			setup: func(t *testing.T) setupData {
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+				commitID, commit := writeCommit(t, ctx, cfg, repo, gittest.WithTreeEntries(gittest.TreeEntry{
 					Path: ":wq", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "something"},
 					}),
 				}))
-
-				commit, err := repo.ReadCommit(ctx, commitID.Revision())
-				require.NoError(t, err)
 
 				return setupData{
 					request: &gitalypb.ListLastCommitsForTreeRequest{
@@ -326,12 +316,9 @@ func TestListLastCommitsForTree(t *testing.T) {
 				path := "hello\x80world"
 				require.False(t, utf8.ValidString(path))
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+				commitID, commit := writeCommit(t, ctx, cfg, repo, gittest.WithTreeEntries(
 					gittest.TreeEntry{Mode: "100644", Path: path, Content: "something"},
 				))
-
-				commit, err := repo.ReadCommit(ctx, commitID.Revision())
-				require.NoError(t, err)
 
 				return setupData{
 					request: &gitalypb.ListLastCommitsForTreeRequest{

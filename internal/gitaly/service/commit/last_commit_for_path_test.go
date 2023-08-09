@@ -3,7 +3,6 @@ package commit
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -19,36 +18,27 @@ func TestLastCommitForPath(t *testing.T) {
 	cfg, client := setupCommitService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	initialCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "file", Content: "unmodified", Mode: "100644"},
 		gittest.TreeEntry{Path: "delete-me", Content: "something", Mode: "100644"},
 	))
-	deletedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(initialCommitID), gittest.WithTreeEntries(
+	deletedCommitID, deletedCommit := writeCommit(t, ctx, cfg, repo, gittest.WithParents(initialCommitID), gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "file", Content: "unmodified", Mode: "100644"},
 	))
-	modifiedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(deletedCommitID), gittest.WithTreeEntries(
+	modifiedCommitID, modifiedCommit := writeCommit(t, ctx, cfg, repo, gittest.WithParents(deletedCommitID), gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "file", Content: "modified", Mode: "100644"},
 	))
-	globCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(modifiedCommitID), gittest.WithTreeEntries(
+	globCommitID, globCommit := writeCommit(t, ctx, cfg, repo, gittest.WithParents(modifiedCommitID), gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "file", Content: "modified", Mode: "100644"},
 		gittest.TreeEntry{Path: ":wq", Content: "glob", Mode: "100644"},
 	))
-	latestCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(globCommitID), gittest.WithTreeEntries(
+	latestCommitID, latestCommit := writeCommit(t, ctx, cfg, repo, gittest.WithParents(globCommitID), gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "file", Content: "modified", Mode: "100644"},
 		gittest.TreeEntry{Path: ":wq", Content: "glob", Mode: "100644"},
 		gittest.TreeEntry{Path: "uninteresting", Content: "uninteresting", Mode: "100644"},
 	))
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	deletedCommit, err := repo.ReadCommit(ctx, deletedCommitID.Revision())
-	require.NoError(t, err)
-	modifiedCommit, err := repo.ReadCommit(ctx, modifiedCommitID.Revision())
-	require.NoError(t, err)
-	globCommit, err := repo.ReadCommit(ctx, globCommitID.Revision())
-	require.NoError(t, err)
-	latestCommit, err := repo.ReadCommit(ctx, latestCommitID.Revision())
-	require.NoError(t, err)
 
 	for _, tc := range []struct {
 		desc             string
