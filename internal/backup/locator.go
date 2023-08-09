@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -47,6 +48,7 @@ func (l LegacyLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository
 		Steps: []Step{
 			*l.newFull(repo),
 		},
+		ObjectFormat: git.ObjectHashSHA1.Format,
 	}, nil
 }
 
@@ -194,7 +196,9 @@ func (l PointerLocator) find(ctx context.Context, repo *gitalypb.Repository, bac
 		return nil, fmt.Errorf("find: determine increment ID: %w", err)
 	}
 
-	var backup Backup
+	backup := Backup{
+		ObjectFormat: git.ObjectHashSHA1.Format,
+	}
 
 	for i := 1; i <= max; i++ {
 		var previousRefPath string

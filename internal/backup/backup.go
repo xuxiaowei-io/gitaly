@@ -41,6 +41,8 @@ type Sink interface {
 type Backup struct {
 	// Steps are the ordered list of steps required to restore this backup
 	Steps []Step
+	// ObjectFormat is the name of the object hash used by the repository.
+	ObjectFormat string
 }
 
 // Step represents an incremental step that makes up a complete backup for a repository
@@ -90,7 +92,7 @@ type Repository interface {
 	// repository cannot be found.
 	Remove(ctx context.Context) error
 	// Create creates the repository.
-	Create(ctx context.Context) error
+	Create(ctx context.Context, hash git.ObjectHash) error
 	// FetchBundle fetches references from a bundle. Refs will be mirrored to
 	// the repository.
 	FetchBundle(ctx context.Context, reader io.Reader) error
@@ -262,7 +264,12 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		}
 	}
 
-	if err := repo.Create(ctx); err != nil {
+	hash, err := git.ObjectHashByFormat(backup.ObjectFormat)
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
+	if err := repo.Create(ctx, hash); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 

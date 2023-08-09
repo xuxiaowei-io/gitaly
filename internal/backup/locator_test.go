@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -50,6 +51,7 @@ func TestLegacyLocator(t *testing.T) {
 		t.Parallel()
 
 		expected := &Backup{
+			ObjectFormat: git.ObjectHashSHA1.Format,
 			Steps: []Step{
 				{
 					SkippableOnNotFound: true,
@@ -196,6 +198,7 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), perm.SharedFile))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("003"), perm.SharedFile))
 			expected := &Backup{
+				ObjectFormat: git.ObjectHashSHA1.Format,
 				Steps: []Step{
 					{
 						BundlePath:      filepath.Join(repo.RelativePath, backupID, "001.bundle"),
@@ -232,6 +235,7 @@ func TestPointerLocator(t *testing.T) {
 			}
 
 			expectedFallback := &Backup{
+				ObjectFormat: git.ObjectHashSHA1.Format,
 				Steps: []Step{
 					{
 						SkippableOnNotFound: true,
@@ -250,6 +254,7 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), perm.SharedFile))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("001"), perm.SharedFile))
 			expected := &Backup{
+				ObjectFormat: git.ObjectHashSHA1.Format,
 				Steps: []Step{
 					{
 						BundlePath:      filepath.Join(repo.RelativePath, backupID, "001.bundle"),
@@ -327,6 +332,7 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), perm.SharedDir))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("003"), perm.SharedFile))
 			expected := &Backup{
+				ObjectFormat: git.ObjectHashSHA1.Format,
 				Steps: []Step{
 					{
 						BundlePath:      filepath.Join(repo.RelativePath, backupID, "001.bundle"),

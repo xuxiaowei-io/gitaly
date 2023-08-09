@@ -175,9 +175,12 @@ func (rr *remoteRepository) Remove(ctx context.Context) error {
 }
 
 // Create creates the repository.
-func (rr *remoteRepository) Create(ctx context.Context) error {
+func (rr *remoteRepository) Create(ctx context.Context, hash git.ObjectHash) error {
 	repoClient := rr.newRepoClient()
-	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: rr.repo}); err != nil {
+	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+		Repository:   rr.repo,
+		ObjectFormat: hash.ProtoFormat,
+	}); err != nil {
 		return fmt.Errorf("remote repository: create: %w", err)
 	}
 	return nil
@@ -328,7 +331,7 @@ func (r *localRepository) Remove(ctx context.Context) error {
 }
 
 // Create creates the repository.
-func (r *localRepository) Create(ctx context.Context) error {
+func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash) error {
 	if err := repoutil.Create(
 		ctx,
 		r.locator,
@@ -337,6 +340,7 @@ func (r *localRepository) Create(ctx context.Context) error {
 		r.repoCounter,
 		r.repo,
 		func(repository *gitalypb.Repository) error { return nil },
+		repoutil.WithObjectHash(hash),
 	); err != nil {
 		return fmt.Errorf("local repository: create: %w", err)
 	}
