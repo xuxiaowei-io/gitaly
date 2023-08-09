@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 
+	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
 )
 
@@ -37,17 +38,14 @@ func UTCTextFormatter() logrus.Formatter {
 	return &utcFormatter{Formatter: &logrus.TextFormatter{TimestampFormat: LogTimestampFormatUTC}}
 }
 
-var (
-	defaultLogger = logrus.StandardLogger()
-	grpcLogger    = logrus.New()
-)
-
-func init() {
-	// This ensures that any log statements that occur before the configuration has been loaded will be written
-	// to stdout instead of stderr.
-	defaultLogger.Out = os.Stdout
-	grpcLogger.Out = os.Stdout
-}
+// defaultLogger is the logger that is returned via `Default()` and via logrus' direct log invocations like e.g.
+// `logrus.Info()`. By default it is configured to log to standard output, but in practice it should be configured via
+// a call to `Configure()` after the configuration has been loaded.
+var defaultLogger = func() *logrus.Logger {
+	logger := logrus.StandardLogger()
+	logger.Out = os.Stdout
+	return logger
+}()
 
 // Config contains logging configuration values
 type Config struct {
@@ -60,7 +58,11 @@ type Config struct {
 // its default verbosity.
 func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) {
 	configure(defaultLogger, out, format, level, hooks...)
+
+	// We replace the gRPC logger with a custom one because the default one is too chatty.
+	grpcLogger := logrus.New()
 	configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...)
+	grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
 }
 
 func configure(logger *logrus.Logger, out io.Writer, format, level string, hooks ...logrus.Hook) {
@@ -107,9 +109,5 @@ func mapGRPCLogLevel(level string) string {
 	return level
 }
 
-// Default is the default logrus logger
+// Default returns the default logger that has been configured via `Configure()`.
 func Default() *logrus.Entry { return defaultLogger.WithField("pid", os.Getpid()) }
-
-// GrpcGo is a dedicated logrus logger for the grpc-go library. We use it
-// to control the library's chattiness.
-func GrpcGo() *logrus.Entry { return grpcLogger.WithField("pid", os.Getpid()) }

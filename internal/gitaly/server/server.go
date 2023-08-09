@@ -32,11 +32,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-func init() {
-	// grpc-go gets a custom logger; it is too chatty
-	grpcmwlogrus.ReplaceGrpcLogger(gitalylog.GrpcGo())
-}
-
 type serverConfig struct {
 	unaryInterceptors  []grpc.UnaryServerInterceptor
 	streamInterceptors []grpc.StreamServerInterceptor
