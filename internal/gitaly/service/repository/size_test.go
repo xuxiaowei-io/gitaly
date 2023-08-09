@@ -1,102 +1,84 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
+	"context"
 	"crypto/rand"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
 
-// We assume that the combined size of the Git objects in the test
-// repository, even in optimally packed state, is greater than this.
-const testRepoMinSizeKB = 10000
-
-func TestSuccessfulRepositorySizeRequestPoolMember(t *testing.T) {
+func TestRepositorySize_poolMember(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-	repoClient, serverSocketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = serverSocketPath
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	sizeRequest := &gitalypb.RepositorySizeRequest{Repository: repo}
-	response, err := repoClient.RepositorySize(ctx, sizeRequest)
-	require.NoError(t, err)
+	// Write a large, reachable blob that would get pulled into the object pool. Note that the data must be part of
+	// a packfile or otherwise it won't get pulled into the object pool. We thus repack the repository first before
+	// linking it to the pool repository.
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
+		gittest.TreeEntry{Mode: "100644", Path: "16kbblob", Content: string(uncompressibleData(16 * 1000))},
+	))
+	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adl")
+	requireRepositorySize(t, ctx, client, repo, 17)
 
-	sizeBeforePool := response.GetSize()
-
+	// We create an object pool now and link the repository to it. When repacking, this should cause us to
+	// deduplicate all objects and thus reduce the size of the repository.
 	gittest.CreateObjectPool(t, ctx, cfg, repo, gittest.CreateObjectPoolConfig{
 		LinkRepositoryToObjectPool: true,
 	})
+	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adl")
 
-	gittest.Exec(t, cfg, "-C", repoPath, "gc")
-
-	response, err = repoClient.RepositorySize(ctx, sizeRequest)
-	require.NoError(t, err)
-	assert.Less(t, response.GetSize(), sizeBeforePool)
+	// The blob has been deduplicated, so the repository should now be basically empty again.
+	requireRepositorySize(t, ctx, client, repo, 0)
 }
 
-func TestSuccessfulRepositorySizeRequest(t *testing.T) {
+func TestRepositorySize_normalRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	request := &gitalypb.RepositorySizeRequest{Repository: repo}
-	response, err := client.RepositorySize(ctx, request)
-	require.NoError(t, err)
+	// An empty repository should have a size of zero. This is not quite true as there are some data structures like
+	// the gitconfig, but they do not exceed 1kB of data.
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	requireRepositorySize(t, ctx, client, repo, 0)
 
-	require.True(t,
-		response.Size > testRepoMinSizeKB,
-		"repository size %d should be at least %d", response.Size, testRepoMinSizeKB,
-	)
+	// When writing a largish blob into the repository it's expected to grow.
+	gittest.WriteBlob(t, cfg, repoPath, uncompressibleData(16*1024))
+	requireRepositorySize(t, ctx, client, repo, 16)
 
-	var blob [16 * 1024]byte
-	_, _ = rand.Read(blob[:])
+	// Also, updating any other files should cause a size increase.
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), uncompressibleData(7*1024), perm.PrivateFile))
+	requireRepositorySize(t, ctx, client, repo, 23)
 
-	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-		{
-			Mode:    "100644",
-			Path:    "1kbblob",
-			Content: string(blob[:]),
-		},
-	})
-	commitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeOID))
-
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/keep-around/keep1"), commitOID)
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/merge-requests/1123"), commitOID)
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/pipelines/pipeline2"), commitOID)
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/environments/env1"), commitOID)
-
-	responseAfterRefs, err := client.RepositorySize(ctx, request)
-	require.NoError(t, err)
-	assert.Less(t, response.Size, responseAfterRefs.Size)
+	// Even garbage should increase the size.
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, "garbage"), uncompressibleData(5*1024), perm.PrivateFile))
+	requireRepositorySize(t, ctx, client, repo, 28)
 }
 
-func TestFailedRepositorySizeRequest(t *testing.T) {
+func TestRepositorySize_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
-	testCases := []struct {
+	for _, tc := range []struct {
 		description string
 		repo        *gitalypb.Repository
 		expectedErr error
@@ -106,13 +88,12 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 			repo:        nil,
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.description, func(t *testing.T) {
-			request := &gitalypb.RepositorySizeRequest{Repository: testCase.repo}
-			_, err := client.RepositorySize(ctx, request)
-			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
+	} {
+		t.Run(tc.description, func(t *testing.T) {
+			_, err := client.RepositorySize(ctx, &gitalypb.RepositorySizeRequest{
+				Repository: tc.repo,
+			})
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
@@ -157,24 +138,24 @@ func BenchmarkRepositorySize(b *testing.B) {
 	}
 }
 
-func TestRepositorySize_SuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
+func TestGetObjectDirectorySize_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo.GitObjectDirectory = "objects/"
 
-	request := &gitalypb.GetObjectDirectorySizeRequest{Repository: repo}
-	response, err := client.GetObjectDirectorySize(ctx, request)
-	require.NoError(t, err)
+	// Initially, the object directory should be empty and thus have a size of zero.
+	requireObjectDirectorySize(t, ctx, client, repo, 0)
 
-	require.True(t,
-		response.Size > testRepoMinSizeKB,
-		"repository size %d should be at least %d", response.Size, testRepoMinSizeKB,
-	)
+	// Writing an object into the repository should increase the size accordingly.
+	gittest.WriteBlob(t, cfg, repoPath, uncompressibleData(16*1024))
+	requireObjectDirectorySize(t, ctx, client, repo, 16)
 }
 
-func TestRepositorySize_GetObjectDirectorySize_quarantine(t *testing.T) {
+func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -182,9 +163,10 @@ func TestRepositorySize_GetObjectDirectorySize_quarantine(t *testing.T) {
 	locator := config.NewLocator(cfg)
 
 	t.Run("quarantined repo", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
-		})
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo.GitObjectDirectory = "objects/"
+		gittest.WriteBlob(t, cfg, repoPath, uncompressibleData(16*1024))
+		requireObjectDirectorySize(t, ctx, client, repo, 16)
 
 		quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), locator)
 		require.NoError(t, err)
@@ -198,27 +180,16 @@ func TestRepositorySize_GetObjectDirectorySize_quarantine(t *testing.T) {
 		quarantinedRepo := quarantine.QuarantinedRepo()
 		quarantinedRepo.RelativePath = repo.RelativePath
 
-		response, err := client.GetObjectDirectorySize(ctx, &gitalypb.GetObjectDirectorySizeRequest{
-			Repository: quarantinedRepo,
-		})
-		require.NoError(t, err)
-		require.NotNil(t, response)
-
-		// Due to platform incompatibilities we can't assert the exact size of bytes: on
-		// some, the directory entry is counted, on some it's not.
-		require.Less(t, response.Size, int64(10))
+		// The size of the quarantine directory should be zero.
+		requireObjectDirectorySize(t, ctx, client, quarantinedRepo, 0)
 	})
 
 	t.Run("quarantined repo with different relative path", func(t *testing.T) {
-		repo1, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
-		})
+		repo1, _ := gittest.CreateRepository(t, ctx, cfg)
 		quarantine1, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo1), locator)
 		require.NoError(t, err)
 
-		repo2, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
-		})
+		repo2, _ := gittest.CreateRepository(t, ctx, cfg)
 		quarantine2, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo2), locator)
 		require.NoError(t, err)
 
@@ -241,4 +212,33 @@ func TestRepositorySize_GetObjectDirectorySize_quarantine(t *testing.T) {
 		require.Error(t, err, "rpc error: code = InvalidArgument desc = GetObjectDirectoryPath: relative path escapes root directory")
 		require.Nil(t, response)
 	})
+}
+
+func requireRepositorySize(tb testing.TB, ctx context.Context, client gitalypb.RepositoryServiceClient, repo *gitalypb.Repository, expectedSize int64) {
+	tb.Helper()
+
+	response, err := client.RepositorySize(ctx, &gitalypb.RepositorySizeRequest{
+		Repository: repo,
+	})
+	require.NoError(tb, err)
+	require.Equal(tb, expectedSize, response.GetSize())
+}
+
+func requireObjectDirectorySize(tb testing.TB, ctx context.Context, client gitalypb.RepositoryServiceClient, repo *gitalypb.Repository, expectedSize int64) {
+	tb.Helper()
+
+	response, err := client.GetObjectDirectorySize(ctx, &gitalypb.GetObjectDirectorySizeRequest{
+		Repository: repo,
+	})
+	require.NoError(tb, err)
+	require.Equal(tb, expectedSize, response.GetSize())
+}
+
+// uncompressibleData returns data that will not be easily compressible by Git. This is required because
+// well-compressible objects would not lead to a repository size increase due to the zlib compression used for Git
+// objects.
+func uncompressibleData(bytes int) []byte {
+	data := make([]byte, bytes)
+	_, _ = rand.Read(data[:])
+	return data
 }
