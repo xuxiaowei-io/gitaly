@@ -206,6 +206,12 @@ func ReferencesInfoForRepository(repo *localrepo.Repo) (ReferencesInfo, error) {
 	var info ReferencesInfo
 	if err := filepath.WalkDir(refsPath, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
+			// It may happen that references got deleted concurrently. This is fine and expected, so we just
+			// ignore any such errors.
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+
 			return err
 		}
 
