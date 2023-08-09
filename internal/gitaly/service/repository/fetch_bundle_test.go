@@ -1,9 +1,7 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
-	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,14 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
@@ -27,14 +25,16 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, _, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	tmp := testhelper.TempDir(t)
-	bundlePath := filepath.Join(tmp, "test.bundle")
+	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	main := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("main"))
+	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("feature"), gittest.WithParents(main))
+	gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+	expectedRefs := gittest.Exec(t, cfg, "-C", sourceRepoPath, "show-ref", "--head")
 
-	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
-	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
-	expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
+	bundlePath := filepath.Join(testhelper.TempDir(t), "test.bundle")
+	gittest.BundleRepo(t, cfg, sourceRepoPath, bundlePath)
 
 	targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -72,33 +72,24 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-	testcfg.BuildGitalyHooks(t, cfg)
+	txManager := transaction.NewTrackingManager()
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager), testserver.WithDisablePraefect())
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-	})
+	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	sourceCommitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("main"))
+	bundlePath := filepath.Join(testhelper.TempDir(t), "test.bundle")
+	gittest.BundleRepo(t, cfg, sourceRepoPath, bundlePath)
 
-	hookManager := &mockHookManager{}
-	client, _ := runRepositoryService(t, cfg, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())
-
-	tmp := testhelper.TempDir(t)
-	bundlePath := filepath.Join(tmp, "test.bundle")
-	gittest.BundleRepo(t, cfg, repoPath, bundlePath)
-
-	hookManager.Reset()
+	targetRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
-	require.Empty(t, hookManager.states)
-
 	stream, err := client.FetchBundle(ctx)
 	require.NoError(t, err)
 
-	request := &gitalypb.FetchBundleRequest{Repository: repoProto}
+	request := &gitalypb.FetchBundleRequest{Repository: targetRepo}
 	writer := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 
@@ -121,14 +112,16 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	require.Equal(t, []gitalyhook.ReferenceTransactionState{
-		gitalyhook.ReferenceTransactionPrepared,
-		gitalyhook.ReferenceTransactionCommitted,
-	}, hookManager.states)
+	expectedVote := voting.VoteFromData([]byte(fmt.Sprintf("%[1]s %[2]s refs/heads/main\n%[1]s %[2]s HEAD\n", gittest.DefaultObjectHash.ZeroOID, sourceCommitID)))
+	require.Equal(t, []transaction.PhasedVote{
+		{Vote: expectedVote, Phase: voting.Prepared},
+		{Vote: expectedVote, Phase: voting.Committed},
+	}, txManager.Votes())
 }
 
 func TestServer_FetchBundle_validation(t *testing.T) {
 	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
@@ -168,18 +161,4 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
-}
-
-type mockHookManager struct {
-	gitalyhook.Manager
-	states []gitalyhook.ReferenceTransactionState
-}
-
-func (m *mockHookManager) Reset() {
-	m.states = make([]gitalyhook.ReferenceTransactionState, 0)
-}
-
-func (m *mockHookManager) ReferenceTransactionHook(_ context.Context, state gitalyhook.ReferenceTransactionState, _ []string, _ io.Reader) error {
-	m.states = append(m.states, state)
-	return nil
 }
