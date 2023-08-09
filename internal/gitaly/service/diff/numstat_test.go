@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package diff
 
 import (
@@ -7,204 +5,192 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulDiffStatsRequest(t *testing.T) {
+func TestDiffStats_successful(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
-	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
-	rpcRequest := &gitalypb.DiffStatsRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	left := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "addition", Mode: "100644", Content: "a\nb\nc\n"},
+		gittest.TreeEntry{Path: "deleted-file", Mode: "100644", Content: "deleted contents\n"},
+		gittest.TreeEntry{Path: "deletion", Mode: "100644", Content: "a\nb\ndeleteme\nc\n"},
+		gittest.TreeEntry{Path: "multiple-changes", Mode: "100644", Content: "a\nb\ncdelete\ndelete\ndelete\n\nd\ne\n"},
+		gittest.TreeEntry{Path: "replace", Mode: "100644", Content: "a\nb\nreplaceme\nc\n"},
+	))
+	right := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "addition", Mode: "100644", Content: "a\nb\naddition\nc\n"},
+		gittest.TreeEntry{Path: "created-file", Mode: "100644", Content: "created contents\n"},
+		gittest.TreeEntry{Path: "deletion", Mode: "100644", Content: "a\nb\nc\n"},
+		gittest.TreeEntry{Path: "multiple-changes", Mode: "100644", Content: "a\naddition\nb\nc\nd\neaddition\naddition\n"},
+		gittest.TreeEntry{Path: "replace", Mode: "100644", Content: "a\nb\nreplaced\nc\n"},
+	))
 
-	expectedStats := []diff.NumStat{
-		{
-			Path:      []byte("CONTRIBUTING.md"),
-			Additions: 1,
-			Deletions: 1,
-		},
-		{
-			Path:      []byte("MAINTENANCE.md"),
-			Additions: 1,
-			Deletions: 1,
-		},
-		{
-			Path:      []byte("README.md"),
-			Additions: 1,
-			Deletions: 1,
-		},
-		{
-			Path:      []byte("gitaly/deleted-file"),
-			Additions: 0,
-			Deletions: 1,
-		},
-		{
-			Path:      []byte("gitaly/file-with-multiple-chunks"),
-			Additions: 28,
-			Deletions: 23,
-		},
-		{
-			Path:      []byte("gitaly/logo-white.png"),
-			Additions: 0,
-			Deletions: 0,
-		},
-		{
-			Path:      []byte("gitaly/mode-file"),
-			Additions: 0,
-			Deletions: 0,
-		},
-		{
-			Path:      []byte("gitaly/mode-file-with-mods"),
-			Additions: 2,
-			Deletions: 1,
-		},
-		{
-			Path:      []byte("gitaly/named-file-with-mods"),
-			Additions: 0,
-			Deletions: 1,
-		},
-		{
-			Path:      []byte("gitaly/no-newline-at-the-end"),
-			Additions: 1,
-			Deletions: 0,
-		},
-		{
-			Path:      []byte("gitaly/renamed-file"),
-			Additions: 0,
-			Deletions: 0,
-		},
-		{
-			Path:      []byte("gitaly/renamed-file-with-mods"),
-			Additions: 1,
-			Deletions: 0,
-		},
-		{
-			Path:      []byte("gitaly/tab\tnewline\n file"),
-			Additions: 1,
-			Deletions: 0,
-		},
-		{
-			Path:      []byte("gitaly/テスト.txt"),
-			Additions: 0,
-			Deletions: 0,
-		},
-	}
-
-	stream, err := client.DiffStats(ctx, rpcRequest)
+	stream, err := client.DiffStats(ctx, &gitalypb.DiffStatsRequest{
+		Repository:    repo,
+		LeftCommitId:  left.String(),
+		RightCommitId: right.String(),
+	})
 	require.NoError(t, err)
 
+	var actualStats []*gitalypb.DiffStats
 	for {
-		fetchedStats, err := stream.Recv()
+		response, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
-
 		require.NoError(t, err)
 
-		stats := fetchedStats.GetStats()
-
-		for index, fetchedStat := range stats {
-			expectedStat := expectedStats[index]
-
-			require.Equal(t, expectedStat.Path, fetchedStat.Path)
-			require.Equal(t, expectedStat.Additions, fetchedStat.Additions)
-			require.Equal(t, expectedStat.Deletions, fetchedStat.Deletions)
-		}
+		actualStats = append(actualStats, response.GetStats()...)
 	}
-}
 
-func TestFailedDiffStatsRequest(t *testing.T) {
-	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupDiffService(t, ctx)
-
-	tests := []struct {
-		desc          string
-		repo          *gitalypb.Repository
-		leftCommitID  string
-		rightCommitID string
-		expectedErr   error
-	}{
+	testhelper.ProtoEqual(t, []*gitalypb.DiffStats{
 		{
-			desc:          "repository not provided",
-			repo:          nil,
-			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			expectedErr:   structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			Path:      []byte("addition"),
+			Additions: 1,
 		},
 		{
-			desc:          "repository not found",
-			repo:          &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
-			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
+			Path:      []byte("created-file"),
+			Additions: 1,
+		},
+		{
+			Path:      []byte("deleted-file"),
+			Deletions: 1,
+		},
+		{
+			Path:      []byte("deletion"),
+			Deletions: 1,
+		},
+		{
+			Path:      []byte("multiple-changes"),
+			Additions: 4,
+			Deletions: 5,
+		},
+		{
+			Path:      []byte("replace"),
+			Additions: 1,
+			Deletions: 1,
+		},
+	}, actualStats)
+}
+
+func TestDiffStats_failures(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupDiffServiceWithoutRepo(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commit := gittest.WriteCommit(t, cfg, repoPath)
+	missing := gittest.DefaultObjectHash.HashData([]byte("missing commit"))
+
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.DiffStatsRequest
+		expectedErr error
+	}{
+		{
+			desc: "repository not provided",
+			request: &gitalypb.DiffStatsRequest{
+				Repository: nil,
+			},
+			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+		},
+		{
+			desc: "repository not found",
+			request: &gitalypb.DiffStatsRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  repo.GetStorageName(),
+					RelativePath: "bar.git",
+				},
+			},
 			expectedErr: testhelper.ToInterceptedMetadata(
 				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "bar.git")),
 			),
 		},
 		{
-			desc:          "storage not found",
-			repo:          &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
-			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
+			desc: "storage not found",
+			request: &gitalypb.DiffStatsRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "foo",
+					RelativePath: "bar.git",
+				},
+			},
 			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
 				"%w", storage.NewStorageNotFoundError("foo"),
 			)),
 		},
 		{
-			desc:          "left commit ID not found",
-			repo:          repo,
-			leftCommitID:  "",
-			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			expectedErr:   status.Error(codes.InvalidArgument, "empty LeftCommitId"),
+			desc: "left commit ID not set",
+			request: &gitalypb.DiffStatsRequest{
+				Repository:    repo,
+				LeftCommitId:  "",
+				RightCommitId: commit.String(),
+			},
+			expectedErr: structerr.NewInvalidArgument("empty LeftCommitId"),
 		},
 		{
-			desc:          "right commit ID not found",
-			repo:          repo,
-			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			rightCommitID: "",
-			expectedErr:   status.Error(codes.InvalidArgument, "empty RightCommitId"),
+			desc: "right commit ID not set",
+			request: &gitalypb.DiffStatsRequest{
+				Repository:    repo,
+				LeftCommitId:  commit.String(),
+				RightCommitId: "",
+			},
+			expectedErr: structerr.NewInvalidArgument("empty RightCommitId"),
 		},
 		{
-			desc:          "invalid left commit",
-			repo:          repo,
-			leftCommitID:  "invalidinvalidinvalid",
-			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			expectedErr:   status.Error(codes.FailedPrecondition, "exit status 128"),
+			desc: "invalid left commit",
+			request: &gitalypb.DiffStatsRequest{
+				Repository:    repo,
+				LeftCommitId:  "invalidinvalidinvalid",
+				RightCommitId: commit.String(),
+			},
+			expectedErr: structerr.NewFailedPrecondition("exit status 128"),
 		},
 		{
-			desc:          "invalid right commit",
-			repo:          repo,
-			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			rightCommitID: "invalidinvalidinvalid",
-			expectedErr:   status.Error(codes.FailedPrecondition, "exit status 128"),
+			desc: "invalid right commit",
+			request: &gitalypb.DiffStatsRequest{
+				Repository:    repo,
+				LeftCommitId:  commit.String(),
+				RightCommitId: "invalidinvalidinvalid",
+			},
+			expectedErr: structerr.NewFailedPrecondition("exit status 128"),
 		},
 		{
-			desc:          "left commit not found",
-			repo:          repo,
-			leftCommitID:  "a4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			expectedErr:   status.Error(codes.FailedPrecondition, "exit status 128"),
+			desc: "left commit not found",
+			request: &gitalypb.DiffStatsRequest{
+				Repository:    repo,
+				LeftCommitId:  missing.String(),
+				RightCommitId: commit.String(),
+			},
+			expectedErr: structerr.NewFailedPrecondition("exit status 128"),
 		},
 		{
-			desc:          "right commit not found",
-			repo:          repo,
-			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			rightCommitID: "a4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			expectedErr:   status.Error(codes.FailedPrecondition, "exit status 128"),
+			desc: "right commit not found",
+			request: &gitalypb.DiffStatsRequest{
+				Repository:    repo,
+				LeftCommitId:  commit.String(),
+				RightCommitId: missing.String(),
+			},
+			expectedErr: structerr.NewFailedPrecondition("exit status 128"),
 		},
-	}
+	} {
+		tc := tc
 
-	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			rpcRequest := &gitalypb.DiffStatsRequest{Repository: tc.repo, RightCommitId: tc.rightCommitID, LeftCommitId: tc.leftCommitID}
-			stream, err := client.DiffStats(ctx, rpcRequest)
+			t.Parallel()
+
+			stream, err := client.DiffStats(ctx, tc.request)
 			require.NoError(t, err)
+
 			_, err = stream.Recv()
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
