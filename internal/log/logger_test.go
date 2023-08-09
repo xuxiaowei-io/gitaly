@@ -11,68 +11,110 @@ import (
 )
 
 func TestConfigure(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+
+	testHook := NewURLSanitizerHook()
+
 	for _, tc := range []struct {
-		desc   string
-		format string
-		level  string
-		logger *logrus.Logger
+		desc           string
+		format         string
+		level          string
+		hooks          []logrus.Hook
+		expectedLogger *logrus.Logger
 	}{
 		{
 			desc:   "json format with info level",
 			format: "json",
-			logger: &logrus.Logger{
-				Formatter: &utcFormatter{&logrus.JSONFormatter{TimestampFormat: LogTimestampFormatUTC}},
-				Level:     logrus.InfoLevel,
-			},
+			expectedLogger: func() *logrus.Logger {
+				logger := logrus.New()
+				logger.Out = &out
+				logger.Formatter = UTCJsonFormatter()
+				logger.Level = logrus.InfoLevel
+				return logger
+			}(),
 		},
 		{
 			desc:   "text format with info level",
 			format: "text",
-			logger: &logrus.Logger{
-				Formatter: &utcFormatter{&logrus.TextFormatter{TimestampFormat: LogTimestampFormatUTC}},
-				Level:     logrus.InfoLevel,
-			},
+			expectedLogger: func() *logrus.Logger {
+				logger := logrus.New()
+				logger.Out = &out
+				logger.Formatter = UTCTextFormatter()
+				logger.Level = logrus.InfoLevel
+				return logger
+			}(),
 		},
 		{
 			desc: "empty format with info level",
-			logger: &logrus.Logger{
-				Formatter: &utcFormatter{&logrus.TextFormatter{TimestampFormat: LogTimestampFormatUTC}},
-				Level:     logrus.InfoLevel,
-			},
+			expectedLogger: func() *logrus.Logger {
+				logger := logrus.New()
+				logger.Out = &out
+				logger.Formatter = UTCTextFormatter()
+				logger.Level = logrus.InfoLevel
+				return logger
+			}(),
 		},
 		{
 			desc:   "text format with debug level",
 			format: "text",
 			level:  "debug",
-			logger: &logrus.Logger{
-				Formatter: &utcFormatter{&logrus.TextFormatter{TimestampFormat: LogTimestampFormatUTC}},
-				Level:     logrus.DebugLevel,
-			},
+			expectedLogger: func() *logrus.Logger {
+				logger := logrus.New()
+				logger.Out = &out
+				logger.Formatter = UTCTextFormatter()
+				logger.Level = logrus.DebugLevel
+				return logger
+			}(),
 		},
 		{
 			desc:   "text format with invalid level",
 			format: "text",
 			level:  "invalid-level",
-			logger: &logrus.Logger{
-				Formatter: &utcFormatter{&logrus.TextFormatter{TimestampFormat: LogTimestampFormatUTC}},
-				Level:     logrus.InfoLevel,
+			expectedLogger: func() *logrus.Logger {
+				logger := logrus.New()
+				logger.Out = &out
+				logger.Formatter = UTCTextFormatter()
+				logger.Level = logrus.InfoLevel
+				return logger
+			}(),
+		},
+		{
+			desc:   "with hook",
+			format: "text",
+			level:  "info",
+			hooks: []logrus.Hook{
+				testHook,
 			},
+			expectedLogger: func() *logrus.Logger {
+				logger := logrus.New()
+				logger.Out = &out
+				logger.Formatter = UTCTextFormatter()
+				logger.Level = logrus.InfoLevel
+				logger.Hooks.Add(testHook)
+				return logger
+			}(),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			loggers := []*logrus.Logger{{Formatter: &logrus.TextFormatter{}}, {Formatter: &logrus.TextFormatter{}}}
-			Configure(loggers, tc.format, tc.level)
-			require.Equal(t, []*logrus.Logger{tc.logger, tc.logger}, loggers)
+			out.Reset()
+
+			logger := logrus.New()
+			configure(logger, &out, tc.format, tc.level, tc.hooks...)
+
+			// We cannot directly compare the loggers with each other because they contain function
+			// pointers, so we have to check the relevant fields one by one.
+			require.Equal(t, tc.expectedLogger.Out, logger.Out)
+			require.Equal(t, tc.expectedLogger.Level, logger.Level)
+			require.Equal(t, tc.expectedLogger.Hooks, logger.Hooks)
+			require.Equal(t, tc.expectedLogger.Formatter, logger.Formatter)
 
 			now := time.Now()
 			nowUTCFormatted := now.UTC().Format(LogTimestampFormatUTC)
 
 			message := "this is a logging message."
-			var out bytes.Buffer
 
-			// both loggers are the same, so no need to test both the same way
-			logger := loggers[0]
-			logger.Out = &out
 			entry := logger.WithTime(now)
 
 			switch tc.level {
@@ -92,6 +134,60 @@ func TestConfigure(t *testing.T) {
 				assert.Contains(t, out.String(), nowUTCFormatted)
 			}
 			assert.Contains(t, out.String(), message)
+		})
+	}
+}
+
+func TestMapGRPCLogLevel(t *testing.T) {
+	for _, tc := range []struct {
+		desc             string
+		environmentLevel string
+		level            string
+		expectedLevel    string
+	}{
+		{
+			desc:          "error stays unmodified",
+			level:         "error",
+			expectedLevel: "error",
+		},
+		{
+			desc:          "warning stays unmodified",
+			level:         "warning",
+			expectedLevel: "warning",
+		},
+		{
+			desc:          "info gets mapped",
+			level:         "info",
+			expectedLevel: "warning",
+		},
+		{
+			desc:             "environment overrides value",
+			environmentLevel: "ERROR",
+			level:            "info",
+			expectedLevel:    "error",
+		},
+		{
+			desc:             "info in environment does not get mapped",
+			environmentLevel: "info",
+			level:            "info",
+			expectedLevel:    "info",
+		},
+		{
+			desc:             "unknown value in environment uses level",
+			environmentLevel: "unknown",
+			level:            "warning",
+			expectedLevel:    "warning",
+		},
+		{
+			desc:             "unknown value in environment uses mapping for info",
+			environmentLevel: "unknown",
+			level:            "info",
+			expectedLevel:    "warning",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", tc.environmentLevel)
+			require.Equal(t, tc.expectedLevel, mapGRPCLogLevel(tc.level))
 		})
 	}
 }

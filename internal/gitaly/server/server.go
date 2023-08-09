@@ -33,16 +33,6 @@ import (
 )
 
 func init() {
-	for _, l := range gitalylog.Loggers {
-		urlSanitizer := gitalylog.NewURLSanitizerHook()
-		urlSanitizer.AddPossibleGrpcMethod(
-			"CreateRepositoryFromURL",
-			"FetchRemote",
-			"UpdateRemoteMirror",
-		)
-		l.Hooks.Add(urlSanitizer)
-	}
-
 	// grpc-go gets a custom logger; it is too chatty
 	grpcmwlogrus.ReplaceGrpcLogger(gitalylog.GrpcGo())
 }

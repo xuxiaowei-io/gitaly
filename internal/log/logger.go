@@ -1,6 +1,7 @@
 package log
 
 import (
+	"io"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -38,20 +39,14 @@ func UTCTextFormatter() logrus.Formatter {
 
 var (
 	defaultLogger = logrus.StandardLogger()
-	grpcGo        = logrus.New()
-
-	// Loggers is convenient when you want to apply configuration to all
-	// loggers
-	Loggers = []*logrus.Logger{defaultLogger, grpcGo}
+	grpcLogger    = logrus.New()
 )
 
 func init() {
-	// This ensures that any log statements that occur before
-	// the configuration has been loaded will be written to
-	// stdout instead of stderr
-	for _, l := range Loggers {
-		l.Out = os.Stdout
-	}
+	// This ensures that any log statements that occur before the configuration has been loaded will be written
+	// to stdout instead of stderr.
+	defaultLogger.Out = os.Stdout
+	grpcLogger.Out = os.Stdout
 }
 
 // Config contains logging configuration values
@@ -61,9 +56,14 @@ type Config struct {
 	Level  string `toml:"level,omitempty" json:"level"`
 }
 
-// Configure sets the format and level on all loggers. It applies level
-// mapping to the GrpcGo logger.
-func Configure(loggers []*logrus.Logger, format string, level string) {
+// Configure configures the default and gRPC loggers. The gRPC logger's log level will be mapped in order to decrease
+// its default verbosity.
+func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) {
+	configure(defaultLogger, out, format, level, hooks...)
+	configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...)
+}
+
+func configure(logger *logrus.Logger, out io.Writer, format, level string, hooks ...logrus.Hook) {
 	var formatter logrus.Formatter
 	switch format {
 	case "json":
@@ -79,37 +79,29 @@ func Configure(loggers []*logrus.Logger, format string, level string) {
 		logrusLevel = logrus.InfoLevel
 	}
 
-	for _, l := range loggers {
-		if l == grpcGo {
-			l.SetLevel(mapGrpcLogLevel(logrusLevel))
-		} else {
-			l.SetLevel(logrusLevel)
-		}
-
-		if formatter != nil {
-			l.Formatter = formatter
-		}
+	logger.Out = out
+	logger.SetLevel(logrusLevel)
+	logger.Formatter = formatter
+	for _, hook := range hooks {
+		logger.Hooks.Add(hook)
 	}
 }
 
-func mapGrpcLogLevel(level logrus.Level) logrus.Level {
+func mapGRPCLogLevel(level string) string {
 	// Honor grpc-go's debug settings: https://github.com/grpc/grpc-go#how-to-turn-on-logging
-	logLevel := os.Getenv("GRPC_GO_LOG_SEVERITY_LEVEL")
-	if logLevel != "" {
-		switch logLevel {
-		case "ERROR", "error":
-			return logrus.ErrorLevel
-		case "WARNING", "warning":
-			return logrus.WarnLevel
-		case "INFO", "info":
-			return logrus.InfoLevel
-		}
+	switch os.Getenv("GRPC_GO_LOG_SEVERITY_LEVEL") {
+	case "ERROR", "error":
+		return "error"
+	case "WARNING", "warning":
+		return "warning"
+	case "INFO", "info":
+		return "info"
 	}
 
 	// grpc-go is too verbose at level 'info'. So when config.toml requests
 	// level info, we tell grpc-go to log at 'warn' instead.
-	if level == logrus.InfoLevel {
-		return logrus.WarnLevel
+	if level == "info" {
+		return "warning"
 	}
 
 	return level
@@ -120,4 +112,4 @@ func Default() *logrus.Entry { return defaultLogger.WithField("pid", os.Getpid()
 
 // GrpcGo is a dedicated logrus logger for the grpc-go library. We use it
 // to control the library's chattiness.
-func GrpcGo() *logrus.Entry { return grpcGo.WithField("pid", os.Getpid()) }
+func GrpcGo() *logrus.Entry { return grpcLogger.WithField("pid", os.Getpid()) }
