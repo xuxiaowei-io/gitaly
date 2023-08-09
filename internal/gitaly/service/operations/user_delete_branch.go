@@ -34,15 +34,20 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	}
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	var err error
+	repo := s.localrepo(req.GetRepository())
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object format: %w", err)
+	}
+
 	var referenceValue git.ObjectID
 
 	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
-		referenceValue, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		referenceValue, err = objectHash.FromHex(expectedOldOID)
 		if err != nil {
 			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
 		}
-		referenceValue, err = s.localrepo(req.GetRepository()).ResolveRevision(
+		referenceValue, err = repo.ResolveRevision(
 			ctx, git.Revision(fmt.Sprintf("%s^{object}", referenceValue)),
 		)
 		if err != nil {
@@ -50,13 +55,13 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 				WithMetadata("old_object_id", expectedOldOID)
 		}
 	} else {
-		referenceValue, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
+		referenceValue, err = repo.ResolveRevision(ctx, referenceName.Revision())
 		if err != nil {
 			return nil, structerr.NewFailedPrecondition("branch not found: %q", req.BranchName)
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, referenceValue); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, objectHash.ZeroOID, referenceValue); err != nil {
 		var notAllowedError hook.NotAllowedError
 		var customHookErr updateref.CustomHookError
 		var updateRefError updateref.Error

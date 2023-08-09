@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -270,7 +268,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 	for _, tc := range []struct {
 		desc             string
 		allowed          func(context.Context, gitlab.AllowedParams) (bool, string, error)
-		expectedErr      error
+		expectedErr      func(commitID git.ObjectID) error
 		expectedResponse *gitalypb.UserDeleteBranchResponse
 	}{
 		{
@@ -285,40 +283,44 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 				return false, "something something", nil
 			},
-			expectedErr: structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something something").WithDetail(
-				&gitalypb.UserDeleteBranchError{
-					Error: &gitalypb.UserDeleteBranchError_AccessCheck{
-						AccessCheck: &gitalypb.AccessCheckError{
-							Protocol:     "web",
-							UserId:       "user-123",
-							ErrorMessage: "something something",
-							Changes: []byte(fmt.Sprintf(
-								"%s %s refs/heads/branch\n", "549090fbeacc6607bc70648d3ba554c355e670c5", git.ObjectHashSHA1.ZeroOID,
-							)),
+			expectedErr: func(commitID git.ObjectID) error {
+				return structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something something").WithDetail(
+					&gitalypb.UserDeleteBranchError{
+						Error: &gitalypb.UserDeleteBranchError_AccessCheck{
+							AccessCheck: &gitalypb.AccessCheckError{
+								Protocol:     "web",
+								UserId:       "user-123",
+								ErrorMessage: "something something",
+								Changes: []byte(fmt.Sprintf(
+									"%s %s refs/heads/branch\n", commitID, gittest.DefaultObjectHash.ZeroOID,
+								)),
+							},
 						},
 					},
-				},
-			),
+				)
+			},
 		},
 		{
 			desc: "error",
 			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 				return false, "something something", errors.New("something else")
 			},
-			expectedErr: structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something else").WithDetail(
-				&gitalypb.UserDeleteBranchError{
-					Error: &gitalypb.UserDeleteBranchError_AccessCheck{
-						AccessCheck: &gitalypb.AccessCheckError{
-							Protocol:     "web",
-							UserId:       "user-123",
-							ErrorMessage: "something else",
-							Changes: []byte(fmt.Sprintf(
-								"%s %s refs/heads/branch\n", "549090fbeacc6607bc70648d3ba554c355e670c5", git.ObjectHashSHA1.ZeroOID,
-							)),
+			expectedErr: func(commitID git.ObjectID) error {
+				return structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something else").WithDetail(
+					&gitalypb.UserDeleteBranchError{
+						Error: &gitalypb.UserDeleteBranchError_AccessCheck{
+							AccessCheck: &gitalypb.AccessCheckError{
+								Protocol:     "web",
+								UserId:       "user-123",
+								ErrorMessage: "something else",
+								Changes: []byte(fmt.Sprintf(
+									"%s %s refs/heads/branch\n", commitID, gittest.DefaultObjectHash.ZeroOID,
+								)),
+							},
 						},
 					},
-				},
-			),
+				)
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -327,14 +329,19 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 			))
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+
+			var expectedErr error
+			if tc.expectedErr != nil {
+				expectedErr = tc.expectedErr(commitID)
+			}
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
 				BranchName: []byte("branch"),
 				User:       gittest.TestUser,
 			})
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
@@ -345,8 +352,9 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("concurrent-update"))
 
 	// Create a git-update-ref(1) process that's locking the "concurrent-update" branch. We do
@@ -374,7 +382,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 			Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
 				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
 					OldOid:        commitID.String(),
-					NewOid:        git.ObjectHashSHA1.ZeroOID.String(),
+					NewOid:        gittest.DefaultObjectHash.ZeroOID.String(),
 					ReferenceName: []byte("refs/heads/concurrent-update"),
 				},
 			},
@@ -387,8 +395,10 @@ func TestUserDeleteBranch_hooks(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 	branchNameInput := "to-be-deleted-soon-branch"
 
 	request := &gitalypb.UserDeleteBranchRequest{
@@ -420,17 +430,18 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	parent := gittest.WriteCommit(t, cfg, repoPath)
+	child := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parent))
 
 	// This creates a new branch "delete-me" which exists both in the packed-refs file and as a
 	// loose reference. Git will create two reference transactions for this: one transaction to
 	// delete the packed-refs reference, and one to delete the loose ref. But given that we want
 	// to be independent of how well-packed refs are, we expect to get a single transactional
 	// vote, only.
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", parent.String())
 	gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", child.String())
 
 	transactionServer := &testTransactionServer{}
 
@@ -478,7 +489,8 @@ func TestUserDeleteBranch_invalidArgument(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
 		desc     string
@@ -530,7 +542,10 @@ func TestUserDeleteBranch_hookFailure(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	branchNameInput := "to-be-deleted-soon-branch"
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
@@ -583,7 +598,10 @@ func TestBranchHookOutput(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	testCases := []struct {
 		desc                string
@@ -651,7 +669,7 @@ func TestBranchHookOutput(t *testing.T) {
 				createRequest := &gitalypb.UserCreateBranchRequest{
 					Repository: repo,
 					BranchName: []byte(branchNameInput),
-					StartPoint: []byte("master"),
+					StartPoint: []byte(git.DefaultBranch),
 					User:       gittest.TestUser,
 				}
 				deleteRequest := &gitalypb.UserDeleteBranchRequest{
