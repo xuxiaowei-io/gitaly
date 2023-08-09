@@ -1,7 +1,7 @@
 package server
 
 import (
-	netctx "context"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestSanity(t *testing.T) {
-	serverSocketPath := runServer(t, testcfg.Build(t))
+	serverSocketPath := runServer(testhelper.Context(t), t, testcfg.Build(t))
 
 	conn, err := dial(serverSocketPath, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
 	require.NoError(t, err)
@@ -55,7 +55,8 @@ func TestSanity(t *testing.T) {
 
 func TestTLSSanity(t *testing.T) {
 	cfg := testcfg.Build(t)
-	addr := runSecureServer(t, cfg)
+	ctx := testhelper.Context(t)
+	addr := runSecureServer(ctx, t, cfg)
 
 	certPool, err := x509.SystemCertPool()
 	require.NoError(t, err)
@@ -102,7 +103,7 @@ func TestAuthFailures(t *testing.T) {
 				Auth: auth.Config{Token: "quxbaz"},
 			}))
 
-			serverSocketPath := runServer(t, cfg)
+			serverSocketPath := runServer(testhelper.Context(t), t, cfg)
 			connOpts := append(tc.opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
@@ -145,7 +146,7 @@ func TestAuthSuccess(t *testing.T) {
 				Auth: auth.Config{Token: tc.token, Transitioning: !tc.required},
 			}))
 
-			serverSocketPath := runServer(t, cfg)
+			serverSocketPath := runServer(testhelper.Context(t), t, cfg)
 			connOpts := append(tc.opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
@@ -158,7 +159,7 @@ func TestAuthSuccess(t *testing.T) {
 type brokenAuth struct{}
 
 func (brokenAuth) RequireTransportSecurity() bool { return false }
-func (brokenAuth) GetRequestMetadata(netctx.Context, ...string) (map[string]string, error) {
+func (brokenAuth) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
 	return map[string]string{"authorization": "Bearer blablabla"}, nil
 }
 
@@ -186,7 +187,7 @@ func newOperationClient(t *testing.T, token, serverSocketPath string) (gitalypb.
 	return gitalypb.NewOperationServiceClient(conn), conn
 }
 
-func runServer(t *testing.T, cfg config.Cfg) string {
+func runServer(ctx context.Context, t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
 	registry := backchannel.NewRegistry()
@@ -201,7 +202,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)
-	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)
+	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters(ctx))
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
 
 	srv, err := NewGitalyServerFactory(cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache, []*limithandler.LimiterMiddleware{limitHandler}).New(false)
@@ -228,7 +229,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 }
 
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
-func runSecureServer(t *testing.T, cfg config.Cfg) string {
+func runSecureServer(ctx context.Context, t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
 	cfg.TLS = config.TLS{
@@ -244,7 +245,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 		testhelper.NewDiscardingLogEntry(t),
 		backchannel.NewRegistry(),
 		cache.New(cfg, config.NewLocator(cfg)),
-		[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)},
+		[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters(ctx))},
 	).New(true)
 	require.NoError(t, err)
 
@@ -259,11 +260,12 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 
 func TestUnaryNoAuth(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "testtoken"}}))
-	path := runServer(t, cfg)
+	ctx := testhelper.Context(t)
+
+	path := runServer(ctx, t, cfg)
 	conn, err := grpc.Dial(path, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, conn)
-	ctx := testhelper.Context(t)
 
 	client := gitalypb.NewRepositoryServiceClient(conn)
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
@@ -279,12 +281,12 @@ func TestUnaryNoAuth(t *testing.T) {
 
 func TestStreamingNoAuth(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "testtoken"}}))
+	ctx := testhelper.Context(t)
 
-	path := runServer(t, cfg)
+	path := runServer(ctx, t, cfg)
 	conn, err := dial(path, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
-	ctx := testhelper.Context(t)
 
 	client := gitalypb.NewRepositoryServiceClient(conn)
 	stream, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{
@@ -329,7 +331,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 	t.Cleanup(cleanup)
 	cfg.Gitlab.URL = gitlabURL
 
-	serverSocketPath := runServer(t, cfg)
+	serverSocketPath := runServer(ctx, t, cfg)
 	client, conn := newOperationClient(t, cfg.Auth.Token, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 
