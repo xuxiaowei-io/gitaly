@@ -2893,7 +2893,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "begin fails after repository deletion",
+			desc: "repository is successfully deleted",
 			steps: steps{
 				StartManager{},
 				Begin{
@@ -2904,7 +2904,19 @@ func TestTransactionManager(t *testing.T) {
 					DeleteRepository: true,
 				},
 				Begin{
-					ExpectedError: ErrRepositoryNotFound,
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				RepositoryAssertion{
+					TransactionID: 2,
+					Repository: RepositoryState{
+						NotFound: true,
+					},
+				},
+				Rollback{
+					TransactionID: 2,
 				},
 			},
 			expectedState: StateAssertion{
@@ -3057,7 +3069,18 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 2,
-					ExpectedError: ErrRepositoryNotFound,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				RepositoryAssertion{
+					TransactionID: 2,
+					Repository: RepositoryState{
+						NotFound: true,
+					},
+				},
+				Rollback{
+					TransactionID: 2,
 				},
 			},
 			expectedState: StateAssertion{
@@ -3094,7 +3117,18 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 2,
-					ExpectedError: ErrRepositoryNotFound,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				RepositoryAssertion{
+					TransactionID: 2,
+					Repository: RepositoryState{
+						NotFound: true,
+					},
+				},
+				Rollback{
+					TransactionID: 2,
 				},
 			},
 			expectedState: StateAssertion{
@@ -3112,7 +3146,16 @@ func TestTransactionManager(t *testing.T) {
 				RemoveRepository{},
 				StartManager{},
 				Begin{
-					ExpectedError: ErrRepositoryNotFound,
+					TransactionID: 1,
+				},
+				RepositoryAssertion{
+					TransactionID: 1,
+					Repository: RepositoryState{
+						NotFound: true,
+					},
+				},
+				Rollback{
+					TransactionID: 1,
 				},
 			},
 			expectedState: StateAssertion{
