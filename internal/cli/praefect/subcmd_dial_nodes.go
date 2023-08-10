@@ -17,13 +17,13 @@ func newDialNodesCommand() *cli.Command {
 Diagnoses connection problems with Gitaly or Praefect. Sources connection information from the
 configuration file, and then dials and health checks the nodes.
 
-Example: _build/bin/praefect --config praefect.config.toml dial-nodes`,
+Example: praefect --config praefect.config.toml dial-nodes`,
 		HideHelpCommand: true,
 		Action:          dialNodesAction,
 		Flags: []cli.Flag{
 			&cli.DurationFlag{
 				Name:  "timeout",
-				Usage: "timeout for dialing gitaly nodes",
+				Usage: "timeout for dialing Gitaly nodes",
 				Value: 0,
 			},
 		},
