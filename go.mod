@@ -9,7 +9,7 @@ require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230717121422-5aa5874ade95
 	github.com/beevik/ntp v1.3.0
 	github.com/cloudflare/tableflip v1.2.3
-	github.com/containerd/cgroups/v3 v3.0.1
+	github.com/containerd/cgroups/v3 v3.0.2
 	github.com/dgraph-io/badger/v4 v4.1.0
 	github.com/getsentry/sentry-go v0.23.0
 	github.com/git-lfs/git-lfs/v3 v3.3.0
