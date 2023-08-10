@@ -20,7 +20,7 @@ func TestStatushandler(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cancelledCtx, cancel := context.WithCancel(ctx)
 	cancel()
-	timeoutCtx, timeout := context.WithTimeout(ctx, 0) //nolint:forbidigo
+	timeoutCtx, timeout := context.WithTimeout(ctx, 0)
 	timeout()
 
 	for desc, tc := range map[string]struct {
