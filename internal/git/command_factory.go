@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2hooks"
@@ -22,6 +23,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	"gitlab.com/gitlab-org/labkit/correlation"
+)
+
+const (
+	// BigFileThresholdMB is the threshold we configure via `core.bigFileThreshold` and determines the maximum size
+	// after which Git considers files to be big. Please refer to `GlobalConfiguration()` for more details.
+	BigFileThresholdMB = 50
 )
 
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
@@ -614,6 +621,28 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// still observed lock contention around them though, but mostly in cases where the host system was
 		// heavily loaded by a storm of incoming RPCs.
 		{Key: "core.filesRefLockTimeout", Value: "1000"},
+	}
+
+	if featureflag.LowerBigFileThreshold.IsEnabled(ctx) {
+		// Change the size of files we consider to be big from 512MB to 50MB. This setting influences a bunch of
+		// things for blobs that are larger than this size:
+		//
+		// - They will not be slurped into memory anymore, but will instead use streaming interfaces. This
+		//   should reduce memory consumption as we don't have to allocate up to 512MB buffers anymore.
+		//
+		// - They will not be diffed anymore. This should significantly reduce the time it
+		//   takes to computes diffs when such diffs contain huge blobs. This is of course at the cost of not
+		//   being able to show any such diffs anymore, but overall it seems unreasonable to compute diffs for
+		//   any such huge files anyway.
+		//
+		// - They will not be deltified anymore. This should ultimately be a no-op for us as we have already
+		//   been setting `pack.windowSize=100m` already, which restricts the maximum window size. The value of
+		//   50MB has thus been chosen such that it matches 2 times the window size.
+		//
+		// So ultimately, this should not lead to larger packfiles as we have already been restricting the
+		// packfile window anyway while it should on the other hand lead to lower memory consumption and faster
+		// computation of diffs when large blobs are involved.
+		config = append(config, ConfigPair{Key: "core.bigFileThreshold", Value: fmt.Sprintf("%dm", BigFileThresholdMB)})
 	}
 
 	return config, nil
