@@ -89,6 +89,7 @@ func TestRepositoryExistsHandler(t *testing.T) {
 				config.Config{Failover: config.Failover{ElectionStrategy: electionStrategy}},
 				testhelper.NewDiscardingLogEntry(t),
 				protoregistry.GitalyProtoPreregistered,
+				nil,
 				func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 					return nil, errServedByGitaly
 				},

@@ -119,6 +119,7 @@ func NewGRPCServer(
 	conf config.Config,
 	logger *logrus.Entry,
 	registry *protoregistry.Registry,
+	coordinator *Coordinator,
 	director proxy.StreamDirector,
 	txMgr *transactions.Manager,
 	rs datastore.RepositoryStore,
@@ -205,10 +206,11 @@ func NewGRPCServer(
 
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
-			"RemoveAll":        RemoveAllHandler(rs, conns),
-			"RemoveRepository": RemoveRepositoryHandler(rs, conns),
-			"RenameRepository": RenameRepositoryHandler(conf.VirtualStorageNames(), rs),
-			"RepositoryExists": RepositoryExistsHandler(rs),
+			"RemoveAll":           RemoveAllHandler(rs, conns),
+			"RemoveRepository":    RemoveRepositoryHandler(rs, conns),
+			"RenameRepository":    RenameRepositoryHandler(conf.VirtualStorageNames(), rs),
+			"ReplicateRepository": ReplicateRepositoryHandler(coordinator),
+			"RepositoryExists":    RepositoryExistsHandler(rs),
 		})
 		proxy.RegisterStreamHandlers(srv, "gitaly.ObjectPoolService", map[string]grpc.StreamHandler{
 			"DeleteObjectPool": DeleteObjectPoolHandler(rs, conns),

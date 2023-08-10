@@ -22,6 +22,7 @@ import (
 func NewServerFactory(
 	conf config.Config,
 	logger *logrus.Entry,
+	coordinator *Coordinator,
 	director proxy.StreamDirector,
 	nodeMgr nodes.Manager,
 	txMgr *transactions.Manager,
@@ -38,6 +39,7 @@ func NewServerFactory(
 	return &ServerFactory{
 		conf:            conf,
 		logger:          logger,
+		coordinator:     coordinator,
 		director:        director,
 		nodeMgr:         nodeMgr,
 		txMgr:           txMgr,
@@ -58,6 +60,7 @@ type ServerFactory struct {
 	mtx              sync.Mutex
 	conf             config.Config
 	logger           *logrus.Entry
+	coordinator      *Coordinator
 	director         proxy.StreamDirector
 	nodeMgr          nodes.Manager
 	txMgr            *transactions.Manager
@@ -142,6 +145,7 @@ func (s *ServerFactory) createGRPC(creds credentials.TransportCredentials) *grpc
 		s.conf,
 		s.logger,
 		s.registry,
+		s.coordinator,
 		s.director,
 		s.txMgr,
 		s.rs,
