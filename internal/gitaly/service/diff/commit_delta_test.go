@@ -16,7 +16,7 @@ func TestCommitDelta_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -124,7 +124,7 @@ func TestCommitDelta_withPaths(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -193,7 +193,7 @@ func TestCommitDelta_validation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commit := gittest.WriteCommit(t, cfg, repoPath)
@@ -253,7 +253,7 @@ func TestCommitDelta_nonexistentCommit(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 	nonExistentCommitID := gittest.DefaultObjectHash.HashData([]byte("some data"))

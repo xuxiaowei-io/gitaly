@@ -16,7 +16,7 @@ func TestDiffStats_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	left := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
@@ -86,7 +86,7 @@ func TestDiffStats_failures(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commit := gittest.WriteCommit(t, cfg, repoPath)

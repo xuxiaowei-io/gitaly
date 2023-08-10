@@ -24,7 +24,7 @@ func TestCommitDiff(t *testing.T) {
 func testCommitDiff(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	type setupData struct {
 		expectedErr  error
@@ -588,7 +588,7 @@ func TestCommitDiff_withPaths(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -662,7 +662,7 @@ func TestCommitDiff_typeChange(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -713,7 +713,7 @@ func TestCommitDiff_ignoreWhitespaceChange(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -789,7 +789,7 @@ func TestCommitDiff_wordDiff(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -847,7 +847,7 @@ func TestCommitDiff_limits(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -1085,7 +1085,7 @@ func TestCommitDiff_validation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commit := gittest.WriteCommit(t, cfg, repoPath)
@@ -1145,7 +1145,7 @@ func TestCommitDiff_nonexistentCommit(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 	nonExistentCommitID := gittest.DefaultObjectHash.HashData([]byte("nonexistent commit"))

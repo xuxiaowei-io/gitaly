@@ -19,7 +19,7 @@ func TestRawDiff_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -59,7 +59,7 @@ func TestRawDiff_inputValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commit := gittest.WriteCommit(t, cfg, repoPath)
@@ -109,7 +109,7 @@ func TestRawPatch_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	oldBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("old\n"))
@@ -164,7 +164,7 @@ func TestRawPatch_inputValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commit := gittest.WriteCommit(t, cfg, repoPath)
