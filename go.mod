@@ -12,7 +12,7 @@ require (
 	github.com/containerd/cgroups/v3 v3.0.1
 	github.com/dgraph-io/badger/v4 v4.1.0
 	github.com/getsentry/sentry-go v0.23.0
-	github.com/git-lfs/git-lfs/v3 v3.3.0
+	github.com/git-lfs/git-lfs/v3 v3.4.0
 	github.com/go-enry/go-enry/v2 v2.8.4
 	github.com/go-enry/go-license-detector/v4 v4.3.0
 	github.com/golang-jwt/jwt/v5 v5.0.0
