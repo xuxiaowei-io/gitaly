@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/statushandler"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/fieldextractors"
@@ -116,19 +115,8 @@ func WithStreamInterceptor(interceptor grpc.StreamServerInterceptor) ServerOptio
 // NewGRPCServer returns gRPC server wuth registered proxy-handler and actual services praefect serves on its own.
 // It includes a set of unary and stream interceptors required to add logging, authentication, etc.
 func NewGRPCServer(
-	conf config.Config,
-	logger *logrus.Entry,
-	registry *protoregistry.Registry,
-	coordinator *Coordinator,
-	director proxy.StreamDirector,
-	txMgr *transactions.Manager,
-	rs datastore.RepositoryStore,
-	assignmentStore AssignmentStore,
-	router Router,
-	conns Connections,
-	primaryGetter PrimaryGetter,
+	deps *Dependencies,
 	creds credentials.TransportCredentials,
-	checks []service.CheckFunc,
 	opts ...ServerOption,
 ) *grpc.Server {
 	var serverCfg serverConfig
@@ -142,19 +130,19 @@ func NewGRPCServer(
 	)
 
 	unaryInterceptors := append(
-		commonUnaryServerInterceptors(logger, logMsgProducer),
-		middleware.MethodTypeUnaryInterceptor(registry),
-		auth.UnaryServerInterceptor(conf.Auth),
+		commonUnaryServerInterceptors(deps.Logger, logMsgProducer),
+		middleware.MethodTypeUnaryInterceptor(deps.Registry),
+		auth.UnaryServerInterceptor(deps.Config.Auth),
 	)
 	unaryInterceptors = append(unaryInterceptors, serverCfg.unaryInterceptors...)
 
 	streamInterceptors := []grpc.StreamServerInterceptor{
 		grpcmwtags.StreamServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
-		middleware.MethodTypeStreamInterceptor(registry),
+		middleware.MethodTypeStreamInterceptor(deps.Registry),
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
-		grpcmwlogrus.StreamServerInterceptor(logger,
+		grpcmwlogrus.StreamServerInterceptor(deps.Logger,
 			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 			grpcmwlogrus.WithMessageProducer(logMsgProducer),
 			log.DeciderOption(),
@@ -162,14 +150,14 @@ func NewGRPCServer(
 		sentryhandler.StreamLogHandler,
 		statushandler.Stream, // Should be below LogHandler
 		grpctracing.StreamServerTracingInterceptor(),
-		auth.StreamServerInterceptor(conf.Auth),
+		auth.StreamServerInterceptor(deps.Config.Auth),
 		// Panic handler should remain last so that application panics will be
 		// converted to errors and logged
 		panichandler.StreamPanicHandler,
 	}
 	streamInterceptors = append(streamInterceptors, serverCfg.streamInterceptors...)
 
-	grpcOpts := proxyRequiredOpts(director)
+	grpcOpts := proxyRequiredOpts(deps.Director)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StatsHandler(log.PerRPCLogHandler{
 			Underlying:     &grpcstats.PayloadBytes{},
@@ -196,25 +184,25 @@ func NewGRPCServer(
 		creds = insecure.NewCredentials()
 	}
 	lm := listenmux.New(creds)
-	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
+	lm.Register(backchannel.NewServerHandshaker(deps.Logger, backchannel.NewRegistry(), nil))
 	grpcOpts = append(grpcOpts, grpc.Creds(lm))
 
-	warnDupeAddrs(logger, conf)
+	warnDupeAddrs(deps.Logger, deps.Config)
 
 	srv := grpc.NewServer(grpcOpts...)
-	registerServices(srv, txMgr, conf, rs, assignmentStore, service.Connections(conns), primaryGetter, checks)
+	registerServices(srv, deps.TxMgr, deps.Config, deps.RepositoryStore, deps.AssignmentStore, service.Connections(deps.Conns), deps.PrimaryGetter, deps.Checks)
 
-	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
+	if deps.Config.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
-			"RemoveAll":           RemoveAllHandler(rs, conns),
-			"RemoveRepository":    RemoveRepositoryHandler(rs, conns),
-			"RenameRepository":    RenameRepositoryHandler(conf.VirtualStorageNames(), rs),
-			"ReplicateRepository": ReplicateRepositoryHandler(coordinator),
-			"RepositoryExists":    RepositoryExistsHandler(rs),
+			"RemoveAll":           RemoveAllHandler(deps.RepositoryStore, deps.Conns),
+			"RemoveRepository":    RemoveRepositoryHandler(deps.RepositoryStore, deps.Conns),
+			"RenameRepository":    RenameRepositoryHandler(deps.Config.VirtualStorageNames(), deps.RepositoryStore),
+			"ReplicateRepository": ReplicateRepositoryHandler(deps.Coordinator),
+			"RepositoryExists":    RepositoryExistsHandler(deps.RepositoryStore),
 		})
 		proxy.RegisterStreamHandlers(srv, "gitaly.ObjectPoolService", map[string]grpc.StreamHandler{
-			"DeleteObjectPool": DeleteObjectPoolHandler(rs, conns),
-			"GetObjectPool":    GetObjectPoolHandler(rs, router),
+			"DeleteObjectPool": DeleteObjectPoolHandler(deps.RepositoryStore, deps.Conns),
+			"GetObjectPool":    GetObjectPoolHandler(deps.RepositoryStore, deps.Router),
 		})
 	}
 

@@ -67,23 +67,16 @@ func TestRemoveAllHandler(t *testing.T) {
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
-	srv := NewGRPCServer(
-		config.Config{Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository}},
-		testhelper.NewDiscardingLogEntry(t),
-		protoregistry.GitalyProtoPreregistered,
-		nil,
-		func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
+	srv := NewGRPCServer(&Dependencies{
+		Config: config.Config{Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository}},
+		Logger: testhelper.NewDiscardingLogEntry(t),
+		Director: func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 			return nil, errServedByGitaly
 		},
-		nil,
-		rs,
-		nil,
-		nil,
-		nodeSet.Connections(),
-		nil,
-		nil,
-		nil,
-	)
+		RepositoryStore: rs,
+		Registry:        protoregistry.GitalyProtoPreregistered,
+		Conns:           nodeSet.Connections(),
+	}, nil)
 	defer srv.Stop()
 
 	go testhelper.MustServe(t, srv, ln)
