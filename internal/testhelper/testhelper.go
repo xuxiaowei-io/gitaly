@@ -202,9 +202,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// deep in the call stack, so almost every test function would have to inject it into its
 	// context. The values of these flags should be randomized to increase the test coverage.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
-	// CatfileBatchCommand affects many tests since most of them rely on catfile for content/info
-	// information about objects.
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileBatchCommand, rand.Int()%2 == 0)
 	// Randomly enable mailmap
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.MailmapOptions, rand.Int()%2 == 0)
 	// LowerBigFileThreshold is checked on every spawn of Git commands and is thus infeasible to be checked for
