@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -18,7 +17,7 @@ func TestLoggingPipeline(t *testing.T) {
 	t.Parallel()
 
 	testPipeline(t, func() Pipeline {
-		return NewLoggingPipeline(logrus.StandardLogger())
+		return NewLoggingPipeline(testhelper.NewDiscardingLogger(t))
 	})
 }
 
@@ -26,7 +25,7 @@ func TestParallelPipeline(t *testing.T) {
 	t.Parallel()
 
 	testPipeline(t, func() Pipeline {
-		return NewParallelPipeline(NewLoggingPipeline(logrus.StandardLogger()), 2, 0)
+		return NewParallelPipeline(NewLoggingPipeline(testhelper.NewDiscardingLogger(t)), 2, 0)
 	})
 
 	t.Run("parallelism", func(t *testing.T) {
@@ -65,7 +64,7 @@ func TestParallelPipeline(t *testing.T) {
 					},
 				}
 				var p Pipeline
-				p = NewLoggingPipeline(logrus.StandardLogger())
+				p = NewLoggingPipeline(testhelper.NewDiscardingLogger(t))
 				p = NewParallelPipeline(p, tc.parallel, tc.parallelStorage)
 				ctx := testhelper.Context(t)
 
@@ -81,7 +80,7 @@ func TestParallelPipeline(t *testing.T) {
 	t.Run("context done", func(t *testing.T) {
 		var strategy MockStrategy
 		var p Pipeline
-		p = NewLoggingPipeline(logrus.StandardLogger())
+		p = NewLoggingPipeline(testhelper.NewDiscardingLogger(t))
 		p = NewParallelPipeline(p, 0, 0) // make sure worker channels always block
 
 		ctx, cancel := context.WithCancel(testhelper.Context(t))
