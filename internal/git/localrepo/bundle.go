@@ -1,6 +1,7 @@
 package localrepo
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,7 +11,9 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
 )
 
@@ -64,6 +67,63 @@ func (repo *Repo) CreateBundle(ctx context.Context, out io.Writer, opts *CreateB
 		return fmt.Errorf("create bundle: %w", ErrEmptyBundle)
 	} else if err != nil {
 		return fmt.Errorf("create bundle: %w: stderr: %q", err, stderr.String())
+	}
+
+	return nil
+}
+
+// CloneBundle clones a repository from a Git bundle with the mirror refspec.
+func (repo *Repo) CloneBundle(ctx context.Context, reader io.Reader) error {
+	// When cloning from a file, `git-clone(1)` requires the path to the file. Create a temporary
+	// file with the Git bundle contents that is used for cloning.
+	bundlePath, err := repo.createTempBundle(ctx, reader)
+	if err != nil {
+		return err
+	}
+
+	repoPath, err := repo.locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
+	if err != nil {
+		return fmt.Errorf("getting repo path: %w", err)
+	}
+
+	var cloneErr bytes.Buffer
+	cloneCmd, err := repo.gitCmdFactory.NewWithoutRepo(ctx,
+		git.Command{
+			Name: "clone",
+			Flags: []git.Option{
+				git.Flag{Name: "--quiet"},
+				git.Flag{Name: "--mirror"},
+			},
+			Args: []string{bundlePath, repoPath},
+		},
+		git.WithStderr(&cloneErr),
+		git.WithDisabledHooks(),
+	)
+	if err != nil {
+		return fmt.Errorf("spawning git-clone: %w", err)
+	}
+
+	if err := cloneCmd.Wait(); err != nil {
+		return structerr.New("waiting for git-clone: %w", err).WithMetadata("stderr", cloneErr.String())
+	}
+
+	// When cloning a repository, the remote repository is automatically set up as "origin". As this
+	// is unnecessary, remove the configured "origin" remote.
+	var remoteErr bytes.Buffer
+	remoteCmd, err := repo.gitCmdFactory.New(ctx, repo,
+		git.Command{
+			Name: "remote",
+			Args: []string{"remove", "origin"},
+		},
+		git.WithStderr(&remoteErr),
+		git.WithRefTxHook(repo),
+	)
+	if err != nil {
+		return fmt.Errorf("spawning git-remote: %w", err)
+	}
+
+	if err := remoteCmd.Wait(); err != nil {
+		return structerr.New("waiting for git-remote: %w", err).WithMetadata("stderr", remoteErr.String())
 	}
 
 	return nil

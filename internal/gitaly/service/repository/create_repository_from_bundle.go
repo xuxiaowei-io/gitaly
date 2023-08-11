@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -36,15 +35,12 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 	})
 
 	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, repo, func(repo *gitalypb.Repository) error {
-		opts := &localrepo.FetchBundleOpts{
-			UpdateHead: true,
-		}
-		if err := s.localrepo(repo).FetchBundle(ctx, s.txManager, bundleReader, opts); err != nil {
-			return structerr.NewInternal("%w", err)
+		if err := s.localrepo(repo).CloneBundle(ctx, bundleReader); err != nil {
+			return structerr.NewInternal("cloning bundle: %w", err)
 		}
 
 		return nil
-	}); err != nil {
+	}, repoutil.WithSkipInit()); err != nil {
 		return structerr.NewInternal("creating repository: %w", err)
 	}
 

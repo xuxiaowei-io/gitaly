@@ -1,14 +1,10 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,7 +51,7 @@ func TestCreateRepositoryFromBundle(t *testing.T) {
 				oldRef := "refs/heads/old"
 				newRef := "refs/heads/new"
 				commitID1 := gittest.WriteCommit(t, cfg, bundleRepoPath, gittest.WithReference(oldRef))
-				commitID2 := gittest.WriteCommit(t, cfg, bundleRepoPath, gittest.WithReference(newRef))
+				commitID2 := gittest.WriteCommit(t, cfg, bundleRepoPath, gittest.WithReference(newRef), gittest.WithParents(commitID1))
 
 				// Change HEAD to validate the created repository will use the same reference.
 				gittest.Exec(t, cfg, "-C", bundleRepoPath, "symbolic-ref", "HEAD", newRef)
@@ -87,7 +83,7 @@ func TestCreateRepositoryFromBundle(t *testing.T) {
 						RelativePath: gittest.NewRepositoryName(t),
 					},
 					bundleData:  []byte("not-a-bundle"),
-					expectedErr: structerr.NewInternal("fatal: invalid gitfile format:"),
+					expectedErr: structerr.NewInternal("creating repository: cloning bundle: waiting for git-clone: exit status 128"),
 				}
 			},
 		},
@@ -186,7 +182,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 	txManager.Reset()
 
 	masterOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-	featureOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
 
 	// keep-around refs are not cloned in the initial step, but are added via the second call to
 	// git-fetch(1). We thus create some of them to exercise their behaviour with regards to
@@ -234,24 +230,14 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 	createdRepoPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(t, ctx, cfg, createdRepo))
 	require.NoError(t, err)
 
-	refsVote := voting.VoteFromData([]byte(strings.Join([]string{
-		fmt.Sprintf("%s %s refs/keep-around/2", gittest.DefaultObjectHash.ZeroOID, masterOID),
-		fmt.Sprintf("%s %s refs/keep-around/1", gittest.DefaultObjectHash.ZeroOID, masterOID),
-		fmt.Sprintf("%s %s refs/heads/feature", gittest.DefaultObjectHash.ZeroOID, featureOID),
-		fmt.Sprintf("%s %s refs/heads/master", gittest.DefaultObjectHash.ZeroOID, masterOID),
-	}, "\n") + "\n"))
-
-	// Compute the second vote hash to assert that we really hash exactly the files that we
+	// Compute the vote hash to assert that we really hash exactly the files that we
 	// expect to hash. Furthermore, this is required for cross-platform compatibility given that
 	// the configuration may be different depending on the platform.
 	hash := voting.NewVoteHash()
 	for _, filePath := range []string{
 		"HEAD",
 		"config",
-		"refs/heads/feature",
-		"refs/heads/master",
-		"refs/keep-around/1",
-		"refs/keep-around/2",
+		"packed-refs",
 	} {
 		file, err := os.Open(filepath.Join(createdRepoPath, filePath))
 		require.NoError(t, err)
@@ -266,10 +252,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, []transaction.PhasedVote{
-		// These are the votes created by git-fetch(1).
-		createVote(refsVote.String(), voting.Prepared),
-		createVote(refsVote.String(), voting.Committed),
-		// And this is the manual votes we compute by walking the repository.
+		// Manual votes we compute by walking the repository.
 		createVote(filesVote.String(), voting.Prepared),
 		createVote(filesVote.String(), voting.Committed),
 	}, txManager.Votes())
