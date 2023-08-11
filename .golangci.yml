@@ -13,6 +13,7 @@ linters:
     - errcheck
     - errname
     - exportloopref
+    - forbidigo
     - gci
     - gitaly-linters
     # We use both gofmt and gofumpt because gofumpt doesn't seem to be linting
@@ -67,6 +68,13 @@ linters-settings:
       - (io.Closer).Close
       - (net.Conn).Close
       - (net.Listener).Close
+  forbidigo:
+    forbid:
+      - p: ^logrus\.(Debug,Error,Fatal,Info,Panic,Print,Trace,Warn,Warning)(f|ln)?$
+        msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
+      - p: ^logrus\.StandardLogger$
+        msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
+    analyze-types: true
   paralleltest:
     # Ignore missing calls to `t.Parallel()` and only report incorrect uses of it.
     ignore-missing: true

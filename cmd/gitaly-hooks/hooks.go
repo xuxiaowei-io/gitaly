@@ -215,6 +215,9 @@ func initializeTracing() {
 	// All stdout and stderr are captured by Gitaly process. They may be sent back to users.
 	// We don't want to bother them with these redundant logs. As a result, all logs should be
 	// suppressed while labkit is in initialization phase.
+	//
+	//nolint:forbidigo // LabKit does not allow us to supply our own logger, so we must modify the standard logger
+	// instead.
 	output := logrus.StandardLogger().Out
 	logrus.SetOutput(io.Discard)
 	defer logrus.SetOutput(output)

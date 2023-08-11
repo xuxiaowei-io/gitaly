@@ -42,6 +42,8 @@ func UTCTextFormatter() logrus.Formatter {
 // `logrus.Info()`. By default it is configured to log to standard output, but in practice it should be configured via
 // a call to `Configure()` after the configuration has been loaded.
 var defaultLogger = func() *logrus.Logger {
+	//nolint:forbidigo // We reuse the standard logger such that dependencies which might use logrus are properly
+	// configured, as well.
 	logger := logrus.StandardLogger()
 	logger.Out = os.Stdout
 	return logger
