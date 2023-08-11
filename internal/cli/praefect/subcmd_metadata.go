@@ -12,12 +12,25 @@ import (
 func newMetadataCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "metadata",
-		Usage: "show metadata information about repository",
-		Description: "The command provides metadata information about the repository. It includes " +
-			"identifier of the repository, path on the disk for it and it's replicas, information " +
-			"about replicas such as if it is assigned or not, its generation, health state, the storage, " +
-			"if it is a valid primary, etc. It can be invoked by providing repository identifier or " +
-			"virtual repository name and relative path.",
+		Usage: "show metadata about a repository",
+		Description: `Show detailed information about a repository. To specify a repository, provide either:
+
+- A repository ID.
+- A virtual storage and the repository's relative path on the virtual storage.
+
+The output includes the following information about the specified repository:
+
+- Repository ID.
+- Virtual storage.
+- Relative path on the virtual storage.
+- Physical path on the physical storage.
+- Which physical storage holds the primary replica of the repository.
+- Detailed information about replicas of the repository.
+
+Examples:
+
+- praefect --config praefect.config.toml metadata --repository-id 1
+- praefect --config praefect.config.toml metadata --virtual-storage default --relative-path <relative_path_on_the_physical_storage>`,
 		HideHelpCommand: true,
 		Action:          metadataAction,
 		Flags: []cli.Flag{
@@ -75,7 +88,7 @@ func metadataAction(appCtx *cli.Context) error {
 			},
 		}
 	default:
-		return errors.New("repository id or virtual storage and relative path required")
+		return errors.New("repository ID or virtual storage and relative path required")
 	}
 
 	nodeAddr, err := getNodeAddress(conf)
