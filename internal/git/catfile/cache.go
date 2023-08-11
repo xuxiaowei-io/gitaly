@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -186,7 +185,7 @@ func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExec
 		return nil, nil, fmt.Errorf("git version: %w", err)
 	}
 
-	if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
+	if version.CatfileSupportsNulTerminatedOutput() {
 		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
 			return newObjectReader(ctx, repo, c.catfileLookupCounter)
 		}, "catfile.ObjectReader")
@@ -218,7 +217,7 @@ func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.Repository
 		return nil, nil, fmt.Errorf("git version: %w", err)
 	}
 
-	if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
+	if version.CatfileSupportsNulTerminatedOutput() {
 		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
 			return newObjectReader(ctx, repo, c.catfileLookupCounter)
 		}, "catfile.ObjectReader")

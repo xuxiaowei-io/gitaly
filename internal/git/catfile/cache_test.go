@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -206,10 +205,7 @@ func TestCache_autoExpiry(t *testing.T) {
 func TestCache_ObjectReader(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand).Run(t, testCacheObjectReader)
-}
-
-func testCacheObjectReader(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -254,7 +250,7 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 		cancel()
 
 		var allKeys []key
-		if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
+		if version.CatfileSupportsNulTerminatedOutput() {
 			allKeys = keys(t, &cache.objectReaders)
 		} else {
 			allKeys = keys(t, &cache.objectContentReaders)
@@ -320,10 +316,7 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 func TestCache_ObjectInfoReader(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand).Run(t, testCacheObjectInfoReader)
-}
-
-func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -367,7 +360,7 @@ func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
 		cancel()
 
 		var allKeys []key
-		if featureflag.CatfileBatchCommand.IsEnabled(ctx) && version.CatfileSupportsNulTerminatedOutput() {
+		if version.CatfileSupportsNulTerminatedOutput() {
 			allKeys = keys(t, &cache.objectReaders)
 		} else {
 			allKeys = keys(t, &cache.objectInfoReaders)
