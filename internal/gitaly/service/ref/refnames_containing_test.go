@@ -1,9 +1,7 @@
 package ref
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -107,23 +105,12 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 			stream, err := client.ListTagNamesContainingCommit(ctx, tc.request)
 			require.NoError(t, err)
 
-			var tagNames []string
-			for {
-				var response *gitalypb.ListTagNamesContainingCommitResponse
-				response, err = stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-
-					break
-				}
-
+			tagNames, err := testhelper.ReceiveAndFold(stream.Recv, func(result []string, response *gitalypb.ListTagNamesContainingCommitResponse) []string {
 				for _, tagName := range response.GetTagNames() {
-					tagNames = append(tagNames, string(tagName))
+					result = append(result, string(tagName))
 				}
-			}
-
+				return result
+			})
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			require.ElementsMatch(t, tc.expectedTags, tagNames)
 		})
@@ -225,23 +212,12 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 			stream, err := client.ListBranchNamesContainingCommit(ctx, tc.request)
 			require.NoError(t, err)
 
-			var branchNames []string
-			for {
-				var response *gitalypb.ListBranchNamesContainingCommitResponse
-				response, err = stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-
-					break
-				}
-
+			branchNames, err := testhelper.ReceiveAndFold(stream.Recv, func(result []string, response *gitalypb.ListBranchNamesContainingCommitResponse) []string {
 				for _, branchName := range response.GetBranchNames() {
-					branchNames = append(branchNames, string(branchName))
+					result = append(result, string(branchName))
 				}
-			}
-
+				return result
+			})
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			require.ElementsMatch(t, tc.expectedBranches, branchNames)
 		})

@@ -1,8 +1,6 @@
 package commit
 
 import (
-	"errors"
-	"io"
 	"testing"
 	"time"
 
@@ -263,20 +261,10 @@ func TestListCommits(t *testing.T) {
 			stream, err := client.ListCommits(ctx, tc.request)
 			require.NoError(t, err)
 
-			var commits []*gitalypb.GitCommit
-			for {
-				response, err := stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						break
-					}
-
-					require.Equal(t, tc.expectedErr, err)
-				}
-
-				commits = append(commits, response.Commits...)
-			}
-
+			commits, err := testhelper.ReceiveAndFold(stream.Recv, func(result []*gitalypb.GitCommit, response *gitalypb.ListCommitsResponse) []*gitalypb.GitCommit {
+				return append(result, response.GetCommits()...)
+			})
+			require.NoError(t, err)
 			testhelper.ProtoEqual(t, tc.expectedCommits, commits)
 		})
 	}

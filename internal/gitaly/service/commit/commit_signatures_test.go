@@ -3,9 +3,7 @@ package commit
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 
@@ -352,31 +350,24 @@ aC1lZDI1NTE5AAAAQKgC1TFLVZOqvVs2AqCp2lhkRAUtZsDa89RgHOOsYAC3T1kB
 			stream, err := client.GetCommitSignatures(ctx, setup.request)
 			require.NoError(t, err)
 
-			var actualResponses []*gitalypb.GetCommitSignaturesResponse
-			for {
-				var response *gitalypb.GetCommitSignaturesResponse
-				response, err = stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-
-					break
-				}
-
+			actualResponses, err := testhelper.ReceiveAndFold(stream.Recv, func(
+				result []*gitalypb.GetCommitSignaturesResponse,
+				response *gitalypb.GetCommitSignaturesResponse,
+			) []*gitalypb.GetCommitSignaturesResponse {
 				// We don't need to do any fiddling when we have a commit ID, which would signify
 				// another returned commit.
 				if response.CommitId != "" {
-					actualResponses = append(actualResponses, response)
-					continue
+					return append(result, response)
 				}
 
 				// But when we don't have a commit ID we append both the signature and signed text so
 				// that it becomes easier to test for these values, as they might otherwise be split.
-				currentResponse := actualResponses[len(actualResponses)-1]
+				currentResponse := result[len(result)-1]
 				currentResponse.Signature = append(currentResponse.Signature, response.Signature...)
 				currentResponse.SignedText = append(currentResponse.SignedText, response.SignedText...)
-			}
+
+				return result
+			})
 			testhelper.RequireGrpcError(t, setup.expectedErr, err)
 
 			require.Len(t, actualResponses, len(setup.expectedResponses))

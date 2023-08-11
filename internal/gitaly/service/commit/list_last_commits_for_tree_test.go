@@ -1,8 +1,6 @@
 package commit
 
 import (
-	"errors"
-	"io"
 	"testing"
 	"unicode/utf8"
 
@@ -339,21 +337,12 @@ func TestListLastCommitsForTree(t *testing.T) {
 			stream, err := client.ListLastCommitsForTree(ctx, setup.request)
 			require.NoError(t, err)
 
-			var commits []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree
-			for {
-				var response *gitalypb.ListLastCommitsForTreeResponse
-
-				response, err = stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-					break
-				}
-
-				commits = append(commits, response.Commits...)
-			}
-
+			commits, err := testhelper.ReceiveAndFold(stream.Recv, func(
+				result []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree,
+				response *gitalypb.ListLastCommitsForTreeResponse,
+			) []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree {
+				return append(result, response.Commits...)
+			})
 			testhelper.RequireGrpcError(t, setup.expectedErr, err)
 			testhelper.ProtoEqual(t, setup.expectedCommits, commits)
 		})

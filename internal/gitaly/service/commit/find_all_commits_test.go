@@ -1,8 +1,6 @@
 package commit
 
 import (
-	"errors"
-	"io"
 	"testing"
 	"time"
 
@@ -161,21 +159,9 @@ func TestFindAllCommits(t *testing.T) {
 			stream, err := client.FindAllCommits(ctx, tc.request)
 			require.NoError(t, err)
 
-			var actualCommits []*gitalypb.GitCommit
-			for {
-				var response *gitalypb.FindAllCommitsResponse
-				response, err = stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-
-					break
-				}
-
-				actualCommits = append(actualCommits, response.GetCommits()...)
-			}
-
+			actualCommits, err := testhelper.ReceiveAndFold(stream.Recv, func(result []*gitalypb.GitCommit, response *gitalypb.FindAllCommitsResponse) []*gitalypb.GitCommit {
+				return append(result, response.GetCommits()...)
+			})
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedCommits, actualCommits)
 		})

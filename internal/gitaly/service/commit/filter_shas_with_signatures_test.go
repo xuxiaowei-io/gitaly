@@ -2,9 +2,7 @@ package commit
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 
@@ -150,20 +148,7 @@ gpgsig -----BEGIN PGP SIGNATURE-----
 			require.NoError(t, stream.Send(tc.request))
 			require.NoError(t, stream.CloseSend())
 
-			var responses []*gitalypb.FilterShasWithSignaturesResponse
-			for {
-				var response *gitalypb.FilterShasWithSignaturesResponse
-				response, err = stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-
-					break
-				}
-
-				responses = append(responses, response)
-			}
+			responses, err := testhelper.Receive(stream.Recv)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedResponses, responses)
 		})
