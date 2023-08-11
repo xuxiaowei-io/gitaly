@@ -42,6 +42,8 @@ func TestNewManagerV1(t *testing.T) {
 	require.IsType(t, &cgroupV1Handler{}, manager.handler)
 	manager = newCgroupManagerWithMode(cfg, 1, cgrps.Hybrid)
 	require.IsType(t, &cgroupV1Handler{}, manager.handler)
+	manager = newCgroupManagerWithMode(cfg, 1, cgrps.Unavailable)
+	require.Nil(t, manager)
 }
 
 func TestSetup_ParentCgroups(t *testing.T) {
