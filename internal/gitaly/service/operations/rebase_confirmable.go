@@ -6,7 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -37,11 +39,6 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		return structerr.NewInternal("creating repo quarantine: %w", err)
 	}
 
-	repoPath, err := quarantineRepo.Path()
-	if err != nil {
-		return err
-	}
-
 	branch := git.NewReferenceNameFromBranchName(string(header.Branch))
 	oldrev, err := git.ObjectHashSHA1.FromHex(header.BranchSha)
 	if err != nil {
@@ -54,42 +51,82 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		return structerr.NewInternal("%w", err)
 	}
 
-	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
+	committer := git.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
 	if header.Timestamp != nil {
 		committer.When = header.Timestamp.AsTime()
 	}
 
-	newrev, err := s.git2goExecutor.Rebase(ctx, quarantineRepo, git2go.RebaseCommand{
-		Repository:       repoPath,
-		Committer:        committer,
-		CommitID:         oldrev,
-		UpstreamCommitID: startRevision,
-		SkipEmptyCommits: true,
-	})
-	if err != nil {
-		var conflictErr git2go.ConflictingFilesError
-		if errors.As(err, &conflictErr) {
-			conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
-			for _, conflictingFile := range conflictErr.ConflictingFiles {
-				conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
-			}
-
-			return structerr.NewFailedPrecondition("rebasing commits: %w", err).WithDetail(
-				&gitalypb.UserRebaseConfirmableError{
-					Error: &gitalypb.UserRebaseConfirmableError_RebaseConflict{
-						RebaseConflict: &gitalypb.MergeConflictError{
-							ConflictingFiles: conflictingFiles,
-							ConflictingCommitIds: []string{
-								startRevision.String(),
-								oldrev.String(),
+	var newrev git.ObjectID
+	if featureflag.UserRebaseConfirmablePureGit.IsEnabled(ctx) {
+		newrev, err = quarantineRepo.Rebase(
+			ctx,
+			startRevision.String(),
+			oldrev.String(),
+			localrepo.RebaseWithCommitter(committer),
+		)
+		if err != nil {
+			var conflictErr *localrepo.RebaseConflictError
+			if errors.As(err, &conflictErr) {
+				conflictingFilesFromErr := conflictErr.ConflictError.ConflictedFiles()
+				conflictingFiles := make([][]byte, 0, len(conflictingFilesFromErr))
+				for _, conflictingFile := range conflictingFilesFromErr {
+					conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
+				}
+				return structerr.NewFailedPrecondition("rebasing commits: %w", conflictErr).WithDetail(
+					&gitalypb.UserRebaseConfirmableError{
+						Error: &gitalypb.UserRebaseConfirmableError_RebaseConflict{
+							RebaseConflict: &gitalypb.MergeConflictError{
+								ConflictingFiles: conflictingFiles,
+								ConflictingCommitIds: []string{
+									startRevision.String(),
+									oldrev.String(),
+								},
 							},
 						},
 					},
-				},
-			)
+				)
+			}
+
+			return structerr.NewInternal("rebasing commits: %w", err)
+		}
+	} else {
+		repoPath, err := quarantineRepo.Path()
+		if err != nil {
+			return err
 		}
 
-		return structerr.NewInternal("rebasing commits: %w", err)
+		newrev, err = s.git2goExecutor.Rebase(ctx, quarantineRepo, git2go.RebaseCommand{
+			Repository:       repoPath,
+			Committer:        committer,
+			CommitID:         oldrev,
+			UpstreamCommitID: startRevision,
+			SkipEmptyCommits: true,
+		})
+		if err != nil {
+			var conflictErr git2go.ConflictingFilesError
+			if errors.As(err, &conflictErr) {
+				conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
+				for _, conflictingFile := range conflictErr.ConflictingFiles {
+					conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
+				}
+
+				return structerr.NewFailedPrecondition("rebasing commits: %w", err).WithDetail(
+					&gitalypb.UserRebaseConfirmableError{
+						Error: &gitalypb.UserRebaseConfirmableError_RebaseConflict{
+							RebaseConflict: &gitalypb.MergeConflictError{
+								ConflictingFiles: conflictingFiles,
+								ConflictingCommitIds: []string{
+									startRevision.String(),
+									oldrev.String(),
+								},
+							},
+						},
+					},
+				)
+			}
+
+			return structerr.NewInternal("rebasing commits: %w", err)
+		}
 	}
 
 	if err := stream.Send(&gitalypb.UserRebaseConfirmableResponse{

@@ -3,11 +3,13 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -29,7 +31,14 @@ var rebaseBranchName = "many_files"
 func TestUserRebaseConfirmable_successful(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableSuccessful)
+}
+
+func testUserRebaseConfirmableSuccessful(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -90,7 +99,14 @@ func TestUserRebaseConfirmable_successful(t *testing.T) {
 func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableSkipEmptyCommits)
+}
+
+func testUserRebaseConfirmableSkipEmptyCommits(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -189,7 +205,15 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 func TestUserRebaseConfirmable_transaction(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableTransaction)
+}
+
+func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	txManager := transaction.NewTrackingManager()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(
@@ -276,7 +300,15 @@ func TestUserRebaseConfirmable_transaction(t *testing.T) {
 
 func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableStableCommitIDs)
+}
+
+func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg)
@@ -346,7 +378,15 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 
 func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableInputValidation)
+}
+
+func testUserRebaseConfirmableInputValidation(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -407,7 +447,15 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 
 func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableAbortViaClose)
+}
+
+func testUserRebaseConfirmableAbortViaClose(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -486,7 +534,15 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 
 func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableAbortViaApply)
+}
+
+func testUserRebaseConfirmableAbortViaApply(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -529,7 +585,16 @@ func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmablePreReceiveError)
+}
+
+func testUserRebaseConfirmablePreReceiveError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	repoCopyProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -589,7 +654,16 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 func TestUserRebaseConfirmable_gitError(t *testing.T) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableGitError)
+}
+
+func testUserRebaseConfirmableGitError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repoCopyProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
@@ -630,7 +704,15 @@ func TestUserRebaseConfirmable_gitError(t *testing.T) {
 
 func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableDeletedFileInLocalRepo)
+}
+
+func testUserRebaseConfirmableDeletedFileInLocalRepo(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
@@ -701,7 +783,15 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableDeletedFileInRemoteRepo)
+}
+
+func testUserRebaseConfirmableDeletedFileInRemoteRepo(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -764,7 +854,15 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 
 func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(
+		featureflag.GPGSigning,
+		featureflag.UserRebaseConfirmablePureGit,
+	).Run(t, testUserRebaseConfirmableFailedWithCode)
+}
+
+func testUserRebaseConfirmableFailedWithCode(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
