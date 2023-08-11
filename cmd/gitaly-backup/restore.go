@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -49,7 +49,7 @@ func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 	fs.BoolVar(&cmd.serverSide, "server-side", false, "use server-side backups. Note: The feature is not ready for production use.")
 }
 
-func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
+func (cmd *restoreSubcommand) Run(ctx context.Context, logger logrus.FieldLogger, stdin io.Reader, stdout io.Writer) error {
 	pool := client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
 	defer pool.Close()
 
@@ -71,8 +71,6 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 		}
 		manager = backup.NewManager(sink, locator, pool)
 	}
-
-	logger := log.StandardLogger()
 
 	for _, storageName := range cmd.removeAllRepositories {
 		err := manager.RemoveAllRepositories(ctx, &backup.RemoveAllRepositoriesRequest{
