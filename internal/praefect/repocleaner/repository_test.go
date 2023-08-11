@@ -208,6 +208,12 @@ func TestRunner_Run(t *testing.T) {
 }
 
 func TestRunner_Run_noAvailableStorages(t *testing.T) {
+	testhelper.SkipQuarantinedTest(
+		t,
+		"https://gitlab.com/gitlab-org/gitaly/-/issues/5504",
+		"TestRunner_Run_noAvailableStorages",
+	)
+
 	t.Parallel()
 
 	const (
