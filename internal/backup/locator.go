@@ -61,9 +61,10 @@ func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
 	return &Step{
-		BundlePath:      backupPath + ".bundle",
-		RefPath:         backupPath + ".refs",
-		CustomHooksPath: filepath.Join(backupPath, "custom_hooks.tar"),
+		SkippableOnNotFound: true,
+		BundlePath:          backupPath + ".bundle",
+		RefPath:             backupPath + ".refs",
+		CustomHooksPath:     filepath.Join(backupPath, "custom_hooks.tar"),
 	}
 }
 

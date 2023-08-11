@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -17,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -40,18 +38,13 @@ func TestRestoreSubcommand(t *testing.T) {
 
 	path := testhelper.TempDir(t)
 	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
-	existingRepoRefPath := filepath.Join(path, existingRepo.RelativePath+".refs")
-
 	gittest.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
-	require.NoError(t, os.WriteFile(existingRepoRefPath, gittest.Exec(t, cfg, "-C", existRepoPath, "show-ref"), perm.SharedFile))
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 2; i++ {
 		repo := gittest.InitRepoDir(t, cfg.Storages[0].Path, fmt.Sprintf("repo-%d", i))
 		repoBundlePath := filepath.Join(path, repo.RelativePath+".bundle")
-		repoRefPath := filepath.Join(path, repo.RelativePath+".refs")
 		testhelper.CopyFile(t, existingRepoBundlePath, repoBundlePath)
-		testhelper.CopyFile(t, existingRepoRefPath, repoRefPath)
 		repos = append(repos, repo)
 	}
 
@@ -123,18 +116,13 @@ func TestRestoreSubcommand_serverSide(t *testing.T) {
 	gittest.WriteCommit(t, cfg, existRepoPath, gittest.WithBranch(git.DefaultBranch))
 
 	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
-	existingRepoRefPath := filepath.Join(path, existingRepo.RelativePath+".refs")
-
 	gittest.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
-	require.NoError(t, os.WriteFile(existingRepoRefPath, gittest.Exec(t, cfg, "-C", existRepoPath, "show-ref"), perm.SharedFile))
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 2; i++ {
 		repo := gittest.InitRepoDir(t, cfg.Storages[0].Path, fmt.Sprintf("repo-%d", i))
 		repoBundlePath := filepath.Join(path, repo.RelativePath+".bundle")
-		repoRefPath := filepath.Join(path, repo.RelativePath+".refs")
 		testhelper.CopyFile(t, existingRepoBundlePath, repoBundlePath)
-		testhelper.CopyFile(t, existingRepoRefPath, repoRefPath)
 		repos = append(repos, repo)
 	}
 
