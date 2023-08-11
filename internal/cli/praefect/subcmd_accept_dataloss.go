@@ -8,16 +8,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-// praefect -config PATH_TO_CONFIG accept-dataloss -virtual-storage <virtual-storage> -relative-path <relative-path> -authoritative-storage <authoritative-storage>
 func newAcceptDatalossCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "accept-dataloss",
-		Usage: "accept data loss in a repository",
-		Description: `The subcommand "accept-dataloss" allows for accepting data loss in a repository to enable it for
-writing again. The current version of the repository on the authoritative storage is set to be
-the latest version and replications to other nodes are scheduled in order to bring them consistent
-with the new authoritative version.
-`,
+		Usage: "accept potential data loss in a repository",
+		Description: `Set a new authoritative replica of a repository and enable the repository for writing again.
+
+The replica of the repository on the specified physical storage is set as authoritative. Replications to other physical
+storages that contain replicas of the repository are scheduled to make them consistent with the replica on the new
+authoritative physical storage.
+
+Example: praefect --config praefect.config.toml accept-dataloss --virtual-storage default --repository <relative_path_on_the_virtual_storage> --authoritative-storage <physical_storage_1>`,
 		HideHelpCommand: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -27,12 +28,12 @@ with the new authoritative version.
 			},
 			&cli.StringFlag{
 				Name:     paramRelativePath,
-				Usage:    "repository to accept data loss for",
+				Usage:    "relative path on the virtual storage of the repository to accept data loss for",
 				Required: true,
 			},
 			&cli.StringFlag{
 				Name:     paramAuthoritativeStorage,
-				Usage:    "storage with the repository to consider as authoritative",
+				Usage:    "physical storage containing the replica of the repository to set as authoritative",
 				Required: true,
 			},
 		},
