@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 )
@@ -42,10 +42,12 @@ type gitalySSHCommand struct {
 // GITALY_USE_SIDECHANNEL=1 if desired
 // gitaly-ssh upload-pack <git-garbage-x2>
 func main() {
+	logger := log.Configure(os.Stderr, "", "info")
+
 	// < 4 since git throws on 2x garbage here
 	if n := len(os.Args); n < 4 {
 		// TODO: Errors needs to be sent back some other way... pipes?
-		log.Fatalf("invalid number of arguments, expected at least 1, got %d", n-1)
+		logger.Fatalf("invalid number of arguments, expected at least 1, got %d", n-1)
 	}
 
 	command := os.Args[1]
@@ -62,7 +64,7 @@ func main() {
 	case "upload-archive":
 		packer = uploadArchive
 	default:
-		log.Fatalf("invalid pack command: %q", command)
+		logger.Fatalf("invalid pack command: %q", command)
 	}
 
 	cmd := gitalySSHCommand{
@@ -73,15 +75,15 @@ func main() {
 		featureFlags: os.Getenv("GITALY_FEATUREFLAGS"),
 	}
 
-	code, err := cmd.run()
+	code, err := cmd.run(logger)
 	if err != nil {
-		log.Printf("%s: %v", command, err)
+		logger.Printf("%s: %v", command, err)
 	}
 
 	os.Exit(code)
 }
 
-func (cmd gitalySSHCommand) run() (int, error) {
+func (cmd gitalySSHCommand) run(logger logrus.FieldLogger) (int, error) {
 	// Configure distributed tracing
 	closer := tracing.Initialize(tracing.WithServiceName("gitaly-ssh"))
 	defer closer.Close()
@@ -111,7 +113,7 @@ func (cmd gitalySSHCommand) run() (int, error) {
 		}
 	}
 
-	registry := client.NewSidechannelRegistry(logrus.NewEntry(logrus.StandardLogger()))
+	registry := client.NewSidechannelRegistry(logger)
 	conn, err := getConnection(ctx, cmd.address, registry)
 	if err != nil {
 		return 1, err

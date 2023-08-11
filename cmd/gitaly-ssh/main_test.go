@@ -103,7 +103,7 @@ func TestRun(t *testing.T) {
 				payload:    "{}",
 			}
 
-			gotCode, err := cmd.run()
+			gotCode, err := cmd.run(testhelper.NewDiscardingLogger(t))
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
