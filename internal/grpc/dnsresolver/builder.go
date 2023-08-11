@@ -31,7 +31,7 @@ type BuilderConfig struct {
 	// LookupTimeout determines the timeout of underlying DNS query.
 	LookupTimeout time.Duration
 	// Logger defines a logger for logging internal activities
-	Logger *logrus.Logger
+	Logger logrus.FieldLogger
 	// Backoff defines the backoff strategy when the resolver fails to resolve or pushes new
 	// state to client connection
 	Backoff backoff.Strategy
@@ -93,7 +93,7 @@ func (d *Builder) Build(target resolver.Target, cc resolver.ClientConn, _ resolv
 
 	ctx, cancel := context.WithCancel(context.Background())
 	dr := &dnsResolver{
-		logger: logrus.NewEntry(d.opts.Logger).WithField("target", target.URL.String()),
+		logger: d.opts.Logger.WithField("target", target.URL.String()),
 		retry:  d.opts.Backoff,
 
 		ctx:           ctx,

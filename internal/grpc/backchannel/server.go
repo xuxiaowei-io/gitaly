@@ -73,7 +73,7 @@ func withSessionInfo(authInfo credentials.AuthInfo, id ID, muxSession *yamux.Ses
 // ServerHandshaker implements the server side handshake of the multiplexed connection.
 type ServerHandshaker struct {
 	registry *Registry
-	logger   *logrus.Entry
+	logger   logrus.FieldLogger
 	dialOpts []grpc.DialOption
 }
 
@@ -85,7 +85,7 @@ func (s *ServerHandshaker) Magic() string { return string(magicBytes) }
 // are handshaked prior to initializing the multiplexing session. The Registry is used to store the backchannel connections.
 // DialOptions can be used to set custom dial options for the backchannel connections. They must not contain a dialer or
 // transport credentials as those set by the handshaker.
-func NewServerHandshaker(logger *logrus.Entry, reg *Registry, dialOpts []grpc.DialOption) *ServerHandshaker {
+func NewServerHandshaker(logger logrus.FieldLogger, reg *Registry, dialOpts []grpc.DialOption) *ServerHandshaker {
 	return &ServerHandshaker{registry: reg, logger: logger, dialOpts: dialOpts}
 }
 
@@ -99,7 +99,7 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 	// gRPC server closes the conn if there is an error, which closes the multiplexing
 	// session as well.
 
-	logger := s.logger.WriterLevel(logrus.ErrorLevel)
+	logger := s.logger.WithField("component", "backchannel.YamuxServer").WriterLevel(logrus.ErrorLevel)
 
 	// Open the server side of the multiplexing session.
 	//

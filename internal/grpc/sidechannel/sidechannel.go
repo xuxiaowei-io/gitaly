@@ -136,7 +136,7 @@ func NewServerHandshaker(registry *Registry) *ServerHandshaker {
 
 // NewClientHandshaker is used to enable sidechannel support on outbound
 // gRPC connections.
-func NewClientHandshaker(logger *logrus.Entry, registry *Registry) client.Handshaker {
+func NewClientHandshaker(logger logrus.FieldLogger, registry *Registry) client.Handshaker {
 	cfg := backchannel.DefaultConfiguration()
 	// If a client hangs up while the server is writing data to it then the
 	// server will block for 5 minutes by default before erroring out. This

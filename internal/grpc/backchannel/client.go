@@ -50,14 +50,14 @@ func DefaultConfiguration() Configuration {
 
 // ClientHandshaker implements the client side handshake of the multiplexed connection.
 type ClientHandshaker struct {
-	logger        *logrus.Entry
+	logger        logrus.FieldLogger
 	serverFactory ServerFactory
 	cfg           Configuration
 }
 
 // NewClientHandshaker returns a new client side implementation of the backchannel. The provided
 // logger is used to log multiplexing errors.
-func NewClientHandshaker(logger *logrus.Entry, serverFactory ServerFactory, cfg Configuration) ClientHandshaker {
+func NewClientHandshaker(logger logrus.FieldLogger, serverFactory ServerFactory, cfg Configuration) ClientHandshaker {
 	return ClientHandshaker{logger: logger, serverFactory: serverFactory, cfg: cfg}
 }
 
@@ -71,7 +71,7 @@ func (ch ClientHandshaker) ClientHandshake(tc credentials.TransportCredentials) 
 type clientHandshake struct {
 	credentials.TransportCredentials
 	serverFactory ServerFactory
-	logger        *logrus.Entry
+	logger        logrus.FieldLogger
 	cfg           Configuration
 }
 
@@ -115,7 +115,7 @@ func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, e
 		return nil, fmt.Errorf("write backchannel magic bytes: %w", err)
 	}
 
-	logger := ch.logger.WriterLevel(logrus.ErrorLevel)
+	logger := ch.logger.WithField("component", "backchannel.YamuxClient").WriterLevel(logrus.ErrorLevel)
 
 	// Initiate the multiplexing session.
 	muxSession, err := yamux.Client(conn, muxConfig(logger, ch.cfg))
