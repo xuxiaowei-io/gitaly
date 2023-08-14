@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -223,8 +222,13 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 		return transaction.PhasedVote{Vote: vote, Phase: phase}
 	}
 
-	createdRepoPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(t, ctx, cfg, createdRepo))
-	require.NoError(t, err)
+	// This test is asserting storage layout as part of computing the expected vote hash. In particular,
+	// the references are not necessarily packed when the transaction is committed. Compute the expected
+	// vote thus from the state of the bundled repository. For the vote to match, we have to first modify
+	// the state to match what the RPC handler would produce. The created repository has its default branch
+	// set to master and has references packed.
+	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/master")
+	gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
 
 	// Compute the vote hash to assert that we really hash exactly the files that we
 	// expect to hash. Furthermore, this is required for cross-platform compatibility given that
@@ -235,7 +239,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 		"config",
 		"packed-refs",
 	} {
-		file, err := os.Open(filepath.Join(createdRepoPath, filePath))
+		file, err := os.Open(filepath.Join(repoPath, filePath))
 		require.NoError(t, err)
 
 		_, err = io.Copy(hash, file)

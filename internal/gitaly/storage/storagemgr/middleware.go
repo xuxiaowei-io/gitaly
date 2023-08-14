@@ -37,13 +37,8 @@ var nonTransactionalRPCs = map[string]struct{}{
 	"/gitaly.ObjectPoolService/GetObjectPool":              {},
 	// GetSnapshot is testing logic with object pools as well.
 	"/gitaly.RepositoryService/GetSnapshot": {},
-
-	// Repository creations are not yet handled through the WAL.
-	"/gitaly.RepositoryService/CreateRepository":             {},
-	"/gitaly.RepositoryService/CreateRepositoryFromURL":      {},
-	"/gitaly.RepositoryService/CreateRepositoryFromBundle":   {},
-	"/gitaly.RepositoryService/CreateFork":                   {},
-	"/gitaly.RepositoryService/CreateRepositoryFromSnapshot": {},
+	// CreateFork relies on object pools.
+	"/gitaly.RepositoryService/CreateFork": {},
 
 	// ReplicateRepository is replicating the attributes and config which the
 	// WAL won't support. This is pending removal of their replication.

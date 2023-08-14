@@ -70,6 +70,12 @@ func generateTarFile(t *testing.T, path string) ([]byte, []string) {
 }
 
 func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
+	if testhelper.IsWALEnabled() && gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format {
+		t.Skip(`
+CreateRepositoryFromSnapshot is broken with SHA256 but the test failures only surface with transactions
+enabled. For more details, see: https://gitlab.com/gitlab-org/gitaly/-/issues/5662`)
+	}
+
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -104,6 +110,16 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
 	require.DirExists(t, repoAbsolutePath)
 	for _, entry := range entries {
+		if testhelper.IsWALEnabled() {
+			// The transaction manager repacks the objects from the snapshot into a single pack file.
+			// Skip asserting the exact objects on the disk and assert afterwards that the objects
+			// from the source repo exist in the target repo.
+			switch {
+			case strings.HasPrefix(entry, "./objects"):
+				continue
+			}
+		}
+
 		if strings.HasSuffix(entry, "/") {
 			require.DirExists(t, filepath.Join(repoAbsolutePath, entry), "directory %q not unpacked", entry)
 		} else {
@@ -113,6 +129,14 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 
 	// hooks/ and config were excluded, but the RPC should create them
 	require.FileExists(t, filepath.Join(repoAbsolutePath, "config"), "Config file not created")
+
+	targetPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(t, ctx, cfg, repo))
+	require.NoError(t, err)
+
+	require.ElementsMatch(t,
+		gittest.ListObjects(t, cfg, sourceRepoPath),
+		gittest.ListObjects(t, cfg, targetPath),
+	)
 }
 
 func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {

@@ -106,9 +106,10 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	testCases := []struct {
-		desc     string
-		repoPath string
-		isDir    bool
+		desc        string
+		repoPath    string
+		isDir       bool
+		skipWithWAL string
 	}{
 		{
 			desc:  "target is a directory",
@@ -117,11 +118,18 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 		{
 			desc:  "target is a file",
 			isDir: false,
+			skipWithWAL: `
+The transaction commit fails as the TransactionManager fails to initialize with the state
+directory being a file. This is testing storage details rather than the RPC implementation
+testing of this scenario should be left to the relevant package.
+`,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
+			testhelper.SkipWithWAL(t, testCase.skipWithWAL)
+
 			cfg, client := setupRepositoryService(t)
 
 			importedRepo := &gitalypb.Repository{
