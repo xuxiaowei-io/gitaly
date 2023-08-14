@@ -175,7 +175,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 		server.WithStreamInterceptor(StructErrStreamInterceptor),
 	}
 
-	deps := gsd.createDependencies(ctx, tb, cfg)
+	deps := gsd.createDependencies(tb, ctx, cfg)
 	tb.Cleanup(func() { gsd.conns.Close() })
 
 	serverFactory := server.NewGitalyServerFactory(
@@ -276,7 +276,7 @@ type gitalyServerDeps struct {
 	signingKey          string
 }
 
-func (gsd *gitalyServerDeps) createDependencies(ctx context.Context, tb testing.TB, cfg config.Cfg) *service.Dependencies {
+func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, ctx context.Context, cfg config.Cfg) *service.Dependencies {
 	if gsd.logger == nil {
 		gsd.logger = testhelper.NewGitalyServerLogger(tb)
 	}

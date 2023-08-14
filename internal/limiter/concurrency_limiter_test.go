@@ -241,14 +241,14 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 10, nil, gauge)
 
 		// 5 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 
 		// Update the limit to 7
 		limit.Update(7)
 
 		// 2 more requests acquired the token. This proves the limit is expanded
-		release2, waitAfterRelease2 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 2)
+		release2, waitAfterRelease2 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 2)
 		require.Equal(t, 7, gauge.enter)
 
 		close(release1)
@@ -265,7 +265,7 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 10, nil, gauge)
 
 		// 3 requests acquired the tokens, 2 slots left
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 3)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 3)
 		require.Equal(t, 3, gauge.enter)
 		require.Equal(t, 3, gauge.queued)
 
@@ -273,7 +273,7 @@ func TestLimiter_dynamic(t *testing.T) {
 		limit.Update(3)
 
 		// 2 requests are put in queue, meaning the limit shrinks down
-		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 2)
+		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 2)
 		require.Equal(t, 3, gauge.enter)
 		require.Equal(t, 5, gauge.queued)
 
@@ -300,11 +300,11 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 10, nil, gauge)
 
 		// 5 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 
 		// 2 requests waiting in the queue
-		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 2)
+		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 2)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 7, gauge.queued)
 
@@ -329,16 +329,16 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 10, nil, gauge)
 
 		// 5 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 
 		// 2 requests waiting in the queue
-		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 2)
+		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 2)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 7, gauge.queued)
 
 		// 5 more requests waiting in the queue
-		waitAcquired3, release3, waitAfterRelease3 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 5)
+		waitAcquired3, release3, waitAfterRelease3 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 12, gauge.queued)
 
@@ -369,14 +369,14 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 10, nil, gauge)
 
 		// 5 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 
 		// Update the limit to 3
 		limit.Update(3)
 
 		// 3 requests are put in queue
-		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 3)
+		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 3)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 8, gauge.queued)
 
@@ -390,7 +390,7 @@ func TestLimiter_dynamic(t *testing.T) {
 		require.Equal(t, 8, gauge.enter)
 
 		// 1 more request is put in queue, meaning the limit shrinks down to 3.
-		waitAcquired3, release3, waitAfterRelease3 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 1)
+		waitAcquired3, release3, waitAfterRelease3 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 1)
 		require.Equal(t, 8, gauge.enter)
 		require.Equal(t, 9, gauge.queued)
 
@@ -419,14 +419,14 @@ func TestLimiter_dynamic(t *testing.T) {
 		limit.Update(7)
 
 		// 5 requests acquired the tokens
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 
 		// Update the limit to 3
 		limit.Update(3)
 
 		// 3 requests are put in queue
-		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 3)
+		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 3)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 8, gauge.queued)
 
@@ -438,7 +438,7 @@ func TestLimiter_dynamic(t *testing.T) {
 		require.Equal(t, 8, gauge.enter)
 
 		// 2 more requests
-		release3, waitAfterRelease3 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 2)
+		release3, waitAfterRelease3 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 2)
 		require.Equal(t, 10, gauge.enter)
 
 		// Update the limit to 1
@@ -466,17 +466,17 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 5, nil, gauge)
 
 		// 1 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 1)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 1)
 		require.Equal(t, 1, gauge.enter)
 		require.Equal(t, 1, gauge.queued)
 
 		// 5 requests queuing for the tokens, the queue is full now
-		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 5)
+		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 1, gauge.enter)
 		require.Equal(t, 6, gauge.queued)
 
 		// Limiter rejects new request
-		maximumQueueSizeReached(ctx, t, "1", limiter)
+		maximumQueueSizeReached(t, ctx, "1", limiter)
 
 		// Update the limit
 		limit.Update(6)
@@ -484,12 +484,12 @@ func TestLimiter_dynamic(t *testing.T) {
 		require.Equal(t, 6, gauge.enter)
 
 		// 5 requests queuing for the tokens, the queue is full now
-		waitAcquired3, release3, waitAfterRelease3 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 5)
+		waitAcquired3, release3, waitAfterRelease3 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 6, gauge.enter)
 		require.Equal(t, 11, gauge.queued)
 
 		// Limiter rejects new request
-		maximumQueueSizeReached(ctx, t, "1", limiter)
+		maximumQueueSizeReached(t, ctx, "1", limiter)
 
 		// Clean up
 		close(release1)
@@ -512,23 +512,23 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 3, nil, gauge)
 
 		// 5 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 5, gauge.queued)
 
 		// 5 requests queuing for the tokens, the queue is full now
-		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 3)
+		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 3)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 8, gauge.queued)
 
 		// Limiter rejects new request
-		maximumQueueSizeReached(ctx, t, "1", limiter)
+		maximumQueueSizeReached(t, ctx, "1", limiter)
 
 		// Update the limit.
 		limit.Update(3)
 
 		// The queue is still full
-		maximumQueueSizeReached(ctx, t, "1", limiter)
+		maximumQueueSizeReached(t, ctx, "1", limiter)
 
 		// Release first 5 requests and let the last 3 requests in
 		close(release1)
@@ -538,10 +538,10 @@ func TestLimiter_dynamic(t *testing.T) {
 		require.Equal(t, 8, gauge.enter)
 
 		// Another 5 requests in queue. The queue is still full, meaning the concurrency is 3 and the queue is still 5.
-		waitAcquired3, release3, waitAfterRelease3 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 3)
+		waitAcquired3, release3, waitAfterRelease3 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 3)
 		require.Equal(t, 8, gauge.enter)
 		require.Equal(t, 11, gauge.queued)
-		maximumQueueSizeReached(ctx, t, "1", limiter)
+		maximumQueueSizeReached(t, ctx, "1", limiter)
 
 		// Clean up
 		close(release2)
@@ -562,12 +562,12 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 0, nil, gauge)
 
 		// 5 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 5, gauge.queued)
 
 		// 5 more requests
-		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(ctx, t, "1", limiter, gauge, 5)
+		waitAcquired2, release2, waitAfterRelease2 := spawnAndWaitQueued(t, ctx, "1", limiter, gauge, 5)
 
 		// Update the limit.
 		limit.Update(10)
@@ -593,7 +593,7 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 0, func() helper.Ticker { return ticker }, gauge)
 
 		// 5 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 5, gauge.queued)
 
@@ -629,7 +629,7 @@ func TestLimiter_dynamic(t *testing.T) {
 		limiter := NewConcurrencyLimiter(ctx, limit, 0, nil, gauge)
 
 		// 5 requests acquired the tokens, the limiter is full now
-		release1, waitAfterRelease1 := spawnAndWaitAcquired(ctx, t, "1", limiter, gauge, 5)
+		release1, waitAfterRelease1 := spawnAndWaitAcquired(t, ctx, "1", limiter, gauge, 5)
 		require.Equal(t, 5, gauge.enter)
 		require.Equal(t, 5, gauge.queued)
 
@@ -667,7 +667,7 @@ func TestLimiter_dynamic(t *testing.T) {
 
 		// 5 * 5 requests acquired tokens
 		for i := 1; i <= 5; i++ {
-			release, waitAfterRelease := spawnAndWaitAcquired(ctx, t, fmt.Sprintf("%d", i), limiter, gauge, 5)
+			release, waitAfterRelease := spawnAndWaitAcquired(t, ctx, fmt.Sprintf("%d", i), limiter, gauge, 5)
 			releaseChans = append(releaseChans, release)
 			waitReleaseFuncs = append(waitReleaseFuncs, waitAfterRelease)
 		}
@@ -675,7 +675,7 @@ func TestLimiter_dynamic(t *testing.T) {
 
 		// 1 + 2 + 3 + 4 + 5 requests are in queue
 		for i := 1; i <= 5; i++ {
-			waitAcquired, release, waitAfterRelease := spawnAndWaitQueued(ctx, t, fmt.Sprintf("%d", i), limiter, gauge, i)
+			waitAcquired, release, waitAfterRelease := spawnAndWaitQueued(t, ctx, fmt.Sprintf("%d", i), limiter, gauge, i)
 			waitAcquireFuncs = append(waitAcquireFuncs, waitAcquired)
 			releaseChans = append(releaseChans, release)
 			waitReleaseFuncs = append(waitReleaseFuncs, waitAfterRelease)
@@ -706,7 +706,7 @@ func TestLimiter_dynamic(t *testing.T) {
 // spawnAndWaitAcquired spawns N goroutines that wait for the limiter. They wait until all of them acquire the limiter
 // token before exiting. This function returns a channel to control token release and a function to wait until all
 // goroutines finish.
-func spawnAndWaitAcquired(ctx context.Context, t *testing.T, bucket string, limiter *ConcurrencyLimiter, gauge *blockingQueueCounter, n int) (chan struct{}, func()) {
+func spawnAndWaitAcquired(t *testing.T, ctx context.Context, bucket string, limiter *ConcurrencyLimiter, gauge *blockingQueueCounter, n int) (chan struct{}, func()) {
 	var acquireWg, releaseWg sync.WaitGroup
 	release := make(chan struct{})
 
@@ -735,7 +735,7 @@ func spawnAndWaitAcquired(ctx context.Context, t *testing.T, bucket string, limi
 // spawnAndWaitQueued spawns N goroutines that wait for the limiter. They wait until all of them are queued. This
 // function returns a function to wait for channel to acquired the token, a channel to control token release, and a
 // function to wait until all goroutines finish.
-func spawnAndWaitQueued(ctx context.Context, t *testing.T, bucket string, limiter *ConcurrencyLimiter, gauge *blockingQueueCounter, n int) (func(), chan struct{}, func()) {
+func spawnAndWaitQueued(t *testing.T, ctx context.Context, bucket string, limiter *ConcurrencyLimiter, gauge *blockingQueueCounter, n int) (func(), chan struct{}, func()) {
 	var acquireWg, releaseWg sync.WaitGroup
 	release := make(chan struct{})
 
@@ -775,7 +775,7 @@ func spawnQueuedAndCollectErrors(ctx context.Context, bucket string, limiter *Co
 	}
 }
 
-func maximumQueueSizeReached(ctx context.Context, t *testing.T, bucket string, limiter *ConcurrencyLimiter) {
+func maximumQueueSizeReached(t *testing.T, ctx context.Context, bucket string, limiter *ConcurrencyLimiter) {
 	_, err := limiter.Limit(ctx, bucket, func() (interface{}, error) {
 		return nil, fmt.Errorf("should not call")
 	})
