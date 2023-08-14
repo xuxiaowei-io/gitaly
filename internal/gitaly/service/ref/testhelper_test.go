@@ -1,7 +1,6 @@
 package ref
 
 import (
-	"bytes"
 	"context"
 	"testing"
 
@@ -21,12 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
-
-var localBranches = map[string]*gitalypb.GitCommit{
-	"refs/heads/100%branch":      testhelper.GitLabTestCommit("1b12f15a11fc6e62177bef08f47bc7b5ce50b141"),
-	"refs/heads/improve/awesome": testhelper.GitLabTestCommit("5937ac0a7beb003549fc5fd26fc247adbce4a52e"),
-	"refs/heads/'test'":          testhelper.GitLabTestCommit("e56497bb5f03a90a51293fc6d516788730953899"),
-}
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m, testhelper.WithSetup(func() error {
@@ -98,22 +91,6 @@ func newRefServiceClient(tb testing.TB, serverSocketPath string) (gitalypb.RefSe
 	require.NoError(tb, err)
 
 	return gitalypb.NewRefServiceClient(conn), conn
-}
-
-func assertContainsBranch(t *testing.T, branches []*gitalypb.Branch, branch *gitalypb.Branch) {
-	t.Helper()
-
-	var branchNames [][]byte
-
-	for _, b := range branches {
-		if bytes.Equal(branch.Name, b.Name) {
-			testhelper.ProtoEqual(t, b.TargetCommit, branch.TargetCommit)
-			return // Found the branch and it matches. Success!
-		}
-		branchNames = append(branchNames, b.Name)
-	}
-
-	t.Errorf("Expected to find branch %q in branches %s", branch.Name, branchNames)
 }
 
 func writeCommit(
