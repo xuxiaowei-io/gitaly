@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
@@ -8,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
@@ -22,22 +21,32 @@ func TestGetTagSignatures(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+	cfg, client := setupRefServiceWithoutRepo(t)
 
-	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize) + "\n"
-	signature1 := string(testhelper.MustReadFile(t, "testdata/tag-1e292f8fedd741b75372e19097c76d327140c312-signature"))
-	tag1ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-1", "master", gittest.WriteTagConfig{Message: message1 + signature1})
-	content1 := fmt.Sprintf("object 1e292f8fedd741b75372e19097c76d327140c312\ntype commit\ntag big-tag-1\ntagger %s\n\n%s", gittest.DefaultCommitterSignature, message1)
+	plainCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("plain signed commit"), gittest.WithBranch(git.DefaultBranch))
+	plainSignature := `-----BEGIN SIGNED MESSAGE-----
+MIISfwYJKoZIhvcNAQcCoIIScDCCEmwCAQExDTALBglghkgBZQMEAgEwCwYJKoZI
+-----END SIGNED MESSAGE-----`
+	plainMessage := strings.Repeat("a", helper.MaxCommitOrTagMessageSize) + "\n"
+	plainTagID := gittest.WriteTag(t, cfg, repoPath, "plain-signed-tag", plainCommitID.Revision(), gittest.WriteTagConfig{Message: plainMessage + plainSignature})
+	plainContent := fmt.Sprintf("object %s\ntype commit\ntag plain-signed-tag\ntagger %s\n\n%s", plainCommitID, gittest.DefaultCommitterSignature, plainMessage)
 
-	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize) + "\n"
-	signature2 := string(testhelper.MustReadFile(t, "testdata/tag-7975be0116940bf2ad4321f79d02a55c5f7779aa-signature"))
-	tag2ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-2", "master~", gittest.WriteTagConfig{Message: message2 + signature2})
-	content2 := fmt.Sprintf("object 7975be0116940bf2ad4321f79d02a55c5f7779aa\ntype commit\ntag big-tag-2\ntagger %s\n\n%s", gittest.DefaultCommitterSignature, message2)
+	pgpCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("PGP signed commit"))
+	pgpSignature := `-----BEGIN PGP SIGNATURE-----
+iJwEAAEIAAYFAlmmbf0ACgkQv52SX5Ee/WVv1gP/WrjclOc3CYiTrTgNuxs/vyXl
+-----END PGP SIGNATURE-----`
+	pgpMessage := strings.Repeat("b", helper.MaxCommitOrTagMessageSize) + "\n"
+	pgpTagID := gittest.WriteTag(t, cfg, repoPath, "pgp-signed-tag", pgpCommitID.Revision(), gittest.WriteTagConfig{Message: pgpMessage + pgpSignature})
+	pgpContent := fmt.Sprintf("object %s\ntype commit\ntag pgp-signed-tag\ntagger %s\n\n%s", pgpCommitID, gittest.DefaultCommitterSignature, pgpMessage)
 
-	message3 := "tag message\n"
-	tag3ID := gittest.WriteTag(t, cfg, repoPath, "tag-3", "master~~", gittest.WriteTagConfig{Message: message3})
-	content3 := fmt.Sprintf("object 60ecb67744cb56576c30214ff52294f8ce2def98\ntype commit\ntag tag-3\ntagger %s\n\n%s", gittest.DefaultCommitterSignature, message3)
+	unsignedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unsigned commit"))
+	unsignedMessage := "tag message\n"
+	unsignedTagID := gittest.WriteTag(t, cfg, repoPath, "unsigned-tag", unsignedCommitID.Revision(), gittest.WriteTagConfig{Message: unsignedMessage})
+	unsignedContent := fmt.Sprintf("object %s\ntype commit\ntag unsigned-tag\ntagger %s\n\n%s", unsignedCommitID, gittest.DefaultCommitterSignature, unsignedMessage)
+
+	invalidObjectID := gittest.DefaultObjectHash.HashData([]byte("invalid object"))
 
 	for _, tc := range []struct {
 		desc               string
@@ -63,92 +72,92 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "unknown id",
 			revisions: []string{
-				"b10ff336f3fbfb131431c4959915cdfd1b49c635",
+				invalidObjectID.String(),
 			},
-			expectedErr: status.Error(codes.Internal, "cat-file iterator stop: rev-list pipeline command: exit status 128, stderr: \"fatal: bad object b10ff336f3fbfb131431c4959915cdfd1b49c635\\n\""),
+			expectedErr: structerr.NewInternal("cat-file iterator stop: rev-list pipeline command: exit status 128, stderr: \"fatal: bad object %s\\n\"", invalidObjectID),
 		},
 		{
 			desc: "commit id",
 			revisions: []string{
-				"1e292f8fedd741b75372e19097c76d327140c312",
+				plainCommitID.String(),
 			},
 			expectedSignatures: nil,
 		},
 		{
 			desc: "commit ref",
 			revisions: []string{
-				"refs/heads/master",
+				git.DefaultBranch,
 			},
 			expectedSignatures: nil,
 		},
 		{
 			desc: "single tag signature",
 			revisions: []string{
-				tag1ID.String(),
+				plainTagID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID.String(),
-					Signature: []byte(signature1),
-					Content:   []byte(content1),
+					TagId:     plainTagID.String(),
+					Signature: []byte(plainSignature),
+					Content:   []byte(plainContent),
 				},
 			},
 		},
 		{
 			desc: "single tag signature by short SHA",
 			revisions: []string{
-				tag1ID.String()[:7],
+				plainTagID.String()[:7],
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID.String(),
-					Signature: []byte(signature1),
-					Content:   []byte(content1),
+					TagId:     plainTagID.String(),
+					Signature: []byte(plainSignature),
+					Content:   []byte(plainContent),
 				},
 			},
 		},
 		{
 			desc: "single tag signature by ref",
 			revisions: []string{
-				"refs/tags/big-tag-1",
+				"refs/tags/plain-signed-tag",
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID.String(),
-					Signature: []byte(signature1),
-					Content:   []byte(content1),
+					TagId:     plainTagID.String(),
+					Signature: []byte(plainSignature),
+					Content:   []byte(plainContent),
 				},
 			},
 		},
 		{
 			desc: "multiple tag signatures",
 			revisions: []string{
-				tag1ID.String(),
-				tag2ID.String(),
+				plainTagID.String(),
+				pgpTagID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID.String(),
-					Signature: []byte(signature1),
-					Content:   []byte(content1),
+					TagId:     plainTagID.String(),
+					Signature: []byte(plainSignature),
+					Content:   []byte(plainContent),
 				},
 				{
-					TagId:     tag2ID.String(),
-					Signature: []byte(signature2),
-					Content:   []byte(content2),
+					TagId:     pgpTagID.String(),
+					Signature: []byte(pgpSignature),
+					Content:   []byte(pgpContent),
 				},
 			},
 		},
 		{
 			desc: "tag without signature",
 			revisions: []string{
-				tag3ID.String(),
+				unsignedTagID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag3ID.String(),
+					TagId:     unsignedTagID.String(),
 					Signature: []byte(""),
-					Content:   []byte(content3),
+					Content:   []byte(unsignedContent),
 				},
 			},
 		},
@@ -186,8 +195,10 @@ func TestGetTagSignatures(t *testing.T) {
 
 func TestGetTagSignatures_validate(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repoProto, _, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc        string
