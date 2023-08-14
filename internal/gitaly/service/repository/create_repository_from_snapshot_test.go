@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -16,12 +14,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/archive"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -72,16 +71,12 @@ func generateTarFile(t *testing.T, path string) ([]byte, []string) {
 
 func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	cfg := testcfg.Build(t)
-
-	client, socketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = socketPath
-
-	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch(git.DefaultBranch))
 
 	// Ensure these won't be in the archive
 	require.NoError(t, os.Remove(filepath.Join(sourceRepoPath, "config")))
@@ -93,21 +88,18 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret})
 	defer srv.Close()
 
-	repoRelativePath := filepath.Join("non-existing-parent", "repository")
-
 	repo := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
-		RelativePath: repoRelativePath,
+		RelativePath: gittest.NewRepositoryName(t),
 	}
-	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
+
+	response, err := client.CreateRepositoryFromSnapshot(ctx, &gitalypb.CreateRepositoryFromSnapshotRequest{
 		Repository: repo,
 		HttpUrl:    srv.URL + tarPath,
 		HttpAuth:   secret,
-	}
-
-	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
+	})
 	require.NoError(t, err)
-	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
+	testhelper.ProtoEqual(t, response, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
 	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
 	require.DirExists(t, repoAbsolutePath)
@@ -125,157 +117,138 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	cfg := testcfg.Build(t)
-	client, socketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = socketPath
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	// This creates the first repository on the server. As this test can run with Praefect in front of it,
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation
 	// conflicts even with Praefect in front of it.
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		RelativePath: storage.DeriveReplicaPath(1),
-		Seed:         gittest.SeedGitLabTest,
 	})
 
-	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: repo}
-	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
+	response, err := client.CreateRepositoryFromSnapshot(ctx, &gitalypb.CreateRepositoryFromSnapshotRequest{
+		Repository: repo,
+	})
 	testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 	if testhelper.IsPraefectEnabled() {
 		require.Contains(t, err.Error(), "route repository creation: reserve repository id: repository already exists")
 	} else {
 		require.Contains(t, err.Error(), "creating repository: repository exists already")
 	}
-	require.Nil(t, rsp)
-}
-
-func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-	client, socketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = socketPath
-
-	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
-		Repository: &gitalypb.Repository{
-			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewRepositoryName(t),
-		},
-		HttpUrl: "invalid!scheme://invalid.invalid",
-	}
-
-	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
-	require.Contains(t, err.Error(), "Bad HTTP URL")
-	require.Nil(t, rsp)
+	require.Nil(t, response)
 }
 
 func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	testCases := []struct {
-		desc            string
-		url             string
-		auth            string
-		resolvedAddress string
-		code            codes.Code
-		errContains     string
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	srv := httptest.NewServer(&tarTesthandler{secret: secret})
+	t.Cleanup(srv.Close)
+
+	for _, tc := range []struct {
+		desc                 string
+		url                  string
+		auth                 string
+		resolvedAddress      string
+		expectedCode         codes.Code
+		expectedErrSubstring string
 	}{
 		{
-			desc:        "http bad auth",
-			url:         tarPath,
-			auth:        "Bad authentication",
-			code:        codes.Internal,
-			errContains: "HTTP server: 401 ",
+			desc:                 "http bad auth",
+			url:                  srv.URL + tarPath,
+			auth:                 "Bad authentication",
+			expectedCode:         codes.Internal,
+			expectedErrSubstring: "HTTP server: 401 ",
 		},
 		{
-			desc:        "http not found",
-			url:         tarPath + ".does-not-exist",
-			auth:        secret,
-			code:        codes.Internal,
-			errContains: "HTTP server: 404 ",
+			desc:                 "http not found",
+			url:                  srv.URL + tarPath + ".does-not-exist",
+			auth:                 secret,
+			expectedCode:         codes.Internal,
+			expectedErrSubstring: "HTTP server: 404 ",
 		},
 		{
-			desc:        "http do not follow redirects",
-			url:         redirectPath,
-			auth:        secret,
-			code:        codes.Internal,
-			errContains: "HTTP server: 302 ",
+			desc:                 "http do not follow redirects",
+			url:                  srv.URL + redirectPath,
+			auth:                 secret,
+			expectedCode:         codes.Internal,
+			expectedErrSubstring: "HTTP server: 302 ",
 		},
 		{
-			desc:            "resolved address not in expected format",
-			url:             tarPath,
-			auth:            secret,
-			resolvedAddress: "foo/bar",
-			code:            codes.InvalidArgument,
-			errContains:     "creating resolved HTTP client: invalid resolved address",
+			desc:                 "resolved address not in expected format",
+			url:                  srv.URL + tarPath,
+			auth:                 secret,
+			resolvedAddress:      "foo/bar",
+			expectedCode:         codes.InvalidArgument,
+			expectedErrSubstring: "creating resolved HTTP client: invalid resolved address",
 		},
-	}
+		{
+			desc:                 "invalid URL",
+			url:                  "invalid!scheme://invalid.invalid",
+			auth:                 secret,
+			expectedCode:         codes.InvalidArgument,
+			expectedErrSubstring: "Bad HTTP URL",
+		},
+	} {
+		tc := tc
 
-	srv := httptest.NewServer(&tarTesthandler{secret: secret})
-	defer srv.Close()
-
-	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg := testcfg.Build(t)
-			client, socketPath := runRepositoryService(t, cfg)
-			cfg.SocketPath = socketPath
+			t.Parallel()
 
-			req := &gitalypb.CreateRepositoryFromSnapshotRequest{
+			response, err := client.CreateRepositoryFromSnapshot(ctx, &gitalypb.CreateRepositoryFromSnapshotRequest{
 				Repository: &gitalypb.Repository{
 					StorageName:  cfg.Storages[0].Name,
 					RelativePath: gittest.NewRepositoryName(t),
 				},
-				HttpUrl:         srv.URL + tc.url,
+				HttpUrl:         tc.url,
 				HttpAuth:        tc.auth,
 				ResolvedAddress: tc.resolvedAddress,
-			}
-
-			rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
-			testhelper.RequireGrpcCode(t, err, tc.code)
-			require.Nil(t, rsp)
-			require.Contains(t, err.Error(), tc.errContains)
+			})
+			testhelper.RequireGrpcCode(t, err, tc.expectedCode)
+			require.Nil(t, response)
+			require.Contains(t, err.Error(), tc.expectedErrSubstring)
 		})
 	}
 }
 
-func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
+func TestCreateRepositoryFromSnapshot_malformedArchive(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	cfg := testcfg.Build(t)
-	client, socketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = socketPath
+	// Note that we are also writing a blob here that is 16kB in size. This is because there is a bug in
+	// CreateRepositoryFromSnapshot that would cause it to succeed when a tiny archive gets truncated. Please refer
+	// to https://gitlab.com/gitlab-org/gitaly/-/issues/5503.
+	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "blob", Mode: "100644", Content: string(uncompressibleData(16 * 1024))},
+	))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))
-	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "hooks")))
-
-	data, _ := generateTarFile(t, repoPath)
+	data, _ := generateTarFile(t, sourceRepoPath)
 	// Only serve half of the tar file
 	dataReader := io.LimitReader(bytes.NewReader(data), int64(len(data)/2))
 
 	srv := httptest.NewServer(&tarTesthandler{tarData: dataReader, secret: secret})
 	defer srv.Close()
 
-	// Delete the repository so we can re-use the path
-	require.NoError(t, os.RemoveAll(repoPath))
+	repo := &gitalypb.Repository{
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: gittest.NewRepositoryName(t),
+	}
+	repoPath, err := config.NewLocator(cfg).GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
+	require.NoError(t, err)
 
-	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
+	response, err := client.CreateRepositoryFromSnapshot(ctx, &gitalypb.CreateRepositoryFromSnapshotRequest{
 		Repository: repo,
 		HttpUrl:    srv.URL + tarPath,
 		HttpAuth:   secret,
-	}
-
-	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
+	})
 	require.Error(t, err)
-	require.Nil(t, rsp)
+	require.Nil(t, response)
 
 	// Ensure that a partial result is not left in place
 	require.NoFileExists(t, repoPath)
@@ -283,12 +256,9 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-
-	cfg := testcfg.Build(t)
-
-	client, socketPath := runRepositoryService(t, cfg)
-	cfg.SocketPath = socketPath
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -318,16 +288,14 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 
 	randomHostname := fmt.Sprintf("http://localhost:%s%s", u.Port(), tarPath)
 
-	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
+	response, err := client.CreateRepositoryFromSnapshot(ctx, &gitalypb.CreateRepositoryFromSnapshotRequest{
 		Repository:      repo,
 		HttpUrl:         randomHostname,
 		HttpAuth:        secret,
 		ResolvedAddress: u.Hostname(),
-	}
-
-	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
+	})
 	require.NoError(t, err)
-	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
+	testhelper.ProtoEqual(t, response, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
 	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
 	require.DirExists(t, repoAbsolutePath)
@@ -345,9 +313,9 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 
 func TestServer_CreateRepositoryFromSnapshot_validate(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	_, _, _, client := setupRepositoryService(t, ctx)
+	ctx := testhelper.Context(t)
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc        string
