@@ -322,7 +322,7 @@ func TestCreate(t *testing.T) {
 			// manager's data.
 			ctx := ctx
 			*txManager = transaction.MockManager{}
-			repoCounter := counter.NewRepositoryCounter()
+			repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 
 			repo := &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,

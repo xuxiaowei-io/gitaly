@@ -22,20 +22,23 @@ import (
 type RepositoryCounter struct {
 	reposTotal     *prometheus.GaugeVec
 	suppressMetric atomic.Bool
+	// Lookup path associated with a storage.
+	storageNameToPath map[string]string
 }
 
 // NewRepositoryCounter constructs a RepositoryCounter object.
-func NewRepositoryCounter() *RepositoryCounter {
+func NewRepositoryCounter(storages []config.Storage) *RepositoryCounter {
 	c := &RepositoryCounter{
 		reposTotal: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "gitaly_total_repositories_count",
-				Help: "Gauge of number of repositories by storage and path",
+				Help: "Gauge of number of repositories by storage path and repository prefix",
 			},
-			[]string{"storage", "prefix"},
+			[]string{"path", "prefix"},
 		),
 	}
 	c.suppressMetric.Store(true)
+	c.storageNameToPath = nameToPath(storages)
 
 	return c
 }
@@ -58,29 +61,36 @@ func (c *RepositoryCounter) Collect(metrics chan<- prometheus.Metric) {
 func (c *RepositoryCounter) StartCountingRepositories(
 	ctx context.Context,
 	locator storage.Locator,
-	storages []config.Storage,
 	logger log.FieldLogger,
 ) {
 	dontpanic.Go(func() {
-		c.countRepositories(ctx, locator, storages, logger)
+		c.countRepositories(ctx, locator, logger)
 	})
 }
 
 func (c *RepositoryCounter) countRepositories(
 	ctx context.Context,
 	locator storage.Locator,
-	storages []config.Storage,
 	logger log.FieldLogger,
 ) {
 	defer func() {
 		c.suppressMetric.Store(false)
 	}()
 
+	// Multiple storage names may share a single path, ensure we walk each path only once.
+	uniquePaths := make(map[string]string)
+	for name, path := range c.storageNameToPath {
+		_, ok := uniquePaths[path]
+		if !ok {
+			uniquePaths[path] = name
+		}
+	}
+
 	logger.Info("counting repositories")
 	totalStart := time.Now()
 
-	for _, stor := range storages {
-		logger.Infof("starting to count repositories in storage %q", stor.Name)
+	for storPath, name := range uniquePaths {
+		logger.Infof("starting to count repositories in path %q", storPath)
 		storageStart := time.Now()
 
 		paths := make(map[string]float64)
@@ -89,24 +99,23 @@ func (c *RepositoryCounter) countRepositories(
 			if err != nil {
 				// Encountering a malformed path should not block us from continuing
 				// to count.
-				logger.WithError(err).Warnf("counting repositories: walking storage %q", stor)
+				logger.WithError(err).Warnf("counting repositories: walking path %q", storPath)
 				return nil
 			}
 
 			paths[prefix]++
 			return nil
 		}
-		ctx := context.Background()
 
-		if err := walk.FindRepositories(ctx, locator, stor.Name, incrementPrefix); err != nil {
-			log.WithError(err).Errorf("failed to count repositories in storage %q", stor.Name)
+		if err := walk.FindRepositories(ctx, locator, name, incrementPrefix); err != nil {
+			log.WithError(err).Errorf("failed to count repositories in path %q", storPath)
 		}
 
 		for prefix, ct := range paths {
-			c.reposTotal.WithLabelValues(stor.Name, prefix).Add(ct)
+			c.reposTotal.WithLabelValues(storPath, prefix).Add(ct)
 		}
 
-		logger.Infof("completed counting repositories in storage %q after %s", stor.Name, time.Since(storageStart))
+		logger.Infof("completed counting repositories in path %q after %s", storPath, time.Since(storageStart))
 	}
 
 	logger.Infof("completed counting all repositories after %s", time.Since(totalStart))
@@ -123,8 +132,10 @@ func (c *RepositoryCounter) Decrement(repo storage.Repository) {
 }
 
 // DeleteStorage removes metrics associated with a storage.
-func (c *RepositoryCounter) DeleteStorage(storage string) {
-	c.reposTotal.DeletePartialMatch(prometheus.Labels{"storage": storage})
+func (c *RepositoryCounter) DeleteStorage(storageName string) {
+	if path, exist := c.storageNameToPath[storageName]; exist {
+		c.reposTotal.DeletePartialMatch(prometheus.Labels{"path": path})
+	}
 }
 
 func (c *RepositoryCounter) add(repo storage.Repository, ct float64) {
@@ -132,8 +143,20 @@ func (c *RepositoryCounter) add(repo storage.Repository, ct float64) {
 	if err != nil {
 		return
 	}
+	if path, exist := c.storageNameToPath[repo.GetStorageName()]; exist {
+		c.reposTotal.WithLabelValues(path, prefix).Add(ct)
+	}
+}
 
-	c.reposTotal.WithLabelValues(repo.GetStorageName(), prefix).Add(ct)
+// Create a map of storage name to paths for quick lookup.
+func nameToPath(storages []config.Storage) map[string]string {
+	m := make(map[string]string)
+
+	for _, stor := range storages {
+		m[stor.Name] = stor.Path
+	}
+
+	return m
 }
 
 func getPrefix(path string) (string, error) {

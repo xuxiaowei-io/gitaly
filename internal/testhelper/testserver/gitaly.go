@@ -341,7 +341,7 @@ func (gsd *gitalyServerDeps) createDependencies(ctx context.Context, tb testing.
 	}
 
 	if gsd.repositoryCounter == nil {
-		gsd.repositoryCounter = counter.NewRepositoryCounter()
+		gsd.repositoryCounter = counter.NewRepositoryCounter(cfg.Storages)
 	}
 
 	if gsd.git2goExecutor == nil {

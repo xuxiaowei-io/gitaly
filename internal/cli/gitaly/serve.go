@@ -230,9 +230,9 @@ func run(cfg config.Cfg) error {
 
 	locator := config.NewLocator(cfg)
 
-	repoCounter := counter.NewRepositoryCounter()
+	repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 	prometheus.MustRegister(repoCounter)
-	repoCounter.StartCountingRepositories(ctx, locator, cfg.Storages, log.StandardLogger())
+	repoCounter.StartCountingRepositories(ctx, locator, log.StandardLogger())
 
 	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
 

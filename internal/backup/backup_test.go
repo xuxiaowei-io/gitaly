@@ -70,7 +70,7 @@ func TestManager_Create(t *testing.T) {
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 
 	ctx := testhelper.Context(t)
-	repoCounter := counter.NewRepositoryCounter()
+	repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 
 	for _, managerTC := range []struct {
 		desc  string
@@ -238,7 +238,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
 	ctx := testhelper.Context(t)
-	repoCounter := counter.NewRepositoryCounter()
+	repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 
 	for _, managerTC := range []struct {
 		desc  string
@@ -382,7 +382,7 @@ func TestManager_Restore_latest(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
-	repoCounter := counter.NewRepositoryCounter()
+	repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 
 	for _, managerTC := range []struct {
 		desc  string
@@ -710,7 +710,7 @@ func TestManager_Restore_specific(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
-	repoCounter := counter.NewRepositoryCounter()
+	repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 
 	for _, managerTC := range []struct {
 		desc  string
