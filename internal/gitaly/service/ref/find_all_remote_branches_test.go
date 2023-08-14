@@ -1,142 +1,168 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
-	"fmt"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
+func TestFindAllRemoteBranches(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+	cfg, client := setupRefServiceWithoutRepo(t)
 
-	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	remoteName := "my-remote"
-	expectedBranches := map[string]git.ObjectID{
-		"foo": "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
-		"bar": "60ecb67744cb56576c30214ff52294f8ce2def98",
-	}
-	excludedRemote := "my-remote-2"
-	excludedBranches := map[string]git.ObjectID{
-		"from-another-remote": "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+	type setupData struct {
+		request          *gitalypb.FindAllRemoteBranchesRequest
+		expectedErr      error
+		expectedBranches []*gitalypb.Branch
 	}
 
-	for branchName, commitID := range expectedBranches {
-		gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, branchName)), commitID)
-	}
-
-	for branchName, commitID := range excludedBranches {
-		gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", excludedRemote, branchName)), commitID)
-	}
-
-	request := &gitalypb.FindAllRemoteBranchesRequest{Repository: repoProto, RemoteName: remoteName}
-
-	c, err := client.FindAllRemoteBranches(ctx, request)
-	require.NoError(t, err)
-
-	branches := readFindAllRemoteBranchesResponsesFromClient(t, c)
-	require.Len(t, branches, len(expectedBranches))
-
-	for branchName, commitID := range expectedBranches {
-		targetCommit, err := repo.ReadCommit(ctx, git.Revision(commitID))
-		require.NoError(t, err)
-
-		expectedBranch := &gitalypb.Branch{
-			Name:         []byte("refs/remotes/" + remoteName + "/" + branchName),
-			TargetCommit: targetCommit,
-		}
-
-		require.Contains(t, branches, expectedBranch)
-	}
-
-	for branchName, commitID := range excludedBranches {
-		targetCommit, err := repo.ReadCommit(ctx, git.Revision(commitID))
-		require.NoError(t, err)
-
-		excludedBranch := &gitalypb.Branch{
-			Name:         []byte("refs/remotes/" + excludedRemote + "/" + branchName),
-			TargetCommit: targetCommit,
-		}
-
-		require.NotContains(t, branches, excludedBranch)
-	}
-}
-
-func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(t, ctx)
-
-	testCases := []struct {
-		description string
-		request     *gitalypb.FindAllRemoteBranchesRequest
-		expectedErr error
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			description: "Invalid repo",
-			request: &gitalypb.FindAllRemoteBranchesRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "fake",
-					RelativePath: "repo",
-				},
-				RemoteName: "stub",
+			desc: "unknown storage",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindAllRemoteBranchesRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "fake",
+							RelativePath: "repo",
+						},
+						RemoteName: "stub",
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("fake"),
+					)),
+				}
 			},
-			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-				"%w", storage.NewStorageNotFoundError("fake"),
-			)),
 		},
 		{
-			description: "Empty repo",
-			request:     &gitalypb.FindAllRemoteBranchesRequest{RemoteName: "myRemote"},
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			desc: "unset repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindAllRemoteBranchesRequest{
+						RemoteName: "myRemote",
+					},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
+			},
 		},
 		{
-			description: "Empty remote name",
-			request:     &gitalypb.FindAllRemoteBranchesRequest{Repository: repo},
-			expectedErr: status.Error(codes.InvalidArgument, "empty RemoteName"),
-		},
-	}
+			desc: "unset remote name",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			c, err := client.FindAllRemoteBranches(ctx, tc.request)
+				return setupData{
+					request: &gitalypb.FindAllRemoteBranchesRequest{
+						Repository: repo,
+					},
+					expectedErr: structerr.NewInvalidArgument("empty RemoteName"),
+				}
+			},
+		},
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.FindAllRemoteBranchesRequest{
+						Repository: repo,
+						RemoteName: "origin",
+					},
+				}
+			},
+		},
+		{
+			desc: "no remote branches",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath)
+				for _, ref := range []git.ReferenceName{
+					"refs/heads/branch",
+					"refs/tags/tag",
+					"refs/something",
+					"refs/keep-around/keep-around",
+				} {
+					gittest.WriteRef(t, cfg, repoPath, ref, commitID)
+				}
+
+				return setupData{
+					request: &gitalypb.FindAllRemoteBranchesRequest{
+						Repository: repo,
+						RemoteName: "origin",
+					},
+				}
+			},
+		},
+		{
+			desc: "different remote",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/remotes/origin/branch"))
+
+				return setupData{
+					request: &gitalypb.FindAllRemoteBranchesRequest{
+						Repository: repo,
+						RemoteName: "does-not-exist",
+					},
+				}
+			},
+		},
+		{
+			desc: "mixed requested and unrequested remote references",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commit1ID, commit1 := writeCommit(t, ctx, cfg, repo, gittest.WithMessage("commit 1"))
+				gittest.WriteRef(t, cfg, repoPath, "refs/remotes/origin/branch-1", commit1ID)
+				gittest.WriteRef(t, cfg, repoPath, "refs/remotes/unrelated/branch-1", commit1ID)
+
+				commit2ID, commit2 := writeCommit(t, ctx, cfg, repo, gittest.WithMessage("commit 2"))
+				gittest.WriteRef(t, cfg, repoPath, "refs/remotes/origin/branch-2", commit2ID)
+				gittest.WriteRef(t, cfg, repoPath, "refs/remotes/unrelated/branch-2", commit2ID)
+
+				return setupData{
+					request: &gitalypb.FindAllRemoteBranchesRequest{
+						Repository: repo,
+						RemoteName: "origin",
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/remotes/origin/branch-1"), TargetCommit: commit1},
+						{Name: []byte("refs/remotes/origin/branch-2"), TargetCommit: commit2},
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			stream, err := client.FindAllRemoteBranches(ctx, setup.request)
 			require.NoError(t, err)
-			_, recvError := c.Recv()
-			testhelper.RequireGrpcError(t, tc.expectedErr, recvError)
+
+			branches, err := testhelper.ReceiveAndFold(stream.Recv, func(
+				result []*gitalypb.Branch,
+				response *gitalypb.FindAllRemoteBranchesResponse,
+			) []*gitalypb.Branch {
+				return append(result, response.GetBranches()...)
+			})
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.ProtoEqual(t, setup.expectedBranches, branches)
 		})
 	}
-}
-
-func readFindAllRemoteBranchesResponsesFromClient(t *testing.T, c gitalypb.RefService_FindAllRemoteBranchesClient) []*gitalypb.Branch {
-	var branches []*gitalypb.Branch
-
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		branches = append(branches, r.GetBranches()...)
-	}
-
-	return branches
 }
