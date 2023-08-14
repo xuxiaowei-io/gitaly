@@ -31,7 +31,7 @@ type commitRequest struct {
 func testFindChangedPathsRequestSuccess(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	type treeRequest struct {
 		left, right string
@@ -752,7 +752,7 @@ func TestFindChangedPathsRequest_deprecated(t *testing.T) {
 func testFindChangedPathsRequestDeprecated(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	type setupData struct {
 		repo          *gitalypb.Repository
@@ -952,7 +952,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 func testFindChangedPathsRequestFailing(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -1122,7 +1122,7 @@ func BenchmarkFindChangedPaths_100Commits(b *testing.B) {
 
 func benchmarkFindChangedPaths(commitNum int) func(b *testing.B, ctx context.Context) {
 	return func(b *testing.B, ctx context.Context) {
-		cfg, client := setupDiffServiceWithoutRepo(b)
+		cfg, client := setupDiffService(b)
 
 		repo, repoPath := gittest.CreateRepository(b, ctx, cfg)
 

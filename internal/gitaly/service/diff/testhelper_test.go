@@ -1,11 +1,9 @@
 package diff
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
@@ -21,17 +19,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupDiffService(tb testing.TB, ctx context.Context, opt ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.DiffServiceClient) {
-	cfg, client := setupDiffServiceWithoutRepo(tb, opt...)
-
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	return cfg, repo, repoPath, client
-}
-
-func setupDiffServiceWithoutRepo(tb testing.TB, opt ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.DiffServiceClient) {
+func setupDiffService(tb testing.TB, opt ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.DiffServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	addr := testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {

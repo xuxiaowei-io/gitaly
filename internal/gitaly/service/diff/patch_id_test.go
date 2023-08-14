@@ -17,7 +17,7 @@ func TestGetPatchID(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupDiffServiceWithoutRepo(t)
+	cfg, client := setupDiffService(t)
 
 	type setupData struct {
 		request          *gitalypb.GetPatchIDRequest
