@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
@@ -31,18 +30,12 @@ func (m mockTransactionServer) VoteTransaction(ctx context.Context, req *gitalyp
 	return m.voteTransactionFunc(ctx, req)
 }
 
-func newLogger() *logrus.Entry {
-	logger := logrus.New()
-	logger.Out = io.Discard
-	return logrus.NewEntry(logger)
-}
-
 func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	var interceptorInvoked int32
 	registry := NewRegistry()
 	lm := listenmux.New(insecure.NewCredentials())
 	lm.Register(NewServerHandshaker(
-		newLogger(),
+		testhelper.NewDiscardingLogEntry(t),
 		registry,
 		[]grpc.DialOption{
 			grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -109,7 +102,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 
 			expectedErr := status.Error(codes.Internal, fmt.Sprintf("multiplexed %d", i))
 
-			clientHandshaker := NewClientHandshaker(newLogger(), func() Server {
+			clientHandshaker := NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), func() Server {
 				srv := grpc.NewServer()
 				gitalypb.RegisterRefTransactionServer(srv, mockTransactionServer{
 					voteTransactionFunc: func(ctx context.Context, req *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
@@ -246,7 +239,7 @@ func Benchmark(b *testing.B) {
 					var serverOpts []grpc.ServerOption
 					if tc.multiplexed {
 						lm := listenmux.New(insecure.NewCredentials())
-						lm.Register(NewServerHandshaker(newLogger(), NewRegistry(), nil))
+						lm.Register(NewServerHandshaker(testhelper.NewDiscardingLogEntry(b), NewRegistry(), nil))
 						serverOpts = []grpc.ServerOption{
 							grpc.Creds(lm),
 						}
@@ -274,7 +267,7 @@ func Benchmark(b *testing.B) {
 
 					opts := []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials())}
 					if tc.multiplexed {
-						clientHandshaker := NewClientHandshaker(newLogger(), func() Server { return grpc.NewServer() }, DefaultConfiguration())
+						clientHandshaker := NewClientHandshaker(testhelper.NewDiscardingLogEntry(b), func() Server { return grpc.NewServer() }, DefaultConfiguration())
 						opts = []grpc.DialOption{
 							grpc.WithBlock(),
 							grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),

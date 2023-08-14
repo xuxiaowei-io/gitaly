@@ -273,7 +273,7 @@ func TestPerRPCLogHandler(t *testing.T) {
 	})
 
 	t.Run("log handling", func(t *testing.T) {
-		ctx := ctxlogrus.ToContext(createContext(), logrus.NewEntry(logrus.New()))
+		ctx := ctxlogrus.ToContext(createContext(), logrus.NewEntry(newLogger()))
 		ctx = lh.TagRPC(ctx, &stats.RPCTagInfo{})
 		mpp := ctx.Value(messageProducerHolderKey{}).(*messageProducerHolder)
 		mpp.format = "message"
@@ -340,7 +340,7 @@ func TestUnaryLogDataCatcherServerInterceptor(t *testing.T) {
 	t.Run("caught", func(t *testing.T) {
 		mpp := &messageProducerHolder{}
 		ctx := context.WithValue(createContext(), messageProducerHolderKey{}, mpp)
-		ctx = ctxlogrus.ToContext(ctx, logrus.New().WithField("a", 1))
+		ctx = ctxlogrus.ToContext(ctx, newLogger().WithField("a", 1))
 		interceptor := UnaryLogDataCatcherServerInterceptor()
 		_, _ = interceptor(ctx, nil, nil, handlerStub)
 		assert.Equal(t, logrus.Fields{"a": 1}, mpp.fields)
@@ -370,7 +370,7 @@ func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
 	t.Run("caught", func(t *testing.T) {
 		mpp := &messageProducerHolder{}
 		ctx := context.WithValue(createContext(), messageProducerHolderKey{}, mpp)
-		ctx = ctxlogrus.ToContext(ctx, logrus.New().WithField("a", 1))
+		ctx = ctxlogrus.ToContext(ctx, newLogger().WithField("a", 1))
 
 		interceptor := StreamLogDataCatcherServerInterceptor()
 		ss := &grpcmw.WrappedServerStream{WrappedContext: ctx}

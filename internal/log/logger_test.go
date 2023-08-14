@@ -28,7 +28,7 @@ func TestConfigure(t *testing.T) {
 			desc:   "json format with info level",
 			format: "json",
 			expectedLogger: func() *logrus.Logger {
-				logger := logrus.New()
+				logger := newLogger()
 				logger.Out = &out
 				logger.Formatter = UTCJsonFormatter()
 				logger.Level = logrus.InfoLevel
@@ -39,7 +39,7 @@ func TestConfigure(t *testing.T) {
 			desc:   "text format with info level",
 			format: "text",
 			expectedLogger: func() *logrus.Logger {
-				logger := logrus.New()
+				logger := newLogger()
 				logger.Out = &out
 				logger.Formatter = UTCTextFormatter()
 				logger.Level = logrus.InfoLevel
@@ -49,7 +49,7 @@ func TestConfigure(t *testing.T) {
 		{
 			desc: "empty format with info level",
 			expectedLogger: func() *logrus.Logger {
-				logger := logrus.New()
+				logger := newLogger()
 				logger.Out = &out
 				logger.Formatter = UTCTextFormatter()
 				logger.Level = logrus.InfoLevel
@@ -61,7 +61,7 @@ func TestConfigure(t *testing.T) {
 			format: "text",
 			level:  "debug",
 			expectedLogger: func() *logrus.Logger {
-				logger := logrus.New()
+				logger := newLogger()
 				logger.Out = &out
 				logger.Formatter = UTCTextFormatter()
 				logger.Level = logrus.DebugLevel
@@ -73,7 +73,7 @@ func TestConfigure(t *testing.T) {
 			format: "text",
 			level:  "invalid-level",
 			expectedLogger: func() *logrus.Logger {
-				logger := logrus.New()
+				logger := newLogger()
 				logger.Out = &out
 				logger.Formatter = UTCTextFormatter()
 				logger.Level = logrus.InfoLevel
@@ -88,7 +88,7 @@ func TestConfigure(t *testing.T) {
 				testHook,
 			},
 			expectedLogger: func() *logrus.Logger {
-				logger := logrus.New()
+				logger := newLogger()
 				logger.Out = &out
 				logger.Formatter = UTCTextFormatter()
 				logger.Level = logrus.InfoLevel
@@ -100,7 +100,7 @@ func TestConfigure(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			out.Reset()
 
-			logger := logrus.New()
+			logger := newLogger()
 			configure(logger, &out, tc.format, tc.level, tc.hooks...)
 
 			// We cannot directly compare the loggers with each other because they contain function
