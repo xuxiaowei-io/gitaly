@@ -27,6 +27,7 @@ func (p *analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
 			unavailableCodeAnalyzerName,
 			"included-functions",
 		)}),
+		newTestParamsOrder(),
 	}
 }
 

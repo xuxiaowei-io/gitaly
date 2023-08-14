@@ -45,7 +45,7 @@ func newErrorWrapAnalyzer(settings *errorWrapAnalyzerSettings) *analysis.Analyze
 	}
 }
 
-var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+var errorType = mustFindBuiltinInterface("error")
 
 // Over-simplified pattern to parse interpolation format. This linter targets error wrapping only.
 // Most of the time, %s or %v or %q are used. This pattern is good enough to detect most cases.
