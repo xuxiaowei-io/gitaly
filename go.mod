@@ -10,7 +10,7 @@ require (
 	github.com/beevik/ntp v1.3.0
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups/v3 v3.0.2
-	github.com/dgraph-io/badger/v4 v4.1.0
+	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/getsentry/sentry-go v0.23.0
 	github.com/git-lfs/git-lfs/v3 v3.4.0
 	github.com/go-enry/go-enry/v2 v2.8.4
