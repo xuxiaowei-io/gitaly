@@ -3,6 +3,7 @@ package gitaly
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 func newCheckCommand() *cli.Command {
@@ -27,8 +29,6 @@ Example: gitaly check gitaly.config.toml`,
 }
 
 func checkAction(ctx *cli.Context) error {
-	logrus.SetLevel(logrus.ErrorLevel)
-
 	if ctx.NArg() != 1 || ctx.Args().First() == "" {
 		if err := cli.ShowSubcommandHelp(ctx); err != nil {
 			return err
@@ -38,9 +38,15 @@ func checkAction(ctx *cli.Context) error {
 	}
 
 	configPath := ctx.Args().First()
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("loading configuration %q: %w", configPath, err)
+	}
+
+	logger := log.Configure(os.Stderr, "text", "error")
 
 	fmt.Fprint(ctx.App.Writer, "Checking GitLab API access: ")
-	info, err := checkAPI(configPath)
+	info, err := checkAPI(cfg, logger)
 	if err != nil {
 		fmt.Fprintln(ctx.App.Writer, "FAILED")
 		return err
@@ -56,13 +62,8 @@ func checkAction(ctx *cli.Context) error {
 	return nil
 }
 
-func checkAPI(configPath string) (*gitlab.CheckInfo, error) {
-	cfg, err := loadConfig(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("load config: config_path %q: %w", configPath, err)
-	}
-
-	gitlabAPI, err := gitlab.NewHTTPClient(logrus.New(), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+func checkAPI(cfg config.Cfg, logger logrus.FieldLogger) (*gitlab.CheckInfo, error) {
+	gitlabAPI, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return nil, err
 	}
