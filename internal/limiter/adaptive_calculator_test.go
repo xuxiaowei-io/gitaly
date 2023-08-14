@@ -55,8 +55,6 @@ func TestAdaptiveCalculator_realTimerTicker(t *testing.T) {
 func TestAdaptiveCalculator(t *testing.T) {
 	t.Parallel()
 
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5467")
-
 	tests := []struct {
 		desc       string
 		limits     []AdaptiveLimiter
