@@ -97,27 +97,23 @@ func main() {
 	}
 }
 
-func configureLogger(ctx context.Context) *logrus.Entry {
-	logger := logrus.New()
+// configureLogger configures the logger used by gitaly-hooks. As both stdout and stderr might be interpreted by Git, we
+// need to log to a file instead. If the `log.GitalyLogDirEnvKey` environment variable is set, we thus log to a file
+// contained in the directory pointed to by it, otherwise we discard any log messages.
+func configureLogger(ctx context.Context) logrus.FieldLogger {
+	writer := io.Discard
 
-	logDir := os.Getenv(log.GitalyLogDirEnvKey)
-	if logDir == "" {
-		logger.SetOutput(io.Discard)
-		return logrus.NewEntry(logger)
+	if logDir := os.Getenv(log.GitalyLogDirEnvKey); logDir != "" {
+		logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, perm.SharedFile)
+		if err != nil {
+			// Ignore this error as we cannot do anything about it anyway. We cannot write anything to
+			// stdout or stderr as that might break hooks, and we have no other destination to log to.
+		} else {
+			writer = logFile
+		}
 	}
 
-	logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, perm.SharedFile)
-	if err != nil {
-		logger.SetOutput(io.Discard)
-	} else {
-		logger.SetOutput(logFile)
-	}
-
-	logger.SetFormatter(log.UTCTextFormatter())
-
-	return logger.WithFields(logrus.Fields{
-		correlation.FieldName: correlation.ExtractFromContext(ctx),
-	})
+	return log.Configure(writer, "text", "info").WithField(correlation.FieldName, correlation.ExtractFromContext(ctx))
 }
 
 // Both stderr and stdout of gitaly-hooks are streamed back to clients. stdout is processed by client
