@@ -6,73 +6,26 @@ import (
 	"net"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/transactions"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
 // NewServerFactory returns factory object for initialization of praefect gRPC servers.
 func NewServerFactory(
-	conf config.Config,
-	logger *logrus.Entry,
-	coordinator *Coordinator,
-	director proxy.StreamDirector,
-	nodeMgr nodes.Manager,
-	txMgr *transactions.Manager,
-	queue datastore.ReplicationEventQueue,
-	rs datastore.RepositoryStore,
-	assignmentStore AssignmentStore,
-	router Router,
-	registry *protoregistry.Registry,
-	conns Connections,
-	primaryGetter PrimaryGetter,
-	checks []service.CheckFunc,
+	deps *Dependencies,
 	opts ...ServerOption,
 ) *ServerFactory {
 	return &ServerFactory{
-		conf:            conf,
-		logger:          logger,
-		coordinator:     coordinator,
-		director:        director,
-		nodeMgr:         nodeMgr,
-		txMgr:           txMgr,
-		queue:           queue,
-		rs:              rs,
-		assignmentStore: assignmentStore,
-		router:          router,
-		registry:        registry,
-		conns:           conns,
-		primaryGetter:   primaryGetter,
-		checks:          checks,
-		opts:            opts,
+		deps: deps,
+		opts: opts,
 	}
 }
 
 // ServerFactory is a factory of praefect grpc servers
 type ServerFactory struct {
 	mtx              sync.Mutex
-	conf             config.Config
-	logger           *logrus.Entry
-	coordinator      *Coordinator
-	director         proxy.StreamDirector
-	nodeMgr          nodes.Manager
-	txMgr            *transactions.Manager
-	queue            datastore.ReplicationEventQueue
-	rs               datastore.RepositoryStore
-	assignmentStore  AssignmentStore
-	router           Router
-	registry         *protoregistry.Registry
+	deps             *Dependencies
 	secure, insecure []*grpc.Server
-	conns            Connections
-	primaryGetter    PrimaryGetter
-	checks           []service.CheckFunc
 	opts             []ServerOption
 }
 
@@ -119,7 +72,7 @@ func (s *ServerFactory) Create(secure bool) (*grpc.Server, error) {
 		return s.insecure[len(s.insecure)-1], nil
 	}
 
-	cert, err := tls.LoadX509KeyPair(s.conf.TLS.CertPath, s.conf.TLS.KeyPath)
+	cert, err := tls.LoadX509KeyPair(s.deps.Config.TLS.CertPath, s.deps.Config.TLS.KeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("load certificate key pair: %w", err)
 	}
@@ -141,22 +94,7 @@ func (s *ServerFactory) Create(secure bool) (*grpc.Server, error) {
 }
 
 func (s *ServerFactory) createGRPC(creds credentials.TransportCredentials) *grpc.Server {
-	return NewGRPCServer(
-		s.conf,
-		s.logger,
-		s.registry,
-		s.coordinator,
-		s.director,
-		s.txMgr,
-		s.rs,
-		s.assignmentStore,
-		s.router,
-		s.conns,
-		s.primaryGetter,
-		creds,
-		s.checks,
-		s.opts...,
-	)
+	return NewGRPCServer(s.deps, creds, s.opts...)
 }
 
 func (s *ServerFactory) all() []*grpc.Server {

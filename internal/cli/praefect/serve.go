@@ -393,23 +393,22 @@ func server(
 			praefect.WithDequeueBatchSize(conf.Replication.BatchSize),
 			praefect.WithParallelStorageProcessingWorkers(conf.Replication.ParallelStorageProcessingWorkers),
 		)
-		srvFactory = praefect.NewServerFactory(
-			conf,
-			logger,
-			coordinator,
-			coordinator.StreamDirector,
-			nodeManager,
-			transactionManager,
-			queue,
-			rs,
-			assignmentStore,
-			router,
-			protoregistry.GitalyProtoPreregistered,
-			nodeSet.Connections(),
-			primaryGetter,
-			service.ReadinessChecks(),
-			defaultServerOptions...,
-		)
+		srvFactory = praefect.NewServerFactory(&praefect.Dependencies{
+			Config:          conf,
+			Logger:          logger,
+			Coordinator:     coordinator,
+			Director:        coordinator.StreamDirector,
+			NodeMgr:         nodeManager,
+			TxMgr:           transactionManager,
+			Queue:           queue,
+			RepositoryStore: rs,
+			AssignmentStore: assignmentStore,
+			Router:          router,
+			Registry:        protoregistry.GitalyProtoPreregistered,
+			Conns:           nodeSet.Connections(),
+			PrimaryGetter:   primaryGetter,
+			Checks:          service.ReadinessChecks(),
+		}, defaultServerOptions...)
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
 	if db != nil {

@@ -85,23 +85,15 @@ func TestRepositoryExistsHandler(t *testing.T) {
 				electionStrategy = config.ElectionStrategySQL
 			}
 
-			srv := NewGRPCServer(
-				config.Config{Failover: config.Failover{ElectionStrategy: electionStrategy}},
-				testhelper.NewDiscardingLogEntry(t),
-				protoregistry.GitalyProtoPreregistered,
-				nil,
-				func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
+			srv := NewGRPCServer(&Dependencies{
+				Config: config.Config{Failover: config.Failover{ElectionStrategy: electionStrategy}},
+				Logger: testhelper.NewDiscardingLogEntry(t),
+				Director: func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 					return nil, errServedByGitaly
 				},
-				nil,
-				rs,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-			)
+				RepositoryStore: rs,
+				Registry:        protoregistry.GitalyProtoPreregistered,
+			}, nil)
 			defer srv.Stop()
 
 			go testhelper.MustServe(t, srv, ln)

@@ -247,22 +247,22 @@ func RunPraefectServer(
 		WithStreamInterceptor(testserver.StructErrStreamInterceptor),
 	}
 
-	prf := NewGRPCServer(
-		conf,
-		opt.WithLogger,
-		protoregistry.GitalyProtoPreregistered,
-		coordinator,
-		coordinator.StreamDirector,
-		opt.WithTxMgr,
-		opt.WithRepoStore,
-		opt.WithAssignmentStore,
-		opt.WithRouter,
-		opt.WithConnections,
-		opt.WithPrimaryGetter,
-		nil,
-		opt.WithChecks,
-		serverOpts...,
-	)
+	prf := NewGRPCServer(&Dependencies{
+		Config:          conf,
+		Logger:          opt.WithLogger,
+		Coordinator:     coordinator,
+		Director:        coordinator.StreamDirector,
+		NodeMgr:         nil,
+		TxMgr:           opt.WithTxMgr,
+		Queue:           nil,
+		RepositoryStore: opt.WithRepoStore,
+		AssignmentStore: opt.WithAssignmentStore,
+		Router:          opt.WithRouter,
+		Registry:        protoregistry.GitalyProtoPreregistered,
+		Conns:           opt.WithConnections,
+		PrimaryGetter:   opt.WithPrimaryGetter,
+		Checks:          opt.WithChecks,
+	}, nil, serverOpts...)
 
 	listener, port := listenAvailPort(tb)
 

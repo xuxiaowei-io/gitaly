@@ -70,18 +70,14 @@ func TestGetObjectPoolHandler(t *testing.T) {
 		ln, err := net.Listen("unix", filepath.Join(tmp, "praefect"))
 		require.NoError(t, err)
 
-		srv := NewGRPCServer(
-			config.Config{Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository}},
-			testhelper.NewDiscardingLogEntry(t),
-			protoregistry.GitalyProtoPreregistered,
-			nil,
-			func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
+		srv := NewGRPCServer(&Dependencies{
+			Config: config.Config{Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository}},
+			Logger: testhelper.NewDiscardingLogEntry(t),
+			Director: func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 				return nil, errServedByGitaly
 			},
-			nil,
-			repoStore,
-			nil,
-			NewPerRepositoryRouter(
+			RepositoryStore: repoStore,
+			Router: NewPerRepositoryRouter(
 				nodeSet.Connections(),
 				nodes.NewPerRepositoryElector(db),
 				StaticHealthChecker(cfg.StorageNames()),
@@ -91,11 +87,9 @@ func TestGetObjectPoolHandler(t *testing.T) {
 				repoStore,
 				nil,
 			),
-			nodeSet.Connections(),
-			nil,
-			nil,
-			nil,
-		)
+			Registry: protoregistry.GitalyProtoPreregistered,
+			Conns:    nodeSet.Connections(),
+		}, nil)
 		t.Cleanup(srv.Stop)
 
 		go testhelper.MustServe(t, srv, ln)
