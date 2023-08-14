@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
@@ -98,22 +100,6 @@ func newRefServiceClient(tb testing.TB, serverSocketPath string) (gitalypb.RefSe
 	return gitalypb.NewRefServiceClient(conn), conn
 }
 
-func assertContainsAllBranchesResponseBranch(t *testing.T, branches []*gitalypb.FindAllBranchesResponse_Branch, branch *gitalypb.FindAllBranchesResponse_Branch) {
-	t.Helper()
-
-	var branchNames [][]byte
-
-	for _, b := range branches {
-		if bytes.Equal(branch.Name, b.Name) {
-			testhelper.ProtoEqual(t, b.Target, branch.Target)
-			return // Found the branch and it matches. Success!
-		}
-		branchNames = append(branchNames, b.Name)
-	}
-
-	t.Errorf("Expected to find branch %q in branches %s", branch.Name, branchNames)
-}
-
 func assertContainsBranch(t *testing.T, branches []*gitalypb.Branch, branch *gitalypb.Branch) {
 	t.Helper()
 
@@ -128,4 +114,24 @@ func assertContainsBranch(t *testing.T, branches []*gitalypb.Branch, branch *git
 	}
 
 	t.Errorf("Expected to find branch %q in branches %s", branch.Name, branchNames)
+}
+
+func writeCommit(
+	tb testing.TB,
+	ctx context.Context,
+	cfg config.Cfg,
+	repoProto *gitalypb.Repository,
+	opts ...gittest.WriteCommitOption,
+) (git.ObjectID, *gitalypb.GitCommit) {
+	tb.Helper()
+
+	repo := localrepo.NewTestRepo(tb, cfg, repoProto)
+	repoPath, err := repo.Path()
+	require.NoError(tb, err)
+
+	commitID := gittest.WriteCommit(tb, cfg, repoPath, opts...)
+	commitProto, err := repo.ReadCommit(ctx, commitID.Revision())
+	require.NoError(tb, err)
+
+	return commitID, commitProto
 }
