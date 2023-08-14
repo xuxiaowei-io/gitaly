@@ -17,11 +17,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
+	"gitlab.com/gitlab-org/labkit/correlation"
 	labkitcorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
@@ -74,7 +76,8 @@ func main() {
 	ctx, finished := labkittracing.ExtractFromEnv(ctx)
 	defer finished()
 
-	logger := gitalylog.NewHookLogger(ctx)
+	logger := configureLogger(ctx)
+
 	if err := run(ctx, os.Args); err != nil {
 		var hookError hookError
 		if errors.As(err, &hookError) {
@@ -92,6 +95,29 @@ func main() {
 		logger.WithError(err).Error("error executing git hook")
 		os.Exit(1)
 	}
+}
+
+func configureLogger(ctx context.Context) *logrus.Entry {
+	logger := logrus.New()
+
+	logDir := os.Getenv(log.GitalyLogDirEnvKey)
+	if logDir == "" {
+		logger.SetOutput(io.Discard)
+		return logrus.NewEntry(logger)
+	}
+
+	logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, perm.SharedFile)
+	if err != nil {
+		logger.SetOutput(io.Discard)
+	} else {
+		logger.SetOutput(logFile)
+	}
+
+	logger.SetFormatter(log.UTCTextFormatter())
+
+	return logger.WithFields(logrus.Fields{
+		correlation.FieldName: correlation.ExtractFromContext(ctx),
+	})
 }
 
 // Both stderr and stdout of gitaly-hooks are streamed back to clients. stdout is processed by client
