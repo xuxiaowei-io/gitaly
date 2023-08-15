@@ -1,13 +1,13 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
-	"io"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -15,282 +15,326 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func TestSuccessfulFindLocalBranches(t *testing.T) {
+func TestFindLocalBranches(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg, client := setupRefServiceWithoutRepo(t)
 
-	_, repo, _, client := setupRefService(t, ctx)
-
-	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
-	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	var branches []*gitalypb.Branch
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-		branches = append(branches, r.GetLocalBranches()...)
+	type setupData struct {
+		request          *gitalypb.FindLocalBranchesRequest
+		expectedErr      error
+		expectedBranches []*gitalypb.Branch
 	}
 
-	for name, target := range localBranches {
-		localBranch := &gitalypb.Branch{
-			Name:         []byte(name),
-			TargetCommit: target,
-		}
-
-		assertContainsBranch(t, branches, localBranch)
-	}
-}
-
-func TestFindLocalBranchesHugeCommitter(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, repo, repoPath, client := setupRefService(t, ctx)
-
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("refs/heads/improve/awesome"),
-		gittest.WithCommitterName(strings.Repeat("A", 100000)),
-	)
-
-	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
-
-	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	for {
-		_, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-	}
-}
-
-func TestFindLocalBranchesPagination(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setupRefService(t, ctx)
-
-	limit := 1
-	rpcRequest := &gitalypb.FindLocalBranchesRequest{
-		Repository: repo,
-		PaginationParams: &gitalypb.PaginationParameter{
-			Limit:     int32(limit),
-			PageToken: "refs/heads/gitaly/squash-test",
-		},
-	}
-	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	expectedBranch := "refs/heads/improve/awesome"
-	target := localBranches[expectedBranch]
-
-	var branches []*gitalypb.Branch
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-		branches = append(branches, r.GetLocalBranches()...)
-	}
-
-	require.Len(t, branches, limit)
-
-	branch := &gitalypb.Branch{
-		Name:         []byte(expectedBranch),
-		TargetCommit: target,
-	}
-	assertContainsBranch(t, branches, branch)
-}
-
-func TestFindLocalBranchesPaginationSequence(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setupRefService(t, ctx)
-
-	limit := 2
-	firstRPCRequest := &gitalypb.FindLocalBranchesRequest{
-		Repository: repo,
-		PaginationParams: &gitalypb.PaginationParameter{
-			Limit: int32(limit),
-		},
-	}
-	c, err := client.FindLocalBranches(ctx, firstRPCRequest)
-	require.NoError(t, err)
-
-	var firstResponseBranches []*gitalypb.Branch
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-		firstResponseBranches = append(firstResponseBranches, r.GetLocalBranches()...)
-	}
-
-	require.Len(t, firstResponseBranches, limit)
-
-	secondRPCRequest := &gitalypb.FindLocalBranchesRequest{
-		Repository: repo,
-		PaginationParams: &gitalypb.PaginationParameter{
-			Limit:     1,
-			PageToken: string(firstResponseBranches[0].Name),
-		},
-	}
-	c, err = client.FindLocalBranches(ctx, secondRPCRequest)
-	require.NoError(t, err)
-
-	var secondResponseBranches []*gitalypb.Branch
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-		secondResponseBranches = append(secondResponseBranches, r.GetLocalBranches()...)
-	}
-
-	require.Len(t, secondResponseBranches, 1)
-	require.Equal(t, firstResponseBranches[1], secondResponseBranches[0])
-}
-
-func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setupRefService(t, ctx)
-
-	limit := 1
-	rpcRequest := &gitalypb.FindLocalBranchesRequest{
-		Repository: repo,
-		PaginationParams: &gitalypb.PaginationParameter{
-			Limit:     int32(limit),
-			PageToken: "refs/heads/random-unknown-branch",
-		},
-	}
-	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	_, err = c.Recv()
-	require.NotEqual(t, err, io.EOF)
-	testhelper.RequireGrpcError(t, structerr.NewInternal("finding refs: could not find page token"), err)
-}
-
-// Test that `s` contains the elements in `relativeOrder` in that order
-// (relative to each other)
-func isOrderedSubset(subset, set []string) bool {
-	subsetIndex := 0 // The string we are currently looking for from `subset`
-	for _, element := range set {
-		if element != subset[subsetIndex] {
-			continue
-		}
-
-		subsetIndex++
-
-		if subsetIndex == len(subset) { // We found all elements in that order
-			return true
-		}
-	}
-	return false
-}
-
-func TestFindLocalBranchesSort(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	testCases := []struct {
-		desc          string
-		relativeOrder []string
-		sortBy        gitalypb.FindLocalBranchesRequest_SortBy
-	}{
-		{
-			desc:          "In ascending order by name",
-			relativeOrder: []string{"refs/heads/'test'", "refs/heads/100%branch", "refs/heads/improve/awesome", "refs/heads/master"},
-			sortBy:        gitalypb.FindLocalBranchesRequest_NAME,
-		},
-		{
-			desc:          "In ascending order by commiter date",
-			relativeOrder: []string{"refs/heads/improve/awesome", "refs/heads/'test'", "refs/heads/100%branch", "refs/heads/master"},
-			sortBy:        gitalypb.FindLocalBranchesRequest_UPDATED_ASC,
-		},
-		{
-			desc:          "In descending order by commiter date",
-			relativeOrder: []string{"refs/heads/master", "refs/heads/100%branch", "refs/heads/'test'", "refs/heads/improve/awesome"},
-			sortBy:        gitalypb.FindLocalBranchesRequest_UPDATED_DESC,
-		},
-	}
-
-	_, repo, _, client := setupRefService(t, ctx)
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo, SortBy: testCase.sortBy}
-
-			c, err := client.FindLocalBranches(ctx, rpcRequest)
-			require.NoError(t, err)
-
-			var branches []string
-			for {
-				r, err := c.Recv()
-				if err == io.EOF {
-					break
-				}
-				require.NoError(t, err)
-
-				for _, branch := range r.GetLocalBranches() {
-					branches = append(branches, string(branch.Name))
-				}
-			}
-
-			if !isOrderedSubset(testCase.relativeOrder, branches) {
-				t.Fatalf("%s: Expected branches to have relative order %v; got them as %v", testCase.desc, testCase.relativeOrder, branches)
-			}
-		})
-	}
-}
-
-func TestFindLocalBranches_validate(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, repo, _, client := setupRefService(t, ctx)
 	for _, tc := range []struct {
-		desc        string
-		repo        *gitalypb.Repository
-		expectedErr error
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			desc:        "repository not provided",
-			repo:        nil,
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			desc: "empty request",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request:     &gitalypb.FindLocalBranchesRequest{},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
+			},
 		},
 		{
-			desc: "repository doesn't exist on disk",
-			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: testhelper.ToInterceptedMetadata(
-				structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, "made/up/path")),
-			),
+			desc: "missing repository",
+			setup: func(t *testing.T) setupData {
+				relativePath := gittest.NewRepositoryName(t)
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  cfg.Storages[0].Name,
+							RelativePath: relativePath,
+						},
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.New("%w", storage.NewRepositoryNotFoundError(cfg.Storages[0].Name, relativePath)),
+					),
+				}
+			},
 		},
 		{
-			desc: "unknown storage",
-			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-				"%w", storage.NewStorageNotFoundError("invalid"),
-			)),
+			desc: "invalid storage",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "fake",
+							RelativePath: "repo",
+						},
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("fake"),
+					)),
+				}
+			},
+		},
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+					},
+				}
+			},
+		},
+		{
+			desc: "only non-branch references",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath)
+				for _, ref := range []git.ReferenceName{
+					"refs/keep-around/kept",
+					"refs/remotes/origin/remote-branch",
+					"refs/something",
+					"refs/tags/v1.0.0",
+				} {
+					gittest.WriteRef(t, cfg, repoPath, ref, commitID)
+				}
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+					},
+				}
+			},
+		},
+		{
+			desc: "single branch",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+				_, commit := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch"))
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch"), TargetCommit: commit},
+					},
+				}
+			},
+		},
+		{
+			desc: "many branches",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID, commit := writeCommit(t, ctx, cfg, repo)
+
+				var expectedBranches []*gitalypb.Branch
+				for i := 0; i < 100; i++ {
+					ref := fmt.Sprintf("refs/heads/branch-%03d", i)
+					gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(ref), commitID)
+					expectedBranches = append(expectedBranches, &gitalypb.Branch{
+						Name: []byte(ref), TargetCommit: commit,
+					})
+				}
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+					},
+					expectedBranches: expectedBranches,
+				}
+			},
+		},
+		{
+			desc: "mixed branch and non-branch references",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID, commit := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch"))
+				gittest.WriteRef(t, cfg, repoPath, "refs/tags/v1.0.0", commitID)
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch"), TargetCommit: commit},
+					},
+				}
+			},
+		},
+		{
+			desc: "commit with huge committer name",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				_, commit := writeCommit(t, ctx, cfg, repo,
+					gittest.WithBranch("branch"),
+					gittest.WithCommitterName(strings.Repeat("A", 100000)),
+				)
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch"), TargetCommit: commit},
+					},
+				}
+			},
+		},
+		{
+			desc: "with pagination limit",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				_, commitA := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-a"), gittest.WithMessage("commit a"))
+				_, commitB := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-b"), gittest.WithMessage("commit b"))
+				writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-c"), gittest.WithMessage("commit c"))
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+						PaginationParams: &gitalypb.PaginationParameter{
+							Limit: 2,
+						},
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch-a"), TargetCommit: commitA},
+						{Name: []byte("refs/heads/branch-b"), TargetCommit: commitB},
+					},
+				}
+			},
+		},
+		{
+			desc: "with pagination limit and page token",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-a"), gittest.WithMessage("commit a"))
+				_, commitB := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-b"), gittest.WithMessage("commit b"))
+				writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-c"), gittest.WithMessage("commit c"))
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+						PaginationParams: &gitalypb.PaginationParameter{
+							Limit:     1,
+							PageToken: "refs/heads/branch-a",
+						},
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch-b"), TargetCommit: commitB},
+					},
+				}
+			},
+		},
+		{
+			desc: "invalid page token",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-a"), gittest.WithMessage("commit a"))
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+						PaginationParams: &gitalypb.PaginationParameter{
+							PageToken: "refs/heads/does-not-exist",
+						},
+					},
+					expectedErr: structerr.NewInternal("finding refs: could not find page token"),
+				}
+			},
+		},
+		{
+			desc: "sort by ascending name",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				_, commitA := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-a"), gittest.WithCommitterDate(time.Date(2020, 1, 1, 1, 1, 1, 1, time.UTC)))
+				_, commitB := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-b"), gittest.WithCommitterDate(time.Date(2010, 1, 1, 1, 1, 1, 1, time.UTC)))
+				_, commitC := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-c"), gittest.WithCommitterDate(time.Date(2030, 1, 1, 1, 1, 1, 1, time.UTC)))
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+						SortBy:     gitalypb.FindLocalBranchesRequest_NAME,
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch-a"), TargetCommit: commitA},
+						{Name: []byte("refs/heads/branch-b"), TargetCommit: commitB},
+						{Name: []byte("refs/heads/branch-c"), TargetCommit: commitC},
+					},
+				}
+			},
+		},
+		{
+			desc: "sort by ascending committer date",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				_, commitA := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-a"), gittest.WithCommitterDate(time.Date(2020, 1, 1, 1, 1, 1, 1, time.UTC)))
+				_, commitB := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-b"), gittest.WithCommitterDate(time.Date(2010, 1, 1, 1, 1, 1, 1, time.UTC)))
+				_, commitC := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-c"), gittest.WithCommitterDate(time.Date(2030, 1, 1, 1, 1, 1, 1, time.UTC)))
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+						SortBy:     gitalypb.FindLocalBranchesRequest_UPDATED_ASC,
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch-b"), TargetCommit: commitB},
+						{Name: []byte("refs/heads/branch-a"), TargetCommit: commitA},
+						{Name: []byte("refs/heads/branch-c"), TargetCommit: commitC},
+					},
+				}
+			},
+		},
+		{
+			desc: "sort by descending committer date",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				_, commitA := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-a"), gittest.WithCommitterDate(time.Date(2020, 1, 1, 1, 1, 1, 1, time.UTC)))
+				_, commitB := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-b"), gittest.WithCommitterDate(time.Date(2010, 1, 1, 1, 1, 1, 1, time.UTC)))
+				_, commitC := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-c"), gittest.WithCommitterDate(time.Date(2030, 1, 1, 1, 1, 1, 1, time.UTC)))
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+						SortBy:     gitalypb.FindLocalBranchesRequest_UPDATED_DESC,
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch-c"), TargetCommit: commitC},
+						{Name: []byte("refs/heads/branch-a"), TargetCommit: commitA},
+						{Name: []byte("refs/heads/branch-b"), TargetCommit: commitB},
+					},
+				}
+			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.FindLocalBranches(ctx, &gitalypb.FindLocalBranchesRequest{Repository: tc.repo})
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			stream, err := client.FindLocalBranches(ctx, setup.request)
 			require.NoError(t, err)
-			_, err = stream.Recv()
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+
+			branches, err := testhelper.ReceiveAndFold(stream.Recv, func(
+				result []*gitalypb.Branch,
+				response *gitalypb.FindLocalBranchesResponse,
+			) []*gitalypb.Branch {
+				return append(result, response.GetLocalBranches()...)
+			})
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.ProtoEqual(t, setup.expectedBranches, branches)
 		})
 	}
 }

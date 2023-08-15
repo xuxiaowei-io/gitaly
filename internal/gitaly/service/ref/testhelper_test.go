@@ -1,12 +1,13 @@
 package ref
 
 import (
-	"bytes"
 	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
@@ -19,12 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
-
-var localBranches = map[string]*gitalypb.GitCommit{
-	"refs/heads/100%branch":      testhelper.GitLabTestCommit("1b12f15a11fc6e62177bef08f47bc7b5ce50b141"),
-	"refs/heads/improve/awesome": testhelper.GitLabTestCommit("5937ac0a7beb003549fc5fd26fc247adbce4a52e"),
-	"refs/heads/'test'":          testhelper.GitLabTestCommit("e56497bb5f03a90a51293fc6d516788730953899"),
-}
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m, testhelper.WithSetup(func() error {
@@ -98,34 +93,22 @@ func newRefServiceClient(tb testing.TB, serverSocketPath string) (gitalypb.RefSe
 	return gitalypb.NewRefServiceClient(conn), conn
 }
 
-func assertContainsAllBranchesResponseBranch(t *testing.T, branches []*gitalypb.FindAllBranchesResponse_Branch, branch *gitalypb.FindAllBranchesResponse_Branch) {
-	t.Helper()
+func writeCommit(
+	tb testing.TB,
+	ctx context.Context,
+	cfg config.Cfg,
+	repoProto *gitalypb.Repository,
+	opts ...gittest.WriteCommitOption,
+) (git.ObjectID, *gitalypb.GitCommit) {
+	tb.Helper()
 
-	var branchNames [][]byte
+	repo := localrepo.NewTestRepo(tb, cfg, repoProto)
+	repoPath, err := repo.Path()
+	require.NoError(tb, err)
 
-	for _, b := range branches {
-		if bytes.Equal(branch.Name, b.Name) {
-			testhelper.ProtoEqual(t, b.Target, branch.Target)
-			return // Found the branch and it matches. Success!
-		}
-		branchNames = append(branchNames, b.Name)
-	}
+	commitID := gittest.WriteCommit(tb, cfg, repoPath, opts...)
+	commitProto, err := repo.ReadCommit(ctx, commitID.Revision())
+	require.NoError(tb, err)
 
-	t.Errorf("Expected to find branch %q in branches %s", branch.Name, branchNames)
-}
-
-func assertContainsBranch(t *testing.T, branches []*gitalypb.Branch, branch *gitalypb.Branch) {
-	t.Helper()
-
-	var branchNames [][]byte
-
-	for _, b := range branches {
-		if bytes.Equal(branch.Name, b.Name) {
-			testhelper.ProtoEqual(t, b.TargetCommit, branch.TargetCommit)
-			return // Found the branch and it matches. Success!
-		}
-		branchNames = append(branchNames, b.Name)
-	}
-
-	t.Errorf("Expected to find branch %q in branches %s", branch.Name, branchNames)
+	return commitID, commitProto
 }

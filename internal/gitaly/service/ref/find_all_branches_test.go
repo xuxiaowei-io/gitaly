@@ -1,216 +1,239 @@
-//go:build !gitaly_test_sha256
-
 package ref
 
 import (
-	"io"
-	"strings"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
+func TestFindAllBranches(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRefService(t, ctx)
+	cfg, client := setupRefServiceWithoutRepo(t)
 
-	remoteBranch := &gitalypb.FindAllBranchesResponse_Branch{
-		Name: []byte("refs/remotes/origin/fake-remote-branch"),
-		Target: &gitalypb.GitCommit{
-			Id:        "913c66a37b4a45b9769037c55c2d238bd0942d2e",
-			Subject:   []byte("Files, encoding and much more"),
-			Body:      []byte("Files, encoding and much more\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
-			BodySize:  98,
-			ParentIds: []string{"cfe32cf61b73a0d5e9f13e774abde7ff789b1660"},
-			Author: &gitalypb.CommitAuthor{
-				Name:     []byte("Dmitriy Zaporozhets"),
-				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamppb.Timestamp{Seconds: 1393488896},
-				Timezone: []byte("+0200"),
-			},
-			Committer: &gitalypb.CommitAuthor{
-				Name:     []byte("Dmitriy Zaporozhets"),
-				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamppb.Timestamp{Seconds: 1393488896},
-				Timezone: []byte("+0200"),
-			},
-			SignatureType: gitalypb.SignatureType_PGP,
-			TreeId:        "faafbe7fe23fb83c664c78aaded9566c8f934412",
-		},
-	}
-
-	gittest.WriteRef(t, cfg, repoPath, "refs/remotes/origin/fake-remote-branch", git.ObjectID(remoteBranch.Target.Id))
-
-	request := &gitalypb.FindAllBranchesRequest{Repository: repo}
-	c, err := client.FindAllBranches(ctx, request)
-	require.NoError(t, err)
-
-	branches := readFindAllBranchesResponsesFromClient(t, c)
-
-	// It contains local branches
-	for name, target := range localBranches {
-		branch := &gitalypb.FindAllBranchesResponse_Branch{
-			Name:   []byte(name),
-			Target: target,
-		}
-		assertContainsAllBranchesResponseBranch(t, branches, branch)
-	}
-
-	// It contains our fake remote branch
-	assertContainsAllBranchesResponseBranch(t, branches, remoteBranch)
-}
-
-func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	localRefs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format=%(refname:strip=2)", "refs/heads")
-	for _, ref := range strings.Split(string(localRefs), "\n") {
-		ref = strings.TrimSpace(ref)
-		if _, ok := localBranches["refs/heads/"+ref]; ok || ref == "master" || ref == "" {
-			continue
-		}
-		gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", ref)
-	}
-
-	expectedRefs := []string{"refs/heads/100%branch", "refs/heads/improve/awesome", "refs/heads/'test'"}
-
-	var expectedBranches []*gitalypb.FindAllBranchesResponse_Branch
-	for _, name := range expectedRefs {
-		target, ok := localBranches[name]
-		require.True(t, ok)
-
-		branch := &gitalypb.FindAllBranchesResponse_Branch{
-			Name:   []byte(name),
-			Target: target,
-		}
-		expectedBranches = append(expectedBranches, branch)
-	}
-
-	masterCommit, err := repo.ReadCommit(ctx, "master")
-	require.NoError(t, err)
-	expectedBranches = append(expectedBranches, &gitalypb.FindAllBranchesResponse_Branch{
-		Name:   []byte("refs/heads/master"),
-		Target: masterCommit,
-	})
-
-	testCases := []struct {
-		desc             string
+	type setupData struct {
 		request          *gitalypb.FindAllBranchesRequest
+		expectedErr      error
 		expectedBranches []*gitalypb.FindAllBranchesResponse_Branch
-	}{
-		{
-			desc: "all merged branches",
-			request: &gitalypb.FindAllBranchesRequest{
-				Repository: repoProto,
-				MergedOnly: true,
-			},
-			expectedBranches: expectedBranches,
-		},
-		{
-			desc: "all merged from a list of branches",
-			request: &gitalypb.FindAllBranchesRequest{
-				Repository: repoProto,
-				MergedOnly: true,
-				MergedBranches: [][]byte{
-					[]byte("refs/heads/100%branch"),
-					[]byte("refs/heads/improve/awesome"),
-					[]byte("refs/heads/gitaly-stuff"),
-				},
-			},
-			expectedBranches: expectedBranches[:2],
-		},
 	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			c, err := client.FindAllBranches(ctx, testCase.request)
-			require.NoError(t, err)
-
-			branches := readFindAllBranchesResponsesFromClient(t, c)
-			require.Len(t, branches, len(testCase.expectedBranches))
-
-			for _, branch := range branches {
-				// The GitCommit object returned by GetCommit() above and the one returned in the response
-				// vary a lot. We can't guarantee that master will be fixed at a certain commit so we can't create
-				// a structure for it manually, hence this hack.
-				if string(branch.Name) == "refs/heads/master" {
-					continue
-				}
-
-				assertContainsAllBranchesResponseBranch(t, testCase.expectedBranches, branch)
-			}
-		})
-	}
-}
-
-func TestInvalidFindAllBranchesRequest(t *testing.T) {
-	t.Parallel()
-
-	_, client := setupRefServiceWithoutRepo(t)
 
 	for _, tc := range []struct {
-		description string
-		request     *gitalypb.FindAllBranchesRequest
-		expectedErr error
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			description: "Empty request",
-			request:     &gitalypb.FindAllBranchesRequest{},
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+			desc: "empty request",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request:     &gitalypb.FindAllBranchesRequest{},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
+			},
 		},
 		{
-			description: "Invalid repo",
-			request: &gitalypb.FindAllBranchesRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "fake",
-					RelativePath: "repo",
-				},
+			desc: "invalid storage",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "fake",
+							RelativePath: "repo",
+						},
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("fake"),
+					)),
+				}
 			},
-			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-				"%w", storage.NewStorageNotFoundError("fake"),
-			)),
+		},
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: repo,
+					},
+				}
+			},
+		},
+		{
+			desc: "only non-branch references",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath)
+				for _, ref := range []git.ReferenceName{
+					"refs/keep-around/kept",
+					"refs/something",
+					"refs/tags/v1.0.0",
+				} {
+					gittest.WriteRef(t, cfg, repoPath, ref, commitID)
+				}
+
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: repo,
+					},
+				}
+			},
+		},
+		{
+			desc: "single branch",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+				_, commit := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch"))
+
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: repo,
+					},
+					expectedBranches: []*gitalypb.FindAllBranchesResponse_Branch{
+						{Name: []byte("refs/heads/branch"), Target: commit},
+					},
+				}
+			},
+		},
+		{
+			desc: "many branches",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID, commit := writeCommit(t, ctx, cfg, repo)
+
+				var expectedBranches []*gitalypb.FindAllBranchesResponse_Branch
+				for i := 0; i < 100; i++ {
+					ref := fmt.Sprintf("refs/heads/branch-%03d", i)
+					gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(ref), commitID)
+					expectedBranches = append(expectedBranches, &gitalypb.FindAllBranchesResponse_Branch{
+						Name: []byte(ref), Target: commit,
+					})
+				}
+
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: repo,
+					},
+					expectedBranches: expectedBranches,
+				}
+			},
+		},
+		{
+			desc: "mixed branch and non-branch references",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID, commit := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch"))
+				gittest.WriteRef(t, cfg, repoPath, "refs/tags/v1.0.0", commitID)
+
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: repo,
+					},
+					expectedBranches: []*gitalypb.FindAllBranchesResponse_Branch{
+						{Name: []byte("refs/heads/branch"), Target: commit},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote branches",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID, commit := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("local-branch"))
+				gittest.WriteRef(t, cfg, repoPath, "refs/remotes/origin/remote-branch", commitID)
+
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: repo,
+					},
+					expectedBranches: []*gitalypb.FindAllBranchesResponse_Branch{
+						{Name: []byte("refs/heads/local-branch"), Target: commit},
+						{Name: []byte("refs/remotes/origin/remote-branch"), Target: commit},
+					},
+				}
+			},
+		},
+		{
+			desc: "all merged branches",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				root := gittest.WriteCommit(t, cfg, repoPath)
+				merged, mergedCommit := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("merged"), gittest.WithParents(root), gittest.WithMessage("merged"))
+				_, mainCommit := writeCommit(t, ctx, cfg, repo, gittest.WithBranch(git.DefaultBranch), gittest.WithParents(root, merged))
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unmerged"), gittest.WithParents(root), gittest.WithMessage("unmerged"))
+
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: repo,
+						MergedOnly: true,
+					},
+					expectedBranches: []*gitalypb.FindAllBranchesResponse_Branch{
+						{Name: []byte(git.DefaultRef), Target: mainCommit},
+						{Name: []byte("refs/heads/merged"), Target: mergedCommit},
+					},
+				}
+			},
+		},
+		{
+			desc: "merged branches from a list of branches",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				root := gittest.WriteCommit(t, cfg, repoPath)
+				mergedA, mergedCommitA := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("merged-a"), gittest.WithParents(root), gittest.WithMessage("merged A"))
+				mergedB, _ := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("merged-b"), gittest.WithParents(root), gittest.WithMessage("merged B"))
+				writeCommit(t, ctx, cfg, repo, gittest.WithBranch(git.DefaultBranch), gittest.WithParents(root, mergedA, mergedB))
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unmerged"), gittest.WithParents(root), gittest.WithMessage("unmerged"))
+
+				return setupData{
+					request: &gitalypb.FindAllBranchesRequest{
+						Repository: repo,
+						MergedOnly: true,
+						MergedBranches: [][]byte{
+							[]byte("refs/heads/does-not-exist"),
+							[]byte("refs/heads/merged-a"),
+							[]byte("refs/heads/unmerged"),
+						},
+					},
+					expectedBranches: []*gitalypb.FindAllBranchesResponse_Branch{
+						{Name: []byte("refs/heads/merged-a"), Target: mergedCommitA},
+					},
+				}
+			},
 		},
 	} {
-		t.Run(tc.description, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-			c, err := client.FindAllBranches(ctx, tc.request)
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			stream, err := client.FindAllBranches(ctx, setup.request)
 			require.NoError(t, err)
 
-			var recvError error
-			for recvError == nil {
-				_, recvError = c.Recv()
-			}
-
-			testhelper.RequireGrpcError(t, tc.expectedErr, recvError)
+			branches, err := testhelper.ReceiveAndFold(stream.Recv, func(
+				result []*gitalypb.FindAllBranchesResponse_Branch,
+				response *gitalypb.FindAllBranchesResponse,
+			) []*gitalypb.FindAllBranchesResponse_Branch {
+				return append(result, response.GetBranches()...)
+			})
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.ProtoEqual(t, setup.expectedBranches, branches)
 		})
 	}
-}
-
-func readFindAllBranchesResponsesFromClient(t *testing.T, c gitalypb.RefService_FindAllBranchesClient) (branches []*gitalypb.FindAllBranchesResponse_Branch) {
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		branches = append(branches, r.GetBranches()...)
-	}
-
-	return
 }
