@@ -74,6 +74,8 @@ linters-settings:
         msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
       - p: ^logrus\.StandardLogger$
         msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
+      - p: ^logrus\.New$
+        msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
     analyze-types: true
   paralleltest:
     # Ignore missing calls to `t.Parallel()` and only report incorrect uses of it.

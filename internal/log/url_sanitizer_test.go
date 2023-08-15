@@ -3,7 +3,6 @@ package log
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -20,7 +19,7 @@ func TestUrlSanitizerHook(t *testing.T) {
 		"FetchRemote",
 	)
 
-	logger := logrus.New()
+	logger := newLogger()
 	logger.Out = outBuf
 	logger.Hooks.Add(urlSanitizer)
 
@@ -100,8 +99,7 @@ func TestUrlSanitizerHook(t *testing.T) {
 func BenchmarkUrlSanitizerWithoutSanitization(b *testing.B) {
 	urlSanitizer := NewURLSanitizerHook()
 
-	logger := logrus.New()
-	logger.Out = io.Discard
+	logger := newLogger()
 	logger.Hooks.Add(urlSanitizer)
 
 	benchmarkLogging(b, logger)
@@ -114,8 +112,7 @@ func BenchmarkUrlSanitizerWithSanitization(b *testing.B) {
 		"CreateRepositoryFromURL",
 	)
 
-	logger := logrus.New()
-	logger.Out = io.Discard
+	logger := newLogger()
 	logger.Hooks.Add(urlSanitizer)
 
 	benchmarkLogging(b, logger)

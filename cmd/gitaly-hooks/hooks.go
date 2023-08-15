@@ -17,11 +17,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
+	"gitlab.com/gitlab-org/labkit/correlation"
 	labkitcorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
@@ -74,7 +76,8 @@ func main() {
 	ctx, finished := labkittracing.ExtractFromEnv(ctx)
 	defer finished()
 
-	logger := gitalylog.NewHookLogger(ctx)
+	logger := configureLogger(ctx)
+
 	if err := run(ctx, os.Args); err != nil {
 		var hookError hookError
 		if errors.As(err, &hookError) {
@@ -92,6 +95,25 @@ func main() {
 		logger.WithError(err).Error("error executing git hook")
 		os.Exit(1)
 	}
+}
+
+// configureLogger configures the logger used by gitaly-hooks. As both stdout and stderr might be interpreted by Git, we
+// need to log to a file instead. If the `log.GitalyLogDirEnvKey` environment variable is set, we thus log to a file
+// contained in the directory pointed to by it, otherwise we discard any log messages.
+func configureLogger(ctx context.Context) logrus.FieldLogger {
+	writer := io.Discard
+
+	if logDir := os.Getenv(log.GitalyLogDirEnvKey); logDir != "" {
+		logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, perm.SharedFile)
+		if err != nil {
+			// Ignore this error as we cannot do anything about it anyway. We cannot write anything to
+			// stdout or stderr as that might break hooks, and we have no other destination to log to.
+		} else {
+			writer = logFile
+		}
+	}
+
+	return log.Configure(writer, "text", "info").WithField(correlation.FieldName, correlation.ExtractFromContext(ctx))
 }
 
 // Both stderr and stdout of gitaly-hooks are streamed back to clients. stdout is processed by client

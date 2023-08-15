@@ -7,7 +7,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
@@ -93,7 +92,7 @@ func testUnaryProxy(t *testing.T, closeWrite bool) {
 	proxyAddr := startServer(
 		t,
 		func(ctx context.Context, request *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
-			conn, err := dialProxy(upstreamAddr)
+			conn, err := dialProxy(t, upstreamAddr)
 			if err != nil {
 				return nil, err
 			}
@@ -109,9 +108,7 @@ func testUnaryProxy(t *testing.T, closeWrite bool) {
 	require.NoError(t, call(ctx, conn, registry, testProxyClient(closeWrite)))
 }
 
-func newLogger() *logrus.Entry { return logrus.NewEntry(logrus.New()) }
-
-func dialProxy(upstreamAddr string) (*grpc.ClientConn, error) {
+func dialProxy(tb testing.TB, upstreamAddr string) (*grpc.ClientConn, error) {
 	registry := NewRegistry()
 	factory := func() backchannel.Server {
 		lm := listenmux.New(insecure.NewCredentials())
@@ -119,7 +116,7 @@ func dialProxy(upstreamAddr string) (*grpc.ClientConn, error) {
 		return grpc.NewServer(grpc.Creds(lm))
 	}
 
-	clientHandshaker := backchannel.NewClientHandshaker(newLogger(), factory, backchannel.DefaultConfiguration())
+	clientHandshaker := backchannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(tb), factory, backchannel.DefaultConfiguration())
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 		grpc.WithUnaryInterceptor(NewUnaryProxy(registry)),
@@ -144,7 +141,7 @@ func testStreamProxy(t *testing.T, closeWrite bool) {
 	proxyAddr := startStreamServer(
 		t,
 		func(stream gitalypb.SSHService_SSHUploadPackServer) error {
-			conn, err := dialProxy(upstreamAddr)
+			conn, err := dialProxy(t, upstreamAddr)
 			if err != nil {
 				return err
 			}
@@ -192,7 +189,7 @@ func startStreamServer(t *testing.T, handler func(gitalypb.SSHService_SSHUploadP
 
 	lm := listenmux.New(insecure.NewCredentials())
 	lm.Register(backchannel.NewServerHandshaker(
-		newLogger(), backchannel.NewRegistry(), nil,
+		testhelper.NewDiscardingLogEntry(t), backchannel.NewRegistry(), nil,
 	))
 
 	srv := grpc.NewServer(grpc.Creds(lm))

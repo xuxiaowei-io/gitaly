@@ -49,8 +49,7 @@ func TestGitalyCLI(t *testing.T) {
 			desc:     "check with non-existent config",
 			args:     []string{"check", "non-existent-file"},
 			exitCode: 1,
-			stdout:   "Checking GitLab API access: FAILED",
-			stderr:   "load config: config_path \"non-existent-file\": open non-existent-file: no such file or directory\n",
+			stderr:   "loading configuration \"non-existent-file\": open non-existent-file: no such file or directory\n",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
