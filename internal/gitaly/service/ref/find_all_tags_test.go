@@ -25,7 +25,7 @@ func TestFindAllTags(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 
 	sortSetup := setupSortRepository(t, ctx, cfg)
 
@@ -724,7 +724,7 @@ func BenchmarkFindAllTags(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	cfg, client := setupRefServiceWithoutRepo(b)
+	cfg, client := setupRefService(b)
 
 	repoProto, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,

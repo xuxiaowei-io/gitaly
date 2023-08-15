@@ -20,7 +20,7 @@ func TestUpdateReferences(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 
 	missingCommitID := bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen())
 

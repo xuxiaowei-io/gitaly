@@ -21,7 +21,7 @@ func TestGetTagSignatures(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -197,7 +197,7 @@ func TestGetTagSignatures_validate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {

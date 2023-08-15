@@ -30,15 +30,7 @@ func TestMain(m *testing.M) {
 	}))
 }
 
-func setupRefService(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.RefServiceClient) {
-	cfg, client := setupRefServiceWithoutRepo(tb)
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	return cfg, repo, repoPath, client
-}
-
-func setupRefServiceWithoutRepo(tb testing.TB) (config.Cfg, gitalypb.RefServiceClient) {
+func setupRefService(tb testing.TB) (config.Cfg, gitalypb.RefServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	testcfg.BuildGitalyHooks(tb, cfg)

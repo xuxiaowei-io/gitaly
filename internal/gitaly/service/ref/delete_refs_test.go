@@ -29,7 +29,7 @@ func TestDeleteRefs_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 
 	testCases := []struct {
 		desc    string
@@ -183,7 +183,7 @@ func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	request := &gitalypb.DeleteRefsRequest{
@@ -210,7 +210,7 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	oldValue := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
@@ -254,7 +254,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
