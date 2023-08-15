@@ -122,6 +122,14 @@ type Cfg struct {
 	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting,omitempty" json:"pack_objects_limiting"`
 	Backup                 BackupConfig        `toml:"backup,omitempty" json:"backup"`
 	Timeout                TimeoutConfig       `toml:"timeout,omitempty" json:"timeout"`
+	Transactions           Transactions        `toml:"transactions,omitempty" json:"transactions,omitempty"`
+}
+
+// Transactions configures transaction related options.
+type Transactions struct {
+	// Enabled enables transaction support. This option is experimental
+	// and intended for development only. Do not enable for other uses.
+	Enabled bool `toml:"enabled,omitempty" json:"enabled,omitempty"`
 }
 
 // TimeoutConfig represents negotiation timeouts for remote Git operations

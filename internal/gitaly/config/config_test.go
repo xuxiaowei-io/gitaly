@@ -40,6 +40,16 @@ func TestLoadBrokenConfig(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLoadTransactions(t *testing.T) {
+	cfg, err := Load(strings.NewReader(`
+[transactions]
+enabled = true
+	`))
+	require.NoError(t, err)
+
+	require.True(t, cfg.Transactions.Enabled)
+}
+
 func TestLoadEmptyConfig(t *testing.T) {
 	cfg, err := Load(strings.NewReader(``))
 	require.NoError(t, err)
