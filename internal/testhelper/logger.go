@@ -14,7 +14,7 @@ import (
 
 // NewDiscardingLogger creates a logger that discards everything.
 func NewDiscardingLogger(tb testing.TB) *logrus.Logger {
-	logger := logrus.New()
+	logger := logrus.New() //nolint:forbidigo
 	logger.Out = io.Discard
 	return logger
 }
@@ -36,7 +36,7 @@ func newServerLogger(tb testing.TB, logName string) *logrus.Logger {
 
 	tb.Cleanup(func() { require.NoError(tb, f.Close()) })
 
-	logger := logrus.New()
+	logger := logrus.New() //nolint:forbidigo
 	logger.SetOutput(f)
 	logger.SetLevel(logrus.InfoLevel)
 	logger.SetFormatter(&logrus.JSONFormatter{})

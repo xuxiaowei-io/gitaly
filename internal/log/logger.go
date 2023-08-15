@@ -62,7 +62,7 @@ func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook)
 	configure(defaultLogger, out, format, level, hooks...)
 
 	// We replace the gRPC logger with a custom one because the default one is too chatty.
-	grpcLogger := logrus.New()
+	grpcLogger := logrus.New() //nolint:forbidigo
 	configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...)
 	grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
 
