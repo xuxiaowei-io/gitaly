@@ -55,14 +55,16 @@ type Config struct {
 }
 
 // Configure configures the default and gRPC loggers. The gRPC logger's log level will be mapped in order to decrease
-// its default verbosity.
-func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) {
+// its default verbosity. Returns the configured default logger that would also be returned by `Default()`.
+func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) logrus.FieldLogger {
 	configure(defaultLogger, out, format, level, hooks...)
 
 	// We replace the gRPC logger with a custom one because the default one is too chatty.
 	grpcLogger := logrus.New()
 	configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...)
 	grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
+
+	return Default()
 }
 
 func configure(logger *logrus.Logger, out io.Writer, format, level string, hooks ...logrus.Hook) {
