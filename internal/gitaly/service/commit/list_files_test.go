@@ -1,8 +1,6 @@
 package commit
 
 import (
-	"errors"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -174,22 +172,11 @@ func TestListFiles(t *testing.T) {
 			stream, err := client.ListFiles(ctx, tc.request)
 			require.NoError(t, err)
 
-			var files [][]byte
-			for {
-				resp, err := stream.Recv()
-				if err != nil {
-					if !errors.Is(err, io.EOF) {
-						testhelper.RequireGrpcError(t, tc.expectedErr, err)
-					}
-
-					break
-				}
-				require.NoError(t, err)
-
-				files = append(files, resp.GetPaths()...)
-			}
-
-			require.ElementsMatch(t, files, tc.expectedPaths)
+			paths, err := testhelper.ReceiveAndFold(stream.Recv, func(result [][]byte, response *gitalypb.ListFilesResponse) [][]byte {
+				return append(result, response.GetPaths()...)
+			})
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			require.ElementsMatch(t, paths, tc.expectedPaths)
 		})
 	}
 }

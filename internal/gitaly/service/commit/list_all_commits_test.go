@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -164,20 +163,9 @@ func TestListAllCommits(t *testing.T) {
 			stream, err := client.ListAllCommits(ctx, setup.request)
 			require.NoError(t, err)
 
-			var actualCommits []*gitalypb.GitCommit
-			for {
-				var response *gitalypb.ListAllCommitsResponse
-				response, err = stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-
-					break
-				}
-
-				actualCommits = append(actualCommits, response.Commits...)
-			}
+			actualCommits, err := testhelper.ReceiveAndFold(stream.Recv, func(result []*gitalypb.GitCommit, response *gitalypb.ListAllCommitsResponse) []*gitalypb.GitCommit {
+				return append(result, response.Commits...)
+			})
 			testhelper.RequireGrpcError(t, setup.expectedErr, err)
 
 			if setup.skipCommitValidation {

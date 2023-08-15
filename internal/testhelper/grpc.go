@@ -2,7 +2,9 @@ package testhelper
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -162,4 +164,34 @@ func WithInterceptedMetadataItems(err structerr.Error, items ...structerr.Metada
 // ToInterceptedMetadata converts error metadata to intercepted error details.
 func ToInterceptedMetadata(err structerr.Error) structerr.Error {
 	return WithInterceptedMetadataItems(err, err.MetadataItems()...)
+}
+
+// Receive receives all responses from the receiver until an error is encountered or `io.EOF` is received.
+func Receive[Response any](receiver func() (Response, error)) ([]Response, error) {
+	var responses []Response
+	for {
+		response, err := receiver()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				err = nil
+			}
+
+			return responses, err
+		}
+
+		responses = append(responses, response)
+	}
+}
+
+// ReceiveAndFold receives all responses from the receiver and then folds the results with the given folder. The folder
+// will be called even in the case where the receiver returns an error.
+func ReceiveAndFold[Response, Result any](receiver func() (Response, error), folder func(initial Result, response Response) Result) (Result, error) {
+	responses, err := Receive(receiver)
+
+	var result Result
+	for _, response := range responses {
+		result = folder(result, response)
+	}
+
+	return result, err
 }

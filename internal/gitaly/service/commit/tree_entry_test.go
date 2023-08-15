@@ -1,8 +1,6 @@
 package commit
 
 import (
-	"errors"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -317,22 +315,7 @@ func TestTreeEntry(t *testing.T) {
 			stream, err := client.TreeEntry(ctx, tc.request)
 			require.NoError(t, err)
 
-			var responses []*gitalypb.TreeEntryResponse
-			for {
-				var response *gitalypb.TreeEntryResponse
-
-				response, err = stream.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-
-					break
-				}
-
-				responses = append(responses, response)
-			}
-
+			responses, err := testhelper.Receive(stream.Recv)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedResponses, responses)
 		})

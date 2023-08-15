@@ -3,9 +3,7 @@
 package ref
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 
@@ -174,19 +172,13 @@ func TestGetTagSignatures(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			var signatures []*gitalypb.GetTagSignaturesResponse_TagSignature
-			for {
-				resp, err := stream.Recv()
-				if err != nil {
-					if !errors.Is(err, io.EOF) {
-						testhelper.RequireGrpcError(t, tc.expectedErr, err)
-					}
-					break
-				}
-
-				signatures = append(signatures, resp.Signatures...)
-			}
-
+			signatures, err := testhelper.ReceiveAndFold(stream.Recv, func(
+				result []*gitalypb.GetTagSignaturesResponse_TagSignature,
+				response *gitalypb.GetTagSignaturesResponse,
+			) []*gitalypb.GetTagSignaturesResponse_TagSignature {
+				return append(result, response.GetSignatures()...)
+			})
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedSignatures, signatures)
 		})
 	}

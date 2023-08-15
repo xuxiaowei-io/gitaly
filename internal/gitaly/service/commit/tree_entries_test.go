@@ -2,7 +2,6 @@ package commit
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -1485,18 +1484,10 @@ func BenchmarkGetTreeEntries(b *testing.B) {
 				stream, err := client.GetTreeEntries(ctx, tc.request)
 				require.NoError(b, err)
 
-				entriesReceived := 0
-				for {
-					response, err := stream.Recv()
-					if err != nil {
-						if errors.Is(err, io.EOF) {
-							break
-						}
-						require.NoError(b, err)
-					}
-
-					entriesReceived += len(response.Entries)
-				}
+				entriesReceived, err := testhelper.ReceiveAndFold(stream.Recv, func(result int, response *gitalypb.GetTreeEntriesResponse) int {
+					return result + len(response.Entries)
+				})
+				require.NoError(b, err)
 				require.Equal(b, tc.expectedEntries, entriesReceived)
 			}
 		})
