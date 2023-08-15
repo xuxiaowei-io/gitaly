@@ -17,7 +17,7 @@ type GitalyServerFactory struct {
 	cacheInvalidator cache.Invalidator
 	limitHandlers    []*limithandler.LimiterMiddleware
 	cfg              config.Cfg
-	logger           *logrus.Entry
+	logger           logrus.FieldLogger
 	externalServers  []*grpc.Server
 	internalServers  []*grpc.Server
 }
@@ -25,7 +25,7 @@ type GitalyServerFactory struct {
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server's.
 func NewGitalyServerFactory(
 	cfg config.Cfg,
-	logger *logrus.Entry,
+	logger logrus.FieldLogger,
 	registry *backchannel.Registry,
 	cacheInvalidator cache.Invalidator,
 	limitHandlers []*limithandler.LimiterMiddleware,

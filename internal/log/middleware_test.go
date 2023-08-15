@@ -15,7 +15,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/grpcstats"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -74,7 +74,7 @@ func TestPayloadBytes(t *testing.T) {
 	t.Cleanup(srv.GracefulStop)
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
 
-	cc, err := client.DialContext(ctx, "unix://"+sock.Name(), nil)
+	cc, err := client.Dial(ctx, "unix://"+sock.Name())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, cc.Close()) })
 
@@ -379,9 +379,8 @@ func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
 	})
 }
 
+// createContext creates a new context for testing purposes. We cannot use `testhelper.Context()` because of a cyclic dependency between
 // this package and the `testhelper` package.
-//
-//nolint:forbidigo // We cannot use `testhelper.Context()` because of a cyclic dependency between
 func createContext() context.Context {
 	return context.Background()
 }

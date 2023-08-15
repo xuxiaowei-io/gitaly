@@ -117,7 +117,8 @@ func TestFeatureFlagLogs(t *testing.T) {
 			loggerHook.Reset()
 			service.err = tc.returnedErr
 
-			//nolint:forbidigo // This test tests feature flags. We want context to be in a clean state
+			// This test tests feature flags. We want context to be in a clean state and thus cannot use
+			// `testhelper.Context()`.
 			ctx := context.Background()
 			for flag, value := range tc.featureFlags {
 				ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, flag, value)

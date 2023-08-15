@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -44,7 +44,7 @@ func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.BoolVar(&cmd.serverSide, "server-side", false, "use server-side backups. Note: The feature is not ready for production use.")
 }
 
-func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
+func (cmd *createSubcommand) Run(ctx context.Context, logger logrus.FieldLogger, stdin io.Reader, stdout io.Writer) error {
 	pool := client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
 	defer pool.Close()
 
@@ -70,7 +70,7 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 	}
 
 	var pipeline backup.Pipeline
-	pipeline = backup.NewLoggingPipeline(log.StandardLogger())
+	pipeline = backup.NewLoggingPipeline(logger)
 	if cmd.parallel > 0 || cmd.parallelStorage > 0 {
 		pipeline = backup.NewParallelPipeline(pipeline, cmd.parallel, cmd.parallelStorage)
 	}

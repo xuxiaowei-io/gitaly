@@ -70,17 +70,11 @@ linters-settings:
       - (net.Listener).Close
   forbidigo:
     forbid:
-      # Tests and code which use timing-based setups have repeatedly resulted
-      # in flaky tests and are considered a code smell. Tests should be
-      # rewritten to use deterministic timing sources like tickers. Using the
-      # following functions is thus disallowed. and a code smell.
-      - ^context.WithDeadline$
-      - ^context.WithTimeout$
-      # Tests should always use `testhelper.Context()`: this context has
-      # special handling for feature flags which allows us to assert that
-      # they're tested as expected.
-      - ^context.Background$
-      - ^context.TODO$
+      - p: ^logrus\.(Debug,Error,Fatal,Info,Panic,Print,Trace,Warn,Warning)(f|ln)?$
+        msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
+      - p: ^logrus\.StandardLogger$
+        msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
+    analyze-types: true
   paralleltest:
     # Ignore missing calls to `t.Parallel()` and only report incorrect uses of it.
     ignore-missing: true
@@ -150,11 +144,6 @@ linters-settings:
 
 issues:
   exclude-use-default: false
-  exclude-rules:
-    - linters:
-        - forbidigo
-      # This fine thing excludes all paths which don't end with "_test.go".
-      path: "^([^_]|_([^t]|t([^e]|e([^s]|s([^t]|t([^\\.]|\\.([^g]|g[^o])))))))*$"
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.

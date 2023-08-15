@@ -16,11 +16,11 @@ import (
 // gRPC calls.
 type SidechannelRegistry struct {
 	registry *sidechannel.Registry
-	logger   *logrus.Entry
+	logger   logrus.FieldLogger
 }
 
 // NewSidechannelRegistry returns a new registry.
-func NewSidechannelRegistry(logger *logrus.Entry) *SidechannelRegistry {
+func NewSidechannelRegistry(logger logrus.FieldLogger) *SidechannelRegistry {
 	return &SidechannelRegistry{
 		registry: sidechannel.NewRegistry(),
 		logger:   logger,

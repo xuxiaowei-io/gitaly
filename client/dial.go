@@ -5,11 +5,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backoff"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/dnsresolver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -80,7 +80,7 @@ func DefaultDNSResolverBuilderConfig() *DNSResolverBuilderConfig {
 	return &DNSResolverBuilderConfig{
 		RefreshRate:     5 * time.Minute,
 		LookupTimeout:   15 * time.Second,
-		Logger:          logrus.StandardLogger(),
+		Logger:          log.Default(),
 		Backoff:         backoff.NewDefaultExponential(rand.New(rand.NewSource(time.Now().UnixNano()))),
 		DefaultGrpcPort: "443",
 	}

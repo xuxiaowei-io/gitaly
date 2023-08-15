@@ -77,7 +77,7 @@ func TestRestoreSubcommand(t *testing.T) {
 
 	require.NoError(t, fs.Parse([]string{"-path", path, "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
-		cmd.Run(ctx, &stdin, io.Discard),
+		cmd.Run(ctx, testhelper.NewDiscardingLogger(t), &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
 
 	require.NoDirExists(t, existRepoPath)
@@ -155,7 +155,7 @@ func TestRestoreSubcommand_serverSide(t *testing.T) {
 
 	require.NoError(t, fs.Parse([]string{"-server-side", "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
-		cmd.Run(ctx, &stdin, io.Discard),
+		cmd.Run(ctx, testhelper.NewDiscardingLogger(t), &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered:\n - invalid: server-side restore: could not dial source: invalid connection string: \"invalid\"\n")
 
 	require.NoDirExists(t, existRepoPath)

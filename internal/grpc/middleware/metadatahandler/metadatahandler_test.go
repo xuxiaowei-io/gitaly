@@ -200,8 +200,7 @@ func TestAddMetadataTags(t *testing.T) {
 			ctx := metadata.NewIncomingContext(baseContext, tc.metadata)
 			if tc.deadline {
 				var cancel func()
-				//nolint:forbidigo // We explicitly need to test whether deadlines
-				// propagate as expected.
+
 				ctx, cancel = context.WithDeadline(ctx, time.Now().Add(50*time.Millisecond))
 				defer cancel()
 			}
