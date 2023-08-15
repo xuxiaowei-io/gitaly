@@ -34,15 +34,9 @@ const CustomHooksDir = "custom_hooks"
 // hooks are present in the repository, the response will have no data.
 func GetCustomHooks(
 	ctx context.Context,
-	locator storage.Locator,
+	repoPath string,
 	writer io.Writer,
-	repo storage.Repository,
 ) error {
-	repoPath, err := locator.GetRepoPath(repo)
-	if err != nil {
-		return fmt.Errorf("getting repo path: %w", err)
-	}
-
 	if _, err := os.Lstat(filepath.Join(repoPath, CustomHooksDir)); os.IsNotExist(err) {
 		return nil
 	}
