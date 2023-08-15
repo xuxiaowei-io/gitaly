@@ -115,9 +115,14 @@ func (sem *keyedConcurrencyLimiter) release() {
 	<-sem.concurrencyTokens
 }
 
-// queueLength returns the length of token queue
+// queueLength returns the length of token queue. It consists of in-progress requests and requests waiting in the queue.
 func (sem *keyedConcurrencyLimiter) queueLength() int {
 	return len(sem.queueTokens)
+}
+
+// inProgress returns the number of in-progress requests.
+func (sem *keyedConcurrencyLimiter) inProgress() int {
+	return int(sem.concurrencyTokens.Current())
 }
 
 // ConcurrencyLimiter contains rate limiter state.
@@ -189,25 +194,25 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, limitingKey string, f Li
 		queueTime := time.Since(start)
 		switch err {
 		case ErrMaxQueueSize:
-			c.monitor.Dropped(ctx, limitingKey, sem.queueLength(), queueTime, "max_size")
+			c.monitor.Dropped(ctx, limitingKey, sem.queueLength(), sem.inProgress(), queueTime, "max_size")
 			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueSize).WithDetail(&gitalypb.LimitError{
 				ErrorMessage: err.Error(),
 				RetryAfter:   durationpb.New(0),
 			})
 		case ErrMaxQueueTime:
-			c.monitor.Dropped(ctx, limitingKey, sem.queueLength(), queueTime, "max_time")
+			c.monitor.Dropped(ctx, limitingKey, sem.queueLength(), sem.inProgress(), queueTime, "max_time")
 			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
 				ErrorMessage: err.Error(),
 				RetryAfter:   durationpb.New(0),
 			})
 		default:
-			c.monitor.Dropped(ctx, limitingKey, sem.queueLength(), queueTime, "other")
+			c.monitor.Dropped(ctx, limitingKey, sem.queueLength(), sem.inProgress(), queueTime, "other")
 			return nil, fmt.Errorf("unexpected error when dequeueing request: %w", err)
 		}
 	}
 	defer sem.release()
 
-	c.monitor.Enter(ctx, time.Since(start))
+	c.monitor.Enter(ctx, sem.inProgress(), time.Since(start))
 	defer c.monitor.Exit(ctx)
 	return f()
 }

@@ -65,7 +65,7 @@ func (c *counter) Dequeued(context.Context) {
 	c.dequeued++
 }
 
-func (c *counter) Enter(context.Context, time.Duration) {
+func (c *counter) Enter(context.Context, int, time.Duration) {
 	c.Lock()
 	defer c.Unlock()
 	c.enter++
@@ -77,7 +77,7 @@ func (c *counter) Exit(context.Context) {
 	c.exit++
 }
 
-func (c *counter) Dropped(_ context.Context, _ string, _ int, _ time.Duration, reason string) {
+func (c *counter) Dropped(_ context.Context, _ string, _ int, _ int, _ time.Duration, reason string) {
 	switch reason {
 	case "max_time":
 		c.droppedTime++

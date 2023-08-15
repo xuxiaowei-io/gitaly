@@ -13,18 +13,18 @@ import (
 type ConcurrencyMonitor interface {
 	Queued(ctx context.Context, key string, length int)
 	Dequeued(ctx context.Context)
-	Enter(ctx context.Context, acquireTime time.Duration)
+	Enter(ctx context.Context, inProgress int, acquireTime time.Duration)
 	Exit(ctx context.Context)
-	Dropped(ctx context.Context, key string, length int, acquireTime time.Duration, message string)
+	Dropped(ctx context.Context, key string, queueLength int, inProgress int, acquireTime time.Duration, message string)
 }
 
 type noopConcurrencyMonitor struct{}
 
-func (c *noopConcurrencyMonitor) Queued(context.Context, string, int)                         {}
-func (c *noopConcurrencyMonitor) Dequeued(context.Context)                                    {}
-func (c *noopConcurrencyMonitor) Enter(context.Context, time.Duration)                        {}
-func (c *noopConcurrencyMonitor) Exit(context.Context)                                        {}
-func (c *noopConcurrencyMonitor) Dropped(context.Context, string, int, time.Duration, string) {}
+func (c *noopConcurrencyMonitor) Queued(context.Context, string, int)                              {}
+func (c *noopConcurrencyMonitor) Dequeued(context.Context)                                         {}
+func (c *noopConcurrencyMonitor) Enter(context.Context, int, time.Duration)                        {}
+func (c *noopConcurrencyMonitor) Exit(context.Context)                                             {}
+func (c *noopConcurrencyMonitor) Dropped(context.Context, string, int, int, time.Duration, string) {}
 
 // NewNoopConcurrencyMonitor returns a noopConcurrencyMonitor
 func NewNoopConcurrencyMonitor() ConcurrencyMonitor {
@@ -86,12 +86,13 @@ func (p *PromMonitor) Dequeued(ctx context.Context) {
 }
 
 // Enter is called when a request begins to be processed.
-func (p *PromMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
+func (p *PromMonitor) Enter(ctx context.Context, inProgress int, acquireTime time.Duration) {
 	p.inProgressMetric.Inc()
 	p.acquiringSecondsMetric.Observe(acquireTime.Seconds())
 
 	if stats := log.CustomFieldsFromContext(ctx); stats != nil {
 		stats.RecordMetadata("limit.concurrency_queue_ms", acquireTime.Milliseconds())
+		stats.RecordMetadata("limit.concurrency_in_progress", inProgress)
 	}
 }
 
@@ -101,11 +102,12 @@ func (p *PromMonitor) Exit(ctx context.Context) {
 }
 
 // Dropped is called when a request is dropped.
-func (p *PromMonitor) Dropped(ctx context.Context, key string, length int, acquireTime time.Duration, reason string) {
+func (p *PromMonitor) Dropped(ctx context.Context, key string, queueLength int, inProgress int, acquireTime time.Duration, reason string) {
 	if stats := log.CustomFieldsFromContext(ctx); stats != nil {
 		stats.RecordMetadata("limit.limiting_type", p.limitingType)
 		stats.RecordMetadata("limit.limiting_key", key)
-		stats.RecordMetadata("limit.concurrency_queue_length", length)
+		stats.RecordMetadata("limit.concurrency_queue_length", queueLength)
+		stats.RecordMetadata("limit.concurrency_in_progress", inProgress)
 		stats.RecordMetadata("limit.concurrency_dropped", reason)
 		stats.RecordMetadata("limit.concurrency_queue_ms", acquireTime.Milliseconds())
 	}
