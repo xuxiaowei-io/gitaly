@@ -10,7 +10,7 @@ import (
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
@@ -42,7 +42,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
-	glog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
@@ -90,20 +90,20 @@ func serveAction(ctx *cli.Context) error {
 		cli.ShowSubcommandHelpAndExit(ctx, 2)
 	}
 
-	log.Infof("Starting %s", version.GetVersionString("Gitaly"))
+	logrus.Infof("Starting %s", version.GetVersionString("Gitaly"))
 	fips.Check()
 
 	cfg, err := configure(ctx.Args().First())
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 
 	if err := run(cfg); err != nil {
-		log.WithError(err).Error("Gitaly shutdown")
+		logrus.WithError(err).Error("Gitaly shutdown")
 		os.Exit(1)
 	}
 
-	log.Info("Gitaly shutdown")
+	logrus.Info("Gitaly shutdown")
 
 	return nil
 }
@@ -114,14 +114,14 @@ func configure(configPath string) (config.Cfg, error) {
 		return config.Cfg{}, fmt.Errorf("load config: config_path %q: %w", configPath, err)
 	}
 
-	urlSanitizer := glog.NewURLSanitizerHook()
+	urlSanitizer := log.NewURLSanitizerHook()
 	urlSanitizer.AddPossibleGrpcMethod(
 		"CreateRepositoryFromURL",
 		"FetchRemote",
 		"UpdateRemoteMirror",
 	)
 
-	glog.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, urlSanitizer)
+	log.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, urlSanitizer)
 
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure()
@@ -138,7 +138,7 @@ func preloadLicenseDatabase() {
 	// on server startup to avoid long initialization on gRPC
 	// method handling.
 	licensedb.Preload()
-	log.Info("License database preloaded")
+	logrus.Info("License database preloaded")
 }
 
 func run(cfg config.Cfg) error {
@@ -149,7 +149,7 @@ func run(cfg config.Cfg) error {
 	defer bootstrapSpan.Finish()
 
 	if cfg.RuntimeDir != "" {
-		if err := config.PruneOldGitalyProcessDirectories(log.StandardLogger(), cfg.RuntimeDir); err != nil {
+		if err := config.PruneOldGitalyProcessDirectories(logrus.StandardLogger(), cfg.RuntimeDir); err != nil {
 			return fmt.Errorf("prune runtime directories: %w", err)
 		}
 	}
@@ -164,7 +164,7 @@ func run(cfg config.Cfg) error {
 	// time a gitaly process is spawned. Look through the hierarchy root
 	// to find any cgroup directories that belong to old gitaly processes
 	// and remove them.
-	cgroups.PruneOldCgroups(cfg.Cgroups, log.StandardLogger())
+	cgroups.PruneOldCgroups(cfg.Cgroups, logrus.StandardLogger())
 	cgroupMgr := cgroups.NewManager(cfg.Cgroups, os.Getpid())
 
 	if err := cgroupMgr.Setup(); err != nil {
@@ -173,13 +173,13 @@ func run(cfg config.Cfg) error {
 
 	defer func() {
 		if err := cgroupMgr.Cleanup(); err != nil {
-			log.WithError(err).Warn("error cleaning up cgroups")
+			logrus.WithError(err).Warn("error cleaning up cgroups")
 		}
 	}()
 
 	defer func() {
 		if err := os.RemoveAll(cfg.RuntimeDir); err != nil {
-			log.Warn("could not clean up runtime dir")
+			logrus.Warn("could not clean up runtime dir")
 		}
 	}()
 
@@ -232,16 +232,16 @@ func run(cfg config.Cfg) error {
 
 	repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 	prometheus.MustRegister(repoCounter)
-	repoCounter.StartCountingRepositories(ctx, locator, log.StandardLogger())
+	repoCounter.StartCountingRepositories(ctx, locator, logrus.StandardLogger())
 
 	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
 
 	prometheus.MustRegister(gitCmdFactory)
 
 	if skipHooks {
-		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
+		logrus.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
-		gitlabClient, err := gitlab.NewHTTPClient(glog.Default(), cfg.Gitlab, cfg.TLS, cfg.Prometheus)
+		gitlabClient, err := gitlab.NewHTTPClient(log.Default(), cfg.Gitlab, cfg.TLS, cfg.Prometheus)
 		if err != nil {
 			return fmt.Errorf("could not create GitLab API client: %w", err)
 		}
@@ -313,7 +313,7 @@ func run(cfg config.Cfg) error {
 
 	gitalyServerFactory := server.NewGitalyServerFactory(
 		cfg,
-		glog.Default(),
+		log.Default(),
 		registry,
 		diskCache,
 		[]*limithandler.LimiterMiddleware{concurrencyLimitHandler, rateLimitHandler},
@@ -324,7 +324,7 @@ func run(cfg config.Cfg) error {
 
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
 
-	streamCache := streamcache.New(cfg.PackObjectsCache, glog.Default())
+	streamCache := streamcache.New(cfg.PackObjectsCache, log.Default())
 
 	var backupSink backup.Sink
 	var backupLocator backup.Locator
@@ -391,7 +391,7 @@ func run(cfg config.Cfg) error {
 				return err
 			}
 
-			log.WithField("address", addr).Info("starting prometheus listener")
+			logrus.WithField("address", addr).Info("starting prometheus listener")
 
 			go func() {
 				opts := []monitoring.Option{
@@ -406,7 +406,7 @@ func run(cfg config.Cfg) error {
 				}
 
 				if err := monitoring.Start(opts...); err != nil {
-					log.WithError(err).Error("Unable to serve prometheus")
+					logrus.WithError(err).Error("Unable to serve prometheus")
 				}
 			}()
 
@@ -417,7 +417,7 @@ func run(cfg config.Cfg) error {
 	for _, shard := range cfg.Storages {
 		if err := storage.WriteMetadataFile(shard.Path); err != nil {
 			// TODO should this be a return? https://gitlab.com/gitlab-org/gitaly/issues/1893
-			log.WithError(err).Error("Unable to write gitaly metadata file")
+			logrus.WithError(err).Error("Unable to write gitaly metadata file")
 		}
 	}
 
@@ -428,7 +428,7 @@ func run(cfg config.Cfg) error {
 
 	shutdownWorkers, err := maintenance.StartWorkers(
 		ctx,
-		glog.Default(),
+		log.Default(),
 		maintenance.DailyOptimizationWorker(cfg, maintenance.OptimizerFunc(func(ctx context.Context, repo storage.Repository) error {
 			return housekeepingManager.OptimizeRepository(ctx, localrepo.New(locator, gitCmdFactory, catfileCache, repo))
 		})),
