@@ -22,7 +22,7 @@ func TestCreateBundle_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
@@ -59,7 +59,7 @@ func TestCreateBundle_successful(t *testing.T) {
 func TestCreateBundle_validations(t *testing.T) {
 	t.Parallel()
 
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, client := setupRepositoryService(t)
 
 	for _, tc := range []struct {
 		desc        string

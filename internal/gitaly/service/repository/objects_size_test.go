@@ -18,7 +18,7 @@ func TestObjectsSize(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	type setupData struct {
 		requests         []*gitalypb.ObjectsSizeRequest

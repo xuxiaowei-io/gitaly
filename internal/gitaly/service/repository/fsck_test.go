@@ -19,7 +19,7 @@ func TestFsck(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	equalResponse := func(tb testing.TB, expected *gitalypb.FsckResponse) func(*gitalypb.FsckResponse) {
 		return func(actual *gitalypb.FsckResponse) { testhelper.ProtoEqual(tb, expected, actual) }

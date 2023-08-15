@@ -21,7 +21,7 @@ func TestSetFullPath(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	t.Run("missing repository", func(t *testing.T) {
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
@@ -144,7 +144,7 @@ func TestFullPath(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	t.Run("missing repository", func(t *testing.T) {
 		response, err := client.FullPath(ctx, &gitalypb.FullPathRequest{

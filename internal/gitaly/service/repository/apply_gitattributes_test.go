@@ -26,7 +26,7 @@ func TestApplyGitattributes_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gitattributesContent := "pattern attr=value"
@@ -221,7 +221,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {

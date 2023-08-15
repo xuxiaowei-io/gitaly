@@ -906,7 +906,7 @@ func TestFetchRemote(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			cfg, client := setupRepositoryService(t)
 			setupData := tc.setup(t, cfg)
 
 			for _, run := range setupData.runs {

@@ -22,7 +22,7 @@ func TestRepositoryInfo(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	writeFile := func(t *testing.T, byteCount int, pathComponents ...string) string {
 		t.Helper()

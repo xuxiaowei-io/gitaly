@@ -20,7 +20,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	locator := config.NewLocator(cfg)
 	originalRepo, originalPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, originalPath)
@@ -66,7 +66,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	existingDestinationRepo, destinationRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, destinationRepoPath)
@@ -87,7 +87,7 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {

@@ -47,7 +47,7 @@ func TestCreateRepository_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	repo := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
@@ -82,7 +82,7 @@ func TestCreateRepository_successful(t *testing.T) {
 func TestCreateRepository_withDefaultBranch(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
@@ -132,7 +132,7 @@ func TestCreateRepository_withDefaultBranch(t *testing.T) {
 func TestCreateRepository_withObjectFormat(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
@@ -197,7 +197,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	preexistingRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		// This creates the first repository on the server. As this test can run with
@@ -249,7 +249,7 @@ func TestCreateRepository_transactional(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
-	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
+	cfg, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)

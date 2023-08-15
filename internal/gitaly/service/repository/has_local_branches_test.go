@@ -15,7 +15,7 @@ func TestHasLocalBranches_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	populatedRepo, populatedRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, populatedRepoPath, gittest.WithBranch("main"))
@@ -58,7 +58,7 @@ func TestHasLocalBranches_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, client := setupRepositoryService(t)
 
 	for _, tc := range []struct {
 		desc        string
