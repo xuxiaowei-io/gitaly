@@ -446,7 +446,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	// It used to be possible to inject options into `git-archive(1)`, with the worst outcome
 	// being that an adversary may create or overwrite arbitrary files in the filesystem in case

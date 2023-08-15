@@ -27,7 +27,7 @@ func TestCreateRepositoryFromURL_successful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	_, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -67,7 +67,7 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -122,7 +122,7 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			cfg, client := setupRepositoryService(t)
 
 			importedRepo := &gitalypb.Repository{
 				RelativePath: storage.DeriveReplicaPath(1),
@@ -153,7 +153,7 @@ func TestCreateRepositoryFromURL_redirect(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
@@ -182,7 +182,7 @@ func TestCreateRepositoryFromURL_fsck(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -327,7 +327,7 @@ func TestServer_CloneFromURLCommand_withMirror(t *testing.T) {
 func TestServer_CloneFromURLCommand_validate(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		desc        string

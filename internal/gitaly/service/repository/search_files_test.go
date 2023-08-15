@@ -18,7 +18,7 @@ func TestSearchFilesByContent(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -209,7 +209,7 @@ func TestSearchFilesByName(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{

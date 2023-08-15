@@ -24,7 +24,7 @@ func TestRepositorySize_poolMember(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -52,7 +52,7 @@ func TestRepositorySize_normalRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	// An empty repository should have a size of zero. This is not quite true as there are some data structures like
 	// the gitconfig, but they do not exceed 1kB of data.
@@ -76,7 +76,7 @@ func TestRepositorySize_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, client := setupRepositoryService(t)
 
 	for _, tc := range []struct {
 		description string
@@ -100,7 +100,7 @@ func TestRepositorySize_failure(t *testing.T) {
 
 func BenchmarkRepositorySize(b *testing.B) {
 	ctx := testhelper.Context(b)
-	cfg, client := setupRepositoryServiceWithoutRepo(b)
+	cfg, client := setupRepositoryService(b)
 
 	for _, tc := range []struct {
 		desc  string
@@ -142,7 +142,7 @@ func TestGetObjectDirectorySize_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo.GitObjectDirectory = "objects/"
@@ -159,7 +159,7 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	locator := config.NewLocator(cfg)
 
 	t.Run("quarantined repo", func(t *testing.T) {

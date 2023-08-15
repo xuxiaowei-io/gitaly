@@ -37,7 +37,7 @@ func TestServerBackupRepository(t *testing.T) {
 		{
 			desc: "success",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t,
+				cfg, client := setupRepositoryService(t,
 					testserver.WithBackupSink(backupSink),
 					testserver.WithBackupLocator(backupLocator),
 				)
@@ -56,7 +56,7 @@ func TestServerBackupRepository(t *testing.T) {
 		{
 			desc: "missing backup ID",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t,
+				cfg, client := setupRepositoryService(t,
 					testserver.WithBackupSink(backupSink),
 					testserver.WithBackupLocator(backupLocator),
 				)
@@ -76,7 +76,7 @@ func TestServerBackupRepository(t *testing.T) {
 		{
 			desc: "missing repository",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t,
+				cfg, client := setupRepositoryService(t,
 					testserver.WithBackupSink(backupSink),
 					testserver.WithBackupLocator(backupLocator),
 				)
@@ -93,7 +93,7 @@ func TestServerBackupRepository(t *testing.T) {
 		{
 			desc: "repository with no branches",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t,
+				cfg, client := setupRepositoryService(t,
 					testserver.WithBackupSink(backupSink),
 					testserver.WithBackupLocator(backupLocator),
 				)
@@ -111,7 +111,7 @@ func TestServerBackupRepository(t *testing.T) {
 		{
 			desc: "missing backup sink",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t,
+				cfg, client := setupRepositoryService(t,
 					testserver.WithBackupLocator(backupLocator),
 				)
 
@@ -129,7 +129,7 @@ func TestServerBackupRepository(t *testing.T) {
 		{
 			desc: "missing backup locator",
 			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t,
+				cfg, client := setupRepositoryService(t,
 					testserver.WithBackupSink(backupSink),
 				)
 

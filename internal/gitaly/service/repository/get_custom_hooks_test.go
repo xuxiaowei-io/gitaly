@@ -56,7 +56,7 @@ func TestGetCustomHooks_successful(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
-			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			cfg, client := setupRepositoryService(t)
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			expectedTarResponse := []string{
@@ -123,7 +123,7 @@ func TestGetCustomHooks_symlink(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
-			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			cfg, client := setupRepositoryService(t)
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			linkTarget := "/var/empty"
@@ -181,7 +181,7 @@ func TestGetCustomHooks_nonexistentHooks(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
-			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			cfg, client := setupRepositoryService(t)
 			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 			buf, err := io.ReadAll(tc.streamReader(t, ctx, repo, client))
@@ -195,7 +195,7 @@ func TestGetCustomHooks_validate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, client := setupRepositoryService(t)
 
 	for _, tc := range []struct {
 		desc        string
@@ -221,7 +221,7 @@ func TestBackupCustomHooks_validate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, client := setupRepositoryService(t)
 
 	for _, tc := range []struct {
 		desc        string

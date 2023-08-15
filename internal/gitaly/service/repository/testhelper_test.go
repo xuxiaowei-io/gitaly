@@ -7,7 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -114,16 +113,7 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.Gita
 	return newRepositoryClient(tb, cfg, serverSocketPath), serverSocketPath
 }
 
-func setupRepositoryService(tb testing.TB, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
-	cfg, client := setupRepositoryServiceWithoutRepo(tb, opts...)
-
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	return cfg, repo, repoPath, client
-}
-
-func setupRepositoryServiceWithoutRepo(tb testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RepositoryServiceClient) {
+func setupRepositoryService(tb testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RepositoryServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	testcfg.BuildGitalyHooks(tb, cfg)

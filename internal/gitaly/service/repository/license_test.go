@@ -42,7 +42,7 @@ SOFTWARE.`
 func TestFindLicense_successful(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
@@ -254,7 +254,7 @@ func TestFindLicense_successful(t *testing.T) {
 func TestFindLicense_emptyRepo(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 

@@ -29,7 +29,7 @@ func TestCreateRepositoryFromBundle(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoClient := setupRepositoryServiceWithoutRepo(t)
+	cfg, repoClient := setupRepositoryService(t)
 
 	type setupData struct {
 		repoProto    *gitalypb.Repository
@@ -174,7 +174,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
-	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
+	cfg, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 

@@ -92,7 +92,7 @@ func TestCreateFork_refs(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -144,7 +144,7 @@ func TestCreateFork_refs(t *testing.T) {
 func TestCreateFork_fsck(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	ctx := testhelper.Context(t)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
@@ -229,7 +229,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
-			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			cfg, client := setupRepositoryService(t)
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			repo, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -258,7 +258,7 @@ func TestCreateFork_validate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, cli := setupRepositoryServiceWithoutRepo(t)
+	cfg, cli := setupRepositoryService(t)
 
 	srcRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 	// Praefect does not rewrite the SourceRepository storage name, confirm

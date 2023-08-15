@@ -73,7 +73,7 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch(git.DefaultBranch))
@@ -119,7 +119,7 @@ func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	// This creates the first repository on the server. As this test can run with Praefect in front of it,
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation
@@ -144,7 +144,7 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	srv := httptest.NewServer(&tarTesthandler{secret: secret})
 	t.Cleanup(srv.Close)
 
@@ -218,7 +218,7 @@ func TestCreateRepositoryFromSnapshot_malformedArchive(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	// Note that we are also writing a blob here that is 16kB in size. This is because there is a bug in
 	// CreateRepositoryFromSnapshot that would cause it to succeed when a tiny archive gets truncated. Please refer
@@ -258,7 +258,7 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -315,7 +315,7 @@ func TestServer_CreateRepositoryFromSnapshot_validate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		desc        string

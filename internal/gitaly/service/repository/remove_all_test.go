@@ -12,7 +12,7 @@ import (
 func TestRemoveAll(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 
 	_, repo1Path := gittest.CreateRepository(t, ctx, cfg)

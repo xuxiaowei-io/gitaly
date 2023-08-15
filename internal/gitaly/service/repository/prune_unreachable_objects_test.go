@@ -21,7 +21,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	setObjectTime := func(t *testing.T, repoPath string, objectID git.ObjectID, when time.Time) {
 		looseObjectPath := filepath.Join(repoPath, "objects", objectID.String()[:2], objectID.String()[2:])

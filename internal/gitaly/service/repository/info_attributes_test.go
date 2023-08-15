@@ -21,7 +21,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	infoPath := filepath.Join(repoPath, "info")
@@ -51,7 +51,7 @@ func TestGetInfoAttributesNonExisting(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
@@ -68,7 +68,7 @@ func TestGetInfoAttributesNonExisting(t *testing.T) {
 func TestGetInfoAttributes_validate(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, client := setupRepositoryService(t)
 	response, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{Repository: nil})
 	require.NoError(t, err)
 	_, err = response.Recv()

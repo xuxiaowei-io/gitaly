@@ -37,7 +37,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "success",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
@@ -63,7 +63,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "success + same repository",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
@@ -88,7 +88,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to branch not found",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, sourceRepoPath)
@@ -110,7 +110,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to branch not found (same repo)",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, sourceRepoPath)
@@ -131,7 +131,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to no repository provided",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
@@ -150,7 +150,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to no source branch",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -170,7 +170,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to blanks in source branch",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -191,7 +191,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to source branch starting with -",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -212,7 +212,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to source branch with :",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -233,7 +233,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to source branch with NUL",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -254,7 +254,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to no target ref",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
@@ -275,7 +275,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to blanks in target ref",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
@@ -297,7 +297,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to target ref starting with -",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
@@ -319,7 +319,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to target ref with :",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
@@ -341,7 +341,7 @@ func TestFetchSourceBranch(t *testing.T) {
 		{
 			desc: "failure due to target ref with NUL",
 			setup: func(t *testing.T) setupData {
-				cfg, client := setupRepositoryServiceWithoutRepo(t)
+				cfg, client := setupRepositoryService(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))

@@ -166,7 +166,7 @@ func TestSetCustomHooks_failedValidation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, client := setupRepositoryServiceWithoutRepo(t)
+			_, client := setupRepositoryService(t)
 
 			err := tc.streamSender(t, ctx, client)
 			testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
@@ -236,7 +236,7 @@ func TestSetCustomHooks_corruptTar(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			cfg, client := setupRepositoryService(t)
 			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 			writer, closeStream := tc.streamWriter(t, ctx, repo, client)
 

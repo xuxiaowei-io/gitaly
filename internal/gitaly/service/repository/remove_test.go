@@ -17,7 +17,7 @@ import (
 func TestRemoveRepository(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -38,7 +38,7 @@ func TestRemoveRepository_doesNotExist(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
 		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "/does/not/exist"},
@@ -49,7 +49,7 @@ func TestRemoveRepository_doesNotExist(t *testing.T) {
 func TestRemoveRepository_validate(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, client := setupRepositoryService(t)
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: nil})
 	testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), err)
 }
@@ -59,7 +59,7 @@ func TestRemoveRepository_locking(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	// Praefect does not acquire a lock on repository deletion so disable the test case for Praefect.
-	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithDisablePraefect())
+	cfg, client := setupRepositoryService(t, testserver.WithDisablePraefect())
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Simulate a concurrent RPC holding the repository lock.

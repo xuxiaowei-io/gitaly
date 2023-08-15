@@ -25,7 +25,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	main := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("main"))
@@ -73,7 +73,7 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
-	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager), testserver.WithDisablePraefect())
+	cfg, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager), testserver.WithDisablePraefect())
 
 	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	sourceCommitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("main"))
@@ -122,7 +122,7 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 func TestServer_FetchBundle_validation(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {

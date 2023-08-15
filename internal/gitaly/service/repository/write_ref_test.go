@@ -25,7 +25,7 @@ func TestWriteRef(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
-	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
+	cfg, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
 	type setupData struct {
 		request       *gitalypb.WriteRefRequest
@@ -377,7 +377,7 @@ func TestWriteRef_locked(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	cfg, client := setupRepositoryService(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
