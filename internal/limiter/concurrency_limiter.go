@@ -115,14 +115,17 @@ func (sem *keyedConcurrencyLimiter) release() {
 	<-sem.concurrencyTokens
 }
 
-// queueLength returns the length of token queue. It consists of in-progress requests and requests waiting in the queue.
+// queueLength returns the length of the queue waiting for tokens.
 func (sem *keyedConcurrencyLimiter) queueLength() int {
-	return len(sem.queueTokens)
+	if sem.queueTokens == nil {
+		return 0
+	}
+	return len(sem.queueTokens) - len(sem.concurrencyTokens)
 }
 
-// inProgress returns the number of in-progress requests.
+// inProgress returns the number of in-progress tokens.
 func (sem *keyedConcurrencyLimiter) inProgress() int {
-	return int(sem.concurrencyTokens.Current())
+	return len(sem.concurrencyTokens)
 }
 
 // ConcurrencyLimiter contains rate limiter state.
