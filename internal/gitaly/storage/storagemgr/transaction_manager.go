@@ -1075,7 +1075,7 @@ func (mgr *TransactionManager) determineCustomHookIndex(ctx context.Context, app
 		}
 	}
 
-	hookDirs, err := os.ReadDir(filepath.Join(mgr.stateDirectory, "wal", "hooks"))
+	hookDirs, err := os.ReadDir(filepath.Join(mgr.stateDirectory, "hooks"))
 	if err != nil {
 		return 0, fmt.Errorf("read hook directories: %w", err)
 	}
@@ -1096,18 +1096,16 @@ func (mgr *TransactionManager) determineCustomHookIndex(ctx context.Context, app
 }
 
 func (mgr *TransactionManager) createStateDirectory() error {
-	if err := os.Mkdir(mgr.stateDirectory, perm.PrivateDir); err != nil {
-		if !errors.Is(err, fs.ErrExist) {
-			return fmt.Errorf("mkdir state directory: %w", err)
+	for _, path := range []string{
+		mgr.stateDirectory,
+		filepath.Join(mgr.stateDirectory, "wal"),
+		filepath.Join(mgr.stateDirectory, "hooks"),
+	} {
+		if err := os.Mkdir(path, fs.ModePerm); err != nil {
+			if !errors.Is(err, fs.ErrExist) {
+				return fmt.Errorf("mkdir: %w", err)
+			}
 		}
-	}
-
-	if err := os.MkdirAll(filepath.Join(mgr.stateDirectory, "wal", "packs"), fs.ModePerm); err != nil {
-		return fmt.Errorf("mkdir packs: %w", err)
-	}
-
-	if err := os.MkdirAll(filepath.Join(mgr.stateDirectory, "wal", "hooks"), fs.ModePerm); err != nil {
-		return fmt.Errorf("mkdir hooks: %w", err)
 	}
 
 	syncer := safe.NewSyncer()
@@ -1181,7 +1179,7 @@ func (mgr *TransactionManager) storeWALFiles(ctx context.Context, index LogIndex
 
 // walFilesPathForLogIndex returns an absolute path to a given log entry's WAL files.
 func walFilesPathForLogIndex(stateDir string, index LogIndex) string {
-	return filepath.Join(stateDir, "wal", "packs", index.String())
+	return filepath.Join(stateDir, "wal", index.String())
 }
 
 // packFilePath returns a log entry's pack file's absolute path in the wal files directory.
@@ -1643,7 +1641,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 // customHookPathForLogIndex returns the filesystem paths where the custom hooks
 // for the given log index are stored.
 func customHookPathForLogIndex(stateDir string, logIndex LogIndex) string {
-	return filepath.Join(stateDir, "wal", "hooks", logIndex.String())
+	return filepath.Join(stateDir, "hooks", logIndex.String())
 }
 
 // deleteLogEntry deletes the log entry at the given index from the log.
