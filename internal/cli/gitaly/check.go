@@ -68,7 +68,7 @@ func checkAPI(cfg config.Cfg, logger logrus.FieldLogger) (*gitlab.CheckInfo, err
 		return nil, err
 	}
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, logger)
 	if err != nil {
 		return nil, err
 	}

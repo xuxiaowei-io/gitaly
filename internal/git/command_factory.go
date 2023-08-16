@@ -126,6 +126,7 @@ type ExecCommandFactory struct {
 	locator               storage.Locator
 	cfg                   config.Cfg
 	execEnvs              []ExecutionEnvironment
+	logger                logrus.FieldLogger
 	cgroupsManager        cgroups.Manager
 	trace2Hooks           []trace2.Hook
 	invalidCommandsMetric *prometheus.CounterVec
@@ -137,7 +138,7 @@ type ExecCommandFactory struct {
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
 // cleanup function shall be executed when the server shuts down.
-func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ *ExecCommandFactory, _ func(), returnedErr error) {
+func NewExecCommandFactory(cfg config.Cfg, logger logrus.FieldLogger, opts ...ExecCommandFactoryOption) (_ *ExecCommandFactory, _ func(), returnedErr error) {
 	var factoryCfg execCommandFactoryConfig
 	for _, opt := range opts {
 		opt(&factoryCfg)
@@ -176,6 +177,7 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
 		execEnvs:       execEnvs,
+		logger:         logger,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroupsManager,
 		trace2Hooks:    factoryCfg.trace2Hooks,

@@ -203,7 +203,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 		commandFactoryOpts = append(commandFactoryOpts, git.WithSkipHooks())
 	}
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, commandFactoryOpts...)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, logger, commandFactoryOpts...)
 	if err != nil {
 		return fmt.Errorf("creating Git command factory: %w", err)
 	}

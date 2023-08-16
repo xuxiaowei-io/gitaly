@@ -197,10 +197,7 @@ func TestTransactionManager(t *testing.T) {
 		thirdCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(secondCommitOID))
 		divergingCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitOID), gittest.WithMessage("diverging commit"))
 
-		cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
-		require.NoError(t, err)
-		t.Cleanup(clean)
-
+		cmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 
@@ -3988,10 +3985,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 
 			cfg := testcfg.Build(b)
 
-			cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
-			require.NoError(b, err)
-			defer clean()
-
+			cmdFactory := gittest.NewCommandFactory(b, cfg)
 			cache := catfile.NewCache(cfg)
 			defer cache.Stop()
 
