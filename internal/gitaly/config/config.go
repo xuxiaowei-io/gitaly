@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
@@ -26,7 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	internallog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -372,7 +371,7 @@ type Sentry sentry.Config
 
 // Logging contains the logging configuration for Gitaly
 type Logging struct {
-	internallog.Config
+	log.Config
 	Sentry
 }
 
@@ -688,7 +687,7 @@ func validateIsDirectory(path, name string) error {
 		return fmt.Errorf("%s: not a directory: %q", name, path)
 	}
 
-	log.WithField("dir", path).Debugf("%s set", name)
+	log.Default().WithField("dir", path).Debugf("%s set", name)
 
 	return nil
 }
@@ -838,7 +837,7 @@ func (cfg *Cfg) validateToken() error {
 		return nil
 	}
 
-	log.Warn("Authentication is enabled but not enforced because transitioning=true. Gitaly will accept unauthenticated requests.")
+	log.Default().Warn("Authentication is enabled but not enforced because transitioning=true. Gitaly will accept unauthenticated requests.")
 	return nil
 }
 
