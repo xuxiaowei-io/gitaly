@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	sentry "github.com/getsentry/sentry-go"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/panichandler"
 )
 
@@ -15,7 +15,7 @@ type Config struct {
 }
 
 // ConfigureSentry configures the sentry DSN
-func ConfigureSentry(version string, sentryConf Config) {
+func ConfigureSentry(logger logrus.FieldLogger, version string, sentryConf Config) {
 	if sentryConf.DSN == "" {
 		return
 	}
@@ -26,11 +26,11 @@ func ConfigureSentry(version string, sentryConf Config) {
 		Release:     "v" + version,
 	})
 	if err != nil {
-		log.Warnf("Unable to initialize sentry client: %v", err)
+		logger.Warnf("Unable to initialize sentry client: %v", err)
 		return
 	}
 
-	log.Debug("Using sentry logging")
+	logger.Debug("Using sentry logging")
 
 	panichandler.InstallPanicHandler(func(grpcMethod string, _err interface{}) {
 		err, ok := _err.(error)
