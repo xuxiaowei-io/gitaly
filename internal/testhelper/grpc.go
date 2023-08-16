@@ -41,9 +41,11 @@ func (mockServerTransportStream) SetTrailer(md metadata.MD) error { return nil }
 // It can accept not only proto.Message, but slices, maps, and structs too.
 // This is required as comparing messages directly with `require.Equal` doesn't
 // work.
-func ProtoEqual(tb testing.TB, expected, actual interface{}) {
+func ProtoEqual(tb testing.TB, expected, actual interface{}, opts ...cmp.Option) {
 	tb.Helper()
-	require.Empty(tb, cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors()))
+
+	opts = append(opts, protocmp.Transform(), cmpopts.EquateErrors())
+	require.Empty(tb, cmp.Diff(expected, actual, opts...))
 }
 
 // RequireGrpcCode asserts that the error has the expected gRPC status code.
@@ -68,10 +70,10 @@ func AssertGrpcCode(tb testing.TB, err error, expectedCode codes.Code) {
 
 // RequireGrpcError asserts that expected and actual gRPC errors are equal. Comparing gRPC errors
 // directly with `require.Equal()` will not typically work correct.
-func RequireGrpcError(tb testing.TB, expected, actual error) {
+func RequireGrpcError(tb testing.TB, expected, actual error, opts ...cmp.Option) {
 	tb.Helper()
 	// .Proto() handles nil receiver
-	ProtoEqual(tb, status.Convert(expected).Proto(), status.Convert(actual).Proto())
+	ProtoEqual(tb, status.Convert(expected).Proto(), status.Convert(actual).Proto(), opts...)
 }
 
 // RequireStatusWithErrorMetadataRegexp asserts that expected and actual error match each other. Both are expected to
