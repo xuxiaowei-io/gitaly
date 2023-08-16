@@ -1101,7 +1101,7 @@ func (mgr *TransactionManager) createStateDirectory() error {
 		filepath.Join(mgr.stateDirectory, "wal"),
 		filepath.Join(mgr.stateDirectory, "hooks"),
 	} {
-		if err := os.Mkdir(path, fs.ModePerm); err != nil {
+		if err := os.Mkdir(path, perm.PrivateDir); err != nil {
 			if !errors.Is(err, fs.ErrExist) {
 				return fmt.Errorf("mkdir: %w", err)
 			}

@@ -1280,9 +1280,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":     {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":        {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":     {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":   {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/hooks/1/pre-receive": {
 						Mode:    umask.Mask(fs.ModePerm),
@@ -1348,9 +1348,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":     {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":        {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":     {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":   {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/hooks/1/pre-receive": {
 						Mode:    umask.Mask(fs.ModePerm),
@@ -1433,8 +1433,8 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":        {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":   {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/hooks/1/pre-receive": {
 						Mode:    umask.Mask(fs.ModePerm),
@@ -1443,7 +1443,7 @@ func TestTransactionManager(t *testing.T) {
 					"/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 					"/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":                              {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/wal":                              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 				},
 				Repository: RepositoryState{
 					CustomHooks: testhelper.DirectoryState{
@@ -2255,9 +2255,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":     {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":        {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":     {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":   {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 					"/hooks/1/pre-receive": {
 						Mode:    umask.Mask(fs.ModePerm),
@@ -2312,9 +2312,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":                  {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":               {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":                  {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":               {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
 					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
@@ -2413,9 +2413,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":                  {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":               {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":                  {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":               {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
 					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
@@ -2485,9 +2485,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":                  {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":               {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":                  {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":               {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
 					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
@@ -2569,9 +2569,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":                  {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":               {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":                  {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":               {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
 					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
@@ -2614,9 +2614,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":      {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":      {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":   {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 				},
 				Repository: RepositoryState{
 					Objects: []git.ObjectID{},
@@ -2643,9 +2643,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":                  {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":               {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":                  {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":               {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
 					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
@@ -2687,9 +2687,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":                  {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":               {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":                  {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":               {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
 					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
@@ -2769,9 +2769,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":                  {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":               {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":                  {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":               {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
 					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
@@ -2847,9 +2847,9 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":                  {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks":             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":               {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":                  {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/hooks":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+					"/wal":               {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1":             {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
 					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
@@ -2877,11 +2877,11 @@ func TestTransactionManager(t *testing.T) {
 					// The Manager starts up and we expect the pack file to be gone at the end of the test.
 					ModifyRepository: func(_ testing.TB, _ config.Cfg, repoPath string) {
 						packFilePath := packFilePath(walFilesPathForLogIndex(repoPath, 1))
-						require.NoError(t, os.MkdirAll(filepath.Dir(packFilePath), fs.ModePerm))
+						require.NoError(t, os.MkdirAll(filepath.Dir(packFilePath), perm.PrivateDir))
 						require.NoError(t, os.WriteFile(
 							packFilePath,
 							[]byte("invalid pack"),
-							fs.ModePerm,
+							perm.PrivateDir,
 						))
 					},
 				},
@@ -3246,7 +3246,7 @@ func TestTransactionManager(t *testing.T) {
 						// Remove the repository's directory and create a file in its place
 						// to fail the initialization.
 						require.NoError(t, os.RemoveAll(repoPath))
-						require.NoError(t, os.WriteFile(repoPath, nil, fs.ModePerm))
+						require.NoError(t, os.WriteFile(repoPath, nil, perm.PrivateDir))
 					},
 					ExpectedError: errNotDirectory,
 				},
@@ -3861,9 +3861,9 @@ func TestTransactionManager(t *testing.T) {
 					// Set the base state as the default so we don't have to repeat it in every test case but it
 					// gets asserted.
 					expectedDirectory = testhelper.DirectoryState{
-						"/":      {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/wal":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-						"/hooks": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/":      {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+						"/wal":   {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+						"/hooks": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 					}
 				}
 
