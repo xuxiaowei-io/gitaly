@@ -57,11 +57,12 @@ Example: praefect --config praefect.config.toml dataloss`,
 }
 
 func datalossAction(ctx *cli.Context) error {
-	logger := log.Default()
-	conf, err := getConfig(logger, ctx.String(configFlagName))
+	conf, err := readConfig(ctx.String(configFlagName))
 	if err != nil {
 		return err
 	}
+
+	logger := log.Default()
 
 	includePartiallyAvailable := ctx.Bool("partially-unavailable")
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
 )
 
@@ -41,8 +40,7 @@ var errFatalChecksFailed = errors.New("checks failed")
 
 func checkAction(checkFuncs []service.CheckFunc) func(ctx *cli.Context) error {
 	return func(ctx *cli.Context) error {
-		logger := log.Default()
-		conf, err := getConfig(logger, ctx.String(configFlagName))
+		conf, err := readConfig(ctx.String(configFlagName))
 		if err != nil {
 			return err
 		}

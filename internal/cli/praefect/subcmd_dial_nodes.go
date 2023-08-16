@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
 )
 
@@ -38,8 +37,7 @@ Example: praefect --config praefect.config.toml dial-nodes`,
 }
 
 func dialNodesAction(ctx *cli.Context) error {
-	logger := log.Default()
-	conf, err := getConfig(logger, ctx.String(configFlagName))
+	conf, err := readConfig(ctx.String(configFlagName))
 	if err != nil {
 		return err
 	}

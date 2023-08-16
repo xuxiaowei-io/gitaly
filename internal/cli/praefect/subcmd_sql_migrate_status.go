@@ -5,7 +5,6 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 )
 
@@ -30,8 +29,7 @@ func newSQLMigrateStatusCommand() *cli.Command {
 }
 
 func sqlMigrateStatusAction(appCtx *cli.Context) error {
-	logger := log.Default()
-	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	conf, err := readConfig(appCtx.String(configFlagName))
 	if err != nil {
 		return err
 	}

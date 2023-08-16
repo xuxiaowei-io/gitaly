@@ -86,11 +86,12 @@ type trackRepositoryRequest struct {
 var errAuthoritativeRepositoryNotExist = errors.New("authoritative repository does not exist")
 
 func trackRepositoryAction(appCtx *cli.Context) error {
-	logger := log.Default()
-	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	conf, err := readConfig(appCtx.String(configFlagName))
 	if err != nil {
 		return err
 	}
+
+	logger := log.Default()
 
 	virtualStorage := appCtx.String(paramVirtualStorage)
 	relativePath := appCtx.String(paramRelativePath)

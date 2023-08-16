@@ -82,13 +82,18 @@ func serveAction(ctx *cli.Context) error {
 }
 
 func run(appName string, logger *logrus.Entry, configPath string) error {
-	conf, err := getConfig(logger, configPath)
+	conf, err := readConfig(configPath)
 	if err != nil {
 		return err
 	}
 
 	if _, err := log.Configure(os.Stdout, conf.Logging.Format, conf.Logging.Level); err != nil {
 		return fmt.Errorf("configuring logger: %w", err)
+	}
+
+	if !conf.Failover.Enabled && conf.Failover.ElectionStrategy != "" {
+		logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
+			"ignoring configured election strategy as failover is disabled")
 	}
 
 	configure(logger, appName, conf)
@@ -119,7 +124,7 @@ func run(appName string, logger *logrus.Entry, configPath string) error {
 	return nil
 }
 
-func getConfig(logger *logrus.Entry, path string) (config.Config, error) {
+func readConfig(path string) (config.Config, error) {
 	conf, err := config.FromFile(path)
 	if err != nil {
 		return conf, fmt.Errorf("error reading config file: %w", err)
@@ -131,11 +136,6 @@ func getConfig(logger *logrus.Entry, path string) (config.Config, error) {
 
 	if !conf.AllowLegacyElectors {
 		conf.Failover.ElectionStrategy = config.ElectionStrategyPerRepository
-	}
-
-	if !conf.Failover.Enabled && conf.Failover.ElectionStrategy != "" {
-		logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
-			"ignoring configured election strategy as failover is disabled")
 	}
 
 	return conf, nil

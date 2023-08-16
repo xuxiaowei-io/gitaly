@@ -73,11 +73,12 @@ func newRemoveRepositoryCommand() *cli.Command {
 }
 
 func removeRepositoryAction(appCtx *cli.Context) error {
-	logger := log.Default()
-	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	conf, err := readConfig(appCtx.String(configFlagName))
 	if err != nil {
 		return err
 	}
+
+	logger := log.Default()
 
 	ctx := appCtx.Context
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
