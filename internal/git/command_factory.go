@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2hooks"
@@ -439,7 +440,6 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo storage.Repos
 		if err != nil {
 			return nil, err
 		}
-
 		env = append(alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories()), env...)
 	}
 
@@ -488,6 +488,36 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo storage.Repos
 		command.WithCgroup(cf.cgroupsManager, cgroupsAddCommandOpts...),
 		command.WithCommandGitVersion(cmdGitVersion.String()),
 	)
+
+	if featureflag.AttrSource.IsEnabled(ctx) && repoPath != "" {
+		checkHeadCmdArgs, err := cf.combineArgs(
+			ctx,
+			Command{
+				Name: "rev-parse",
+				Args: []string{"HEAD^{commit}"},
+			},
+			config,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		checkHeadCmdArgs = append([]string{"--git-dir", repoPath}, checkHeadCmdArgs...)
+
+		checkHeadCmd, err := command.New(
+			ctx,
+			append([]string{execEnv.BinaryPath}, checkHeadCmdArgs...),
+			command.WithEnvironment(execEnv.EnvironmentVariables),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := checkHeadCmd.Wait(); err == nil {
+			args = append([]string{"--attr-source=HEAD"}, args...)
+		}
+	}
+
 	command, err := command.New(ctx, append([]string{execEnv.BinaryPath}, args...), commandOpts...)
 	if err != nil {
 		return nil, err

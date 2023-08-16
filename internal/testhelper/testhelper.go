@@ -258,6 +258,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// This feature flag sits in `command.Wait()` and is thus getting executed in a ton of tests.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CommandCloseStdout, rand.Int()%2 == 0)
 
+	// Randomly enable attr source
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.AttrSource, rand.Int()%2 == 0)
+
 	for _, opt := range opts {
 		ctx = opt(ctx)
 	}
