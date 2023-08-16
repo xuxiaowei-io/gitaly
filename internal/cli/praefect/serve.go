@@ -95,7 +95,7 @@ func run(appName string, logger *logrus.Entry, configPath string) error {
 	}
 
 	promreg := prometheus.DefaultRegisterer
-	b, err := bootstrap.New(promauto.With(promreg).NewCounterVec(
+	b, err := bootstrap.New(logger, promauto.With(promreg).NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_praefect_connections_total",
 			Help: "Total number of connections to Praefect",

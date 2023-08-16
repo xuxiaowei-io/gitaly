@@ -186,7 +186,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 		return fmt.Errorf("unpack auxiliary binaries: %w", err)
 	}
 
-	b, err := bootstrap.New(promauto.NewCounterVec(
+	b, err := bootstrap.New(logger, promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_connections_total",
 			Help: "Total number of connections to Gitaly",
