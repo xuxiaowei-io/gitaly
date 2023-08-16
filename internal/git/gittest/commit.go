@@ -52,6 +52,7 @@ type writeCommitConfig struct {
 	treeEntries        []TreeEntry
 	treeID             git.ObjectID
 	alternateObjectDir string
+	encoding           string
 }
 
 // WriteCommitOption is an option which can be passed to WriteCommit.
@@ -145,6 +146,13 @@ func WithAlternateObjectDirectory(alternateObjectDir string) WriteCommitOption {
 	}
 }
 
+// WithEncoding asks Git to set the commit message encoding to the given string.
+func WithEncoding(encoding string) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.encoding = encoding
+	}
+}
+
 // WriteCommit writes a new commit into the target repository.
 func WriteCommit(tb testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCommitOption) git.ObjectID {
 	tb.Helper()
@@ -197,9 +205,16 @@ func WriteCommit(tb testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCo
 	commitArgs := []string{
 		"-c", fmt.Sprintf("user.name=%s", writeCommitConfig.committerName),
 		"-c", fmt.Sprintf("user.email=%s", DefaultCommitterMail),
+	}
+
+	if writeCommitConfig.encoding != "" {
+		commitArgs = append(commitArgs, "-c", "i18n.commitEncoding="+writeCommitConfig.encoding)
+	}
+
+	commitArgs = append(commitArgs,
 		"-C", repoPath,
 		"commit-tree", "-F", "-", tree,
-	}
+	)
 
 	var env []string
 	if writeCommitConfig.alternateObjectDir != "" {
