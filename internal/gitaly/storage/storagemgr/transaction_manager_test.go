@@ -118,12 +118,7 @@ func indexFileDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
 			tb.Helper()
 
 			// Verify the index is valid.
-			//
-			// -C filepath.Dir ensures the command runs in the tested repository, not in the developer's
-			// Gitaly repository. Otherwise the hash algorithm in use would be derived from there which
-			// would break tests.
-			gittest.Exec(tb, cfg, "-C", filepath.Dir(path), "verify-pack", "-v", path)
-
+			gittest.Exec(tb, cfg, "verify-pack", "--object-format="+gittest.DefaultObjectHash.Format, "-v", path)
 			// As we already verified the index is valid, we don't care about the actual contents.
 			return nil
 		},
@@ -3603,6 +3598,8 @@ func TestTransactionManager(t *testing.T) {
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
 
+			stateDir := filepath.Join(setup.Config.Storages[0].Path, "state")
+
 			stagingDir := t.TempDir()
 			storagePath := setup.Config.Storages[0].Path
 
@@ -3613,7 +3610,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or closed.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+				transactionManager = NewTransactionManager(database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 				// managerErr is used for synchronizing manager closing and returning
 				// the error from Run.
 				managerErr chan error
@@ -3660,7 +3657,7 @@ func TestTransactionManager(t *testing.T) {
 					require.NoError(t, os.RemoveAll(stagingDir))
 					require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+					transactionManager = NewTransactionManager(database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
 						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
@@ -3870,7 +3867,7 @@ func TestTransactionManager(t *testing.T) {
 					}
 				}
 
-				testhelper.RequireDirectoryState(t, repoPath, "wal", expectedDirectory)
+				testhelper.RequireDirectoryState(t, stateDir, "wal", expectedDirectory)
 			}
 
 			entries, err := os.ReadDir(stagingDir)
@@ -4043,7 +4040,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), cmdFactory, housekeepingManager, repositoryFactory)
+				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), b.TempDir(), cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 

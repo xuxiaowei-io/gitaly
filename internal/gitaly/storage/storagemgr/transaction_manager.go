@@ -496,6 +496,9 @@ type TransactionManager struct {
 	// being admitted. This is differentiated from ctx.Done in order to enable testing that Run correctly
 	// releases awaiters when the transactions processing is stopped.
 	closed chan struct{}
+	// stateDirectory is an absolute path to a directory where the TransactionManager stores the state related to its
+	// write-ahead log.
+	stateDirectory string
 	// stagingDirectory is a path to a directory where this TransactionManager should stage the files of the transactions
 	// before it logs them. The TransactionManager cleans up the files during runtime but stale files may be
 	// left around after crashes. The files are temporary and any leftover files are expected to be cleaned up when
@@ -556,6 +559,7 @@ func NewTransactionManager(
 	db *badger.DB,
 	storagePath,
 	relativePath,
+	stateDir,
 	stagingDir string,
 	cmdFactory git.CommandFactory,
 	housekeepingManager housekeeping.Manager,
@@ -577,6 +581,7 @@ func NewTransactionManager(
 		openTransactions:     list.New(),
 		initialized:          make(chan struct{}),
 		applyNotifications:   make(map[LogIndex]chan struct{}),
+		stateDirectory:       stateDir,
 		stagingDirectory:     stagingDir,
 		housekeepingManager:  housekeepingManager,
 		awaitingTransactions: make(map[LogIndex]resultChannel),
@@ -982,8 +987,8 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	}
 
 	if mgr.repositoryExists {
-		if err := mgr.createDirectories(); err != nil {
-			return fmt.Errorf("create directories: %w", err)
+		if err := mgr.createStateDirectory(); err != nil {
+			return fmt.Errorf("create state directory: %w", err)
 		}
 	}
 
@@ -1070,7 +1075,7 @@ func (mgr *TransactionManager) determineCustomHookIndex(ctx context.Context, app
 		}
 	}
 
-	hookDirs, err := os.ReadDir(filepath.Join(mgr.repositoryPath, "wal", "hooks"))
+	hookDirs, err := os.ReadDir(filepath.Join(mgr.stateDirectory, "wal", "hooks"))
 	if err != nil {
 		return 0, fmt.Errorf("read hook directories: %w", err)
 	}
@@ -1090,28 +1095,28 @@ func (mgr *TransactionManager) determineCustomHookIndex(ctx context.Context, app
 	return hookIndex, err
 }
 
-// createDirectories creates the directories that are expected to exist
-// in the repository for storing the state. Initializing them simplifies
-// rest of the code as it doesn't need handling for when they don't.
-func (mgr *TransactionManager) createDirectories() error {
-	for _, relativePath := range []string{
-		"wal/hooks",
-		"wal/packs",
-	} {
-		directory := filepath.Join(mgr.repositoryPath, relativePath)
-		if _, err := os.Stat(directory); err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				return fmt.Errorf("stat directory: %w", err)
-			}
-
-			if err := os.MkdirAll(directory, fs.ModePerm); err != nil {
-				return fmt.Errorf("mkdir: %w", err)
-			}
-
-			if err := safe.NewSyncer().SyncHierarchy(mgr.repositoryPath, relativePath); err != nil {
-				return fmt.Errorf("sync: %w", err)
-			}
+func (mgr *TransactionManager) createStateDirectory() error {
+	if err := os.Mkdir(mgr.stateDirectory, perm.PrivateDir); err != nil {
+		if !errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("mkdir state directory: %w", err)
 		}
+	}
+
+	if err := os.MkdirAll(filepath.Join(mgr.stateDirectory, "wal", "packs"), fs.ModePerm); err != nil {
+		return fmt.Errorf("mkdir packs: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(mgr.stateDirectory, "wal", "hooks"), fs.ModePerm); err != nil {
+		return fmt.Errorf("mkdir hooks: %w", err)
+	}
+
+	syncer := safe.NewSyncer()
+	if err := syncer.SyncRecursive(mgr.stateDirectory); err != nil {
+		return fmt.Errorf("sync: %w", err)
+	}
+
+	if err := syncer.SyncParent(mgr.stateDirectory); err != nil {
+		return fmt.Errorf("sync parent: %w", err)
 	}
 
 	return nil
@@ -1123,7 +1128,7 @@ func (mgr *TransactionManager) createDirectories() error {
 func (mgr *TransactionManager) removeStaleWALFiles(ctx context.Context, appendedIndex LogIndex) error {
 	// Log entries are appended one by one to the log. If a write is interrupted, the only possible stale
 	// pack would be for the next log index. Remove the pack if it exists.
-	possibleStaleFilesPath := walFilesPathForLogIndex(mgr.repositoryPath, appendedIndex+1)
+	possibleStaleFilesPath := walFilesPathForLogIndex(mgr.stateDirectory, appendedIndex+1)
 	if _, err := os.Stat(possibleStaleFilesPath); err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("remove: %w", err)
@@ -1150,7 +1155,7 @@ func (mgr *TransactionManager) removeStaleWALFiles(ctx context.Context, appended
 func (mgr *TransactionManager) storeWALFiles(ctx context.Context, index LogIndex, transaction *Transaction) (func() error, error) {
 	removeFiles := func() error { return nil }
 
-	destinationPath := walFilesPathForLogIndex(mgr.repositoryPath, index)
+	destinationPath := walFilesPathForLogIndex(mgr.stateDirectory, index)
 	if err := os.Rename(
 		transaction.walFilesPath(),
 		destinationPath,
@@ -1175,8 +1180,8 @@ func (mgr *TransactionManager) storeWALFiles(ctx context.Context, index LogIndex
 }
 
 // walFilesPathForLogIndex returns an absolute path to a given log entry's WAL files.
-func walFilesPathForLogIndex(repoPath string, index LogIndex) string {
-	return filepath.Join(repoPath, "wal", "packs", index.String())
+func walFilesPathForLogIndex(stateDir string, index LogIndex) string {
+	return filepath.Join(stateDir, "wal", "packs", index.String())
 }
 
 // packFilePath returns a log entry's pack file's absolute path in the wal files directory.
@@ -1540,7 +1545,7 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix str
 		".rev",
 	} {
 		if err := os.Link(
-			filepath.Join(walFilesPathForLogIndex(mgr.repositoryPath, logIndex), "objects"+fileExtension),
+			filepath.Join(walFilesPathForLogIndex(mgr.stateDirectory, logIndex), "objects"+fileExtension),
 			filepath.Join(packDirectory, packPrefix+fileExtension),
 		); err != nil {
 			if !errors.Is(err, fs.ErrExist) {
@@ -1572,7 +1577,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		return nil
 	}
 
-	targetDirectory := customHookPathForLogIndex(mgr.repositoryPath, logIndex)
+	targetDirectory := customHookPathForLogIndex(mgr.stateDirectory, logIndex)
 	if err := os.Mkdir(targetDirectory, fs.ModePerm); err != nil {
 		// The target directory may exist if we previously tried to extract the
 		// custom hooks there. TAR overwrites existing files and the custom hooks
@@ -1637,8 +1642,8 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 
 // customHookPathForLogIndex returns the filesystem paths where the custom hooks
 // for the given log index are stored.
-func customHookPathForLogIndex(repositoryPath string, logIndex LogIndex) string {
-	return filepath.Join(repositoryPath, "wal", "hooks", logIndex.String())
+func customHookPathForLogIndex(stateDir string, logIndex LogIndex) string {
+	return filepath.Join(stateDir, "wal", "hooks", logIndex.String())
 }
 
 // deleteLogEntry deletes the log entry at the given index from the log.
