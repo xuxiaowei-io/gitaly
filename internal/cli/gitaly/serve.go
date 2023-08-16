@@ -233,7 +233,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	prometheus.MustRegister(repoCounter)
 	repoCounter.StartCountingRepositories(ctx, locator, logger)
 
-	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
+	tempdir.StartCleaning(logger, locator, cfg.Storages, time.Hour)
 
 	prometheus.MustRegister(gitCmdFactory)
 
