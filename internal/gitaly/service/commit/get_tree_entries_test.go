@@ -17,8 +17,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestGetTreeEntries(t *testing.T) {
@@ -270,13 +272,17 @@ func testGetTreeEntries(t *testing.T, ctx context.Context) {
 
 				var expectedErr error
 				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
-					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(commitID),
+					expectedErr = testhelper.WithInterceptedMetadataItems(
+						structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+							Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+								ResolveTree: &gitalypb.ResolveRevisionError{
+									Revision: []byte(commitID),
+								},
 							},
-						},
-					})
+						}),
+						structerr.MetadataItem{Key: "path", Value: "./.."},
+						structerr.MetadataItem{Key: "revision", Value: commitID},
+					)
 				}
 
 				return setupData{
@@ -302,13 +308,17 @@ func testGetTreeEntries(t *testing.T, ctx context.Context) {
 
 				var expectedErr error
 				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
-					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(commitID),
+					expectedErr = testhelper.WithInterceptedMetadataItems(
+						structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+							Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+								ResolveTree: &gitalypb.ResolveRevisionError{
+									Revision: []byte(commitID),
+								},
 							},
-						},
-					})
+						}),
+						structerr.MetadataItem{Key: "path", Value: "./folder/.."},
+						structerr.MetadataItem{Key: "revision", Value: commitID},
+					)
 				}
 
 				return setupData{
@@ -334,13 +344,17 @@ func testGetTreeEntries(t *testing.T, ctx context.Context) {
 
 				var expectedErr error
 				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
-					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(commitID),
+					expectedErr = testhelper.WithInterceptedMetadataItems(
+						structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+							Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+								ResolveTree: &gitalypb.ResolveRevisionError{
+									Revision: []byte(commitID),
+								},
 							},
-						},
-					})
+						}),
+						structerr.MetadataItem{Key: "path", Value: "./folder/test.txt"},
+						structerr.MetadataItem{Key: "revision", Value: commitID},
+					)
 				}
 
 				return setupData{
@@ -439,13 +453,17 @@ func testGetTreeEntries(t *testing.T, ctx context.Context) {
 
 				var expectedErr error
 				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
-					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(commitID),
+					expectedErr = testhelper.WithInterceptedMetadataItems(
+						structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+							Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+								ResolveTree: &gitalypb.ResolveRevisionError{
+									Revision: []byte(commitID),
+								},
 							},
-						},
-					})
+						}),
+						structerr.MetadataItem{Key: "path", Value: repoPath + "folder"},
+						structerr.MetadataItem{Key: "revision", Value: commitID},
+					)
 				}
 
 				return setupData{
@@ -830,13 +848,17 @@ func testGetTreeEntries(t *testing.T, ctx context.Context) {
 
 				var expectedErr error
 				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
-					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(commitID),
+					expectedErr = testhelper.WithInterceptedMetadataItems(
+						structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+							Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+								ResolveTree: &gitalypb.ResolveRevisionError{
+									Revision: []byte(commitID),
+								},
 							},
-						},
-					})
+						}),
+						structerr.MetadataItem{Key: "path", Value: "does-not-exist"},
+						structerr.MetadataItem{Key: "revision", Value: commitID},
+					)
 				}
 
 				return setupData{
@@ -866,13 +888,17 @@ func testGetTreeEntries(t *testing.T, ctx context.Context) {
 
 				var expectedErr error
 				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
-					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(commitID),
+					expectedErr = testhelper.WithInterceptedMetadataItems(
+						structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+							Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+								ResolveTree: &gitalypb.ResolveRevisionError{
+									Revision: []byte(commitID),
+								},
 							},
-						},
-					})
+						}),
+						structerr.MetadataItem{Key: "path", Value: "does-not-exist"},
+						structerr.MetadataItem{Key: "revision", Value: commitID},
+					)
 				}
 
 				return setupData{
@@ -903,13 +929,17 @@ func testGetTreeEntries(t *testing.T, ctx context.Context) {
 
 				var expectedErr error
 				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
-					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte("does-not-exist"),
+					expectedErr = testhelper.WithInterceptedMetadataItems(
+						structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+							Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+								ResolveTree: &gitalypb.ResolveRevisionError{
+									Revision: []byte("does-not-exist"),
+								},
 							},
-						},
-					})
+						}),
+						structerr.MetadataItem{Key: "path", Value: ""},
+						structerr.MetadataItem{Key: "revision", Value: "does-not-exist"},
+					)
 				}
 
 				return setupData{
@@ -939,13 +969,17 @@ func testGetTreeEntries(t *testing.T, ctx context.Context) {
 
 				var expectedErr error
 				if featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx) {
-					expectedErr = structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte("does-not-exist"),
+					expectedErr = testhelper.WithInterceptedMetadataItems(
+						structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+							Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+								ResolveTree: &gitalypb.ResolveRevisionError{
+									Revision: []byte("does-not-exist"),
+								},
 							},
-						},
-					})
+						}),
+						structerr.MetadataItem{Key: "path", Value: ""},
+						structerr.MetadataItem{Key: "revision", Value: "does-not-exist"},
+					)
 				}
 
 				return setupData{
@@ -1518,7 +1552,7 @@ func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitServi
 				require.Equal(t, nil, resp.PaginationCursor)
 			}
 		} else {
-			testhelper.RequireGrpcError(t, expectedError, err)
+			testhelper.RequireGrpcError(t, expectedError, err, protocmp.SortRepeatedFields(&spb.Status{}, "details"))
 			break
 		}
 	}
