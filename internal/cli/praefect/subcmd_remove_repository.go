@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -78,7 +79,10 @@ func removeRepositoryAction(appCtx *cli.Context) error {
 		return err
 	}
 
-	logger := log.Default()
+	logger, err := log.Configure(os.Stderr, "text", "error")
+	if err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
+	}
 
 	ctx := appCtx.Context
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

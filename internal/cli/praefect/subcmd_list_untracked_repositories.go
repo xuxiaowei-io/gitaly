@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -68,7 +69,10 @@ func listUntrackedRepositoriesAction(appCtx *cli.Context) error {
 		return err
 	}
 
-	logger := log.Default()
+	logger, err := log.Configure(os.Stderr, "text", "error")
+	if err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
+	}
 
 	onlyIncludeOlderThan := appCtx.Duration("older-than")
 	delimiter := appCtx.String("delimiter")

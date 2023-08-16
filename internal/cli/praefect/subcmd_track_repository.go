@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -91,7 +92,10 @@ func trackRepositoryAction(appCtx *cli.Context) error {
 		return err
 	}
 
-	logger := log.Default()
+	logger, err := log.Configure(os.Stderr, "text", "error")
+	if err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
+	}
 
 	virtualStorage := appCtx.String(paramVirtualStorage)
 	relativePath := appCtx.String(paramRelativePath)

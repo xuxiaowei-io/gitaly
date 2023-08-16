@@ -3,6 +3,7 @@ package praefect
 import (
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
@@ -62,7 +63,10 @@ func datalossAction(ctx *cli.Context) error {
 		return err
 	}
 
-	logger := log.Default()
+	logger, err := log.Configure(os.Stderr, "text", "error")
+	if err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
+	}
 
 	includePartiallyAvailable := ctx.Bool("partially-unavailable")
 
