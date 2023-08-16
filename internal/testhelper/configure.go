@@ -8,9 +8,9 @@ import (
 	"runtime"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 var testDirectory string
@@ -81,7 +81,7 @@ func Run(m *testing.M, opts ...RunOption) {
 // configure sets up the global test configuration. On failure,
 // terminates the program.
 func configure() (_ func(), returnedErr error) {
-	gitalylog.Configure(os.Stdout, "json", "panic")
+	logger := log.Configure(os.Stdout, "json", "panic")
 
 	for key, value := range map[string]string{
 		// We inject the following two variables, which instruct Git to search its
@@ -129,7 +129,7 @@ func configure() (_ func(), returnedErr error) {
 		}
 	}
 
-	cleanup, err := configureTestDirectory()
+	cleanup, err := configureTestDirectory(logger)
 	if err != nil {
 		return nil, fmt.Errorf("configuring test directory: %w", err)
 	}
@@ -142,7 +142,7 @@ func configure() (_ func(), returnedErr error) {
 	return cleanup, nil
 }
 
-func configureTestDirectory() (_ func(), returnedErr error) {
+func configureTestDirectory(logger logrus.FieldLogger) (_ func(), returnedErr error) {
 	if testDirectory != "" {
 		return nil, errors.New("test directory has already been configured")
 	}
@@ -165,7 +165,7 @@ func configureTestDirectory() (_ func(), returnedErr error) {
 
 	cleanup := func() {
 		if err := os.RemoveAll(testDirectory); err != nil {
-			log.Errorf("cleaning up test directory: %v", err)
+			logger.Errorf("cleaning up test directory: %v", err)
 		}
 	}
 	defer func() {
