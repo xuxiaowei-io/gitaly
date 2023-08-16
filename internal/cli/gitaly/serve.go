@@ -164,7 +164,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	// to find any cgroup directories that belong to old gitaly processes
 	// and remove them.
 	cgroups.PruneOldCgroups(cfg.Cgroups, logger)
-	cgroupMgr := cgroups.NewManager(cfg.Cgroups, os.Getpid())
+	cgroupMgr := cgroups.NewManager(cfg.Cgroups, logger, os.Getpid())
 
 	if err := cgroupMgr.Setup(); err != nil {
 		return fmt.Errorf("failed setting up cgroups: %w", err)

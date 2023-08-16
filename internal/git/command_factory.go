@@ -171,7 +171,7 @@ func NewExecCommandFactory(cfg config.Cfg, logger logrus.FieldLogger, opts ...Ex
 
 	cgroupsManager := factoryCfg.cgroupsManager
 	if cgroupsManager == nil {
-		cgroupsManager = cgroups.NewManager(cfg.Cgroups, os.Getpid())
+		cgroupsManager = cgroups.NewManager(cfg.Cgroups, logger, os.Getpid())
 	}
 
 	gitCmdFactory := &ExecCommandFactory{

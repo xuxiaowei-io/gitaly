@@ -11,7 +11,7 @@ import (
 	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 )
 
@@ -38,20 +38,20 @@ type CGroupManager struct {
 	handler cgroupHandler
 }
 
-func newCgroupManager(cfg cgroupscfg.Config, pid int) *CGroupManager {
-	return newCgroupManagerWithMode(cfg, pid, cgrps.Mode())
+func newCgroupManager(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *CGroupManager {
+	return newCgroupManagerWithMode(cfg, logger, pid, cgrps.Mode())
 }
 
-func newCgroupManagerWithMode(cfg cgroupscfg.Config, pid int, mode cgrps.CGMode) *CGroupManager {
+func newCgroupManagerWithMode(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int, mode cgrps.CGMode) *CGroupManager {
 	var handler cgroupHandler
 	switch mode {
 	case cgrps.Legacy, cgrps.Hybrid:
 		handler = newV1Handler(cfg, pid)
 	case cgrps.Unified:
 		handler = newV2Handler(cfg, pid)
-		log.Warnf("Gitaly now includes experimental support for CgroupV2. Please proceed with caution and use this experimental feature at your own risk")
+		logger.Warnf("Gitaly now includes experimental support for CgroupV2. Please proceed with caution and use this experimental feature at your own risk")
 	default:
-		log.Warnf("Gitaly has encountered an issue while trying to detect the version of the system's cgroup. As a result, all subsequent commands will be executed without cgroup support. Please check the system's cgroup configuration and try again")
+		logger.Warnf("Gitaly has encountered an issue while trying to detect the version of the system's cgroup. As a result, all subsequent commands will be executed without cgroup support. Please check the system's cgroup configuration and try again")
 		return nil
 	}
 
@@ -173,11 +173,11 @@ func (cgm *CGroupManager) configRepositoryResources() *specs.LinuxResources {
 	return &reposResources
 }
 
-func pruneOldCgroups(cfg cgroupscfg.Config, logger log.FieldLogger) {
+func pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
 	pruneOldCgroupsWithMode(cfg, logger, cgrps.Mode())
 }
 
-func pruneOldCgroupsWithMode(cfg cgroupscfg.Config, logger log.FieldLogger, mode cgrps.CGMode) {
+func pruneOldCgroupsWithMode(cfg cgroupscfg.Config, logger logrus.FieldLogger, mode cgrps.CGMode) {
 	if cfg.HierarchyRoot == "" {
 		return
 	}

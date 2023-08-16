@@ -38,7 +38,7 @@ func defaultCgroupsV2Config() cgroups.Config {
 func TestNewManagerV2(t *testing.T) {
 	cfg := cgroups.Config{Repositories: cgroups.Repositories{Count: 10}}
 
-	manager := newCgroupManagerWithMode(cfg, 1, cgrps.Unified)
+	manager := newCgroupManagerWithMode(cfg, testhelper.NewDiscardingLogEntry(t), 1, cgrps.Unified)
 	require.IsType(t, &cgroupV2Handler{}, manager.handler)
 }
 
@@ -95,7 +95,7 @@ func TestSetup_ParentCgroupsV2(t *testing.T) {
 			tt.cfg.HierarchyRoot = "gitaly"
 			tt.cfg.Mountpoint = mock.root
 
-			v2Manager := mock.newCgroupManager(tt.cfg, pid)
+			v2Manager := mock.newCgroupManager(tt.cfg, testhelper.NewDiscardingLogEntry(t), pid)
 			mock.setupMockCgroupFiles(t, v2Manager)
 
 			require.False(t, v2Manager.Ready())
@@ -174,7 +174,7 @@ func TestSetup_RepoCgroupsV2(t *testing.T) {
 			cfg.Mountpoint = mock.root
 			cfg.Repositories = tt.cfg
 
-			v2Manager := mock.newCgroupManager(cfg, pid)
+			v2Manager := mock.newCgroupManager(cfg, testhelper.NewDiscardingLogEntry(t), pid)
 			mock.setupMockCgroupFiles(t, v2Manager)
 
 			require.False(t, v2Manager.Ready())
@@ -212,7 +212,7 @@ func TestAddCommandV2(t *testing.T) {
 
 	pid := 1
 
-	v2Manager1 := mock.newCgroupManager(config, pid)
+	v2Manager1 := mock.newCgroupManager(config, testhelper.NewDiscardingLogEntry(t), pid)
 	mock.setupMockCgroupFiles(t, v2Manager1)
 
 	require.NoError(t, v2Manager1.Setup())
@@ -221,7 +221,7 @@ func TestAddCommandV2(t *testing.T) {
 	cmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
 	require.NoError(t, cmd2.Run())
 
-	v2Manager2 := mock.newCgroupManager(config, pid)
+	v2Manager2 := mock.newCgroupManager(config, testhelper.NewDiscardingLogEntry(t), pid)
 
 	t.Run("without overridden key", func(t *testing.T) {
 		_, err := v2Manager2.AddCommand(cmd2)
@@ -265,7 +265,7 @@ func TestCleanupV2(t *testing.T) {
 	cfg := defaultCgroupsV2Config()
 	cfg.Mountpoint = mock.root
 
-	v2Manager := mock.newCgroupManager(cfg, pid)
+	v2Manager := mock.newCgroupManager(cfg, testhelper.NewDiscardingLogEntry(t), pid)
 	mock.setupMockCgroupFiles(t, v2Manager)
 
 	require.NoError(t, v2Manager.Setup())
@@ -327,7 +327,7 @@ gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
 			config.Mountpoint = mock.root
 			config.MetricsEnabled = tt.metricsEnabled
 
-			v2Manager1 := mock.newCgroupManager(config, tt.pid)
+			v2Manager1 := mock.newCgroupManager(config, testhelper.NewDiscardingLogEntry(t), tt.pid)
 
 			mock.setupMockCgroupFiles(t, v2Manager1)
 			require.NoError(t, v2Manager1.Setup())
@@ -387,7 +387,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
 				pid := 1
 
-				cgroupManager := mock.newCgroupManager(cfg, pid)
+				cgroupManager := mock.newCgroupManager(cfg, testhelper.NewDiscardingLogEntry(t), pid)
 				mock.setupMockCgroupFiles(t, cgroupManager)
 				require.NoError(t, cgroupManager.Setup())
 
@@ -408,7 +408,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
 				pid := 1
 
-				cgroupManager := mock.newCgroupManager(cfg, pid)
+				cgroupManager := mock.newCgroupManager(cfg, testhelper.NewDiscardingLogEntry(t), pid)
 				mock.setupMockCgroupFiles(t, cgroupManager)
 				require.NoError(t, cgroupManager.Setup())
 				return 1
@@ -430,7 +430,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 				require.NoError(t, cmd.Run())
 				pid := cmd.Process.Pid
 
-				cgroupManager := mock.newCgroupManager(cfg, pid)
+				cgroupManager := mock.newCgroupManager(cfg, testhelper.NewDiscardingLogEntry(t), pid)
 				mock.setupMockCgroupFiles(t, cgroupManager)
 				require.NoError(t, cgroupManager.Setup())
 
@@ -458,7 +458,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
 				pid := os.Getpid()
 
-				cgroupManager := mock.newCgroupManager(cfg, pid)
+				cgroupManager := mock.newCgroupManager(cfg, testhelper.NewDiscardingLogEntry(t), pid)
 				mock.setupMockCgroupFiles(t, cgroupManager)
 				require.NoError(t, cgroupManager.Setup())
 
@@ -477,7 +477,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 				},
 			},
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
-				cgroupManager := mock.newCgroupManager(cfg, 0)
+				cgroupManager := mock.newCgroupManager(cfg, testhelper.NewDiscardingLogEntry(t), 0)
 				mock.setupMockCgroupFiles(t, cgroupManager)
 				require.NoError(t, cgroupManager.Setup())
 
@@ -571,7 +571,7 @@ throttled_usec 1000000`}, // 0.001 seconds
 			config.Repositories.CPUShares = 16
 			config.Mountpoint = mock.root
 
-			v2Manager := mock.newCgroupManager(config, 1)
+			v2Manager := mock.newCgroupManager(config, testhelper.NewDiscardingLogEntry(t), 1)
 
 			mock.setupMockCgroupFiles(t, v2Manager, tc.mockFiles...)
 			require.NoError(t, v2Manager.Setup())

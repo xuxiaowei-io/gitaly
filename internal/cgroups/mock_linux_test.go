@@ -141,8 +141,8 @@ func (m *mockCgroup) setupMockCgroupFiles(
 	}
 }
 
-func (m *mockCgroup) newCgroupManager(cfg cgroupscfg.Config, pid int) *CGroupManager {
-	return newCgroupManagerWithMode(cfg, pid, cgrps.Legacy)
+func (m *mockCgroup) newCgroupManager(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *CGroupManager {
+	return newCgroupManagerWithMode(cfg, logger, pid, cgrps.Legacy)
 }
 
 func (m *mockCgroup) pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
@@ -212,8 +212,8 @@ func (m *mockCgroupV2) setupMockCgroupFiles(
 	}
 }
 
-func (m *mockCgroupV2) newCgroupManager(cfg cgroupscfg.Config, pid int) *CGroupManager {
-	return newCgroupManagerWithMode(cfg, pid, cgrps.Unified)
+func (m *mockCgroupV2) newCgroupManager(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *CGroupManager {
+	return newCgroupManagerWithMode(cfg, logger, pid, cgrps.Unified)
 }
 
 func (m *mockCgroupV2) pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
