@@ -23,13 +23,21 @@ func newListUntrackedRepositoriesCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "list-untracked-repositories",
 		Usage: "list untracked repositories",
-		Description: "This command checks whether all repositories on all Gitaly nodes are tracked by Praefect.\n" +
-			"If a repository is found on the disk, but it is not known to Praefect, then the location of\n" +
-			"that repository will be written to the standard output stream in JSON format.\n" +
-			"NOTE:\n" +
-			"All errors and log messages are written to the standard error stream.\n" +
-			"The output is produced as the new data appears, it doesn't wait\n" +
-			"for the completion of the processing to produce the result.\n",
+		Description: `List repositories located on physical storages but not tracked by Praefect.
+
+By default, does not list untracked repositories that are newer than 6 hours.
+
+Returns:
+
+- Details untracked repositories to stdout, including the repository's relative path, physical storage
+  name, and virtual storage name.
+- All errors and log messages to stderr. The output is produced as new data appears. The command doesn't wait to
+  to complete processing before producing a result.
+
+Examples:
+
+- praefect --config praefect.config.toml list-untracked-repositories
+- praefect --config praefect.config.toml list-untracked-repositories --older-than 1s`,
 		HideHelpCommand: true,
 		Action:          listUntrackedRepositoriesAction,
 		Flags: []cli.Flag{
