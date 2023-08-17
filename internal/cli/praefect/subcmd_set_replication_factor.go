@@ -18,19 +18,25 @@ func newSetReplicationFactorCommand() *cli.Command {
 	return &cli.Command{
 		Name:  setReplicationFactorCmdName,
 		Usage: "set a replication factor for a repository",
-		Description: "The set-replication-factor subcommand changes the replication factor for an existing repository.\n" +
-			"The subcommand assigns or unassigns host nodes from the repository to meet the set replication factor.\n" +
-			"The subcommand returns an error if you try to set a replication factor:\n\n" +
-			"- More than the storage node count in the virtual storage.\n" +
-			"- Less than one.\n\n" +
-			"The primary node isn't unassigned because:\n\n" +
-			"- It needs a copy of the repository to accept writes.\n" +
-			"- It is the first storage that gets assigned when setting a replication factor for a repository.\n\n" +
-			"Assignments of unconfigured storages are ignored. This might cause the actual replication factor\n" +
-			"to be higher than required if the replication factor is set during an upgrade of a Praefect node\n" +
-			"that does not yet know about a new node. Because assignments of unconfigured storages are ignored, the\n" +
-			"replication factor of repositories assigned to a storage node removed from the cluster is effectively\n" +
-			"decreased.",
+		Description: `Set a new replication factor for a repository.
+
+By default, repositories are replicated to all physical storages managed by Praefect. Use the set-replication-factor
+subcommand to change this behavior. You should rarely set replication factors above 3.
+
+When a new replication factor is specified, the subcommand:
+
+- Assigns physical storages to or unassigns physical storages from the repository to meet the new replication factor.
+  The assigned physical storages are displayed on stdout.
+- Returns an error if the new replication factor is either:
+  - More than the number of physical storages in the virtual storage.
+  - Less than one.
+
+The authoritative physical storage is never unassigned because it:
+
+- Accepts writes.
+- Is the first storage that is assigned when setting a replication factor for a repository.
+
+Example: praefect --config praefect.config.toml set-replication-factor --virtual-storage default --repository <relative_path_on_the_virtual_storage> --replication-factor 3`,
 		HideHelpCommand: true,
 		Action:          setReplicationFactorAction,
 		Flags: []cli.Flag{
@@ -41,12 +47,12 @@ func newSetReplicationFactorCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:     paramRelativePath,
-				Usage:    "repository to set the replication factor for",
+				Usage:    "relative path on the virtual storage of the repository to set the replication factor for",
 				Required: true,
 			},
 			&cli.UintFlag{
 				Name:     paramReplicationFactor,
-				Usage:    "desired replication factor",
+				Usage:    "replication factor to set",
 				Required: true,
 			},
 		},
