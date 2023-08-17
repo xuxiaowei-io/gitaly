@@ -494,6 +494,59 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
+			desc: "delete packed reference with stale reference locks",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				CloseManager{},
+				StartManager{
+					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+						// Pack the reference and create a stale lockfile for it.
+						gittest.Exec(tb, cfg, "-C", repoPath, "pack-refs", "--all")
+						require.NoError(t, os.WriteFile(fmt.Sprintf("%s/refs/heads/main.lock", repoPath), []byte{}, perm.PrivateFile))
+
+						// Add packed-refs lockfiles. The reference deletion will fail if these
+						// are not cleaned up.
+						require.NoError(t, os.WriteFile(
+							filepath.Join(repoPath, "packed-refs.lock"),
+							[]byte{},
+							perm.PrivateFile,
+						))
+						require.NoError(t, os.WriteFile(
+							filepath.Join(repoPath, "packed-refs.new"),
+							[]byte{},
+							perm.PrivateFile,
+						))
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+			},
+		},
+		{
 			desc: "create a file-directory reference conflict different transaction",
 			steps: steps{
 				StartManager{},
