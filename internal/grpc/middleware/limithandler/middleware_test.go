@@ -38,7 +38,6 @@ func fixedLockKey(ctx context.Context) string {
 func TestUnaryLimitHandler(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
 	s := &queueTestServer{
 		server: server{
 			blockCh: make(chan struct{}),
@@ -52,13 +51,14 @@ func TestUnaryLimitHandler(t *testing.T) {
 		},
 	}
 
-	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters(ctx))
+	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
 	interceptor := lh.UnaryInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 	defer srv.Stop()
 
 	client, conn := newClient(t, serverSocketPath)
 	defer conn.Close()
+	ctx := testhelper.Context(t)
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -114,7 +114,7 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 					MaxQueueWait: duration.Duration(time.Millisecond),
 				},
 			},
-		}, fixedLockKey, limithandler.WithConcurrencyLimiters(ctx))
+		}, fixedLockKey, limithandler.WithConcurrencyLimiters)
 
 		s := &queueTestServer{
 			server: server{
@@ -175,7 +175,7 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 					MaxPerRepo: 1,
 				},
 			},
-		}, fixedLockKey, limithandler.WithConcurrencyLimiters(ctx))
+		}, fixedLockKey, limithandler.WithConcurrencyLimiters)
 
 		s := &queueTestServer{
 			server: server{
@@ -427,7 +427,6 @@ func TestStreamLimitHandler(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := testhelper.Context(t)
 			s := &server{blockCh: make(chan struct{})}
 
 			maxQueueSize := 1
@@ -441,13 +440,14 @@ func TestStreamLimitHandler(t *testing.T) {
 				},
 			}
 
-			lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters(ctx))
+			lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
 			interceptor := lh.StreamInterceptor()
 			srv, serverSocketPath := runServer(t, s, grpc.StreamInterceptor(interceptor))
 			defer srv.Stop()
 
 			client, conn := newClient(t, serverSocketPath)
 			defer conn.Close()
+			ctx := testhelper.Context(t)
 
 			totalCalls := 10
 
@@ -481,8 +481,6 @@ func TestStreamLimitHandler(t *testing.T) {
 func TestStreamLimitHandler_error(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
-
 	s := &queueTestServer{reqArrivedCh: make(chan struct{})}
 	s.blockCh = make(chan struct{})
 
@@ -492,13 +490,15 @@ func TestStreamLimitHandler_error(t *testing.T) {
 		},
 	}
 
-	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters(ctx))
+	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
 	interceptor := lh.StreamInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.StreamInterceptor(interceptor))
 	defer srv.Stop()
 
 	client, conn := newClient(t, serverSocketPath)
 	defer conn.Close()
+
+	ctx := testhelper.Context(t)
 
 	respChan := make(chan *grpc_testing.StreamingOutputCallResponse)
 	go func() {
@@ -600,8 +600,6 @@ func (q *queueTestServer) FullDuplexCall(stream grpc_testing.TestService_FullDup
 }
 
 func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
-	ctx := testhelper.Context(t)
-
 	s := &queueTestServer{reqArrivedCh: make(chan struct{})}
 	s.blockCh = make(chan struct{})
 
@@ -612,13 +610,15 @@ func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 		},
 	}
 
-	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters(ctx))
+	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
 	interceptor := lh.UnaryInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 	defer srv.Stop()
 
 	client, conn := newClient(t, serverSocketPath)
 	defer conn.Close()
+
+	ctx := testhelper.Context(t)
 
 	respCh := make(chan *grpc_testing.SimpleResponse)
 	go func() {

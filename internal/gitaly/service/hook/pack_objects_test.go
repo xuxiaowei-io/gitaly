@@ -858,8 +858,7 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 				cfg.Prometheus.GRPCLatencyBuckets,
 			)
 			limiter := limiter.NewConcurrencyLimiter(
-				ctx,
-				limiter.NewAdaptiveLimit("staticLimit", limiter.AdaptiveSetting{Initial: 1}),
+				1,
 				0,
 				func() helper.Ticker { return ticker },
 				monitor,

@@ -161,8 +161,6 @@ func waitHealthy(tb testing.TB, ctx context.Context, addr string, authToken stri
 func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
 	tb.Helper()
 
-	ctx := testhelper.Context(tb)
-
 	var gsd gitalyServerDeps
 	for _, opt := range opts {
 		gsd = opt(gsd)
@@ -175,7 +173,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 		server.WithStreamInterceptor(StructErrStreamInterceptor),
 	}
 
-	deps := gsd.createDependencies(tb, ctx, cfg)
+	deps := gsd.createDependencies(tb, cfg)
 	tb.Cleanup(func() { gsd.conns.Close() })
 
 	serverFactory := server.NewGitalyServerFactory(
@@ -203,6 +201,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 			assert.NoError(tb, internalServer.Serve(internalListener), "failure to serve internal gRPC")
 		}()
 
+		ctx := testhelper.Context(tb)
 		waitHealthy(tb, ctx, "unix://"+internalListener.Addr().String(), cfg.Auth.Token)
 	}
 
@@ -239,6 +238,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 		assert.NoError(tb, externalServer.Serve(listener), "failure to serve external gRPC")
 	}()
 
+	ctx := testhelper.Context(tb)
 	waitHealthy(tb, ctx, addr, cfg.Auth.Token)
 
 	return externalServer, addr, gsd.disablePraefect
@@ -276,7 +276,7 @@ type gitalyServerDeps struct {
 	signingKey          string
 }
 
-func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, ctx context.Context, cfg config.Cfg) *service.Dependencies {
+func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
 	if gsd.logger == nil {
 		gsd.logger = testhelper.NewGitalyServerLogger(tb)
 	}
@@ -328,8 +328,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, ctx context.Conte
 
 	if gsd.packObjectsLimiter == nil {
 		gsd.packObjectsLimiter = limiter.NewConcurrencyLimiter(
-			ctx,
-			limiter.NewAdaptiveLimit("staticLimit", limiter.AdaptiveSetting{Initial: 0}),
+			0,
 			0,
 			nil,
 			limiter.NewNoopConcurrencyMonitor(),
@@ -337,7 +336,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, ctx context.Conte
 	}
 
 	if gsd.limitHandler == nil {
-		gsd.limitHandler = limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters(ctx))
+		gsd.limitHandler = limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)
 	}
 
 	if gsd.repositoryCounter == nil {
