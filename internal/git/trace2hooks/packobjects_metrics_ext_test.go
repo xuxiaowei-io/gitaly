@@ -177,11 +177,9 @@ func TestPackObjectsMetrics(t *testing.T) {
 
 			ctx := log.InitContextCustomFields(testhelper.Context(t))
 			repoProto, cfg, input := tc.setupRepo(ctx)
-			gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, git.WithTrace2Hooks([]trace2.Hook{
+			gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithTrace2Hooks([]trace2.Hook{
 				trace2hooks.NewPackObjectsMetrics(),
 			}))
-			require.NoError(t, err)
-			defer cleanup()
 
 			cmd, err := gitCmdFactory.New(ctx, repoProto, git.Command{
 				Name: "pack-objects",

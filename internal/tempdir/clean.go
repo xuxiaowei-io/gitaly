@@ -28,21 +28,21 @@ const (
 )
 
 // StartCleaning starts tempdir cleanup in a goroutine.
-func StartCleaning(locator storage.Locator, storages []config.Storage, d time.Duration) {
+func StartCleaning(logger logrus.FieldLogger, locator storage.Locator, storages []config.Storage, d time.Duration) {
 	dontpanic.Go(func() {
 		for {
-			cleanTempDir(locator, storages)
+			cleanTempDir(logger, locator, storages)
 			time.Sleep(d)
 		}
 	})
 }
 
-func cleanTempDir(locator storage.Locator, storages []config.Storage) {
+func cleanTempDir(logger logrus.FieldLogger, locator storage.Locator, storages []config.Storage) {
 	for _, storage := range storages {
 		start := time.Now()
-		err := clean(locator, storage)
+		err := clean(logger, locator, storage)
 
-		entry := logrus.WithFields(logrus.Fields{
+		entry := logger.WithFields(logrus.Fields{
 			"time_ms": time.Since(start).Milliseconds(),
 			"storage": storage.Name,
 		})
@@ -55,7 +55,7 @@ func cleanTempDir(locator storage.Locator, storages []config.Storage) {
 
 type invalidCleanRoot string
 
-func clean(locator storage.Locator, storage config.Storage) error {
+func clean(logger logrus.FieldLogger, locator storage.Locator, storage config.Storage) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -67,7 +67,7 @@ func clean(locator storage.Locator, storage config.Storage) error {
 	// If we start "cleaning up" the wrong directory we may delete user data
 	// which is Really Bad.
 	if !strings.HasSuffix(dir, tmpRootPrefix) {
-		logrus.Print(dir)
+		logger.Print(dir)
 		panic(invalidCleanRoot("invalid tempdir clean root: panicking to prevent data loss"))
 	}
 

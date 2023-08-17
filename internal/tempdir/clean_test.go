@@ -1,13 +1,11 @@
 package tempdir
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -49,11 +47,13 @@ func TestCleanSuccess(t *testing.T) {
 
 	assertEntries(t, locator, cfg.Storages[0], "a", "c", "e", "f")
 
-	require.NoError(t, clean(locator, cfg.Storages[0]), "walk first pass")
+	require.NoError(t, clean(testhelper.NewDiscardingLogEntry(t), locator, cfg.Storages[0]), "walk first pass")
 	assertEntries(t, locator, cfg.Storages[0], "c", "e")
 }
 
 func TestCleanTempDir(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, testcfg.WithStorages("first", "second"))
 	locator := config.NewLocator(cfg)
@@ -64,12 +64,8 @@ func TestCleanTempDir(t *testing.T) {
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	logrus.SetLevel(logrus.InfoLevel)
-	logrus.SetOutput(io.Discard)
-
-	hook := test.NewGlobal()
-
-	cleanTempDir(locator, cfg.Storages)
+	logger, hook := test.NewNullLogger()
+	cleanTempDir(logger, locator, cfg.Storages)
 
 	require.Equal(t, 2, len(hook.Entries), hook.Entries)
 	require.Equal(t, "finished tempdir cleaner walk", hook.LastEntry().Message)
@@ -79,14 +75,14 @@ func TestCleanNoTmpExists(t *testing.T) {
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
 
-	require.NoError(t, clean(locator, cfg.Storages[0]))
+	require.NoError(t, clean(testhelper.NewDiscardingLogEntry(t), locator, cfg.Storages[0]))
 }
 
 func TestCleanNoStorageExists(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("first"))
 	locator := config.NewLocator(cfg)
 
-	err := clean(locator, config.Storage{Name: "does-not-exist", Path: "/something"})
+	err := clean(testhelper.NewDiscardingLogEntry(t), locator, config.Storage{Name: "does-not-exist", Path: "/something"})
 	require.EqualError(t, err, "temporary dir: tmp dir: no such storage: \"does-not-exist\"")
 }
 
@@ -108,7 +104,7 @@ func TestCleanerSafety(t *testing.T) {
 	}()
 
 	// We need to set up a mock locator which returns an invalid temporary directory path.
-	require.NoError(t, clean(mockLocator{}, config.Storage{}))
+	require.NoError(t, clean(testhelper.NewDiscardingLogEntry(t), mockLocator{}, config.Storage{}))
 
 	t.Fatal("expected panic")
 }

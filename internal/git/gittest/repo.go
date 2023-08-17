@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/client"
@@ -315,7 +314,7 @@ func testRepositoryPath(tb testing.TB, repo string) string {
 	if !isValidRepoPath(path) {
 		makePath := filepath.Join(filepath.Dir(currentFile), "..", "..", "..")
 		makeTarget := "prepare-test-repos"
-		log.Printf("local clone of test repository %q not found in %q, running `make %v`", repo, path, makeTarget)
+		tb.Logf("local clone of test repository %q not found in %q, running `make %v`", repo, path, makeTarget)
 		testhelper.MustRunCommand(tb, nil, "make", "-C", makePath, makeTarget)
 	}
 

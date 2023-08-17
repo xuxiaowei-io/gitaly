@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
@@ -596,10 +595,7 @@ func TestPartitionManager(t *testing.T) {
 
 			cfg := testcfg.Build(t, testcfg.WithStorages("default", "other-storage"))
 
-			cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
-			require.NoError(t, err)
-			t.Cleanup(clean)
-
+			cmdFactory := gittest.NewCommandFactory(t, cfg)
 			catfileCache := catfile.NewCache(cfg)
 			t.Cleanup(catfileCache.Stop)
 

@@ -122,7 +122,7 @@ func configure(configPath string) (config.Cfg, logrus.FieldLogger, error) {
 
 	logger := log.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, urlSanitizer)
 
-	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
+	sentry.ConfigureSentry(logger, version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure()
 	labkittracing.Initialize(labkittracing.WithServiceName("gitaly"))
 	preloadLicenseDatabase(logger)
@@ -164,7 +164,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	// to find any cgroup directories that belong to old gitaly processes
 	// and remove them.
 	cgroups.PruneOldCgroups(cfg.Cgroups, logger)
-	cgroupMgr := cgroups.NewManager(cfg.Cgroups, os.Getpid())
+	cgroupMgr := cgroups.NewManager(cfg.Cgroups, logger, os.Getpid())
 
 	if err := cgroupMgr.Setup(); err != nil {
 		return fmt.Errorf("failed setting up cgroups: %w", err)
@@ -186,7 +186,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 		return fmt.Errorf("unpack auxiliary binaries: %w", err)
 	}
 
-	b, err := bootstrap.New(promauto.NewCounterVec(
+	b, err := bootstrap.New(logger, promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_connections_total",
 			Help: "Total number of connections to Gitaly",
@@ -203,7 +203,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 		commandFactoryOpts = append(commandFactoryOpts, git.WithSkipHooks())
 	}
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, commandFactoryOpts...)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, logger, commandFactoryOpts...)
 	if err != nil {
 		return fmt.Errorf("creating Git command factory: %w", err)
 	}
@@ -233,7 +233,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	prometheus.MustRegister(repoCounter)
 	repoCounter.StartCountingRepositories(ctx, locator, logger)
 
-	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
+	tempdir.StartCleaning(logger, locator, cfg.Storages, time.Hour)
 
 	prometheus.MustRegister(gitCmdFactory)
 

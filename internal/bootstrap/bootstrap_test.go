@@ -74,7 +74,7 @@ func TestBootstrap_unixListener(t *testing.T) {
 				hasParent: tc.hasParent,
 			}
 
-			b, err := _new(upgrader, listen, false, &prometheus.CounterVec{})
+			b, err := _new(testhelper.NewDiscardingLogEntry(t), upgrader, listen, false, &prometheus.CounterVec{})
 			require.NoError(t, err)
 
 			if tc.preexistingSocket {
@@ -219,7 +219,7 @@ func TestBootstrap_gracefulTermination(t *testing.T) {
 }
 
 func TestBootstrap_portReuse(t *testing.T) {
-	b, err := New(&prometheus.CounterVec{})
+	b, err := New(testhelper.NewDiscardingLogEntry(t), &prometheus.CounterVec{})
 	require.NoError(t, err)
 
 	l, err := b.listen("tcp", "localhost:")
@@ -267,7 +267,7 @@ func setup(t *testing.T, ctx context.Context) (*Bootstrap, *mockUpgrader, mockLi
 		readyCh: make(chan error),
 	}
 
-	b, err := _new(u, net.Listen, false, &prometheus.CounterVec{})
+	b, err := _new(testhelper.NewDiscardingLogEntry(t), u, net.Listen, false, &prometheus.CounterVec{})
 	require.NoError(t, err)
 
 	listeners := mockListeners{}

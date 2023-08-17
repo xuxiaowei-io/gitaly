@@ -4,7 +4,7 @@ import (
 	"os/exec"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 )
 
@@ -78,9 +78,9 @@ type Manager interface {
 }
 
 // NewManager returns the appropriate Cgroups manager
-func NewManager(cfg cgroups.Config, pid int) Manager {
+func NewManager(cfg cgroups.Config, logger logrus.FieldLogger, pid int) Manager {
 	if cfg.Repositories.Count > 0 {
-		if manager := newCgroupManager(cfg, pid); manager != nil {
+		if manager := newCgroupManager(cfg, logger, pid); manager != nil {
 			return manager
 		}
 	}
@@ -89,6 +89,6 @@ func NewManager(cfg cgroups.Config, pid int) Manager {
 }
 
 // PruneOldCgroups prunes old cgroups for both the memory and cpu subsystems
-func PruneOldCgroups(cfg cgroups.Config, logger log.FieldLogger) {
+func PruneOldCgroups(cfg cgroups.Config, logger logrus.FieldLogger) {
 	pruneOldCgroups(cfg, logger)
 }

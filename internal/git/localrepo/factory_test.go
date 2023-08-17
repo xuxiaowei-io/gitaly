@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -17,9 +17,7 @@ func TestFactory(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("storage-1", "storage-2"))
 
 	locator := config.NewLocator(cfg)
-	cmdFactory, clean, err := git.NewExecCommandFactory(cfg)
-	require.NoError(t, err)
-	defer clean()
+	cmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()

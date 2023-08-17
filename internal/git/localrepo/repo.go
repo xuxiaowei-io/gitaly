@@ -3,10 +3,12 @@ package localrepo
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -83,7 +85,12 @@ func NewTestRepo(tb testing.TB, cfg config.Cfg, repo storage.Repository, factory
 		})
 	}
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, factoryOpts...)
+	//nolint:forbidigo // We can't use the testhelper package here given that this is production code, so we can't
+	//use `teshelper.NewDiscardingLogEntry()`.
+	logger := logrus.New()
+	logger.Out = io.Discard
+
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, logger, factoryOpts...)
 	tb.Cleanup(cleanup)
 	require.NoError(tb, err)
 

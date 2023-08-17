@@ -9,7 +9,7 @@ import (
 
 	"github.com/cloudflare/tableflip"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"golang.org/x/sys/unix"
@@ -35,6 +35,7 @@ type Listener interface {
 
 // Bootstrap handles graceful upgrades
 type Bootstrap struct {
+	logger     logrus.FieldLogger
 	upgrader   upgrader
 	listenFunc ListenFunc
 	errChan    chan error
@@ -76,7 +77,7 @@ type upgrader interface {
 //     freezes during a graceful shutdown
 //
 // gitaly-wrapper is supposed to set EnvUpgradesEnabled in order to enable graceful upgrades
-func New(totalConn *prometheus.CounterVec) (*Bootstrap, error) {
+func New(logger logrus.FieldLogger, totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 	pidFile := os.Getenv(EnvPidFile)
 	upgradesEnabled, _ := env.GetBool(EnvUpgradesEnabled, false)
 
@@ -90,10 +91,10 @@ func New(totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 				})
 				if err != nil {
-					log.WithError(err).Warn(socketReusePortWarning)
+					logger.WithError(err).Warn(socketReusePortWarning)
 				}
 				if opErr != nil {
-					log.WithError(opErr).Warn(socketReusePortWarning)
+					logger.WithError(opErr).Warn(socketReusePortWarning)
 				}
 				return nil
 			},
@@ -103,10 +104,10 @@ func New(totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 		return nil, err
 	}
 
-	return _new(upg, upg.Fds.Listen, upgradesEnabled, totalConn)
+	return _new(logger, upg, upg.Fds.Listen, upgradesEnabled, totalConn)
 }
 
-func _new(upg upgrader, listenFunc ListenFunc, upgradesEnabled bool, totalConn *prometheus.CounterVec) (*Bootstrap, error) {
+func _new(logger logrus.FieldLogger, upg upgrader, listenFunc ListenFunc, upgradesEnabled bool, totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 	if upgradesEnabled {
 		go func() {
 			sig := make(chan os.Signal, 1)
@@ -115,16 +116,17 @@ func _new(upg upgrader, listenFunc ListenFunc, upgradesEnabled bool, totalConn *
 			for range sig {
 				err := upg.Upgrade()
 				if err != nil {
-					log.WithError(err).Error("Upgrade failed")
+					logger.WithError(err).Error("Upgrade failed")
 					continue
 				}
 
-				log.Info("Upgrade succeeded")
+				logger.Info("Upgrade succeeded")
 			}
 		}()
 	}
 
 	return &Bootstrap{
+		logger:     logger,
 		upgrader:   upg,
 		listenFunc: listenFunc,
 		connTotal:  totalConn,
@@ -194,7 +196,7 @@ func (b *Bootstrap) Wait(gracePeriodTicker helper.Ticker, stopAction func()) err
 }
 
 func (b *Bootstrap) waitGracePeriod(gracePeriodTicker helper.Ticker, kill <-chan os.Signal, stopAction func()) error {
-	log.Warn("starting grace period")
+	b.logger.Warn("starting grace period")
 
 	allServersDone := make(chan struct{})
 	go func() {

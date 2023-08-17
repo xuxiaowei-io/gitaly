@@ -29,15 +29,14 @@ func main() {
 		logFormat = "json"
 	}
 
-	log.Configure(os.Stdout, logFormat, "")
+	logger := log.Configure(os.Stdout, logFormat, "").WithField("wrapper", os.Getpid())
 
 	if len(os.Args) < 2 {
-		logrus.Fatalf("usage: %s forking_binary [args]", os.Args[0])
+		logger.Fatalf("usage: %s forking_binary [args]", os.Args[0])
 	}
 
 	binary, arguments := os.Args[1], os.Args[2:]
 
-	logger := log.Default().WithField("wrapper", os.Getpid())
 	logger.Info("Wrapper started")
 
 	pidFilePath := os.Getenv(bootstrap.EnvPidFile)

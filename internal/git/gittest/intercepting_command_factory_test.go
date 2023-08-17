@@ -59,9 +59,7 @@ func TestInterceptingCommandFactory_GitVersion(t *testing.T) {
 	}
 
 	// Obtain the real Git version so that we can compare that it matches what we expect.
-	realFactory, cleanup, err := git.NewExecCommandFactory(cfg)
-	require.NoError(t, err)
-	defer cleanup()
+	realFactory := NewCommandFactory(t, cfg)
 
 	realVersion, err := realFactory.GitVersion(ctx)
 	require.NoError(t, err)

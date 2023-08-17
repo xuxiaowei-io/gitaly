@@ -70,7 +70,7 @@ linters-settings:
       - (net.Listener).Close
   forbidigo:
     forbid:
-      - p: ^logrus\.(Debug,Error,Fatal,Info,Panic,Print,Trace,Warn,Warning)(f|ln)?$
+      - p: ^logrus\.(Debug|Error|Fatal|Info|Panic|Print|Trace|Warn|Warning)(f|ln)?$
         msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
       - p: ^logrus\.StandardLogger$
         msg: Use the logger provided by `log.Default()` or `ctxlogrus.Extract()`.
