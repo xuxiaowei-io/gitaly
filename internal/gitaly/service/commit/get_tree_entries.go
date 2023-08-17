@@ -134,7 +134,10 @@ func (s *server) sendTreeEntries(
 								Revision: []byte(revision),
 							},
 						},
-					})
+					}).WithMetadataItems(
+						structerr.MetadataItem{Key: "path", Value: path},
+						structerr.MetadataItem{Key: "revision", Value: revision},
+					)
 				}
 
 				// Previously rails only parsed empty response. This will be cleaned up
@@ -152,7 +155,10 @@ func (s *server) sendTreeEntries(
 								Revision: []byte(revision),
 							},
 						},
-					})
+					}).WithMetadataItems(
+						structerr.MetadataItem{Key: "path", Value: path},
+						structerr.MetadataItem{Key: "revision", Value: revision},
+					)
 				}
 
 				// Previously rails only parsed empty response. This will be cleaned up
@@ -207,7 +213,10 @@ func (s *server) sendTreeEntries(
 								Revision: []byte(revision),
 							},
 						},
-					})
+					}).WithMetadataItems(
+						structerr.MetadataItem{Key: "path", Value: path},
+						structerr.MetadataItem{Key: "revision", Value: revision},
+					)
 				}
 
 				return nil
