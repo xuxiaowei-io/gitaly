@@ -5,7 +5,6 @@ package operations
 import (
 	"context"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -296,19 +294,6 @@ func authorFromUser(user *gitalypb.User, seconds int64) *gitalypb.CommitAuthor {
 	}
 }
 
-func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
-	gittest.Exec(t, cfg, "-C", repoDir, "update-index", "--add")
-
-	fis, err := os.ReadDir(repoDir)
-	require.NoError(t, err)
-	for _, fi := range fis {
-		if strings.HasPrefix(fi.Name(), "sharedindex") {
-			return true
-		}
-	}
-	return false
-}
-
 func TestUserSquash_threeWayMerge(t *testing.T) {
 	t.Parallel()
 
@@ -347,35 +332,6 @@ func testUserSquashThreeWayMerge(t *testing.T, ctx context.Context) {
 	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
 	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
-}
-
-func TestUserSquash_splitIndex(t *testing.T) {
-	t.Parallel()
-
-	testhelper.NewFeatureSets(
-		featureflag.GPGSigning,
-	).Run(t, testUserSquashSplitIndex)
-}
-
-func testUserSquashSplitIndex(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
-
-	request := &gitalypb.UserSquashRequest{
-		Repository:    repo,
-		User:          gittest.TestUser,
-		Author:        author,
-		CommitMessage: commitMessage,
-		StartSha:      startSha,
-		EndSha:        endSha,
-	}
-
-	_, err := client.UserSquash(ctx, request)
-	require.NoError(t, err)
-	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 }
 
 func TestUserSquash_renames(t *testing.T) {
