@@ -81,7 +81,10 @@ func Run(m *testing.M, opts ...RunOption) {
 // configure sets up the global test configuration. On failure,
 // terminates the program.
 func configure() (_ func(), returnedErr error) {
-	logger := log.Configure(os.Stdout, "json", "panic")
+	logger, err := log.Configure(os.Stdout, "json", "panic")
+	if err != nil {
+		return nil, fmt.Errorf("configuring logger failed: %w", err)
+	}
 
 	for key, value := range map[string]string{
 		// We inject the following two variables, which instruct Git to search its

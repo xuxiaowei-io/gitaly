@@ -120,7 +120,10 @@ func configure(configPath string) (config.Cfg, logrus.FieldLogger, error) {
 		"UpdateRemoteMirror",
 	)
 
-	logger := log.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, urlSanitizer)
+	logger, err := log.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, urlSanitizer)
+	if err != nil {
+		return config.Cfg{}, nil, fmt.Errorf("configuring logger failed: %w", err)
+	}
 
 	sentry.ConfigureSentry(logger, version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure(logger)

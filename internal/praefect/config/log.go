@@ -9,8 +9,6 @@ import (
 
 // ConfigureLogger applies the settings from the configuration file to the
 // logger, setting the log level and format.
-func (c Config) ConfigureLogger() *logrus.Entry {
-	log.Configure(os.Stdout, c.Logging.Format, c.Logging.Level)
-
-	return log.Default()
+func (c Config) ConfigureLogger() (logrus.FieldLogger, error) {
+	return log.Configure(os.Stdout, c.Logging.Format, c.Logging.Level)
 }

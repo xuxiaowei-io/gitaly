@@ -73,7 +73,9 @@ func setHooksAction(ctx *cli.Context) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	gitalylog.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level)
+	if _, err := gitalylog.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level); err != nil {
+		return fmt.Errorf("configuring loggers: %w", err)
+	}
 
 	storage := ctx.String(flagStorage)
 	if storage == "" {

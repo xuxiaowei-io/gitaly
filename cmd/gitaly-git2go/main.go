@@ -68,10 +68,15 @@ func main() {
 		correlationID = correlation.SafeRandomID()
 	}
 
-	glog.Configure(os.Stderr, logFormat, logLevel)
-
 	ctx := correlation.ContextWithCorrelation(context.Background(), correlationID)
-	logger := glog.Default().WithFields(logrus.Fields{
+
+	logger, err := glog.Configure(os.Stderr, logFormat, logLevel)
+	if err != nil {
+		fmt.Printf("configuring logger failed: %v", err)
+		os.Exit(1)
+	}
+
+	logger = logger.WithFields(logrus.Fields{
 		"command.name":           git2go.BinaryName,
 		"correlation_id":         correlationID,
 		"enabled_feature_flags":  enabledFeatureFlags,

@@ -101,7 +101,7 @@ func TestConfigure(t *testing.T) {
 			out.Reset()
 
 			logger := newLogger()
-			configure(logger, &out, tc.format, tc.level, tc.hooks...)
+			require.NoError(t, configure(logger, &out, tc.format, tc.level, tc.hooks...))
 
 			// We cannot directly compare the loggers with each other because they contain function
 			// pointers, so we have to check the relevant fields one by one.

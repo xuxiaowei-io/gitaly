@@ -86,7 +86,10 @@ func run(appName string, logger *logrus.Entry, configPath string) error {
 		return err
 	}
 
-	conf.ConfigureLogger()
+	if _, err := conf.ConfigureLogger(); err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
+	}
+
 	configure(logger, appName, conf)
 
 	starterConfigs, err := getStarterConfigs(conf)

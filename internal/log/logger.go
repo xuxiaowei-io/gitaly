@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -58,18 +59,24 @@ type Config struct {
 
 // Configure configures the default and gRPC loggers. The gRPC logger's log level will be mapped in order to decrease
 // its default verbosity. Returns the configured default logger that would also be returned by `Default()`.
-func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) logrus.FieldLogger {
-	configure(defaultLogger, out, format, level, hooks...)
+func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) (logrus.FieldLogger, error) {
+	if err := configure(defaultLogger, out, format, level, hooks...); err != nil {
+		return nil, err
+	}
 
 	// We replace the gRPC logger with a custom one because the default one is too chatty.
 	grpcLogger := logrus.New() //nolint:forbidigo
-	configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...)
+
+	if err := configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...); err != nil {
+		return nil, err
+	}
+
 	grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
 
-	return Default()
+	return Default(), nil
 }
 
-func configure(logger *logrus.Logger, out io.Writer, format, level string, hooks ...logrus.Hook) {
+func configure(logger *logrus.Logger, out io.Writer, format, level string, hooks ...logrus.Hook) error {
 	var formatter logrus.Formatter
 	switch format {
 	case "json":
@@ -77,7 +84,7 @@ func configure(logger *logrus.Logger, out io.Writer, format, level string, hooks
 	case "", "text":
 		formatter = UTCTextFormatter()
 	default:
-		logrus.WithField("format", format).Fatal("invalid logger format")
+		return fmt.Errorf("invalid logger format %q", format)
 	}
 
 	logrusLevel, err := logrus.ParseLevel(level)
@@ -91,6 +98,8 @@ func configure(logger *logrus.Logger, out io.Writer, format, level string, hooks
 	for _, hook := range hooks {
 		logger.Hooks.Add(hook)
 	}
+
+	return nil
 }
 
 func mapGRPCLogLevel(level string) string {

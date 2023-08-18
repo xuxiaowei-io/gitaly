@@ -40,7 +40,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := log.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level)
+	logger, err := log.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level)
+	if err != nil {
+		fmt.Printf("configuring logger failed: %v", err)
+		os.Exit(1)
+	}
 
 	bb := blackbox.New(cfg)
 	prometheus.MustRegister(bb)
