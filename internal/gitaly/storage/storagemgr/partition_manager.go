@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/dgraph-io/badger/v4"
@@ -55,8 +54,10 @@ type storageManager struct {
 	closed bool
 	// db is the handle to the key-value store used for storing the storage's database state.
 	database *badger.DB
+	// partitionAssigner manages partition assignments of repositories.
+	partitionAssigner *partitionAssigner
 	// partitions contains all the active partitions. Each repository can have up to one partition.
-	partitions map[string]*partition
+	partitions map[partitionID]*partition
 	// activePartitions keeps track of active partitions.
 	activePartitions sync.WaitGroup
 }
@@ -74,6 +75,10 @@ func (sm *storageManager) close() {
 
 	// Wait for all partitions to finish.
 	sm.activePartitions.Wait()
+
+	if err := sm.partitionAssigner.Close(); err != nil {
+		sm.logger.WithError(err).Error("failed closing partition assigner")
+	}
 
 	if err := sm.database.Close(); err != nil {
 		sm.logger.WithError(err).Error("failed closing storage's database")
@@ -200,13 +205,19 @@ func NewPartitionManager(
 			return nil, fmt.Errorf("create storage's database directory: %w", err)
 		}
 
+		pa, err := newPartitionAssigner(db)
+		if err != nil {
+			return nil, fmt.Errorf("new partition assigner: %w", err)
+		}
+
 		storages[storage.Name] = &storageManager{
-			logger:           storageLogger,
-			path:             storage.Path,
-			repoFactory:      repoFactory,
-			stagingDirectory: stagingDir,
-			database:         db,
-			partitions:       map[string]*partition{},
+			logger:            storageLogger,
+			path:              storage.Path,
+			repoFactory:       repoFactory,
+			stagingDirectory:  stagingDir,
+			database:          db,
+			partitionAssigner: pa,
+			partitions:        map[partitionID]*partition{},
 		}
 	}
 
@@ -231,7 +242,18 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}
 
-	relativeStateDir := deriveStateDirectory(relativePath)
+	partitionID, err := storageMgr.partitionAssigner.getPartitionID(ctx, relativePath)
+	if err != nil {
+		if errors.Is(err, badger.ErrDBClosed) {
+			// The database is closed when PartitionManager is closing. Return a more
+			// descriptive error of what happened.
+			return nil, ErrPartitionManagerClosed
+		}
+
+		return nil, fmt.Errorf("get partition: %w", err)
+	}
+
+	relativeStateDir := deriveStateDirectory(partitionID)
 	absoluteStateDir := filepath.Join(storageMgr.path, relativeStateDir)
 	if err := os.MkdirAll(filepath.Dir(absoluteStateDir), perm.PrivateDir); err != nil {
 		return nil, fmt.Errorf("create state directory hierarchy: %w", err)
@@ -248,7 +270,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 			return nil, ErrPartitionManagerClosed
 		}
 
-		ptn, ok := storageMgr.partitions[relativePath]
+		ptn, ok := storageMgr.partitions[partitionID]
 		if !ok {
 			ptn = &partition{
 				closing: make(chan struct{}),
@@ -265,7 +287,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 
 			ptn.transactionManager = mgr
 
-			storageMgr.partitions[relativePath] = ptn
+			storageMgr.partitions[partitionID] = ptn
 
 			storageMgr.activePartitions.Add(1)
 			go func() {
@@ -280,7 +302,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 				// deleted allowing the next transaction for the repository to create a new partition
 				// and TransactionManager.
 				storageMgr.mu.Lock()
-				delete(storageMgr.partitions, relativePath)
+				delete(storageMgr.partitions, partitionID)
 				storageMgr.mu.Unlock()
 
 				close(ptn.closed)
@@ -334,11 +356,11 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 	}
 }
 
-// deriveStateDirectory hashes the relative path and returns the state directory where a state
-// related to a given partition should be stored.
-func deriveStateDirectory(relativePath string) string {
+// deriveStateDirectory hashes the partition ID and returns the state
+// directory where state related to the partition should be stored.
+func deriveStateDirectory(id partitionID) string {
 	hasher := sha256.New()
-	hasher.Write([]byte(relativePath))
+	hasher.Write([]byte(id.String()))
 	hash := hex.EncodeToString(hasher.Sum(nil))
 
 	return filepath.Join(
@@ -347,9 +369,7 @@ func deriveStateDirectory(relativePath string) string {
 		// subdirectories to keep the directory sizes reasonable.
 		hash[0:2],
 		hash[2:4],
-		// Flatten the relative path by removing the path separators so the
-		// repository is stored on this level in the directory hierarchy.
-		strings.ReplaceAll(relativePath, string(os.PathSeparator), ""),
+		id.String(),
 	)
 }
 
