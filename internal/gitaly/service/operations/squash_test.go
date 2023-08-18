@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -127,7 +125,10 @@ func testUserSquashTransactional(t *testing.T, ctx context.Context) {
 		testserver.WithTransactionManager(&txManager),
 	)
 
-	squashedCommitID := "bd94bb881a5c5466da78a4e911017abfe8998e0c"
+	squashedCommitID := gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "bd94bb881a5c5466da78a4e911017abfe8998e0c",
+		"sha256": "6fdd7d1bd86b796b35f2d3c8b7a06a1adf5897583bea593abfb446cd015c9b3a",
+	})
 	squashedCommitVote := voting.VoteFromData([]byte(squashedCommitID))
 
 	for _, tc := range []struct {
@@ -277,7 +278,7 @@ func testUserSquashStableID(t *testing.T, ctx context.Context) {
 	require.Equal(t, &gitalypb.GitCommit{
 		Id: gittest.ObjectHashDependent(t, map[string]string{
 			"sha1":   "9b09504be226a140ca5335bfbfd70bea049233c6",
-			"sha256": "9b09504be226a140ca5335bfbfd70bea049233c6",
+			"sha256": "879204016902e3773af456d01465da8749adb17bdc3a974d5500231b80d497fa",
 		}),
 		TreeId: endTreeID.String(),
 		ParentIds: []string{
@@ -397,10 +398,11 @@ func testUserSquashRenames(t *testing.T, ctx context.Context) {
 		),
 	)
 
+	endBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("This is another change"))
 	endCommitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithParents(changedCommitID),
 		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is another change"},
+			gittest.TreeEntry{Path: originalFilename, Mode: "100644", OID: endBlobID},
 		),
 	)
 
@@ -428,7 +430,7 @@ func testUserSquashRenames(t *testing.T, ctx context.Context) {
 	require.Equal(t, commitMessage, commit.Subject)
 
 	gittest.RequireTree(t, cfg, repoPath, response.SquashSha, []gittest.TreeEntry{
-		{Path: renamedFilename, Mode: "100644", Content: "This is another change", OID: "1b2ae89cca65f0d514f677981f012d708df651fc"},
+		{Path: renamedFilename, Mode: "100644", Content: "This is another change", OID: endBlobID},
 	})
 }
 
@@ -512,22 +514,26 @@ func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
 	)
 
 	for _, tc := range []struct {
-		desc                      string
-		ours, theirs, expectedOID git.ObjectID
-		expectedTreeEntries       []gittest.TreeEntry
-		expectedCommit            *gitalypb.GitCommit
+		desc                string
+		ours, theirs        git.ObjectID
+		expectedTreeEntries []gittest.TreeEntry
+		expectedCommit      *gitalypb.GitCommit
 	}{
 		{
-			desc:        "ours becomes completely empty",
-			ours:        ours,
-			theirs:      theirs,
-			expectedOID: "0c097018ea50a9c036ba7e98db2b12495e912884",
+			desc:   "ours becomes completely empty",
+			ours:   ours,
+			theirs: theirs,
 			expectedTreeEntries: []gittest.TreeEntry{
 				{Path: "a", Content: "changed", Mode: "100644"},
 			},
 			expectedCommit: &gitalypb.GitCommit{
-				Id:     "0c097018ea50a9c036ba7e98db2b12495e912884",
-				TreeId: "dcec1f671540174251d228f3b1292cc4f84cd964",
+				Id: gittest.ObjectHashDependent(t, map[string]string{
+					"sha1":   "0c097018ea50a9c036ba7e98db2b12495e912884",
+					"sha256": "73e596f79a214b856f93227d3a899bb7283fb7a6e8dabd80c452a825906bb91a",
+				}),
+				TreeId: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "a", Content: "changed", Mode: "100644"},
+				}).String(),
 				ParentIds: []string{
 					theirs.String(),
 				},
@@ -539,17 +545,22 @@ func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc:        "parts of ours become empty",
-			ours:        oursWithAdditionalChanges,
-			theirs:      theirs,
-			expectedOID: "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
+			desc:   "parts of ours become empty",
+			ours:   oursWithAdditionalChanges,
+			theirs: theirs,
 			expectedTreeEntries: []gittest.TreeEntry{
 				{Path: "a", Content: "changed", Mode: "100644"},
 				{Path: "ours", Content: "ours", Mode: "100644"},
 			},
 			expectedCommit: &gitalypb.GitCommit{
-				Id:     "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
-				TreeId: "b39ebc91ea635e7469c406329bcf00be4ebe0e50",
+				Id: gittest.ObjectHashDependent(t, map[string]string{
+					"sha1":   "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
+					"sha256": "ecfb568a418ed6e4086ddad76fe7133880ffa636e3282716f29c943fd6b72bcd",
+				}),
+				TreeId: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "a", Content: "changed", Mode: "100644"},
+					{Path: "ours", Content: "ours", Mode: "100644"},
+				}).String(),
 				ParentIds: []string{
 					theirs.String(),
 				},
@@ -573,12 +584,12 @@ func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
 			})
 			require.NoError(t, err)
 			testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
-				SquashSha: tc.expectedOID.String(),
+				SquashSha: tc.expectedCommit.Id,
 			}, response)
 
-			gittest.RequireTree(t, cfg, repoPath, tc.expectedOID.String(), tc.expectedTreeEntries)
+			gittest.RequireTree(t, cfg, repoPath, tc.expectedCommit.Id, tc.expectedTreeEntries)
 
-			commit, err := repo.ReadCommit(ctx, tc.expectedOID.Revision())
+			commit, err := repo.ReadCommit(ctx, git.Revision(tc.expectedCommit.Id))
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedCommit, commit)
 		})
@@ -777,7 +788,10 @@ func testUserSquashAncestry(t *testing.T, ctx context.Context) {
 
 	require.Nil(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
-		SquashSha: "b277ddc0aafcba53f23f3d4d4a46dde42c9e7ad2",
+		SquashSha: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "b277ddc0aafcba53f23f3d4d4a46dde42c9e7ad2",
+			"sha256": "d62efb044a263c87cf7eee19e1d85960618cad65f938d8eeaee69a6571d7bcb4",
+		}),
 	}, response)
 }
 
@@ -930,6 +944,11 @@ func testUserSquashSquashingMerge(t *testing.T, ctx context.Context) {
 		gittest.WithParents(ours),
 	)
 
+	expectedCommitID := gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "69d8db2439502c18b9c17c2d1bddb122a82bd448",
+		"sha256": "e4a254d051b8453f5797052d8cfb16cb6041132b00cbcaabc77cfc6b0f59e5ef",
+	})
+
 	// We had conflicting commit on "ours" and on "theirs",
 	// then we have manually merged "ours into "theirs" resolving the conflict,
 	// and then we created one non-conflicting commit on branch "ours".
@@ -960,9 +979,9 @@ func testUserSquashSquashingMerge(t *testing.T, ctx context.Context) {
 	// and one squash commit that contains squashed changes from branch "theirs".
 	require.Nil(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
-		SquashSha: "69d8db2439502c18b9c17c2d1bddb122a82bd448",
+		SquashSha: expectedCommitID,
 	}, response)
-	gittest.RequireTree(t, cfg, repoPath, "69d8db2439502c18b9c17c2d1bddb122a82bd448", []gittest.TreeEntry{
+	gittest.RequireTree(t, cfg, repoPath, expectedCommitID, []gittest.TreeEntry{
 		{
 			// It should use the version from commit "oursMergedIntoTheirs",
 			// as it resolves the pre-existing conflict.
