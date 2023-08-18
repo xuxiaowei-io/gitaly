@@ -109,9 +109,19 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 			desc           string
 			input          string
 			relativePaths  []string
+			replicaPaths   []string
 			args           func(inputPath string) []string
 			expectedOutput string
 		}{
+			{
+				desc:          "replica path differs from relative path",
+				relativePaths: []string{"path/to/test/diff_repo1", "path/to/test/diff_repo2"},
+				replicaPaths:  []string{"path/to/replica/diff_repo1", "path/to/replica/diff_repo2"},
+				args: func(inputPath string) []string {
+					return []string{"-replicate-immediately", "-input-path=" + inputPath}
+				},
+				expectedOutput: "Finished replicating repository to \"gitaly-2\".\n",
+			},
 			{
 				desc:          "immediate replication",
 				relativePaths: []string{"path/to/test/repo1", "path/to/test/repo2"},
@@ -137,20 +147,25 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 				input, err := os.Create(inputPath)
 				require.NoError(t, err)
 
-				for _, path := range tc.relativePaths {
-					exists, err := repositoryStore.RepositoryExists(ctx, virtualStorageName, path)
+				if len(tc.replicaPaths) == 0 {
+					tc.replicaPaths = tc.relativePaths
+				}
+
+				for i, relPath := range tc.relativePaths {
+					exists, err := repositoryStore.RepositoryExists(ctx, virtualStorageName, relPath)
 					require.NoError(t, err)
 					require.False(t, exists)
 
+					replicaPath := tc.replicaPaths[i]
 					// create the repo on Gitaly without Praefect knowing
-					require.NoError(t, createRepoThroughGitaly1(path))
-					require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, path))
-					require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, path))
+					require.NoError(t, createRepoThroughGitaly1(replicaPath))
+					require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
+					require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
 
 					// Write repo details to input file
 					repoEntry, err := json.Marshal(trackRepositoryRequest{
-						RelativePath:         path,
-						ReplicaPath:          path,
+						RelativePath:         relPath,
+						ReplicaPath:          replicaPath,
 						VirtualStorage:       virtualStorageName,
 						AuthoritativeStorage: authoritativeStorage,
 					})
@@ -166,8 +181,8 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 				assert.Contains(t, stdout, tc.expectedOutput)
 
 				replicateImmediately := slices.Contains(tc.args(inputPath), "-replicate-immediately")
-				for _, path := range tc.relativePaths {
-					repositoryID, err := repositoryStore.GetRepositoryID(ctx, virtualStorageName, path)
+				for i, relPath := range tc.relativePaths {
+					repositoryID, err := repositoryStore.GetRepositoryID(ctx, virtualStorageName, relPath)
 					require.NoError(t, err)
 
 					assignments, err := assignmentStore.GetHostAssignments(ctx, virtualStorageName, repositoryID)
@@ -176,7 +191,7 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 					assert.Contains(t, assignments, g1Cfg.Storages[0].Name)
 					assert.Contains(t, assignments, g2Cfg.Storages[0].Name)
 
-					exists, err := repositoryStore.RepositoryExists(ctx, virtualStorageName, path)
+					exists, err := repositoryStore.RepositoryExists(ctx, virtualStorageName, relPath)
 					require.NoError(t, err)
 					assert.True(t, exists)
 
@@ -185,9 +200,10 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 						events, err := queue.Dequeue(ctx, virtualStorageName, g2Cfg.Storages[0].Name, 1)
 						require.NoError(t, err)
 						require.Len(t, events, 1)
-						assert.Equal(t, path, events[0].Job.RelativePath)
+						assert.Equal(t, relPath, events[0].Job.RelativePath)
 					} else {
-						require.DirExists(t, filepath.Join(g2Cfg.Storages[0].Path, path))
+						replicaPath := tc.replicaPaths[i]
+						require.DirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
 					}
 				}
 			})
@@ -256,60 +272,70 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 				input:     "@hashed/01/23/01234567890123456789.git",
 				requestCt: 1,
 				expectedOutput: []string{
-					`  line 1, relative_path: ""`,
+					`  line 1, relative_path: "", replica_path: ""`,
 					"    invalid character '@' looking for beginning of value",
 				},
 				expectedError: invalidEntryErr,
 			},
 			{
-				desc:      "missing path",
-				input:     `{"virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
+				desc:      "missing relative path",
+				input:     `{"replica_path":"r","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
 				requestCt: 1,
 				expectedOutput: []string{
-					`  line 1, relative_path: ""`,
+					`  line 1, relative_path: "", replica_path: "r"`,
 					`    "relative-path" is a required parameter`,
 				},
 				expectedError: invalidEntryErr,
 			},
 			{
-				desc:      "invalid virtual storage",
-				input:     `{"virtual_storage":"foo","relative_path":"bar","authoritative_storage":"gitaly-1"}`,
+				desc:      "missing replica path",
+				input:     `{"relative_path":"r","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
 				requestCt: 1,
 				expectedOutput: []string{
-					`  line 1, relative_path: "bar"`,
+					`  line 1, relative_path: "r", replica_path: ""`,
+					`    "replica-path" is a required parameter`,
+				},
+				expectedError: invalidEntryErr,
+			},
+			{
+				desc:      "invalid virtual storage",
+				input:     `{"virtual_storage":"foo","relative_path":"bar","replica_path":"bar","authoritative_storage":"gitaly-1"}`,
+				requestCt: 1,
+				expectedOutput: []string{
+					`  line 1, relative_path: "bar", replica_path: "bar"`,
 					`    checking repository on disk: virtual storage "foo" not found`,
 				},
 				expectedError: invalidEntryErr,
 			},
 			{
 				desc:      "repo does not exist",
-				input:     `{"relative_path":"not_a_repo","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
+				input:     `{"relative_path":"not_a_repo","replica_path":"foo","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
 				requestCt: 1,
 				expectedOutput: []string{
-					`  line 1, relative_path: "not_a_repo"`,
+					`  line 1, relative_path: "not_a_repo", replica_path: "foo"`,
 					"    not a valid git repository",
 				},
 				expectedError: invalidEntryErr,
 			},
 			{
-				desc: "duplicate path",
-				input: `{"virtual_storage":"praefect","relative_path":"duplicate","authoritative_storage":"gitaly-1"}
-					{"virtual_storage":"praefect","relative_path":"duplicate","authoritative_storage":"gitaly-1"}`,
+				desc: "duplicate relative path",
+				input: `{"virtual_storage":"praefect","relative_path":"duplicate","replica_path":"foo","authoritative_storage":"gitaly-1"}
+					{"virtual_storage":"praefect","relative_path":"duplicate","replica_path":"foo","authoritative_storage":"gitaly-1"}`,
 				requestCt: 2,
 				expectedOutput: []string{
-					`  line 1, relative_path: "duplicate"`,
+					`  line 1, relative_path: "duplicate", replica_path: "foo"`,
 					"    not a valid git repository",
-					`  line 2, relative_path: "duplicate"`,
+					`  line 2, relative_path: "duplicate", replica_path: "foo"`,
 					"    duplicate entries for relative_path, line [1 2]",
 				},
 				expectedError: invalidEntryErr,
 			},
 			{
 				desc:      "repo is already tracked",
-				input:     `{"relative_path":"already_tracked","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
+				input:     `{"relative_path":"already_tracked","replica_path":"foo","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
 				requestCt: 1,
 				expectedOutput: []string{
-					`  line 1, relative_path: "already_tracked"`,
+					`  line 1, relative_path: "already_tracked", replica_path: "foo"`,
 					"    repository is already tracked by Praefect",
 				},
 				expectedError: invalidEntryErr,
