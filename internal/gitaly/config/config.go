@@ -240,6 +240,7 @@ type Git struct {
 	CatfileCacheSize   int         `toml:"catfile_cache_size,omitempty" json:"catfile_cache_size"`
 	Config             []GitConfig `toml:"config,omitempty" json:"config"`
 	SigningKey         string      `toml:"signing_key,omitempty" json:"signing_key"`
+	RotatedSigningKeys []string    `toml:"rotated_signing_keys,omitempty" json:"rotated_signing_keys"`
 }
 
 // Validate runs validation on all fields and compose all found errors.

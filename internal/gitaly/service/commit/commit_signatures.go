@@ -39,9 +39,9 @@ func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 	}
 	defer cancel()
 
-	var signingKey signature.SigningKey
+	var signingKeys *signature.SigningKeys
 	if s.cfg.Git.SigningKey != "" {
-		signingKey, err = signature.ParseSigningKey(s.cfg.Git.SigningKey)
+		signingKeys, err = signature.ParseSigningKeys(s.cfg.Git.SigningKey, s.cfg.Git.RotatedSigningKeys...)
 		if err != nil {
 			return fmt.Errorf("failed to parse signing key: %w", err)
 		}
@@ -62,8 +62,8 @@ func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 		}
 
 		signer := gitalypb.GetCommitSignaturesResponse_SIGNER_USER
-		if signingKey != nil {
-			if err := signingKey.Verify(signatureKey, commitText); err == nil {
+		if signingKeys != nil {
+			if err := signingKeys.Verify(signatureKey, commitText); err == nil {
 				signer = gitalypb.GetCommitSignaturesResponse_SIGNER_SYSTEM
 			}
 		}

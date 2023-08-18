@@ -408,7 +408,8 @@ func TestLoadConfigCommand(t *testing.T) {
 				cmd := writeScript(t, `cat <<-EOF
 					{
 						"git": {
-							"signing_key": "signing_key"
+							"signing_key": "signing_key",
+							"rotated_signing_keys": ["rotated_key_1", "rotated_key_2"]
 						}
 					}
 					EOF
@@ -425,6 +426,7 @@ func TestLoadConfigCommand(t *testing.T) {
 						cfg.ConfigCommand = cmd
 						cfg.Git.BinPath = "foo/bar"
 						cfg.Git.SigningKey = "signing_key"
+						cfg.Git.RotatedSigningKeys = []string{"rotated_key_1", "rotated_key_2"}
 					}),
 				}
 			},

@@ -116,7 +116,7 @@ func testUserSquashSuccessful(t *testing.T, ctx context.Context) {
 
 				gpgsig, dataWithoutGpgSig := signature.ExtractSignature(t, ctx, data)
 
-				signingKey, err := signature.ParseSigningKey("testdata/signing_ssh_key_ed25519")
+				signingKey, err := signature.ParseSigningKeys("testdata/signing_ssh_key_ed25519")
 				require.NoError(t, err)
 
 				require.NoError(t, signingKey.Verify([]byte(gpgsig), []byte(dataWithoutGpgSig)))
