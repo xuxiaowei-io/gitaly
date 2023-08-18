@@ -131,7 +131,7 @@ func NewGRPCServer(
 
 	unaryInterceptors := append(
 		commonUnaryServerInterceptors(deps.Logger, logMsgProducer),
-		middleware.MethodTypeUnaryInterceptor(deps.Registry),
+		middleware.MethodTypeUnaryInterceptor(deps.Registry, deps.Logger),
 		auth.UnaryServerInterceptor(deps.Config.Auth),
 	)
 	unaryInterceptors = append(unaryInterceptors, serverCfg.unaryInterceptors...)
@@ -139,7 +139,7 @@ func NewGRPCServer(
 	streamInterceptors := []grpc.StreamServerInterceptor{
 		grpcmwtags.StreamServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
-		middleware.MethodTypeStreamInterceptor(deps.Registry),
+		middleware.MethodTypeStreamInterceptor(deps.Registry, deps.Logger),
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
 		grpcmwlogrus.StreamServerInterceptor(deps.Logger,
