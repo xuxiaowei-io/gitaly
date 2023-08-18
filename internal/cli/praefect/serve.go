@@ -150,7 +150,7 @@ func configure(logger logrus.FieldLogger, appName string, conf config.Config) {
 	tracing.Initialize(tracing.WithServiceName(appName))
 
 	if conf.PrometheusListenAddr != "" {
-		conf.Prometheus.Configure()
+		conf.Prometheus.Configure(logger)
 	}
 
 	sentry.ConfigureSentry(logger, version.GetVersion(), conf.Sentry)

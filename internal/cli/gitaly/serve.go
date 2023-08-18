@@ -123,7 +123,7 @@ func configure(configPath string) (config.Cfg, logrus.FieldLogger, error) {
 	logger := log.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, urlSanitizer)
 
 	sentry.ConfigureSentry(logger, version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
-	cfg.Prometheus.Configure()
+	cfg.Prometheus.Configure(logger)
 	labkittracing.Initialize(labkittracing.WithServiceName("gitaly"))
 	preloadLicenseDatabase(logger)
 
