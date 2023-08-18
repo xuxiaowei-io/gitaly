@@ -82,7 +82,7 @@ func commonUnaryServerInterceptors(logger *logrus.Entry, messageProducer grpcmwl
 		grpctracing.UnaryServerTracingInterceptor(),
 		// Panic handler should remain last so that application panics will be
 		// converted to errors and logged
-		panichandler.UnaryPanicHandler,
+		panichandler.UnaryPanicHandler(logger),
 	}
 }
 
@@ -153,7 +153,7 @@ func NewGRPCServer(
 		auth.StreamServerInterceptor(deps.Config.Auth),
 		// Panic handler should remain last so that application panics will be
 		// converted to errors and logged
-		panichandler.StreamPanicHandler,
+		panichandler.StreamPanicHandler(deps.Logger),
 	}
 	streamInterceptors = append(streamInterceptors, serverCfg.streamInterceptors...)
 
