@@ -262,7 +262,7 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 				requestCt: 1,
 				expectedOutput: []string{
 					`  line 1, relative_path: ""`,
-					`    "repository" is a required parameter`,
+					`    "relative-path" is a required parameter`,
 				},
 				expectedError: invalidEntryErr,
 			},
