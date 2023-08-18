@@ -189,6 +189,7 @@ func newOperationClient(t *testing.T, token, serverSocketPath string) (gitalypb.
 func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
+	logger := testhelper.NewDiscardingLogEntry(t)
 	registry := backchannel.NewRegistry()
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
@@ -200,11 +201,11 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	))
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
-	diskCache := cache.New(cfg, locator)
+	diskCache := cache.New(cfg, locator, logger)
 	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
 
-	srv, err := NewGitalyServerFactory(cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache, []*limithandler.LimiterMiddleware{limitHandler}).New(false)
+	srv, err := NewGitalyServerFactory(cfg, logger, registry, diskCache, []*limithandler.LimiterMiddleware{limitHandler}).New(false)
 	require.NoError(t, err)
 
 	setup.RegisterAll(srv, &service.Dependencies{
@@ -243,7 +244,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 		cfg,
 		testhelper.NewDiscardingLogEntry(t),
 		backchannel.NewRegistry(),
-		cache.New(cfg, config.NewLocator(cfg)),
+		cache.New(cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogEntry(t)),
 		[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)},
 	).New(true)
 	require.NoError(t, err)

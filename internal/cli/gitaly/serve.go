@@ -265,7 +265,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	defer catfileCache.Stop()
 	prometheus.MustRegister(catfileCache)
 
-	diskCache := cache.New(cfg, locator)
+	diskCache := cache.New(cfg, locator, logger)
 	prometheus.MustRegister(diskCache)
 	if err := diskCache.StartWalkers(); err != nil {
 		return fmt.Errorf("disk cache walkers: %w", err)

@@ -58,6 +58,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	})
 	gittest.WriteCommit(t, cfg, repoPath2, gittest.WithMessage("two"), gittest.WithBranch("master"))
 
+	logger := testhelper.NewDiscardingLogEntry(t)
 	locator := config.NewLocator(cfg)
 
 	req1 := &gitalypb.InfoRefsRequest{
@@ -68,20 +69,20 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	}
 
 	t.Run("empty cache", func(t *testing.T) {
-		cache := New(cfg, locator)
+		cache := New(cfg, locator, logger)
 
 		expectGetMiss(ctx, cache, req1)
 		expectGetMiss(ctx, cache, req2)
 	})
 
 	t.Run("store and retrieve", func(t *testing.T) {
-		cache := New(cfg, locator)
+		cache := New(cfg, locator, logger)
 		storeAndRetrieve(ctx, cache, req1, "content-1")
 		storeAndRetrieve(ctx, cache, req2, "content-2")
 	})
 
 	t.Run("invalidation", func(t *testing.T) {
-		cache := New(cfg, locator)
+		cache := New(cfg, locator, logger)
 
 		storeAndRetrieve(ctx, cache, req1, "content-1")
 		storeAndRetrieve(ctx, cache, req2, "content-2")
@@ -93,7 +94,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	})
 
 	t.Run("overwrite existing entry", func(t *testing.T) {
-		cache := New(cfg, locator)
+		cache := New(cfg, locator, logger)
 
 		storeAndRetrieve(ctx, cache, req1, "content-1")
 
@@ -102,7 +103,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	})
 
 	t.Run("feature flags affect caching", func(t *testing.T) {
-		cache := New(cfg, locator)
+		cache := New(cfg, locator, logger)
 
 		ctxWithFF := featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.FeatureFlag{
 			Name: "meow",
@@ -118,7 +119,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	})
 
 	t.Run("critical section", func(t *testing.T) {
-		cache := New(cfg, locator)
+		cache := New(cfg, locator, logger)
 
 		storeAndRetrieve(ctx, cache, req2, "unrelated")
 
@@ -146,7 +147,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	})
 
 	t.Run("nonexisteng repository", func(t *testing.T) {
-		cache := New(cfg, locator)
+		cache := New(cfg, locator, logger)
 
 		nonexistentRepo := &gitalypb.Repository{
 			StorageName:  repo1.StorageName,
@@ -166,7 +167,7 @@ func TestLoserCount(t *testing.T) {
 	cfg := cfgBuilder.Build(t)
 
 	locator := config.NewLocator(cfg)
-	cache := New(cfg, locator)
+	cache := New(cfg, locator, testhelper.NewDiscardingLogEntry(t))
 
 	req := &gitalypb.InfoRefsRequest{
 		Repository: &gitalypb.Repository{
