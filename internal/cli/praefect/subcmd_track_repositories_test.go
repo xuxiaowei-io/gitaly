@@ -148,7 +148,12 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 					require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, path))
 
 					// Write repo details to input file
-					repoEntry, err := json.Marshal(trackRepositoryRequest{RelativePath: path, VirtualStorage: virtualStorageName, AuthoritativeStorage: authoritativeStorage})
+					repoEntry, err := json.Marshal(trackRepositoryRequest{
+						RelativePath:         path,
+						ReplicaPath:          path,
+						VirtualStorage:       virtualStorageName,
+						AuthoritativeStorage: authoritativeStorage,
+					})
 					require.NoError(t, err)
 					_, err = fmt.Fprintf(input, string(repoEntry)+"\n")
 					require.NoError(t, err)

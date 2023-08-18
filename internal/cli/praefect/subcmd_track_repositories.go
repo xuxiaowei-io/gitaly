@@ -106,6 +106,7 @@ func trackRepositoriesAction(appCtx *cli.Context) error {
 			// Invalid request, nothing to validate.
 			continue
 		}
+		request.ReplicaPath = request.RelativePath
 
 		if request.RelativePath == "" {
 			badReq.errs = append(badReq.errs, requiredParameterError(paramRelativePath))
