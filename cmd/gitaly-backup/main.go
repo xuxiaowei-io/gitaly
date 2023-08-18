@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 
@@ -22,7 +23,11 @@ var subcommands = map[string]subcmd{
 }
 
 func main() {
-	logger := log.Configure(os.Stdout, "json", "")
+	logger, err := log.Configure(os.Stdout, "json", "")
+	if err != nil {
+		fmt.Printf("configuring logger failed: %v", err)
+		os.Exit(1)
+	}
 
 	flags := flag.NewFlagSet("gitaly-backup", flag.ExitOnError)
 	_ = flags.Parse(os.Args)

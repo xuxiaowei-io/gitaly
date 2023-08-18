@@ -86,7 +86,10 @@ func run(appName string, logger *logrus.Entry, configPath string) error {
 		return err
 	}
 
-	conf.ConfigureLogger()
+	if _, err := conf.ConfigureLogger(); err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
+	}
+
 	configure(logger, appName, conf)
 
 	starterConfigs, err := getStarterConfigs(conf)
@@ -150,7 +153,7 @@ func configure(logger logrus.FieldLogger, appName string, conf config.Config) {
 	tracing.Initialize(tracing.WithServiceName(appName))
 
 	if conf.PrometheusListenAddr != "" {
-		conf.Prometheus.Configure()
+		conf.Prometheus.Configure(logger)
 	}
 
 	sentry.ConfigureSentry(logger, version.GetVersion(), conf.Sentry)
@@ -440,7 +443,7 @@ func server(
 		}
 		defer srv.Stop()
 
-		b.RegisterStarter(starter.New(cfg, srv))
+		b.RegisterStarter(starter.New(cfg, srv, logger))
 	}
 
 	if conf.PrometheusListenAddr != "" {

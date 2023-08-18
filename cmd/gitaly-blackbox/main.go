@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/blackbox"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
@@ -35,26 +34,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := run(flag.Arg(0)); err != nil {
-		logrus.WithError(err).Fatal()
+	cfg, err := readConfig(flag.Arg(0))
+	if err != nil {
+		fmt.Printf("reading configuration: %v", err)
+		os.Exit(1)
+	}
+
+	logger, err := log.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level)
+	if err != nil {
+		fmt.Printf("configuring logger failed: %v", err)
+		os.Exit(1)
+	}
+
+	bb := blackbox.New(cfg)
+	prometheus.MustRegister(bb)
+
+	if err := bb.Run(); err != nil {
+		logger.WithError(err).Fatal()
 	}
 }
 
-func run(configPath string) error {
-	configRaw, err := os.ReadFile(configPath)
+func readConfig(path string) (blackbox.Config, error) {
+	contents, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return blackbox.Config{}, err
 	}
 
-	config, err := blackbox.ParseConfig(string(configRaw))
+	cfg, err := blackbox.ParseConfig(string(contents))
 	if err != nil {
-		return err
+		return blackbox.Config{}, err
 	}
 
-	bb := blackbox.New(config)
-	prometheus.MustRegister(bb)
-
-	log.Configure(os.Stdout, config.Logging.Format, config.Logging.Level)
-
-	return bb.Run()
+	return cfg, nil
 }

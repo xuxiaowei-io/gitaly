@@ -398,7 +398,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	locator := config.NewLocator(cfg)
-	cache := cache.New(cfg, locator)
+	cache := cache.New(cfg, locator, testhelper.NewDiscardingLogEntry(t))
 
 	streamer := mockStreamer{
 		Streamer: cache,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -75,6 +76,7 @@ func withDisabledWalker() Option {
 
 // DiskCache stores and retrieves byte streams for repository related RPCs
 type DiskCache struct {
+	logger      logrus.FieldLogger
 	locator     storage.Locator
 	storages    []config.Storage
 	keyer       leaseKeyer
@@ -98,13 +100,14 @@ type DiskCache struct {
 }
 
 // New will create a new DiskCache with the given Keyer.
-func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *DiskCache {
+func New(cfg config.Cfg, locator storage.Locator, logger logrus.FieldLogger, opts ...Option) *DiskCache {
 	var cacheConfig cacheConfig
 	for _, opt := range opts {
 		opt(&cacheConfig)
 	}
 
 	cache := &DiskCache{
+		logger:   logger,
 		locator:  locator,
 		storages: cfg.Storages,
 		af: activeFiles{

@@ -145,18 +145,18 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 
 	streamServerInterceptors = append(streamServerInterceptors,
 		grpctracing.StreamServerTracingInterceptor(),
-		cache.StreamInvalidator(s.cacheInvalidator, protoregistry.GitalyProtoPreregistered),
+		cache.StreamInvalidator(s.cacheInvalidator, protoregistry.GitalyProtoPreregistered, s.logger),
 		// Panic handler should remain last so that application panics will be
 		// converted to errors and logged
-		panichandler.StreamPanicHandler,
+		panichandler.StreamPanicHandler(s.logger),
 	)
 
 	unaryServerInterceptors = append(unaryServerInterceptors,
 		grpctracing.UnaryServerTracingInterceptor(),
-		cache.UnaryInvalidator(s.cacheInvalidator, protoregistry.GitalyProtoPreregistered),
+		cache.UnaryInvalidator(s.cacheInvalidator, protoregistry.GitalyProtoPreregistered, s.logger),
 		// Panic handler should remain last so that application panics will be
 		// converted to errors and logged
-		panichandler.UnaryPanicHandler,
+		panichandler.UnaryPanicHandler(s.logger),
 	)
 
 	streamServerInterceptors = append(streamServerInterceptors, cfg.streamInterceptors...)

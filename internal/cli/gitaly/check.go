@@ -43,7 +43,10 @@ func checkAction(ctx *cli.Context) error {
 		return fmt.Errorf("loading configuration %q: %w", configPath, err)
 	}
 
-	logger := log.Configure(os.Stderr, "text", "error")
+	logger, err := log.Configure(os.Stderr, "text", "error")
+	if err != nil {
+		return cli.Exit(fmt.Errorf("configuring logger failed: %w", err), 1)
+	}
 
 	fmt.Fprint(ctx.App.Writer, "Checking GitLab API access: ")
 	info, err := checkAPI(cfg, logger)

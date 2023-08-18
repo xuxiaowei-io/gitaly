@@ -13,17 +13,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 func (c *DiskCache) logWalkErr(err error, path, msg string) {
 	c.walkerErrorTotal.Inc()
-	log.Default().
-		WithField("path", path).
+	c.logger.WithField("path", path).
 		WithError(err).
 		Warn(msg)
 }
@@ -106,7 +103,7 @@ func (c *DiskCache) cleanWalk(path string) error {
 const cleanWalkFrequency = 10 * time.Minute
 
 func (c *DiskCache) walkLoop(walkPath string) {
-	logger := logrus.WithField("path", walkPath)
+	logger := c.logger.WithField("path", walkPath)
 	logger.Infof("Starting file walker for %s", walkPath)
 
 	walkTick := time.NewTicker(cleanWalkFrequency)
@@ -149,7 +146,7 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 		return nil
 	}
 
-	logger := logrus.WithField("storage", storage.Name)
+	logger := c.logger.WithField("storage", storage.Name)
 	logger.Info("clearing disk cache object folder")
 
 	tempPath, err := c.locator.TempDir(storage.Name)

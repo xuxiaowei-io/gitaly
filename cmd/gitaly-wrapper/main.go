@@ -29,7 +29,12 @@ func main() {
 		logFormat = "json"
 	}
 
-	logger := log.Configure(os.Stdout, logFormat, "").WithField("wrapper", os.Getpid())
+	logger, err := log.Configure(os.Stdout, logFormat, "")
+	if err != nil {
+		fmt.Printf("configuring logger failed: %v", err)
+		os.Exit(1)
+	}
+	logger = logger.WithField("wrapper", os.Getpid())
 
 	if len(os.Args) < 2 {
 		logger.Fatalf("usage: %s forking_binary [args]", os.Args[0])
@@ -102,7 +107,7 @@ func findProcess(pidFilePath string) (*os.Process, error) {
 	return nil, nil
 }
 
-func spawnProcess(logger *logrus.Entry, bin string, args []string) (*os.Process, error) {
+func spawnProcess(logger logrus.FieldLogger, bin string, args []string) (*os.Process, error) {
 	cmd := exec.Command(bin, args...)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=true", bootstrap.EnvUpgradesEnabled))
 
@@ -128,7 +133,7 @@ func isRuntimeSig(s os.Signal) bool {
 	return s == unix.SIGURG
 }
 
-func forwardSignals(gitaly *os.Process, log *logrus.Entry) {
+func forwardSignals(gitaly *os.Process, log logrus.FieldLogger) {
 	sigs := make(chan os.Signal, 1)
 	go func() {
 		for sig := range sigs {

@@ -42,7 +42,11 @@ type gitalySSHCommand struct {
 // GITALY_USE_SIDECHANNEL=1 if desired
 // gitaly-ssh upload-pack <git-garbage-x2>
 func main() {
-	logger := log.Configure(os.Stderr, "", "info")
+	logger, err := log.Configure(os.Stderr, "", "info")
+	if err != nil {
+		fmt.Printf("configuring logger failed: %v", err)
+		os.Exit(1)
+	}
 
 	// < 4 since git throws on 2x garbage here
 	if n := len(os.Args); n < 4 {

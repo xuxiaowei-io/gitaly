@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -61,7 +61,7 @@ func (c *RepositoryCounter) Collect(metrics chan<- prometheus.Metric) {
 func (c *RepositoryCounter) StartCountingRepositories(
 	ctx context.Context,
 	locator storage.Locator,
-	logger log.FieldLogger,
+	logger logrus.FieldLogger,
 ) {
 	dontpanic.Go(func() {
 		c.countRepositories(ctx, locator, logger)
@@ -71,7 +71,7 @@ func (c *RepositoryCounter) StartCountingRepositories(
 func (c *RepositoryCounter) countRepositories(
 	ctx context.Context,
 	locator storage.Locator,
-	logger log.FieldLogger,
+	logger logrus.FieldLogger,
 ) {
 	defer func() {
 		c.suppressMetric.Store(false)
@@ -108,7 +108,7 @@ func (c *RepositoryCounter) countRepositories(
 		}
 
 		if err := walk.FindRepositories(ctx, locator, name, incrementPrefix); err != nil {
-			log.WithError(err).Errorf("failed to count repositories in path %q", storPath)
+			logger.WithError(err).Errorf("failed to count repositories in path %q", storPath)
 		}
 
 		for prefix, ct := range paths {

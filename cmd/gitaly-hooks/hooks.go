@@ -76,7 +76,11 @@ func main() {
 	ctx, finished := labkittracing.ExtractFromEnv(ctx)
 	defer finished()
 
-	logger := configureLogger(ctx)
+	logger, err := configureLogger(ctx)
+	if err != nil {
+		fmt.Printf("configuring logger failed: %v", err)
+		os.Exit(1)
+	}
 
 	if err := run(ctx, os.Args); err != nil {
 		var hookError hookError
@@ -100,7 +104,7 @@ func main() {
 // configureLogger configures the logger used by gitaly-hooks. As both stdout and stderr might be interpreted by Git, we
 // need to log to a file instead. If the `log.GitalyLogDirEnvKey` environment variable is set, we thus log to a file
 // contained in the directory pointed to by it, otherwise we discard any log messages.
-func configureLogger(ctx context.Context) logrus.FieldLogger {
+func configureLogger(ctx context.Context) (logrus.FieldLogger, error) {
 	writer := io.Discard
 
 	if logDir := os.Getenv(log.GitalyLogDirEnvKey); logDir != "" {
@@ -113,7 +117,12 @@ func configureLogger(ctx context.Context) logrus.FieldLogger {
 		}
 	}
 
-	return log.Configure(writer, "text", "info").WithField(correlation.FieldName, correlation.ExtractFromContext(ctx))
+	logger, err := log.Configure(writer, "text", "info")
+	if err != nil {
+		return nil, err
+	}
+
+	return logger.WithField(correlation.FieldName, correlation.ExtractFromContext(ctx)), nil
 }
 
 // Both stderr and stdout of gitaly-hooks are streamed back to clients. stdout is processed by client

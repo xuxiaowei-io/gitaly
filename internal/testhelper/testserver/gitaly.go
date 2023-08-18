@@ -318,7 +318,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	if gsd.diskCache == nil {
-		gsd.diskCache = cache.New(cfg, gsd.locator)
+		gsd.diskCache = cache.New(cfg, gsd.locator, gsd.logger)
 	}
 
 	if gsd.packObjectsCache == nil {

@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"golang.org/x/sys/unix"
@@ -47,14 +46,15 @@ type ExecutionEnvironment struct {
 	EnvironmentVariables []string
 
 	isEnabled func(context.Context) bool
-	cleanup   func()
+	cleanup   func() error
 }
 
 // Cleanup cleans up any state set up by this ExecutionEnvironment.
-func (e ExecutionEnvironment) Cleanup() {
+func (e ExecutionEnvironment) Cleanup() error {
 	if e.cleanup != nil {
-		e.cleanup()
+		return e.cleanup()
 	}
+	return nil
 }
 
 // IsEnabled checks whether the ExecutionEnvironment is enabled in the given context. An execution
@@ -180,14 +180,16 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 		return ExecutionEnvironment{}, fmt.Errorf("creating Git exec path: %w", err)
 	}
 
-	cleanup := func() {
+	cleanup := func() error {
 		if err := os.RemoveAll(gitExecPath); err != nil {
-			logrus.WithError(err).Error("cleanup of Git execution environment failed")
+			return fmt.Errorf("removal of execution path: %w", err)
 		}
+
+		return nil
 	}
 	defer func() {
 		if returnedErr != nil {
-			cleanup()
+			_ = cleanup()
 		}
 	}()
 

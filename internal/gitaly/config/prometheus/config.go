@@ -7,7 +7,7 @@ import (
 
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
 )
@@ -30,12 +30,12 @@ func DefaultConfig() Config {
 }
 
 // Configure configures latency buckets for prometheus timing histograms
-func (c *Config) Configure() {
+func (c *Config) Configure(logger logrus.FieldLogger) {
 	if len(c.GRPCLatencyBuckets) == 0 {
 		return
 	}
 
-	log.WithField("latencies", c.GRPCLatencyBuckets).Info("grpc prometheus histograms enabled")
+	logger.WithField("latencies", c.GRPCLatencyBuckets).Info("grpc prometheus histograms enabled")
 
 	grpcprometheus.EnableHandlingTimeHistogram(func(histogramOpts *prometheus.HistogramOpts) {
 		histogramOpts.Buckets = c.GRPCLatencyBuckets

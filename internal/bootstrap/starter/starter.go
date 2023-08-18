@@ -110,7 +110,7 @@ type Server interface {
 }
 
 // New creates a new bootstrap.Starter from a config and a GracefulStoppableServer
-func New(cfg Config, server Server) bootstrap.Starter {
+func New(cfg Config, server Server, logger logrus.FieldLogger) bootstrap.Starter {
 	return func(listenWithHandover bootstrap.ListenFunc, errCh chan<- error, connTotal *prometheus.CounterVec) error {
 		listen := listenWithHandover
 		if !cfg.HandoverOnUpgrade {
@@ -128,7 +128,7 @@ func New(cfg Config, server Server) bootstrap.Starter {
 			return err
 		}
 
-		logrus.WithField("address", cfg.Addr).Infof("listening at %s address", cfg.Name)
+		logger.WithField("address", cfg.Addr).Infof("listening at %s address", cfg.Name)
 		l = wrap(cfg.Name, l, connTotal)
 
 		go func() {
