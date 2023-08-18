@@ -163,7 +163,7 @@ func NewExecCommandFactory(cfg config.Cfg, logger logrus.FieldLogger, opts ...Ex
 	}
 	cleanups = append(cleanups, cleanup)
 
-	execEnvs, cleanup, err := setupGitExecutionEnvironments(cfg, factoryCfg)
+	execEnvs, cleanup, err := setupGitExecutionEnvironments(cfg, factoryCfg, logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("setting up Git execution environment: %w", err)
 	}
@@ -197,7 +197,7 @@ func NewExecCommandFactory(cfg config.Cfg, logger logrus.FieldLogger, opts ...Ex
 
 // setupGitExecutionEnvironments assembles a Git execution environment that can be used to run Git
 // commands. It warns if no path was specified in the configuration.
-func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig) ([]ExecutionEnvironment, func(), error) {
+func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig, logger logrus.FieldLogger) ([]ExecutionEnvironment, func(), error) {
 	sharedEnvironment := []string{
 		// Force English locale for consistency on output messages and to help us debug in
 		// case we get bug reports from customers whose system-locale would be different.
@@ -252,7 +252,7 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 		}
 		execEnv.EnvironmentVariables = append(execEnv.EnvironmentVariables, sharedEnvironment...)
 
-		logrus.WithFields(logrus.Fields{
+		logger.WithFields(logrus.Fields{
 			"resolvedPath": execEnv.BinaryPath,
 		}).Warn("Git has not been properly configured, falling back to Git found on PATH")
 
@@ -261,7 +261,9 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 
 	return execEnvs, func() {
 		for _, execEnv := range execEnvs {
-			execEnv.Cleanup()
+			if err := execEnv.Cleanup(); err != nil {
+				logger.WithError(err).Error("execution environment cleanup failed")
+			}
 		}
 	}, nil
 }

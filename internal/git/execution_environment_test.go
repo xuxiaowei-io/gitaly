@@ -31,7 +31,7 @@ func TestDistributedGitEnvironmentConstructor(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		defer func() { require.NoError(t, execEnv.Cleanup()) }()
 
 		require.Equal(t, "/foo/bar", execEnv.BinaryPath)
 		require.Equal(t, []string(nil), execEnv.EnvironmentVariables)
@@ -42,7 +42,7 @@ func TestDistributedGitEnvironmentConstructor(t *testing.T) {
 
 		execEnv, err := constructor.Construct(config.Cfg{})
 		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		defer func() { require.NoError(t, execEnv.Cleanup()) }()
 
 		require.Equal(t, "/foo/bar", execEnv.BinaryPath)
 		require.Equal(t, []string{
@@ -59,7 +59,7 @@ func TestDistributedGitEnvironmentConstructor(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		defer func() { require.NoError(t, execEnv.Cleanup()) }()
 
 		require.Equal(t, "config", execEnv.BinaryPath)
 		require.Equal(t, []string(nil), execEnv.EnvironmentVariables)
@@ -114,7 +114,7 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		defer func() { require.NoError(t, execEnv.Cleanup()) }()
 
 		// We create a temporary directory where the symlinks are created, and we cannot
 		// predict its exact path.
@@ -144,7 +144,7 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 		execPrefix := filepath.Dir(execEnv.BinaryPath)
 		require.DirExists(t, execPrefix)
 
-		execEnv.Cleanup()
+		require.NoError(t, execEnv.Cleanup())
 
 		require.NoDirExists(t, execPrefix)
 	})
@@ -183,7 +183,7 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 			BinDir: testhelper.TempDir(t),
 		})
 		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		defer func() { require.NoError(t, execEnv.Cleanup()) }()
 
 		require.Equal(t, "git", filepath.Base(execEnv.BinaryPath))
 		execPrefix := filepath.Dir(execEnv.BinaryPath)
@@ -213,7 +213,7 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		defer func() { require.NoError(t, execEnv.Cleanup()) }()
 
 		require.Equal(t, "git", filepath.Base(execEnv.BinaryPath))
 		execPrefix := filepath.Dir(execEnv.BinaryPath)
@@ -248,7 +248,7 @@ func TestFallbackGitEnvironmentConstructor(t *testing.T) {
 
 		execEnv, err := constructor.Construct(config.Cfg{})
 		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		defer func() { require.NoError(t, execEnv.Cleanup()) }()
 
 		require.Equal(t, gitPath, execEnv.BinaryPath)
 		require.Equal(t, []string(nil), execEnv.EnvironmentVariables)
