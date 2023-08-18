@@ -18,7 +18,7 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -58,7 +58,7 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 func TestFailedGetTagMessagesRequest(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
-	_, client := setupRefServiceWithoutRepo(t)
+	_, client := setupRefService(t)
 
 	testCases := []struct {
 		desc        string

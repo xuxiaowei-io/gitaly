@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -18,6 +19,9 @@ type WriteTagConfig struct {
 	Message string
 	// Force indicates whether existing tags with the same name shall be overwritten.
 	Force bool
+	// Date modifies the committer date that the tag should have. This only has an effect when writing
+	// annotated tags.
+	Date time.Time
 }
 
 // WriteTag writes a new tag into the repository. This function either returns the tag ID in case
@@ -59,7 +63,15 @@ func WriteTag(
 	}
 	args = append(args, tagName, targetRevision.String())
 
-	ExecOpts(tb, cfg, ExecConfig{Stdin: stdin}, args...)
+	var env []string
+	if !config.Date.IsZero() {
+		env = append(env, fmt.Sprintf("GIT_COMMITTER_DATE=%d %s", config.Date.Unix(), config.Date.Format("-0700")))
+	}
+
+	ExecOpts(tb, cfg, ExecConfig{
+		Stdin: stdin,
+		Env:   env,
+	}, args...)
 
 	tagID := Exec(tb, cfg, "-C", repoPath, "show-ref", "-s", tagName)
 

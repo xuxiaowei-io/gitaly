@@ -22,7 +22,7 @@ func TestFindDefaultBranchName(t *testing.T) {
 	}
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, client := setupRefService(t)
 
 	for _, tc := range []struct {
 		desc             string
