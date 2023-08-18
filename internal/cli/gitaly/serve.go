@@ -374,7 +374,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 			BackupSink:          backupSink,
 			BackupLocator:       backupLocator,
 		})
-		b.RegisterStarter(starter.New(c, srv))
+		b.RegisterStarter(starter.New(c, srv, logger))
 	}
 
 	if addr := cfg.PrometheusListenAddr; addr != "" {

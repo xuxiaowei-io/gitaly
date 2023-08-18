@@ -440,7 +440,7 @@ func server(
 		}
 		defer srv.Stop()
 
-		b.RegisterStarter(starter.New(cfg, srv))
+		b.RegisterStarter(starter.New(cfg, srv, logger))
 	}
 
 	if conf.PrometheusListenAddr != "" {
