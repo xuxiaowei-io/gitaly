@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
@@ -37,6 +35,8 @@ func TestUserRebaseConfirmable_successful(t *testing.T) {
 }
 
 func testUserRebaseConfirmableSuccessful(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -99,6 +99,8 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 }
 
 func testUserRebaseConfirmableSkipEmptyCommits(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -181,13 +183,19 @@ func testUserRebaseConfirmableSkipEmptyCommits(t *testing.T, ctx context.Context
 	rebaseCommit, err := localrepo.NewTestRepo(t, cfg, repoProto).ReadCommit(ctx, rebaseOID.Revision())
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
-		Subject:   []byte("ours with additional changes"),
-		Body:      []byte("ours with additional changes"),
-		BodySize:  28,
-		Id:        "ef7f98be1f753f1a9fa895d999a855611d691629",
+		Subject:  []byte("ours with additional changes"),
+		Body:     []byte("ours with additional changes"),
+		BodySize: 28,
+		Id: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "ef7f98be1f753f1a9fa895d999a855611d691629",
+			"sha256": "29c9b79bd0e742d7bb51ac0be5283f65fb806a94c19cb591b3621e58703164fa",
+		}),
 		ParentIds: []string{theirs.String()},
-		TreeId:    "b68aeb18813d7f2e180f2cc0bccc128511438b29",
-		Author:    gittest.DefaultCommitAuthor,
+		TreeId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "b68aeb18813d7f2e180f2cc0bccc128511438b29",
+			"sha256": "17546e000464ad5829197d0a4fa52ca5fb42ad16150261f148002cd80013669a",
+		}),
+		Author: gittest.DefaultCommitAuthor,
 		Committer: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
@@ -207,6 +215,8 @@ func TestUserRebaseConfirmable_transaction(t *testing.T) {
 }
 
 func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	txManager := transaction.NewTrackingManager()
@@ -299,6 +309,8 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 }
 
 func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -327,9 +339,14 @@ func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context)
 		},
 	}), "send header")
 
+	expectedCommitID := gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "85b0186925c57efa608939afea01b627a2f4d4cf",
+		"sha256": "a14d9fb56edf718b4aaeaabd2de8cd2403820396ee905f9c87337c5bea8598cf",
+	})
+
 	response, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
-	require.Equal(t, "85b0186925c57efa608939afea01b627a2f4d4cf", response.GetRebaseSha())
+	require.Equal(t, expectedCommitID, response.GetRebaseSha())
 
 	applyRequest := buildUserRebaseConfirmableApplyRequest(true)
 	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
@@ -347,9 +364,12 @@ func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context)
 		Subject:   []byte("message"),
 		Body:      []byte("message"),
 		BodySize:  7,
-		Id:        "85b0186925c57efa608939afea01b627a2f4d4cf",
+		Id:        expectedCommitID,
 		ParentIds: []string{setup.remoteCommit.String()},
-		TreeId:    "a3eb530e96ad4d04d646c3fb5f30ad4807d300b4",
+		TreeId: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "a3eb530e96ad4d04d646c3fb5f30ad4807d300b4",
+			"sha256": "633ab76f30bf7f3766ba215255972f6ee89f0c54bff5af122743c78ddde07d9e",
+		}),
 		Author: gittest.DefaultCommitAuthor,
 		Committer: &gitalypb.CommitAuthor{
 			Name:  gittest.TestUser.Name,
@@ -371,6 +391,8 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 }
 
 func testUserRebaseConfirmableInputValidation(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -437,6 +459,8 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 }
 
 func testUserRebaseConfirmableAbortViaClose(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -520,6 +544,8 @@ func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 }
 
 func testUserRebaseConfirmableAbortViaApply(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -564,6 +590,8 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 }
 
 func testUserRebaseConfirmablePreReceiveError(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -629,6 +657,8 @@ func TestUserRebaseConfirmable_mergeConflict(t *testing.T) {
 }
 
 func testUserRebaseConfirmableMergeConflict(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -678,6 +708,8 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 }
 
 func testUserRebaseConfirmableDeletedFileInLocalRepo(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -756,6 +788,8 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 }
 
 func testUserRebaseConfirmableDeletedFileInRemoteRepo(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -828,6 +862,8 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 }
 
 func testUserRebaseConfirmableFailedWithCode(t *testing.T, ctx context.Context) {
+	skipSHA256WithGit2goRebase(t, ctx)
+
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
@@ -958,5 +994,11 @@ func setupRebasableRepositories(tb testing.TB, ctx context.Context, cfg config.C
 		localRepo: localRepo, localRepoPath: localRepoPath, localCommit: localDivergingCommit, localBranch: "branch-local",
 		remoteRepo: remoteRepo, remoteRepoPath: remoteRepoPath, remoteCommit: remoteDivergingCommit, remoteBranch: "branch-remote",
 		commonCommit: localCommonCommit,
+	}
+}
+
+func skipSHA256WithGit2goRebase(t *testing.T, ctx context.Context) {
+	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.UserRebaseConfirmablePureGit.IsDisabled(ctx) {
+		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
 	}
 }
