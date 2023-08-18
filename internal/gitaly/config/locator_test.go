@@ -34,19 +34,22 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		repo.RelativePath = strings.TrimPrefix(repoPath, cfg.Storages[0].Path)
 	}
 
-	// The storage name still present in the storages list, but not on the disk.
-	require.NoError(t, os.RemoveAll(cfg.Storages[1].Path))
+	if !testhelper.IsWALEnabled() {
+		// The storage name still present in the storages list, but not on the disk.
+		require.NoError(t, os.RemoveAll(cfg.Storages[1].Path))
+	}
 
 	// The repository path exists on the disk, but it is not a git repository.
 	const notRepositoryFolder = "not-a-git-repo"
 	require.NoError(t, os.MkdirAll(filepath.Join(cfg.Storages[0].Path, notRepositoryFolder), perm.SharedDir))
 
 	for _, tc := range []struct {
-		desc    string
-		repo    *gitalypb.Repository
-		opts    []storage.GetRepoPathOption
-		expPath string
-		expErr  error
+		desc        string
+		repo        *gitalypb.Repository
+		opts        []storage.GetRepoPathOption
+		expPath     string
+		expErr      error
+		skipWithWAL string
 	}{
 		{
 			desc:   "storage is empty",
@@ -62,6 +65,11 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 			desc:   "storage doesn't exist on disk",
 			repo:   &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
 			expErr: structerr.NewNotFound("storage does not exist").WithMetadata("storage_path", cfg.Storages[1].Path),
+			skipWithWAL: `
+The test is testing a broken storage by deleting the storage after initializing it.
+This causes problems with WAL as the disk state expected to be present by the database
+and the transaction manager suddenly don't exist. Skip the test here with WAL and rely
+on the storage implementation to handle broken storage on initialization.`,
 		},
 		{
 			desc:   "relative path is empty",
@@ -103,6 +111,10 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			if tc.skipWithWAL != "" {
+				testhelper.SkipWithWAL(t, tc.skipWithWAL)
+			}
+
 			path, err := locator.GetRepoPath(tc.repo, tc.opts...)
 			require.Equal(t, tc.expPath, path)
 			require.Equal(t, tc.expErr, err)

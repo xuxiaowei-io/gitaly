@@ -22,10 +22,22 @@ import (
 )
 
 func TestGitalyServerInfo(t *testing.T) {
-	cfg := testcfg.Build(t, testcfg.WithStorages("default", "broken"))
+	storageOpt := testcfg.WithStorages("default")
+	if !testhelper.IsWALEnabled() {
+		// The test is testing a broken storage by deleting the storage after initializing it.
+		// This causes problems with WAL as the disk state expected to be present by the database
+		// and the transaction manager suddenly don't exist. Skip the test here with WAL and rely
+		// on the storage implementation to handle broken storage on initialization.
+		storageOpt = testcfg.WithStorages("default", "broken")
+	}
+
+	cfg := testcfg.Build(t, storageOpt)
 
 	addr := runServer(t, cfg, testserver.WithDisablePraefect())
-	require.NoError(t, os.RemoveAll(cfg.Storages[1].Path), "second storage needs to be invalid")
+
+	if !testhelper.IsWALEnabled() {
+		require.NoError(t, os.RemoveAll(cfg.Storages[1].Path), "second storage needs to be invalid")
+	}
 
 	client := newServerClient(t, addr)
 	ctx := testhelper.Context(t)
@@ -49,10 +61,12 @@ func TestGitalyServerInfo(t *testing.T) {
 	require.NotEmpty(t, c.GetStorageStatuses()[0].FsType)
 	require.Equal(t, uint32(1), c.GetStorageStatuses()[0].ReplicationFactor)
 
-	require.False(t, c.GetStorageStatuses()[1].Readable)
-	require.False(t, c.GetStorageStatuses()[1].Writeable)
-	require.Equal(t, metadata.GitalyFilesystemID, c.GetStorageStatuses()[0].FilesystemId)
-	require.Equal(t, uint32(1), c.GetStorageStatuses()[1].ReplicationFactor)
+	if !testhelper.IsWALEnabled() {
+		require.False(t, c.GetStorageStatuses()[1].Readable)
+		require.False(t, c.GetStorageStatuses()[1].Writeable)
+		require.Equal(t, metadata.GitalyFilesystemID, c.GetStorageStatuses()[0].FilesystemId)
+		require.Equal(t, uint32(1), c.GetStorageStatuses()[1].ReplicationFactor)
+	}
 }
 
 func runServer(t *testing.T, cfg config.Cfg, opts ...testserver.GitalyServerOpt) string {

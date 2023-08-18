@@ -23,7 +23,9 @@ func TestRepositoryExists(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg)
 	cfg.SocketPath = socketPath
 
-	require.NoError(t, os.RemoveAll(cfg.Storages[2].Path), "third storage needs to be invalid")
+	if !testhelper.IsWALEnabled() {
+		require.NoError(t, os.RemoveAll(cfg.Storages[2].Path), "third storage needs to be invalid")
+	}
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{})
 
@@ -32,6 +34,7 @@ func TestRepositoryExists(t *testing.T) {
 		request     *gitalypb.RepositoryExistsRequest
 		expectedErr error
 		exists      bool
+		skipWithWAL string
 	}{
 		{
 			desc: "repository nil",
@@ -117,11 +120,20 @@ func TestRepositoryExists(t *testing.T) {
 					"storage_path", cfg.Storages[2].Path,
 				)
 			}(),
+			skipWithWAL: `
+The test is testing a broken storage by deleting the storage after initializing it.
+This causes problems with WAL as the disk state expected to be present by the database
+and the transaction manager suddenly don't exist. Skip the test here with WAL and rely
+on the storage implementation to handle broken storage on initialization.`,
 		},
 	}
 
 	for _, tc := range queries {
 		t.Run(tc.desc, func(t *testing.T) {
+			if tc.skipWithWAL != "" {
+				testhelper.SkipWithWAL(t, tc.skipWithWAL)
+			}
+
 			response, err := client.RepositoryExists(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			if err != nil {
