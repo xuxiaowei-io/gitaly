@@ -345,8 +345,7 @@ endif
 ## Enable testing with the SHA256 object format.
 TEST_WITH_SHA256 ?=
 ifdef TEST_WITH_SHA256
-    SERVER_BUILD_TAGS := ${SERVER_BUILD_TAGS},gitaly_test_sha256
-    GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},gitaly_test_sha256
+export GITALY_TEST_WITH_SHA256 = YesPlease
 endif
 
 ## Enable generating test coverage.
