@@ -191,13 +191,14 @@ func NewPartitionManager(
 			return nil, fmt.Errorf("sync database directory: %w", err)
 		}
 
-		db, err := OpenDatabase(databaseDir)
+		storageLogger := logger.WithField("storage", storage.Name)
+		db, err := OpenDatabase(storageLogger.WithField("component", "database"), databaseDir)
 		if err != nil {
 			return nil, fmt.Errorf("create storage's database directory: %w", err)
 		}
 
 		storages[storage.Name] = &storageManager{
-			logger:           logger.WithField("storage", storage.Name),
+			logger:           storageLogger,
 			path:             storage.Path,
 			repoFactory:      repoFactory,
 			stagingDirectory: stagingDir,

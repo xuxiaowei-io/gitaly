@@ -5,14 +5,12 @@ import (
 )
 
 // OpenDatabase opens a new database handle to a database at the given path.
-func OpenDatabase(databasePath string) (*badger.DB, error) {
+func OpenDatabase(logger badger.Logger, databasePath string) (*badger.DB, error) {
 	dbOptions := badger.DefaultOptions(databasePath)
 	// Enable SyncWrites to ensure all writes are persisted to disk before considering
 	// them committed.
 	dbOptions.SyncWrites = true
-	// Badger by default logs fairly verbose statistics when opening a database. Disable the
-	// logging for now.
-	dbOptions.Logger = nil
+	dbOptions.Logger = logger
 
 	return badger.Open(dbOptions)
 }
