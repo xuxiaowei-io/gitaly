@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -207,6 +208,13 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 		)
 	}
 
+	formatOutput := func(inputPath string, requestCt int, lines []string) string {
+		header := fmt.Sprintf("Validating repository information in %q\n", inputPath)
+		header += fmt.Sprintf("Found %v invalid request(s) in %q:\n", requestCt, inputPath)
+		rest := strings.Join(lines, "\n")
+		return header + rest + "\n"
+	}
+
 	const invalidEntryErr = "invalid entries found, aborting"
 
 	t.Run("fail", func(t *testing.T) {
@@ -214,7 +222,8 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 			desc           string
 			args           func(inputPath string) []string
 			input          string
-			expectedOutput string
+			requestCt      int
+			expectedOutput []string
 			expectedError  string
 			trackedPath    string
 		}{
@@ -238,42 +247,68 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 				expectedError: "no repository information found",
 			},
 			{
-				desc:           "invalid JSON",
-				input:          "@hashed/01/23/01234567890123456789.git",
-				expectedOutput: "invalid character '@' looking for beginning of value",
-				expectedError:  invalidEntryErr,
+				desc:      "invalid JSON",
+				input:     "@hashed/01/23/01234567890123456789.git",
+				requestCt: 1,
+				expectedOutput: []string{
+					`  line 1, relative_path: ""`,
+					"    invalid character '@' looking for beginning of value",
+				},
+				expectedError: invalidEntryErr,
 			},
 			{
-				desc:           "missing path",
-				input:          `{"virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
-				expectedOutput: `"repository" is a required parameter`,
-				expectedError:  invalidEntryErr,
+				desc:      "missing path",
+				input:     `{"virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
+				requestCt: 1,
+				expectedOutput: []string{
+					`  line 1, relative_path: ""`,
+					`    "repository" is a required parameter`,
+				},
+				expectedError: invalidEntryErr,
 			},
 			{
-				desc:           "invalid virtual storage",
-				input:          `{"virtual_storage":"foo","relative_path":"bar","authoritative_storage":"gitaly-1"}`,
-				expectedOutput: `virtual storage "foo" not found`,
-				expectedError:  invalidEntryErr,
+				desc:      "invalid virtual storage",
+				input:     `{"virtual_storage":"foo","relative_path":"bar","authoritative_storage":"gitaly-1"}`,
+				requestCt: 1,
+				expectedOutput: []string{
+					`  line 1, relative_path: "bar"`,
+					`    checking repository on disk: virtual storage "foo" not found`,
+				},
+				expectedError: invalidEntryErr,
 			},
 			{
-				desc:           "repo does not exist",
-				input:          `{"relative_path":"not_a_repo","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
-				expectedOutput: "not a valid git repository",
-				expectedError:  invalidEntryErr,
+				desc:      "repo does not exist",
+				input:     `{"relative_path":"not_a_repo","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
+				requestCt: 1,
+				expectedOutput: []string{
+					`  line 1, relative_path: "not_a_repo"`,
+					"    not a valid git repository",
+				},
+				expectedError: invalidEntryErr,
 			},
 			{
 				desc: "duplicate path",
 				input: `{"virtual_storage":"praefect","relative_path":"duplicate","authoritative_storage":"gitaly-1"}
-{"virtual_storage":"praefect","relative_path":"duplicate","authoritative_storage":"gitaly-1"}`,
-				expectedOutput: "duplicate entries for relative_path",
-				expectedError:  invalidEntryErr,
+					{"virtual_storage":"praefect","relative_path":"duplicate","authoritative_storage":"gitaly-1"}`,
+				requestCt: 2,
+				expectedOutput: []string{
+					`  line 1, relative_path: "duplicate"`,
+					"    not a valid git repository",
+					`  line 2, relative_path: "duplicate"`,
+					"    duplicate entries for relative_path, line [1 2]",
+				},
+				expectedError: invalidEntryErr,
 			},
 			{
-				desc:           "repo is already tracked",
-				input:          `{"relative_path":"already_tracked","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
-				expectedOutput: "repository is already tracked by Praefect",
-				expectedError:  invalidEntryErr,
-				trackedPath:    "already_tracked",
+				desc:      "repo is already tracked",
+				input:     `{"relative_path":"already_tracked","virtual_storage":"praefect","authoritative_storage":"gitaly-1"}`,
+				requestCt: 1,
+				expectedOutput: []string{
+					`  line 1, relative_path: "already_tracked"`,
+					"    repository is already tracked by Praefect",
+				},
+				expectedError: invalidEntryErr,
+				trackedPath:   "already_tracked",
 			},
 		} {
 			tc := tc
@@ -299,9 +334,10 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 				assert.Empty(t, stderr)
 				require.Error(t, err)
 
-				if tc.expectedOutput != "" {
-					require.Contains(t, stdout, tc.expectedOutput)
+				if len(tc.expectedOutput) > 0 {
+					require.Equal(t, formatOutput(inputPath, tc.requestCt, tc.expectedOutput), stdout)
 				}
+
 				require.Contains(t, err.Error(), tc.expectedError)
 			})
 		}
