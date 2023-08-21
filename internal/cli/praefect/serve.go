@@ -118,14 +118,14 @@ func run(appName string, logger *logrus.Entry, configPath string) error {
 	return nil
 }
 
-func initConfig(logger *logrus.Entry, path string) (config.Config, error) {
+func getConfig(logger *logrus.Entry, path string) (config.Config, error) {
 	conf, err := config.FromFile(path)
 	if err != nil {
 		return conf, fmt.Errorf("error reading config file: %w", err)
 	}
 
 	if err := conf.Validate(); err != nil {
-		return config.Config{}, err
+		return config.Config{}, fmt.Errorf("validating config: %w", err)
 	}
 
 	if !conf.AllowLegacyElectors {
@@ -135,15 +135,6 @@ func initConfig(logger *logrus.Entry, path string) (config.Config, error) {
 	if !conf.Failover.Enabled && conf.Failover.ElectionStrategy != "" {
 		logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
 			"ignoring configured election strategy as failover is disabled")
-	}
-
-	return conf, nil
-}
-
-func getConfig(logger *logrus.Entry, path string) (config.Config, error) {
-	conf, err := initConfig(logger, path)
-	if err != nil {
-		return conf, cli.Exit(fmt.Errorf("configuration error: %w", err), 1)
 	}
 
 	return conf, nil
