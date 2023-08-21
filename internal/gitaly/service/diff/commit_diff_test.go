@@ -1,13 +1,11 @@
 package diff
 
 import (
-	"context"
 	"io"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -18,12 +16,8 @@ import (
 
 func TestCommitDiff(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.LowerBigFileThreshold).Run(t, testCommitDiff)
-}
 
-func testCommitDiff(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, client := setupDiffService(t)
 
 	type setupData struct {
@@ -538,32 +532,18 @@ func testCommitDiff(t *testing.T, ctx context.Context) {
 						LeftCommitId:  commit1.String(),
 						RightCommitId: commit2.String(),
 					},
-					expectedDiff: testhelper.EnabledOrDisabledFlag(ctx, featureflag.LowerBigFileThreshold,
-						[]*diff.Diff{
-							{
-								FromID:   blob1.String(),
-								ToID:     blob2.String(),
-								OldMode:  0o100644,
-								NewMode:  0o100644,
-								FromPath: []byte("huge"),
-								ToPath:   []byte("huge"),
-								Binary:   true,
-								Patch:    []byte("Binary files a/huge and b/huge differ\n"),
-							},
+					expectedDiff: []*diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("huge"),
+							ToPath:   []byte("huge"),
+							Binary:   true,
+							Patch:    []byte("Binary files a/huge and b/huge differ\n"),
 						},
-						[]*diff.Diff{
-							{
-								FromID:   blob1.String(),
-								ToID:     blob2.String(),
-								OldMode:  0o100644,
-								NewMode:  0o100644,
-								FromPath: []byte("huge"),
-								ToPath:   []byte("huge"),
-								Binary:   false,
-								Patch:    []byte("@@ -2,4 +2,4 @@\n \n \n \n-a\n+b\n"),
-							},
-						},
-					),
+					},
 				}
 			},
 		},

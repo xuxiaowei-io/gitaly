@@ -18,7 +18,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
@@ -597,12 +596,8 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 
 func TestExecCommandFactory_config(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.LowerBigFileThreshold).Run(t, testExecCommandFactoryConfig)
-}
 
-func testExecCommandFactoryConfig(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	// Create a repository and remove its gitconfig to bring us into a known state where there
@@ -620,11 +615,8 @@ func testExecCommandFactoryConfig(t *testing.T, ctx context.Context) {
 		"core.fsyncmethod=fsync",
 		"core.packedrefstimeout=10000",
 		"core.filesreflocktimeout=1000",
+		"core.bigfilethreshold=50m",
 	}
-	expectedEnv = append(expectedEnv, testhelper.EnabledOrDisabledFlag(ctx, featureflag.LowerBigFileThreshold,
-		[]string{"core.bigfilethreshold=50m"},
-		[]string{},
-	)...)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 

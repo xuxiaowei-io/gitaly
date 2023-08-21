@@ -14,7 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2hooks"
@@ -625,9 +624,7 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// still observed lock contention around them though, but mostly in cases where the host system was
 		// heavily loaded by a storm of incoming RPCs.
 		{Key: "core.filesRefLockTimeout", Value: "1000"},
-	}
 
-	if featureflag.LowerBigFileThreshold.IsEnabled(ctx) {
 		// Change the size of files we consider to be big from 512MB to 50MB. This setting influences a bunch of
 		// things for blobs that are larger than this size:
 		//
@@ -646,7 +643,7 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// So ultimately, this should not lead to larger packfiles as we have already been restricting the
 		// packfile window anyway while it should on the other hand lead to lower memory consumption and faster
 		// computation of diffs when large blobs are involved.
-		config = append(config, ConfigPair{Key: "core.bigFileThreshold", Value: fmt.Sprintf("%dm", BigFileThresholdMB)})
+		{Key: "core.bigFileThreshold", Value: fmt.Sprintf("%dm", BigFileThresholdMB)},
 	}
 
 	return config, nil
