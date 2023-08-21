@@ -86,6 +86,11 @@ func configure() (_ func(), returnedErr error) {
 		return nil, fmt.Errorf("configuring logger failed: %w", err)
 	}
 
+	// From now on we will refrain from replacing the gRPC logger. The gRPC logger is a global shared resource, so
+	// any tests that run in parallel and end up calling `log.Configure()` would potentially try to replace the
+	// logger while it is in use.
+	log.SkipReplacingGlobalLoggers = true
+
 	for key, value := range map[string]string{
 		// We inject the following two variables, which instruct Git to search its
 		// configuration in non-default locations in the global and system scope. This is

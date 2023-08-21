@@ -50,6 +50,17 @@ var defaultLogger = func() *logrus.Logger {
 	return logger
 }()
 
+// SkipReplacingGlobalLoggers will cause `Configure()` to skip replacing global loggers. This is mostly a hack: command
+// line applications are expected to call `log.Configure()` in their subcommand actions, and that should indeed always
+// replace global loggers, as well. But when running tests, we invoke the subcommand actions multiple times, which is
+// thus re-configuring the logger repeatedly. Because global logger are per definition a global shared resource, the
+// consequence is that we might end up replacing the global loggers while tests are using them, and this race rightfully
+// gets detected by Go's race detector.
+//
+// This variable should thus only be set in the testhelper's setup routines such that we configure the global logger a
+// single time for all of our tests, only.
+var SkipReplacingGlobalLoggers bool
+
 // Config contains logging configuration values
 type Config struct {
 	Dir    string `toml:"dir,omitempty" json:"dir"`
@@ -64,14 +75,16 @@ func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook)
 		return nil, err
 	}
 
-	// We replace the gRPC logger with a custom one because the default one is too chatty.
-	grpcLogger := logrus.New() //nolint:forbidigo
+	if !SkipReplacingGlobalLoggers {
+		// We replace the gRPC logger with a custom one because the default one is too chatty.
+		grpcLogger := logrus.New() //nolint:forbidigo
 
-	if err := configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...); err != nil {
-		return nil, err
+		if err := configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...); err != nil {
+			return nil, err
+		}
+
+		grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
 	}
-
-	grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
 
 	return Default(), nil
 }
