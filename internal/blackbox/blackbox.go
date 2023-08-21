@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 )
 
@@ -74,7 +74,8 @@ func (m httpPostMetrics) Collect(metrics chan<- prometheus.Metric) {
 
 // Blackbox encapsulates all details required to run the blackbox prober.
 type Blackbox struct {
-	cfg Config
+	cfg    Config
+	logger logrus.FieldLogger
 
 	fetchReferenceDiscoveryMetrics httpReferenceDiscoveryMetrics
 	httpPostMetrics                httpPostMetrics
@@ -82,9 +83,10 @@ type Blackbox struct {
 }
 
 // New creates a new Blackbox structure.
-func New(cfg Config) Blackbox {
+func New(cfg Config, logger logrus.FieldLogger) Blackbox {
 	return Blackbox{
-		cfg: cfg,
+		cfg:    cfg,
+		logger: logger,
 		fetchReferenceDiscoveryMetrics: httpReferenceDiscoveryMetrics{
 			firstPacket:    newGauge("get_first_packet_seconds", "Time to first Git packet in GET /info/refs response"),
 			totalTime:      newGauge("get_total_time_seconds", "Time to receive entire GET /info/refs response"),
@@ -140,7 +142,7 @@ func (b Blackbox) Run() error {
 func (b Blackbox) runProbes() {
 	for ; ; time.Sleep(b.cfg.sleepDuration.Duration()) {
 		for _, probe := range b.cfg.Probes {
-			entry := log.Default().WithFields(map[string]interface{}{
+			entry := b.logger.WithFields(map[string]interface{}{
 				"probe": probe.Name,
 				"type":  probe.Type,
 			})

@@ -46,7 +46,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bb := blackbox.New(cfg)
+	bb := blackbox.New(cfg, logger)
 	prometheus.MustRegister(bb)
 
 	if err := bb.Run(); err != nil {
