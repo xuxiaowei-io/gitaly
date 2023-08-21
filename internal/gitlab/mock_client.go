@@ -7,23 +7,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	// MockAllowed is a callback for the MockClient's `Allowed()` function which always allows a
-	// change.
-	MockAllowed = func(context.Context, AllowedParams) (bool, string, error) {
-		return true, "", nil
-	}
-	// MockPreReceive is a callback for the MockClient's `PreReceive()` function which always
-	// allows a change.
-	MockPreReceive = func(context.Context, string) (bool, error) {
-		return true, nil
-	}
-	// MockPostReceive is a callback for the MockCLient's `PostReceive()` function which always
-	// allows a change.
-	MockPostReceive = func(context.Context, string, string, string, ...string) (bool, []PostReceiveMessage, error) {
-		return true, nil, nil
-	}
-)
+// MockAllowed is a callback for the MockClient's `Allowed()` function which always allows a change.
+func MockAllowed(context.Context, AllowedParams) (bool, string, error) {
+	return true, "", nil
+}
+
+// MockPreReceive is a callback for the MockClient's `PreReceive()` function which always allows a change.
+func MockPreReceive(context.Context, string) (bool, error) {
+	return true, nil
+}
+
+// MockPostReceive is a callback for the MockCLient's `PostReceive()` function which always allows a change.
+func MockPostReceive(context.Context, string, string, string, ...string) (bool, []PostReceiveMessage, error) {
+	return true, nil, nil
+}
 
 // MockClient is a mock client of the internal GitLab API.
 type MockClient struct {
