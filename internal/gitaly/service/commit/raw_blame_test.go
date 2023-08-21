@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package commit
 
 import (
@@ -8,158 +6,273 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulRawBlameRequest(t *testing.T) {
+func TestRawBlame(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, client := setupCommitService(t, ctx)
 
-	testCases := []struct {
-		revision, path, data, blameRange []byte
-	}{
-		{
-			revision:   []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			path:       []byte("files/ruby/popen.rb"),
-			data:       testhelper.MustReadFile(t, "testdata/files-ruby-popen-e63f41f-blame.txt"),
-			blameRange: []byte{},
-		},
-		{
-			revision:   []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			path:       []byte("files/ruby/popen.rb"),
-			data:       testhelper.MustReadFile(t, "testdata/files-ruby-popen-e63f41f-blame.txt")[0:956],
-			blameRange: []byte("1,5"),
-		},
-		{
-			revision:   []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			path:       []byte("files/ruby/../ruby/popen.rb"),
-			data:       testhelper.MustReadFile(t, "testdata/files-ruby-popen-e63f41f-blame.txt"),
-			blameRange: []byte{},
-		},
-		{
-			revision:   []byte("93dcf076a236c837dd47d61f86d95a6b3d71b586"),
-			path:       []byte("gitaly/empty-file"),
-			data:       []byte{},
-			blameRange: []byte{},
-		},
+	type setupData struct {
+		request      *gitalypb.RawBlameRequest
+		expectedErr  error
+		expectedData string
 	}
 
-	for _, testCase := range testCases {
-		t.Run(fmt.Sprintf("test case: revision=%q path=%q", testCase.revision, testCase.path), func(t *testing.T) {
-			request := &gitalypb.RawBlameRequest{
-				Repository: repo,
-				Revision:   testCase.revision,
-				Path:       testCase.path,
-				Range:      testCase.blameRange,
-			}
-			c, err := client.RawBlame(ctx, request)
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "unset repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request:     &gitalypb.RawBlameRequest{},
+					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+				}
+			},
+		},
+		{
+			desc: "unknown storage",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "fake",
+							RelativePath: "path",
+						},
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
+						"%w", storage.NewStorageNotFoundError("fake"),
+					)),
+				}
+			},
+		},
+		{
+			desc: "unset revision",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+					},
+					expectedErr: structerr.NewInvalidArgument("empty revision"),
+				}
+			},
+		},
+		{
+			desc: "unset path",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte("abcdef"),
+					},
+					expectedErr: structerr.NewInvalidArgument("empty Path"),
+				}
+			},
+		},
+		{
+			desc: "invalid revision",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte("--output=/meow"),
+					},
+					expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
+				}
+			},
+		},
+		{
+			desc: "invalid range",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte("abcdef"),
+						Path:       []byte("a/b/c"),
+						Range:      []byte("foo"),
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid Range"),
+				}
+			},
+		},
+		{
+			desc: "simple blame",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitA := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\n"},
+				))
+				commitB := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "b\n"},
+				), gittest.WithParents(commitA))
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte(commitB),
+						Path:       []byte("path"),
+					},
+					expectedData: fmt.Sprintf(`%s 1 1 1
+author Scrooge McDuck
+author-mail <scrooge@mcduck.com>
+author-time 1572776879
+author-tz +0100
+committer Scrooge McDuck
+committer-mail <scrooge@mcduck.com>
+committer-time 1572776879
+committer-tz +0100
+summary message
+previous %s path
+filename path
+	b
+`, commitB, commitA),
+				}
+			},
+		},
+		{
+			desc: "blame with relative path",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitA := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\n"},
+				))
+				commitB := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "b\n"},
+				), gittest.WithParents(commitA))
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte(commitB),
+						Path:       []byte("foo/../path"),
+					},
+					expectedData: fmt.Sprintf(`%s 1 1 1
+author Scrooge McDuck
+author-mail <scrooge@mcduck.com>
+author-time 1572776879
+author-tz +0100
+committer Scrooge McDuck
+committer-mail <scrooge@mcduck.com>
+committer-time 1572776879
+committer-tz +0100
+summary message
+previous %s path
+filename path
+	b
+`, commitB, commitA),
+				}
+			},
+		},
+		{
+			desc: "blame with empty file",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				emptyBlob := gittest.WriteBlob(t, cfg, repoPath, []byte{})
+				commitA := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", OID: emptyBlob},
+				))
+				commitB := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", OID: emptyBlob},
+				), gittest.WithParents(commitA))
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte(commitB),
+						Path:       []byte("path"),
+					},
+					expectedData: "",
+				}
+			},
+		},
+		{
+			desc: "blame with range",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitA := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\n1\n1\n1\n1\n1\na\n"},
+				))
+				commitB := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "b\n1\n1\n1\n1\n1\nb\n"},
+				), gittest.WithParents(commitA))
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte(commitB),
+						Path:       []byte("path"),
+						Range:      []byte("6,8"),
+					},
+					expectedData: fmt.Sprintf(`%s 6 6 1
+author Scrooge McDuck
+author-mail <scrooge@mcduck.com>
+author-time 1572776879
+author-tz +0100
+committer Scrooge McDuck
+committer-mail <scrooge@mcduck.com>
+committer-time 1572776879
+committer-tz +0100
+summary message
+boundary
+filename path
+	1
+%s 7 7 1
+author Scrooge McDuck
+author-mail <scrooge@mcduck.com>
+author-time 1572776879
+author-tz +0100
+committer Scrooge McDuck
+committer-mail <scrooge@mcduck.com>
+committer-time 1572776879
+committer-tz +0100
+summary message
+previous %s path
+filename path
+	b
+`, commitA, commitB, commitA),
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			stream, err := client.RawBlame(ctx, setup.request)
 			require.NoError(t, err)
 
-			sr := streamio.NewReader(func() ([]byte, error) {
-				response, err := c.Recv()
+			reader := streamio.NewReader(func() ([]byte, error) {
+				response, err := stream.Recv()
 				return response.GetData(), err
 			})
 
-			blame, err := io.ReadAll(sr)
-			require.NoError(t, err)
-
-			require.Equal(t, testCase.data, blame, "blame data mismatched")
+			data, err := io.ReadAll(reader)
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			require.Equal(t, setup.expectedData, string(data))
 		})
 	}
-}
-
-func TestFailedRawBlameRequest(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
-
-	testCases := []struct {
-		description    string
-		repo           *gitalypb.Repository
-		revision, path []byte
-		blameRange     []byte
-		expectedErr    error
-	}{
-		{
-			description: "No repository provided",
-			repo:        nil,
-			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
-		},
-		{
-			description: "Invalid repo",
-			repo:        invalidRepo,
-			revision:    []byte("master"),
-			path:        []byte("a/b/c"),
-			blameRange:  []byte{},
-			expectedErr: testhelper.ToInterceptedMetadata(structerr.NewInvalidArgument(
-				"%w", storage.NewStorageNotFoundError("fake"),
-			)),
-		},
-		{
-			description: "Empty revision",
-			repo:        repo,
-			revision:    []byte(""),
-			path:        []byte("a/b/c"),
-			blameRange:  []byte{},
-			expectedErr: status.Error(codes.InvalidArgument, "empty revision"),
-		},
-		{
-			description: "Empty path",
-			repo:        repo,
-			revision:    []byte("abcdef"),
-			path:        []byte(""),
-			blameRange:  []byte{},
-			expectedErr: status.Error(codes.InvalidArgument, "empty Path"),
-		},
-		{
-			description: "Invalid revision",
-			repo:        repo,
-			revision:    []byte("--output=/meow"),
-			path:        []byte("a/b/c"),
-			blameRange:  []byte{},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
-		},
-		{
-			description: "Invalid range",
-			repo:        repo,
-			revision:    []byte("abcdef"),
-			path:        []byte("a/b/c"),
-			blameRange:  []byte("foo"),
-			expectedErr: status.Error(codes.InvalidArgument, "invalid Range"),
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.description, func(t *testing.T) {
-			request := gitalypb.RawBlameRequest{
-				Repository: testCase.repo,
-				Revision:   testCase.revision,
-				Path:       testCase.path,
-				Range:      testCase.blameRange,
-			}
-			c, err := client.RawBlame(ctx, &request)
-			require.NoError(t, err)
-
-			testhelper.RequireGrpcError(t, testCase.expectedErr, drainRawBlameResponse(c))
-		})
-	}
-}
-
-func drainRawBlameResponse(c gitalypb.CommitService_RawBlameClient) error {
-	var err error
-	for err == nil {
-		_, err = c.Recv()
-	}
-	return err
 }
