@@ -1156,7 +1156,7 @@ func TestReconciler(t *testing.T) {
 			// Sort the jobs so the require.Contains works below, the order of the produced jobs is not important.
 			for _, jobs := range append(expectedJobs, actualJobs) {
 				sort.Slice(jobs, func(i, j int) bool {
-					return jobs[i].VirtualStorage+jobs[i].RelativePath < jobs[j].VirtualStorage+jobs[j].RelativePath
+					return jobs[i].VirtualStorage+jobs[i].RelativePath+jobs[i].TargetNodeStorage < jobs[j].VirtualStorage+jobs[j].RelativePath+jobs[j].TargetNodeStorage
 				})
 			}
 
