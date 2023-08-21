@@ -14,21 +14,22 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 type cgroupV1Handler struct {
 	cfg       cgroupscfg.Config
+	logger    logrus.FieldLogger
 	hierarchy func() ([]cgroup1.Subsystem, error)
 
 	*cgroupsMetrics
 	pid int
 }
 
-func newV1Handler(cfg cgroupscfg.Config, pid int) *cgroupV1Handler {
+func newV1Handler(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *cgroupV1Handler {
 	return &cgroupV1Handler{
-		cfg: cfg,
-		pid: pid,
+		cfg:    cfg,
+		logger: logger,
+		pid:    pid,
 		hierarchy: func() ([]cgroup1.Subsystem, error) {
 			return defaultSubsystems(cfg.Mountpoint)
 		},
@@ -88,7 +89,7 @@ func (cvh *cgroupV1Handler) collect(ch chan<- prometheus.Metric) {
 
 	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
 		repoPath := cvh.repoPath(i)
-		logger := log.Default().WithField("cgroup_path", repoPath)
+		logger := cvh.logger.WithField("cgroup_path", repoPath)
 		control, err := cgroup1.Load(
 			cgroup1.StaticPath(repoPath),
 			cgroup1.WithHiearchy(cvh.hierarchy),
