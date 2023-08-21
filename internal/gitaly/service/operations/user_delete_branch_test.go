@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -267,20 +268,20 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc             string
-		allowed          func(context.Context, gitlab.AllowedParams) (bool, string, error)
+		allowed          func(context.Context, gitlabaction.Action, gitlab.AllowedParams) (bool, string, error)
 		expectedErr      func(commitID git.ObjectID) error
 		expectedResponse *gitalypb.UserDeleteBranchResponse
 	}{
 		{
 			desc: "allowed",
-			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+			allowed: func(context.Context, gitlabaction.Action, gitlab.AllowedParams) (bool, string, error) {
 				return true, "", nil
 			},
 			expectedResponse: &gitalypb.UserDeleteBranchResponse{},
 		},
 		{
 			desc: "not allowed",
-			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+			allowed: func(context.Context, gitlabaction.Action, gitlab.AllowedParams) (bool, string, error) {
 				return false, "something something", nil
 			},
 			expectedErr: func(commitID git.ObjectID) error {
@@ -302,7 +303,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 		},
 		{
 			desc: "error",
-			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+			allowed: func(context.Context, gitlabaction.Action, gitlab.AllowedParams) (bool, string, error) {
 				return false, "something something", errors.New("something else")
 			},
 			expectedErr: func(commitID git.ObjectID) error {

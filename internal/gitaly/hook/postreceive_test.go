@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -252,7 +253,7 @@ type postreceiveAPIMock struct {
 	postreceive func(context.Context, string, string, string, ...string) (bool, []gitlab.PostReceiveMessage, error)
 }
 
-func (m *postreceiveAPIMock) Allowed(ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
+func (m *postreceiveAPIMock) Allowed(ctx context.Context, action gitlabaction.Action, params gitlab.AllowedParams) (bool, string, error) {
 	return true, "", nil
 }
 

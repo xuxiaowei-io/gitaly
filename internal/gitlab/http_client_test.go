@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -129,7 +130,7 @@ func TestAccess_verifyParams(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		allowed, _, err := c.Allowed(ctx, AllowedParams{
+		allowed, _, err := c.Allowed(ctx, gitlabaction.ReceivePack, AllowedParams{
 			RepoPath:                      tc.repo.RelativePath,
 			GitObjectDirectory:            tc.repo.GitObjectDirectory,
 			GitAlternateObjectDirectories: tc.repo.GitAlternateObjectDirectories,
@@ -242,7 +243,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			allowed, _, err := c.Allowed(ctx, AllowedParams{
+			allowed, _, err := c.Allowed(ctx, gitlabaction.ReceivePack, AllowedParams{
 				RepoPath:                      repo.RelativePath,
 				GitObjectDirectory:            repo.GitObjectDirectory,
 				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
@@ -399,7 +400,7 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			mockHistogramVec := promtest.NewMockHistogramVec()
 			c.latencyMetric = mockHistogramVec
 
-			allowed, message, err := c.Allowed(ctx, AllowedParams{
+			allowed, message, err := c.Allowed(ctx, gitlabaction.ReceivePack, AllowedParams{
 				RepoPath:                      repo.RelativePath,
 				GitObjectDirectory:            repo.GitObjectDirectory,
 				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,

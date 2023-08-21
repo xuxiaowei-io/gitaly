@@ -2,6 +2,8 @@ package gitlab
 
 import (
 	"context"
+
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 )
 
 // AllowedParams compose set of parameters required to call 'GitlabAPI.Allowed' method.
@@ -44,8 +46,9 @@ type CheckInfo struct {
 
 // Client is an interface for accessing the GitLab internal API
 type Client interface {
-	// Allowed queries the gitlab internal api /allowed endpoint to determine if a ref change for a given repository and user is allowed
-	Allowed(ctx context.Context, params AllowedParams) (bool, string, error)
+	// Allowed queries the GitLab `internal/allowed` endpoint to determine if a reference change performed by a
+	// specific action for a given repository and user is allowed.
+	Allowed(ctx context.Context, action gitlabaction.Action, params AllowedParams) (bool, string, error)
 	// Check verifies that GitLab can be reached, and authenticated to
 	Check(ctx context.Context) (*CheckInfo, error)
 	// PreReceive queries the gitlab internal api /pre_receive to increase the reference counter

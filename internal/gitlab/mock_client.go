@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 )
 
 // MockAllowed is a callback for the MockClient's `Allowed()` function which always allows a change.
-func MockAllowed(context.Context, AllowedParams) (bool, string, error) {
+func MockAllowed(context.Context, gitlabaction.Action, AllowedParams) (bool, string, error) {
 	return true, "", nil
 }
 
@@ -25,7 +26,7 @@ func MockPostReceive(context.Context, string, string, string, ...string) (bool, 
 // MockClient is a mock client of the internal GitLab API.
 type MockClient struct {
 	tb          testing.TB
-	allowed     func(context.Context, AllowedParams) (bool, string, error)
+	allowed     func(context.Context, gitlabaction.Action, AllowedParams) (bool, string, error)
 	preReceive  func(context.Context, string) (bool, error)
 	postReceive func(context.Context, string, string, string, ...string) (bool, []PostReceiveMessage, error)
 }
@@ -33,7 +34,7 @@ type MockClient struct {
 // NewMockClient returns a new mock client for the internal GitLab API.
 func NewMockClient(
 	tb testing.TB,
-	allowed func(context.Context, AllowedParams) (bool, string, error),
+	allowed func(context.Context, gitlabaction.Action, AllowedParams) (bool, string, error),
 	preReceive func(context.Context, string) (bool, error),
 	postReceive func(context.Context, string, string, string, ...string) (bool, []PostReceiveMessage, error),
 ) Client {
@@ -46,9 +47,9 @@ func NewMockClient(
 }
 
 // Allowed does nothing and always returns true.
-func (m *MockClient) Allowed(ctx context.Context, params AllowedParams) (bool, string, error) {
+func (m *MockClient) Allowed(ctx context.Context, action gitlabaction.Action, params AllowedParams) (bool, string, error) {
 	require.NotNil(m.tb, m.allowed, "allowed called but not set")
-	return m.allowed(ctx, params)
+	return m.allowed(ctx, action, params)
 }
 
 // Check does nothing and always returns a CheckInfo prepopulated with static data.

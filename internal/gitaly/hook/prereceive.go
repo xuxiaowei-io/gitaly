@@ -12,6 +12,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -138,7 +139,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 		Changes:                       string(changes),
 	}
 
-	allowed, message, err := m.gitlabClient.Allowed(ctx, params)
+	allowed, message, err := m.gitlabClient.Allowed(ctx, gitlabaction.ReceivePack, params)
 	if err != nil {
 		// This logic is broken because we just return every potential error to the
 		// caller, even though we cannot tell whether the error message stems from

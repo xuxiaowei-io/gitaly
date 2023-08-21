@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/prometheus/metrics"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
 )
@@ -153,7 +154,7 @@ type allowedResponse struct {
 }
 
 // Allowed checks if a ref change for a given repository is allowed through the gitlab internal api /allowed endpoint
-func (c *HTTPClient) Allowed(ctx context.Context, params AllowedParams) (bool, string, error) {
+func (c *HTTPClient) Allowed(ctx context.Context, action gitlabaction.Action, params AllowedParams) (bool, string, error) {
 	defer prometheus.NewTimer(c.latencyMetric.WithLabelValues("allowed")).ObserveDuration()
 
 	gitObjDirVars, err := marshallGitObjectDirs(params.GitObjectDirectory, params.GitAlternateObjectDirectories)
@@ -162,7 +163,7 @@ func (c *HTTPClient) Allowed(ctx context.Context, params AllowedParams) (bool, s
 	}
 
 	req := allowedRequest{
-		Action:       "git-receive-pack",
+		Action:       string(action),
 		GLRepository: params.GLRepository,
 		Changes:      params.Changes,
 		Protocol:     params.GLProtocol,

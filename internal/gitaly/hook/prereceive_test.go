@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -270,12 +271,12 @@ func TestPrereceive_quarantine(t *testing.T) {
 }
 
 type prereceiveAPIMock struct {
-	allowed    func(context.Context, gitlab.AllowedParams) (bool, string, error)
+	allowed    func(context.Context, gitlabaction.Action, gitlab.AllowedParams) (bool, string, error)
 	prereceive func(context.Context, string) (bool, error)
 }
 
-func (m *prereceiveAPIMock) Allowed(ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
-	return m.allowed(ctx, params)
+func (m *prereceiveAPIMock) Allowed(ctx context.Context, action gitlabaction.Action, params gitlab.AllowedParams) (bool, string, error) {
+	return m.allowed(ctx, action, params)
 }
 
 func (m *prereceiveAPIMock) PreReceive(ctx context.Context, glRepository string) (bool, error) {
@@ -318,7 +319,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 		desc           string
 		env            []string
 		changes        string
-		allowed        func(*testing.T, context.Context, gitlab.AllowedParams) (bool, string, error)
+		allowed        func(*testing.T, context.Context, gitlabaction.Action, gitlab.AllowedParams) (bool, string, error)
 		prereceive     func(*testing.T, context.Context, string) (bool, error)
 		expectHookCall bool
 		expectedErr    error
@@ -327,7 +328,8 @@ func TestPrereceive_gitlab(t *testing.T) {
 			desc:    "allowed change",
 			env:     standardEnv,
 			changes: "changes\n",
-			allowed: func(t *testing.T, ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
+			allowed: func(t *testing.T, ctx context.Context, action gitlabaction.Action, params gitlab.AllowedParams) (bool, string, error) {
+				require.Equal(t, gitlabaction.ReceivePack, string(action))
 				require.Equal(t, repoPath, params.RepoPath)
 				require.Equal(t, repo.GlRepository, params.GLRepository)
 				require.Equal(t, "1234", params.GLID)
@@ -345,7 +347,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 			desc:    "disallowed change",
 			env:     standardEnv,
 			changes: "changes\n",
-			allowed: func(t *testing.T, ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
+			allowed: func(t *testing.T, ctx context.Context, action gitlabaction.Action, params gitlab.AllowedParams) (bool, string, error) {
 				return false, "you shall not pass", nil
 			},
 			expectHookCall: false,
@@ -360,7 +362,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 			desc:    "allowed returns error",
 			env:     standardEnv,
 			changes: "changes\n",
-			allowed: func(t *testing.T, ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
+			allowed: func(t *testing.T, ctx context.Context, action gitlabaction.Action, params gitlab.AllowedParams) (bool, string, error) {
 				return false, "", errors.New("oops")
 			},
 			expectHookCall: false,
@@ -377,7 +379,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 			desc:    "prereceive rejects",
 			env:     standardEnv,
 			changes: "changes\n",
-			allowed: func(t *testing.T, ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
+			allowed: func(t *testing.T, ctx context.Context, action gitlabaction.Action, params gitlab.AllowedParams) (bool, string, error) {
 				return true, "", nil
 			},
 			prereceive: func(t *testing.T, ctx context.Context, glRepo string) (bool, error) {
@@ -390,7 +392,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 			desc:    "prereceive errors",
 			env:     standardEnv,
 			changes: "changes\n",
-			allowed: func(t *testing.T, ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
+			allowed: func(t *testing.T, ctx context.Context, action gitlabaction.Action, params gitlab.AllowedParams) (bool, string, error) {
 				return true, "", nil
 			},
 			prereceive: func(t *testing.T, ctx context.Context, glRepo string) (bool, error) {
@@ -404,8 +406,8 @@ func TestPrereceive_gitlab(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			gitlabAPI := prereceiveAPIMock{
-				allowed: func(ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
-					return tc.allowed(t, ctx, params)
+				allowed: func(ctx context.Context, action gitlabaction.Action, params gitlab.AllowedParams) (bool, string, error) {
+					return tc.allowed(t, ctx, action, params)
 				},
 				prereceive: func(ctx context.Context, glRepo string) (bool, error) {
 					return tc.prereceive(t, ctx, glRepo)

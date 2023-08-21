@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -1112,7 +1113,7 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 
 			hookManager := hook.NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), txManager, gitlab.NewMockClient(
 				t,
-				func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+				func(context.Context, gitlabaction.Action, gitlab.AllowedParams) (bool, string, error) {
 					return tc.allowed, tc.allowedMessage, tc.allowedErr
 				},
 				gitlab.MockPreReceive,
