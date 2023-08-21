@@ -3,6 +3,7 @@ package repository
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/fs"
@@ -685,6 +686,8 @@ func TestReplicateRepository_transactional(t *testing.T) {
 }
 
 func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -743,7 +746,13 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	// There is a gitconfig though, so the vote should reflect its contents.
 	gitconfigVote := voting.VoteFromData(testhelper.MustReadFile(t, filepath.Join(sourceRepoPath, "config")))
 
-	noHooksVote := voting.Vote("fd69c38637bf443296edc19e2b2c649d0502f7c0")
+	// The custom hooks directory is empty, so we will only write a single empty directory. Thus, we only
+	// write the relative path of that directory (".") as well as its mode bits to the vote hash. Note that
+	// we use a temporary file here to figure out the expected permissions as they would in fact be subject
+	// to change depending on the current umask.
+	noHooksVoteData := [5]byte{'.', 0, 0, 0, 0}
+	binary.BigEndian.PutUint32(noHooksVoteData[1:], uint32(fs.ModeDir|testhelper.MaskedPerms(t, perm.PublicDir)))
+	noHooksVote := voting.VoteFromData(noHooksVoteData[:])
 
 	expectedVotes := []voting.Vote{
 		// We cannot easily derive these first two votes: they are based on the complete

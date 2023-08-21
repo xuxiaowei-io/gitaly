@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/rand"
 	"net"
 	"net/http"
@@ -326,6 +327,22 @@ func WriteExecutable(tb testing.TB, path string, content []byte) string {
 	MustClose(tb, executable)
 
 	return path
+}
+
+// MaskedPerms determines permission bits with the current process umask applied. This is preferable over calls to
+// `perm.GetUmask()` because it can be executed in parallel. Note that this function does not include non-permission
+// mode bits like `fs.ModeDir` or `fs.ModeSocket`. You can OR these manually as required.
+func MaskedPerms(tb testing.TB, mode fs.FileMode) fs.FileMode {
+	tb.Helper()
+
+	f, err := os.OpenFile(filepath.Join(TempDir(tb), "file"), os.O_CREATE|os.O_EXCL, mode)
+	require.NoError(tb, err)
+	defer MustClose(tb, f)
+
+	stat, err := f.Stat()
+	require.NoError(tb, err)
+
+	return stat.Mode().Perm()
 }
 
 // Unsetenv unsets an environment variable. The variable will be restored after the test has
