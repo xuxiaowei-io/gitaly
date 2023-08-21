@@ -125,24 +125,6 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 		require.NoError(t, release3())
 	})
 
-	t.Run("already acquired won't be acquired until released", func(t *testing.T) {
-		db.TruncateAll(t)
-		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
-		_, release1, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
-		require.NoError(t, err)
-
-		clusterPath, release2, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
-		require.NoError(t, err)
-		require.Nil(t, clusterPath, clusterPath)
-		require.NoError(t, release1())
-		require.NoError(t, release2())
-
-		clusterPath, release3, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
-		require.NoError(t, err)
-		require.NotNil(t, clusterPath)
-		require.NoError(t, release3())
-	})
-
 	t.Run("acquired for long time triggers update loop", func(t *testing.T) {
 		db.TruncateAll(t)
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
