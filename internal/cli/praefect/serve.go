@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"time"
 
@@ -86,7 +87,7 @@ func run(appName string, logger *logrus.Entry, configPath string) error {
 		return err
 	}
 
-	if _, err := conf.ConfigureLogger(); err != nil {
+	if _, err := log.Configure(os.Stdout, conf.Logging.Format, conf.Logging.Level); err != nil {
 		return fmt.Errorf("configuring logger: %w", err)
 	}
 
