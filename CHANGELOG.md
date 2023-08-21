@@ -1,5 +1,48 @@
 # Gitaly changelog
 
+## 16.3.0 (2023-08-21)
+
+### Added (18 changes)
+
+- [repository: Support SHA256 object format in GetRawChanges](gitlab-org/gitaly@9b40065dc5101469abb897bb023c7f5ac2401ea7) ([merge request](gitlab-org/gitaly!6205))
+- [operations: Support SHA256 in UserDeleteBranch](gitlab-org/gitaly@850360eeeab09b8e36fe70d191b768523fddb6f2) ([merge request](gitlab-org/gitaly!6184))
+- [counter: Count repositories on startup](gitlab-org/gitaly@abafbd2a6e6fed8b8a870ccc21b1e810042981d3) ([merge request](gitlab-org/gitaly!6071))
+- [praefect/config: Support generating configuration via external command](gitlab-org/gitaly@5ebe6f6d13f1182fdf6ac3e27b0441fc6085eace) ([merge request](gitlab-org/gitaly!6157))
+- [commit: Implement SHA256 support for CommitSignatures](gitlab-org/gitaly@b42e7fc1ebaddf814ea4a0046a55bedf009dae5d) ([merge request](gitlab-org/gitaly!6156))
+- [operations: Implement SHA256 support for UserUpdateBranch](gitlab-org/gitaly@9bdf7ae012f426c1f9698b4ff58622bbbf05a9fb) ([merge request](gitlab-org/gitaly!6149))
+- [operations: Implement SHA256 support for UserApplyPatch](gitlab-org/gitaly@7490e57158faebf5e2dedd1df360c2e460d710f4) ([merge request](gitlab-org/gitaly!6149))
+- [operations: Implement SHA256 support for UserUpdateSubmodules](gitlab-org/gitaly@a34c84ce379cd2bbcd72926d77c3ef2b58b3a676) ([merge request](gitlab-org/gitaly!6149))
+- [operations: Implement support for SHA256 in UserMergeBranch](gitlab-org/gitaly@8f07e2dc63fa2e3ef6be25e8318291e8df6cf5fe) ([merge request](gitlab-org/gitaly!6107))
+- [operations: Implement support for SHA256 in UserMergeToRef](gitlab-org/gitaly@ab7f392677eded5f3d4a34af0e5af22cfda74c9d) ([merge request](gitlab-org/gitaly!6107))
+- [operations: Implement support for SHA256 in UserFFBranch](gitlab-org/gitaly@3bcaf1d3f66170c0e5fe28d091242e06a9535bb4) ([merge request](gitlab-org/gitaly!6107))
+- [operations: Implement SHA256 support for UserCommitFiles](gitlab-org/gitaly@860c55e140132b54db8ab18f28c9ee46d686b393) ([merge request](gitlab-org/gitaly!6117))
+- [diff: Add SHA256 support for the CommitDiff RPC](gitlab-org/gitaly@6489ce9b30f192a0a891ad5f9e189fe3658f4c41) ([merge request](gitlab-org/gitaly!6108))
+- [diff: Add SHA256 support for the CommitDelta RPC](gitlab-org/gitaly@74cf8f683246675085e37fc699a8d737c1ae550c) ([merge request](gitlab-org/gitaly!6108))
+- [repository: Make FindLicense SHA256 compatible](gitlab-org/gitaly@c23745f2cbc6fd7028f8a09b2f90606e7b69227e) ([merge request](gitlab-org/gitaly!6103))
+- [gitaly/diff: Allow parsing of diffs generated with SHA256 object format](gitlab-org/gitaly@de9712689afb2940fa04a7c72249795161aae104) ([merge request](gitlab-org/gitaly!6102))
+- [metadatahandler: Expose method scope and operation](gitlab-org/gitaly@d38a4a42614b2a2309e3f298bdb93d13b4708482) ([merge request](gitlab-org/gitaly!6086))
+- [proto: Introduce new UpdateReference RPC](gitlab-org/gitaly@671e26dcc81ee0c53a061d71fa6ec3f2ef0fc0fe) ([merge request](gitlab-org/gitaly!6037))
+
+### Fixed (3 changes)
+
+- [Revert introduction of adaptive pack-objects limiter](gitlab-org/gitaly@d83327df2f9c35c0cc46268d068c673341d7a4dc) ([merge request](gitlab-org/gitaly!6236))
+- [git/stats: Ignore disappearing files when counting loose references](gitlab-org/gitaly@df35b15c1091892a909ad9b0235521ae759e40b4) ([merge request](gitlab-org/gitaly!6200))
+- [commit: Fix parsing of gpgsig fields with trailing data](gitlab-org/gitaly@2b2217ebc175d49984d5980af4ff7c3dcefe4e1d) ([merge request](gitlab-org/gitaly!6156))
+
+### Changed (3 changes)
+
+- [backup: Restore empty repository backups](gitlab-org/gitaly@f2bc26bbbb0a9781d36ee6a72bd1786c6060c502) ([merge request](gitlab-org/gitaly!6180))
+- [git: Lower big file threshold to improve memory use and diff latency](gitlab-org/gitaly@34399547b08b641349016965ebe3d24edd556f40) ([merge request](gitlab-org/gitaly!6190))
+- [operations: Implement UserRevert in pure git](gitlab-org/gitaly@d40bf02c6ad329b72e84a83823c55242032a2ae3) by @blanet ([merge request](gitlab-org/gitaly!6081))
+
+### Removed (1 change)
+
+- [diff: Remove deprecated `ignore_whitespace_change`](gitlab-org/gitaly@361f58354548ac8a9d22ce2c4fc2cf3435eb9d6e) by @arkn98 ([merge request](gitlab-org/gitaly!6113))
+
+### updated (1 change)
+
+- [backup: Write an empty ref list for empty repositories](gitlab-org/gitaly@7fbae125172570e5bef222908388ba0ca1c9e43a) ([merge request](gitlab-org/gitaly!6090))
+
 ## 16.2.4 (2023-08-11)
 
 No changes.
