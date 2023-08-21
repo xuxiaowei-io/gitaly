@@ -29,7 +29,7 @@ By default, does not list untracked repositories that are newer than 6 hours.
 
 Returns:
 
-- Details untracked repositories to stdout, including the repository's relative path, physical storage
+- Details of untracked repositories to stdout, including the repository's relative path, physical storage
   name, and virtual storage name.
 - All errors and log messages to stderr. The output is produced as new data appears. The command doesn't wait to
   to complete processing before producing a result.
