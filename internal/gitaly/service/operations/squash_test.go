@@ -1,11 +1,8 @@
-//go:build !gitaly_test_sha256
-
 package operations
 
 import (
 	"context"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 
@@ -14,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -38,8 +34,6 @@ var (
 		Email:    []byte("johndoe@gitlab.com"),
 		Timezone: gittest.Timezone,
 	}
-	startSha      = "b83d6e391c22777fca1ed3012fce84f633d7fed0"
-	endSha        = "54cec5282aa9f21856362fe321c800c236a61615"
 	commitMessage = []byte("Squash message")
 )
 
@@ -59,69 +53,58 @@ func testUserSquashSuccessful(t *testing.T, ctx context.Context) {
 		opts = append(opts, testserver.WithSigningKey("testdata/signing_ssh_key_ed25519"))
 	}
 
-	for _, tc := range []struct {
-		desc             string
-		startOID, endOID string
-	}{
-		{
-			desc:     "with sparse checkout",
-			startOID: startSha,
-			endOID:   endSha,
-		},
-		{
-			desc:     "without sparse checkout",
-			startOID: "60ecb67744cb56576c30214ff52294f8ce2def98",
-			endOID:   "c84ff944ff4529a70788a5e9003c2b7feae29047",
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx, opts...)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, opts...)
+	testcfg.BuildGitalyGPG(t, cfg)
 
-			if featureflag.GPGSigning.IsEnabled(ctx) {
-				testcfg.BuildGitalyGPG(t, cfg)
-			}
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	baseID := gittest.WriteCommit(t, cfg, repoPath)
+	theirsID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseID), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "theirs", Mode: "100644", Content: "theirs"},
+	))
+	intermediateID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseID), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "ours", Mode: "100644", Content: "intermediate"},
+	))
+	oursID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(intermediateID), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "ours", Mode: "100644", Content: "ours"},
+	))
 
-			request := &gitalypb.UserSquashRequest{
-				Repository:    repoProto,
-				User:          gittest.TestUser,
-				Author:        author,
-				CommitMessage: commitMessage,
-				StartSha:      tc.startOID,
-				EndSha:        tc.endOID,
-			}
+	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+		Repository:    repoProto,
+		User:          gittest.TestUser,
+		Author:        author,
+		CommitMessage: commitMessage,
+		StartSha:      theirsID.String(),
+		EndSha:        oursID.String(),
+	})
+	require.NoError(t, err)
 
-			response, err := client.UserSquash(ctx, request)
-			require.NoError(t, err)
+	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
+	require.NoError(t, err)
+	require.Equal(t, []string{theirsID.String()}, commit.ParentIds)
+	require.Equal(t, author.Name, commit.Author.Name)
+	require.Equal(t, author.Email, commit.Author.Email)
+	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
+	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
+	require.Equal(t, commitMessage, commit.Subject)
 
-			commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
-			require.NoError(t, err)
-			require.Equal(t, []string{tc.startOID}, commit.ParentIds)
-			require.Equal(t, author.Name, commit.Author.Name)
-			require.Equal(t, author.Email, commit.Author.Email)
-			require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
-			require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
-			require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
-			require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
-			require.Equal(t, commitMessage, commit.Subject)
+	treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
+	files := strings.Fields(text.ChompBytes(treeData))
+	require.Equal(t, []string{"ours", "theirs"}, files)
 
-			treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
-			files := strings.Fields(text.ChompBytes(treeData))
-			require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
+	if featureflag.GPGSigning.IsEnabled(ctx) {
+		data, err := repo.ReadObject(ctx, git.ObjectID(response.SquashSha))
+		require.NoError(t, err)
 
-			if featureflag.GPGSigning.IsEnabled(ctx) {
-				data, err := repo.ReadObject(ctx, git.ObjectID(response.SquashSha))
-				require.NoError(t, err)
+		gpgsig, dataWithoutGpgSig := signature.ExtractSignature(t, ctx, data)
 
-				gpgsig, dataWithoutGpgSig := signature.ExtractSignature(t, ctx, data)
+		signingKey, err := signature.ParseSigningKeys("testdata/signing_ssh_key_ed25519")
+		require.NoError(t, err)
 
-				signingKey, err := signature.ParseSigningKeys("testdata/signing_ssh_key_ed25519")
-				require.NoError(t, err)
-
-				require.NoError(t, signingKey.Verify([]byte(gpgsig), []byte(dataWithoutGpgSig)))
-			}
-		})
+		require.NoError(t, signingKey.Verify([]byte(gpgsig), []byte(dataWithoutGpgSig)))
 	}
 }
 
@@ -142,7 +125,10 @@ func testUserSquashTransactional(t *testing.T, ctx context.Context) {
 		testserver.WithTransactionManager(&txManager),
 	)
 
-	squashedCommitID := "c653dc8f98dba7f7a42c2e3c4b8d850d195e60b6"
+	squashedCommitID := gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "bd94bb881a5c5466da78a4e911017abfe8998e0c",
+		"sha256": "6fdd7d1bd86b796b35f2d3c8b7a06a1adf5897583bea593abfb446cd015c9b3a",
+	})
 	squashedCommitVote := voting.VoteFromData([]byte(squashedCommitID))
 
 	for _, tc := range []struct {
@@ -205,10 +191,16 @@ func testUserSquashTransactional(t *testing.T, ctx context.Context) {
 				return nil
 			}
 
-			repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			baseID := gittest.WriteCommit(t, cfg, repoPath)
+			startID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseID), gittest.WithTreeEntries(
+				gittest.TreeEntry{Path: "start", Mode: "100644", Content: "start"},
+			))
+			endID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseID), gittest.WithTreeEntries(
+				gittest.TreeEntry{Path: "end", Mode: "100644", Content: "end"},
+			))
 
 			var votes []voting.Vote
 			txManager.VoteFn = func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote, phase voting.Phase) error {
@@ -221,8 +213,8 @@ func testUserSquashTransactional(t *testing.T, ctx context.Context) {
 				User:          gittest.TestUser,
 				Author:        author,
 				CommitMessage: []byte("Squashed commit"),
-				StartSha:      startSha,
-				EndSha:        endSha,
+				StartSha:      startID.String(),
+				EndSha:        endID.String(),
 				Timestamp:     &timestamppb.Timestamp{Seconds: 1234512345},
 			})
 
@@ -256,7 +248,17 @@ func TestUserSquash_stableID(t *testing.T) {
 func testUserSquashStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	baseCommitID := gittest.WriteCommit(t, cfg, repoPath)
+	startCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseCommitID))
+	midCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(startCommitID))
+	endTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "path", Mode: "100644", Content: "contnet"},
+	})
+	endCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(midCommitID), gittest.WithTree(endTreeID))
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -265,8 +267,8 @@ func testUserSquashStableID(t *testing.T, ctx context.Context) {
 		User:          gittest.TestUser,
 		Author:        author,
 		CommitMessage: []byte("Squashed commit"),
-		StartSha:      startSha,
-		EndSha:        endSha,
+		StartSha:      startCommitID.String(),
+		EndSha:        endCommitID.String(),
 		Timestamp:     &timestamppb.Timestamp{Seconds: 1234512345},
 	})
 	require.NoError(t, err)
@@ -274,10 +276,13 @@ func testUserSquashStableID(t *testing.T, ctx context.Context) {
 	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:     "c653dc8f98dba7f7a42c2e3c4b8d850d195e60b6",
-		TreeId: "324242f415a3cdbfc088103b496379fd91965854",
+		Id: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "9b09504be226a140ca5335bfbfd70bea049233c6",
+			"sha256": "879204016902e3773af456d01465da8749adb17bdc3a974d5500231b80d497fa",
+		}),
+		TreeId: endTreeID.String(),
 		ParentIds: []string{
-			"b83d6e391c22777fca1ed3012fce84f633d7fed0",
+			startCommitID.String(),
 		},
 		Subject:   []byte("Squashed commit"),
 		Body:      []byte("Squashed commit\n"),
@@ -296,19 +301,6 @@ func authorFromUser(user *gitalypb.User, seconds int64) *gitalypb.CommitAuthor {
 	}
 }
 
-func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
-	gittest.Exec(t, cfg, "-C", repoDir, "update-index", "--add")
-
-	fis, err := os.ReadDir(repoDir)
-	require.NoError(t, err)
-	for _, fi := range fis {
-		if strings.HasPrefix(fi.Name(), "sharedindex") {
-			return true
-		}
-	}
-	return false
-}
-
 func TestUserSquash_threeWayMerge(t *testing.T) {
 	t.Parallel()
 
@@ -320,26 +312,41 @@ func TestUserSquash_threeWayMerge(t *testing.T) {
 func testUserSquashThreeWayMerge(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	request := &gitalypb.UserSquashRequest{
+	// We create two diverging histories. The left-hand side does a change at the beginning of the file, while the
+	// two commits on the right-hand side append two changes to the end of the file. Squash-rebasing the right side
+	// onto the left side should thus result in a three-way merge.
+	baseID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\nh\n"},
+	))
+	leftID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "path", Mode: "100644", Content: "left\nb\nc\nd\ne\nf\ng\nh\n"},
+	), gittest.WithParents(baseID))
+
+	rightAID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\nright-a\n"},
+	), gittest.WithParents(baseID))
+	rightBID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\nright-a\nright-b\n"},
+	), gittest.WithParents(rightAID))
+
+	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
 		User:          gittest.TestUser,
 		Author:        author,
 		CommitMessage: commitMessage,
-		// The diff between two of these commits results in some changes to files/ruby/popen.rb
-		StartSha: "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
-		EndSha:   "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
-	}
-
-	response, err := client.UserSquash(ctx, request)
+		StartSha:      leftID.String(),
+		EndSha:        rightBID.String(),
+	})
 	require.NoError(t, err)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
 	require.NoError(t, err)
-	require.Equal(t, []string{"6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"}, commit.ParentIds)
+	require.Equal(t, []string{leftID.String()}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)
 	require.Equal(t, author.Email, commit.Author.Email)
 	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
@@ -347,35 +354,6 @@ func testUserSquashThreeWayMerge(t *testing.T, ctx context.Context) {
 	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
 	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
-}
-
-func TestUserSquash_splitIndex(t *testing.T) {
-	t.Parallel()
-
-	testhelper.NewFeatureSets(
-		featureflag.GPGSigning,
-	).Run(t, testUserSquashSplitIndex)
-}
-
-func testUserSquashSplitIndex(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
-
-	request := &gitalypb.UserSquashRequest{
-		Repository:    repo,
-		User:          gittest.TestUser,
-		Author:        author,
-		CommitMessage: commitMessage,
-		StartSha:      startSha,
-		EndSha:        endSha,
-	}
-
-	_, err := client.UserSquash(ctx, request)
-	require.NoError(t, err)
-	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 }
 
 func TestUserSquash_renames(t *testing.T) {
@@ -420,10 +398,11 @@ func testUserSquashRenames(t *testing.T, ctx context.Context) {
 		),
 	)
 
+	endBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("This is another change"))
 	endCommitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithParents(changedCommitID),
 		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is another change"},
+			gittest.TreeEntry{Path: originalFilename, Mode: "100644", OID: endBlobID},
 		),
 	)
 
@@ -451,7 +430,7 @@ func testUserSquashRenames(t *testing.T, ctx context.Context) {
 	require.Equal(t, commitMessage, commit.Subject)
 
 	gittest.RequireTree(t, cfg, repoPath, response.SquashSha, []gittest.TreeEntry{
-		{Path: renamedFilename, Mode: "100644", Content: "This is another change", OID: "1b2ae89cca65f0d514f677981f012d708df651fc"},
+		{Path: renamedFilename, Mode: "100644", Content: "This is another change", OID: endBlobID},
 	})
 }
 
@@ -466,20 +445,31 @@ func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 func testUserSquashMissingFileOnTargetBranch(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	conflictingStartSha := "bbd36ad238d14e1c03ece0f3358f545092dc9ca3"
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	request := &gitalypb.UserSquashRequest{
+	// We create a new file in our branch that does not exist on the target branch. With the old Ruby-based
+	// implementation, this led to an error.
+	baseID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "common", Mode: "100644", Content: "common"},
+	))
+	targetID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "common", Mode: "100644", Content: "changed"},
+	), gittest.WithParents(baseID))
+	ourID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "common", Mode: "100644", Content: "common"},
+		gittest.TreeEntry{Path: "new-file", Mode: "100644", Content: "new-file"},
+	), gittest.WithParents(baseID))
+
+	_, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repo,
 		User:          gittest.TestUser,
 		Author:        author,
 		CommitMessage: commitMessage,
-		StartSha:      conflictingStartSha,
-		EndSha:        endSha,
-	}
-
-	_, err := client.UserSquash(ctx, request)
+		StartSha:      targetID.String(),
+		EndSha:        ourID.String(),
+	})
 	require.NoError(t, err)
 }
 
@@ -494,7 +484,9 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
@@ -522,22 +514,26 @@ func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
 	)
 
 	for _, tc := range []struct {
-		desc                      string
-		ours, theirs, expectedOID git.ObjectID
-		expectedTreeEntries       []gittest.TreeEntry
-		expectedCommit            *gitalypb.GitCommit
+		desc                string
+		ours, theirs        git.ObjectID
+		expectedTreeEntries []gittest.TreeEntry
+		expectedCommit      *gitalypb.GitCommit
 	}{
 		{
-			desc:        "ours becomes completely empty",
-			ours:        ours,
-			theirs:      theirs,
-			expectedOID: "0c097018ea50a9c036ba7e98db2b12495e912884",
+			desc:   "ours becomes completely empty",
+			ours:   ours,
+			theirs: theirs,
 			expectedTreeEntries: []gittest.TreeEntry{
 				{Path: "a", Content: "changed", Mode: "100644"},
 			},
 			expectedCommit: &gitalypb.GitCommit{
-				Id:     "0c097018ea50a9c036ba7e98db2b12495e912884",
-				TreeId: "dcec1f671540174251d228f3b1292cc4f84cd964",
+				Id: gittest.ObjectHashDependent(t, map[string]string{
+					"sha1":   "0c097018ea50a9c036ba7e98db2b12495e912884",
+					"sha256": "73e596f79a214b856f93227d3a899bb7283fb7a6e8dabd80c452a825906bb91a",
+				}),
+				TreeId: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "a", Content: "changed", Mode: "100644"},
+				}).String(),
 				ParentIds: []string{
 					theirs.String(),
 				},
@@ -549,17 +545,22 @@ func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc:        "parts of ours become empty",
-			ours:        oursWithAdditionalChanges,
-			theirs:      theirs,
-			expectedOID: "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
+			desc:   "parts of ours become empty",
+			ours:   oursWithAdditionalChanges,
+			theirs: theirs,
 			expectedTreeEntries: []gittest.TreeEntry{
 				{Path: "a", Content: "changed", Mode: "100644"},
 				{Path: "ours", Content: "ours", Mode: "100644"},
 			},
 			expectedCommit: &gitalypb.GitCommit{
-				Id:     "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
-				TreeId: "b39ebc91ea635e7469c406329bcf00be4ebe0e50",
+				Id: gittest.ObjectHashDependent(t, map[string]string{
+					"sha1":   "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
+					"sha256": "ecfb568a418ed6e4086ddad76fe7133880ffa636e3282716f29c943fd6b72bcd",
+				}),
+				TreeId: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "a", Content: "changed", Mode: "100644"},
+					{Path: "ours", Content: "ours", Mode: "100644"},
+				}).String(),
 				ParentIds: []string{
 					theirs.String(),
 				},
@@ -583,12 +584,12 @@ func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
 			})
 			require.NoError(t, err)
 			testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
-				SquashSha: tc.expectedOID.String(),
+				SquashSha: tc.expectedCommit.Id,
 			}, response)
 
-			gittest.RequireTree(t, cfg, repoPath, tc.expectedOID.String(), tc.expectedTreeEntries)
+			gittest.RequireTree(t, cfg, repoPath, tc.expectedCommit.Id, tc.expectedTreeEntries)
 
-			commit, err := repo.ReadCommit(ctx, tc.expectedOID.Revision())
+			commit, err := repo.ReadCommit(ctx, git.Revision(tc.expectedCommit.Id))
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedCommit, commit)
 		})
@@ -599,7 +600,10 @@ func TestUserSquash_validation(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	testCases := []struct {
 		desc        string
@@ -613,8 +617,8 @@ func TestUserSquash_validation(t *testing.T) {
 				User:          gittest.TestUser,
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
-				StartSha:      startSha,
-				EndSha:        endSha,
+				StartSha:      commitID.String(),
+				EndSha:        commitID.String(),
 			},
 			expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
 		},
@@ -625,8 +629,8 @@ func TestUserSquash_validation(t *testing.T) {
 				User:          nil,
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
-				StartSha:      startSha,
-				EndSha:        endSha,
+				StartSha:      commitID.String(),
+				EndSha:        commitID.String(),
 			},
 			expectedErr: status.Error(codes.InvalidArgument, "empty User"),
 		},
@@ -638,7 +642,7 @@ func TestUserSquash_validation(t *testing.T) {
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      "",
-				EndSha:        endSha,
+				EndSha:        commitID.String(),
 			},
 			expectedErr: status.Error(codes.InvalidArgument, "empty StartSha"),
 		},
@@ -649,7 +653,7 @@ func TestUserSquash_validation(t *testing.T) {
 				User:          gittest.TestUser,
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
-				StartSha:      startSha,
+				StartSha:      commitID.String(),
 				EndSha:        "",
 			},
 			expectedErr: status.Error(codes.InvalidArgument, "empty EndSha"),
@@ -661,8 +665,8 @@ func TestUserSquash_validation(t *testing.T) {
 				User:          gittest.TestUser,
 				Author:        nil,
 				CommitMessage: commitMessage,
-				StartSha:      startSha,
-				EndSha:        endSha,
+				StartSha:      commitID.String(),
+				EndSha:        commitID.String(),
 			},
 			expectedErr: status.Error(codes.InvalidArgument, "empty Author"),
 		},
@@ -673,8 +677,8 @@ func TestUserSquash_validation(t *testing.T) {
 				User:          gittest.TestUser,
 				Author:        gittest.TestUser,
 				CommitMessage: nil,
-				StartSha:      startSha,
-				EndSha:        endSha,
+				StartSha:      commitID.String(),
+				EndSha:        commitID.String(),
 			},
 			expectedErr: status.Error(codes.InvalidArgument, "empty CommitMessage"),
 		},
@@ -699,7 +703,9 @@ func TestUserSquash_conflicts(t *testing.T) {
 func testUserSquashConflicts(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
@@ -754,7 +760,9 @@ func TestUserSquash_ancestry(t *testing.T) {
 func testUserSquashAncestry(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// We create an empty parent commit and two commits which both branch off from it. As a
 	// result, they are not direct ancestors of each other.
@@ -780,7 +788,10 @@ func testUserSquashAncestry(t *testing.T, ctx context.Context) {
 
 	require.Nil(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
-		SquashSha: "b277ddc0aafcba53f23f3d4d4a46dde42c9e7ad2",
+		SquashSha: gittest.ObjectHashDependent(t, map[string]string{
+			"sha1":   "b277ddc0aafcba53f23f3d4d4a46dde42c9e7ad2",
+			"sha256": "d62efb044a263c87cf7eee19e1d85960618cad65f938d8eeaee69a6571d7bcb4",
+		}),
 	}, response)
 }
 
@@ -795,7 +806,10 @@ func TestUserSquash_gitError(t *testing.T) {
 func testUserSquashGitError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, _, repo, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	testCases := []struct {
 		desc             string
@@ -811,7 +825,7 @@ func testUserSquashGitError(t *testing.T, ctx context.Context) {
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      "doesntexisting",
-				EndSha:        endSha,
+				EndSha:        commitID.String(),
 			},
 			expectedErr: errWithDetails(t,
 				structerr.NewInvalidArgument("resolving start revision: reference not found"),
@@ -831,7 +845,7 @@ func testUserSquashGitError(t *testing.T, ctx context.Context) {
 				User:          gittest.TestUser,
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
-				StartSha:      startSha,
+				StartSha:      commitID.String(),
 				EndSha:        "doesntexisting",
 			},
 			expectedErr: errWithDetails(t,
@@ -852,8 +866,8 @@ func testUserSquashGitError(t *testing.T, ctx context.Context) {
 				User:          &gitalypb.User{Email: gittest.TestUser.Email},
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
-				StartSha:      startSha,
-				EndSha:        endSha,
+				StartSha:      commitID.String(),
+				EndSha:        commitID.String(),
 			},
 			expectedErr: structerr.NewInvalidArgument("empty user name"),
 		},
@@ -864,8 +878,8 @@ func testUserSquashGitError(t *testing.T, ctx context.Context) {
 				User:          gittest.TestUser,
 				Author:        &gitalypb.User{Email: gittest.TestUser.Email},
 				CommitMessage: commitMessage,
-				StartSha:      startSha,
-				EndSha:        endSha,
+				StartSha:      commitID.String(),
+				EndSha:        commitID.String(),
 			},
 			expectedErr: structerr.NewInvalidArgument("empty author name"),
 		},
@@ -876,8 +890,8 @@ func testUserSquashGitError(t *testing.T, ctx context.Context) {
 				User:          gittest.TestUser,
 				Author:        &gitalypb.User{Name: gittest.TestUser.Name},
 				CommitMessage: commitMessage,
-				StartSha:      startSha,
-				EndSha:        endSha,
+				StartSha:      commitID.String(),
+				EndSha:        commitID.String(),
 			},
 			expectedErr: structerr.NewInvalidArgument("empty author email"),
 		},
@@ -903,7 +917,9 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 func testUserSquashSquashingMerge(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("base"),
 		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}),
@@ -927,6 +943,11 @@ func testUserSquashSquashingMerge(t *testing.T, ctx context.Context) {
 		),
 		gittest.WithParents(ours),
 	)
+
+	expectedCommitID := gittest.ObjectHashDependent(t, map[string]string{
+		"sha1":   "69d8db2439502c18b9c17c2d1bddb122a82bd448",
+		"sha256": "e4a254d051b8453f5797052d8cfb16cb6041132b00cbcaabc77cfc6b0f59e5ef",
+	})
 
 	// We had conflicting commit on "ours" and on "theirs",
 	// then we have manually merged "ours into "theirs" resolving the conflict,
@@ -958,9 +979,9 @@ func testUserSquashSquashingMerge(t *testing.T, ctx context.Context) {
 	// and one squash commit that contains squashed changes from branch "theirs".
 	require.Nil(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
-		SquashSha: "69d8db2439502c18b9c17c2d1bddb122a82bd448",
+		SquashSha: expectedCommitID,
 	}, response)
-	gittest.RequireTree(t, cfg, repoPath, "69d8db2439502c18b9c17c2d1bddb122a82bd448", []gittest.TreeEntry{
+	gittest.RequireTree(t, cfg, repoPath, expectedCommitID, []gittest.TreeEntry{
 		{
 			// It should use the version from commit "oursMergedIntoTheirs",
 			// as it resolves the pre-existing conflict.
