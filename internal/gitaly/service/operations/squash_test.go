@@ -57,69 +57,46 @@ func testUserSquashSuccessful(t *testing.T, ctx context.Context) {
 		opts = append(opts, testserver.WithSigningKey("testdata/signing_ssh_key_ed25519"))
 	}
 
-	for _, tc := range []struct {
-		desc             string
-		startOID, endOID string
-	}{
-		{
-			desc:     "with sparse checkout",
-			startOID: startSha,
-			endOID:   endSha,
-		},
-		{
-			desc:     "without sparse checkout",
-			startOID: "60ecb67744cb56576c30214ff52294f8ce2def98",
-			endOID:   "c84ff944ff4529a70788a5e9003c2b7feae29047",
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx, opts...)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx, opts...)
+	testcfg.BuildGitalyGPG(t, cfg)
 
-			if featureflag.GPGSigning.IsEnabled(ctx) {
-				testcfg.BuildGitalyGPG(t, cfg)
-			}
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+		Repository:    repoProto,
+		User:          gittest.TestUser,
+		Author:        author,
+		CommitMessage: commitMessage,
+		StartSha:      startSha,
+		EndSha:        endSha,
+	})
+	require.NoError(t, err)
 
-			request := &gitalypb.UserSquashRequest{
-				Repository:    repoProto,
-				User:          gittest.TestUser,
-				Author:        author,
-				CommitMessage: commitMessage,
-				StartSha:      tc.startOID,
-				EndSha:        tc.endOID,
-			}
+	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
+	require.NoError(t, err)
+	require.Equal(t, []string{startSha}, commit.ParentIds)
+	require.Equal(t, author.Name, commit.Author.Name)
+	require.Equal(t, author.Email, commit.Author.Email)
+	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
+	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
+	require.Equal(t, commitMessage, commit.Subject)
 
-			response, err := client.UserSquash(ctx, request)
-			require.NoError(t, err)
+	treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
+	files := strings.Fields(text.ChompBytes(treeData))
+	require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
 
-			commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
-			require.NoError(t, err)
-			require.Equal(t, []string{tc.startOID}, commit.ParentIds)
-			require.Equal(t, author.Name, commit.Author.Name)
-			require.Equal(t, author.Email, commit.Author.Email)
-			require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
-			require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
-			require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
-			require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
-			require.Equal(t, commitMessage, commit.Subject)
+	if featureflag.GPGSigning.IsEnabled(ctx) {
+		data, err := repo.ReadObject(ctx, git.ObjectID(response.SquashSha))
+		require.NoError(t, err)
 
-			treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
-			files := strings.Fields(text.ChompBytes(treeData))
-			require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
+		gpgsig, dataWithoutGpgSig := signature.ExtractSignature(t, ctx, data)
 
-			if featureflag.GPGSigning.IsEnabled(ctx) {
-				data, err := repo.ReadObject(ctx, git.ObjectID(response.SquashSha))
-				require.NoError(t, err)
+		signingKey, err := signature.ParseSigningKeys("testdata/signing_ssh_key_ed25519")
+		require.NoError(t, err)
 
-				gpgsig, dataWithoutGpgSig := signature.ExtractSignature(t, ctx, data)
-
-				signingKey, err := signature.ParseSigningKeys("testdata/signing_ssh_key_ed25519")
-				require.NoError(t, err)
-
-				require.NoError(t, signingKey.Verify([]byte(gpgsig), []byte(dataWithoutGpgSig)))
-			}
-		})
+		require.NoError(t, signingKey.Verify([]byte(gpgsig), []byte(dataWithoutGpgSig)))
 	}
 }
 
