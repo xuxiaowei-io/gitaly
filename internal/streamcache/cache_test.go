@@ -19,16 +19,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
-func newCache(dir string) Cache {
-	return New(config.StreamCacheConfig{
+func newCache(tb testing.TB, dir string) Cache {
+	cache := New(config.StreamCacheConfig{
 		Enabled: true,
 		Dir:     dir,
 		MaxAge:  duration.Duration(time.Hour),
-	}, log.Default())
+	}, testhelper.NewDiscardingLogEntry(tb))
+	tb.Cleanup(cache.Stop)
+
+	return cache
 }
 
 func innerCache(c Cache) *cache {
@@ -51,8 +53,7 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 
-	c := newCache(tmp)
-	defer c.Stop()
+	c := newCache(t, tmp)
 
 	const (
 		key = "test key"
@@ -78,8 +79,7 @@ func TestCache_manyConcurrentWrites(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 
-	c := newCache(tmp)
-	defer c.Stop()
+	c := newCache(t, tmp)
 
 	const (
 		key = "test key"
@@ -153,8 +153,7 @@ func TestCache_deletedFile(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 	ctx := testhelper.Context(t)
 
-	c := newCache(tmp)
-	defer c.Stop()
+	c := newCache(t, tmp)
 
 	const (
 		key = "test key"
@@ -205,8 +204,7 @@ func TestCache_scope(t *testing.T) {
 			defer wg.Done()
 
 			input[i] = fmt.Sprintf("test content %d", i)
-			cache[i] = newCache(tmp)
-			defer func(i int) { cache[i].Stop() }(i)
+			cache[i] = newCache(t, tmp)
 
 			buf := &bytes.Buffer{}
 			_, created, err := cache[i].Fetch(ctx, key, buf, writeString(input[i]))
@@ -250,7 +248,7 @@ func TestCache_diskCleanup(t *testing.T) {
 		return cleanSleepTimerCh
 	}
 
-	c := newCacheWithSleep(tmp, 0, filestoreClean, cleanSleep, log.Default())
+	c := newCacheWithSleep(tmp, 0, filestoreClean, cleanSleep, testhelper.NewDiscardingLogEntry(t))
 	defer c.Stop()
 
 	var removalLock sync.Mutex
@@ -305,8 +303,7 @@ func TestCache_failedWrite(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 
-	c := newCache(tmp)
-	defer c.Stop()
+	c := newCache(t, tmp)
 
 	testCases := []struct {
 		desc   string
@@ -344,8 +341,7 @@ func TestCache_failCreateFile(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 
-	c := newCache(tmp)
-	defer c.Stop()
+	c := newCache(t, tmp)
 
 	createError := errors.New("cannot create file")
 	innerCache(c).createFile = func() (namedWriteCloser, error) { return nil, createError }
@@ -359,8 +355,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 
-	c := newCache(tmp)
-	defer c.Stop()
+	c := newCache(t, tmp)
 
 	innerCache(c).createFile = func() (namedWriteCloser, error) {
 		return os.OpenFile(filepath.Join(tmp, "unwriteable"), os.O_RDONLY|os.O_CREATE|os.O_EXCL, perm.SharedFile)
@@ -379,8 +374,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 
-	c := newCache(tmp)
-	defer c.Stop()
+	c := newCache(t, tmp)
 
 	innerCache(c).createFile = func() (namedWriteCloser, error) {
 		f, err := os.OpenFile(filepath.Join(tmp, "uncloseable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm.SharedFile)
@@ -400,8 +394,7 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 
-	c := newCache(tmp)
-	defer c.Stop()
+	c := newCache(t, tmp)
 
 	innerCache(c).createFile = func() (namedWriteCloser, error) {
 		f, err := os.OpenFile(filepath.Join(tmp, "unopenable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm.SharedFile)

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
@@ -206,7 +205,7 @@ func RunPraefectServer(
 		opt.WithAnnotations = protoregistry.GitalyProtoPreregistered
 	}
 	if opt.WithLogger == nil {
-		opt.WithLogger = log.Default()
+		opt.WithLogger = testhelper.NewDiscardingLogEntry(tb)
 	}
 	if opt.WithNodeMgr == nil {
 		opt.WithNodeMgr = defaultNodeMgr(tb, conf, opt.WithRepoStore)

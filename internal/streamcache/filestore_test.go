@@ -10,14 +10,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 func TestFilestoreCreate(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	fs := newFilestore(tmp, 0, time.After, log.Default())
+	fs := newFilestore(tmp, 0, time.After, testhelper.NewDiscardingLogEntry(t))
 	defer fs.Stop()
 
 	f, err := fs.Create()
@@ -40,7 +39,7 @@ func TestFilestoreCreate(t *testing.T) {
 func TestFilestoreCreate_concurrency(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	fs := newFilestore(tmp, time.Hour, time.After, log.Default())
+	fs := newFilestore(tmp, time.Hour, time.After, testhelper.NewDiscardingLogEntry(t))
 	defer fs.Stop()
 
 	const N = 100
@@ -82,7 +81,7 @@ func TestFilestoreCreate_uniqueness(t *testing.T) {
 	filenames := make(map[string]struct{})
 
 	for j := 0; j < M; j++ {
-		fs := newFilestore(tmp, time.Hour, time.After, log.Default())
+		fs := newFilestore(tmp, time.Hour, time.After, testhelper.NewDiscardingLogEntry(t))
 		defer fs.Stop()
 
 		for i := 0; i < N; i++ {
@@ -102,7 +101,7 @@ func TestFilestoreCreate_uniqueness(t *testing.T) {
 func TestFilestoreCleanwalk(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	fs := newFilestore(tmp, time.Hour, time.After, log.Default())
+	fs := newFilestore(tmp, time.Hour, time.After, testhelper.NewDiscardingLogEntry(t))
 	defer fs.Stop()
 
 	dir1 := filepath.Join(tmp, "dir1")
