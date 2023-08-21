@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/errors/cfgerror"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/sentry"
@@ -1486,13 +1485,6 @@ dir = "foobar"
 			require.Equal(t, tc.out, cfg.PackObjectsCache)
 		})
 	}
-}
-
-func TestValidateToken(t *testing.T) {
-	require.NoError(t, (&Cfg{Auth: auth.Config{}}).validateToken())
-	require.NoError(t, (&Cfg{Auth: auth.Config{Token: ""}}).validateToken())
-	require.NoError(t, (&Cfg{Auth: auth.Config{Token: "secret"}}).validateToken())
-	require.NoError(t, (&Cfg{Auth: auth.Config{Transitioning: true, Token: "secret"}}).validateToken())
 }
 
 func TestValidateBinDir(t *testing.T) {
