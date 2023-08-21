@@ -39,7 +39,7 @@ func testUserRebaseConfirmableSuccessful(t *testing.T, ctx context.Context) {
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	pushOptions := []string{"ci.skip", "test=value"}
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg, pushOptions...)
@@ -103,7 +103,7 @@ func testUserRebaseConfirmableSkipEmptyCommits(t *testing.T, ctx context.Context
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -221,7 +221,7 @@ func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
 
 	txManager := transaction.NewTrackingManager()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(
+	ctx, cfg, client := setupOperationsService(
 		t, ctx,
 		// Praefect would intercept our call and inject its own transaction.
 		testserver.WithDisablePraefect(),
@@ -313,7 +313,7 @@ func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context)
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg)
 
 	setup := setupRebasableRepositories(t, ctx, cfg, false)
@@ -395,7 +395,7 @@ func testUserRebaseConfirmableInputValidation(t *testing.T, ctx context.Context)
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
@@ -463,7 +463,7 @@ func testUserRebaseConfirmableAbortViaClose(t *testing.T, ctx context.Context) {
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc        string
@@ -548,7 +548,7 @@ func testUserRebaseConfirmableAbortViaApply(t *testing.T, ctx context.Context) {
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	setup := setupRebasableRepositories(t, ctx, cfg, true)
 	localRepo := localrepo.NewTestRepo(t, cfg, setup.localRepo)
 
@@ -594,7 +594,7 @@ func testUserRebaseConfirmablePreReceiveError(t *testing.T, ctx context.Context)
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	setup := setupRebasableRepositories(t, ctx, cfg, true)
 	localRepo := localrepo.NewTestRepo(t, cfg, setup.localRepo)
@@ -661,7 +661,7 @@ func testUserRebaseConfirmableMergeConflict(t *testing.T, ctx context.Context) {
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	setup := setupRebasableRepositories(t, ctx, cfg, true)
 	localConflictingCommit := gittest.WriteCommit(t, cfg, setup.localRepoPath, gittest.WithBranch(setup.localBranch), gittest.WithTreeEntries(
@@ -712,7 +712,7 @@ func testUserRebaseConfirmableDeletedFileInLocalRepo(t *testing.T, ctx context.C
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
@@ -792,7 +792,7 @@ func testUserRebaseConfirmableDeletedFileInRemoteRepo(t *testing.T, ctx context.
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
@@ -866,7 +866,7 @@ func testUserRebaseConfirmableFailedWithCode(t *testing.T, ctx context.Context) 
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 

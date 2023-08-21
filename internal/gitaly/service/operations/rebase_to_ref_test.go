@@ -31,7 +31,7 @@ func testUserRebaseToRefSuccessful(t *testing.T, ctx context.Context) {
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -97,7 +97,7 @@ func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	mergeBaseOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first commit"))
@@ -225,7 +225,7 @@ func testUserRebaseToRefConflict(t *testing.T, ctx context.Context) {
 
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	mergeBaseOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first commit"))

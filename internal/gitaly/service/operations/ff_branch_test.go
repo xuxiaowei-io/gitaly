@@ -18,7 +18,7 @@ func TestUserFFBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	type setupData struct {
 		repoPath         string
@@ -324,7 +324,7 @@ func TestUserFFBranch_failingHooks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	parentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
@@ -354,7 +354,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	// We're creating both a branch and a tag with the same name.
 	// If `git rev-parse` is called on the branch name directly

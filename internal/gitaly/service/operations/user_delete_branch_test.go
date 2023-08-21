@@ -33,7 +33,7 @@ func TestUserDeleteBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	type setupResponse struct {
 		request          *gitalypb.UserDeleteBranchRequest
@@ -324,7 +324,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, testserver.WithGitLabClient(
+			ctx, cfg, client := setupOperationsService(t, ctx, testserver.WithGitLabClient(
 				gitlab.NewMockClient(t, tc.allowed, gitlab.MockPreReceive, gitlab.MockPostReceive),
 			))
 
@@ -352,7 +352,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("concurrent-update"))
@@ -395,7 +395,7 @@ func TestUserDeleteBranch_hooks(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
@@ -489,7 +489,7 @@ func TestUserDeleteBranch_invalidArgument(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
@@ -542,7 +542,7 @@ func TestUserDeleteBranch_hookFailure(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
@@ -598,7 +598,7 @@ func TestBranchHookOutput(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))

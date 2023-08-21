@@ -53,7 +53,7 @@ func testUserSquashSuccessful(t *testing.T, ctx context.Context) {
 		opts = append(opts, testserver.WithSigningKey("testdata/signing_ssh_key_ed25519"))
 	}
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, opts...)
+	ctx, cfg, client := setupOperationsService(t, ctx, opts...)
 	testcfg.BuildGitalyGPG(t, cfg)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -121,7 +121,7 @@ func testUserSquashTransactional(t *testing.T, ctx context.Context) {
 
 	txManager := transaction.MockManager{}
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx,
+	ctx, cfg, client := setupOperationsService(t, ctx,
 		testserver.WithTransactionManager(&txManager),
 	)
 
@@ -248,7 +248,7 @@ func TestUserSquash_stableID(t *testing.T) {
 func testUserSquashStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -312,7 +312,7 @@ func TestUserSquash_threeWayMerge(t *testing.T) {
 func testUserSquashThreeWayMerge(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -367,7 +367,7 @@ func TestUserSquash_renames(t *testing.T) {
 func testUserSquashRenames(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -445,7 +445,7 @@ func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 func testUserSquashMissingFileOnTargetBranch(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -484,7 +484,7 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 func testUserSquashEmptyCommit(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -600,7 +600,7 @@ func TestUserSquash_validation(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
@@ -703,7 +703,7 @@ func TestUserSquash_conflicts(t *testing.T) {
 func testUserSquashConflicts(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -760,7 +760,7 @@ func TestUserSquash_ancestry(t *testing.T) {
 func testUserSquashAncestry(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -806,7 +806,7 @@ func TestUserSquash_gitError(t *testing.T) {
 func testUserSquashGitError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
@@ -917,7 +917,7 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 func testUserSquashSquashingMerge(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 

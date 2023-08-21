@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/commit"
@@ -38,18 +37,6 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupOperationsService(tb testing.TB, ctx context.Context, options ...testserver.GitalyServerOpt) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
-	cfg := testcfg.Build(tb)
-
-	ctx, cfg, client := setupOperationsServiceWithCfg(tb, ctx, cfg, options...)
-
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	return ctx, cfg, repo, repoPath, client
-}
-
 func setupOperationsServiceWithCfg(
 	tb testing.TB, ctx context.Context, cfg config.Cfg, options ...testserver.GitalyServerOpt,
 ) (context.Context, config.Cfg, gitalypb.OperationServiceClient) {
@@ -69,7 +56,7 @@ func setupOperationsServiceWithCfg(
 	return ctx, cfg, client
 }
 
-func setupOperationsServiceWithoutRepo(
+func setupOperationsService(
 	tb testing.TB, ctx context.Context, options ...testserver.GitalyServerOpt,
 ) (context.Context, config.Cfg, gitalypb.OperationServiceClient) {
 	cfg := testcfg.Build(tb)

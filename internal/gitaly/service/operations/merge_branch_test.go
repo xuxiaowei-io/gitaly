@@ -51,7 +51,7 @@ func testUserMergeBranch(t *testing.T, ctx context.Context) {
 		opts = append(opts, testserver.WithSigningKey("testdata/signing_gpg_key"))
 	}
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, opts...)
+	ctx, cfg, client := setupOperationsService(t, ctx, opts...)
 
 	if featureflag.GPGSigning.IsEnabled(ctx) {
 		testcfg.BuildGitalyGPG(t, cfg)
@@ -364,7 +364,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 func testUserMergeBranchFailure(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	master := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
@@ -524,7 +524,7 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -587,7 +587,7 @@ func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, _, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -666,7 +666,7 @@ func TestUserMergeBranch_abort(t *testing.T) {
 func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, _, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -732,7 +732,7 @@ func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -806,7 +806,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -872,7 +872,7 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repo, repoPath, commits := setupRepoWithMergeableCommits(t, ctx, cfg, "branch")
 
 	hookContent := []byte("#!/bin/sh\necho 'stdout' && echo 'stderr' >&2\nexit 1")
@@ -972,7 +972,7 @@ func TestUserMergeBranch_conflict(t *testing.T) {
 func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	const mergeIntoBranch = "mergeIntoBranch"
 	const mergeFromBranch = "mergeFromBranch"
