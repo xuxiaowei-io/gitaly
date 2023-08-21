@@ -64,14 +64,28 @@ func serveAction(ctx *cli.Context) error {
 		return unexpectedPositionalArgsError{Command: ctx.Command.Name}
 	}
 
-	logger := log.Default()
 	// The ctx.Command.Name can't be used here because if `praefect -config FILE` is used
 	// it will be set to 'praefect' instead of 'serve'.
-	pathToConfigFile := mustProvideConfigFlag(ctx, "serve")
+	configPath := mustProvideConfigFlag(ctx, "serve")
+
+	conf, err := readConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	logger, err := log.Configure(os.Stdout, conf.Logging.Format, conf.Logging.Level)
+	if err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
+	}
 
 	logger.Infof("Starting %s", version.GetVersionString("Praefect"))
 
-	if err := run(ctx.App.Name, logger, pathToConfigFile); err != nil {
+	if !conf.Failover.Enabled && conf.Failover.ElectionStrategy != "" {
+		logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
+			"ignoring configured election strategy as failover is disabled")
+	}
+
+	if err := run(conf, ctx.App.Name, logger); err != nil {
 		logger.WithError(err).Error("Praefect shutdown")
 		return cli.Exit("", 1)
 	}
@@ -81,21 +95,7 @@ func serveAction(ctx *cli.Context) error {
 	return nil
 }
 
-func run(appName string, logger *logrus.Entry, configPath string) error {
-	conf, err := readConfig(configPath)
-	if err != nil {
-		return err
-	}
-
-	if _, err := log.Configure(os.Stdout, conf.Logging.Format, conf.Logging.Level); err != nil {
-		return fmt.Errorf("configuring logger: %w", err)
-	}
-
-	if !conf.Failover.Enabled && conf.Failover.ElectionStrategy != "" {
-		logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
-			"ignoring configured election strategy as failover is disabled")
-	}
-
+func run(conf config.Config, appName string, logger logrus.FieldLogger) error {
 	configure(logger, appName, conf)
 
 	starterConfigs, err := getStarterConfigs(conf)
@@ -154,7 +154,7 @@ func configure(logger logrus.FieldLogger, appName string, conf config.Config) {
 func server(
 	cfgs []starter.Config,
 	conf config.Config,
-	logger *logrus.Entry,
+	logger logrus.FieldLogger,
 	b bootstrap.Listener,
 	promreg prometheus.Registerer,
 	dbPromRegistry interface {
@@ -571,7 +571,7 @@ func getStarterConfigs(conf config.Config) ([]starter.Config, error) {
 	return cfgs, nil
 }
 
-func initDatabase(ctx context.Context, logger *logrus.Entry, conf config.Config) (*sql.DB, func(), error) {
+func initDatabase(ctx context.Context, logger logrus.FieldLogger, conf config.Config) (*sql.DB, func(), error) {
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	db, err := glsql.OpenDB(openDBCtx, conf.DB)

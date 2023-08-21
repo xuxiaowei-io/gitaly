@@ -14,7 +14,7 @@ import (
 // Dependencies consolidates Praefect service dependencies for injection.
 type Dependencies struct {
 	Config          config.Config
-	Logger          *logrus.Entry
+	Logger          logrus.FieldLogger
 	Coordinator     *Coordinator
 	Director        proxy.StreamDirector
 	NodeMgr         nodes.Manager

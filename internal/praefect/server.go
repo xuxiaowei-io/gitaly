@@ -45,7 +45,7 @@ import (
 
 // NewBackchannelServerFactory returns a ServerFactory that serves the RefTransactionServer on the backchannel
 // connection.
-func NewBackchannelServerFactory(logger *logrus.Entry, refSvc gitalypb.RefTransactionServer, registry *sidechannel.Registry) backchannel.ServerFactory {
+func NewBackchannelServerFactory(logger logrus.FieldLogger, refSvc gitalypb.RefTransactionServer, registry *sidechannel.Registry) backchannel.ServerFactory {
 	logMsgProducer := log.MessageProducer(
 		log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
 		structerr.FieldsProducer,
@@ -56,7 +56,7 @@ func NewBackchannelServerFactory(logger *logrus.Entry, refSvc gitalypb.RefTransa
 		lm.Register(sidechannel.NewServerHandshaker(registry))
 		srv := grpc.NewServer(
 			grpc.ChainUnaryInterceptor(
-				commonUnaryServerInterceptors(logger, logMsgProducer)...,
+				commonUnaryServerInterceptors(logger.WithField("component", "backchannel.PraefectServer"), logMsgProducer)...,
 			),
 			grpc.Creds(lm),
 		)
@@ -130,7 +130,7 @@ func NewGRPCServer(
 	)
 
 	unaryInterceptors := append(
-		commonUnaryServerInterceptors(deps.Logger, logMsgProducer),
+		commonUnaryServerInterceptors(deps.Logger.WithField("component", "praefect.UnaryServerInterceptor"), logMsgProducer),
 		middleware.MethodTypeUnaryInterceptor(deps.Registry, deps.Logger),
 		auth.UnaryServerInterceptor(deps.Config.Auth),
 	)
@@ -142,7 +142,7 @@ func NewGRPCServer(
 		middleware.MethodTypeStreamInterceptor(deps.Registry, deps.Logger),
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
-		grpcmwlogrus.StreamServerInterceptor(deps.Logger,
+		grpcmwlogrus.StreamServerInterceptor(deps.Logger.WithField("component", "praefect.StreamServerInterceptor"),
 			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 			grpcmwlogrus.WithMessageProducer(logMsgProducer),
 			log.DeciderOption(),
