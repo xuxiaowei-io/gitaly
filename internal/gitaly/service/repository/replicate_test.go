@@ -3,8 +3,6 @@ package repository
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/fs"
@@ -35,6 +33,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -702,10 +701,13 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
 
-	var votes []string
+	var votes []voting.Vote
 	txServer := testTransactionServer{
 		vote: func(request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-			votes = append(votes, hex.EncodeToString(request.ReferenceUpdatesHash))
+			vote, err := voting.VoteFromHash(request.ReferenceUpdatesHash)
+			require.NoError(t, err)
+			votes = append(votes, vote)
+
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_COMMIT,
 			}, nil
@@ -737,23 +739,23 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 
 	// There is no gitattributes file, so we vote on the empty contents of that file.
-	gitattributesVote := sha1.Sum([]byte{})
+	gitattributesVote := voting.VoteFromData([]byte{})
 	// There is a gitconfig though, so the vote should reflect its contents.
-	gitconfigVote := sha1.Sum(testhelper.MustReadFile(t, filepath.Join(sourceRepoPath, "config")))
+	gitconfigVote := voting.VoteFromData(testhelper.MustReadFile(t, filepath.Join(sourceRepoPath, "config")))
 
-	noHooksVote := "fd69c38637bf443296edc19e2b2c649d0502f7c0"
+	noHooksVote := voting.Vote("fd69c38637bf443296edc19e2b2c649d0502f7c0")
 
-	expectedVotes := []string{
+	expectedVotes := []voting.Vote{
 		// We cannot easily derive these first two votes: they are based on the complete
 		// hashed contents of the unpacked repository. We thus just only assert that they
 		// are always the first two entries and that they are the same by simply taking the
 		// first vote twice here.
 		votes[0],
 		votes[0],
-		hex.EncodeToString(gitconfigVote[:]),
-		hex.EncodeToString(gitconfigVote[:]),
-		hex.EncodeToString(gitattributesVote[:]),
-		hex.EncodeToString(gitattributesVote[:]),
+		gitconfigVote,
+		gitconfigVote,
+		gitattributesVote,
+		gitattributesVote,
 		noHooksVote,
 		noHooksVote,
 	}
@@ -762,7 +764,7 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 
 	// We're about to change refs/heads/master, and thus the mirror-fetch will update it. The
 	// vote should reflect that.
-	replicationVote := sha1.Sum([]byte(fmt.Sprintf("%[1]s %[2]s refs/heads/master\n", commitID2, commitID1)))
+	replicationVote := voting.VoteFromData([]byte(fmt.Sprintf("%[1]s %[2]s refs/heads/master\n", commitID2, commitID1)))
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
@@ -777,13 +779,13 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	})
 	require.NoError(t, err)
 
-	expectedVotes = []string{
-		hex.EncodeToString(gitconfigVote[:]),
-		hex.EncodeToString(gitconfigVote[:]),
-		hex.EncodeToString(gitattributesVote[:]),
-		hex.EncodeToString(gitattributesVote[:]),
-		hex.EncodeToString(replicationVote[:]),
-		hex.EncodeToString(replicationVote[:]),
+	expectedVotes = []voting.Vote{
+		gitconfigVote,
+		gitconfigVote,
+		gitattributesVote,
+		gitattributesVote,
+		replicationVote,
+		replicationVote,
 		noHooksVote,
 		noHooksVote,
 	}
