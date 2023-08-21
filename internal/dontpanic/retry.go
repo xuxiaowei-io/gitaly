@@ -12,23 +12,21 @@ import (
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"github.com/sirupsen/logrus"
 )
 
 // Try will wrap the provided function with a panic recovery. If a panic occurs,
 // the recovered panic will be sent to Sentry and logged as an error.
 // Returns `true` if no panic and `false` otherwise.
-func Try(fn func()) bool { return catchAndLog(fn) }
+func Try(logger logrus.FieldLogger, fn func()) bool { return catchAndLog(logger, fn) }
 
 // Go will run the provided function in a goroutine and recover from any
 // panics.  If a panic occurs, the recovered panic will be sent to Sentry
 // and logged as an error. Go is best used in fire-and-forget goroutines where
 // observability is lost.
-func Go(fn func()) { go Try(fn) }
+func Go(logger logrus.FieldLogger, fn func()) { go Try(logger, fn) }
 
-var logger = log.Default()
-
-func catchAndLog(fn func()) bool {
+func catchAndLog(logger logrus.FieldLogger, fn func()) bool {
 	var id *sentry.EventID
 	var recovered interface{}
 	normal := true
@@ -59,6 +57,7 @@ func catchAndLog(fn func()) bool {
 
 // Forever encapsulates logic to run a function forever.
 type Forever struct {
+	logger  logrus.FieldLogger
 	backoff time.Duration
 
 	cancelOnce sync.Once
@@ -68,8 +67,9 @@ type Forever struct {
 
 // NewForever creates a new Forever struct. The given duration controls how long retry of a
 // function should be delayed if the function were to thrown an error.
-func NewForever(backoff time.Duration) *Forever {
+func NewForever(logger logrus.FieldLogger, backoff time.Duration) *Forever {
 	return &Forever{
+		logger:   logger,
 		backoff:  backoff,
 		cancelCh: make(chan struct{}),
 		doneCh:   make(chan struct{}),
@@ -91,7 +91,7 @@ func (f *Forever) Go(fn func()) {
 			default:
 			}
 
-			if Try(fn) {
+			if Try(f.logger, fn) {
 				continue
 			}
 
@@ -99,7 +99,7 @@ func (f *Forever) Go(fn func()) {
 				continue
 			}
 
-			logger.Infof("dontpanic: backing off %s before retrying", f.backoff)
+			f.logger.Infof("dontpanic: backing off %s before retrying", f.backoff)
 
 			select {
 			case <-f.cancelCh:

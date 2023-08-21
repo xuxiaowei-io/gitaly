@@ -108,7 +108,7 @@ func (c *DiskCache) walkLoop(walkPath string) {
 
 	walkTick := time.NewTicker(cleanWalkFrequency)
 
-	forever := dontpanic.NewForever(time.Minute)
+	forever := dontpanic.NewForever(logger, time.Minute)
 	forever.Go(func() {
 		select {
 		case <-c.walkersDone:
@@ -164,7 +164,7 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 	}
 
 	defer func() {
-		dontpanic.Go(func() {
+		dontpanic.Go(logger, func() {
 			start := time.Now()
 			if err := os.RemoveAll(tmpDir); err != nil {
 				logger.Errorf("unable to remove disk cache objects: %q", err)

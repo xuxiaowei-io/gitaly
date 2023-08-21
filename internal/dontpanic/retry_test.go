@@ -6,21 +6,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 func TestTry(t *testing.T) {
-	dontpanic.Try(func() { panic("don't panic") })
+	dontpanic.Try(testhelper.NewDiscardingLogEntry(t), func() { panic("don't panic") })
 }
 
 func TestTryNoPanic(t *testing.T) {
 	invoked := false
-	dontpanic.Try(func() { invoked = true })
+	dontpanic.Try(testhelper.NewDiscardingLogEntry(t), func() { invoked = true })
 	require.True(t, invoked)
 }
 
 func TestGo(t *testing.T) {
 	done := make(chan struct{})
-	dontpanic.Go(func() {
+	dontpanic.Go(testhelper.NewDiscardingLogEntry(t), func() {
 		defer close(done)
 		panic("don't panic")
 	})
@@ -29,7 +30,7 @@ func TestGo(t *testing.T) {
 
 func TestGoNoPanic(t *testing.T) {
 	done := make(chan struct{})
-	dontpanic.Go(func() { close(done) })
+	dontpanic.Go(testhelper.NewDiscardingLogEntry(t), func() { close(done) })
 	<-done
 }
 
@@ -49,7 +50,7 @@ func TestGoForever(t *testing.T) {
 		panic("don't panic")
 	}
 
-	forever := dontpanic.NewForever(time.Microsecond)
+	forever := dontpanic.NewForever(testhelper.NewDiscardingLogEntry(t), time.Microsecond)
 	forever.Go(fn)
 
 	var actualPanics int

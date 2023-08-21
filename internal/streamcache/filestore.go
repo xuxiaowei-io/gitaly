@@ -65,7 +65,7 @@ func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration) <-
 		dir:       dir,
 		maxAge:    maxAge,
 		stop:      make(chan struct{}),
-		sleepLoop: dontpanic.NewForever(time.Minute),
+		sleepLoop: dontpanic.NewForever(logger, time.Minute),
 	}
 
 	fs.sleepLoop.Go(func() {
