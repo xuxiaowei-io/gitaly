@@ -1,8 +1,10 @@
 module gitlab.com/gitlab-org/gitaly/tools/protolint
 
-go 1.20
+go 1.21
 
-require github.com/yoheimuta/protolint v0.45.0
+toolchain go1.21.0
+
+require github.com/yoheimuta/protolint v0.45.1
 
 require (
 	github.com/chavacava/garif v0.0.0-20230608123814-4bd63c2919ab // indirect
