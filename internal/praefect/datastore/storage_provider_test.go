@@ -93,9 +93,9 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Run("repository store returns an error", func(t *testing.T) {
 		db.TruncateAll(t)
 
-		ctx := testhelper.Context(t, testhelper.ContextWithLogger(testhelper.NewDiscardingLogEntry(t)))
+		ctx := testhelper.Context(t)
 
-		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(testhelper.NewLogger(t), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -114,14 +114,14 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Run("cache is disabled after handling invalid payload", func(t *testing.T) {
 		db.TruncateAll(t)
 
-		logger := testhelper.NewDiscardingLogEntry(t)
-		logHook := test.NewLocal(logger.Logger)
+		logger := testhelper.NewLogger(t)
+		logHook := test.NewLocal(logger)
 
-		ctx := testhelper.Context(t, testhelper.ContextWithLogger(logger))
+		ctx := testhelper.Context(t)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(logger, rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
