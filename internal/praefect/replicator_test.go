@@ -94,7 +94,7 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	})
 	require.NoError(t, err)
 
-	entry := testhelper.NewDiscardingLogEntry(t)
+	entry := testhelper.NewLogger(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)

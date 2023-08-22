@@ -502,7 +502,7 @@ func TestVerifier(t *testing.T) {
 			}
 
 			db := testdb.New(t)
-			discardLogger := testhelper.NewDiscardingLogEntry(t)
+			logger := testhelper.NewLogger(t)
 			sidechannelRegistry := sidechannel.NewRegistry()
 			txManager := transactions.NewManager(config.Config{})
 			nodeSet, err := DialNodes(
@@ -511,9 +511,9 @@ func TestVerifier(t *testing.T) {
 				protoregistry.GitalyProtoPreregistered,
 				nil,
 				backchannel.NewClientHandshaker(
-					discardLogger,
+					logger,
 					NewBackchannelServerFactory(
-						discardLogger,
+						logrus.NewEntry(logger),
 						transaction.NewServer(txManager),
 						sidechannelRegistry,
 					),

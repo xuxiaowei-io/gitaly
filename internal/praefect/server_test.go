@@ -57,7 +57,7 @@ import (
 func TestNewBackchannelServerFactory(t *testing.T) {
 	mgr := transactions.NewManager(config.Config{})
 
-	logger := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.NewLogger(t)
 	registry := backchannel.NewRegistry()
 
 	lm := listenmux.New(insecure.NewCredentials())
@@ -101,7 +101,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 		backchannel.NewClientHandshaker(
 			logger,
 			NewBackchannelServerFactory(
-				testhelper.NewDiscardingLogEntry(t),
+				logrus.NewEntry(logger),
 				transaction.NewServer(mgr),
 				nil,
 			),
@@ -531,14 +531,15 @@ func TestRemoveRepository(t *testing.T) {
 
 	verifyReposExistence(t, codes.OK)
 
+	logger := testhelper.NewLogger(t)
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	repoStore := defaultRepoStore(praefectCfg)
 	txMgr := defaultTxMgr(praefectCfg)
-	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), praefectCfg, nil,
+	nodeMgr, err := nodes.NewManager(testhelper.NewLogger(t), praefectCfg, nil,
 		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
 		nil, backchannel.NewClientHandshaker(
-			testhelper.NewDiscardingLogEntry(t),
-			NewBackchannelServerFactory(testhelper.NewDiscardingLogEntry(t), transaction.NewServer(txMgr), nil),
+			logger,
+			NewBackchannelServerFactory(logrus.NewEntry(logger), transaction.NewServer(txMgr), nil),
 			backchannel.DefaultConfiguration(),
 		), nil,
 	)
@@ -605,11 +606,11 @@ func TestRenameRepository(t *testing.T) {
 	rs := datastore.NewPostgresRepositoryStore(db, nil)
 
 	txManager := transactions.NewManager(praefectCfg)
-	logger := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.NewLogger(t)
 	clientHandshaker := backchannel.NewClientHandshaker(
 		logger,
 		NewBackchannelServerFactory(
-			logger,
+			logrus.NewEntry(logger),
 			transaction.NewServer(txManager),
 			nil,
 		),

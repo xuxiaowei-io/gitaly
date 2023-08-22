@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -73,13 +74,13 @@ func TestServerFactory(t *testing.T) {
 
 	repo.StorageName = conf.VirtualStorages[0].Name // storage must be re-written to virtual to be properly redirected by praefect
 
-	logger := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.NewLogger(t)
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 
 	rs := datastore.MockRepositoryStore{}
 	txMgr := transactions.NewManager(conf)
 	sidechannelRegistry := sidechannel.NewRegistry()
-	clientHandshaker := backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(logger, transaction.NewServer(txMgr), sidechannelRegistry), backchannel.DefaultConfiguration())
+	clientHandshaker := backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(logrus.NewEntry(logger), transaction.NewServer(txMgr), sidechannelRegistry), backchannel.DefaultConfiguration())
 	nodeMgr, err := nodes.NewManager(logger, conf, nil, rs, &promtest.MockHistogramVec{}, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, sidechannelRegistry)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Second)
@@ -180,7 +181,7 @@ func TestServerFactory(t *testing.T) {
 	setupPraefectServerFactory := func(config config.Config) *ServerFactory {
 		return NewServerFactory(&Dependencies{
 			Config:          config,
-			Logger:          logger,
+			Logger:          logrus.NewEntry(logger),
 			Coordinator:     coordinator,
 			Director:        coordinator.StreamDirector,
 			NodeMgr:         nodeMgr,
