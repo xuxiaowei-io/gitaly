@@ -2,11 +2,14 @@ package storagemgr
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/dgraph-io/badger/v4"
@@ -227,6 +230,16 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}
 
+	relativeStateDir := deriveStateDirectory(relativePath)
+	absoluteStateDir := filepath.Join(storageMgr.path, relativeStateDir)
+	if err := os.MkdirAll(filepath.Dir(absoluteStateDir), perm.PrivateDir); err != nil {
+		return nil, fmt.Errorf("create state directory hierarchy: %w", err)
+	}
+
+	if err := safe.NewSyncer().SyncHierarchy(storageMgr.path, filepath.Dir(relativeStateDir)); err != nil {
+		return nil, fmt.Errorf("sync state directory hierarchy: %w", err)
+	}
+
 	for {
 		storageMgr.mu.Lock()
 		if storageMgr.closed {
@@ -247,7 +260,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, stagingDir, pm.commandFactory, pm.housekeepingManager, storageMgr.repoFactory)
+			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, absoluteStateDir, stagingDir, pm.commandFactory, pm.housekeepingManager, storageMgr.repoFactory)
 
 			ptn.transactionManager = mgr
 
@@ -318,6 +331,25 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 
 		return storageMgr.newFinalizableTransaction(ptn, transaction), nil
 	}
+}
+
+// deriveStateDirectory hashes the relative path and returns the state directory where a state
+// related to a given partition should be stored.
+func deriveStateDirectory(relativePath string) string {
+	hasher := sha256.New()
+	hasher.Write([]byte(relativePath))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+
+	return filepath.Join(
+		"partitions",
+		// These two levels balance the state directories into smaller
+		// subdirectories to keep the directory sizes reasonable.
+		hash[0:2],
+		hash[2:4],
+		// Flatten the relative path by removing the path separators so the
+		// repository is stored on this level in the directory hierarchy.
+		strings.ReplaceAll(relativePath, string(os.PathSeparator), ""),
+	)
 }
 
 // Close closes transaction processing for all storages and waits for closing completion.
