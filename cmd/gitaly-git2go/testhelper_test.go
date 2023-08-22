@@ -40,5 +40,5 @@ func TestMain(m *testing.M) {
 }
 
 func buildExecutor(tb testing.TB, cfg config.Cfg) *git2go.Executor {
-	return git2go.NewExecutor(cfg, gittest.NewCommandFactory(tb, cfg), config.NewLocator(cfg))
+	return git2go.NewExecutor(cfg, gittest.NewCommandFactory(tb, cfg), config.NewLocator(cfg), testhelper.SharedLogger(tb))
 }
