@@ -17,18 +17,17 @@ import (
 )
 
 func TestLegacyLocator(t *testing.T) {
-	gittest.SkipWithSHA256(t)
-
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 		RelativePath:           t.Name(),
 	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+
 	l := LegacyLocator{}
 
 	t.Run("Begin/Commit Full", func(t *testing.T) {
@@ -68,8 +67,6 @@ func TestLegacyLocator(t *testing.T) {
 }
 
 func TestPointerLocator(t *testing.T) {
-	gittest.SkipWithSHA256(t)
-
 	t.Parallel()
 
 	const backupID = "abc123"
@@ -77,11 +74,11 @@ func TestPointerLocator(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 		RelativePath:           t.Name(),
 	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	t.Run("Begin/Commit full", func(t *testing.T) {
 		t.Parallel()

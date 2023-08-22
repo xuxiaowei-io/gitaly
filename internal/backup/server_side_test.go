@@ -242,8 +242,6 @@ func TestServerSideAdapter_Restore(t *testing.T) {
 }
 
 func TestServerSideAdapter_RemoveAllRepositories(t *testing.T) {
-	gittest.SkipWithSHA256(t)
-
 	t.Parallel()
 
 	backupRoot := testhelper.TempDir(t)

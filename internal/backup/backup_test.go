@@ -29,8 +29,6 @@ import (
 )
 
 func TestManager_RemoveAllRepositories(t *testing.T) {
-	gittest.SkipWithSHA256(t)
-
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -61,8 +59,6 @@ func TestManager_RemoveAllRepositories(t *testing.T) {
 }
 
 func TestManager_Create(t *testing.T) {
-	gittest.SkipWithSHA256(t)
-
 	t.Parallel()
 
 	const backupID = "abc123"
@@ -232,8 +228,6 @@ func TestManager_Create(t *testing.T) {
 }
 
 func TestManager_Create_incremental(t *testing.T) {
-	gittest.SkipWithSHA256(t)
-
 	t.Parallel()
 
 	const backupID = "abc123"
