@@ -100,7 +100,7 @@ func TestFetchIntoObjectPool_transactional(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runObjectPoolServer(
 		t, cfg, config.NewLocator(cfg),
-		testhelper.NewLogger(t),
+		testhelper.SharedLogger(t),
 		testserver.WithTransactionManager(&txManager),
 		// We need to disable Praefect given that we replace transactions with our own logic
 		// here.

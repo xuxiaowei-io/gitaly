@@ -137,7 +137,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		SecretFile: secretFilePath,
 	}
 
-	gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewLogger(t), gitlabConfig, cfg.TLS, prometheus.Config{})
+	gitlabClient, err := gitlab.NewHTTPClient(testhelper.SharedLogger(t), gitlabConfig, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
 	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
@@ -255,7 +255,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				SecretFile: secretFilePath,
 			}
 
-			gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewLogger(t), gitlabConfig, cfg.TLS, prometheus.Config{})
+			gitlabClient, err := gitlab.NewHTTPClient(testhelper.SharedLogger(t), gitlabConfig, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
 			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
@@ -320,7 +320,7 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 		SecretFile: secretFilePath,
 	}
 
-	gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewLogger(t), gitlabConfig, cfg.TLS, prometheus.Config{})
+	gitlabClient, err := gitlab.NewHTTPClient(testhelper.SharedLogger(t), gitlabConfig, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
 	cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
@@ -465,7 +465,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			gitlab.WriteShellSecretFile(t, tmpDir, "token")
 
 			gitlabClient, err := gitlab.NewHTTPClient(
-				testhelper.NewLogger(t),
+				testhelper.SharedLogger(t),
 				config.Gitlab{
 					URL:        srv.URL,
 					SecretFile: secretFilePath,

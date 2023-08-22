@@ -47,7 +47,7 @@ func TestCleanSuccess(t *testing.T) {
 
 	assertEntries(t, locator, cfg.Storages[0], "a", "c", "e", "f")
 
-	require.NoError(t, clean(testhelper.NewLogger(t), locator, cfg.Storages[0]), "walk first pass")
+	require.NoError(t, clean(testhelper.SharedLogger(t), locator, cfg.Storages[0]), "walk first pass")
 	assertEntries(t, locator, cfg.Storages[0], "c", "e")
 }
 
@@ -75,14 +75,14 @@ func TestCleanNoTmpExists(t *testing.T) {
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
 
-	require.NoError(t, clean(testhelper.NewLogger(t), locator, cfg.Storages[0]))
+	require.NoError(t, clean(testhelper.SharedLogger(t), locator, cfg.Storages[0]))
 }
 
 func TestCleanNoStorageExists(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("first"))
 	locator := config.NewLocator(cfg)
 
-	err := clean(testhelper.NewLogger(t), locator, config.Storage{Name: "does-not-exist", Path: "/something"})
+	err := clean(testhelper.SharedLogger(t), locator, config.Storage{Name: "does-not-exist", Path: "/something"})
 	require.EqualError(t, err, "temporary dir: tmp dir: no such storage: \"does-not-exist\"")
 }
 
@@ -104,7 +104,7 @@ func TestCleanerSafety(t *testing.T) {
 	}()
 
 	// We need to set up a mock locator which returns an invalid temporary directory path.
-	require.NoError(t, clean(testhelper.NewLogger(t), mockLocator{}, config.Storage{}))
+	require.NoError(t, clean(testhelper.SharedLogger(t), mockLocator{}, config.Storage{}))
 
 	t.Fatal("expected panic")
 }

@@ -96,7 +96,7 @@ func newMuxedSmartHTTPClient(t *testing.T, ctx context.Context, serverSocketPath
 		ctx,
 		serverSocketPath,
 		client.WithGrpcOptions([]grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token))}),
-		client.WithHandshaker(backchannel.NewClientHandshaker(testhelper.NewLogger(t), serverFactory, backchannel.DefaultConfiguration())),
+		client.WithHandshaker(backchannel.NewClientHandshaker(testhelper.SharedLogger(t), serverFactory, backchannel.DefaultConfiguration())),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })

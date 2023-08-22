@@ -74,7 +74,7 @@ func TestServerFactory(t *testing.T) {
 
 	repo.StorageName = conf.VirtualStorages[0].Name // storage must be re-written to virtual to be properly redirected by praefect
 
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 
 	rs := datastore.MockRepositoryStore{}

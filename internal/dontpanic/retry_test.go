@@ -10,18 +10,18 @@ import (
 )
 
 func TestTry(t *testing.T) {
-	dontpanic.Try(testhelper.NewLogger(t), func() { panic("don't panic") })
+	dontpanic.Try(testhelper.SharedLogger(t), func() { panic("don't panic") })
 }
 
 func TestTryNoPanic(t *testing.T) {
 	invoked := false
-	dontpanic.Try(testhelper.NewLogger(t), func() { invoked = true })
+	dontpanic.Try(testhelper.SharedLogger(t), func() { invoked = true })
 	require.True(t, invoked)
 }
 
 func TestGo(t *testing.T) {
 	done := make(chan struct{})
-	dontpanic.Go(testhelper.NewLogger(t), func() {
+	dontpanic.Go(testhelper.SharedLogger(t), func() {
 		defer close(done)
 		panic("don't panic")
 	})
@@ -30,7 +30,7 @@ func TestGo(t *testing.T) {
 
 func TestGoNoPanic(t *testing.T) {
 	done := make(chan struct{})
-	dontpanic.Go(testhelper.NewLogger(t), func() { close(done) })
+	dontpanic.Go(testhelper.SharedLogger(t), func() { close(done) })
 	<-done
 }
 
@@ -50,7 +50,7 @@ func TestGoForever(t *testing.T) {
 		panic("don't panic")
 	}
 
-	forever := dontpanic.NewForever(testhelper.NewLogger(t), time.Microsecond)
+	forever := dontpanic.NewForever(testhelper.SharedLogger(t), time.Microsecond)
 	forever.Go(fn)
 
 	var actualPanics int

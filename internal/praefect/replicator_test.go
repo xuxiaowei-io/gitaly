@@ -94,7 +94,7 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	})
 	require.NoError(t, err)
 
-	entry := testhelper.NewLogger(t)
+	entry := testhelper.SharedLogger(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -129,7 +129,7 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	var mockReplicationLatencyHistogramVec promtest.MockHistogramVec
 	var mockReplicationDelayHistogramVec promtest.MockHistogramVec
 
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 	loggerHook := test.NewLocal(logger)
 
 	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
@@ -235,7 +235,7 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 				},
 			}
 
-			logger := testhelper.NewLogger(t)
+			logger := testhelper.SharedLogger(t)
 			hook := test.NewLocal(logger)
 			r := &defaultReplicator{rs: rs, log: logger}
 
@@ -279,13 +279,13 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
-	equal, err := confirmChecksums(ctx, testhelper.NewLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
+	equal, err := confirmChecksums(ctx, testhelper.SharedLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)
 	require.True(t, equal)
 
 	gittest.WriteCommit(t, cfg, testRepoAPath, gittest.WithBranch("master"))
 
-	equal, err = confirmChecksums(ctx, testhelper.NewLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
+	equal, err = confirmChecksums(ctx, testhelper.SharedLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)
 	require.False(t, equal)
 }
@@ -385,7 +385,7 @@ func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), event2.ID)
 
-	logEntry := testhelper.NewLogger(t)
+	logEntry := testhelper.SharedLogger(t)
 
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -545,7 +545,7 @@ func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 	_, err = queueInterceptor.Enqueue(ctx, eventType3)
 	require.NoError(t, err)
 
-	logEntry := testhelper.NewLogger(t)
+	logEntry := testhelper.SharedLogger(t)
 
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -626,7 +626,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 	node3 := Node{Storage: conf.VirtualStorages[0].Nodes[2].Storage}
 
 	replMgr := NewReplMgr(
-		testhelper.NewLogger(t),
+		testhelper.SharedLogger(t),
 		conf.StorageNames(),
 		queueInterceptor,
 		nil,
@@ -703,7 +703,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, "ignored", "ignored", primaryStorage, []string{secondaryStorage}, nil, true, false))
 
 	replMgr := NewReplMgr(
-		testhelper.NewLogger(t),
+		testhelper.SharedLogger(t),
 		conf.StorageNames(),
 		queue,
 		rs,
@@ -789,7 +789,7 @@ func TestSubtractUint64(t *testing.T) {
 }
 
 func TestReplMgr_ProcessStale(t *testing.T) {
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 	hook := test.NewLocal(logger)
 
 	queue := datastore.NewReplicationEventQueueInterceptor(nil)

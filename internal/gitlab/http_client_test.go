@@ -81,7 +81,7 @@ func TestAccess_verifyParams(t *testing.T) {
 	defer cleanup()
 
 	c, err := NewHTTPClient(
-		testhelper.NewLogger(t),
+		testhelper.SharedLogger(t),
 		config.Gitlab{
 			URL:        serverURL,
 			SecretFile: secretFilePath,
@@ -227,7 +227,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 			}
 
 			c, err := NewHTTPClient(
-				testhelper.NewLogger(t),
+				testhelper.SharedLogger(t),
 				config.Gitlab{
 					URL:             serverURL,
 					RelativeURLRoot: tc.relativeURLRoot,
@@ -386,7 +386,7 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			defer server.Close()
 
 			c, err := NewHTTPClient(
-				testhelper.NewLogger(t),
+				testhelper.SharedLogger(t),
 				config.Gitlab{
 					URL:        server.URL,
 					SecretFile: secretFilePath,
@@ -496,7 +496,7 @@ func TestAccess_preReceive(t *testing.T) {
 			defer server.Close()
 
 			c, err := NewHTTPClient(
-				testhelper.NewLogger(t),
+				testhelper.SharedLogger(t),
 				config.Gitlab{
 					URL:        server.URL,
 					SecretFile: secretFilePath,
@@ -585,7 +585,7 @@ func TestAccess_postReceive(t *testing.T) {
 			defer server.Close()
 
 			c, err := NewHTTPClient(
-				testhelper.NewLogger(t),
+				testhelper.SharedLogger(t),
 				config.Gitlab{
 					URL:        server.URL,
 					SecretFile: secretFilePath,
@@ -662,7 +662,7 @@ func TestNewHTTPClient_gitlabSecretConfig(t *testing.T) {
 			defer server.Close()
 
 			httpClient, err := NewHTTPClient(
-				testhelper.NewLogger(t),
+				testhelper.SharedLogger(t),
 				config.Gitlab{
 					URL:        server.URL,
 					Secret:     tc.secret,

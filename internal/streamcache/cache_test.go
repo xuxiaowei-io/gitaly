@@ -27,7 +27,7 @@ func newCache(tb testing.TB, dir string) Cache {
 		Enabled: true,
 		Dir:     dir,
 		MaxAge:  duration.Duration(time.Hour),
-	}, testhelper.NewLogger(tb))
+	}, testhelper.SharedLogger(tb))
 	tb.Cleanup(cache.Stop)
 
 	return cache
@@ -248,7 +248,7 @@ func TestCache_diskCleanup(t *testing.T) {
 		return cleanSleepTimerCh
 	}
 
-	c := newCacheWithSleep(tmp, 0, filestoreClean, cleanSleep, testhelper.NewLogger(t))
+	c := newCacheWithSleep(tmp, 0, filestoreClean, cleanSleep, testhelper.SharedLogger(t))
 	defer c.Stop()
 
 	var removalLock sync.Mutex

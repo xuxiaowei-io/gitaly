@@ -1071,7 +1071,7 @@ func TestReconciler(t *testing.T) {
 				}
 
 				reconciler := NewReconciler(
-					testhelper.NewLogger(t),
+					testhelper.SharedLogger(t),
 					tx,
 					praefect.StaticHealthChecker(tc.healthyStorages),
 					configuredStorages,
@@ -1198,7 +1198,7 @@ func TestReconciler_renames(t *testing.T) {
 			configuredStorages := map[string][]string{"virtual-storage": {"storage-1", "storage-2"}}
 
 			reconciler := NewReconciler(
-				testhelper.NewLogger(t),
+				testhelper.SharedLogger(t),
 				db,
 				praefect.StaticHealthChecker(configuredStorages),
 				configuredStorages,

@@ -185,7 +185,7 @@ func newOperationClient(t *testing.T, token, serverSocketPath string) (gitalypb.
 func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 	registry := backchannel.NewRegistry()
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
@@ -238,9 +238,9 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 
 	srv, err := NewGitalyServerFactory(
 		cfg,
-		testhelper.NewLogger(t),
+		testhelper.SharedLogger(t),
 		backchannel.NewRegistry(),
-		cache.New(cfg, config.NewLocator(cfg), testhelper.NewLogger(t)),
+		cache.New(cfg, config.NewLocator(cfg), testhelper.SharedLogger(t)),
 		[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)},
 	).New(true)
 	require.NoError(t, err)

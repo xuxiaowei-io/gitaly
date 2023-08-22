@@ -371,7 +371,7 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 	}()
 
 	cmd := &removeRepository{virtualStorage: virtualStorage, relativePath: relativePath}
-	require.NoError(t, cmd.removeReplicationEvents(ctx, testhelper.NewLogger(t), db.DB, ticker))
+	require.NoError(t, cmd.removeReplicationEvents(ctx, testhelper.SharedLogger(t), db.DB, ticker))
 
 	wg.Wait()
 

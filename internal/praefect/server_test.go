@@ -57,7 +57,7 @@ import (
 func TestNewBackchannelServerFactory(t *testing.T) {
 	mgr := transactions.NewManager(config.Config{})
 
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 	registry := backchannel.NewRegistry()
 
 	lm := listenmux.New(insecure.NewCredentials())
@@ -531,11 +531,11 @@ func TestRemoveRepository(t *testing.T) {
 
 	verifyReposExistence(t, codes.OK)
 
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	repoStore := defaultRepoStore(praefectCfg)
 	txMgr := defaultTxMgr(praefectCfg)
-	nodeMgr, err := nodes.NewManager(testhelper.NewLogger(t), praefectCfg, nil,
+	nodeMgr, err := nodes.NewManager(testhelper.SharedLogger(t), praefectCfg, nil,
 		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
 		nil, backchannel.NewClientHandshaker(
 			logger,
@@ -606,7 +606,7 @@ func TestRenameRepository(t *testing.T) {
 	rs := datastore.NewPostgresRepositoryStore(db, nil)
 
 	txManager := transactions.NewManager(praefectCfg)
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 	clientHandshaker := backchannel.NewClientHandshaker(
 		logger,
 		NewBackchannelServerFactory(
@@ -814,7 +814,7 @@ func TestProxyWrites(t *testing.T) {
 	}
 
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
-	entry := testhelper.NewLogger(t)
+	entry := testhelper.SharedLogger(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -954,7 +954,7 @@ func TestErrorThreshold(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
-	entry := testhelper.NewLogger(t)
+	entry := testhelper.SharedLogger(t)
 
 	testCases := []struct {
 		desc     string

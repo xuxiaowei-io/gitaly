@@ -73,7 +73,7 @@ func TestGetObjectPoolHandler(t *testing.T) {
 
 		srv := NewGRPCServer(&Dependencies{
 			Config: config.Config{Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository}},
-			Logger: logrus.NewEntry(testhelper.NewLogger(t)),
+			Logger: logrus.NewEntry(testhelper.SharedLogger(t)),
 			Director: func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 				return nil, errServedByGitaly
 			},

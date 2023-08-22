@@ -67,7 +67,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	db := testdb.New(t)
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 	// the only thing used from the config is the grpc_latency_buckets which is not relevant for the test
 	txManager := transactions.NewManager(config.Config{})
 	sidechannelRegistry := sidechannel.NewRegistry()

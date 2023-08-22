@@ -109,7 +109,7 @@ func TestCountStorages(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t, testcfg.WithStorages(tc.storageNames[0], tc.storageNames[1:]...))
 			locator := config.NewLocator(cfg)
-			logger := testhelper.NewLogger(t)
+			logger := testhelper.SharedLogger(t)
 
 			if tc.sharedPath {
 				cfg.Storages[1].Path = cfg.Storages[0].Path

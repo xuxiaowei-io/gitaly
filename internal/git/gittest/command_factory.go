@@ -12,7 +12,7 @@ import (
 // NewCommandFactory creates a new Git command factory.
 func NewCommandFactory(tb testing.TB, cfg config.Cfg, opts ...git.ExecCommandFactoryOption) *git.ExecCommandFactory {
 	tb.Helper()
-	factory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewLogger(tb), opts...)
+	factory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(tb), opts...)
 	require.NoError(tb, err)
 	tb.Cleanup(cleanup)
 	return factory

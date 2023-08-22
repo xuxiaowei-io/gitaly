@@ -20,7 +20,7 @@ func TestDial(t *testing.T) {
 	errNonMuxed := status.Error(codes.Internal, "non-muxed connection")
 	errMuxed := status.Error(codes.Internal, "muxed connection")
 
-	logger := testhelper.NewLogger(t)
+	logger := testhelper.SharedLogger(t)
 
 	lm := listenmux.New(insecure.NewCredentials())
 	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))

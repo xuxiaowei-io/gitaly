@@ -3643,7 +3643,7 @@ func TestTransactionManager(t *testing.T) {
 			repoPath, err := repo.Path()
 			require.NoError(t, err)
 
-			database, err := OpenDatabase(testhelper.NewLogger(t), t.TempDir())
+			database, err := OpenDatabase(testhelper.SharedLogger(t), t.TempDir())
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
 
@@ -4038,7 +4038,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			cache := catfile.NewCache(cfg)
 			defer cache.Stop()
 
-			database, err := OpenDatabase(testhelper.NewLogger(b), b.TempDir())
+			database, err := OpenDatabase(testhelper.SharedLogger(b), b.TempDir())
 			require.NoError(b, err)
 			defer testhelper.MustClose(b, database)
 

@@ -95,7 +95,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 		ctx := testhelper.Context(t)
 
-		cache, err := NewCachingConsistentStoragesGetter(testhelper.NewLogger(t), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(testhelper.SharedLogger(t), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -114,7 +114,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Run("cache is disabled after handling invalid payload", func(t *testing.T) {
 		db.TruncateAll(t)
 
-		logger := testhelper.NewLogger(t)
+		logger := testhelper.SharedLogger(t)
 		logHook := test.NewLocal(logger)
 
 		ctx := testhelper.Context(t)
