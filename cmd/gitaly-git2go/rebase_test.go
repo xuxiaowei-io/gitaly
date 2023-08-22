@@ -28,7 +28,6 @@ func TestRebase_validation(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
@@ -368,7 +367,6 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
