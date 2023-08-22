@@ -34,18 +34,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func runTestsWithRuntimeDir(t *testing.T, testFunc func(*testing.T, context.Context, string)) func(*testing.T, context.Context) {
+func runTestsWithRuntimeDir(t *testing.T, testFunc func(*testing.T, string)) {
 	t.Helper()
 
-	return func(t *testing.T, ctx context.Context) {
-		t.Run("no runtime dir", func(t *testing.T) {
-			testFunc(t, ctx, "")
-		})
+	t.Run("no runtime dir", func(t *testing.T) {
+		testFunc(t, "")
+	})
 
-		t.Run("with runtime dir", func(t *testing.T) {
-			testFunc(t, ctx, testhelper.TempDir(t))
-		})
-	}
+	t.Run("with runtime dir", func(t *testing.T) {
+		testFunc(t, testhelper.TempDir(t))
+	})
 }
 
 func cfgWithCache(t *testing.T, minOccurrences int) config.Cfg {
@@ -85,17 +83,24 @@ func TestParsePackObjectsArgs(t *testing.T) {
 }
 
 func TestServer_PackObjectsHook_separateContext(t *testing.T) {
+	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5548")
+
 	t.Parallel()
 	runTestsWithRuntimeDir(t, testServerPackObjectsHookSeparateContextWithRuntimeDir)
 }
 
-func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx context.Context, runtimeDir string) {
+func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtimeDir string) {
+	ctx := testhelper.Context(t)
+
 	cfg := cfgWithCache(t, 0)
 	cfg.SocketPath = runHooksServer(t, cfg, nil)
 
 	ctx1, cancel := context.WithCancel(ctx)
 	defer cancel()
 	repo, repoPath := gittest.CreateRepository(t, ctx1, cfg)
+
+	// We write a commit with a large blob such that the response needs to be split over multiple messages.
+	// Otherwise it may happen that the request will finish before we can actually cancel the context.
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	req := &gitalypb.PackObjectsHookWithSidechannelRequest{
@@ -213,7 +218,9 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 	runTestsWithRuntimeDir(t, testServerPackObjectsHookUsesCache)
 }
 
-func testServerPackObjectsHookUsesCache(t *testing.T, ctx context.Context, runtimeDir string) {
+func testServerPackObjectsHookUsesCache(t *testing.T, runtimeDir string) {
+	ctx := testhelper.Context(t)
+
 	testCases := []struct {
 		name         string
 		makeRequests func(repository *gitalypb.Repository) []*gitalypb.PackObjectsHookWithSidechannelRequest
@@ -426,8 +433,10 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 	runTestsWithRuntimeDir(t, testServerPackObjectsHookWithSidechannelWithRuntimeDir)
 }
 
-func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx context.Context, runtimeDir string) {
+func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, runtimeDir string) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 
 	type setupData struct {
 		repo     *gitalypb.Repository
@@ -612,8 +621,13 @@ func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 	runTestsWithRuntimeDir(t, testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir)
 }
 
-func testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir(t *testing.T, ctx context.Context, runtimeDir string) {
+func testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir(t *testing.T, runtimeDir string) {
+	ctx := testhelper.Context(t)
 	cfg := cfgWithCache(t, 0)
+	cfg.SocketPath = runHooksServer(t, cfg, nil)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	ctx, wt, err := hookPkg.SetupSidechannel(
 		ctx,
@@ -623,17 +637,12 @@ func testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir(t *testing.T
 		func(c *net.UnixConn) error {
 			// Simulate a client that successfully initiates a request, but hangs up
 			// before fully consuming the response.
-			_, err := io.WriteString(c, "3dd08961455abf80ef9115f4afdc1c6f968b503c\n--not\n\n")
+			_, err := io.WriteString(c, fmt.Sprintf("%s\n--not\n\n", commitID))
 			return err
 		},
 	)
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, wt)
-
-	cfg.SocketPath = runHooksServer(t, cfg, nil)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
 
 	client, conn := newHooksClient(t, cfg.SocketPath)
 	defer conn.Close()
