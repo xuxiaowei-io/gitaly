@@ -730,7 +730,12 @@ func getCommits(t *testing.T, ctx context.Context, client gitalypb.CommitService
 
 func BenchmarkCommitStats(b *testing.B) {
 	ctx := testhelper.Context(b)
-	_, repo, _, client := setupCommitServiceWithRepo(b, ctx)
+	cfg, client := setupCommitService(b, ctx)
+
+	repo, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+		Seed: "benchmark.git",
+	})
+
 	request := &gitalypb.FindCommitsRequest{
 		Repository: repo,
 		Limit:      100,

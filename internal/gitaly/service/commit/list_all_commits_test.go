@@ -196,7 +196,11 @@ func BenchmarkListAllCommits(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repo, _, client := setupCommitServiceWithRepo(b, ctx)
+	cfg, client := setupCommitService(b, ctx)
+
+	repo, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+		Seed: "benchmark.git",
+	})
 
 	b.Run("ListAllCommits", func(b *testing.B) {
 		b.ReportAllocs()
