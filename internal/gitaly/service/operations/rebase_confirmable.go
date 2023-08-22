@@ -39,8 +39,13 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		return structerr.NewInternal("creating repo quarantine: %w", err)
 	}
 
+	objectHash, err := quarantineRepo.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	branch := git.NewReferenceNameFromBranchName(string(header.Branch))
-	oldrev, err := git.ObjectHashSHA1.FromHex(header.BranchSha)
+	oldrev, err := objectHash.FromHex(header.BranchSha)
 	if err != nil {
 		return structerr.NewNotFound("%w", err)
 	}

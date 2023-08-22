@@ -28,7 +28,7 @@ func TestUserUpdateSubmodule(t *testing.T) {
 }
 
 func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	type setupData struct {
 		request         *gitalypb.UserUpdateSubmoduleRequest

@@ -16,7 +16,7 @@ func TestUserUpdateBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	type setupData struct {
 		request      *gitalypb.UserUpdateBranchRequest
@@ -222,7 +222,7 @@ func TestUserUpdateBranch_successfulGitHooks(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -255,7 +255,7 @@ func TestUserUpdateBranch_failingGitHooks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	// Write a hook that will fail with the environment as the error message
 	// so we can check that string for our env variables.
@@ -293,7 +293,7 @@ func TestUserUpdateBranch_failures(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

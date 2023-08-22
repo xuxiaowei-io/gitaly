@@ -47,7 +47,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 		opts = append(opts, testserver.WithSigningKey("testdata/signing_gpg_key"))
 	}
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, opts...)
+	ctx, cfg, client := setupOperationsService(t, ctx, opts...)
 
 	if featureflag.GPGSigning.IsEnabled(ctx) {
 		testcfg.BuildGitalyGPG(t, cfg)
@@ -973,7 +973,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1047,7 +1047,7 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1107,7 +1107,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	filePath := "héllo/wörld"
 	authorName := []byte("Jane Doe")
@@ -1342,7 +1342,7 @@ func TestUserCommitFiles_move(t *testing.T) {
 func testUserCommitFilesMove(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	branchName := "master"
 	previousFilePath := "README"
@@ -1430,7 +1430,7 @@ func TestSuccessUserCommitFilesRequestForceCommit(t *testing.T) {
 func testSuccessUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	authorName := []byte("Jane Doe")
 	authorEmail := []byte("janedoe@gitlab.com")
@@ -1477,7 +1477,7 @@ func TestSuccessUserCommitFilesRequestStartSha(t *testing.T) {
 func testSuccessUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -1548,7 +1548,7 @@ func testUserCommitFilesRemoteRepository(t *testing.T, ctx context.Context) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+			ctx, cfg, client := setupOperationsService(t, ctx)
 
 			newRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 			newRepo := localrepo.NewTestRepo(t, cfg, newRepoProto)
@@ -1589,7 +1589,7 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1647,7 +1647,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
@@ -1704,7 +1704,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 }
 
 func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.Context) {
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	type setupData struct {
 		requests    []*gitalypb.UserCommitFilesRequest
@@ -1809,7 +1809,7 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
 
@@ -1893,7 +1893,7 @@ func TestUserCommitFilesFailsIfRepositoryMissing(t *testing.T) {
 }
 
 func testUserCommitFilesFailsIfRepositoryMissing(t *testing.T, ctx context.Context) {
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repo := &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
 		RelativePath:  t.Name(),

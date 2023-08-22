@@ -32,7 +32,7 @@ func TestUserMergeToRef_successful(t *testing.T) {
 func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -167,7 +167,7 @@ func TestUserMergeToRef_conflicts(t *testing.T) {
 func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	common := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
@@ -230,7 +230,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -304,7 +304,7 @@ func TestUserMergeToRef_failure(t *testing.T) {
 func testUserMergeToRefFailure(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -433,7 +433,7 @@ func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 func testUserMergeToRefIgnoreHooksRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	common := gittest.WriteCommit(t, cfg, repoPath)

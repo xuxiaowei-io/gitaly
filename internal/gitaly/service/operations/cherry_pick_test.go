@@ -40,7 +40,7 @@ func testUserCherryPick(t *testing.T, ctx context.Context) {
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	destinationBranch := "dst-branch"
 
@@ -373,7 +373,7 @@ func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctx context.Contex
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -435,7 +435,7 @@ func testServerUserCherryPickMergeCommit(t *testing.T, ctx context.Context) {
 		opts = append(opts, testserver.WithSigningKey("testdata/signing_ssh_key_ecdsa"))
 	}
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, opts...)
+	ctx, cfg, client := setupOperationsService(t, ctx, opts...)
 
 	if featureflag.GPGSigning.IsEnabled(ctx) {
 		testcfg.BuildGitalyGPG(t, cfg)
@@ -545,7 +545,7 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -636,7 +636,7 @@ func testServerUserCherryPickFailedValidations(t *testing.T, ctx context.Context
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -749,7 +749,7 @@ func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctx context
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -814,7 +814,7 @@ func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctx context
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -868,7 +868,7 @@ func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctx context.Con
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -931,7 +931,7 @@ func testServerUserCherryPickFailedWithConflict(t *testing.T, ctx context.Contex
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -998,7 +998,7 @@ func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctx contex
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -1076,7 +1076,7 @@ func testServerUserCherryPickQuarantine(t *testing.T, ctx context.Context) {
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -1145,7 +1145,7 @@ func testServerUserCherryPickReverse(t *testing.T, ctx context.Context) {
 
 	skipSHA256WithGit2goCherryPick(t, ctx)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 

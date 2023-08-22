@@ -30,7 +30,7 @@ func TestUserApplyPatch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	errPatchingFailed := status.Error(
 		codes.FailedPrecondition,
@@ -605,7 +605,7 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	parentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
@@ -692,7 +692,7 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, testserver.WithTransactionManager(txManager))
+	ctx, cfg, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	parentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch), gittest.WithTreeEntries(
@@ -756,7 +756,7 @@ func TestUserApplyPatch_validation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 

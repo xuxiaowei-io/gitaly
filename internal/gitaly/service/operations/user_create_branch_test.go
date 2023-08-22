@@ -27,7 +27,7 @@ func TestUserCreateBranch_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -199,7 +199,7 @@ func TestUserCreateBranch_hook(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	startPoint := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
@@ -233,7 +233,7 @@ func TestUserCreateBranch_startPoint(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
@@ -303,7 +303,7 @@ func TestUserCreateBranch_hookFailure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
@@ -344,7 +344,7 @@ func TestUserCreateBranch_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(

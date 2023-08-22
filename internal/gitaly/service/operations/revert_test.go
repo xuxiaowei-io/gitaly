@@ -33,7 +33,7 @@ func TestUserRevert(t *testing.T) {
 func testUserRevert(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 
 	branchName := "revert-branch"
 
@@ -433,7 +433,7 @@ func TestServer_UserRevert_quarantine(t *testing.T) {
 func testServerUserRevertQuarantine(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -499,7 +499,7 @@ func testServerUserRevertMergeCommit(t *testing.T, ctx context.Context) {
 		opts = append(opts, testserver.WithSigningKey("testdata/signing_ssh_key_rsa"))
 	}
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, opts...)
+	ctx, cfg, client := setupOperationsService(t, ctx, opts...)
 
 	if featureflag.GPGSigning.IsEnabled(ctx) {
 		testcfg.BuildGitalyGPG(t, cfg)
@@ -605,7 +605,7 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 func testServerUserRevertStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -701,7 +701,7 @@ func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
@@ -773,7 +773,7 @@ func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -828,7 +828,7 @@ func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
 func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -877,7 +877,7 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
 func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -934,7 +934,7 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
 func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -1009,7 +1009,7 @@ func TestServer_UserRevert_failedDueToCommitError(t *testing.T) {
 func testServerUserRevertFailedDueToCommitError(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
