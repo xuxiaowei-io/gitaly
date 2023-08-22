@@ -38,11 +38,13 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	db := testdb.New(t)
 	storageCleanup := NewStorageCleanup(db.DB)
 
+	const noExpiration = 24 * time.Hour
+
 	t.Run("ok", func(t *testing.T) {
 		db.TruncateAll(t)
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 
-		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 		require.Equal(t, &ClusterPath{VirtualStorage: "vs", Storage: "g1"}, clusterPath)
@@ -52,11 +54,11 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 		db.TruncateAll(t)
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		// Acquire it to initialize last_run column.
-		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 
-		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, time.Hour, time.Second)
+		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, time.Hour, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 		require.Nil(t, clusterPath, "no result expected as there can't be such entries")
@@ -68,7 +70,7 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g2"))
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g3"))
 
-		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 		require.Equal(t, &ClusterPath{VirtualStorage: "vs", Storage: "g1"}, clusterPath)
@@ -77,12 +79,12 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	t.Run("sorting based on storage name and last_run", func(t *testing.T) {
 		db.TruncateAll(t)
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
-		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g2"))
 
-		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 		require.Equal(t, &ClusterPath{VirtualStorage: "vs", Storage: "g2"}, clusterPath)
@@ -92,16 +94,16 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 		db.TruncateAll(t)
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g2"))
-		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 		require.Equal(t, &ClusterPath{VirtualStorage: "vs", Storage: "g1"}, clusterPath)
-		clusterPath, release, err = storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		clusterPath, release, err = storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 		require.Equal(t, &ClusterPath{VirtualStorage: "vs", Storage: "g2"}, clusterPath)
 
-		clusterPath, release, err = storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		clusterPath, release, err = storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NoError(t, release())
 		require.Equal(t, &ClusterPath{VirtualStorage: "vs", Storage: "g1"}, clusterPath)
@@ -110,34 +112,16 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	t.Run("already acquired won't be acquired until released", func(t *testing.T) {
 		db.TruncateAll(t)
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
-		_, release1, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		_, release1, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 
-		clusterPath, release2, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
-		require.NoError(t, err)
-		require.Nil(t, clusterPath, clusterPath)
-		require.NoError(t, release1())
-		require.NoError(t, release2())
-
-		clusterPath, release3, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
-		require.NoError(t, err)
-		require.NotNil(t, clusterPath)
-		require.NoError(t, release3())
-	})
-
-	t.Run("already acquired won't be acquired until released", func(t *testing.T) {
-		db.TruncateAll(t)
-		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
-		_, release1, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
-		require.NoError(t, err)
-
-		clusterPath, release2, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		clusterPath, release2, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.Nil(t, clusterPath, clusterPath)
 		require.NoError(t, release1())
 		require.NoError(t, release2())
 
-		clusterPath, release3, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
+		clusterPath, release3, err := storageCleanup.AcquireNextStorage(ctx, 0, noExpiration)
 		require.NoError(t, err)
 		require.NotNil(t, clusterPath)
 		require.NoError(t, release3())
