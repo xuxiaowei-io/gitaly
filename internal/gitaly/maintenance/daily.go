@@ -60,7 +60,7 @@ func (dw DailyWorker) StartDaily(ctx context.Context, l logrus.FieldLogger, sche
 		}
 
 		var jobErr error
-		dontpanic.Try(func() {
+		dontpanic.Try(l, func() {
 			ctx, cancel := context.WithTimeout(ctx, schedule.Duration.Duration())
 			defer cancel()
 

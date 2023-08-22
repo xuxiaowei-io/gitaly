@@ -2,14 +2,15 @@ package client
 
 import (
 	"context"
+	"io"
 	"math/rand"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backoff"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/dnsresolver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -77,10 +78,16 @@ type DNSResolverBuilderConfig dnsresolver.BuilderConfig
 
 // DefaultDNSResolverBuilderConfig returns the default options for building DNS resolver.
 func DefaultDNSResolverBuilderConfig() *DNSResolverBuilderConfig {
+	//nolint:forbidigo // It would be unexpected for users of the Gitaly package that we start logging to either
+	// standard output or standard error by default. We thus configure a discarding logger here with the ability for
+	// clients to set up their own, real logger.
+	logger := logrus.New()
+	logger.Out = io.Discard
+
 	return &DNSResolverBuilderConfig{
 		RefreshRate:     5 * time.Minute,
 		LookupTimeout:   15 * time.Second,
-		Logger:          log.Default(),
+		Logger:          logger,
 		Backoff:         backoff.NewDefaultExponential(rand.New(rand.NewSource(time.Now().UnixNano()))),
 		DefaultGrpcPort: "443",
 	}

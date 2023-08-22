@@ -16,19 +16,20 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 type cgroupV2Handler struct {
-	cfg cgroupscfg.Config
+	cfg    cgroupscfg.Config
+	logger logrus.FieldLogger
 
 	*cgroupsMetrics
 	pid int
 }
 
-func newV2Handler(cfg cgroupscfg.Config, pid int) *cgroupV2Handler {
+func newV2Handler(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *cgroupV2Handler {
 	return &cgroupV2Handler{
 		cfg:            cfg,
+		logger:         logger,
 		pid:            pid,
 		cgroupsMetrics: newV2CgroupsMetrics(),
 	}
@@ -80,7 +81,7 @@ func (cvh *cgroupV2Handler) collect(ch chan<- prometheus.Metric) {
 
 	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
 		repoPath := cvh.repoPath(i)
-		logger := log.Default().WithField("cgroup_path", repoPath)
+		logger := cvh.logger.WithField("cgroup_path", repoPath)
 		control, err := cgroup2.Load("/"+repoPath, cgroup2.WithMountpoint(cvh.cfg.Mountpoint))
 		if err != nil {
 			logger.WithError(err).Warn("unable to load cgroup controller")

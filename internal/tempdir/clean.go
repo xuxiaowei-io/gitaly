@@ -29,7 +29,7 @@ const (
 
 // StartCleaning starts tempdir cleanup in a goroutine.
 func StartCleaning(logger logrus.FieldLogger, locator storage.Locator, storages []config.Storage, d time.Duration) {
-	dontpanic.Go(func() {
+	dontpanic.Go(logger, func() {
 		for {
 			cleanTempDir(logger, locator, storages)
 			time.Sleep(d)

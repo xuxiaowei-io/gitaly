@@ -63,7 +63,7 @@ func (c *RepositoryCounter) StartCountingRepositories(
 	locator storage.Locator,
 	logger logrus.FieldLogger,
 ) {
-	dontpanic.Go(func() {
+	dontpanic.Go(logger, func() {
 		c.countRepositories(ctx, locator, logger)
 	})
 }

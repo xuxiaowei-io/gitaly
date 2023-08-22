@@ -176,7 +176,7 @@ func newCacheWithSleep(
 		stop:       make(chan struct{}),
 		logger:     logger,
 		dir:        dir,
-		sleepLoop:  dontpanic.NewForever(time.Minute),
+		sleepLoop:  dontpanic.NewForever(logger, time.Minute),
 	}
 
 	c.sleepLoop.Go(func() {

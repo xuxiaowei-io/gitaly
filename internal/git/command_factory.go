@@ -156,7 +156,7 @@ func NewExecCommandFactory(cfg config.Cfg, logger logrus.FieldLogger, opts ...Ex
 		}
 	}()
 
-	hookDirectories, cleanup, err := setupHookDirectories(cfg, factoryCfg)
+	hookDirectories, cleanup, err := setupHookDirectories(cfg, factoryCfg, logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("setting up hooks: %w", err)
 	}
@@ -309,7 +309,7 @@ func (cf *ExecCommandFactory) HooksPath(ctx context.Context) string {
 	return cf.hookDirs.tempHooksPath
 }
 
-func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (hookDirectories, func(), error) {
+func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig, logger logrus.FieldLogger) (hookDirectories, func(), error) {
 	if factoryCfg.hooksPath != "" {
 		return hookDirectories{
 			tempHooksPath: factoryCfg.hooksPath,
@@ -338,7 +338,7 @@ func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (
 			tempHooksPath: tempHooksPath,
 		}, func() {
 			if err := os.RemoveAll(tempHooksPath); err != nil {
-				log.Default().WithError(err).Error("cleaning up temporary hooks path")
+				logger.WithError(err).Error("cleaning up temporary hooks path")
 			}
 		}, nil
 }

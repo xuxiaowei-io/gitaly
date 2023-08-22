@@ -548,7 +548,6 @@ func (cfg *Cfg) Validate() error {
 	for _, run := range []func() error{
 		cfg.validateListeners,
 		cfg.validateStorages,
-		cfg.validateToken,
 		cfg.validateGit,
 		cfg.validateShell,
 		cfg.validateBinDir,
@@ -687,8 +686,6 @@ func validateIsDirectory(path, name string) error {
 	if !s.IsDir() {
 		return fmt.Errorf("%s: not a directory: %q", name, path)
 	}
-
-	log.Default().WithField("dir", path).Debugf("%s set", name)
 
 	return nil
 }
@@ -830,15 +827,6 @@ func (cfg *Cfg) validateGit() error {
 		}
 	}
 
-	return nil
-}
-
-func (cfg *Cfg) validateToken() error {
-	if !cfg.Auth.Transitioning || len(cfg.Auth.Token) == 0 {
-		return nil
-	}
-
-	log.Default().Warn("Authentication is enabled but not enforced because transitioning=true. Gitaly will accept unauthenticated requests.")
 	return nil
 }
 
