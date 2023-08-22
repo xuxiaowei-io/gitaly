@@ -13,19 +13,43 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
 
+type loggerOptions struct {
+	name string
+}
+
+// LoggerOption configures a logger.
+type LoggerOption func(*loggerOptions)
+
+// WithLoggerName sets the name of the logger. The name is included along
+// the logs to help identifying the logs if multiple loggers are used.
+func WithLoggerName(name string) LoggerOption {
+	return func(opts *loggerOptions) {
+		opts.name = name
+	}
+}
+
 // NewLogger returns a logger that records the log output and
 // prints it out only if the test fails.
-func NewLogger(tb testing.TB) *logrus.Logger {
+func NewLogger(tb testing.TB, options ...LoggerOption) *logrus.Logger {
 	logOutput := &bytes.Buffer{}
 	logger := logrus.New() //nolint:forbidigo
 	logger.Out = logOutput
+
+	var opts loggerOptions
+	for _, apply := range options {
+		apply(&opts)
+	}
 
 	tb.Cleanup(func() {
 		if !tb.Failed() {
 			return
 		}
 
-		tb.Logf("Recorded logs:\n%s\n", logOutput)
+		if opts.name != "" {
+			tb.Logf("Recorded logs of %q:\n%s\n", opts.name, logOutput)
+		} else {
+			tb.Logf("Recorded test logs:\n%s\n", logOutput)
+		}
 	})
 
 	return logger
