@@ -181,6 +181,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 
 	ctxlogrus.Extract(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
 
+	fmt.Println(stdoutCounter.String())
 	return nil, stdoutCounter.N, 0, nil
 }
 
