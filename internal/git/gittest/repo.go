@@ -34,9 +34,6 @@ const (
 	// GlProjectPath is the default project path for newly created test
 	// repos.
 	GlProjectPath = "gitlab-org/gitlab-test"
-
-	// SeedGitLabTest is the path of the gitlab-test.git repository in _build/testrepos
-	SeedGitLabTest = "gitlab-test.git"
 )
 
 // InitRepoDir creates a temporary directory for a repo, without initializing it

@@ -229,7 +229,6 @@ TEST_TMP_DIR      ?=
 ## Directory where Gitaly should write logs to during test execution.
 TEST_LOG_DIR	  ?=
 TEST_REPO_DIR     := ${BUILD_DIR}/testrepos
-TEST_REPO         := ${TEST_REPO_DIR}/gitlab-test.git
 BENCHMARK_REPO    := ${TEST_REPO_DIR}/benchmark.git
 ## Options to pass to the script which builds the Gitaly gem
 BUILD_GEM_OPTIONS ?=
@@ -372,14 +371,11 @@ run_go_tests += \
 endif
 
 .PHONY: prepare-tests
-prepare-tests: libgit2 prepare-test-repos ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
+prepare-tests: libgit2 ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
 	${Q}mkdir -p "$(dir ${TEST_JUNIT_REPORT})"
 
 .PHONY: prepare-debug
 prepare-debug: ${DELVE}
-
-.PHONY: prepare-test-repos
-prepare-test-repos: ${TEST_REPO}
 
 .PHONY: test
 ## Run Go tests.
@@ -710,16 +706,6 @@ ${PROTOC_GEN_GO}:     TOOL_PACKAGE = google.golang.org/protobuf/cmd/protoc-gen-g
 ${PROTOC_GEN_GO_GRPC}:TOOL_PACKAGE = google.golang.org/grpc/cmd/protoc-gen-go-grpc
 ${PROTOC_GEN_DOC}:    TOOL_PACKAGE = github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc
 ${DELVE}:             TOOL_PACKAGE = github.com/go-delve/delve/cmd/dlv
-
-${TEST_REPO}:
-	# Skip writing the reverse index as otherwise our tests will get confused.
-	${GIT} -c pack.writeReverseIndex=false clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
-	@ # Git notes aren't fetched by default with git clone
-	${GIT} -C $@ fetch ${GIT_QUIET} origin refs/notes/*:refs/notes/*
-	${Q}rm -rf $@/refs
-	${Q}mkdir -p $@/refs/heads $@/refs/tags
-	${Q}cp ${SOURCE_DIR}/_support/gitlab-test.git-packed-refs $@/packed-refs
-	${Q}${GIT} -C $@ fsck --no-progress --no-dangling
 
 ${BENCHMARK_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab.git $@
