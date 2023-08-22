@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
@@ -33,6 +34,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, opts ...testcfg.Option), opts ...testcfg.Option) {
@@ -181,6 +183,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 		request          *gitalypb.SSHUploadPackWithSidechannelRequest
 		client           func(clientConn *sidechannel.ClientConn, cancelContext func()) error
 		expectedErr      error
+		protoEqualOpt    cmp.Option
 		expectedResponse *gitalypb.SSHUploadPackWithSidechannelResponse
 	}{
 		{
@@ -204,6 +207,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 					Wants:   1,
 				},
 			},
+			protoEqualOpt: protocmp.IgnoreFields(&gitalypb.SSHUploadPackWithSidechannelResponse{}, "bytes"),
 		},
 		{
 			desc: "successful clone with protocol v2",
@@ -230,6 +234,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 					Wants:   1,
 				},
 			},
+			protoEqualOpt: protocmp.IgnoreFields(&gitalypb.SSHUploadPackWithSidechannelResponse{}, "bytes"),
 		},
 		{
 			desc: "client talks protocol v0 but v2 is requested",
@@ -325,6 +330,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{
 				PackfileNegotiationStatistics: &gitalypb.PackfileNegotiationStatistics{},
 			},
+			protoEqualOpt: protocmp.IgnoreFields(&gitalypb.SSHUploadPackWithSidechannelResponse{}, "bytes"),
 		},
 		{
 			desc: "short write",
@@ -432,7 +438,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				// The payload size is not deterministic(it's a different value in local-test end ci-test), so we set it to the expected value.
 				tc.expectedResponse.PackfileNegotiationStatistics.PayloadSize = response.PackfileNegotiationStatistics.PayloadSize
 			}
-			testhelper.ProtoEqual(t, tc.expectedResponse, response)
+
+			testhelper.ProtoEqual(t, tc.expectedResponse, response, tc.protoEqualOpt)
 		})
 	}
 }
