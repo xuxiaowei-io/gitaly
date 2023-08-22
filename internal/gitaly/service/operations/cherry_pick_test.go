@@ -30,15 +30,12 @@ func TestUserCherryPick(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testUserCherryPick)
 }
 
 func testUserCherryPick(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 
@@ -363,15 +360,12 @@ func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickSuccessfulGitHooks)
 }
 
 func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -422,7 +416,6 @@ func TestServer_UserCherryPick_mergeCommit(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickMergeCommit)
 }
@@ -440,8 +433,6 @@ func testServerUserCherryPickMergeCommit(t *testing.T, ctx context.Context) {
 	if featureflag.GPGSigning.IsEnabled(ctx) {
 		testcfg.BuildGitalyGPG(t, cfg)
 	}
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -518,7 +509,7 @@ func testServerUserCherryPickMergeCommit(t *testing.T, ctx context.Context) {
 			{Mode: "100644", Path: "z", Content: "zucchini"},
 		})
 
-	if featureflag.GPGSigning.IsEnabled(ctx) && featureflag.CherryPickPureGit.IsEnabled(ctx) {
+	if featureflag.GPGSigning.IsEnabled(ctx) {
 		data, err := repo.ReadObject(ctx, git.ObjectID(response.BranchUpdate.CommitId))
 		require.NoError(t, err)
 
@@ -535,15 +526,12 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickStableID)
 }
 
 func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -626,15 +614,12 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickFailedValidations)
 }
 
 func testServerUserCherryPickFailedValidations(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -739,15 +724,12 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickFailedWithPreReceiveError)
 }
 
 func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -804,15 +786,12 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickFailedWithCreateTreeError)
 }
 
 func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -858,15 +837,12 @@ func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickFailedWithCommitError)
 }
 
 func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -921,15 +897,12 @@ func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickFailedWithConflict)
 }
 
 func testServerUserCherryPickFailedWithConflict(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -988,15 +961,12 @@ func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickSuccessfulWithGivenCommits)
 }
 
 func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1066,15 +1036,12 @@ func TestServer_UserCherryPick_quarantine(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickQuarantine)
 }
 
 func testServerUserCherryPickQuarantine(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1135,15 +1102,12 @@ func TestServer_UserCherryPick_reverse(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets(
-		featureflag.CherryPickPureGit,
 		featureflag.GPGSigning,
 	).Run(t, testServerUserCherryPickReverse)
 }
 
 func testServerUserCherryPickReverse(t *testing.T, ctx context.Context) {
 	t.Parallel()
-
-	skipSHA256WithGit2goCherryPick(t, ctx)
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -1210,11 +1174,5 @@ func testServerUserCherryPickReverse(t *testing.T, ctx context.Context) {
 		gittest.RequireTree(t, cfg, repoPath, response.BranchUpdate.CommitId,
 			append(destinationTree, treeEntries[i+2:]...),
 		)
-	}
-}
-
-func skipSHA256WithGit2goCherryPick(t *testing.T, ctx context.Context) {
-	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.CherryPickPureGit.IsDisabled(ctx) {
-		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
 	}
 }
