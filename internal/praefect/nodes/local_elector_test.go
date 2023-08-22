@@ -31,7 +31,7 @@ func setupElector(t *testing.T) (*localElector, []*nodeStatus, *grpc.ClientConn)
 	cs := newConnectionStatus(config.Node{Storage: storageName}, cc, testhelper.NewDiscardingLogEntry(t), mockHistogramVec0, nil)
 	secondary := newConnectionStatus(config.Node{Storage: storageName}, cc, testhelper.NewDiscardingLogEntry(t), mockHistogramVec1, nil)
 	ns := []*nodeStatus{cs, secondary}
-	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
+	logger := testhelper.NewLogger(t).WithField("test", t.Name())
 	strategy := newLocalElector(storageName, logger, ns)
 
 	strategy.bootstrap(time.Second)

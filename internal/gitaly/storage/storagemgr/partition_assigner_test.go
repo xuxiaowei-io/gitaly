@@ -11,7 +11,7 @@ import (
 )
 
 func TestPartitionAssigner(t *testing.T) {
-	db, err := OpenDatabase(testhelper.NewDiscardingLogger(t), t.TempDir())
+	db, err := OpenDatabase(testhelper.NewLogger(t), t.TempDir())
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, db)
 
@@ -42,7 +42,7 @@ func TestPartitionAssigner(t *testing.T) {
 func TestPartitionAssigner_close(t *testing.T) {
 	dbDir := t.TempDir()
 
-	db, err := OpenDatabase(testhelper.NewDiscardingLogger(t), dbDir)
+	db, err := OpenDatabase(testhelper.NewLogger(t), dbDir)
 	require.NoError(t, err)
 
 	pa, err := newPartitionAssigner(db)
@@ -50,7 +50,7 @@ func TestPartitionAssigner_close(t *testing.T) {
 	testhelper.MustClose(t, pa)
 	testhelper.MustClose(t, db)
 
-	db, err = OpenDatabase(testhelper.NewDiscardingLogger(t), dbDir)
+	db, err = OpenDatabase(testhelper.NewLogger(t), dbDir)
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, db)
 
@@ -67,7 +67,7 @@ func TestPartitionAssigner_close(t *testing.T) {
 }
 
 func TestPartitionAssigner_concurrentAccess(t *testing.T) {
-	db, err := OpenDatabase(testhelper.NewDiscardingLogger(t), t.TempDir())
+	db, err := OpenDatabase(testhelper.NewLogger(t), t.TempDir())
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, db)
 

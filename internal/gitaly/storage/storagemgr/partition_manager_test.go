@@ -616,7 +616,7 @@ func TestPartitionManager(t *testing.T) {
 			txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
-			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.NewDiscardingLogger(t))
+			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.NewLogger(t))
 			require.NoError(t, err)
 
 			defer func() {

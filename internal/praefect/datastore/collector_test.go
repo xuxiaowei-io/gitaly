@@ -254,7 +254,7 @@ func TestRepositoryStoreCollector_ReplicationQueueDepth(t *testing.T) {
 	db := testdb.New(t)
 	ctx := testhelper.Context(t)
 
-	log := testhelper.NewDiscardingLogger(t)
+	log := testhelper.NewLogger(t)
 
 	storageNames := map[string][]string{
 		"praefect-0": {"storage-0", "storage-1", "storage-2"},

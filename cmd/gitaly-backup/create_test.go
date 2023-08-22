@@ -61,7 +61,7 @@ func TestCreateSubcommand(t *testing.T) {
 
 	require.NoError(t, fs.Parse([]string{"-path", path, "-id", "the-new-backup"}))
 	require.EqualError(t,
-		cmd.Run(ctx, testhelper.NewDiscardingLogger(t), &stdin, io.Discard),
+		cmd.Run(ctx, testhelper.NewLogger(t), &stdin, io.Discard),
 		"create: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
@@ -118,7 +118,7 @@ func TestCreateSubcommand_serverSide(t *testing.T) {
 
 	require.NoError(t, fs.Parse([]string{"-server-side", "-id", "the-new-backup"}))
 	require.EqualError(t,
-		cmd.Run(ctx, testhelper.NewDiscardingLogger(t), &stdin, io.Discard),
+		cmd.Run(ctx, testhelper.NewLogger(t), &stdin, io.Discard),
 		"create: pipeline: 1 failures encountered:\n - invalid: server-side create: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {

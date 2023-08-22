@@ -17,7 +17,7 @@ func TestLoggingPipeline(t *testing.T) {
 	t.Parallel()
 
 	testPipeline(t, func() Pipeline {
-		return NewLoggingPipeline(testhelper.NewDiscardingLogger(t))
+		return NewLoggingPipeline(testhelper.NewLogger(t))
 	})
 }
 
@@ -25,7 +25,7 @@ func TestParallelPipeline(t *testing.T) {
 	t.Parallel()
 
 	testPipeline(t, func() Pipeline {
-		return NewParallelPipeline(NewLoggingPipeline(testhelper.NewDiscardingLogger(t)), 2, 0)
+		return NewParallelPipeline(NewLoggingPipeline(testhelper.NewLogger(t)), 2, 0)
 	})
 
 	t.Run("parallelism", func(t *testing.T) {
@@ -64,7 +64,7 @@ func TestParallelPipeline(t *testing.T) {
 					},
 				}
 				var p Pipeline
-				p = NewLoggingPipeline(testhelper.NewDiscardingLogger(t))
+				p = NewLoggingPipeline(testhelper.NewLogger(t))
 				p = NewParallelPipeline(p, tc.parallel, tc.parallelStorage)
 				ctx := testhelper.Context(t)
 
@@ -80,7 +80,7 @@ func TestParallelPipeline(t *testing.T) {
 	t.Run("context done", func(t *testing.T) {
 		var strategy MockStrategy
 		var p Pipeline
-		p = NewLoggingPipeline(testhelper.NewDiscardingLogger(t))
+		p = NewLoggingPipeline(testhelper.NewLogger(t))
 		p = NewParallelPipeline(p, 0, 0) // make sure worker channels always block
 
 		ctx, cancel := context.WithCancel(testhelper.Context(t))

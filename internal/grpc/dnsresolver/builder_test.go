@@ -72,7 +72,7 @@ func TestBuildDNSBuilder_customAuthorityResolver(t *testing.T) {
 	builder := NewBuilder(&BuilderConfig{
 		RefreshRate:   0,
 		LookupTimeout: 15 * time.Second,
-		Logger:        testhelper.NewDiscardingLogger(t),
+		Logger:        testhelper.NewLogger(t),
 		Backoff:       &fakeBackoff{},
 	})
 
@@ -119,7 +119,7 @@ func TestBuildDNSBuilder_staticIPAddress(t *testing.T) {
 			builder := NewBuilder(&BuilderConfig{
 				RefreshRate:   0,
 				LookupTimeout: 15 * time.Second,
-				Logger:        testhelper.NewDiscardingLogger(t),
+				Logger:        testhelper.NewLogger(t),
 				Backoff:       &fakeBackoff{},
 			})
 

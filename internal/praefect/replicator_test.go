@@ -129,7 +129,7 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	var mockReplicationLatencyHistogramVec promtest.MockHistogramVec
 	var mockReplicationDelayHistogramVec promtest.MockHistogramVec
 
-	logger := testhelper.NewDiscardingLogger(t)
+	logger := testhelper.NewLogger(t)
 	loggerHook := test.NewLocal(logger)
 
 	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
@@ -235,7 +235,7 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 				},
 			}
 
-			logger := testhelper.NewDiscardingLogger(t)
+			logger := testhelper.NewLogger(t)
 			hook := test.NewLocal(logger)
 			r := &defaultReplicator{rs: rs, log: logger}
 
@@ -279,13 +279,13 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
-	equal, err := confirmChecksums(ctx, testhelper.NewDiscardingLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
+	equal, err := confirmChecksums(ctx, testhelper.NewLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)
 	require.True(t, equal)
 
 	gittest.WriteCommit(t, cfg, testRepoAPath, gittest.WithBranch("master"))
 
-	equal, err = confirmChecksums(ctx, testhelper.NewDiscardingLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
+	equal, err = confirmChecksums(ctx, testhelper.NewLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)
 	require.False(t, equal)
 }
@@ -789,7 +789,7 @@ func TestSubtractUint64(t *testing.T) {
 }
 
 func TestReplMgr_ProcessStale(t *testing.T) {
-	logger := testhelper.NewDiscardingLogger(t)
+	logger := testhelper.NewLogger(t)
 	hook := test.NewLocal(logger)
 
 	queue := datastore.NewReplicationEventQueueInterceptor(nil)

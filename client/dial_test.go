@@ -805,5 +805,5 @@ func startFakeGitalyServer(t *testing.T) string {
 }
 
 func newLogger(tb testing.TB) *logrus.Entry {
-	return logrus.NewEntry(testhelper.NewDiscardingLogger(tb))
+	return logrus.NewEntry(testhelper.NewLogger(tb))
 }

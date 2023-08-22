@@ -477,7 +477,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	node := config.Node{Storage: "gitaly-0", Address: address}
 	ctx := testhelper.Context(t)
 
-	logger := testhelper.NewDiscardingLogger(t)
+	logger := testhelper.NewLogger(t)
 	latencyHistMock := &promtest.MockHistogramVec{}
 
 	t.Run("unchecked node is unhealthy", func(t *testing.T) {

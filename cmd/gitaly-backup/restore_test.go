@@ -91,7 +91,7 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 
 	require.NoError(t, fs.Parse([]string{"-path", path, "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
-		cmd.Run(ctx, testhelper.NewDiscardingLogger(t), &stdin, io.Discard),
+		cmd.Run(ctx, testhelper.NewLogger(t), &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
 
 	require.NoDirExists(t, existRepoPath)
@@ -183,7 +183,7 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 
 	require.NoError(t, fs.Parse([]string{"-server-side", "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
-		cmd.Run(ctx, testhelper.NewDiscardingLogger(t), &stdin, io.Discard),
+		cmd.Run(ctx, testhelper.NewLogger(t), &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered:\n - invalid: server-side restore: could not dial source: invalid connection string: \"invalid\"\n")
 
 	require.NoDirExists(t, existRepoPath)

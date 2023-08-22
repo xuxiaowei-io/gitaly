@@ -3,6 +3,7 @@ package testhelper
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,8 +31,8 @@ func NewLogger(tb testing.TB) *logrus.Logger {
 	return logger
 }
 
-// NewDiscardingLogger creates a logger that discards everything.
-func NewDiscardingLogger(tb testing.TB) *logrus.Logger {
+// newDiscardingLogger creates a logger that discards everything.
+func newDiscardingLogger(tb testing.TB) *logrus.Logger {
 	logger := logrus.New() //nolint:forbidigo
 	logger.Out = io.Discard
 	return logger
@@ -39,13 +40,13 @@ func NewDiscardingLogger(tb testing.TB) *logrus.Logger {
 
 // NewDiscardingLogEntry creates a logrus entry that discards everything.
 func NewDiscardingLogEntry(tb testing.TB) *logrus.Entry {
-	return logrus.NewEntry(NewDiscardingLogger(tb))
+	return logrus.NewEntry(NewLogger(tb))
 }
 
 func newServerLogger(tb testing.TB, logName string) *logrus.Logger {
 	logDir := CreateTestLogDir(tb)
 	if len(logDir) == 0 {
-		return NewDiscardingLogger(tb)
+		return newDiscardingLogger(tb)
 	}
 
 	path := filepath.Join(logDir, logName)

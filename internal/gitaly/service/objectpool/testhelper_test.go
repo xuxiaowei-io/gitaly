@@ -50,7 +50,7 @@ func setupWithConfig(t *testing.T, ctx context.Context, cfg config.Cfg, opts ...
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	locator := config.NewLocator(cfg)
-	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, testhelper.NewDiscardingLogger(t), opts...)
+	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, testhelper.NewLogger(t), opts...)
 
 	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)

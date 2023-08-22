@@ -32,7 +32,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 
-	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
+	logger := testhelper.NewLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	socketName := "unix://" + praefectSocket
 
@@ -76,7 +76,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 	db := testdb.New(t)
 
 	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
-	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
+	logger := testhelper.NewLogger(t).WithField("test", t.Name())
 
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	testhelper.NewServerWithHealth(t, gitalySocket)
@@ -112,7 +112,7 @@ func TestBasicFailover(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 
-	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
+	logger := testhelper.NewLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	socketName := "unix://" + praefectSocket
 
@@ -227,7 +227,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 		shardName,
 		config.Config{},
 		nil,
-		testhelper.NewDiscardingLogger(t),
+		testhelper.NewLogger(t),
 		[]*nodeStatus{{node: node}},
 	)
 	ctx := testhelper.Context(t)
