@@ -11,7 +11,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -26,7 +25,7 @@ const (
 	defaultFlatTreeRecursion = 10
 )
 
-func validateGetTreeEntriesRequest(locator storage.Locator, useStructuredErrors bool, in *gitalypb.GetTreeEntriesRequest) error {
+func validateGetTreeEntriesRequest(locator storage.Locator, in *gitalypb.GetTreeEntriesRequest) error {
 	if err := locator.ValidateRepository(in.GetRepository()); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
@@ -35,17 +34,13 @@ func validateGetTreeEntriesRequest(locator storage.Locator, useStructuredErrors 
 	}
 
 	if len(in.GetPath()) == 0 {
-		if useStructuredErrors {
-			return structerr.NewInvalidArgument("empty path").WithDetail(&gitalypb.GetTreeEntriesError{
-				Error: &gitalypb.GetTreeEntriesError_Path{
-					Path: &gitalypb.PathError{
-						ErrorType: gitalypb.PathError_ERROR_TYPE_EMPTY_PATH,
-					},
+		return structerr.NewInvalidArgument("empty path").WithDetail(&gitalypb.GetTreeEntriesError{
+			Error: &gitalypb.GetTreeEntriesError_Path{
+				Path: &gitalypb.PathError{
+					ErrorType: gitalypb.PathError_ERROR_TYPE_EMPTY_PATH,
 				},
-			})
-		}
-
-		return structerr.NewInvalidArgument("%w", fmt.Errorf("empty Path"))
+			},
+		})
 	}
 
 	return nil
@@ -95,8 +90,6 @@ func (s *server) sendTreeEntries(
 
 	var objectReader catfile.ObjectContentReader
 
-	useStructuredErrors := featureflag.GetTreeEntriesStructuredErrors.IsEnabled(ctx)
-
 	// While both repo.ReadTree and catfile.TreeEntries do this internally, in the case
 	// of non-recursive path, we do repo.ResolveRevision, which could fail because of this.
 	if path == "." {
@@ -127,43 +120,31 @@ func (s *server) sendTreeEntries(
 			}
 
 			if errors.Is(err, localrepo.ErrTreeNotExist) {
-				if useStructuredErrors {
-					return structerr.NewInvalidArgument("revision doesn't exist").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(revision),
-							},
+				return structerr.NewInvalidArgument("revision doesn't exist").WithDetail(&gitalypb.GetTreeEntriesError{
+					Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+						ResolveTree: &gitalypb.ResolveRevisionError{
+							Revision: []byte(revision),
 						},
-					}).WithMetadataItems(
-						structerr.MetadataItem{Key: "path", Value: path},
-						structerr.MetadataItem{Key: "revision", Value: revision},
-					)
-				}
-
-				// Previously rails only parsed empty response. This will be cleaned up
-				// with the rollout of structured errors.
-				return nil
+					},
+				}).WithMetadataItems(
+					structerr.MetadataItem{Key: "path", Value: path},
+					structerr.MetadataItem{Key: "revision", Value: revision},
+				)
 			}
 
 			if errors.Is(err, git.ErrReferenceNotFound) {
-				if useStructuredErrors {
-					// Since we rely on repo.ResolveRevision, it could either be an invalid revision
-					// or an invalid path.
-					return structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(revision),
-							},
+				// Since we rely on repo.ResolveRevision, it could either be an invalid revision
+				// or an invalid path.
+				return structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+					Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+						ResolveTree: &gitalypb.ResolveRevisionError{
+							Revision: []byte(revision),
 						},
-					}).WithMetadataItems(
-						structerr.MetadataItem{Key: "path", Value: path},
-						structerr.MetadataItem{Key: "revision", Value: revision},
-					)
-				}
-
-				// Previously rails only parsed empty response. This will be cleaned up
-				// with the rollout of structured errors.
-				return nil
+					},
+				}).WithMetadataItems(
+					structerr.MetadataItem{Key: "path", Value: path},
+					structerr.MetadataItem{Key: "revision", Value: revision},
+				)
 			}
 
 			return fmt.Errorf("reading tree: %w", err)
@@ -204,22 +185,18 @@ func (s *server) sendTreeEntries(
 		// we merge the two we can get rid of this check.
 		if _, err := repo.ResolveRevision(ctx, git.Revision(revision+":"+path)); err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
-				if useStructuredErrors {
-					// Since we rely on repo.ResolveRevision, it could either be an invalid revision
-					// or an invalid path.
-					return structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
-						Error: &gitalypb.GetTreeEntriesError_ResolveTree{
-							ResolveTree: &gitalypb.ResolveRevisionError{
-								Revision: []byte(revision),
-							},
+				// Since we rely on repo.ResolveRevision, it could either be an invalid revision
+				// or an invalid path.
+				return structerr.NewInvalidArgument("invalid revision or path").WithDetail(&gitalypb.GetTreeEntriesError{
+					Error: &gitalypb.GetTreeEntriesError_ResolveTree{
+						ResolveTree: &gitalypb.ResolveRevisionError{
+							Revision: []byte(revision),
 						},
-					}).WithMetadataItems(
-						structerr.MetadataItem{Key: "path", Value: path},
-						structerr.MetadataItem{Key: "revision", Value: revision},
-					)
-				}
-
-				return nil
+					},
+				}).WithMetadataItems(
+					structerr.MetadataItem{Key: "path", Value: path},
+					structerr.MetadataItem{Key: "revision", Value: revision},
+				)
 			}
 			return err
 		}
@@ -357,9 +334,7 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 		"Path":     in.Path,
 	}).Debug("GetTreeEntries")
 
-	useStructuredErrors := featureflag.GetTreeEntriesStructuredErrors.IsEnabled(stream.Context())
-
-	if err := validateGetTreeEntriesRequest(s.locator, useStructuredErrors, in); err != nil {
+	if err := validateGetTreeEntriesRequest(s.locator, in); err != nil {
 		return err
 	}
 
