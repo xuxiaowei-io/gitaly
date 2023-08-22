@@ -238,9 +238,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
 	// Randomly enable mailmap
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.MailmapOptions, rand.Int()%2 == 0)
-	// LowerBigFileThreshold is checked on every spawn of Git commands and is thus infeasible to be checked for
-	// explicitly in every single test.
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LowerBigFileThreshold, rand.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)
