@@ -7,31 +7,30 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-type analyzerPlugin struct{}
-
-func (p *analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
+// New initializes Gitaly's custom linters.
+func New(conf any) ([]*analysis.Analyzer, error) {
 	return []*analysis.Analyzer{
 		newQuoteInterpolationAnalyzer(&quoteInterpolationAnalyzerSettings{
-			IncludedFunctions: p.configStringSlicesAt(
+			IncludedFunctions: configStringSlicesAt(
 				quoteInterpolationAnalyzerName,
 				"included-functions",
 			),
 		}),
 		newErrorWrapAnalyzer(&errorWrapAnalyzerSettings{
-			IncludedFunctions: p.configStringSlicesAt(
+			IncludedFunctions: configStringSlicesAt(
 				errorWrapAnalyzerName,
 				"included-functions",
 			),
 		}),
-		newUnavailableCodeAnalyzer(&unavailableCodeAnalyzerSettings{IncludedFunctions: p.configStringSlicesAt(
+		newUnavailableCodeAnalyzer(&unavailableCodeAnalyzerSettings{IncludedFunctions: configStringSlicesAt(
 			unavailableCodeAnalyzerName,
 			"included-functions",
 		)}),
 		newTestParamsOrder(),
-	}
+	}, nil
 }
 
-// This method fetches a string slices in golangci-lint config files for the input analyzer. This is
+// This function fetches a string slices in golangci-lint config files for the input analyzer. This is
 // an enhancement to golangci-lint. Although it supports custom linters, it doesn't support parsing
 // custom settings for such linters. We have to take care of parsing ourselves. Fortunately,
 // golangci-lint uses `viper` package underlying. This package maintains a global process state.
@@ -61,7 +60,7 @@ func (p *analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
 //		          - gitlab.com/gitlab-org/gitaly/v15/internal/structerr.*
 //
 // ```
-func (*analyzerPlugin) configStringSlicesAt(analyzer string, key string) []string {
+func configStringSlicesAt(analyzer string, key string) []string {
 	path := strings.Join([]string{
 		"linters-settings",
 		"custom",
@@ -72,13 +71,3 @@ func (*analyzerPlugin) configStringSlicesAt(analyzer string, key string) []strin
 	}, ".")
 	return viper.GetStringSlice(path)
 }
-
-// AnalyzerPlugin is a convention of golangci-lint to implement a custom linter. This variable
-// must implement `AnalyzerPlugin` interface:
-//
-//	type AnalyzerPlugin interface {
-//		GetAnalyzers() []*analysis.Analyzer
-//	}
-//
-// For more information, please visit https://golangci-lint.run/contributing/new-linters/
-var AnalyzerPlugin analyzerPlugin
