@@ -81,9 +81,9 @@ func TestGitalyServerFactory(t *testing.T) {
 		cfg := testcfg.Build(t)
 		sf := NewGitalyServerFactory(
 			cfg,
-			testhelper.NewDiscardingLogEntry(t),
+			testhelper.NewLogger(t),
 			backchannel.NewRegistry(),
-			cache.New(cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogEntry(t)),
+			cache.New(cfg, config.NewLocator(cfg), testhelper.NewLogger(t)),
 			nil,
 		)
 		t.Cleanup(sf.Stop)
@@ -101,9 +101,9 @@ func TestGitalyServerFactory(t *testing.T) {
 
 		sf := NewGitalyServerFactory(
 			cfg,
-			testhelper.NewDiscardingLogEntry(t),
+			testhelper.NewLogger(t),
 			backchannel.NewRegistry(),
-			cache.New(cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogEntry(t)),
+			cache.New(cfg, config.NewLocator(cfg), testhelper.NewLogger(t)),
 			nil,
 		)
 		t.Cleanup(sf.Stop)
@@ -115,9 +115,9 @@ func TestGitalyServerFactory(t *testing.T) {
 		cfg := testcfg.Build(t)
 		sf := NewGitalyServerFactory(
 			cfg,
-			testhelper.NewDiscardingLogEntry(t),
+			testhelper.NewLogger(t),
 			backchannel.NewRegistry(),
-			cache.New(cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogEntry(t)),
+			cache.New(cfg, config.NewLocator(cfg), testhelper.NewLogger(t)),
 			nil,
 		)
 		t.Cleanup(sf.Stop)
@@ -180,9 +180,9 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 	cfg := testcfg.Build(t)
 	sf := NewGitalyServerFactory(
 		cfg,
-		testhelper.NewDiscardingLogEntry(t),
+		testhelper.NewLogger(t),
 		backchannel.NewRegistry(),
-		cache.New(cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogEntry(t)),
+		cache.New(cfg, config.NewLocator(cfg), testhelper.NewLogger(t)),
 		nil,
 	)
 	defer sf.Stop()

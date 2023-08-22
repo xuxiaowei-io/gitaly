@@ -469,7 +469,7 @@ func TestUserCreateTag_transactional(t *testing.T) {
 	// to Gitaly directly.
 	client := newMuxedOperationClient(t, ctx, "unix://"+cfg.InternalSocketPath(), cfg.Auth.Token,
 		backchannel.NewClientHandshaker(
-			testhelper.NewDiscardingLogEntry(t),
+			testhelper.NewLogger(t),
 			func() backchannel.Server {
 				srv := grpc.NewServer()
 				gitalypb.RegisterRefTransactionServer(srv, transactionServer)

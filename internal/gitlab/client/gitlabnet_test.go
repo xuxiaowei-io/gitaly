@@ -47,7 +47,7 @@ func TestJWTAuthenticationHeader(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.method+" with "+tc.secret, func(t *testing.T) {
 			gitlabnet, err := NewGitlabNetClient(
-				testhelper.NewDiscardingLogEntry(t),
+				testhelper.NewLogger(t),
 				"user",
 				"password",
 				tc.secret,

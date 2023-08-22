@@ -13,7 +13,7 @@ func TestMain(m *testing.M) {
 }
 
 func newCommandFactory(tb testing.TB, cfg config.Cfg, opts ...ExecCommandFactoryOption) *ExecCommandFactory {
-	gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(tb), opts...)
+	gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg, testhelper.NewLogger(tb), opts...)
 	require.NoError(tb, err)
 	tb.Cleanup(cleanup)
 	return gitCmdFactory

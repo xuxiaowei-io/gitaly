@@ -462,7 +462,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 		RelativePath: "/path/to/hashed/storage",
 	}
 
-	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(testhelper.NewLogger(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
@@ -575,7 +575,7 @@ func TestStreamDirectorMutator_SecondaryErrorHandling(t *testing.T) {
 		RelativePath: "/path/to/hashed/storage",
 	}
 
-	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(testhelper.NewLogger(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
@@ -669,7 +669,7 @@ func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
 		},
 	}
 
-	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(testhelper.NewLogger(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
@@ -1059,7 +1059,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	entry := testhelper.NewDiscardingLogEntry(t)
+	entry := testhelper.NewLogger(t)
 	rs := datastore.MockRepositoryStore{}
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
@@ -1164,7 +1164,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	entry := testhelper.NewDiscardingLogEntry(t)
+	entry := testhelper.NewLogger(t)
 
 	repoStore := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
@@ -1710,7 +1710,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	entry := testhelper.NewDiscardingLogEntry(t)
+	entry := testhelper.NewLogger(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -1845,7 +1845,7 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 
 	rs := datastore.MockRepositoryStore{}
 
-	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(testhelper.NewLogger(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Second)
 	defer nodeMgr.Stop()

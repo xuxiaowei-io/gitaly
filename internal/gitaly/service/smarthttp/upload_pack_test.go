@@ -480,7 +480,7 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 func dialSmartHTTPServerWithSidechannel(t *testing.T, serverSocketPath, token string, registry *sidechannel.Registry) *grpc.ClientConn {
 	t.Helper()
 
-	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), registry)
+	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.NewLogger(t), registry)
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),

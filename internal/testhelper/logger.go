@@ -38,11 +38,6 @@ func newDiscardingLogger(tb testing.TB) *logrus.Logger {
 	return logger
 }
 
-// NewDiscardingLogEntry creates a logrus entry that discards everything.
-func NewDiscardingLogEntry(tb testing.TB) *logrus.Entry {
-	return logrus.NewEntry(NewLogger(tb))
-}
-
 func newServerLogger(tb testing.TB, logName string) *logrus.Logger {
 	logDir := CreateTestLogDir(tb)
 	if len(logDir) == 0 {

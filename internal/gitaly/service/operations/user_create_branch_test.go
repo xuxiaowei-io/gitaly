@@ -169,7 +169,7 @@ func TestUserCreateBranch_transactions(t *testing.T) {
 
 			client := newMuxedOperationClient(t, ctx, tc.address, cfg.Auth.Token,
 				backchannel.NewClientHandshaker(
-					testhelper.NewDiscardingLogEntry(t),
+					testhelper.NewLogger(t),
 					func() backchannel.Server {
 						srv := grpc.NewServer()
 						gitalypb.RegisterRefTransactionServer(srv, transactionServer)

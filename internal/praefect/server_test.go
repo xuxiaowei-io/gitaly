@@ -814,7 +814,7 @@ func TestProxyWrites(t *testing.T) {
 	}
 
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
-	entry := testhelper.NewDiscardingLogEntry(t)
+	entry := testhelper.NewLogger(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -954,7 +954,7 @@ func TestErrorThreshold(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
-	entry := testhelper.NewDiscardingLogEntry(t)
+	entry := testhelper.NewLogger(t)
 
 	testCases := []struct {
 		desc     string

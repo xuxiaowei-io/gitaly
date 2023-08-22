@@ -19,7 +19,7 @@ import (
 func TestAdaptiveCalculator_alreadyStarted(t *testing.T) {
 	t.Parallel()
 
-	calculator := NewAdaptiveCalculator(10*time.Millisecond, testhelper.NewDiscardingLogEntry(t), nil, nil)
+	calculator := NewAdaptiveCalculator(10*time.Millisecond, testhelper.NewLogger(t), nil, nil)
 
 	stop, err := calculator.Start(testhelper.Context(t))
 	require.NoError(t, err)

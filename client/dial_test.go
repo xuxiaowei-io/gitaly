@@ -676,7 +676,7 @@ var dialFuncs = []struct {
 	{
 		name: "DialSidechannel",
 		dial: func(t *testing.T, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-			sr := NewSidechannelRegistry(testhelper.NewDiscardingLogEntry(t))
+			sr := NewSidechannelRegistry(testhelper.NewLogger(t))
 			return DialSidechannel(testhelper.Context(t), rawAddress, sr, connOpts)
 		},
 	},

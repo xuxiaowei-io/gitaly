@@ -205,7 +205,7 @@ func RunPraefectServer(
 		opt.WithAnnotations = protoregistry.GitalyProtoPreregistered
 	}
 	if opt.WithLogger == nil {
-		opt.WithLogger = testhelper.NewDiscardingLogEntry(tb)
+		opt.WithLogger = logrus.NewEntry(testhelper.NewLogger(tb))
 	}
 	if opt.WithNodeMgr == nil {
 		opt.WithNodeMgr = defaultNodeMgr(tb, conf, opt.WithRepoStore)

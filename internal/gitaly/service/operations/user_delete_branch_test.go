@@ -465,7 +465,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 
 	client := newMuxedOperationClient(t, ctx, fmt.Sprintf("unix://"+cfg.InternalSocketPath()), cfg.Auth.Token,
 		backchannel.NewClientHandshaker(
-			testhelper.NewDiscardingLogEntry(t),
+			testhelper.NewLogger(t),
 			func() backchannel.Server {
 				srv := grpc.NewServer()
 				gitalypb.RegisterRefTransactionServer(srv, transactionServer)

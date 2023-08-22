@@ -166,7 +166,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	registry := sidechannel.NewRegistry()
-	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), registry)
+	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.NewLogger(t), registry)
 	conn, err := grpc.Dial(cfg.SocketPath,
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),

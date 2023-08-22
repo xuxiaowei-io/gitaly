@@ -111,8 +111,8 @@ func TestInvalidators(t *testing.T) {
 			mockCache := newMockCache()
 
 			server := grpc.NewServer(
-				grpc.StreamInterceptor(StreamInvalidator(mockCache, protoregistry.GitalyProtoPreregistered, testhelper.NewDiscardingLogEntry(t))),
-				grpc.UnaryInterceptor(UnaryInvalidator(mockCache, protoregistry.GitalyProtoPreregistered, testhelper.NewDiscardingLogEntry(t))),
+				grpc.StreamInterceptor(StreamInvalidator(mockCache, protoregistry.GitalyProtoPreregistered, testhelper.NewLogger(t))),
+				grpc.UnaryInterceptor(UnaryInvalidator(mockCache, protoregistry.GitalyProtoPreregistered, testhelper.NewLogger(t))),
 			)
 
 			service := &testService{

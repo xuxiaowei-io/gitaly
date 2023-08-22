@@ -116,7 +116,7 @@ func dialProxy(tb testing.TB, upstreamAddr string) (*grpc.ClientConn, error) {
 		return grpc.NewServer(grpc.Creds(lm))
 	}
 
-	clientHandshaker := backchannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(tb), factory, backchannel.DefaultConfiguration())
+	clientHandshaker := backchannel.NewClientHandshaker(testhelper.NewLogger(tb), factory, backchannel.DefaultConfiguration())
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 		grpc.WithUnaryInterceptor(NewUnaryProxy(registry)),
@@ -189,7 +189,7 @@ func startStreamServer(t *testing.T, handler func(gitalypb.SSHService_SSHUploadP
 
 	lm := listenmux.New(insecure.NewCredentials())
 	lm.Register(backchannel.NewServerHandshaker(
-		testhelper.NewDiscardingLogEntry(t), backchannel.NewRegistry(), nil,
+		testhelper.NewLogger(t), backchannel.NewRegistry(), nil,
 	))
 
 	srv := grpc.NewServer(grpc.Creds(lm))

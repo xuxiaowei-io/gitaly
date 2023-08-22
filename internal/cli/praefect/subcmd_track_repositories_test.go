@@ -87,7 +87,7 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 	authoritativeStorage := g1Cfg.Storages[0].Name
 
 	nodeMgr, err := nodes.NewManager(
-		testhelper.NewDiscardingLogEntry(t),
+		testhelper.NewLogger(t),
 		conf,
 		db.DB,
 		nil,

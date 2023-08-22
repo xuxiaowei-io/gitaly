@@ -41,7 +41,7 @@ func TestStartDaily(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
-	go func() { errQ <- dw.StartDaily(ctx, testhelper.NewDiscardingLogEntry(t), s, fn) }()
+	go func() { errQ <- dw.StartDaily(ctx, testhelper.NewLogger(t), s, fn) }()
 
 	startTime := time.Date(1999, 3, 31, 0, 0, 0, 0, time.Local)
 	for _, tt := range []struct {

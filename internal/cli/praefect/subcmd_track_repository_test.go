@@ -210,7 +210,7 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				nodeMgr, err := nodes.NewManager(
-					testhelper.NewDiscardingLogEntry(t),
+					testhelper.NewLogger(t),
 					conf,
 					db.DB,
 					nil,

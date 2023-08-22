@@ -72,7 +72,7 @@ func TestNodeStatus(t *testing.T) {
 	mockHistogramVec := promtest.NewMockHistogramVec()
 
 	storageName := "default"
-	cs := newConnectionStatus(config.Node{Storage: storageName}, cc, testhelper.NewDiscardingLogEntry(t), mockHistogramVec, nil)
+	cs := newConnectionStatus(config.Node{Storage: storageName}, cc, testhelper.NewLogger(t), mockHistogramVec, nil)
 	ctx := testhelper.Context(t)
 
 	var expectedLabels [][]string
@@ -119,7 +119,7 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 		Failover:        config.Failover{Enabled: false, ElectionStrategy: config.ElectionStrategySQL},
 		VirtualStorages: []*config.VirtualStorage{virtualStorage},
 	}
-	nm, err := NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nm, err := NewManager(testhelper.NewLogger(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 
 	nm.Start(time.Millisecond, time.Millisecond)
@@ -166,7 +166,7 @@ func TestDialWithUnhealthyNode(t *testing.T) {
 
 	testhelper.NewHealthServerWithListener(t, primaryLn)
 
-	mgr, err := NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	mgr, err := NewManager(testhelper.NewLogger(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 
 	mgr.Start(1*time.Millisecond, 1*time.Millisecond)
@@ -213,10 +213,10 @@ func TestNodeManager(t *testing.T) {
 	}
 
 	mockHistogram := promtest.NewMockHistogramVec()
-	nm, err := NewManager(testhelper.NewDiscardingLogEntry(t), confWithFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nm, err := NewManager(testhelper.NewLogger(t), confWithFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 
-	nmWithoutFailover, err := NewManager(testhelper.NewDiscardingLogEntry(t), confWithoutFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nmWithoutFailover, err := NewManager(testhelper.NewLogger(t), confWithoutFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 
 	// monitoring period set to 1 hour as we execute health checks by hands in this test
@@ -330,7 +330,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 			},
 		}
 
-		nm, err := NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+		nm, err := NewManager(testhelper.NewLogger(t), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 		require.NoError(t, err)
 
 		for i := range healthSrvs {

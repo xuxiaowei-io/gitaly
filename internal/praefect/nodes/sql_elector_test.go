@@ -53,7 +53,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 
 	storageName := "default"
 	mockHistogramVec0 := promtest.NewMockHistogramVec()
-	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0"}, cc0, testhelper.NewDiscardingLogEntry(t), mockHistogramVec0, nil)
+	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0"}, cc0, testhelper.NewLogger(t), mockHistogramVec0, nil)
 
 	ns := []*nodeStatus{cs0}
 	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
@@ -426,7 +426,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 	errNonMuxed := status.Error(codes.Internal, "non-muxed connection")
 	errMuxed := status.Error(codes.Internal, "muxed connection")
 
-	logger := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.NewLogger(t)
 
 	lm := listenmux.New(insecure.NewCredentials())
 	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
@@ -455,7 +455,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 
 	db := testdb.New(t)
 	mgr, err := NewManager(
-		testhelper.NewDiscardingLogEntry(t),
+		testhelper.NewLogger(t),
 		config.Config{
 			Failover: config.Failover{
 				Enabled:          true,

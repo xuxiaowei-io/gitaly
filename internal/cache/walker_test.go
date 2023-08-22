@@ -52,7 +52,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 		}
 	}
 
-	cache := New(cfg, locator, testhelper.NewDiscardingLogEntry(t), withDisabledMoveAndClear())
+	cache := New(cfg, locator, testhelper.NewLogger(t), withDisabledMoveAndClear())
 	require.NoError(t, cache.StartWalkers())
 	defer cache.StopWalkers()
 
@@ -81,7 +81,7 @@ func TestDiskCacheInitialClear(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(canary), perm.SharedDir))
 	require.NoError(t, os.WriteFile(canary, []byte("chirp chirp"), perm.PublicFile))
 
-	cache := New(cfg, locator, testhelper.NewDiscardingLogEntry(t), withDisabledWalker())
+	cache := New(cfg, locator, testhelper.NewLogger(t), withDisabledWalker())
 	require.NoError(t, cache.StartWalkers())
 	defer cache.StopWalkers()
 
@@ -91,7 +91,7 @@ func TestDiskCacheInitialClear(t *testing.T) {
 func TestCleanWalkDirNotExists(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	cache := New(cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogEntry(t))
+	cache := New(cfg, config.NewLocator(cfg), testhelper.NewLogger(t))
 
 	err := cache.cleanWalk("/path/that/does/not/exist")
 	assert.NoError(t, err, "cleanWalk returned an error for a non existing directory")
@@ -124,7 +124,7 @@ func TestCleanWalkEmptyDirs(t *testing.T) {
 	}
 
 	cfg := testcfg.Build(t)
-	cache := New(cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogEntry(t))
+	cache := New(cfg, config.NewLocator(cfg), testhelper.NewLogger(t))
 
 	require.NoError(t, cache.cleanWalk(tmp))
 

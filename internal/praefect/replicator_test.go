@@ -385,7 +385,7 @@ func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), event2.ID)
 
-	logEntry := testhelper.NewDiscardingLogEntry(t)
+	logEntry := testhelper.NewLogger(t)
 
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -545,7 +545,7 @@ func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 	_, err = queueInterceptor.Enqueue(ctx, eventType3)
 	require.NoError(t, err)
 
-	logEntry := testhelper.NewDiscardingLogEntry(t)
+	logEntry := testhelper.NewLogger(t)
 
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -626,7 +626,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 	node3 := Node{Storage: conf.VirtualStorages[0].Nodes[2].Storage}
 
 	replMgr := NewReplMgr(
-		testhelper.NewDiscardingLogEntry(t),
+		testhelper.NewLogger(t),
 		conf.StorageNames(),
 		queueInterceptor,
 		nil,
@@ -703,7 +703,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, "ignored", "ignored", primaryStorage, []string{secondaryStorage}, nil, true, false))
 
 	replMgr := NewReplMgr(
-		testhelper.NewDiscardingLogEntry(t),
+		testhelper.NewLogger(t),
 		conf.StorageNames(),
 		queue,
 		rs,

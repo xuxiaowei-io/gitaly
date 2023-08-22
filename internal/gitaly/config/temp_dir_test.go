@@ -15,17 +15,17 @@ import (
 
 func TestPruneOldGitalyProcessDirectories(t *testing.T) {
 	t.Run("no runtime directories", func(t *testing.T) {
-		require.NoError(t, PruneOldGitalyProcessDirectories(testhelper.NewDiscardingLogEntry(t), testhelper.TempDir(t)))
+		require.NoError(t, PruneOldGitalyProcessDirectories(testhelper.NewLogger(t), testhelper.TempDir(t)))
 	})
 
 	t.Run("unset runtime directory", func(t *testing.T) {
 		require.EqualError(t,
-			PruneOldGitalyProcessDirectories(testhelper.NewDiscardingLogEntry(t), ""), "list gitaly process directory: open : no such file or directory")
+			PruneOldGitalyProcessDirectories(testhelper.NewLogger(t), ""), "list gitaly process directory: open : no such file or directory")
 	})
 
 	t.Run("non-existent runtime directory", func(t *testing.T) {
 		require.EqualError(t,
-			PruneOldGitalyProcessDirectories(testhelper.NewDiscardingLogEntry(t),
+			PruneOldGitalyProcessDirectories(testhelper.NewLogger(t),
 				"/path/does/not/exist"), "list gitaly process directory: open /path/does/not/exist: no such file or directory")
 	})
 
