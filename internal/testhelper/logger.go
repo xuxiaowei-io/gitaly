@@ -1,8 +1,8 @@
 package testhelper
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
+
+// NewLogger returns a logger that records the log output and
+// prints it out only if the test fails.
+func NewLogger(tb testing.TB) *logrus.Logger {
+	logOutput := &bytes.Buffer{}
+	logger := logrus.New() //nolint:forbidigo
+	logger.Out = logOutput
+
+	tb.Cleanup(func() {
+		if !tb.Failed() {
+			return
+		}
+
+		tb.Logf("Recorded logs:\n%s\n", logOutput)
+	})
+
+	return logger
+}
 
 // NewDiscardingLogger creates a logger that discards everything.
 func NewDiscardingLogger(tb testing.TB) *logrus.Logger {
