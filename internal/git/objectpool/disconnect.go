@@ -14,8 +14,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 )
 
 // Disconnect disconnects the specified repository from its object pool. If the repository does not
@@ -30,7 +32,7 @@ import (
 // until after the connectivity check completes. If Gitaly crashes before the backup is restored,
 // the repository may be in a broken state until an administrator intervenes and restores the backed
 // up copy of objects/info/alternates.
-func Disconnect(ctx context.Context, repo *localrepo.Repo) error {
+func Disconnect(ctx context.Context, repo *localrepo.Repo, txManager transaction.Manager) error {
 	repoPath, err := repo.Path()
 	if err != nil {
 		return err
@@ -45,7 +47,17 @@ func Disconnect(ctx context.Context, repo *localrepo.Repo) error {
 	// object directories, there is not an object pool repository to disconnect from and no need to
 	// continue.
 	if !altInfo.Exists || len(altInfo.ObjectDirectories) == 0 {
+		// When a repository is not linked to any alternates, ensure the repository is consistent
+		// with other replicas.
+		if err := transaction.VoteOnContext(ctx, txManager, voting.VoteFromData([]byte("no alternates")), voting.Committed); err != nil {
+			return fmt.Errorf("vote on missing alternates: %w", err)
+		}
+
 		return nil
+	}
+
+	if err := transaction.VoteOnContext(ctx, txManager, voting.VoteFromData([]byte("migrate objects")), voting.Prepared); err != nil {
+		return fmt.Errorf("preparatory vote for migrating objects: %w", err)
 	}
 
 	// A repository should only ever be linked to a single alternate object directory. If the
@@ -90,6 +102,10 @@ func Disconnect(ctx context.Context, repo *localrepo.Repo) error {
 		}
 	}
 
+	if err := transaction.VoteOnContext(ctx, txManager, voting.VoteFromData([]byte("migrate objects")), voting.Committed); err != nil {
+		return fmt.Errorf("committed vote for migrating objects: %w", err)
+	}
+
 	altFile, err := repo.InfoAlternatesPath()
 	if err != nil {
 		return err
@@ -100,7 +116,7 @@ func Disconnect(ctx context.Context, repo *localrepo.Repo) error {
 		return err
 	}
 
-	return removeAlternatesIfOk(ctx, repo, altFile, backupFile)
+	return removeAlternatesIfOk(ctx, repo, altFile, backupFile, txManager)
 }
 
 func findObjectFiles(altDir string) ([]string, error) {
@@ -179,7 +195,11 @@ func newBackupFile(altFile string) (string, error) {
 // middle of this function, the repo is left in a broken state. We do
 // take care to leave a copy of the alternates file, so that it can be
 // manually restored by an administrator if needed.
-func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, backupFile string) error {
+func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, backupFile string, txManager transaction.Manager) error {
+	if err := transaction.VoteOnContext(ctx, txManager, voting.VoteFromData([]byte("disconnect alternate")), voting.Prepared); err != nil {
+		return fmt.Errorf("preparatory vote for disconnecting alternate: %w", err)
+	}
+
 	if err := os.Rename(altFile, backupFile); err != nil {
 		return err
 	}
@@ -227,6 +247,12 @@ func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, ba
 		return &connectivityError{error: err}
 	}
 
+	if err := transaction.VoteOnContext(ctx, txManager, voting.VoteFromData([]byte("disconnect alternate")), voting.Committed); err != nil {
+		return fmt.Errorf("committing vote for disconnecting alternate: %w", err)
+	}
+
+	// The repository should only be disconnected from its object pool if validation is successful.
+	// If validation fails or transaction quorum is not achieved, alternates rollback is performed.
 	rollback = false
 	return nil
 }

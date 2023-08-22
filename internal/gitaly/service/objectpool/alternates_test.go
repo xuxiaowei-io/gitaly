@@ -1,10 +1,12 @@
 package objectpool
 
 import (
+	"context"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -16,8 +18,10 @@ import (
 
 func TestDisconnectGitAlternates(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TransactionalAlternatesDisconnect).Run(t, testDisconnectGitAlternates)
+}
 
-	ctx := testhelper.Context(t)
+func testDisconnectGitAlternates(t *testing.T, ctx context.Context) {
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -56,8 +60,10 @@ func TestDisconnectGitAlternates(t *testing.T) {
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TransactionalAlternatesDisconnect).Run(t, testDisconnectGitAlternatesNoAlternates)
+}
 
-	ctx := testhelper.Context(t)
+func testDisconnectGitAlternatesNoAlternates(t *testing.T, ctx context.Context) {
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
