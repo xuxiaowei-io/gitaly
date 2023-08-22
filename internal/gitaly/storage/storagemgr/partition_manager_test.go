@@ -24,11 +24,10 @@ import (
 )
 
 func TestPartitionManager(t *testing.T) {
-	umask := perm.GetUmask()
-
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+	umask := testhelper.Umask()
 
 	// steps defines execution steps in a test. Each test case can define multiple steps to exercise
 	// more complex behavior.

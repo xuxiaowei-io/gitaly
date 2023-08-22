@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"math/rand"
 	"net"
 	"net/http"
@@ -326,20 +325,17 @@ func WriteExecutable(tb testing.TB, path string, content []byte) string {
 	return path
 }
 
-// MaskedPerms determines permission bits with the current process umask applied. This is preferable over calls to
-// `perm.GetUmask()` because it can be executed in parallel. Note that this function does not include non-permission
-// mode bits like `fs.ModeDir` or `fs.ModeSocket`. You can OR these manually as required.
-func MaskedPerms(tb testing.TB, mode fs.FileMode) fs.FileMode {
-	tb.Helper()
+var umask perm.Umask = func() perm.Umask {
+	oldMask := syscall.Umask(0)
+	syscall.Umask(oldMask)
+	return perm.Umask(oldMask)
+}()
 
-	f, err := os.OpenFile(filepath.Join(TempDir(tb), "file"), os.O_CREATE|os.O_EXCL, mode)
-	require.NoError(tb, err)
-	defer MustClose(tb, f)
-
-	stat, err := f.Stat()
-	require.NoError(tb, err)
-
-	return stat.Mode().Perm()
+// Umask return the umask of the current procses. Note that this value is computed once at initialization time because
+// it is shared global state that is unsafe to access when there are multiple threads running at the same time. It
+// follows that tests should never update the umask.
+func Umask() perm.Umask {
+	return umask
 }
 
 // Unsetenv unsets an environment variable. The variable will be restored after the test has

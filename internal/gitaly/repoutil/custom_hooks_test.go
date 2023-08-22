@@ -115,7 +115,9 @@ func TestGetCustomHooks_nonexistentHooks(t *testing.T) {
 }
 
 func TestExtractHooks(t *testing.T) {
-	umask := perm.GetUmask()
+	t.Parallel()
+
+	umask := testhelper.Umask()
 
 	writeFile := func(writer *tar.Writer, path string, mode fs.FileMode, content string) {
 		require.NoError(t, writer.WriteHeader(&tar.Header{
