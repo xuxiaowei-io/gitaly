@@ -106,12 +106,6 @@ func TestServer_PostUploadPackSidechannel_gitConfigOptions(t *testing.T) {
 }
 
 func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
-	testhelper.SkipQuarantinedTest(
-		t,
-		"https://gitlab.com/gitlab-org/gitaly/-/issues/5027",
-		"TestServer_PostUploadPackSidechannel_gitConfigOptions/no_config_options",
-	)
-
 	cfg := testcfg.Build(t, opts...)
 	testcfg.BuildGitalyHooks(t, cfg)
 
@@ -505,9 +499,11 @@ func makePostUploadPackWithSidechannelRequest(t *testing.T, ctx context.Context,
 		var wg sync.WaitGroup
 		defer wg.Wait()
 
+		clientDone := make(chan struct{})
 		wg.Add(1)
 		errC := make(chan error, 1)
 		go func() {
+			<-clientDone
 			defer wg.Done()
 			_, err := io.Copy(responseBuffer, sideConn)
 			errC <- err
@@ -522,6 +518,7 @@ func makePostUploadPackWithSidechannelRequest(t *testing.T, ctx context.Context,
 		if err := sideConn.CloseWrite(); err != nil {
 			return err
 		}
+		close(clientDone)
 
 		return <-errC
 	})
