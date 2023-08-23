@@ -215,7 +215,7 @@ func NewPartitionManager(
 			return nil, fmt.Errorf("create storage's database directory: %w", err)
 		}
 
-		pa, err := newPartitionAssigner(db)
+		pa, err := newPartitionAssigner(db, storage.Path)
 		if err != nil {
 			return nil, fmt.Errorf("new partition assigner: %w", err)
 		}
