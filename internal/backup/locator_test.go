@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package backup
 
 import (
@@ -19,6 +17,8 @@ import (
 )
 
 func TestLegacyLocator(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -68,6 +68,8 @@ func TestLegacyLocator(t *testing.T) {
 }
 
 func TestPointerLocator(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	const backupID = "abc123"

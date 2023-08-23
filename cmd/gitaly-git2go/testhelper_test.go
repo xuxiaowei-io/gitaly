@@ -1,4 +1,4 @@
-//go:build static && system_libgit2 && !gitaly_test_sha256
+//go:build static && system_libgit2
 
 package main
 

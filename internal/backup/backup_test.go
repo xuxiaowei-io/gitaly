@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package backup_test
 
 import (
@@ -31,6 +29,8 @@ import (
 )
 
 func TestManager_RemoveAllRepositories(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -61,6 +61,8 @@ func TestManager_RemoveAllRepositories(t *testing.T) {
 }
 
 func TestManager_Create(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	const backupID = "abc123"
@@ -230,6 +232,8 @@ func TestManager_Create(t *testing.T) {
 }
 
 func TestManager_Create_incremental(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	const backupID = "abc123"
@@ -377,6 +381,8 @@ func TestManager_Create_incremental(t *testing.T) {
 }
 
 func TestManager_Restore_latest(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -716,6 +722,8 @@ func TestManager_Restore_latest(t *testing.T) {
 }
 
 func TestManager_Restore_specific(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	const backupID = "abc123"
@@ -917,6 +925,8 @@ func TestManager_Restore_specific(t *testing.T) {
 }
 
 func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -954,6 +964,8 @@ func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
 }
 
 func TestResolveLocator(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 
 	for _, tc := range []struct {
