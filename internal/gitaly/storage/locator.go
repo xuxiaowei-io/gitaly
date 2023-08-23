@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -155,6 +156,41 @@ func ValidateRelativePath(rootDir, relativePath string) (string, error) {
 	}
 
 	return filepath.Rel(rootDir, absPath)
+}
+
+// InvalidGitDirectoryError is returned when a Git directory being validated is invalid.
+type InvalidGitDirectoryError struct {
+	// MissingEntry is the expected directory entry that was missing.
+	MissingEntry string
+}
+
+// Error returns the error message.
+func (err InvalidGitDirectoryError) Error() string {
+	return "invalid git directory"
+}
+
+// ValidateGitDirectory validates the directory at the given path looks like a valid
+// Git repository. If the path points to a valid directory which doesn't contain the
+// expected entries InvalidGitDirectoryError is returned. A directory is considered to
+// be valid Git directory if it contains 'objects', 'refs' and 'HEAD'.
+func ValidateGitDirectory(path string) error {
+	if info, err := os.Stat(path); err != nil {
+		return fmt.Errorf("stat: %w", err)
+	} else if !info.IsDir() {
+		return errors.New("not a directory")
+	}
+
+	for _, file := range []string{"objects", "refs", "HEAD"} {
+		if _, err := os.Stat(filepath.Join(path, file)); err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("stat %q: %w", file, err)
+			}
+
+			return InvalidGitDirectoryError{MissingEntry: file}
+		}
+	}
+
+	return nil
 }
 
 // QuarantineDirectoryPrefix returns a prefix for use in the temporary directory. The prefix is

@@ -1,6 +1,10 @@
 package storage
 
 import (
+	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -117,4 +121,51 @@ func TestQuarantineDirectoryPrefix(t *testing.T) {
 		GlRepository:  "gl-repo",
 		GlProjectPath: "gl/repo",
 	}))
+}
+
+func TestValidateGitDirectory(t *testing.T) {
+	t.Run("path does not exist", func(t *testing.T) {
+		require.ErrorIs(t,
+			ValidateGitDirectory(filepath.Join(t.TempDir(), "non-existent")),
+			fs.ErrNotExist,
+		)
+	})
+
+	t.Run("path is not a directory", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "file")
+		require.NoError(t, os.WriteFile(path, nil, fs.ModePerm))
+		require.Equal(t, errors.New("not a directory"), ValidateGitDirectory(path))
+	})
+
+	// Mock the repository creation as our repository creating helpers depend on storage package
+	// and using them would lead to a cyclic import.
+	createRepository := func(t *testing.T) string {
+		t.Helper()
+		path := t.TempDir()
+		for _, entry := range []string{"objects", "refs", "HEAD"} {
+			require.NoError(t, os.WriteFile(filepath.Join(path, entry), nil, fs.ModePerm))
+		}
+
+		return path
+	}
+
+	t.Run("missing entry", func(t *testing.T) {
+		for _, entry := range []string{
+			"objects", "refs", "HEAD",
+		} {
+			t.Run(entry, func(t *testing.T) {
+				repoPath := createRepository(t)
+				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, entry)))
+
+				require.Equal(t,
+					InvalidGitDirectoryError{MissingEntry: entry},
+					ValidateGitDirectory(repoPath),
+				)
+			})
+		}
+	})
+
+	t.Run("valid repository", func(t *testing.T) {
+		require.NoError(t, ValidateGitDirectory(createRepository(t)))
+	})
 }
