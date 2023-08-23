@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
@@ -150,6 +151,7 @@ func (cc *cmdCfg) configureHooks(
 		repo,
 		objectHash,
 		transaction,
+		gitlabaction.ReceivePack,
 		userDetails,
 		requestedHooks,
 		featureflag.FromContext(ctx)).Env()

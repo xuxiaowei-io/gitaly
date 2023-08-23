@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
@@ -35,6 +36,7 @@ func TestHooksPayload(t *testing.T) {
 			repo,
 			gittest.DefaultObjectHash,
 			nil,
+			gitlabaction.ReceivePack,
 			nil,
 			git.AllHooks,
 			nil,
@@ -49,6 +51,7 @@ func TestHooksPayload(t *testing.T) {
 			repo,
 			gittest.DefaultObjectHash,
 			nil,
+			gitlabaction.ReceivePack,
 			nil,
 			git.PreReceiveHook,
 			map[featureflag.FeatureFlag]bool{
@@ -69,6 +72,7 @@ func TestHooksPayload(t *testing.T) {
 			ObjectFormat:   gittest.DefaultObjectHash.Format,
 			RuntimeDir:     cfg.RuntimeDir,
 			InternalSocket: cfg.InternalSocketPath(),
+			Action:         gitlabaction.ReceivePack,
 			RequestedHooks: git.PreReceiveHook,
 			FeatureFlagsWithValue: []git.FeatureFlagWithValue{
 				{
@@ -85,6 +89,7 @@ func TestHooksPayload(t *testing.T) {
 			repo,
 			gittest.DefaultObjectHash,
 			&tx,
+			gitlabaction.ReceivePack,
 			nil,
 			git.UpdateHook,
 			nil,
@@ -100,6 +105,7 @@ func TestHooksPayload(t *testing.T) {
 			RuntimeDir:     cfg.RuntimeDir,
 			InternalSocket: cfg.InternalSocketPath(),
 			Transaction:    &tx,
+			Action:         gitlabaction.ReceivePack,
 			RequestedHooks: git.UpdateHook,
 		}, payload)
 	})
@@ -121,6 +127,7 @@ func TestHooksPayload(t *testing.T) {
 			repo,
 			gittest.DefaultObjectHash,
 			nil,
+			gitlabaction.ReceivePack,
 			&git.UserDetails{
 				UserID:   "1234",
 				Username: "user",
@@ -142,6 +149,7 @@ func TestHooksPayload(t *testing.T) {
 			RuntimeDir:          cfg.RuntimeDir,
 			InternalSocket:      cfg.InternalSocketPath(),
 			InternalSocketToken: cfg.Auth.Token,
+			Action:              gitlabaction.ReceivePack,
 			UserDetails: &git.UserDetails{
 				UserID:   "1234",
 				Username: "user",

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -46,6 +47,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 		repo,
 		gittest.DefaultObjectHash,
 		nil,
+		gitlabaction.ReceivePack,
 		&git.UserDetails{
 			UserID:   "key-123",
 			Username: "username",

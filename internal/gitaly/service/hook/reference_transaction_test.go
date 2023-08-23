@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -169,6 +170,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 					ID:            1234,
 					Node:          "node-1",
 				},
+				gitlabaction.ReceivePack,
 				nil,
 				git.ReferenceTransactionHook,
 				featureflag.FromContext(ctx),

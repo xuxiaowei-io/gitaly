@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -150,6 +151,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		repo,
 		gittest.DefaultObjectHash,
 		nil,
+		gitlabaction.ReceivePack,
 		&git.UserDetails{
 			UserID:   glID,
 			Username: "username",
@@ -271,6 +273,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				repo,
 				gittest.DefaultObjectHash,
 				nil,
+				gitlabaction.ReceivePack,
 				&git.UserDetails{
 					UserID:   "key-123",
 					Username: "username",
@@ -345,6 +348,7 @@ exit %d
 		repo,
 		gittest.DefaultObjectHash,
 		nil,
+		gitlabaction.ReceivePack,
 		&git.UserDetails{
 			UserID:   "key-123",
 			Username: "username",
@@ -498,6 +502,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 					Node:    "node-1",
 					Primary: tc.primary,
 				},
+				gitlabaction.ReceivePack,
 				&git.UserDetails{
 					UserID:   "key-123",
 					Username: "username",

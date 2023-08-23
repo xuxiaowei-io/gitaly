@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
@@ -43,6 +44,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 		repo,
 		gittest.DefaultObjectHash,
 		&expectedTx,
+		gitlabaction.ReceivePack,
 		&git.UserDetails{
 			UserID:   "1234",
 			Username: "user",
@@ -150,6 +152,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
+		gitlabaction.ReceivePack,
 		nil,
 		git.ReferenceTransactionHook,
 		nil,

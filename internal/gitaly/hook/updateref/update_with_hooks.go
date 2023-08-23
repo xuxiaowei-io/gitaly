@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -202,7 +203,16 @@ func (u *UpdaterWithHooks) UpdateReference(
 		quarantinedRepo = quarantineDir.QuarantinedRepo()
 	}
 
-	hooksPayload, err := git.NewHooksPayload(u.cfg, quarantinedRepo, objectHash, transaction, &receiveHooksPayload, git.ReceivePackHooks, featureflag.FromContext(ctx)).Env()
+	hooksPayload, err := git.NewHooksPayload(
+		u.cfg,
+		quarantinedRepo,
+		objectHash,
+		transaction,
+		gitlabaction.ReceivePack,
+		&receiveHooksPayload,
+		git.ReceivePackHooks,
+		featureflag.FromContext(ctx),
+	).Env()
 	if err != nil {
 		return fmt.Errorf("constructing hooks payload: %w", err)
 	}
@@ -224,7 +234,16 @@ func (u *UpdaterWithHooks) UpdateReference(
 		// We only need to update the hooks payload to the unquarantined repo in case we
 		// had a quarantine environment. Otherwise, the initial hooks payload is for the
 		// real repository anyway.
-		hooksPayload, err = git.NewHooksPayload(u.cfg, repoProto, objectHash, transaction, &receiveHooksPayload, git.ReceivePackHooks, featureflag.FromContext(ctx)).Env()
+		hooksPayload, err = git.NewHooksPayload(
+			u.cfg,
+			repoProto,
+			objectHash,
+			transaction,
+			gitlabaction.ReceivePack,
+			&receiveHooksPayload,
+			git.ReceivePackHooks,
+			featureflag.FromContext(ctx),
+		).Env()
 		if err != nil {
 			return fmt.Errorf("constructing quarantined hooks payload: %w", err)
 		}

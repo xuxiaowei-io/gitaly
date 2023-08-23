@@ -19,6 +19,7 @@ import (
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -118,6 +119,7 @@ func TestPostReceivePack_successful(t *testing.T) {
 		RuntimeDir:          cfg.RuntimeDir,
 		InternalSocket:      cfg.InternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
+		Action:              gitlabaction.ReceivePack,
 		UserDetails: &git.UserDetails{
 			UserID:   "123",
 			Username: "user",

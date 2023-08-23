@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -120,6 +121,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			repo,
 			gittest.DefaultObjectHash,
 			nil,
+			gitlabaction.ReceivePack,
 			&git.UserDetails{
 				UserID:   gittest.TestUser.GlId,
 				Username: gittest.TestUser.GlUsername,

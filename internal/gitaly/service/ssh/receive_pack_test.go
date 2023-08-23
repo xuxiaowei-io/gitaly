@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -188,6 +189,7 @@ func TestReceivePack_success(t *testing.T) {
 		RuntimeDir:          cfg.RuntimeDir,
 		InternalSocket:      cfg.InternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
+		Action:              gitlabaction.ReceivePack,
 		UserDetails: &git.UserDetails{
 			UserID:   "123",
 			Username: "user",

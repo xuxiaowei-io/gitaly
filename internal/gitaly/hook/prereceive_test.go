@@ -55,6 +55,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		repo,
 		gittest.DefaultObjectHash,
 		nil,
+		gitlabaction.ReceivePack,
 		receiveHooksPayload,
 		git.PreReceiveHook,
 		featureflag.FromContext(ctx),
@@ -68,6 +69,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
+		gitlabaction.ReceivePack,
 		receiveHooksPayload,
 		git.PreReceiveHook,
 		featureflag.FromContext(ctx),
@@ -81,6 +83,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		&txinfo.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
 		},
+		gitlabaction.ReceivePack,
 		receiveHooksPayload,
 		git.PreReceiveHook,
 		featureflag.FromContext(ctx),
@@ -242,6 +245,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 				repo,
 				gittest.DefaultObjectHash,
 				nil,
+				gitlabaction.ReceivePack,
 				&git.UserDetails{
 					UserID:   "1234",
 					Username: "user",
@@ -306,6 +310,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 		repo,
 		gittest.DefaultObjectHash,
 		nil,
+		gitlabaction.ReceivePack,
 		&git.UserDetails{
 			UserID:   "1234",
 			Username: "user",

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
@@ -52,6 +53,7 @@ func TestUpdate_customHooks(t *testing.T) {
 		repo,
 		gittest.DefaultObjectHash,
 		nil,
+		gitlabaction.ReceivePack,
 		receiveHooksPayload,
 		git.UpdateHook,
 		featureflag.FromContext(ctx),
@@ -65,6 +67,7 @@ func TestUpdate_customHooks(t *testing.T) {
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
+		gitlabaction.ReceivePack,
 		receiveHooksPayload,
 		git.UpdateHook,
 		featureflag.FromContext(ctx),
@@ -78,6 +81,7 @@ func TestUpdate_customHooks(t *testing.T) {
 		&txinfo.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
 		},
+		gitlabaction.ReceivePack,
 		receiveHooksPayload,
 		git.UpdateHook,
 		featureflag.FromContext(ctx),
@@ -271,6 +275,7 @@ func TestUpdate_quarantine(t *testing.T) {
 				repo,
 				gittest.DefaultObjectHash,
 				nil,
+				gitlabaction.ReceivePack,
 				&git.UserDetails{
 					UserID:   "1234",
 					Username: "user",

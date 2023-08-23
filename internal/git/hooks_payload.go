@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -83,6 +84,9 @@ type HooksPayload struct {
 	// it's not set, no transactional voting will happen.
 	Transaction *txinfo.Transaction `json:"transaction"`
 
+	// Action is the specific action that has caused the hook to be executed. This action will be sent to GitLab's
+	// `/internal/allowed` endpoint in order to inform the audit trail.
+	Action gitlabaction.Action `json:"action"`
 	// UserDetails contains information required when executing
 	// git-receive-pack or git-upload-pack
 	UserDetails *UserDetails `json:"user_details"`
@@ -118,6 +122,7 @@ func NewHooksPayload(
 	repo *gitalypb.Repository,
 	objectHash ObjectHash,
 	tx *txinfo.Transaction,
+	action gitlabaction.Action,
 	userDetails *UserDetails,
 	requestedHooks Hook,
 	featureFlagsWithValue map[featureflag.FeatureFlag]bool,
@@ -137,6 +142,7 @@ func NewHooksPayload(
 		InternalSocket:        cfg.InternalSocketPath(),
 		InternalSocketToken:   cfg.Auth.Token,
 		Transaction:           tx,
+		Action:                action,
 		UserDetails:           userDetails,
 		RequestedHooks:        requestedHooks,
 		FeatureFlagsWithValue: flags,

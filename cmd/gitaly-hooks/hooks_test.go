@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
@@ -75,6 +76,7 @@ func envForHooks(tb testing.TB, ctx context.Context, cfg config.Cfg, repo *gital
 		repo,
 		gittest.DefaultObjectHash,
 		nil,
+		gitlabaction.ReceivePack,
 		&git.UserDetails{
 			UserID:   glHookValues.GLID,
 			Username: glHookValues.GLUsername,
@@ -446,6 +448,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 					Node:    "node",
 					Primary: tc.primary,
 				},
+				gitlabaction.ReceivePack,
 				&git.UserDetails{
 					UserID:   glID,
 					Username: glUsername,
@@ -555,6 +558,7 @@ func TestRequestedHooks(t *testing.T) {
 					&gitalypb.Repository{},
 					gittest.DefaultObjectHash,
 					nil,
+					gitlabaction.ReceivePack,
 					nil,
 					git.AllHooks&^hook,
 					nil,
@@ -577,6 +581,7 @@ func TestRequestedHooks(t *testing.T) {
 					&gitalypb.Repository{},
 					gittest.DefaultObjectHash,
 					nil,
+					gitlabaction.ReceivePack,
 					nil,
 					hook,
 					nil,
