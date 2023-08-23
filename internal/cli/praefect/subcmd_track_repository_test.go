@@ -109,30 +109,42 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 		}{
 			{
 				name:     "positional arguments",
-				args:     []string{"-virtual-storage=v", "-repository=r", "-authoritative-storage=s", "positional-arg"},
+				args:     []string{"-virtual-storage=v", "-relative-path=r", "-replica-path=r", "-authoritative-storage=s", "positional-arg"},
 				errorMsg: "track-repository doesn't accept positional arguments",
 			},
 			{
 				name: "virtual-storage is not set",
 				args: []string{
-					"-repository", "path/to/test/repo_1",
+					"-relative-path", "path/to/test/repo_1",
+					"-replica-path", "path/to/test/repo_1",
 					"-authoritative-storage", authoritativeStorage,
 				},
 				errorMsg: `Required flag "virtual-storage" not set`,
 			},
 			{
-				name: "repository is not set",
+				name: "relative-path is not set",
 				args: []string{
 					"-virtual-storage", virtualStorageName,
+					"-replica-path", "path/to/test/repo_1",
 					"-authoritative-storage", authoritativeStorage,
 				},
-				errorMsg: `Required flag "repository" not set`,
+				errorMsg: `Required flag "relative-path" not set`,
+			},
+			{
+				name: "replica-path is not set",
+				args: []string{
+					"-virtual-storage", virtualStorageName,
+					"-relative-path", "path/to/test/repo_1",
+					"-authoritative-storage", authoritativeStorage,
+				},
+				errorMsg: `Required flag "replica-path" not set`,
 			},
 			{
 				name: "authoritative-storage is not set",
 				args: []string{
 					"-virtual-storage", virtualStorageName,
-					"-repository", "path/to/test/repo_1",
+					"-relative-path", "path/to/test/repo_1",
+					"-replica-path", "path/to/test/repo_1",
 				},
 				errorMsg: `Required flag "authoritative-storage" not set`,
 			},
@@ -140,7 +152,8 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 				name: "repository does not exist",
 				args: []string{
 					"-virtual-storage", virtualStorageName,
-					"-repository", "path/to/test/repo_1",
+					"-relative-path", "path/to/test/repo_1",
+					"-replica-path", "path/to/test/repo_1",
 					"-authoritative-storage", authoritativeStorage,
 				},
 				errorMsg: "attempting to track repository in praefect database: authoritative repository does not exist",
@@ -157,11 +170,19 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		testCases := []struct {
 			relativePath         string
+			replicaPath          string
 			desc                 string
 			replicateImmediately bool
 			repositoryExists     bool
 			expectedOutput       []string
 		}{
+			{
+				desc:                 "replica path differs from relative path",
+				relativePath:         "path/to/test/diff_repo",
+				replicaPath:          "path/to/replica/diff_repo",
+				replicateImmediately: true,
+				expectedOutput:       []string{"Finished replicating repository to \"gitaly-2\".\n"},
+			},
 			{
 				desc:                 "force replication",
 				relativePath:         "path/to/test/repo1",
@@ -203,20 +224,25 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 				nodeMgr.Start(0, time.Hour)
 				defer nodeMgr.Stop()
 
+				if tc.replicaPath == "" {
+					tc.replicaPath = tc.relativePath
+				}
+
 				exists, err := repoDS.RepositoryExists(ctx, virtualStorageName, tc.relativePath)
 				require.NoError(t, err)
 				require.Equal(t, tc.repositoryExists, exists)
 
 				// create the repo on Gitaly without Praefect knowing
 				if !tc.repositoryExists {
-					require.NoError(t, createRepoThroughGitaly1(tc.relativePath))
-					require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, tc.relativePath))
-					require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, tc.relativePath))
+					require.NoError(t, createRepoThroughGitaly1(tc.replicaPath))
+					require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, tc.replicaPath))
+					require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, tc.replicaPath))
 				}
 
 				args := []string{
 					"-virtual-storage", virtualStorageName,
-					"-repository", tc.relativePath,
+					"-relative-path", tc.relativePath,
+					"-replica-path", tc.replicaPath,
 					"-authoritative-storage", authoritativeStorage,
 				}
 				if tc.replicateImmediately {
@@ -270,7 +296,8 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 			"-config", confPath,
 			trackRepositoryCmdName,
 			"-virtual-storage", virtualStorageName,
-			"-repository", relativePath,
+			"-relative-path", relativePath,
+			"-replica-path", relativePath,
 			"-authoritative-storage", authoritativeStorage,
 		})
 		require.NoError(t, err)
@@ -280,7 +307,8 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 			"-config", confPath,
 			trackRepositoryCmdName,
 			"-virtual-storage", virtualStorageName,
-			"-repository", relativePath,
+			"-relative-path", relativePath,
+			"-replica-path", relativePath,
 			"-authoritative-storage", authoritativeStorage,
 		})
 		require.NoError(t, err)

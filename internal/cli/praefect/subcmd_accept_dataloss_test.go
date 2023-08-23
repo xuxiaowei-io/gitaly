@@ -81,25 +81,25 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 	}{
 		{
 			desc:                "missing virtual storage",
-			args:                []string{"-repository", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
+			args:                []string{"-relative-path", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
 			matchError:          matchErrorMsg(`Required flag "virtual-storage" not set`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "missing repository",
 			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-authoritative-storage", "test-physical-storage-2"},
-			matchError:          matchErrorMsg(`Required flag "repository" not set`),
+			matchError:          matchErrorMsg(`Required flag "relative-path" not set`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "missing authoritative storage",
-			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "test-repository-1"},
+			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-relative-path", "test-repository-1"},
 			matchError:          matchErrorMsg(`Required flag "authoritative-storage" not set`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc: "positional arguments",
-			args: []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "test-repository-1", "-authoritative-storage", "test-physical-storage-2", "positional-arg"},
+			args: []string{"-virtual-storage", "test-virtual-storage-1", "-relative-path", "test-repository-1", "-authoritative-storage", "test-physical-storage-2", "positional-arg"},
 			matchError: func(t *testing.T, actual error) {
 				t.Helper()
 				require.Equal(t, unexpectedPositionalArgsError{Command: "accept-dataloss"}, actual)
@@ -108,25 +108,25 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 		},
 		{
 			desc:                "non-existent virtual storage",
-			args:                []string{"-virtual-storage", "non-existent", "-repository", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
+			args:                []string{"-virtual-storage", "non-existent", "-relative-path", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
 			matchError:          matchErrorMsg(`set authoritative storage: rpc error: code = InvalidArgument desc = unknown virtual storage: "non-existent"`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "non-existent authoritative storage",
-			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "test-repository-1", "-authoritative-storage", "non-existent"},
+			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-relative-path", "test-repository-1", "-authoritative-storage", "non-existent"},
 			matchError:          matchErrorMsg(`set authoritative storage: rpc error: code = InvalidArgument desc = unknown authoritative storage: "non-existent"`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc:                "non-existent repository",
-			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "non-existent", "-authoritative-storage", "test-physical-storage-2"},
+			args:                []string{"-virtual-storage", "test-virtual-storage-1", "-relative-path", "non-existent", "-authoritative-storage", "test-physical-storage-2"},
 			matchError:          matchErrorMsg(`set authoritative storage: rpc error: code = InvalidArgument desc = repository does not exist on virtual storage`),
 			expectedGenerations: startingGenerations,
 		},
 		{
 			desc: "success",
-			args: []string{"-virtual-storage", "test-virtual-storage-1", "-repository", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
+			args: []string{"-virtual-storage", "test-virtual-storage-1", "-relative-path", "test-repository-1", "-authoritative-storage", "test-physical-storage-2"},
 			matchError: func(t *testing.T, actual error) {
 				t.Helper()
 				require.NoError(t, actual)
