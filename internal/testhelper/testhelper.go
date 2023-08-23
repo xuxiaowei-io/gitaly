@@ -235,7 +235,7 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// There are some feature flags we need to enable in this function because they end up very
 	// deep in the call stack, so almost every test function would have to inject it into its
 	// context. The values of these flags should be randomized to increase the test coverage.
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
+
 	// Randomly enable mailmap
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.MailmapOptions, rand.Int()%2 == 0)
 
