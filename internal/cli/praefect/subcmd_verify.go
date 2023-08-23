@@ -14,27 +14,38 @@ const verifyCmdName = "verify"
 func newVerifyCommand() *cli.Command {
 	return &cli.Command{
 		Name:  verifyCmdName,
-		Usage: "mark repositories for verification",
-		Description: "Mark for verification:\n\n" +
+		Usage: "mark repository replicas as unverified",
+		Description: `Mark as unverified replicas of repositories to prioritize reverification.
 
-			"- A single repository if the `repository-id` flag is provided.\n" +
-			"- A batch of repositories that belong to a particular storage or virtual storage if they exist on disk.\n\n" +
+The subcommand sets different replicas as unverified depending on the supplied flags:
 
-			"Verification runs asynchronously in the background.",
+- When a repository ID is specified, all the replicas of the repository on physical storage are marked as unverified.
+- When a virtual storage name is specified, all the replicas of all repositories on all physical storages associated with
+  the virtual storage as marked as unverified.
+- When a virtual storage name and physical storage name are specified, all the replicas of all repositories on the
+  specified physical storage associated with the specified virtual storage are marked as unverified.
+
+Reverification runs asynchronously in the background.
+
+Examples:
+
+- praefect --config praefect.config.toml verify --repository-id 1
+- praefect --config praefect.config.toml verify --virtual-storage default
+- praefect --config praefect.config.toml verify --virtual-storage default --storage <physical_storage_1>`,
 		HideHelpCommand: true,
 		Action:          verifyAction,
 		Flags: []cli.Flag{
 			&cli.Int64Flag{
 				Name:  "repository-id",
-				Usage: "the id of the repository to verify",
+				Usage: "repository ID of the repository to mark as unverified",
 			},
 			&cli.StringFlag{
 				Name:  paramVirtualStorage,
-				Usage: "the virtual storage to verify",
+				Usage: "name of the virtual storage with replicas to mark as unverified",
 			},
 			&cli.StringFlag{
 				Name:  "storage",
-				Usage: "the storage to verify",
+				Usage: "name of the the physical storage associated with the virtual storage with replicas to mark as unverified",
 			},
 		},
 		Before: func(ctx *cli.Context) error {
