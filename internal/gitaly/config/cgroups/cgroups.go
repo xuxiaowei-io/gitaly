@@ -12,8 +12,11 @@ type Config struct {
 	// A system administrator is expected to create such cgroup/directory under <Mountpoint>/memory
 	// and/or <Mountpoint>/cpu depending on which resource is enabled. HierarchyRoot is expected to
 	// be owned by the user and group Gitaly runs as.
-	HierarchyRoot string       `toml:"hierarchy_root"`
-	Repositories  Repositories `toml:"repositories"`
+	HierarchyRoot string `toml:"hierarchy_root"`
+	// IncludeGitalyProcess determines whether the main Gitaly process should be a part of Gitaly's cgroup
+	// hierarchy.
+	IncludeGitalyProcess bool         `toml:"include_gitaly_process"`
+	Repositories         Repositories `toml:"repositories"`
 	// MemoryBytes is the memory limit for the parent cgroup. 0 implies no memory limit.
 	MemoryBytes int64 `toml:"memory_bytes"`
 	// CPUShares are the shares of CPU the parent cgroup is allowed to utilize. A value of 1024

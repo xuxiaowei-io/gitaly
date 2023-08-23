@@ -45,6 +45,17 @@ func (cvh *cgroupV1Handler) setupParent(parentResources *specs.LinuxResources) e
 	); err != nil {
 		return fmt.Errorf("failed creating parent cgroup: %w", err)
 	}
+	// Setup a "main" path with empty resources. This setup lets the pids added to this path share the
+	// resources with all processes under the control of the parent cgroup.
+	if cvh.cfg.IncludeGitalyProcess {
+		if _, err := cgroup1.New(
+			cgroup1.StaticPath(cvh.mainPath()),
+			&specs.LinuxResources{},
+			cgroup1.WithHiearchy(cvh.hierarchy),
+		); err != nil {
+			return fmt.Errorf("failed creating main cgroup: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -176,6 +187,10 @@ func (cvh *cgroupV1Handler) cleanup() error {
 
 func (cvh *cgroupV1Handler) repoPath(groupID int) string {
 	return filepath.Join(cvh.currentProcessCgroup(), fmt.Sprintf("repos-%d", groupID))
+}
+
+func (cvh *cgroupV1Handler) mainPath() string {
+	return filepath.Join(cvh.currentProcessCgroup(), "main")
 }
 
 func (cvh *cgroupV1Handler) currentProcessCgroup() string {

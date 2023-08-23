@@ -25,6 +25,7 @@ type cgroupHandler interface {
 	collect(ch chan<- prometheus.Metric)
 	cleanup() error
 	currentProcessCgroup() string
+	mainPath() string
 	repoPath(groupID int) string
 	stats() (Stats, error)
 }
@@ -69,6 +70,32 @@ func (cgm *CGroupManager) Setup() error {
 	}
 	if err := cgm.handler.setupRepository(cgm.configRepositoryResources()); err != nil {
 		return err
+	}
+	// When the IncludeGitalyProcess configuration is enabled, the main cgroup process's PID is added to Gitaly's
+	// cgroup hierarchy. The process doesn't possess its own exclusive limit. Rather, it shares the limit with all
+	// spawned Git processes, which are also managed by the repository cgroup, under the umbrella of the parent
+	// cgroup. This configuration offers superior protection and flexibility compared to setting a fixed limit
+	// specifically for the Gitaly process:
+	// - If certain Git commands monopolize resources, they will be terminated by the repository cgroup.
+	// - If the cumulative resource usage of all Git commands surpasses the parent cgroup limit, the Out-Of-Memory
+	// (OOM) killer is triggered which terminates the most resource-intensive processes. Resource-heavy Git commands
+	// are more likely to be targeted.
+	// - If the Gitaly process consumes excessive memory (possibly due to a memory leak), it is allowed to do so if
+	// the parent cgroup has available resources. However, if the parent cgroup's limit is reached, the Gitaly
+	// process will be terminated.
+	// Consequently, the Gitaly process typically has more resource leeway than the Git processes and is likely to
+	// be terminated last in the event of a problem.
+	//
+	// Example cgroup hierarchy if this config is enabled (Cgroup V2):
+	// /sys/fs/cgroup/gitaly/gitaly-121843
+	// |_ main
+	// |_ repos-0
+	// |_ repos-1
+	// |_ ...
+	if cgm.cfg.IncludeGitalyProcess {
+		if err := cgm.handler.addToCgroup(cgm.pid, cgm.handler.mainPath()); err != nil {
+			return err
+		}
 	}
 	cgm.enabled = true
 

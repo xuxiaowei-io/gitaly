@@ -36,8 +36,24 @@ func newV2Handler(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *cg
 }
 
 func (cvh *cgroupV2Handler) setupParent(parentResources *specs.LinuxResources) error {
-	if _, err := cgroup2.NewManager(cvh.cfg.Mountpoint, "/"+cvh.currentProcessCgroup(), cgroup2.ToResources(parentResources)); err != nil {
+	if _, err := cgroup2.NewManager(
+		cvh.cfg.Mountpoint,
+		"/"+cvh.currentProcessCgroup(),
+		cgroup2.ToResources(parentResources),
+	); err != nil {
 		return fmt.Errorf("failed creating parent cgroup: %w", err)
+	}
+
+	// Setup a "main" path with empty resources. This setup lets the pids added to this path share the
+	// resources with all processes under the control of the parent cgroup.
+	if cvh.cfg.IncludeGitalyProcess {
+		if _, err := cgroup2.NewManager(
+			cvh.cfg.Mountpoint,
+			"/"+cvh.mainPath(),
+			&cgroup2.Resources{},
+		); err != nil {
+			return fmt.Errorf("failed creating main cgroup: %w", err)
+		}
 	}
 
 	return nil
@@ -157,6 +173,10 @@ func (cvh *cgroupV2Handler) cleanup() error {
 
 func (cvh *cgroupV2Handler) repoPath(groupID int) string {
 	return filepath.Join(cvh.currentProcessCgroup(), fmt.Sprintf("repos-%d", groupID))
+}
+
+func (cvh *cgroupV2Handler) mainPath() string {
+	return filepath.Join(cvh.currentProcessCgroup(), "main")
 }
 
 func (cvh *cgroupV2Handler) currentProcessCgroup() string {

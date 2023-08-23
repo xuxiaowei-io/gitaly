@@ -201,6 +201,70 @@ func TestSetup_RepoCgroupsV2(t *testing.T) {
 	}
 }
 
+func TestSetup_IncludeGitalyProcessV2(t *testing.T) {
+	tests := []struct {
+		name                       string
+		cfg                        cgroups.Config
+		shouldIncludeGitalyProcess bool
+	}{
+		{
+			name: "IncludeGitalyProcess is false",
+			cfg: cgroups.Config{
+				MemoryBytes: 102400,
+				CPUShares:   256,
+				CPUQuotaUs:  200,
+			},
+			shouldIncludeGitalyProcess: false,
+		},
+		{
+			name: "IncludeGitalyProcess is true",
+			cfg: cgroups.Config{
+				MemoryBytes:          102400,
+				CPUShares:            256,
+				CPUQuotaUs:           200,
+				IncludeGitalyProcess: true,
+			},
+			shouldIncludeGitalyProcess: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mock := newMockV2(t)
+
+			pid := 666
+			tt.cfg.HierarchyRoot = "gitaly"
+			tt.cfg.Mountpoint = mock.root
+
+			v2Manager := mock.newCgroupManager(tt.cfg, testhelper.NewDiscardingLogEntry(t), pid)
+			mock.setupMockCgroupFiles(t, v2Manager)
+
+			require.False(t, v2Manager.Ready())
+			require.NoError(t, v2Manager.Setup())
+			require.True(t, v2Manager.Ready())
+
+			path := filepath.Join(mock.root, "gitaly", fmt.Sprintf("gitaly-%d", pid), "main")
+			if tt.shouldIncludeGitalyProcess {
+				content := readCgroupFile(t, filepath.Join(path, "cgroup.procs"))
+				cmdPid, err := strconv.Atoi(string(content))
+
+				require.NoError(t, err)
+				require.Equal(t, pid, cmdPid)
+
+				// The main process should not have memory and cpu configured. Although the OS
+				// will set it up automatically, cgroup mock does not.
+				require.NoFileExists(t, filepath.Join(path, "memory.max"))
+				require.NoFileExists(t, filepath.Join(path, "cpu.max"))
+			} else {
+				require.NoDirExists(t, path)
+			}
+		})
+	}
+}
+
 func TestAddCommandV2(t *testing.T) {
 	mock := newMockV2(t)
 
