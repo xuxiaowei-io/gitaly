@@ -675,7 +675,7 @@ func (cfg *Cfg) setDefaults() error {
 		cfg.Gitlab.SecretFile = filepath.Join(cfg.GitlabShell.Dir, ".gitlab_shell_secret")
 	}
 
-	if cfg.Hooks.CustomHooksDir == "" {
+	if cfg.Hooks.CustomHooksDir == "" && cfg.GitlabShell.Dir != "" {
 		cfg.Hooks.CustomHooksDir = filepath.Join(cfg.GitlabShell.Dir, "hooks")
 	}
 
