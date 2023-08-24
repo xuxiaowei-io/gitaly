@@ -26,6 +26,10 @@ func New(conf any) ([]*analysis.Analyzer, error) {
 			unavailableCodeAnalyzerName,
 			"included-functions",
 		)}),
+		newTesthelperRunAnalyzer(&testhelperRunAnalyzerSettings{IncludedFunctions: configStringSlicesAt(
+			testhelperRunAnalyzerName,
+			"included-functions",
+		)}),
 		newTestParamsOrder(),
 	}, nil
 }
