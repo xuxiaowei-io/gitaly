@@ -10,20 +10,20 @@ import (
 	"net/url"
 
 	"github.com/git-lfs/git-lfs/v3/lfs"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
-	"gitlab.com/gitlab-org/labkit/log"
 )
 
-func filter(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader) (returnedErr error) {
-	client, err := gitlab.NewHTTPClient(log.ContextLogger(ctx), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+func filter(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader, logger logrus.FieldLogger) (returnedErr error) {
+	client, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return fmt.Errorf("creating HTTP client: %w", err)
 	}
 
-	output, err := smudgeOneObject(ctx, cfg, client, from)
+	output, err := smudgeOneObject(ctx, cfg, client, from, logger)
 	if err != nil {
 		return fmt.Errorf("smudging contents: %w", err)
 	}
@@ -63,8 +63,8 @@ const (
 	processStateSmudgeContent
 )
 
-func process(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader) error {
-	client, err := gitlab.NewHTTPClient(log.ContextLogger(ctx), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+func process(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader, logger logrus.FieldLogger) error {
+	client, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return fmt.Errorf("creating HTTP client: %w", err)
 	}
@@ -194,9 +194,9 @@ func process(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reade
 			// When we receive a flush packet we know that the client is done sending us
 			// the clean data.
 			if pktline.IsFlush(line) {
-				smudgedReader, err := smudgeOneObject(ctx, cfg, client, &content)
+				smudgedReader, err := smudgeOneObject(ctx, cfg, client, &content, logger)
 				if err != nil {
-					log.ContextLogger(ctx).WithError(err).Error("failed smudging LFS pointer")
+					logger.WithError(err).Error("failed smudging LFS pointer")
 
 					if _, err := pktline.WriteString(writer, "status=error\n"); err != nil {
 						return fmt.Errorf("reporting failure: %w", err)
@@ -287,9 +287,7 @@ func process(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reade
 	return nil
 }
 
-func smudgeOneObject(ctx context.Context, cfg smudge.Config, gitlabClient *gitlab.HTTPClient, from io.Reader) (io.ReadCloser, error) {
-	logger := log.ContextLogger(ctx)
-
+func smudgeOneObject(ctx context.Context, cfg smudge.Config, gitlabClient *gitlab.HTTPClient, from io.Reader, logger logrus.FieldLogger) (io.ReadCloser, error) {
 	ptr, contents, err := lfs.DecodeFrom(from)
 	if err != nil {
 		// This isn't a valid LFS pointer. Just copy the existing pointer data.
