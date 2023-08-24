@@ -19,13 +19,13 @@ import (
 )
 
 type gitalyConfig struct {
-	SocketPath     string
-	BinDir         string
-	Dir            string
-	UseBundledGit  bool
-	GitPath        string
-	GitalyDir      string
-	GitlabShellDir string
+	SocketPath    string
+	BinDir        string
+	Dir           string
+	UseBundledGit bool
+	GitPath       string
+	GitalyDir     string
+	GitlabSecret  string
 }
 
 const configTemplate = `
@@ -40,11 +40,9 @@ path = "{{.Dir}}"
 use_bundled_binaries = {{.UseBundledGit}}
 bin_path = "{{.GitPath}}"
 
-[gitlab-shell]
-dir = "{{.GitlabShellDir}}"
-
 [gitlab]
 url = 'http://gitlab_url'
+secret = "{{.GitlabSecret}}"
 `
 
 func checkVersion(gitalyDir, gitalyBin string) error {
@@ -162,27 +160,17 @@ func testBoot(appCtx *cli.Context) error {
 		_ = os.RemoveAll(tempDir)
 	}()
 
-	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
-	if err := os.Mkdir(gitlabShellDir, 0o755); err != nil {
-		return fmt.Errorf("create gitlab-shell directory: %w", err)
-	}
-
-	err = os.WriteFile(filepath.Join(gitlabShellDir, ".gitlab_shell_secret"), []byte("test_gitlab_shell_token"), 0o644)
-	if err != nil {
-		return fmt.Errorf("write gitlab-shell secret: %w", err)
-	}
-
 	socketPath := filepath.Join(tempDir, "socket")
 	configPath := filepath.Join(tempDir, "config.toml")
 	err = writeGitalyConfig(configPath,
 		gitalyConfig{
-			SocketPath:     socketPath,
-			BinDir:         binDir,
-			Dir:            tempDir,
-			UseBundledGit:  useBundledGit,
-			GitPath:        gitPath,
-			GitalyDir:      gitalyDir,
-			GitlabShellDir: gitlabShellDir,
+			SocketPath:    socketPath,
+			BinDir:        binDir,
+			Dir:           tempDir,
+			UseBundledGit: useBundledGit,
+			GitPath:       gitPath,
+			GitalyDir:     gitalyDir,
+			GitlabSecret:  "test_gitlab_shell_token",
 		})
 	if err != nil {
 		return nil
