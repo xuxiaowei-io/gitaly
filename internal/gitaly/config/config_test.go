@@ -776,49 +776,93 @@ func TestGit_Validate(t *testing.T) {
 	}
 }
 
-func TestValidateShellPath(t *testing.T) {
-	tmpDir := testhelper.TempDir(t)
+func TestCfg_ValidateGitlabSecret(t *testing.T) {
+	t.Parallel()
 
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), perm.SharedDir))
-	tmpFile := filepath.Join(tmpDir, "my-file")
-	require.NoError(t, os.WriteFile(tmpFile, []byte{}, perm.PublicFile))
-
-	testCases := []struct {
-		desc      string
-		path      string
-		expErrMsg string
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) (Cfg, error)
 	}{
 		{
-			desc:      "When no Shell Path set",
-			path:      "",
-			expErrMsg: "gitlab-shell.dir: is not set",
+			desc: "empty configuration",
+			setup: func(t *testing.T) (Cfg, error) {
+				return Cfg{}, fmt.Errorf("GitLab secret not configured")
+			},
 		},
 		{
-			desc:      "When Shell Path set to non-existing path",
-			path:      "/non/existing/path",
-			expErrMsg: `gitlab-shell.dir: path doesn't exist: "/non/existing/path"`,
+			desc: "with GitLab secret",
+			setup: func(t *testing.T) (Cfg, error) {
+				return Cfg{
+					Gitlab: Gitlab{
+						Secret: "secret token",
+					},
+				}, nil
+			},
 		},
 		{
-			desc:      "When Shell Path set to non-dir path",
-			path:      tmpFile,
-			expErrMsg: fmt.Sprintf(`gitlab-shell.dir: not a directory: %q`, tmpFile),
+			desc: "with non-existent GitLab secret file",
+			setup: func(t *testing.T) (Cfg, error) {
+				return Cfg{
+					Gitlab: Gitlab{
+						SecretFile: "/does/not/exist",
+					},
+				}, fmt.Errorf("%s: path doesn't exist: %q", "gitlab.secret_file", "/does/not/exist")
+			},
 		},
 		{
-			desc:      "When Shell Path set to a valid directory",
-			path:      tmpDir,
-			expErrMsg: "",
-		},
-	}
+			desc: "with existing GitLab secret file",
+			setup: func(t *testing.T) (Cfg, error) {
+				path := filepath.Join(testhelper.TempDir(t), "secret")
+				require.NoError(t, os.WriteFile(path, []byte("something"), 0o644))
 
-	for _, tc := range testCases {
+				return Cfg{
+					Gitlab: Gitlab{
+						SecretFile: path,
+					},
+				}, nil
+			},
+		},
+		{
+			desc: "with non-existent gitlab-shell directory",
+			setup: func(t *testing.T) (Cfg, error) {
+				return Cfg{
+					GitlabShell: GitlabShell{
+						Dir: "/does/not/exist",
+					},
+				}, fmt.Errorf("%s: path doesn't exist: %q", "gitlab-shell.dir", "/does/not/exist")
+			},
+		},
+		{
+			desc: "with non-existent gitlab-shell secret file",
+			setup: func(t *testing.T) (Cfg, error) {
+				// We do not expect an error in case the secret file doesn't exist. This is done in
+				// order to retain our legacy behaviour with a GitLab secret file whose location is
+				// derived from the gitlab-shell directory.
+				return Cfg{
+					GitlabShell: GitlabShell{
+						Dir: testhelper.TempDir(t),
+					},
+				}, nil
+			},
+		},
+		{
+			desc: "with existing gitlab-shell secret file",
+			setup: func(t *testing.T) (Cfg, error) {
+				shellDir := testhelper.TempDir(t)
+				secretPath := filepath.Join(shellDir, ".gitlab_secret_file")
+				require.NoError(t, os.WriteFile(secretPath, []byte("something"), 0o644))
+
+				return Cfg{
+					GitlabShell: GitlabShell{
+						Dir: shellDir,
+					},
+				}, nil
+			},
+		},
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{GitlabShell: GitlabShell{Dir: tc.path}}
-			err := cfg.validateShell()
-			if tc.expErrMsg != "" {
-				assert.EqualError(t, err, tc.expErrMsg)
-			} else {
-				assert.NoError(t, err)
-			}
+			cfg, expectedErr := tc.setup(t)
+			require.Equal(t, expectedErr, cfg.validateGitlabSecret())
 		})
 	}
 }

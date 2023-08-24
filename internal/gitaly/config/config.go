@@ -592,7 +592,7 @@ func (cfg *Cfg) Validate() error {
 		cfg.validateListeners,
 		cfg.validateStorages,
 		cfg.validateGit,
-		cfg.validateShell,
+		cfg.validateGitlabSecret,
 		cfg.validateCustomHooks,
 		cfg.validateBinDir,
 		cfg.validateRuntimeDir,
@@ -712,12 +712,20 @@ func (cfg *Cfg) validateListeners() error {
 	return nil
 }
 
-func (cfg *Cfg) validateShell() error {
-	if len(cfg.GitlabShell.Dir) == 0 {
-		return fmt.Errorf("gitlab-shell.dir: is not set")
+func (cfg *Cfg) validateGitlabSecret() error {
+	switch {
+	case len(cfg.Gitlab.Secret) > 0:
+		return nil
+	case len(cfg.Gitlab.SecretFile) > 0:
+		return validateIsFile(cfg.Gitlab.SecretFile, "gitlab.secret_file")
+	case len(cfg.GitlabShell.Dir) > 0:
+		// Note that we do not verify that the secret actually exists, but only verify that the directory
+		// exists. This is not as thorough as we could be, but is done in order to retain our legacy behaviour
+		// in case the secret file wasn't explicitly configured.
+		return validateIsDirectory(cfg.GitlabShell.Dir, "gitlab-shell.dir")
+	default:
+		return fmt.Errorf("GitLab secret not configured")
 	}
-
-	return validateIsDirectory(cfg.GitlabShell.Dir, "gitlab-shell.dir")
 }
 
 func (cfg *Cfg) validateCustomHooks() error {
@@ -742,6 +750,21 @@ func validateIsDirectory(path, name string) error {
 	}
 	if !s.IsDir() {
 		return fmt.Errorf("%s: not a directory: %q", name, path)
+	}
+
+	return nil
+}
+
+func validateIsFile(path, name string) error {
+	s, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%s: path doesn't exist: %q", name, path)
+		}
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	if !s.Mode().IsRegular() {
+		return fmt.Errorf("%s: not a file: %q", name, path)
 	}
 
 	return nil
