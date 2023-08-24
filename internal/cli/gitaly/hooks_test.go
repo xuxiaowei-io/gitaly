@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -25,11 +24,11 @@ import (
 	"google.golang.org/grpc"
 )
 
-// This test cannot be made to run in parallel because it relies on setting the
-// umask which is unfortunately not thread safe.
 func TestSetHooksSubcommand(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	umask := perm.GetUmask()
+	umask := testhelper.Umask()
 
 	cfg := testcfg.Build(t, testcfg.WithStorages("default", "another-storage"))
 	testcfg.BuildGitaly(t, cfg)

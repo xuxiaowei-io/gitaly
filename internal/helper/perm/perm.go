@@ -6,7 +6,6 @@ package perm
 
 import (
 	"io/fs"
-	"syscall"
 )
 
 const (
@@ -62,12 +61,4 @@ type Umask int
 // Mask applies the mask on the mode.
 func (mask Umask) Mask(mode fs.FileMode) fs.FileMode {
 	return mode & ^fs.FileMode(mask)
-}
-
-// GetUmask gets the currently set umask. Not safe to call concurrently with other
-// file operations as it has to set the Umask to get the old value.
-func GetUmask() Umask {
-	umask := syscall.Umask(0)
-	syscall.Umask(umask)
-	return Umask(fs.FileMode(umask))
 }

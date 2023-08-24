@@ -39,13 +39,11 @@ func (r *tbRecorder) FailNow() {
 }
 
 func TestRequireDirectoryState(t *testing.T) {
-	umask := perm.GetUmask()
-
 	t.Parallel()
 
 	rootDir := t.TempDir()
-
 	relativePath := "assertion-root"
+	umask := Umask()
 
 	require.NoError(t,
 		os.MkdirAll(

@@ -751,7 +751,7 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	// we use a temporary file here to figure out the expected permissions as they would in fact be subject
 	// to change depending on the current umask.
 	noHooksVoteData := [5]byte{'.', 0, 0, 0, 0}
-	binary.BigEndian.PutUint32(noHooksVoteData[1:], uint32(fs.ModeDir|testhelper.MaskedPerms(t, perm.PublicDir)))
+	binary.BigEndian.PutUint32(noHooksVoteData[1:], uint32(testhelper.Umask().Mask(perm.PublicDir|fs.ModeDir)))
 	noHooksVote := voting.VoteFromData(noHooksVoteData[:])
 
 	expectedVotes := []voting.Vote{

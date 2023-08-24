@@ -150,10 +150,9 @@ func reverseIndexFileDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
 }
 
 func TestTransactionManager(t *testing.T) {
-	umask := perm.GetUmask()
-
 	t.Parallel()
 
+	umask := testhelper.Umask()
 	ctx := testhelper.Context(t)
 
 	type testCommit struct {
