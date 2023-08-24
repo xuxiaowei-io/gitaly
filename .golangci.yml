@@ -48,6 +48,8 @@ linters-settings:
         deny:
           - pkg: "io/ioutil"
             desc: "ioutil is deprecated starting with Go 1.16"
+          - pkg: "gitlab.com/gitlab-org/labkit/log"
+            desc: "use internal/log instead"
   errcheck:
     # The following are functions for which we are currently not consistently
     # checking returned errors. This is not intended as a list of known-okay
