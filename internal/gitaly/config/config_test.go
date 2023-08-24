@@ -823,6 +823,54 @@ func TestValidateShellPath(t *testing.T) {
 	}
 }
 
+func TestCfg_validateCustomHooks(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc        string
+		cfg         Cfg
+		expectedErr error
+	}{
+		{
+			desc:        "unset custom hooks directory is valid",
+			cfg:         Cfg{},
+			expectedErr: nil,
+		},
+		{
+			desc: "hooks directory derived from gitlab-shell.dir is not validated",
+			cfg: Cfg{
+				GitlabShell: GitlabShell{
+					Dir: "/does/not/exist",
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			desc: "non-existent custom hooks directory is invalid",
+			cfg: Cfg{
+				Hooks: Hooks{
+					CustomHooksDir: "/does/not/exist",
+				},
+			},
+			expectedErr: fmt.Errorf("%s: path doesn't exist: %q", "hooks.custom_hooks_dir", "/does/not/exist"),
+		},
+		{
+			desc: "existing custom hooks directory is valid",
+			cfg: Cfg{
+				Hooks: Hooks{
+					CustomHooksDir: testhelper.TempDir(t),
+				},
+			},
+			expectedErr: nil,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.NoError(t, tc.cfg.setDefaults())
+			require.Equal(t, tc.expectedErr, tc.cfg.validateCustomHooks())
+		})
+	}
+}
+
 func TestValidateListeners(t *testing.T) {
 	testCases := []struct {
 		desc string
@@ -890,7 +938,8 @@ dir = '%s'`, gitlabShellDir))
 		SecretFile: filepath.Join(gitlabShellDir, ".gitlab_shell_secret"),
 	}, cfg.Gitlab)
 	require.Equal(t, Hooks{
-		CustomHooksDir: filepath.Join(gitlabShellDir, "hooks"),
+		CustomHooksDir:          filepath.Join(gitlabShellDir, "hooks"),
+		customHooksDirIsDerived: true,
 	}, cfg.Hooks)
 }
 

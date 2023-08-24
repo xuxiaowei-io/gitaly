@@ -241,6 +241,9 @@ func (gl Gitlab) Validate() error {
 // Hooks contains the settings required for hooks
 type Hooks struct {
 	CustomHooksDir string `toml:"custom_hooks_dir,omitempty" json:"custom_hooks_dir"`
+	// customHooksDirIsDerived indicates whether the custom hooks directory has been derived from the
+	// `gitaly-shell.hooks` path.
+	customHooksDirIsDerived bool
 }
 
 // HTTPSettings contains configuration settings used to setup HTTP transport
@@ -590,6 +593,7 @@ func (cfg *Cfg) Validate() error {
 		cfg.validateStorages,
 		cfg.validateGit,
 		cfg.validateShell,
+		cfg.validateCustomHooks,
 		cfg.validateBinDir,
 		cfg.validateRuntimeDir,
 		cfg.validateMaintenance,
@@ -677,6 +681,7 @@ func (cfg *Cfg) setDefaults() error {
 
 	if cfg.Hooks.CustomHooksDir == "" && cfg.GitlabShell.Dir != "" {
 		cfg.Hooks.CustomHooksDir = filepath.Join(cfg.GitlabShell.Dir, "hooks")
+		cfg.Hooks.customHooksDirIsDerived = true
 	}
 
 	if reflect.DeepEqual(cfg.DailyMaintenance, DailyJob{}) {
@@ -713,6 +718,18 @@ func (cfg *Cfg) validateShell() error {
 	}
 
 	return validateIsDirectory(cfg.GitlabShell.Dir, "gitlab-shell.dir")
+}
+
+func (cfg *Cfg) validateCustomHooks() error {
+	// We only validate the custom hooks directory in case it is explicitly set to a value. If it is empty then we
+	// assume that the administrator has no custom hooks configured. On the other hand, if the custom hooks
+	// directory would be derived from `gitlab_shell.dir`, it is totally valid if that derived directory does not
+	// exist.
+	if cfg.Hooks.CustomHooksDir == "" || cfg.Hooks.customHooksDirIsDerived {
+		return nil
+	}
+
+	return validateIsDirectory(cfg.Hooks.CustomHooksDir, "hooks.custom_hooks_dir")
 }
 
 func validateIsDirectory(path, name string) error {
