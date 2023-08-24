@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package main
 
 import (
@@ -25,6 +23,8 @@ import (
 )
 
 func TestRestoreSubcommand(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -99,6 +99,8 @@ func TestRestoreSubcommand(t *testing.T) {
 }
 
 func TestRestoreSubcommand_serverSide(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 	ctx := testhelper.Context(t)
 

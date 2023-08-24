@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -18,6 +16,8 @@ import (
 )
 
 func TestRestoreRepository(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 	ctx := testhelper.Context(t)
 

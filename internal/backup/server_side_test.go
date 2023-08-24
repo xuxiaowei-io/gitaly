@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package backup_test
 
 import (
@@ -23,6 +21,8 @@ import (
 )
 
 func TestServerSideAdapter_Create(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -131,6 +131,8 @@ func TestServerSideAdapter_Create(t *testing.T) {
 }
 
 func TestServerSideAdapter_Restore(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	t.Parallel()
 	ctx := testhelper.Context(t)
 

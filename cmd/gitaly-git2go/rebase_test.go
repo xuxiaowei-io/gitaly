@@ -1,4 +1,4 @@
-//go:build static && system_libgit2 && !gitaly_test_sha256
+//go:build static && system_libgit2
 
 package main
 
@@ -20,6 +20,8 @@ import (
 var masterRevision = "1e292f8fedd741b75372e19097c76d327140c312"
 
 func TestRebase_validation(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -87,6 +89,8 @@ func TestRebase_validation(t *testing.T) {
 }
 
 func TestRebase_rebase(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	testcases := []struct {
 		desc         string
 		branch       string
@@ -248,6 +252,8 @@ func TestRebase_rebase(t *testing.T) {
 }
 
 func TestRebase_skipEmptyCommit(t *testing.T) {
+	gittest.SkipWithSHA256(t)
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
