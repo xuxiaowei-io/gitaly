@@ -29,15 +29,16 @@ Please complete all but the "Reading material" section in your first few working
   - [ ] update your [Team page entry](https://about.gitlab.com/handbook/git-page-update/#12-add-yourself-to-the-team-page)
   - [ ] update your Slack profile ("What I do")
   - [ ] update your Zoom title
-- Integrate Your PTO with the Gitaly Team Calendar
+- Integrate your PTO with the Gitaly Team Calendar
   - [ ]  [follow these instructions](https://about.gitlab.com/handbook/people-group/engineering/team-pto-calendar/#steps), and use `gitlab.com_mc911ncuk38bfngud133tjb4m8@group.calendar.google.com` as the Calendar ID.
 - Reading material
   - [ ] check out the [README](https://gitlab.com/gitlab-org/gitaly/-/blob/master/README.md) at https://gitlab.com/gitlab-org/gitaly, without getting lost in too much detail
     - [ ] watch video [presentations](https://gitlab.com/gitlab-org/gitaly/-/blob/master/README.md#presentations) linked in README
   - [ ] checkout the Gitaly doc [README](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/README.md)
-  - [ ] get familiar with how we [schedule work](https://gitlab.com/gitlab-org/gitaly/-/issues/4095) and possibly bookmark the [Gitaly ongoing work issue board](https://gitlab.com/groups/gitlab-org/-/boards/1140874?label_name%5B%5D=group%3A%3Agitaly&milestone_title=Upcoming)
   - [ ] familiarize yourself with the [Merge request workflow](https://docs.gitlab.com/ee/development/contributing/merge_request_workflow.html) specific to working _on_ GitLab (the whole page)
   - [ ] check out the [team page](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/)
+     - [ ] for day-to-day work, get familiar with how we [schedule work](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/#working-with-product). It may be useful to bookmark the [Gitaly ongoing work issue board](https://gitlab.com/groups/gitlab-org/-/boards/1140874?label_name%5B%5D=group%3A%3Agitaly&milestone_title=Upcoming)
+     - [ ] for the big picture, see the team [vision and roadmap](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/#roadmap) (click through on the links)
 
 /confidential
 /assign me
