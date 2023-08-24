@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -33,41 +32,18 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	for _, tc := range []struct {
-		desc      string
-		cgroupsFF bool
-	}{
-		{
-			desc:      "cgroups feature flag on",
-			cgroupsFF: true,
+	var manager mockCgroupsManager
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithCgroupsManager(&manager))
+
+	cmd, err := gitCmdFactory.New(ctx, repo, git.Command{
+		Name: "rev-parse",
+		Flags: []git.Option{
+			git.Flag{Name: "--is-bare-repository"},
 		},
-		{
-			desc:      "cgroups feature flag off",
-			cgroupsFF: false,
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx := featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, tc.cgroupsFF)
+	})
+	require.NoError(t, err)
+	require.NoError(t, cmd.Wait())
 
-			var manager mockCgroupsManager
-			gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithCgroupsManager(&manager))
-
-			cmd, err := gitCmdFactory.New(ctx, repo, git.Command{
-				Name: "rev-parse",
-				Flags: []git.Option{
-					git.Flag{Name: "--is-bare-repository"},
-				},
-			})
-			require.NoError(t, err)
-			require.NoError(t, cmd.Wait())
-
-			if tc.cgroupsFF {
-				require.Len(t, manager.commands, 1)
-				require.Contains(t, manager.commands[0].Args, "rev-parse")
-				return
-			}
-
-			require.Len(t, manager.commands, 0)
-		})
-	}
+	require.Len(t, manager.commands, 1)
+	require.Contains(t, manager.commands[0].Args, "rev-parse")
 }
