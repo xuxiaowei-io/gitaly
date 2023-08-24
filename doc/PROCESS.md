@@ -692,6 +692,22 @@ Before beginning work on a security fix, open a new Gitaly issue with the templa
 `Security Release` and follow the instructions at the top of the page for following
 the template.
 
+### Git Security Release
+
+When there is a vulnerability discovered on the Git project, there is a process
+by which we patch the vulnerability.
+
+```mermaid
+flowchart TD
+    A[vulnerability validated on Git security mailing list]-->B[Community member contributes a fix]
+    B-->C[Fix bakes on Git security mailng list]
+    B-->D[A new tagged version abc is created on gitlab-org/security/git with the fix]
+    D-->E[Git version abc is deployed onto Gitlab.com off of gitlab-org/security/git]
+    C-->F[An embargo date is determined for the patch to be tagged and released]
+    F-->G[New versions of Git are released]
+    G-->I[Gitaly is modified to use the new version of Git]
+```
+
 ## Experimental builds
 
 Push the release tag to `dev.gitlab.org/gitlab/gitaly`. After
