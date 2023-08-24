@@ -183,7 +183,6 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 		request          *gitalypb.SSHUploadPackWithSidechannelRequest
 		client           func(clientConn *sidechannel.ClientConn, cancelContext func()) error
 		expectedErr      error
-		protoEqualOpt    cmp.Option
 		expectedResponse *gitalypb.SSHUploadPackWithSidechannelResponse
 	}{
 		{
@@ -206,8 +205,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 					Caps:    []string{"multi_ack"},
 					Wants:   1,
 				},
+				Bytes: int64(554),
 			},
-			protoEqualOpt: protocmp.IgnoreFields(&gitalypb.SSHUploadPackWithSidechannelResponse{}, "bytes"),
 		},
 		{
 			desc: "successful clone with protocol v2",
@@ -233,8 +232,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 					Packets: 5,
 					Wants:   1,
 				},
+				Bytes: int64(536),
 			},
-			protoEqualOpt: protocmp.IgnoreFields(&gitalypb.SSHUploadPackWithSidechannelResponse{}, "bytes"),
 		},
 		{
 			desc: "client talks protocol v0 but v2 is requested",
@@ -329,8 +328,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 			},
 			expectedResponse: &gitalypb.SSHUploadPackWithSidechannelResponse{
 				PackfileNegotiationStatistics: &gitalypb.PackfileNegotiationStatistics{},
+				Bytes:                         int64(154),
 			},
-			protoEqualOpt: protocmp.IgnoreFields(&gitalypb.SSHUploadPackWithSidechannelResponse{}, "bytes"),
 		},
 		{
 			desc: "short write",
@@ -439,7 +438,11 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				tc.expectedResponse.PackfileNegotiationStatistics.PayloadSize = response.PackfileNegotiationStatistics.PayloadSize
 			}
 
-			testhelper.ProtoEqual(t, tc.expectedResponse, response, tc.protoEqualOpt)
+			opt := protocmp.FilterField(new(gitalypb.SSHUploadPackWithSidechannelResponse), "bytes", cmp.Comparer(func(x, y int64) bool {
+				return differenceWithinMargin(x, y, 24)
+			}))
+
+			testhelper.ProtoEqual(t, tc.expectedResponse, response, opt)
 		})
 	}
 }
@@ -820,4 +823,8 @@ func recvUntilError(t *testing.T, stream gitalypb.SSHService_SSHUploadPackClient
 			return err
 		}
 	}
+}
+
+func differenceWithinMargin(x, y int64, margin int) bool {
+	return x-y <= int64(margin)
 }

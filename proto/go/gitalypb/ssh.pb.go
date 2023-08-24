@@ -239,7 +239,7 @@ type SSHUploadPackWithSidechannelResponse struct {
 
 	// Packfile negotiation statistics.
 	PackfileNegotiationStatistics *PackfileNegotiationStatistics `protobuf:"bytes,1,opt,name=packfile_negotiation_statistics,json=packfileNegotiationStatistics,proto3" json:"packfile_negotiation_statistics,omitempty"`
-	// The number of bytes
+	// The number of response bytes
 	Bytes int64 `protobuf:"varint,2,opt,name=bytes,proto3" json:"bytes,omitempty"`
 }
 

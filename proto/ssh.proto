@@ -81,7 +81,7 @@ message SSHUploadPackWithSidechannelRequest {
 message SSHUploadPackWithSidechannelResponse {
   // Packfile negotiation statistics.
   PackfileNegotiationStatistics packfile_negotiation_statistics = 1;
-  // The number of bytes
+  // The number of response bytes
   int64 bytes = 2;
 }
 

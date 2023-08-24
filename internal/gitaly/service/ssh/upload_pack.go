@@ -214,7 +214,7 @@ func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb
 	stdout := sidebandWriter.Writer(stream.BandStdout)
 	stderr := sidebandWriter.Writer(stream.BandStderr)
 
-	stats, writtenBytes, _, err := s.sshUploadPack(ctx, req, conn, stdout, stderr)
+	stats, responseBytes, _, err := s.sshUploadPack(ctx, req, conn, stdout, stderr)
 	if err != nil {
 		return nil, structerr.NewInternal("%w", err)
 	}
@@ -224,6 +224,6 @@ func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb
 
 	return &gitalypb.SSHUploadPackWithSidechannelResponse{
 		PackfileNegotiationStatistics: stats.ToProto(),
-		Bytes:                         writtenBytes,
+		Bytes:                         responseBytes,
 	}, nil
 }
