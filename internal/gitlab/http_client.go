@@ -74,7 +74,7 @@ func NewHTTPClient(
 		secret = string(secretData)
 	}
 
-	gitlabnetClient, err := client.NewGitlabNetClient(gitlabCfg.HTTPSettings.User, gitlabCfg.HTTPSettings.Password, secret, httpClient)
+	gitlabnetClient, err := client.NewGitlabNetClient(logger, gitlabCfg.HTTPSettings.User, gitlabCfg.HTTPSettings.Password, secret, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("instantiating gitlab net client: %w", err)
 	}

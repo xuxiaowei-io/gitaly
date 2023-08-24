@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"gitlab.com/gitlab-org/labkit/log"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -29,6 +29,7 @@ type ErrorResponse struct {
 
 //nolint:revive // This is unintentionally missing documentation.
 type GitlabNetClient struct {
+	logger     logrus.FieldLogger
 	httpClient *HTTPClient
 	user       string
 	password   string
@@ -51,6 +52,7 @@ func (e *APIError) Error() string {
 
 //nolint:revive // This is unintentionally missing documentation.
 func NewGitlabNetClient(
+	logger logrus.FieldLogger,
 	user,
 	password,
 	secret string,
@@ -61,6 +63,7 @@ func NewGitlabNetClient(
 	}
 
 	return &GitlabNetClient{
+		logger:     logger,
 		httpClient: httpClient,
 		user:       user,
 		password:   password,
@@ -164,12 +167,12 @@ func (c *GitlabNetClient) DoRequest(ctx context.Context, method, path string, da
 
 	start := time.Now()
 	response, err := c.httpClient.Do(request)
-	fields := log.Fields{
+
+	logger := c.logger.WithFields(logrus.Fields{
 		"method":      method,
 		"url":         request.URL.String(),
 		"duration_ms": time.Since(start) / time.Millisecond,
-	}
-	logger := log.WithContextFields(ctx, fields)
+	})
 
 	if err != nil {
 		logger.WithError(err).Error("Internal API unreachable")

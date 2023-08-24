@@ -46,10 +46,14 @@ func TestJWTAuthenticationHeader(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.method+" with "+tc.secret, func(t *testing.T) {
-			gitlabnet := &GitlabNetClient{
-				httpClient: &HTTPClient{Client: server.Client(), Host: server.URL},
-				secret:     tc.secret,
-			}
+			gitlabnet, err := NewGitlabNetClient(
+				testhelper.NewDiscardingLogEntry(t),
+				"user",
+				"password",
+				tc.secret,
+				&HTTPClient{Client: server.Client(), Host: server.URL},
+			)
+			require.NoError(t, err)
 
 			response, err := gitlabnet.DoRequest(testhelper.Context(t), tc.method, "/jwt_auth", nil)
 			require.NoError(t, err)
