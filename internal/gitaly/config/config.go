@@ -88,20 +88,29 @@ type Cfg struct {
 	// configuration to its standard output that we will then deserialize and merge back into
 	// the initially-loaded configuration again. This is an easy mechanism to generate parts of
 	// the configuration at runtime, like for example secrets.
-	ConfigCommand          string              `toml:"config_command,omitempty" json:"config_command"`
-	SocketPath             string              `toml:"socket_path,omitempty" json:"socket_path" split_words:"true"`
-	ListenAddr             string              `toml:"listen_addr,omitempty" json:"listen_addr" split_words:"true"`
-	TLSListenAddr          string              `toml:"tls_listen_addr,omitempty" json:"tls_listen_addr" split_words:"true"`
-	PrometheusListenAddr   string              `toml:"prometheus_listen_addr,omitempty" json:"prometheus_listen_addr" split_words:"true"`
-	BinDir                 string              `toml:"bin_dir,omitempty" json:"bin_dir"`
-	RuntimeDir             string              `toml:"runtime_dir,omitempty" json:"runtime_dir"`
-	Git                    Git                 `toml:"git,omitempty" json:"git" envconfig:"git"`
-	Storages               []Storage           `toml:"storage,omitempty" json:"storage" envconfig:"storage"`
-	Logging                Logging             `toml:"logging,omitempty" json:"logging" envconfig:"logging"`
-	Prometheus             prometheus.Config   `toml:"prometheus,omitempty" json:"prometheus"`
-	Auth                   auth.Config         `toml:"auth,omitempty" json:"auth"`
-	TLS                    TLS                 `toml:"tls,omitempty" json:"tls"`
-	Gitlab                 Gitlab              `toml:"gitlab,omitempty" json:"gitlab"`
+	ConfigCommand        string            `toml:"config_command,omitempty" json:"config_command"`
+	SocketPath           string            `toml:"socket_path,omitempty" json:"socket_path" split_words:"true"`
+	ListenAddr           string            `toml:"listen_addr,omitempty" json:"listen_addr" split_words:"true"`
+	TLSListenAddr        string            `toml:"tls_listen_addr,omitempty" json:"tls_listen_addr" split_words:"true"`
+	PrometheusListenAddr string            `toml:"prometheus_listen_addr,omitempty" json:"prometheus_listen_addr" split_words:"true"`
+	BinDir               string            `toml:"bin_dir,omitempty" json:"bin_dir"`
+	RuntimeDir           string            `toml:"runtime_dir,omitempty" json:"runtime_dir"`
+	Git                  Git               `toml:"git,omitempty" json:"git" envconfig:"git"`
+	Storages             []Storage         `toml:"storage,omitempty" json:"storage" envconfig:"storage"`
+	Logging              Logging           `toml:"logging,omitempty" json:"logging" envconfig:"logging"`
+	Prometheus           prometheus.Config `toml:"prometheus,omitempty" json:"prometheus"`
+	Auth                 auth.Config       `toml:"auth,omitempty" json:"auth"`
+	TLS                  TLS               `toml:"tls,omitempty" json:"tls"`
+	Gitlab               Gitlab            `toml:"gitlab,omitempty" json:"gitlab"`
+	// GitlabShell contains the location of the gitlab-shell directory. This directory is expected to contain two
+	// things:
+	//
+	// - The GitLab secret file ".gitlab_shell_secret", which is used to authenticate with GitLab. This should
+	//   instead be configured via "gitlab.secret" or "gitlab.secret_file".
+	//
+	// - The custom hooks directory "hooks". This should instead be configured via "hooks.custom_hooks_dir".
+	//
+	// This setting is thus deprecated and should ideally not be used anymore.
 	GitlabShell            GitlabShell         `toml:"gitlab-shell,omitempty" json:"gitlab-shell"`
 	Hooks                  Hooks               `toml:"hooks,omitempty" json:"hooks"`
 	Concurrency            []Concurrency       `toml:"concurrency,omitempty" json:"concurrency"`
