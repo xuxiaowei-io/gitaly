@@ -112,6 +112,10 @@ func (o *objectReader) isClosed() bool {
 }
 
 func (o *objectReader) isDirty() bool {
+	if atomic.LoadInt32(&o.queueInUse) != 0 {
+		return true
+	}
+
 	return o.queue.isDirty()
 }
 
