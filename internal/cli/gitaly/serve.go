@@ -210,6 +210,15 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 		commandFactoryOpts = append(commandFactoryOpts, git.WithSkipHooks())
 	}
 
+	commandKillWait := (cfg.GracefulRestartTimeout.Duration() * 3) / 4
+	commandFactoryOpts = append(
+		commandFactoryOpts,
+		git.WithKillFunc(
+			time.After(commandKillWait),
+			helper.NewTimerTicker(commandKillWait/5),
+		),
+	)
+
 	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, logger, commandFactoryOpts...)
 	if err != nil {
 		return fmt.Errorf("creating Git command factory: %w", err)
