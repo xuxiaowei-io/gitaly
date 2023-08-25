@@ -24,8 +24,15 @@ const _ = grpc.SupportPackageIsVersion7
 type PraefectInfoServiceClient interface {
 	// This comment is left unintentionally blank.
 	RepositoryReplicas(ctx context.Context, in *RepositoryReplicasRequest, opts ...grpc.CallOption) (*RepositoryReplicasResponse, error)
-	// DatalossCheck checks for unavailable repositories.
+	// Deprecated: Do not use.
+	// DatalossCheck provides information on repositories in Praefect that are in a degraded state and
+	// thus susceptible to dataloss. A repository is considered degraded when its replicas are
+	// outdated and/or unavailable.
 	DatalossCheck(ctx context.Context, in *DatalossCheckRequest, opts ...grpc.CallOption) (*DatalossCheckResponse, error)
+	// Dataloss provides information on repositories in Praefect that are in a degraded state and
+	// thus susceptible to dataloss. A repository is considered degraded when its replicas are
+	// outdated and/or unavailable.
+	Dataloss(ctx context.Context, in *DatalossRequest, opts ...grpc.CallOption) (PraefectInfoService_DatalossClient, error)
 	// SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
 	// This causes the current version of the repository on the authoritative storage to be considered the
 	// latest and overwrite any other version on the virtual storage.
@@ -63,6 +70,7 @@ func (c *praefectInfoServiceClient) RepositoryReplicas(ctx context.Context, in *
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *praefectInfoServiceClient) DatalossCheck(ctx context.Context, in *DatalossCheckRequest, opts ...grpc.CallOption) (*DatalossCheckResponse, error) {
 	out := new(DatalossCheckResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.PraefectInfoService/DatalossCheck", in, out, opts...)
@@ -70,6 +78,38 @@ func (c *praefectInfoServiceClient) DatalossCheck(ctx context.Context, in *Datal
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *praefectInfoServiceClient) Dataloss(ctx context.Context, in *DatalossRequest, opts ...grpc.CallOption) (PraefectInfoService_DatalossClient, error) {
+	stream, err := c.cc.NewStream(ctx, &PraefectInfoService_ServiceDesc.Streams[0], "/gitaly.PraefectInfoService/Dataloss", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &praefectInfoServiceDatalossClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type PraefectInfoService_DatalossClient interface {
+	Recv() (*DatalossResponse, error)
+	grpc.ClientStream
+}
+
+type praefectInfoServiceDatalossClient struct {
+	grpc.ClientStream
+}
+
+func (x *praefectInfoServiceDatalossClient) Recv() (*DatalossResponse, error) {
+	m := new(DatalossResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *praefectInfoServiceClient) SetAuthoritativeStorage(ctx context.Context, in *SetAuthoritativeStorageRequest, opts ...grpc.CallOption) (*SetAuthoritativeStorageResponse, error) {
@@ -114,8 +154,15 @@ func (c *praefectInfoServiceClient) GetRepositoryMetadata(ctx context.Context, i
 type PraefectInfoServiceServer interface {
 	// This comment is left unintentionally blank.
 	RepositoryReplicas(context.Context, *RepositoryReplicasRequest) (*RepositoryReplicasResponse, error)
-	// DatalossCheck checks for unavailable repositories.
+	// Deprecated: Do not use.
+	// DatalossCheck provides information on repositories in Praefect that are in a degraded state and
+	// thus susceptible to dataloss. A repository is considered degraded when its replicas are
+	// outdated and/or unavailable.
 	DatalossCheck(context.Context, *DatalossCheckRequest) (*DatalossCheckResponse, error)
+	// Dataloss provides information on repositories in Praefect that are in a degraded state and
+	// thus susceptible to dataloss. A repository is considered degraded when its replicas are
+	// outdated and/or unavailable.
+	Dataloss(*DatalossRequest, PraefectInfoService_DatalossServer) error
 	// SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
 	// This causes the current version of the repository on the authoritative storage to be considered the
 	// latest and overwrite any other version on the virtual storage.
@@ -146,6 +193,9 @@ func (UnimplementedPraefectInfoServiceServer) RepositoryReplicas(context.Context
 }
 func (UnimplementedPraefectInfoServiceServer) DatalossCheck(context.Context, *DatalossCheckRequest) (*DatalossCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DatalossCheck not implemented")
+}
+func (UnimplementedPraefectInfoServiceServer) Dataloss(*DatalossRequest, PraefectInfoService_DatalossServer) error {
+	return status.Errorf(codes.Unimplemented, "method Dataloss not implemented")
 }
 func (UnimplementedPraefectInfoServiceServer) SetAuthoritativeStorage(context.Context, *SetAuthoritativeStorageRequest) (*SetAuthoritativeStorageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetAuthoritativeStorage not implemented")
@@ -206,6 +256,27 @@ func _PraefectInfoService_DatalossCheck_Handler(srv interface{}, ctx context.Con
 		return srv.(PraefectInfoServiceServer).DatalossCheck(ctx, req.(*DatalossCheckRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _PraefectInfoService_Dataloss_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DatalossRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PraefectInfoServiceServer).Dataloss(m, &praefectInfoServiceDatalossServer{stream})
+}
+
+type PraefectInfoService_DatalossServer interface {
+	Send(*DatalossResponse) error
+	grpc.ServerStream
+}
+
+type praefectInfoServiceDatalossServer struct {
+	grpc.ServerStream
+}
+
+func (x *praefectInfoServiceDatalossServer) Send(m *DatalossResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _PraefectInfoService_SetAuthoritativeStorage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -312,6 +383,12 @@ var PraefectInfoService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PraefectInfoService_GetRepositoryMetadata_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Dataloss",
+			Handler:       _PraefectInfoService_Dataloss_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "praefect.proto",
 }
