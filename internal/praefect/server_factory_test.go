@@ -313,7 +313,7 @@ func TestServerFactory(t *testing.T) {
 		praefectServerFactory := setupPraefectServerFactory(badTLSKeyPath)
 
 		err := praefectServerFactory.Serve(nil, true)
-		require.EqualError(t, err, "load certificate key pair: open invalid: no such file or directory")
+		require.EqualError(t, err, "load certificate key pair: loading x509 keypair: open invalid: no such file or directory")
 	})
 
 	t.Run("tls cert path invalid", func(t *testing.T) {
@@ -322,6 +322,6 @@ func TestServerFactory(t *testing.T) {
 		praefectServerFactory := setupPraefectServerFactory(badTLSCertPath)
 
 		err := praefectServerFactory.Serve(nil, true)
-		require.EqualError(t, err, "load certificate key pair: open invalid: no such file or directory")
+		require.EqualError(t, err, "load certificate key pair: loading x509 keypair: open invalid: no such file or directory")
 	})
 }

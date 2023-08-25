@@ -69,7 +69,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	// If tls config is specified attempt to extract tls options and use it
 	// as a grpc.ServerOption
 	if secure {
-		cert, err := tls.LoadX509KeyPair(s.cfg.TLS.CertPath, s.cfg.TLS.KeyPath)
+		cert, err := s.cfg.TLS.Certificate()
 		if err != nil {
 			return nil, fmt.Errorf("error reading certificate and key paths: %w", err)
 		}

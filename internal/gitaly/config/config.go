@@ -118,17 +118,29 @@ type Cfg struct {
 type TLS struct {
 	CertPath string `toml:"certificate_path,omitempty" json:"cert_path"`
 	KeyPath  string `toml:"key_path,omitempty" json:"key_path"`
+	Key      string `toml:"key,omitempty" json:"key"`
 }
 
 // Validate runs validation on all fields and compose all found errors.
 func (t TLS) Validate() error {
-	if t.CertPath == "" && t.KeyPath == "" {
+	if t.CertPath == "" && t.KeyPath == "" && t.Key == "" {
 		return nil
 	}
 
+	if t.Key != "" && t.KeyPath != "" {
+		return cfgerror.NewValidationError(
+			errors.New("key_path and key cannot both be set"),
+			"key_path",
+			"key",
+		)
+	}
+
 	errs := cfgerror.New().
-		Append(cfgerror.FileExists(t.CertPath), "certificate_path").
-		Append(cfgerror.FileExists(t.KeyPath), "key_path")
+		Append(cfgerror.FileExists(t.CertPath), "certificate_path")
+
+	if t.Key == "" {
+		errs = errs.Append(cfgerror.FileExists(t.KeyPath), "key_path")
+	}
 
 	if len(errs) != 0 {
 		// In case of problems with files attempt to load
@@ -136,19 +148,47 @@ func (t TLS) Validate() error {
 		return errs.AsError()
 	}
 
-	if _, err := tls.LoadX509KeyPair(t.CertPath, t.KeyPath); err != nil {
-		if strings.Contains(err.Error(), "in certificate input") {
-			return cfgerror.NewValidationError(err, "certificate_path")
+	if _, err := t.Certificate(); err != nil {
+		var field string
+
+		if strings.Contains(err.Error(), "in certificate input") ||
+			strings.Contains(err.Error(), "certificate_path") {
+			field = "certificate_path"
+		} else if t.Key != "" {
+			field = "key"
+		} else {
+			field = "key_path"
 		}
 
-		if strings.Contains(err.Error(), "in key input") {
-			return cfgerror.NewValidationError(err, "key_path")
-		}
-
-		return cfgerror.NewValidationError(err)
+		return cfgerror.NewValidationError(err, field)
 	}
 
 	return nil
+}
+
+// Certificate gets the certificate with the certificate path and either the key
+// path or the key.
+func (t TLS) Certificate() (tls.Certificate, error) {
+	if t.Key != "" {
+		certPEMBlock, err := os.ReadFile(t.CertPath)
+		if err != nil {
+			return tls.Certificate{}, fmt.Errorf("reading certificate_path: %w", err)
+		}
+
+		cert, err := tls.X509KeyPair(certPEMBlock, []byte(t.Key))
+		if err != nil {
+			return tls.Certificate{}, fmt.Errorf("loading x509 keypair: %w", err)
+		}
+
+		return cert, nil
+	}
+
+	cert, err := tls.LoadX509KeyPair(t.CertPath, t.KeyPath)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("loading x509 keypair: %w", err)
+	}
+
+	return cert, nil
 }
 
 // GitlabShell contains the settings required for executing `gitlab-shell`
