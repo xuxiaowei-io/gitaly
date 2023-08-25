@@ -3,8 +3,12 @@ package command
 import (
 	"context"
 	"io"
+	"os"
+	"syscall"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 )
 
 type config struct {
@@ -23,6 +27,8 @@ type config struct {
 	cgroupsManager        cgroups.Manager
 	cgroupsAddCommandOpts []cgroups.AddCommandOption
 	spawnTokenManager     *SpawnTokenManager
+
+	killFunc func(process *os.Process)
 }
 
 // Option is an option that can be passed to `New()` for controlling how the command is being
@@ -110,5 +116,31 @@ func WithSpawnTokenManager(spawnTokenManager *SpawnTokenManager) Option {
 func WithFinalizer(finalizer func(context.Context, *Command)) Option {
 	return func(cfg *config) {
 		cfg.finalizers = append(cfg.finalizers, finalizer)
+	}
+}
+
+// WithKillFunc provides the command with a function that will send a sigkill
+// signal after a certain amount of time.
+func WithKillFunc(f func(p *os.Process)) Option {
+	return func(cfg *config) {
+		cfg.killFunc = f
+	}
+}
+
+// KillProcessEventually will wait a certain amount of time before sending a
+// sigkill to the process
+func KillProcessEventually(p *os.Process, timeLimit <-chan time.Time, interval helper.Ticker) {
+	for {
+		select {
+		case <-timeLimit:
+			//nolint:errcheck // TODO: do we want to report errors?
+			syscall.Kill(-p.Pid, syscall.SIGKILL)
+			interval.Stop()
+			return
+		case <-interval.C():
+			if err := p.Signal(syscall.Signal(0)); err != nil {
+				return
+			}
+		}
 	}
 }

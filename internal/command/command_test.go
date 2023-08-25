@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -19,6 +20,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -225,6 +229,75 @@ func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {
 	err = cmd.Wait()
 	require.Equal(t, err, fmt.Errorf("signal: terminated: %w", context.Canceled))
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+// writeTrigger is a simple writer that will signal over a channel every time a
+// Write happens. This will be used below in the case where we want to wait
+// until a script is running before sending a sigterm.
+type writeTrigger struct {
+	c chan struct{}
+}
+
+func (w *writeTrigger) Write(p []byte) (int, error) {
+	w.c <- struct{}{}
+
+	return len(p), nil
+}
+
+func TestCommand_KillsCommand(t *testing.T) {
+	t.Parallel()
+
+	tempDir := testhelper.TempDir(t)
+	// script traps SIGTERM
+	script := []byte(`#!/usr/bin/env bash
+trap -- '' SIGTERM
+
+while true
+do
+  echo hello
+  sleep 1
+done
+`)
+	scriptPath := filepath.Join(tempDir, "trapSigTerm")
+	require.NoError(t, os.WriteFile(scriptPath, script, perm.SharedExecutable))
+
+	ctx, cancel := context.WithCancel(
+		featureflag.ContextWithFeatureFlag(
+			testhelper.Context(t),
+			featureflag.KillGitProcessesOnShutdown,
+			true,
+		),
+	)
+
+	timeLimit := make(chan time.Time)
+	interval := helper.NewManualTicker()
+
+	scriptCh := make(chan struct{})
+	stdout := &writeTrigger{
+		c: scriptCh,
+	}
+	cmd, err := New(
+		ctx,
+		[]string{scriptPath},
+		WithStdout(stdout),
+		WithKillFunc(func(p *os.Process) {
+			KillProcessEventually(p, timeLimit, interval)
+		}),
+	)
+	require.NoError(t, err)
+
+	go func() {
+		// first, make sure the script is running
+		<-scriptCh
+		cancel()
+		interval.Tick()
+		// sending a time onto the timeLimit channel will cause
+		// KillProcessEventually to send a sigkill to the process.
+		timeLimit <- time.Now()
+	}()
+
+	err = cmd.Wait()
+	require.Equal(t, err, fmt.Errorf("signal: killed: %w", context.Canceled))
 }
 
 func TestNew_setupStdin(t *testing.T) {

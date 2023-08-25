@@ -237,6 +237,12 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 
 	// Randomly enable mailmap
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.MailmapOptions, rand.Int()%2 == 0)
+	// Randomly enable killing git processes on shutdown
+	ctx = featureflag.ContextWithFeatureFlag(
+		ctx,
+		featureflag.KillGitProcessesOnShutdown,
+		rand.Int()%2 == 0,
+	)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)

@@ -319,6 +319,10 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 					syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 				}
 
+				if featureflag.KillGitProcessesOnShutdown.IsEnabled(ctx) && cfg.killFunc != nil {
+					cfg.killFunc(cmd.Process)
+				}
+
 				// We do not care for any potential error code, but just want to
 				// make sure that the subprocess gets properly killed and processed.
 				_ = command.Wait()

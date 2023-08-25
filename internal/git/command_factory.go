@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2hooks"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -50,6 +52,7 @@ type execCommandFactoryConfig struct {
 	cgroupsManager      cgroups.Manager
 	trace2Hooks         []trace2.Hook
 	execEnvConstructors []ExecutionEnvironmentConstructor
+	killFunc            func(p *os.Process)
 }
 
 // ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
@@ -111,6 +114,16 @@ func WithExecutionEnvironmentConstructors(constructors ...ExecutionEnvironmentCo
 	}
 }
 
+// WithKillFunc provides the command with a function that will send a sigkill
+// signal after a certain amount of time.
+func WithKillFunc(timeLimit <-chan time.Time, interval helper.Ticker) ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.killFunc = func(process *os.Process) {
+			command.KillProcessEventually(process, timeLimit, interval)
+		}
+	}
+}
+
 type hookDirectories struct {
 	tempHooksPath string
 }
@@ -133,6 +146,7 @@ type ExecCommandFactory struct {
 
 	cachedGitVersionLock     sync.RWMutex
 	cachedGitVersionByBinary map[string]cachedGitVersion
+	killFunc                 func(p *os.Process)
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
@@ -189,6 +203,7 @@ func NewExecCommandFactory(cfg config.Cfg, logger logrus.FieldLogger, opts ...Ex
 		),
 		hookDirs:                 hookDirectories,
 		cachedGitVersionByBinary: make(map[string]cachedGitVersion),
+		killFunc:                 factoryCfg.killFunc,
 	}
 
 	return gitCmdFactory, runCleanups, nil
@@ -488,6 +503,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo storage.Repos
 		command.WithCommandName("git", sc.Name),
 		command.WithCgroup(cf.cgroupsManager, cgroupsAddCommandOpts...),
 		command.WithCommandGitVersion(cmdGitVersion.String()),
+		command.WithKillFunc(cf.killFunc),
 	)
 	command, err := command.New(ctx, append([]string{execEnv.BinaryPath}, args...), commandOpts...)
 	if err != nil {
