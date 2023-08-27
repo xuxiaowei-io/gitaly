@@ -45,11 +45,11 @@ func NewHTTPClient(
 	var opts []client.HTTPClientOpt
 	if tlsCfg.CertPath != "" && tlsCfg.KeyPath != "" ||
 		tlsCfg.Key != "" {
-		cert, err := tlsCfg.GetCert()
+		cert, err := tlsCfg.Certificate()
 		if err != nil {
 			return nil, fmt.Errorf("getting certificate: %w", err)
 		}
-		opts = append(opts, client.WithClientCert(cert))
+		opts = append(opts, client.WithClientCert(&cert))
 	}
 
 	httpClient, err := client.NewHTTPClientWithOpts(

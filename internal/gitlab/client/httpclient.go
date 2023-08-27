@@ -35,19 +35,16 @@ type HTTPClient struct {
 }
 
 type httpClientCfg struct {
-	keyPath, certPath string
-	caFile, caPath    string
-	cert              tls.Certificate
+	caFile, caPath string
+	cert           *tls.Certificate
 }
-
-func (hcc httpClientCfg) HaveCertAndKey() bool { return hcc.keyPath != "" && hcc.certPath != "" }
 
 // HTTPClientOpt provides options for configuring an HttpClient
 type HTTPClientOpt func(*httpClientCfg)
 
 // WithClientCert will configure the HttpClient to provide client certificates
 // when connecting to a server.
-func WithClientCert(cert tls.Certificate) HTTPClientOpt {
+func WithClientCert(cert *tls.Certificate) HTTPClientOpt {
 	return func(hcc *httpClientCfg) {
 		hcc.cert = cert
 	}
@@ -155,8 +152,8 @@ func buildHTTPSTransport(hcc httpClientCfg, gitlabURL string) (*http.Transport, 
 		MinVersion: tls.VersionTLS12,
 	}
 
-	if hcc.cert.Certificate != nil {
-		tlsConfig.Certificates = []tls.Certificate{hcc.cert}
+	if hcc.cert != nil {
+		tlsConfig.Certificates = []tls.Certificate{*hcc.cert}
 	}
 
 	transport := &http.Transport{

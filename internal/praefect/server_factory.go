@@ -72,7 +72,7 @@ func (s *ServerFactory) Create(secure bool) (*grpc.Server, error) {
 		return s.insecure[len(s.insecure)-1], nil
 	}
 
-	cert, err := s.deps.Config.TLS.GetCert()
+	cert, err := s.deps.Config.TLS.Certificate()
 	if err != nil {
 		return nil, fmt.Errorf("load certificate key pair: %w", err)
 	}
