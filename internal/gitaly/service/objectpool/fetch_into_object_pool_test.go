@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,7 +25,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/labkit/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -207,8 +205,6 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 
 	logger, hook := test.NewNullLogger()
 	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, logger)
-
-	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))

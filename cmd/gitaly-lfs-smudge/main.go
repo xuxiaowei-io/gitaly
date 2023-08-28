@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
-	"gitlab.com/gitlab-org/labkit/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
@@ -33,40 +35,54 @@ func requireStdin(msg string) {
 func main() {
 	requireStdin("This command should be run by the Git 'smudge' filter")
 
-	closer, err := initLogging(os.Environ())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error initializing log file for gitaly-lfs-smudge: %v", err)
-	}
-	defer closer.Close()
-
-	if err := run(os.Environ(), os.Stdout, os.Stdin); err != nil {
-		log.WithError(err).Error(err)
-		os.Exit(1)
-	}
-}
-
-func initLogging(environment []string) (io.Closer, error) {
-	path := env.ExtractValue(environment, gitalylog.GitalyLogDirEnvKey)
-	if path == "" {
-		return log.Initialize(log.WithWriter(io.Discard))
-	}
-
-	filepath := filepath.Join(path, "gitaly_lfs_smudge.log")
-
-	return log.Initialize(
-		log.WithFormatter("json"),
-		log.WithLogLevel("info"),
-		log.WithOutputName(filepath),
-	)
-}
-
-func run(environment []string, out io.Writer, in io.Reader) error {
 	// Since the environment is sanitized at the moment, we're only
 	// using this to extract the correlation ID. The finished() call
 	// to clean up the tracing will be a NOP here.
 	ctx, finished := tracing.ExtractFromEnv(context.Background())
 	defer finished()
 
+	logger, closer, err := configureLogging(ctx, os.Environ())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error initializing log file for gitaly-lfs-smudge: %v", err)
+	}
+	defer closer.Close()
+
+	if err := run(ctx, os.Environ(), os.Stdout, os.Stdin, logger); err != nil {
+		logger.WithError(err).Error(err)
+		os.Exit(1)
+	}
+}
+
+type nopCloser struct{}
+
+func (nopCloser) Close() error {
+	return nil
+}
+
+func configureLogging(ctx context.Context, environment []string) (logrus.FieldLogger, io.Closer, error) {
+	var closer io.Closer = nopCloser{}
+	writer := io.Discard
+
+	if logDir := env.ExtractValue(environment, log.GitalyLogDirEnvKey); logDir != "" {
+		logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_lfs_smudge.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, perm.SharedFile)
+		if err != nil {
+			// Ignore this error as we cannot do anything about it anyway. We cannot write anything to
+			// stdout or stderr as that might break hooks, and we have no other destination to log to.
+		} else {
+			writer = logFile
+		}
+	}
+
+	logger, err := log.Configure(writer, "json", "info")
+	if err != nil {
+		closer.Close()
+		return nil, nil, err
+	}
+
+	return logger.WithField(correlation.FieldName, correlation.ExtractFromContext(ctx)), closer, nil
+}
+
+func run(ctx context.Context, environment []string, out io.Writer, in io.Reader, logger logrus.FieldLogger) error {
 	cfg, err := smudge.ConfigFromEnvironment(environment)
 	if err != nil {
 		return fmt.Errorf("loading configuration: %w", err)
@@ -74,13 +90,13 @@ func run(environment []string, out io.Writer, in io.Reader) error {
 
 	switch cfg.DriverType {
 	case smudge.DriverTypeFilter:
-		if err := filter(ctx, cfg, out, in); err != nil {
+		if err := filter(ctx, cfg, out, in, logger); err != nil {
 			return fmt.Errorf("running smudge filter: %w", err)
 		}
 
 		return nil
 	case smudge.DriverTypeProcess:
-		if err := process(ctx, cfg, out, in); err != nil {
+		if err := process(ctx, cfg, out, in, logger); err != nil {
 			return fmt.Errorf("running smudge process: %w", err)
 		}
 

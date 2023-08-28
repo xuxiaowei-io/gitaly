@@ -24,9 +24,6 @@ func mustHaveNoGoroutines() {
 		// `init()` function. There is no way to stop this worker, so it will leak
 		// whenever we import the package.
 		goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
-		// labkit's logger spawns a Goroutine which cannot be closed when calling
-		// `Initialize()`.
-		goleak.IgnoreTopFunction("gitlab.com/gitlab-org/labkit/log.listenForSignalHangup"),
 		// The backchannel code is somehow stock on closing its connections. I have no clue
 		// why that is, but we should investigate.
 		goleak.IgnoreTopFunction(PkgPath("internal/grpc/backchannel.clientHandshake.serve.func4")),
