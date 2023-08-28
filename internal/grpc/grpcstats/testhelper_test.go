@@ -1,4 +1,4 @@
-package grpcstats_test
+package grpcstats
 
 import (
 	"testing"
