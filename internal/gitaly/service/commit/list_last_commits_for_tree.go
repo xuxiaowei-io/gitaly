@@ -135,7 +135,7 @@ func newLSTreeParser(
 		Flags:       []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--full-name"}},
 		Args:        []string{in.GetRevision()},
 		PostSepArgs: []string{path},
-	}, opts...)
+	}, append(opts, git.WithSetupStdout())...)
 	if err != nil {
 		return nil, nil, err
 	}

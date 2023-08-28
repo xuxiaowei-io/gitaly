@@ -332,8 +332,12 @@ func benchmarkFindCommit(b *testing.B, withCache bool) {
 
 	// get a list of revisions
 	gitCmdFactory := gittest.NewCommandFactory(b, cfg)
-	logCmd, err := gitCmdFactory.New(ctx, repo,
-		git.Command{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
+	logCmd, err := gitCmdFactory.New(ctx, repo, git.Command{
+		Name: "log",
+		Flags: []git.Option{
+			git.Flag{Name: "--format=format:%H"},
+		},
+	}, git.WithSetupStdout())
 	require.NoError(b, err)
 
 	logScanner := bufio.NewScanner(logCmd)

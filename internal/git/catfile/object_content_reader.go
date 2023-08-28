@@ -70,6 +70,7 @@ func newObjectContentReader(
 			Flags: flags,
 		},
 		git.WithSetupStdin(),
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return nil, err

@@ -88,6 +88,7 @@ func LsTree(
 				Args:  []string{revision},
 			},
 			git.WithStderr(&stderr),
+			git.WithSetupStdout(),
 		)
 		if err != nil {
 			sendRevisionResult(ctx, resultChan, RevisionResult{

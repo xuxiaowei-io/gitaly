@@ -35,7 +35,7 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 		Flags:       flags,
 		Args:        []string{revision},
 		PostSepArgs: []string{path},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return structerr.NewInternal("cmd: %w", err)
 	}

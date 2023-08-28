@@ -111,7 +111,7 @@ func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...str
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  patterns,
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (repo *Repo) HeadReference(ctx context.Context) (git.ReferenceName, error) 
 	cmd, err := repo.Exec(ctx, git.Command{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD"},
-	}, git.WithDisabledHooks()) // this operation is read-only
+	}, git.WithDisabledHooks(), git.WithSetupStdout()) // this operation is read-only
 	if err != nil {
 		return "", err
 	}

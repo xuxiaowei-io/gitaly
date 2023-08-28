@@ -29,6 +29,7 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 			Name: "merge-base",
 			Args: revisions,
 		},
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return nil, structerr.NewInternal("cmd: %w", err)

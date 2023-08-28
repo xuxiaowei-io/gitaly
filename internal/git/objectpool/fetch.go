@@ -140,6 +140,7 @@ func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo
 		git.WithConfig(git.ConfigPair{Key: "remote.origin.fetch", Value: objectPoolRefspec}),
 		// This is a dry-run, only, so we don't have to enable hooks.
 		git.WithDisabledHooks(),
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return fmt.Errorf("spawning prune: %w", err)
@@ -254,6 +255,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr err
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}, git.Flag{Name: "--dangling"}},
 	},
 		git.WithStderr(stderr),
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return err
@@ -331,7 +333,7 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(objecttype)%00%(refname)"}},
 		Args:  []string{"refs/"},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return fmt.Errorf("spawning for-each-ref: %w", err)
 	}

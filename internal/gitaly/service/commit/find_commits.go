@@ -69,7 +69,7 @@ func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsReque
 	opts := git.ConvertGlobalOptions(req.GetGlobalOptions())
 	repo := s.localrepo(req.GetRepository())
 
-	logCmd, err := repo.Exec(ctx, getLogCommandSubCmd(req), opts...)
+	logCmd, err := repo.Exec(ctx, getLogCommandSubCmd(req), append(opts, git.WithSetupStdout())...)
 	if err != nil {
 		return fmt.Errorf("error when creating git log command: %w", err)
 	}

@@ -436,7 +436,7 @@ func (repo *Repo) listEntries(
 		Name:  "ls-tree",
 		Args:  []string{fmt.Sprintf("%s:%s", treeish, relativePath)},
 		Flags: flags,
-	}, git.WithStderr(&stderr))
+	}, git.WithStderr(&stderr), git.WithSetupStdout())
 	if err != nil {
 		return nil, fmt.Errorf("spawning git-ls-tree: %w", err)
 	}

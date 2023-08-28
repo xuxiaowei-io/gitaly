@@ -80,7 +80,7 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 	cmd, err := s.gitCmdFactory.New(stream.Context(), in.Repository, git.Command{
 		Name:  "diff-tree",
 		Flags: flags,
-	}, git.WithStdin(strings.NewReader(strings.Join(requests, "\n")+"\n")))
+	}, git.WithStdin(strings.NewReader(strings.Join(requests, "\n")+"\n")), git.WithSetupStdout())
 	if err != nil {
 		return structerr.NewInternal("cmd err: %w", err)
 	}

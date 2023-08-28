@@ -23,7 +23,12 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 		return nil, err
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{Name: "show-ref", Flags: []git.Option{git.Flag{Name: "--head"}}})
+	cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{
+		Name: "show-ref",
+		Flags: []git.Option{
+			git.Flag{Name: "--head"},
+		},
+	}, git.WithSetupStdout())
 	if err != nil {
 		return nil, structerr.NewInternal("gitCommand: %w", err)
 	}

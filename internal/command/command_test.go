@@ -212,7 +212,7 @@ func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
-	cmd, err := New(ctx, []string{"cat", "/dev/urandom"})
+	cmd, err := New(ctx, []string{"cat", "/dev/urandom"}, WithSetupStdout())
 	require.NoError(t, err)
 
 	// Read one byte to ensure the process is running.
@@ -250,14 +250,24 @@ func TestCommand_read(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cmd, err := New(ctx, []string{"echo", "test value"})
-	require.NoError(t, err)
+	t.Run("without stdout set up", func(t *testing.T) {
+		require.PanicsWithValue(t, "command has no reader", func() {
+			cmd, err := New(ctx, []string{"echo", "test value"})
+			require.NoError(t, err)
+			_, _ = io.ReadAll(cmd)
+		})
+	})
 
-	output, err := io.ReadAll(cmd)
-	require.NoError(t, err)
-	require.Equal(t, "test value\n", string(output))
+	t.Run("with stdout set up", func(t *testing.T) {
+		cmd, err := New(ctx, []string{"echo", "test value"}, WithSetupStdout())
+		require.NoError(t, err)
 
-	require.NoError(t, cmd.Wait())
+		output, err := io.ReadAll(cmd)
+		require.NoError(t, err)
+		require.Equal(t, "test value\n", string(output))
+
+		require.NoError(t, cmd.Wait())
+	})
 }
 
 func TestNew_nulByteInArgument(t *testing.T) {

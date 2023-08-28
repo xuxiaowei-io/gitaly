@@ -23,6 +23,7 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 				"HEAD",
 			},
 		},
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return nil, structerr.NewInternal("error executing git command: %w", err)

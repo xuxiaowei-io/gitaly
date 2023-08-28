@@ -86,7 +86,7 @@ func (s *server) listFiles(repo git.RepositoryExecutor, revision string, stream 
 			git.Flag{Name: "--full-name"},
 		},
 		Args: []string{revision},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return err
 	}

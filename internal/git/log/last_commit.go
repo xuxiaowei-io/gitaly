@@ -27,7 +27,7 @@ func LastCommitForPath(
 		Flags:       []git.Option{git.Flag{Name: "--format=%H"}, git.Flag{Name: "--max-count=1"}},
 		Args:        []string{revision.String()},
 		PostSepArgs: []string{path},
-	}, git.ConvertGlobalOptions(options)...)
+	}, append(git.ConvertGlobalOptions(options), git.WithSetupStdout())...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,5 +52,5 @@ func GitLogCommand(ctx context.Context, gitCmdFactory git.CommandFactory, repo s
 		Flags:       append([]git.Option{git.Flag{Name: "--pretty=%H"}}, extraArgs...),
 		Args:        args,
 		PostSepArgs: paths,
-	}, git.ConvertGlobalOptions(options)...)
+	}, append(git.ConvertGlobalOptions(options), git.WithSetupStdout())...)
 }

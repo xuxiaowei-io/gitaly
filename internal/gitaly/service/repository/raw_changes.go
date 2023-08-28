@@ -78,7 +78,7 @@ func (s *server) getRawChanges(stream gitalypb.RepositoryService_GetRawChangesSe
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--raw"}, git.Flag{Name: "-z"}},
 		Args:  []string{from, to},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return fmt.Errorf("start git diff: %w", err)
 	}

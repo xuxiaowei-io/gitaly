@@ -203,7 +203,7 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 			git.Flag{Name: "-z"},
 		},
 		Args: []string{f.treeishID.String()},
-	}, git.WithStderr(&stderr))
+	}, git.WithStderr(&stderr), git.WithSetupStdout())
 	if err != nil {
 		return nil, err
 	}

@@ -91,7 +91,7 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
 				Name:  "config",
 				Flags: []git.Option{git.Flag{Name: "--list"}, git.Flag{Name: tc.filter}},
-			}, git.WithEnv("HOME="+tmpHome))
+			}, git.WithEnv("HOME="+tmpHome), git.WithSetupStdout())
 			require.NoError(t, err)
 
 			configContents, err := io.ReadAll(cmd)
