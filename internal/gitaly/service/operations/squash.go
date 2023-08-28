@@ -7,7 +7,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -145,36 +144,11 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		true,
 	)
 	if err != nil {
-		var conflictErr git2go.ConflictingFilesError
-
-		if errors.As(err, &conflictErr) {
-			conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
-			for _, conflictingFile := range conflictErr.ConflictingFiles {
-				conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
-			}
-
-			return "", structerr.NewFailedPrecondition("squashing commits: %w", err).WithDetail(
-				&gitalypb.UserSquashError{
-					// Note: this is actually a merge conflict, but we've kept
-					// the old "rebase" name for compatibility reasons.
-					Error: &gitalypb.UserSquashError_RebaseConflict{
-						RebaseConflict: &gitalypb.MergeConflictError{
-							ConflictingFiles: conflictingFiles,
-							ConflictingCommitIds: []string{
-								startCommit.String(),
-								endCommit.String(),
-							},
-						},
-					},
-				},
-			)
-		}
-
 		var mergeConflictErr *localrepo.MergeTreeConflictError
 		if errors.As(err, &mergeConflictErr) {
 			conflictingFiles := make([][]byte, 0, len(mergeConflictErr.ConflictingFileInfo))
-			for _, conflictingFile := range mergeConflictErr.ConflictingFileInfo {
-				conflictingFiles = append(conflictingFiles, []byte(conflictingFile.FileName))
+			for _, conflictingFileInfo := range mergeConflictErr.ConflictingFileInfo {
+				conflictingFiles = append(conflictingFiles, []byte(conflictingFileInfo.FileName))
 			}
 
 			return "", structerr.NewFailedPrecondition("squashing commits: %w", err).WithDetail(
