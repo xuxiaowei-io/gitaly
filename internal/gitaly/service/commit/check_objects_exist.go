@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -108,7 +109,7 @@ func checkObjectsExist(
 		}
 		_, err := objectInfoReader.Info(ctx, git.Revision(revision))
 		if err != nil {
-			if catfile.IsNotFound(err) {
+			if errors.As(err, &(catfile.NotFoundError{})) {
 				revisionExistence.Exists = false
 			} else {
 				return structerr.NewInternal("reading object info: %w", err)

@@ -341,7 +341,7 @@ func TestObjectContentReader_queue(t *testing.T) {
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadObject(ctx)
-		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+		require.Equal(t, NotFoundError{"does-not-exist"}, err)
 	})
 
 	t.Run("reading object with newline", func(t *testing.T) {
@@ -380,7 +380,7 @@ func TestObjectContentReader_queue(t *testing.T) {
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadObject(ctx)
-		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+		require.Equal(t, NotFoundError{"does-not-exist"}, err)
 
 		// Requesting another object after the previous one has failed should continue to
 		// work alright.
@@ -411,7 +411,7 @@ func TestObjectContentReader_queue(t *testing.T) {
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadObject(ctx)
-		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+		require.Equal(t, NotFoundError{"does\nnot\nexist"}, err)
 
 		// Requesting another object after the previous one has failed should continue to
 		// work alright.

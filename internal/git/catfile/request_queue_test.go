@@ -126,7 +126,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		require.NoError(t, queue.RequestObject(ctx, "foo"))
 
 		_, err := queue.ReadObject(ctx)
-		require.Equal(t, NotFoundError{error: fmt.Errorf("object not found")}, err)
+		require.Equal(t, NotFoundError{oid.String()}, err)
 
 		// The queue must be empty even if the object wasn't found: this is a graceful
 		// failure that we should handle alright.

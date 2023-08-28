@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -67,7 +68,7 @@ func filterCommitShasWithSignatures(ctx context.Context, objectReader catfile.Ob
 	var foundShas [][]byte
 	for _, sha := range shas {
 		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(sha))
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			continue
 		}
 

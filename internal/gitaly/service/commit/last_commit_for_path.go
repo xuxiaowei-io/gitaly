@@ -2,8 +2,10 @@ package commit
 
 import (
 	"context"
+	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -50,7 +52,7 @@ func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 	}
 
 	commit, err := log.LastCommitForPath(ctx, s.gitCmdFactory, objectReader, repo, git.Revision(in.GetRevision()), path, options)
-	if log.IsNotFound(err) {
+	if errors.As(err, &catfile.NotFoundError{}) {
 		return &gitalypb.LastCommitForPathResponse{}, nil
 	}
 

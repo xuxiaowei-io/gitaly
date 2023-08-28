@@ -37,7 +37,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 	}
 
 	blobObj, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:.gitattributes", revision)))
-	if err != nil && !catfile.IsNotFound(err) {
+	if err != nil && !errors.As(err, &catfile.NotFoundError{}) {
 		return err
 	}
 
@@ -46,7 +46,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 		return err
 	}
 
-	if catfile.IsNotFound(err) || blobObj.Type != "blob" {
+	if errors.As(err, &catfile.NotFoundError{}) || blobObj.Type != "blob" {
 		locker, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
 			FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
 		})

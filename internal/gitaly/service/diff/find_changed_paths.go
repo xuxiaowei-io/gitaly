@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -262,7 +263,7 @@ func resolveObjectWithType(
 
 	info, err := objectInfoReader.Info(ctx, git.Revision(fmt.Sprintf("%s^{%s}", revision, expectedType)))
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			return "", structerr.NewNotFound("revision can not be found: %q", revision)
 		}
 		return "", err

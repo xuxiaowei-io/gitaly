@@ -116,12 +116,12 @@ func TestObjectReader_reader(t *testing.T) {
 		{
 			desc:        "blob with newline",
 			revision:    oiByRevision["refs/tags/v1.1.1"].Oid.Revision() + git.Revision("foo\nbar.md"),
-			expectedErr: NotFoundError{fmt.Errorf("object not found")},
+			expectedErr: NotFoundError{oiByRevision["refs/tags/v1.1.1"].Oid.String() + "foo\nbar.md"},
 		},
 		{
 			desc:        "nonexistent ref",
 			revision:    "refs/heads/does-not-exist",
-			expectedErr: NotFoundError{fmt.Errorf("object not found")},
+			expectedErr: NotFoundError{"refs/heads/does-not-exist"},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -501,7 +501,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadObject(ctx)
-		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+		require.Equal(t, NotFoundError{"does-not-exist"}, err)
 	})
 
 	t.Run("can continue reading after NotFoundError", func(t *testing.T) {
@@ -516,7 +516,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadObject(ctx)
-		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+		require.Equal(t, NotFoundError{"does-not-exist"}, err)
 
 		// Requesting another object after the previous one has failed should continue to
 		// work alright.

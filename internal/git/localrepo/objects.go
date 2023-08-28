@@ -194,7 +194,7 @@ func (repo *Repo) ReadObjectInfo(ctx context.Context, rev git.Revision) (*catfil
 
 	objectInfo, err := infoReader.Info(ctx, rev)
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			return nil, InvalidObjectError(rev)
 		}
 		return nil, fmt.Errorf("getting object info: %w", err)
@@ -214,7 +214,7 @@ func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, err
 
 	object, err := objectReader.Object(ctx, oid.Revision())
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			return nil, InvalidObjectError(oid.String())
 		}
 		return nil, fmt.Errorf("get object from reader: %w", err)
@@ -264,7 +264,7 @@ func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ..
 	}
 
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			return nil, ErrObjectNotFound
 		}
 		return nil, err

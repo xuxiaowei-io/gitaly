@@ -3,6 +3,7 @@ package catfile
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -207,7 +208,7 @@ func (q *requestQueue) ReadObject(ctx context.Context) (*Object, error) {
 		//
 		// One known exception is when we've got a NotFoundError: this is a graceful failure
 		// and we can continue reading from the process.
-		if IsNotFound(err) {
+		if errors.As(err, &NotFoundError{}) {
 			atomic.StoreInt32(&q.counters.isReadingObject, 0)
 		}
 

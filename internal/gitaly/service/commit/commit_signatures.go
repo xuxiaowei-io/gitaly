@@ -50,7 +50,7 @@ func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 	for _, commitID := range request.CommitIds {
 		commitObj, err := objectReader.Object(ctx, git.Revision(commitID)+"^{commit}")
 		if err != nil {
-			if catfile.IsNotFound(err) {
+			if errors.As(err, &catfile.NotFoundError{}) {
 				continue
 			}
 			return structerr.NewInternal("%w", err)

@@ -29,9 +29,7 @@ func GetTag(ctx context.Context, objectReader ObjectContentReader, tagID git.Rev
 			return nil, fmt.Errorf("discarding object: %w", err)
 		}
 
-		return nil, NotFoundError{
-			error: fmt.Errorf("expected tag, got %s", object.Type),
-		}
+		return nil, fmt.Errorf("expected tag, got %s", object.Type)
 	}
 
 	tag, err := buildAnnotatedTag(ctx, objectReader, object, []byte(tagName))
