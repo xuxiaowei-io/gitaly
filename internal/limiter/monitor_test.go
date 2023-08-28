@@ -67,7 +67,7 @@ func TestNewPerRPCPromMonitor(t *testing.T) {
 		ctx := log.InitContextCustomFields(testhelper.Context(t))
 
 		rpcMonitor.Queued(ctx, fullMethod, 5)
-		rpcMonitor.Enter(ctx, time.Second)
+		rpcMonitor.Enter(ctx, 10, time.Second)
 
 		expectedMetrics := `# HELP acquiring_seconds seconds to acquire
 # TYPE acquiring_seconds histogram
@@ -109,6 +109,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 			"limit.limiting_key":             fullMethod,
 			"limit.concurrency_queue_ms":     int64(1000),
 			"limit.concurrency_queue_length": 5,
+			"limit.concurrency_in_progress":  10,
 		}, stats.Fields())
 
 		// After the request exists, in_progress and queued gauge decrease
@@ -136,7 +137,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 0
 		ctx := log.InitContextCustomFields(testhelper.Context(t))
 
 		rpcMonitor.Queued(ctx, fullMethod, 5)
-		rpcMonitor.Dropped(ctx, fullMethod, 5, time.Second, "load")
+		rpcMonitor.Dropped(ctx, fullMethod, 5, 10, time.Second, "load")
 
 		expectedMetrics := `# HELP acquiring_seconds seconds to acquire
 # TYPE acquiring_seconds histogram
@@ -181,6 +182,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 			"limit.limiting_key":             fullMethod,
 			"limit.concurrency_queue_ms":     int64(1000),
 			"limit.concurrency_queue_length": 5,
+			"limit.concurrency_in_progress":  10,
 			"limit.concurrency_dropped":      "load",
 		}, stats.Fields())
 	})
@@ -188,7 +190,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 	t.Run("request is dropped before queueing", func(t *testing.T) {
 		rpcMonitor := createNewMonitor()
 		ctx := log.InitContextCustomFields(testhelper.Context(t))
-		rpcMonitor.Dropped(ctx, fullMethod, 5, time.Second, "load")
+		rpcMonitor.Dropped(ctx, fullMethod, 5, 10, time.Second, "load")
 
 		expectedMetrics := `# HELP acquiring_seconds seconds to acquire
 # TYPE acquiring_seconds histogram
@@ -233,6 +235,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 0
 			"limit.limiting_key":             fullMethod,
 			"limit.concurrency_queue_ms":     int64(1000),
 			"limit.concurrency_queue_length": 5,
+			"limit.concurrency_in_progress":  10,
 			"limit.concurrency_dropped":      "load",
 		}, stats.Fields())
 	})
@@ -246,7 +249,7 @@ func TestNewPackObjectsConcurrencyMonitor(t *testing.T) {
 		)
 
 		packObjectsConcurrencyMonitor.Queued(ctx, "1234", 5)
-		packObjectsConcurrencyMonitor.Enter(ctx, time.Second)
+		packObjectsConcurrencyMonitor.Enter(ctx, 10, time.Second)
 
 		expectedMetrics := `# HELP gitaly_pack_objects_acquiring_seconds Histogram of time calls are rate limited (in seconds)
 # TYPE gitaly_pack_objects_acquiring_seconds histogram
@@ -288,6 +291,7 @@ gitaly_pack_objects_queued 1
 			"limit.limiting_key":             "1234",
 			"limit.concurrency_queue_ms":     int64(1000),
 			"limit.concurrency_queue_length": 5,
+			"limit.concurrency_in_progress":  10,
 		}, stats.Fields())
 
 		// After the request exists, in_progress and queued gauge decrease
@@ -317,7 +321,7 @@ gitaly_pack_objects_queued 0
 		)
 
 		packObjectsConcurrencyMonitor.Queued(ctx, "1234", 5)
-		packObjectsConcurrencyMonitor.Dropped(ctx, "1234", 5, time.Second, "load")
+		packObjectsConcurrencyMonitor.Dropped(ctx, "1234", 5, 10, time.Second, "load")
 
 		expectedMetrics := `# HELP gitaly_pack_objects_acquiring_seconds Histogram of time calls are rate limited (in seconds)
 # TYPE gitaly_pack_objects_acquiring_seconds histogram
@@ -362,6 +366,7 @@ gitaly_pack_objects_queued 1
 			"limit.limiting_key":             "1234",
 			"limit.concurrency_queue_ms":     int64(1000),
 			"limit.concurrency_queue_length": 5,
+			"limit.concurrency_in_progress":  10,
 			"limit.concurrency_dropped":      "load",
 		}, stats.Fields())
 	})
@@ -372,7 +377,7 @@ gitaly_pack_objects_queued 1
 			promconfig.DefaultConfig().GRPCLatencyBuckets,
 		)
 
-		packObjectsConcurrencyMonitor.Dropped(ctx, "1234", 5, time.Second, "load")
+		packObjectsConcurrencyMonitor.Dropped(ctx, "1234", 5, 10, time.Second, "load")
 
 		expectedMetrics := `# HELP gitaly_pack_objects_acquiring_seconds Histogram of time calls are rate limited (in seconds)
 # TYPE gitaly_pack_objects_acquiring_seconds histogram
@@ -417,6 +422,7 @@ gitaly_pack_objects_queued 0
 			"limit.limiting_key":             "1234",
 			"limit.concurrency_queue_ms":     int64(1000),
 			"limit.concurrency_queue_length": 5,
+			"limit.concurrency_in_progress":  10,
 			"limit.concurrency_dropped":      "load",
 		}, stats.Fields())
 	})
