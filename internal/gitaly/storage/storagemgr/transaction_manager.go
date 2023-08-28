@@ -1004,6 +1004,11 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		mgr.applyNotifications[i] = make(chan struct{})
 	}
 
+	// Remove any packed-refs lockfiles found on startup.
+	if err := mgr.removePackedRefsLocks(mgr.ctx); err != nil {
+		return fmt.Errorf("remove stale packed-refs locks: %w", err)
+	}
+
 	if err := mgr.removeStaleWALFiles(mgr.ctx, mgr.appendedLogIndex); err != nil {
 		return fmt.Errorf("remove stale packs: %w", err)
 	}
@@ -1115,6 +1120,27 @@ func (mgr *TransactionManager) createStateDirectory() error {
 
 	if err := syncer.SyncParent(mgr.stateDirectory); err != nil {
 		return fmt.Errorf("sync parent: %w", err)
+	}
+
+	return nil
+}
+
+// removePackedRefsLocks removes any packed-refs.lock and packed-refs.new files present in the manager's
+// repository. No grace period for the locks is given as any lockfiles present must be stale and can be
+// safely removed immediately.
+func (mgr *TransactionManager) removePackedRefsLocks(ctx context.Context) error {
+	for _, lock := range []string{".new", ".lock"} {
+		lockPath := filepath.Join(mgr.repositoryPath, "packed-refs"+lock)
+
+		// We deliberately do not fsync this deletion. Should a crash occur before this is persisted
+		// to disk, the restarted transaction manager will simply remove them again.
+		if err := os.Remove(lockPath); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
+			return fmt.Errorf("remove %v: %w", lockPath, err)
+		}
 	}
 
 	return nil
