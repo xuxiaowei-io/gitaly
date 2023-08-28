@@ -1751,6 +1751,9 @@ func TestTLS_Validate(t *testing.T) {
 	const certPath = "../server/testdata/gitalycert.pem"
 	const keyPath = "../server/testdata/gitalykey.pem"
 
+	key, err := os.ReadFile(keyPath)
+	require.NoError(t, err)
+
 	tmpDir := testhelper.TempDir(t)
 	tmpFile := filepath.Join(tmpDir, "file")
 	require.NoError(t, os.WriteFile(tmpFile, []byte("I am not a certificate"), perm.SharedFile))
@@ -1770,6 +1773,12 @@ func TestTLS_Validate(t *testing.T) {
 			name: "valid",
 			setup: func(t *testing.T) TLS {
 				return TLS{CertPath: certPath, KeyPath: keyPath}
+			},
+		},
+		{
+			name: "valid, pass in key directly",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: certPath, Key: string(key)}
 			},
 		},
 		{
@@ -1794,25 +1803,51 @@ func TestTLS_Validate(t *testing.T) {
 				return TLS{CertPath: tmpFile, KeyPath: keyPath}
 			},
 			expectedErr: cfgerror.NewValidationError(
-				errors.New("tls: failed to find any PEM data in certificate input"),
+				errors.New("loading x509 keypair: tls: failed to find any PEM data in certificate input"),
 				"certificate_path",
+			),
+		},
+		{
+			name: "bad keypath",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: certPath, KeyPath: "config_test.go"}
+			},
+			expectedErr: cfgerror.NewValidationError(
+				errors.New("loading x509 keypair: tls: failed to find any PEM data in key input"),
+				"key_path",
 			),
 		},
 		{
 			name: "bad key",
 			setup: func(t *testing.T) TLS {
-				return TLS{CertPath: certPath, KeyPath: "config_test.go"}
+				return TLS{CertPath: certPath, Key: "this is not a valid key"}
 			},
 			expectedErr: cfgerror.NewValidationError(
-				errors.New("tls: failed to find any PEM data in key input"),
+				errors.New("loading x509 keypair: tls: failed to find any PEM data in key input"),
+				"key",
+			),
+		},
+		{
+			name: "key and key_path both set",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: certPath, Key: "key data", KeyPath: "path/to/key"}
+			},
+			expectedErr: cfgerror.NewValidationError(
+				errors.New("key_path and key cannot both be set"),
 				"key_path",
+				"key",
 			),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tlsCfg := tc.setup(t)
 			err := tlsCfg.Validate()
-			require.Equal(t, tc.expectedErr, err)
+			if err == nil {
+				require.NoError(t, err)
+				return
+			}
+
+			require.Equal(t, tc.expectedErr.Error(), err.Error())
 		})
 	}
 }
