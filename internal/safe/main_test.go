@@ -1,4 +1,4 @@
-package safe_test
+package safe
 
 import (
 	"testing"
