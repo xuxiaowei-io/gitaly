@@ -49,14 +49,13 @@ I.e.
     - [ ] Progressively enable in production ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-in-production))
     - [ ] Add ~"featureflag::production" to this issue
     - [ ] Verify the feature flag was used by checking Prometheus metric [`gitaly_feature_flag_checks_total`](https://prometheus.gprd.gitlab.net/graph?g0.expr=sum%20by%20(flag)%20(rate(gitaly_feature_flag_checks_total%5B5m%5D))&g0.tab=1&g0.stacked=0&g0.range_input=1h)
-- [ ] Default-enable the feature flag (optional, only required if backwards-compatibility concerns exist)
-    - [ ] Wait for release containg default-disabled feature flag.
-    - [ ] Change the feature flag to default-enabled ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-lifecycle-after-it-is-live))
-    - [ ] Wait for release containing default-enabled feature flag.
-- [ ] Remove feature flag
-    - [ ] Remove the feature flag and the pre-feature-flag code ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-lifecycle-after-it-is-live))
-    - [ ] Remove the feature flag via chatops ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#remove-the-feature-flag-via-chatops))
-    - [ ] Close this issue
+- [ ] Create subsequent issues
+  - [ ] To default enable the feature flag (optional, only required if backwards-compatibility concerns exist)
+    - [ ] [Create issue](https://gitlab.com/gitlab-org/gitaly/-/issues/new?issuable_template=Feature%20Flag%20Default%20Enable) using the `Feature Flag Default Enable` template.
+    - [ ] Set milestone to current+1 release
+  - [ ] To Remove feature flag
+    - [ ] [Create issue](https://gitlab.com/gitlab-org/gitaly/-/issues/new?issuable_template=Feature%20Flag%20Removal) using the `Feature Flag Removal` template.
+    - [ ] Set milestone to current+1 (+2 if we created an issue to default enable the flag).
 
 Please refer to the [documentation of feature flags](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-flags) for further information.
 
