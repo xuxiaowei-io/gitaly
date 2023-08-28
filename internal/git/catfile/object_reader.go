@@ -8,6 +8,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 )
 
@@ -67,14 +68,20 @@ func newObjectReader(
 	repo git.RepositoryExecutor,
 	counter *prometheus.CounterVec,
 ) (*objectReader, error) {
+	flags := []git.Option{
+		git.Flag{Name: "-Z"},
+		git.Flag{Name: "--batch-command"},
+		git.Flag{Name: "--buffer"},
+	}
+
+	if featureflag.MailmapOptions.IsEnabled(ctx) {
+		flags = append([]git.Option{git.Flag{Name: "--use-mailmap"}}, flags...)
+	}
+
 	batchCmd, err := repo.Exec(ctx,
 		git.Command{
-			Name: "cat-file",
-			Flags: []git.Option{
-				git.Flag{Name: "-Z"},
-				git.Flag{Name: "--batch-command"},
-				git.Flag{Name: "--buffer"},
-			},
+			Name:  "cat-file",
+			Flags: flags,
 		},
 		git.WithSetupStdin(),
 	)
