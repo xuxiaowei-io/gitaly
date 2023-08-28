@@ -1,4 +1,4 @@
-package perm
+package perm_test
 
 import (
 	"io/fs"
@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
 
 func TestUmaskMask(t *testing.T) {
 	for _, tc := range []struct {
 		desc         string
 		mode         fs.FileMode
-		umask        Umask
+		umask        perm.Umask
 		expectedMode fs.FileMode
 	}{
 		{
