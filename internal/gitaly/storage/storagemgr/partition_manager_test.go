@@ -44,7 +44,7 @@ func TestPartitionManager(t *testing.T) {
 		repo storage.Repository
 		// expectedState contains the partitions by their storages and their pending transaction count at
 		// the end of the step.
-		expectedState map[string]map[string]uint
+		expectedState map[string]map[partitionID]uint
 		// expectedError is the error expected to be returned when beginning the transaction.
 		expectedError error
 	}
@@ -57,7 +57,7 @@ func TestPartitionManager(t *testing.T) {
 		ctx context.Context
 		// expectedState contains the partitions by their storages and their pending transaction count at
 		// the end of the step.
-		expectedState map[string]map[string]uint
+		expectedState map[string]map[partitionID]uint
 		// expectedError is the error that is expected to be returned when committing the transaction.
 		expectedError error
 	}
@@ -68,7 +68,7 @@ func TestPartitionManager(t *testing.T) {
 		transactionID int
 		// expectedState contains the partitions by their storages and their pending transaction count at
 		// the end of the step.
-		expectedState map[string]map[string]uint
+		expectedState map[string]map[partitionID]uint
 		// expectedError is the error that is expected to be returned when rolling back the transaction.
 		expectedError error
 	}
@@ -117,22 +117,22 @@ func TestPartitionManager(t *testing.T) {
 
 	// checkExpectedState validates that the partition manager contains the correct partitions and
 	// associated transaction count at the point of execution.
-	checkExpectedState := func(t *testing.T, cfg config.Cfg, partitionManager *PartitionManager, expectedState map[string]map[string]uint) {
+	checkExpectedState := func(t *testing.T, cfg config.Cfg, partitionManager *PartitionManager, expectedState map[string]map[partitionID]uint) {
 		t.Helper()
 
-		actualState := map[string]map[string]uint{}
+		actualState := map[string]map[partitionID]uint{}
 		for storageName, storageMgr := range partitionManager.storages {
-			for partitionKey, partition := range storageMgr.partitions {
+			for ptnID, partition := range storageMgr.partitions {
 				if actualState[storageName] == nil {
-					actualState[storageName] = map[string]uint{}
+					actualState[storageName] = map[partitionID]uint{}
 				}
 
-				actualState[storageName][partitionKey] = partition.pendingTransactionCount
+				actualState[storageName][ptnID] = partition.pendingTransactionCount
 			}
 		}
 
 		if expectedState == nil {
-			expectedState = map[string]map[string]uint{}
+			expectedState = map[string]map[partitionID]uint{}
 		}
 
 		require.Equal(t, expectedState, actualState)
@@ -173,9 +173,9 @@ func TestPartitionManager(t *testing.T) {
 					steps: steps{
 						begin{
 							repo: repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -194,9 +194,9 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							transactionID: 1,
 							repo:          repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -206,9 +206,9 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							transactionID: 2,
 							repo:          repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -229,26 +229,26 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							transactionID: 1,
 							repo:          repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
 						begin{
 							transactionID: 2,
 							repo:          repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 2,
+									1: 2,
 								},
 							},
 						},
 						commit{
 							transactionID: 1,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -271,51 +271,51 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							transactionID: 1,
 							repo:          repoA,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repoA.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
 						begin{
 							transactionID: 2,
 							repo:          repoB,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repoA.GetRelativePath(): 1,
-									repoB.GetRelativePath(): 1,
+									1: 1,
+									2: 1,
 								},
 							},
 						},
 						begin{
 							transactionID: 3,
 							repo:          repoC,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repoA.GetRelativePath(): 1,
-									repoB.GetRelativePath(): 1,
+									1: 1,
+									2: 1,
 								},
 								"other-storage": {
-									repoC.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
 						commit{
 							transactionID: 1,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repoB.GetRelativePath(): 1,
+									2: 1,
 								},
 								"other-storage": {
-									repoC.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
 						commit{
 							transactionID: 2,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"other-storage": {
-									repoC.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -335,9 +335,9 @@ func TestPartitionManager(t *testing.T) {
 					steps: steps{
 						begin{
 							repo: repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -377,9 +377,9 @@ func TestPartitionManager(t *testing.T) {
 					steps: steps{
 						begin{
 							repo: repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -400,9 +400,9 @@ func TestPartitionManager(t *testing.T) {
 					steps: steps{
 						begin{
 							repo: repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -424,9 +424,9 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							transactionID: 1,
 							repo:          repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -436,9 +436,9 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							transactionID: 2,
 							repo:          repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -516,9 +516,9 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							transactionID: 1,
 							repo:          repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -528,9 +528,9 @@ func TestPartitionManager(t *testing.T) {
 								StorageName:  repo.GetStorageName(),
 								RelativePath: filepath.Join(repo.GetRelativePath(), "child-dir", ".."),
 							},
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 2,
+									1: 2,
 								},
 							},
 						},
@@ -548,9 +548,9 @@ func TestPartitionManager(t *testing.T) {
 						begin{
 							transactionID: 1,
 							repo:          repo,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
@@ -560,25 +560,25 @@ func TestPartitionManager(t *testing.T) {
 								StorageName:  repo.GetStorageName(),
 								RelativePath: repo.GetRelativePath(),
 							},
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 2,
+									1: 2,
 								},
 							},
 						},
 						rollback{
 							transactionID: 2,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 						},
 						rollback{
 							transactionID: 2,
-							expectedState: map[string]map[string]uint{
+							expectedState: map[string]map[partitionID]uint{
 								"default": {
-									repo.GetRelativePath(): 1,
+									1: 1,
 								},
 							},
 							expectedError: ErrTransactionAlreadyRollbacked,
@@ -663,7 +663,11 @@ func TestPartitionManager(t *testing.T) {
 
 					storageMgr := partitionManager.storages[step.repo.GetStorageName()]
 					storageMgr.mu.Lock()
-					ptn := storageMgr.partitions[step.repo.GetRelativePath()]
+
+					ptnID, err := storageMgr.partitionAssigner.getPartitionID(ctx, step.repo.GetRelativePath())
+					require.NoError(t, err)
+
+					ptn := storageMgr.partitions[ptnID]
 					storageMgr.mu.Unlock()
 
 					openTransactionData[step.transactionID] = &transactionData{

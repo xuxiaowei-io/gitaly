@@ -13,10 +13,22 @@ import (
 )
 
 func TestStorageDiskStatistics(t *testing.T) {
-	cfg := testcfg.Build(t, testcfg.WithStorages("default", "broken"))
+	storageOpt := testcfg.WithStorages("default")
+	if !testhelper.IsWALEnabled() {
+		// The test is testing a broken storage by deleting the storage after initializing it.
+		// This causes problems with WAL as the disk state expected to be present by the database
+		// and the transaction manager suddenly don't exist. Skip the test here with WAL and rely
+		// on the storage implementation to handle broken storage on initialization.
+		storageOpt = testcfg.WithStorages("default", "broken")
+	}
+
+	cfg := testcfg.Build(t, storageOpt)
 
 	addr := runServer(t, cfg)
-	require.NoError(t, os.RemoveAll(cfg.Storages[1].Path), "second storage needs to be invalid")
+
+	if !testhelper.IsWALEnabled() {
+		require.NoError(t, os.RemoveAll(cfg.Storages[1].Path), "second storage needs to be invalid")
+	}
 
 	client := newServerClient(t, addr)
 	ctx := testhelper.Context(t)
@@ -25,7 +37,7 @@ func TestStorageDiskStatistics(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedStorages := len(cfg.Storages)
-	if testhelper.IsPraefectEnabled() {
+	if testhelper.IsPraefectEnabled() && !testhelper.IsWALEnabled() {
 		// Praefect does not virtualize StorageDiskStatistics correctly. It proxies the call to each Gitaly
 		// and returns the results of all of their storages. However, not all storages on a Gitaly node are
 		// necessarily part of a virtual storage. Likewise, Praefect should not expose the individual storages
@@ -47,11 +59,13 @@ func TestStorageDiskStatistics(t *testing.T) {
 	approxEqual(t, c.GetStorageStatuses()[0].Used, used)
 	require.Equal(t, cfg.Storages[0].Name, c.GetStorageStatuses()[0].StorageName)
 
-	require.Equal(t, int64(0), c.GetStorageStatuses()[1].Available)
-	require.Equal(t, int64(0), c.GetStorageStatuses()[1].Used)
-	require.Equal(t, cfg.Storages[1].Name, c.GetStorageStatuses()[1].StorageName)
+	if !testhelper.IsWALEnabled() {
+		require.Equal(t, int64(0), c.GetStorageStatuses()[1].Available)
+		require.Equal(t, int64(0), c.GetStorageStatuses()[1].Used)
+		require.Equal(t, cfg.Storages[1].Name, c.GetStorageStatuses()[1].StorageName)
+	}
 
-	if testhelper.IsPraefectEnabled() {
+	if testhelper.IsPraefectEnabled() && !testhelper.IsWALEnabled() {
 		// This is incorrect behavior caused by the bug explained above.
 		approxEqual(t, c.GetStorageStatuses()[2].Available, avail)
 		approxEqual(t, c.GetStorageStatuses()[2].Used, used)
