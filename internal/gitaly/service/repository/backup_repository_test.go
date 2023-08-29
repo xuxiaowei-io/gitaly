@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -184,5 +185,35 @@ func TestServerBackupRepository(t *testing.T) {
 			require.NoError(t, err)
 			testhelper.MustClose(t, refs)
 		})
+	}
+}
+
+func BenchmarkBackupRepository(b *testing.B) {
+	ctx := testhelper.Context(b)
+
+	backupRoot := testhelper.TempDir(b)
+	backupSink, err := backup.ResolveSink(ctx, backupRoot)
+	require.NoError(b, err)
+
+	backupLocator, err := backup.ResolveLocator("pointer", backupSink)
+	require.NoError(b, err)
+
+	cfg, client := setupRepositoryService(b,
+		testserver.WithBackupSink(backupSink),
+		testserver.WithBackupLocator(backupLocator),
+	)
+
+	repo, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+		Seed: "benchmark.git",
+	})
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := client.BackupRepository(ctx, &gitalypb.BackupRepositoryRequest{
+			Repository:       repo,
+			VanityRepository: repo,
+			BackupId:         strconv.Itoa(i),
+		})
+		require.NoError(b, err)
 	}
 }
