@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -21,7 +23,12 @@ func (s *server) GetCustomHooks(in *gitalypb.GetCustomHooksRequest, stream gital
 		return stream.Send(&gitalypb.GetCustomHooksResponse{Data: p})
 	})
 
-	if err := repoutil.GetCustomHooks(ctx, s.locator, writer, in.Repository); err != nil {
+	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	if err != nil {
+		return fmt.Errorf("get repo path: %w", err)
+	}
+
+	if err := repoutil.GetCustomHooks(ctx, repoPath, writer); err != nil {
 		return structerr.NewInternal("reading custom hooks: %w", err)
 	}
 
@@ -42,7 +49,12 @@ func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream
 		return stream.Send(&gitalypb.BackupCustomHooksResponse{Data: p})
 	})
 
-	if err := repoutil.GetCustomHooks(ctx, s.locator, writer, in.Repository); err != nil {
+	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	if err != nil {
+		return fmt.Errorf("get repo path: %w", err)
+	}
+
+	if err := repoutil.GetCustomHooks(ctx, repoPath, writer); err != nil {
 		return structerr.NewInternal("reading custom hooks: %w", err)
 	}
 

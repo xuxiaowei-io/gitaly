@@ -32,8 +32,7 @@ func TestGetCustomHooks_successful(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	locator := config.NewLocator(cfg)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -49,7 +48,7 @@ func TestGetCustomHooks_successful(t *testing.T) {
 	}
 
 	var hooks bytes.Buffer
-	require.NoError(t, GetCustomHooks(ctx, locator, &hooks, repo))
+	require.NoError(t, GetCustomHooks(ctx, repoPath, &hooks))
 
 	reader := tar.NewReader(&hooks)
 	fileLength := 0
@@ -70,8 +69,7 @@ func TestGetCustomHooks_symlink(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	locator := config.NewLocator(cfg)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -79,7 +77,7 @@ func TestGetCustomHooks_symlink(t *testing.T) {
 	require.NoError(t, os.Symlink(linkTarget, filepath.Join(repoPath, "custom_hooks")), "Could not create custom_hooks symlink")
 
 	var hooks bytes.Buffer
-	require.NoError(t, GetCustomHooks(ctx, locator, &hooks, repo))
+	require.NoError(t, GetCustomHooks(ctx, repoPath, &hooks))
 
 	reader := tar.NewReader(&hooks)
 	file, err := reader.Next()
@@ -98,13 +96,12 @@ func TestGetCustomHooks_nonexistentHooks(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	locator := config.NewLocator(cfg)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
 	var hooks bytes.Buffer
-	require.NoError(t, GetCustomHooks(ctx, locator, &hooks, repo))
+	require.NoError(t, GetCustomHooks(ctx, repoPath, &hooks))
 
 	reader := tar.NewReader(&hooks)
 	buf := bytes.NewBuffer(nil)
