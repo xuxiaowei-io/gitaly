@@ -727,7 +727,7 @@ func BenchmarkFindAllTags(b *testing.B) {
 	cfg, client := setupRefService(b)
 
 	repoProto, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+		Seed: "benchmark.git",
 	})
 
 	for i := 0; i < 1000; i++ {

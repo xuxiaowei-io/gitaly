@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	git "github.com/libgit2/git2go/v34"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/cmd/gitaly-git2go/git2goutil"
-	gitalygit "gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -29,7 +28,6 @@ func TestRebase_validation(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
@@ -91,159 +89,267 @@ func TestRebase_validation(t *testing.T) {
 func TestRebase_rebase(t *testing.T) {
 	gittest.SkipWithSHA256(t)
 
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	testcfg.BuildGitalyGit2Go(t, cfg)
+	executor := buildExecutor(t, cfg)
+
+	committer := git2go.NewSignature(
+		string(gittest.TestUser.Name),
+		string(gittest.TestUser.Email),
+		time.Date(2021, 3, 1, 13, 45, 50, 0, time.FixedZone("", +2*60*60)),
+	)
+
+	type setup struct {
+		base, upstream, downstream git.ObjectID
+		expecetedCommitsAhead      int
+		expectedObjectID           git.ObjectID
+		expectedErr                string
+	}
+
 	testcases := []struct {
-		desc         string
-		branch       string
-		commitsAhead int
-		setupRepo    func(testing.TB, *git.Repository)
-		expected     string
-		expectedErr  string
+		desc  string
+		setup func(testing.TB, string) setup
 	}{
 		{
-			desc:         "Single commit rebase",
-			branch:       "gitaly-rename-test",
-			commitsAhead: 1,
-			expected:     "a08ed4bc45f9e686db93c5d0519f63d7b537270c",
-		},
-		{
-			desc:         "Multiple commits",
-			branch:       "csv",
-			commitsAhead: 5,
-			expected:     "2f8365edc69d3683e22c4209ae9641642d84dd4a",
-		},
-		{
-			desc:         "Branch zero commits behind",
-			branch:       "sha-starting-with-large-number",
-			commitsAhead: 1,
-			expected:     "842616594688d2351480dfebd67b3d8d15571e6d",
-		},
-		{
-			desc:     "Merged branch",
-			branch:   "branch-merged",
-			expected: masterRevision,
-		},
-		{
-			desc:   "Partially merged branch",
-			branch: "branch-merged-plus-one",
-			setupRepo: func(tb testing.TB, repo *git.Repository) {
-				head, err := lookupCommit(repo, "branch-merged")
-				require.NoError(tb, err)
+			desc: "Single commit rebase",
+			setup: func(tb testing.TB, repoPath string) setup {
+				base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\n"},
+				))
+				upstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("upstream"), gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "upstream\nb\nc\nd\ne\nf\ng\n"},
+				))
+				downstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("downstream"), gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream\n"},
+				))
 
-				other, err := lookupCommit(repo, "gitaly-rename-test")
-				require.NoError(tb, err)
-				tree, err := other.Tree()
-				require.NoError(tb, err)
-				newOid, err := repo.CreateCommitFromIds("refs/heads/branch-merged-plus-one", &DefaultAuthor, &DefaultAuthor, "Message", tree.Object.Id(), head.Object.Id())
-				require.NoError(tb, err)
-				require.Equal(tb, "8665d9b4b56f6b8ab8c4128a5549d1820bf68bf5", newOid.String())
+				return setup{
+					base:                  base,
+					upstream:              upstream,
+					downstream:            downstream,
+					expectedObjectID:      "ef018adb419cd97453a0624c28271fafe622b83e",
+					expecetedCommitsAhead: 1,
+				}
 			},
-			commitsAhead: 1,
-			expected:     "56bafb70922008232d171b78930be6cdb722bb39",
 		},
 		{
-			desc:   "With upstream merged into",
-			branch: "csv-plus-merge",
-			setupRepo: func(tb testing.TB, repo *git.Repository) {
-				ours, err := lookupCommit(repo, "csv")
-				require.NoError(tb, err)
-				theirs, err := lookupCommit(repo, "b83d6e391c22777fca1ed3012fce84f633d7fed0")
-				require.NoError(tb, err)
+			desc: "Multiple commits",
+			setup: func(tb testing.TB, repoPath string) setup {
+				base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\n"},
+				))
+				upstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("upstream"), gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "upstream\nb\nc\nd\ne\nf\ng\n"},
+				))
+				downstream1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("downstream-1"), gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream-1\n"},
+				))
+				downstream2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("downstream-2"), gittest.WithParents(downstream1), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream-2\n"},
+				))
+				downstream3 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("downstream-3"), gittest.WithParents(downstream2), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream-3\n"},
+				))
 
-				index, err := repo.MergeCommits(ours, theirs, nil)
-				require.NoError(tb, err)
-				tree, err := index.WriteTreeTo(repo)
-				require.NoError(tb, err)
-
-				newOid, err := repo.CreateCommitFromIds("refs/heads/csv-plus-merge", &DefaultAuthor, &DefaultAuthor, "Message", tree, ours.Object.Id(), theirs.Object.Id())
-				require.NoError(tb, err)
-				require.Equal(tb, "5b2d6bd7be0b1b9f7e46b64d02fe9882c133a128", newOid.String())
+				return setup{
+					base:                  base,
+					upstream:              upstream,
+					downstream:            downstream3,
+					expectedObjectID:      "d3c737fdb3a0c4da3a371fc01de6df4cbb5bc3e4",
+					expecetedCommitsAhead: 3,
+				}
 			},
-			commitsAhead: 5, // Same as "Multiple commits"
-			expected:     "2f8365edc69d3683e22c4209ae9641642d84dd4a",
 		},
 		{
-			desc:        "Rebase with conflict",
-			branch:      "rebase-encoding-failure-trigger",
-			expectedErr: "rebase: commit \"eb8f5fb9523b868cef583e09d4bf70b99d2dd404\": there are conflicting files",
+			desc: "Branch zero commits behind",
+			setup: func(tb testing.TB, repoPath string) setup {
+				base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\n"},
+				))
+				downstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("downstream"), gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream\n"},
+				))
+
+				return setup{
+					base:                  base,
+					upstream:              base,
+					downstream:            downstream,
+					expectedObjectID:      downstream,
+					expecetedCommitsAhead: 1,
+				}
+			},
 		},
 		{
-			desc:        "Orphaned branch",
-			branch:      "orphaned-branch",
-			expectedErr: "rebase: find merge base: no merge base found",
+			desc: "Merged branch",
+			setup: func(tb testing.TB, repoPath string) setup {
+				base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\n"},
+				))
+				downstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream\n"},
+				))
+				merge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base, downstream), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream\n"},
+				))
+
+				return setup{
+					base: base, upstream: merge, downstream: downstream,
+					expectedObjectID: merge,
+				}
+			},
+		},
+		{
+			desc: "Partially merged branch",
+			setup: func(tb testing.TB, repoPath string) setup {
+				base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\n"},
+				))
+				downstream1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream-1\n"},
+				))
+				downstream2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(downstream1), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream-2\n"},
+				))
+				merge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base, downstream1), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream-1\n"},
+				))
+
+				return setup{
+					base:                  base,
+					upstream:              merge,
+					downstream:            downstream2,
+					expectedObjectID:      "721e8bd36a394a7cc243b8c3960b44c5520c6246",
+					expecetedCommitsAhead: 1,
+				}
+			},
+		},
+		{
+			desc: "With upstream merged into",
+			setup: func(tb testing.TB, repoPath string) setup {
+				base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ng\n"},
+				))
+				upstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("upstream"), gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "upstream\nb\nc\nd\ne\nf\ng\n"},
+				))
+				downstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("downstream"), gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\nd\ne\nf\ndownstream\n"},
+				))
+				downstreamMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(downstream, upstream), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "upstream\nb\nc\nd\ne\nf\ndownstream\n"},
+				))
+
+				return setup{
+					base:                  base,
+					upstream:              upstream,
+					downstream:            downstreamMerge,
+					expectedObjectID:      "aa375bc059fa8830d9489d89af1278632722407d",
+					expecetedCommitsAhead: 2,
+				}
+			},
+		},
+		{
+			desc: "Rebase with conflict",
+			setup: func(tb testing.TB, repoPath string) setup {
+				base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "base\n"},
+				))
+				upstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "upstream\n"},
+				))
+				downstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "downstream\n"},
+				))
+
+				return setup{
+					upstream:    upstream,
+					downstream:  downstream,
+					expectedErr: fmt.Sprintf("rebase: commit %q: there are conflicting files", downstream),
+				}
+			},
+		},
+		{
+			desc: "Orphaned branch",
+			setup: func(tb testing.TB, repoPath string) setup {
+				upstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "upstream\n"},
+				))
+				downstream := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "downstream\n"},
+				))
+
+				return setup{
+					upstream:    upstream,
+					downstream:  downstream,
+					expectedErr: "rebase: find merge base: no merge base found",
+				}
+			},
 		},
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
+			t.Parallel()
 
-			committer := git2go.NewSignature(string(gittest.TestUser.Name),
-				string(gittest.TestUser.Email),
-				time.Date(2021, 3, 1, 13, 45, 50, 0, time.FixedZone("", +2*60*60)))
-
-			cfg := testcfg.Build(t)
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
 			})
-			testcfg.BuildGitalyGit2Go(t, cfg)
-			executor := buildExecutor(t, cfg)
+			setup := tc.setup(t, repoPath)
+
+			gittest.WriteRef(t, cfg, repoPath, "refs/heads/upstream", setup.upstream)
+			gittest.WriteRef(t, cfg, repoPath, "refs/heads/downstream", setup.downstream)
 
 			repo, err := git2goutil.OpenRepository(repoPath)
-			require.NoError(t, err)
-
-			if tc.setupRepo != nil {
-				tc.setupRepo(t, repo)
-			}
-
-			branchCommit, err := lookupCommit(repo, tc.branch)
 			require.NoError(t, err)
 
 			for desc, request := range map[string]git2go.RebaseCommand{
 				"with branch and upstream": {
 					Repository:       repoPath,
 					Committer:        committer,
-					BranchName:       tc.branch,
-					UpstreamRevision: masterRevision,
+					BranchName:       "downstream",
+					UpstreamRevision: setup.upstream.String(),
 				},
 				"with branch and upstream commit ID": {
 					Repository:       repoPath,
 					Committer:        committer,
-					BranchName:       tc.branch,
-					UpstreamCommitID: gitalygit.ObjectID(masterRevision),
+					BranchName:       "downstream",
+					UpstreamCommitID: setup.upstream,
 				},
 				"with commit ID and upstream": {
 					Repository:       repoPath,
 					Committer:        committer,
-					BranchName:       tc.branch,
-					UpstreamRevision: masterRevision,
+					CommitID:         setup.downstream,
+					UpstreamRevision: setup.upstream.String(),
 				},
 				"with commit ID and upstream commit ID": {
 					Repository:       repoPath,
 					Committer:        committer,
-					CommitID:         gitalygit.ObjectID(branchCommit.Id().String()),
-					UpstreamCommitID: gitalygit.ObjectID(masterRevision),
+					CommitID:         setup.downstream,
+					UpstreamCommitID: setup.upstream,
 				},
 			} {
 				t.Run(desc, func(t *testing.T) {
 					response, err := executor.Rebase(ctx, repoProto, request)
-					if tc.expectedErr != "" {
-						require.EqualError(t, err, tc.expectedErr)
+					if setup.expectedErr != "" {
+						require.EqualError(t, err, setup.expectedErr)
 					} else {
 						require.NoError(t, err)
+						require.Equal(t, setup.expectedObjectID, response)
 
-						result := response.String()
-						require.Equal(t, tc.expected, result)
-
-						commit, err := lookupCommit(repo, result)
+						commit, err := lookupCommit(repo, response.String())
 						require.NoError(t, err)
 
-						for i := tc.commitsAhead; i > 0; i-- {
+						for i := setup.expecetedCommitsAhead; i > 0; i-- {
 							commit = commit.Parent(0)
 						}
-						masterCommit, err := lookupCommit(repo, masterRevision)
+						baseCommit, err := lookupCommit(repo, setup.base.String())
 						require.NoError(t, err)
-						require.Equal(t, masterCommit, commit)
+						require.Equal(t, baseCommit, commit)
 					}
 				})
 			}
@@ -261,7 +367,6 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
@@ -286,7 +391,7 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 		desc             string
 		skipEmptyCommits bool
 		expectedErr      string
-		expectedResponse gitalygit.ObjectID
+		expectedResponse git.ObjectID
 	}{
 		{
 			desc:             "do not skip empty commit",
