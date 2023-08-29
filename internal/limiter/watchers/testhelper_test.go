@@ -2,9 +2,11 @@ package watchers
 
 import (
 	"os/exec"
+	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 type testCgroupManager struct {
@@ -12,6 +14,10 @@ type testCgroupManager struct {
 	statsErr   error
 	statsList  []cgroups.Stats
 	statsIndex int
+}
+
+func TestMain(m *testing.M) {
+	testhelper.Run(m)
 }
 
 func (m *testCgroupManager) Ready() bool { return m.ready }
