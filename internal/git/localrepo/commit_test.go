@@ -3,7 +3,6 @@ package localrepo
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -119,16 +118,8 @@ func testWriteCommit(t *testing.T, ctx context.Context) {
 			},
 			expectedCommit: strings.Join([]string{
 				"tree " + string(treeA.OID),
-				fmt.Sprintf(
-					"author Scrooge Mcduck <chief@ducks.org> %d %s",
-					commitDate.Unix(),
-					commitDate.Format("-0700"),
-				),
-				fmt.Sprintf(
-					"committer Mickey Mouse <mickey@mouse.org> %d %s",
-					commitDate.Unix(),
-					commitDate.Format("-0700"),
-				),
+				"author Scrooge Mcduck <chief@ducks.org> " + git.FormatSignatureTime(commitDate),
+				"committer Mickey Mouse <mickey@mouse.org> " + git.FormatSignatureTime(commitDate),
 				"",
 				"my custom message",
 				"",
@@ -152,16 +143,8 @@ func testWriteCommit(t *testing.T, ctx context.Context) {
 				"tree " + treeA.OID.String(),
 				"parent " + commitA.String(),
 				"parent " + commitB.String(),
-				fmt.Sprintf(
-					"author Scrooge Mcduck <chief@ducks.org> %d %s",
-					commitDate.Unix(),
-					commitDate.Format("-0700"),
-				),
-				fmt.Sprintf(
-					"committer Mickey Mouse <mickey@mouse.org> %d %s",
-					commitDate.Unix(),
-					commitDate.Format("-0700"),
-				),
+				"author Scrooge Mcduck <chief@ducks.org> " + git.FormatSignatureTime(commitDate),
+				"committer Mickey Mouse <mickey@mouse.org> " + git.FormatSignatureTime(commitDate),
 				"",
 				"my custom message",
 			}, "\n"),
@@ -184,16 +167,8 @@ func testWriteCommit(t *testing.T, ctx context.Context) {
 				"tree " + treeA.OID.String(),
 				"parent " + commitA.String(),
 				"parent " + commitB.String(),
-				fmt.Sprintf(
-					"author Scrooge Mcduck <chief@ducks.org> %d %s",
-					commitDate.Unix(),
-					commitDate.Format("-0700"),
-				),
-				fmt.Sprintf(
-					"committer Mickey Mouse <mickey@mouse.org> %d %s",
-					commitDate.Unix(),
-					commitDate.Format("-0700"),
-				),
+				"author Scrooge Mcduck <chief@ducks.org> " + git.FormatSignatureTime(commitDate),
+				"committer Mickey Mouse <mickey@mouse.org> " + git.FormatSignatureTime(commitDate),
 				"",
 				"my custom message",
 			}, "\n"),

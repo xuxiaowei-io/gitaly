@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
@@ -39,6 +40,16 @@ func NewSignature(name, email string, when time.Time) Signature {
 // format as it is unambiguous to Git. Unix timestamps are only recognized once they have at least 8 digits, which would
 // thus rule all commit dates before 1970-04-26 17:46:40 +0000 UTC. While this is only ~4 months that we'd be missing
 // since the birth of Unix timestamps, especially the zero date is likely going to come up frequently.
+//
+// If you need to format a time to be used in signatures directly, e.g. because it is passed to git-hash-object(1), you
+// can use `FormatSignatureTime()` instead.
 func FormatTime(t time.Time) string {
 	return t.Format(rfc2822DateFormat)
+}
+
+// FormatSignatureTime formats a time such that it can be embedded into a tag or commit object directly.
+//
+// This function should not be used in all other contexts. Refer to `FormatTime()` for the reasoning.
+func FormatSignatureTime(t time.Time) string {
+	return fmt.Sprintf("%d %s", t.Unix(), t.Format("-0700"))
 }

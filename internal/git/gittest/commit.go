@@ -29,7 +29,7 @@ var (
 	// DefaultCommitterSignature is the default signature in the format like it would be present
 	// in commits: "$name <$email> $unixtimestamp $timezone".
 	DefaultCommitterSignature = fmt.Sprintf(
-		"%s <%s> %d %s", DefaultCommitterName, DefaultCommitterMail, DefaultCommitTime.Unix(), DefaultCommitTime.Format("-0700"),
+		"%s <%s> %s", DefaultCommitterName, DefaultCommitterMail, git.FormatSignatureTime(DefaultCommitTime),
 	)
 	// DefaultCommitAuthor is the Protobuf message representation of the default committer and
 	// author used to create commits.
