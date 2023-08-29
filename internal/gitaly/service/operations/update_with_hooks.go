@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -17,5 +18,5 @@ func (s *Server) updateReferenceWithHooks(
 	newrev, oldrev git.ObjectID,
 	pushOptions ...string,
 ) error {
-	return s.updater.UpdateReference(ctx, repo, user, quarantine, reference, newrev, oldrev, pushOptions...)
+	return s.updater.UpdateReference(ctx, repo, user, quarantine, gitlabaction.ReceivePack, reference, newrev, oldrev, pushOptions...)
 }

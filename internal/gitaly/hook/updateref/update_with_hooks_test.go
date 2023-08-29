@@ -84,7 +84,7 @@ func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := updater.UpdateReference(ctx, repo, gittest.TestUser, nil, tc.ref, tc.newRev, tc.oldRev)
+			err := updater.UpdateReference(ctx, repo, gittest.TestUser, nil, gitlabaction.ReceivePack, tc.ref, tc.newRev, tc.oldRev)
 			require.Equal(t, tc.expectedErr, err)
 		})
 	}
@@ -283,7 +283,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 			updater := updateref.NewUpdaterWithHooks(cfg, config.NewLocator(cfg), hookManager, gitCmdFactory, nil)
 
-			err := updater.UpdateReference(ctx, repo, gittest.TestUser, nil, git.ReferenceName("refs/heads/main"), gittest.DefaultObjectHash.ZeroOID, commitID)
+			err := updater.UpdateReference(ctx, repo, gittest.TestUser, nil, gitlabaction.ReceivePack, git.ReferenceName("refs/heads/main"), gittest.DefaultObjectHash.ZeroOID, commitID)
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 			} else {
@@ -399,6 +399,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 			Email:      []byte("mail@example.com"),
 		},
 		quarantine,
+		gitlabaction.ReceivePack,
 		git.ReferenceName("refs/heads/main"),
 		gittest.DefaultObjectHash.ZeroOID,
 		commitID,

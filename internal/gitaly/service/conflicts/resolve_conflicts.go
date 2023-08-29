@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/gitlabaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -188,6 +189,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		header.Repository,
 		header.User,
 		quarantineDir,
+		gitlabaction.ResolveConflicts,
 		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
 		commitOID,
 		git.ObjectID(header.OurCommitOid),

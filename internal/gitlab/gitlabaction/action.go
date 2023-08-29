@@ -13,4 +13,6 @@ const (
 	// ReceivePack indicates that a change has been performed via git-receive-pack(1), or in other words by
 	// a client-side push.
 	ReceivePack = "git-receive-pack"
+	// ResolveConflicts indicates that a change has been performed by the ResolveConflicts RPC.
+	ResolveConflicts = "ResolveConflicts"
 )
