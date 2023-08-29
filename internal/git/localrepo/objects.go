@@ -13,6 +13,32 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
+// ObjectType is an Enum for the type of object of
+// the ls-tree entry, which can be can be tree, blob or commit
+type ObjectType int
+
+// Enum values for ObjectType
+const (
+	Unknown ObjectType = iota
+	Tree
+	Blob
+	Submodule
+)
+
+// ObjectTypeFromString translates a string representation of the object type into an ObjectType enum.
+func ObjectTypeFromString(s string) ObjectType {
+	switch s {
+	case "tree":
+		return Tree
+	case "blob":
+		return Blob
+	case "commit":
+		return Submodule
+	default:
+		return Unknown
+	}
+}
+
 // InvalidObjectError is returned when trying to get an object id that is invalid or does not exist.
 type InvalidObjectError string
 
