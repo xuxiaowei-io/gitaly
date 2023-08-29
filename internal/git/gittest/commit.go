@@ -229,10 +229,10 @@ func WriteCommit(tb testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCo
 	}
 
 	env = append(env,
-		fmt.Sprintf("GIT_AUTHOR_DATE=%d %s", writeCommitConfig.authorDate.Unix(), writeCommitConfig.authorDate.Format("-0700")),
+		fmt.Sprintf("GIT_AUTHOR_DATE=%s", git.FormatTime(writeCommitConfig.authorDate)),
 		fmt.Sprintf("GIT_AUTHOR_NAME=%s", writeCommitConfig.authorName),
 		fmt.Sprintf("GIT_AUTHOR_EMAIL=%s", DefaultCommitterMail),
-		fmt.Sprintf("GIT_COMMITTER_DATE=%d %s", writeCommitConfig.committerDate.Unix(), writeCommitConfig.committerDate.Format("-0700")),
+		fmt.Sprintf("GIT_COMMITTER_DATE=%s", git.FormatTime(writeCommitConfig.committerDate)),
 		fmt.Sprintf("GIT_COMMITTER_NAME=%s", writeCommitConfig.committerName),
 		fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", DefaultCommitterMail),
 	)

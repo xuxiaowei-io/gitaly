@@ -55,3 +55,56 @@ func TestNewSignature(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatTime(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc               string
+		t                  time.Time
+		expectedString     string
+		expectedParsedTime time.Time
+	}{
+		{
+			desc:               "zero value",
+			t:                  time.Time{},
+			expectedString:     "Mon Jan 01 0001 00:00:00 +0000",
+			expectedParsedTime: time.Date(1, time.January, 1, 0, 0, 0, 0, time.FixedZone("", 0)),
+		},
+		{
+			desc:               "Unix birth time",
+			t:                  time.Unix(0, 0).In(time.UTC),
+			expectedString:     "Thu Jan 01 1970 00:00:00 +0000",
+			expectedParsedTime: time.Date(1970, time.January, 1, 0, 0, 0, 0, time.FixedZone("", 0)),
+		},
+		{
+			desc:               "recent UTC date",
+			t:                  time.Date(2023, time.August, 29, 9, 15, 46, 0, time.FixedZone("", 0)),
+			expectedString:     "Tue Aug 29 2023 09:15:46 +0000",
+			expectedParsedTime: time.Date(2023, time.August, 29, 9, 15, 46, 0, time.FixedZone("", 0)),
+		},
+		{
+			desc:               "recent date in non-standard timezone",
+			t:                  time.Date(2023, time.August, 29, 9, 15, 46, 0, time.FixedZone("CEST", 2*60*60)),
+			expectedString:     "Tue Aug 29 2023 09:15:46 +0200",
+			expectedParsedTime: time.Date(2023, time.August, 29, 9, 15, 46, 0, time.FixedZone("", 2*60*60)),
+		},
+		{
+			desc:               "sub-second accuracy is ignored",
+			t:                  time.Date(2023, time.August, 29, 9, 15, 46, 9000, time.FixedZone("CEST", 2*60*60)),
+			expectedString:     "Tue Aug 29 2023 09:15:46 +0200",
+			expectedParsedTime: time.Date(2023, time.August, 29, 9, 15, 46, 0, time.FixedZone("", 2*60*60)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			actualString := FormatTime(tc.t)
+			require.Equal(t, tc.expectedString, actualString)
+
+			// We use `time.ParseInLocation()` here such that Go won't automatically translate e.g. `+0200`
+			// into "CEST" or `time.Local`.
+			actualParsedTime, err := time.ParseInLocation(rfc2822DateFormat, actualString, time.FixedZone("", 0))
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedParsedTime, actualParsedTime)
+		})
+	}
+}

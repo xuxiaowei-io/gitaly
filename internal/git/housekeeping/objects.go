@@ -21,8 +21,6 @@ const (
 	// looseObjectLimit is the limit of loose objects we accept both when doing incremental
 	// repacks and when pruning objects.
 	looseObjectLimit = 1024
-	// rfc2822DateFormat is the date format that Git typically uses for dates.
-	rfc2822DateFormat = "Mon Jan 02 2006 15:04:05 -0700"
 )
 
 // RepackObjectsStrategy defines how objects shall be repacked.
@@ -202,7 +200,7 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		if !cfg.CruftExpireBefore.IsZero() {
 			options = append(options, git.ValueFlag{
 				Name:  "--cruft-expiration",
-				Value: cfg.CruftExpireBefore.Format(rfc2822DateFormat),
+				Value: git.FormatTime(cfg.CruftExpireBefore),
 			})
 		}
 
@@ -333,7 +331,7 @@ func PruneObjects(ctx context.Context, repo *localrepo.Repo, cfg PruneObjectsCon
 			// To avoid this race, we use a grace window that can be specified by the
 			// caller so that we only delete objects that are older than this grace
 			// window.
-			git.ValueFlag{Name: "--expire", Value: cfg.ExpireBefore.Format(rfc2822DateFormat)},
+			git.ValueFlag{Name: "--expire", Value: git.FormatTime(cfg.ExpireBefore)},
 		},
 	}); err != nil {
 		return fmt.Errorf("executing prune: %w", err)
