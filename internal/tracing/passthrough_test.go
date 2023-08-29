@@ -279,6 +279,7 @@ func startFakeGitalyServer(t *testing.T, svc *testSvc, spanContext opentracing.S
 		grpc.WithStreamInterceptor(StreamPassthroughInterceptor(spanContext)),
 	)
 	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
 	return grpc_testing.NewTestServiceClient(conn)
 }
