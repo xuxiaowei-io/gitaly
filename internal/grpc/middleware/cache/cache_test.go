@@ -137,6 +137,7 @@ func TestInvalidators(t *testing.T) {
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 			)
 			require.NoError(t, err)
+			defer testhelper.MustClose(t, conn)
 
 			tc.invokeRPC(t, conn)
 
