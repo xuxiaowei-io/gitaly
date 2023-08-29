@@ -17,5 +17,5 @@ func errorWrapOkay() {
 }
 
 func errorWrapNotOkay() {
-	_ = NewUnavailable("hello world") // please avoid using the Unavailable status code: https://gitlab.com/gitlab-org/gitaly/-/blob/master/STYLE.md?plain=0#unavailable-code
+	_ = NewUnavailable("hello world") // want "please avoid using the Unavailable status code.*"
 }
