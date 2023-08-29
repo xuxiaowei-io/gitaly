@@ -14,9 +14,10 @@ func (s *Server) updateReferenceWithHooks(
 	repo *gitalypb.Repository,
 	user *gitalypb.User,
 	quarantine *quarantine.Dir,
+	action gitlabaction.Action,
 	reference git.ReferenceName,
 	newrev, oldrev git.ObjectID,
 	pushOptions ...string,
 ) error {
-	return s.updater.UpdateReference(ctx, repo, user, quarantine, gitlabaction.ReceivePack, reference, newrev, oldrev, pushOptions...)
+	return s.updater.UpdateReference(ctx, repo, user, quarantine, action, reference, newrev, oldrev, pushOptions...)
 }

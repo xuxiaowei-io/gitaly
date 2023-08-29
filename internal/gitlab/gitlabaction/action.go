@@ -15,4 +15,30 @@ const (
 	ReceivePack = "git-receive-pack"
 	// ResolveConflicts indicates that a change has been performed by the ResolveConflicts RPC.
 	ResolveConflicts = "ResolveConflicts"
+	// UserApplyPatch indicates that a change has been performed by the UserApplyPatch RPC.
+	UserApplyPatch = "UserApplyPatch"
+	// UserCherryPick indicates that a change has been performed by the UserCherryPick RPC.
+	UserCherryPick = "UserCherryPick"
+	// UserCommitFiles indicates that a change has been performed by the UserCommitFiles RPC.
+	UserCommitFiles = "UserCommitFiles"
+	// UserCreateBranch indicates that a change has been performed by the UserCreateBranch RPC.
+	UserCreateBranch = "UserCreateBranch"
+	// UserCreateTag indicates that a change has been performed by the UserCreateTag RPC.
+	UserCreateTag = "UserCreateTag"
+	// UserDeleteBranch indicates that a change has been performed by the UserDeleteBranch RPC.
+	UserDeleteBranch = "UserDeleteBranch"
+	// UserDeleteTag indicates that a change has been performed by the UserDeleteTag RPC.
+	UserDeleteTag = "UserDeleteTag"
+	// UserFFBranch indicates that a change has been performed by the UserFFBranch RPC.
+	UserFFBranch = "UserFFBranch"
+	// UserMergeBranch indicates that a change has been performed by the UserMergeBranch RPC.
+	UserMergeBranch = "UserMergeBranch"
+	// UserRebaseConfirmable indicates that a change has been performed by the UserRebaseConfirmable RPC.
+	UserRebaseConfirmable = "UserRebaseConfirmable"
+	// UserRevert indicates that a change has been performed by the UserRevert RPC.
+	UserRevert = "UserRevert"
+	// UserUpdateBranch indicates that a change has been performed by the UserUpdateBranch RPC.
+	UserUpdateBranch = "UserUpdateBranch"
+	// UserUpdateSubmodule indicates that a change has been performed by the UserUpdateSubmodule RPC.
+	UserUpdateSubmodule = "UserUpdateSubmodule"
 )
