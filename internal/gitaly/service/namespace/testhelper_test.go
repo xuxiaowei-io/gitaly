@@ -14,6 +14,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+func TestMain(m *testing.M) {
+	testhelper.Run(m)
+}
+
 func setupNamespaceService(tb testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.NamespaceServiceClient) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "other"))
 	cfg := cfgBuilder.Build(tb)

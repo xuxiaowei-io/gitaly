@@ -21,10 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func setupUpdater(tb testing.TB, ctx context.Context) (config.Cfg, *localrepo.Repo, string, *Updater) {
 	tb.Helper()
 

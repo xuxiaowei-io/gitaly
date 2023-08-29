@@ -10,10 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func TestNewManager(t *testing.T) {
 	require.IsType(t, &NoopManager{}, NewManager(cgroups.Config{}, testhelper.NewDiscardingLogEntry(t), 1))
 }

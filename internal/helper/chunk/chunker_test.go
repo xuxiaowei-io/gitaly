@@ -14,10 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 type testSender struct {
 	stream grpc_testing.TestService_StreamingOutputCallServer
 	body   []byte

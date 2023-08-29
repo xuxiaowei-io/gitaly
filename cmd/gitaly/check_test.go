@@ -12,10 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func TestCheckOK(t *testing.T) {
 	user, password := "user123", "password321"
 

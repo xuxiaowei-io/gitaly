@@ -15,10 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func TestNamespaceExists(t *testing.T) {
 	cfg, client := setupNamespaceService(t, testserver.WithDisablePraefect())
 	existingStorage := cfg.Storages[0]
