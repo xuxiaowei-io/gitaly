@@ -65,12 +65,14 @@ func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, ho
 	}
 	hookFiles = append(hookFiles, files...)
 
-	globalCustomHooksDir := filepath.Join(m.cfg.Hooks.CustomHooksDir, fmt.Sprintf("%s.d", hookName))
-	files, err = findHooks(globalCustomHooksDir)
-	if err != nil {
-		return nil, err
+	if m.cfg.Hooks.CustomHooksDir != "" {
+		globalCustomHooksDir := filepath.Join(m.cfg.Hooks.CustomHooksDir, fmt.Sprintf("%s.d", hookName))
+		files, err = findHooks(globalCustomHooksDir)
+		if err != nil {
+			return nil, err
+		}
+		hookFiles = append(hookFiles, files...)
 	}
-	hookFiles = append(hookFiles, files...)
 
 	return func(ctx context.Context, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		var stdinBytes []byte

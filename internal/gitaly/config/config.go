@@ -88,20 +88,29 @@ type Cfg struct {
 	// configuration to its standard output that we will then deserialize and merge back into
 	// the initially-loaded configuration again. This is an easy mechanism to generate parts of
 	// the configuration at runtime, like for example secrets.
-	ConfigCommand          string              `toml:"config_command,omitempty" json:"config_command"`
-	SocketPath             string              `toml:"socket_path,omitempty" json:"socket_path" split_words:"true"`
-	ListenAddr             string              `toml:"listen_addr,omitempty" json:"listen_addr" split_words:"true"`
-	TLSListenAddr          string              `toml:"tls_listen_addr,omitempty" json:"tls_listen_addr" split_words:"true"`
-	PrometheusListenAddr   string              `toml:"prometheus_listen_addr,omitempty" json:"prometheus_listen_addr" split_words:"true"`
-	BinDir                 string              `toml:"bin_dir,omitempty" json:"bin_dir"`
-	RuntimeDir             string              `toml:"runtime_dir,omitempty" json:"runtime_dir"`
-	Git                    Git                 `toml:"git,omitempty" json:"git" envconfig:"git"`
-	Storages               []Storage           `toml:"storage,omitempty" json:"storage" envconfig:"storage"`
-	Logging                Logging             `toml:"logging,omitempty" json:"logging" envconfig:"logging"`
-	Prometheus             prometheus.Config   `toml:"prometheus,omitempty" json:"prometheus"`
-	Auth                   auth.Config         `toml:"auth,omitempty" json:"auth"`
-	TLS                    TLS                 `toml:"tls,omitempty" json:"tls"`
-	Gitlab                 Gitlab              `toml:"gitlab,omitempty" json:"gitlab"`
+	ConfigCommand        string            `toml:"config_command,omitempty" json:"config_command"`
+	SocketPath           string            `toml:"socket_path,omitempty" json:"socket_path" split_words:"true"`
+	ListenAddr           string            `toml:"listen_addr,omitempty" json:"listen_addr" split_words:"true"`
+	TLSListenAddr        string            `toml:"tls_listen_addr,omitempty" json:"tls_listen_addr" split_words:"true"`
+	PrometheusListenAddr string            `toml:"prometheus_listen_addr,omitempty" json:"prometheus_listen_addr" split_words:"true"`
+	BinDir               string            `toml:"bin_dir,omitempty" json:"bin_dir"`
+	RuntimeDir           string            `toml:"runtime_dir,omitempty" json:"runtime_dir"`
+	Git                  Git               `toml:"git,omitempty" json:"git" envconfig:"git"`
+	Storages             []Storage         `toml:"storage,omitempty" json:"storage" envconfig:"storage"`
+	Logging              Logging           `toml:"logging,omitempty" json:"logging" envconfig:"logging"`
+	Prometheus           prometheus.Config `toml:"prometheus,omitempty" json:"prometheus"`
+	Auth                 auth.Config       `toml:"auth,omitempty" json:"auth"`
+	TLS                  TLS               `toml:"tls,omitempty" json:"tls"`
+	Gitlab               Gitlab            `toml:"gitlab,omitempty" json:"gitlab"`
+	// GitlabShell contains the location of the gitlab-shell directory. This directory is expected to contain two
+	// things:
+	//
+	// - The GitLab secret file ".gitlab_shell_secret", which is used to authenticate with GitLab. This should
+	//   instead be configured via "gitlab.secret" or "gitlab.secret_file".
+	//
+	// - The custom hooks directory "hooks". This should instead be configured via "hooks.custom_hooks_dir".
+	//
+	// This setting is thus deprecated and should ideally not be used anymore.
 	GitlabShell            GitlabShell         `toml:"gitlab-shell,omitempty" json:"gitlab-shell"`
 	Hooks                  Hooks               `toml:"hooks,omitempty" json:"hooks"`
 	Concurrency            []Concurrency       `toml:"concurrency,omitempty" json:"concurrency"`
@@ -241,6 +250,9 @@ func (gl Gitlab) Validate() error {
 // Hooks contains the settings required for hooks
 type Hooks struct {
 	CustomHooksDir string `toml:"custom_hooks_dir,omitempty" json:"custom_hooks_dir"`
+	// customHooksDirIsDerived indicates whether the custom hooks directory has been derived from the
+	// `gitaly-shell.hooks` path.
+	customHooksDirIsDerived bool
 }
 
 // HTTPSettings contains configuration settings used to setup HTTP transport
@@ -589,7 +601,8 @@ func (cfg *Cfg) Validate() error {
 		cfg.validateListeners,
 		cfg.validateStorages,
 		cfg.validateGit,
-		cfg.validateShell,
+		cfg.validateGitlabSecret,
+		cfg.validateCustomHooks,
 		cfg.validateBinDir,
 		cfg.validateRuntimeDir,
 		cfg.validateMaintenance,
@@ -675,8 +688,9 @@ func (cfg *Cfg) setDefaults() error {
 		cfg.Gitlab.SecretFile = filepath.Join(cfg.GitlabShell.Dir, ".gitlab_shell_secret")
 	}
 
-	if cfg.Hooks.CustomHooksDir == "" {
+	if cfg.Hooks.CustomHooksDir == "" && cfg.GitlabShell.Dir != "" {
 		cfg.Hooks.CustomHooksDir = filepath.Join(cfg.GitlabShell.Dir, "hooks")
+		cfg.Hooks.customHooksDirIsDerived = true
 	}
 
 	if reflect.DeepEqual(cfg.DailyMaintenance, DailyJob{}) {
@@ -707,12 +721,32 @@ func (cfg *Cfg) validateListeners() error {
 	return nil
 }
 
-func (cfg *Cfg) validateShell() error {
-	if len(cfg.GitlabShell.Dir) == 0 {
-		return fmt.Errorf("gitlab-shell.dir: is not set")
+func (cfg *Cfg) validateGitlabSecret() error {
+	switch {
+	case len(cfg.Gitlab.Secret) > 0:
+		return nil
+	case len(cfg.Gitlab.SecretFile) > 0:
+		return validateIsFile(cfg.Gitlab.SecretFile, "gitlab.secret_file")
+	case len(cfg.GitlabShell.Dir) > 0:
+		// Note that we do not verify that the secret actually exists, but only verify that the directory
+		// exists. This is not as thorough as we could be, but is done in order to retain our legacy behaviour
+		// in case the secret file wasn't explicitly configured.
+		return validateIsDirectory(cfg.GitlabShell.Dir, "gitlab-shell.dir")
+	default:
+		return fmt.Errorf("GitLab secret not configured")
+	}
+}
+
+func (cfg *Cfg) validateCustomHooks() error {
+	// We only validate the custom hooks directory in case it is explicitly set to a value. If it is empty then we
+	// assume that the administrator has no custom hooks configured. On the other hand, if the custom hooks
+	// directory would be derived from `gitlab_shell.dir`, it is totally valid if that derived directory does not
+	// exist.
+	if cfg.Hooks.CustomHooksDir == "" || cfg.Hooks.customHooksDirIsDerived {
+		return nil
 	}
 
-	return validateIsDirectory(cfg.GitlabShell.Dir, "gitlab-shell.dir")
+	return validateIsDirectory(cfg.Hooks.CustomHooksDir, "hooks.custom_hooks_dir")
 }
 
 func validateIsDirectory(path, name string) error {
@@ -725,6 +759,21 @@ func validateIsDirectory(path, name string) error {
 	}
 	if !s.IsDir() {
 		return fmt.Errorf("%s: not a directory: %q", name, path)
+	}
+
+	return nil
+}
+
+func validateIsFile(path, name string) error {
+	s, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%s: path doesn't exist: %q", name, path)
+		}
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	if !s.Mode().IsRegular() {
+		return fmt.Errorf("%s: not a file: %q", name, path)
 	}
 
 	return nil
