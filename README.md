@@ -55,7 +55,6 @@ graph LR
 
   subgraph "Gitaly Service"
   Gitaly == git ==> Filesystem
-  Gitaly -- "libgit2" --> Filesystem[(Filesystem)]
   end
 
   subgraph "Clients"
@@ -73,9 +72,8 @@ In [High Availability](#high-availability) mode, the current implementation look
 ```mermaid
 graph LR
 
-  subgraph "Gitaly Nodes"                                                
+  subgraph "Gitaly Nodes"
   Gitaly == git ==> Filesystem
-  Gitaly -- "libgit2" --> Filesystem[(Filesystem)]
   end
 
   subgraph "Praefects"
@@ -89,10 +87,10 @@ graph LR
 
   subgraph "Clients"
     Rails[gitlab-rails]
-    Workhorse 
+    Workhorse
     Shell[gitlab-shell]
   end
-  
+
 Clients --> Praefects --> Gitaly
 ```
 

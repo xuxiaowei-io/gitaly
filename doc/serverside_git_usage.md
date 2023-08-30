@@ -1,9 +1,8 @@
 # Server side Git usage
 
-Gitaly uses three implementations to read and write to Git repositories:
+Gitaly uses two implementations to read and write to Git repositories:
 
 1. `git(1)` - The same Git used by clients all over the world
-1. [LibGit2](https://github.com/libgit2/libgit2) - a linkable library used through Rugged and Git2Go
 1. On ad-hoc basis, part of Git is implemented in this repository if the
    implementation is easy and stable. For example the [pktline](../internal/git/pktline) package.
 

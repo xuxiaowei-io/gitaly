@@ -102,7 +102,7 @@ func BuildBinary(tb testing.TB, targetDir, sourcePath string) string {
 		}
 
 		buildTags := []string{
-			"static", "system_libgit2", "gitaly_test",
+			"gitaly_test",
 		}
 		if os.Getenv("GITALY_TESTING_ENABLE_FIPS") != "" {
 			buildTags = append(buildTags, "fips")

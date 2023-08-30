@@ -111,7 +111,7 @@ func configure() (_ func(), returnedErr error) {
 		}
 	}
 
-	// We need to make sure that we're gitconfig-clean: neither Git nor libgit2 should pick up
+	// We need to make sure that we're gitconfig-clean: Git should not pick up
 	// gitconfig files from anywhere but the repository itself in case they're configured to
 	// ignore them. We set that configuration by default in our tests to have a known-good
 	// environment.
