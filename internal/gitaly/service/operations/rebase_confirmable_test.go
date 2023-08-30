@@ -30,13 +30,10 @@ func TestUserRebaseConfirmable_successful(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableSuccessful)
 }
 
 func testUserRebaseConfirmableSuccessful(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -94,13 +91,10 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableSkipEmptyCommits)
 }
 
 func testUserRebaseConfirmableSkipEmptyCommits(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -210,13 +204,10 @@ func TestUserRebaseConfirmable_transaction(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableTransaction)
 }
 
 func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	txManager := transaction.NewTrackingManager()
@@ -304,13 +295,10 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableStableCommitIDs)
 }
 
 func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -386,13 +374,10 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableInputValidation)
 }
 
 func testUserRebaseConfirmableInputValidation(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -454,13 +439,10 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableAbortViaClose)
 }
 
 func testUserRebaseConfirmableAbortViaClose(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -539,13 +521,10 @@ func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableAbortViaApply)
 }
 
 func testUserRebaseConfirmableAbortViaApply(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -585,13 +564,10 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmablePreReceiveError)
 }
 
 func testUserRebaseConfirmablePreReceiveError(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -652,13 +628,10 @@ func TestUserRebaseConfirmable_mergeConflict(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableMergeConflict)
 }
 
 func testUserRebaseConfirmableMergeConflict(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -703,13 +676,10 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableDeletedFileInLocalRepo)
 }
 
 func testUserRebaseConfirmableDeletedFileInLocalRepo(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -783,13 +753,10 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableDeletedFileInRemoteRepo)
 }
 
 func testUserRebaseConfirmableDeletedFileInRemoteRepo(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -857,13 +824,10 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseConfirmablePureGit,
 	).Run(t, testUserRebaseConfirmableFailedWithCode)
 }
 
 func testUserRebaseConfirmableFailedWithCode(t *testing.T, ctx context.Context) {
-	skipSHA256WithGit2goRebase(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -994,11 +958,5 @@ func setupRebasableRepositories(tb testing.TB, ctx context.Context, cfg config.C
 		localRepo: localRepo, localRepoPath: localRepoPath, localCommit: localDivergingCommit, localBranch: "branch-local",
 		remoteRepo: remoteRepo, remoteRepoPath: remoteRepoPath, remoteCommit: remoteDivergingCommit, remoteBranch: "branch-remote",
 		commonCommit: localCommonCommit,
-	}
-}
-
-func skipSHA256WithGit2goRebase(t *testing.T, ctx context.Context) {
-	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.UserRebaseConfirmablePureGit.IsDisabled(ctx) {
-		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
 	}
 }
