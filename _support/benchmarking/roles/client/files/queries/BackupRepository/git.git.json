@@ -1,0 +1,17 @@
+{
+  "repository": {
+    "storageName": "default",
+    "relativePath": "git.git",
+    "gitAlternateObjectDirectories": [],
+    "glRepository": "git",
+    "glProjectPath": "git/git"
+  },
+  "vanityRepository": {
+    "storageName": "default",
+    "relativePath": "git.git",
+    "gitAlternateObjectDirectories": [],
+    "glRepository": "git",
+    "glProjectPath": "git/git"
+  },
+  "backupId": "abc123"
+}

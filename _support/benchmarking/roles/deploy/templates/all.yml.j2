@@ -7,3 +7,9 @@ rpcs:
     proto: commit.proto
     repos:
       - git.git
+  - description: Create a backup
+    rpc: BackupRepository
+    service: gitaly.RepositoryService
+    proto: repository.proto
+    repos:
+      - git.git
