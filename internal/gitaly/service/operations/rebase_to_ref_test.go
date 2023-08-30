@@ -22,13 +22,10 @@ func TestUserRebaseToRef_successful(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseToRefPureGit,
 	).Run(t, testUserRebaseToRefSuccessful)
 }
 
 func testUserRebaseToRefSuccessful(t *testing.T, ctx context.Context) {
-	skipSHA256WithUserRebaseToRefGit2go(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -88,13 +85,10 @@ func TestUserRebaseToRef_failure(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseToRefPureGit,
 	).Run(t, testUserRebaseToRefFailure)
 }
 
 func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
-	skipSHA256WithUserRebaseToRefGit2go(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -216,13 +210,10 @@ func TestUserRebaseToRef_conflict(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
 		featureflag.GPGSigning,
-		featureflag.UserRebaseToRefPureGit,
 	).Run(t, testUserRebaseToRefConflict)
 }
 
 func testUserRebaseToRefConflict(t *testing.T, ctx context.Context) {
-	skipSHA256WithUserRebaseToRefGit2go(t, ctx)
-
 	t.Parallel()
 
 	ctx, cfg, client := setupOperationsService(t, ctx)
@@ -264,10 +255,4 @@ func testUserRebaseToRefConflict(t *testing.T, ctx context.Context) {
 
 	currentTargetRefOID := gittest.ResolveRevision(t, cfg, repoPath, targetRef)
 	require.Equal(t, targetRefOID, currentTargetRefOID, "target ref should not change when the rebase fails due to GitError")
-}
-
-func skipSHA256WithUserRebaseToRefGit2go(t *testing.T, ctx context.Context) {
-	if gittest.DefaultObjectHash.Format == git.ObjectHashSHA256.Format && featureflag.UserRebaseToRefPureGit.IsDisabled(ctx) {
-		t.Skip("SHA256 repositories are only supported when using the pure Git implementation")
-	}
 }
