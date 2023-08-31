@@ -2,6 +2,7 @@ package remote
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
 	"testing"
 
@@ -201,7 +202,10 @@ func TestServer_findRemoteRootRefCmd(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cmd, err := s.findRemoteRootRefCmd(ctx, tc.request)
 			require.Equal(t, tc.expectedErr, err)
+
 			if err == nil {
+				_, err := io.ReadAll(cmd)
+				require.NoError(t, err)
 				require.NoError(t, cmd.Wait())
 				require.Subset(t, cmd.Env(), tc.expectedConfig)
 			}
