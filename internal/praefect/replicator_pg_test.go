@@ -48,7 +48,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	r := &defaultReplicator{rs: rs, log: testhelper.NewDiscardingLogger(t)}
+	r := &defaultReplicator{rs: rs, log: testhelper.SharedLogger(t)}
 	require.NoError(t, r.Replicate(ctx, datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
 			RepositoryID:      1,
@@ -99,7 +99,7 @@ func TestReplicatorDestroy(t *testing.T) {
 
 			require.Equal(t, tc.error, defaultReplicator{
 				rs:  rs,
-				log: testhelper.NewDiscardingLogger(t),
+				log: testhelper.SharedLogger(t),
 			}.Destroy(
 				ctx,
 				datastore.ReplicationEvent{

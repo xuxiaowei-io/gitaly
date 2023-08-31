@@ -125,7 +125,7 @@ func newTestDNSBuilder(t *testing.T) *Builder {
 	return NewBuilder(&BuilderConfig{
 		RefreshRate:   0,
 		LookupTimeout: 10 * time.Second,
-		Logger:        testhelper.NewDiscardingLogger(t),
+		Logger:        testhelper.SharedLogger(t),
 		Backoff:       &fakeBackoff{},
 	})
 }

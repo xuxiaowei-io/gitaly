@@ -150,7 +150,7 @@ func startServer(t *testing.T, th testHandler, opts ...grpc.ServerOption) string
 	t.Helper()
 
 	lm := listenmux.New(insecure.NewCredentials())
-	lm.Register(backchannel.NewServerHandshaker(testhelper.NewDiscardingLogEntry(t), backchannel.NewRegistry(), nil))
+	lm.Register(backchannel.NewServerHandshaker(testhelper.SharedLogger(t), backchannel.NewRegistry(), nil))
 
 	opts = append(opts, grpc.Creds(lm))
 
@@ -170,7 +170,7 @@ func startServer(t *testing.T, th testHandler, opts ...grpc.ServerOption) string
 
 func dial(t *testing.T, addr string) (*grpc.ClientConn, *Registry) {
 	registry := NewRegistry()
-	clientHandshaker := NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), registry)
+	clientHandshaker := NewClientHandshaker(testhelper.SharedLogger(t), registry)
 	dialOpt := grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials()))
 
 	conn, err := grpc.Dial(addr, dialOpt)

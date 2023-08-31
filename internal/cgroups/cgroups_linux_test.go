@@ -11,5 +11,5 @@ import (
 )
 
 func TestNewManager(t *testing.T) {
-	require.IsType(t, &NoopManager{}, NewManager(cgroups.Config{}, testhelper.NewDiscardingLogEntry(t), 1))
+	require.IsType(t, &NoopManager{}, NewManager(cgroups.Config{}, testhelper.SharedLogger(t), 1))
 }

@@ -278,7 +278,7 @@ type gitalyServerDeps struct {
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
 	if gsd.logger == nil {
-		gsd.logger = testhelper.NewGitalyServerLogger(tb)
+		gsd.logger = testhelper.NewLogger(tb, testhelper.WithLoggerName("gitaly"))
 	}
 
 	if gsd.conns == nil {

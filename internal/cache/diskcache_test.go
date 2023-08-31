@@ -58,7 +58,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	})
 	gittest.WriteCommit(t, cfg, repoPath2, gittest.WithMessage("two"), gittest.WithBranch("master"))
 
-	logger := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.SharedLogger(t)
 	locator := config.NewLocator(cfg)
 
 	req1 := &gitalypb.InfoRefsRequest{
@@ -167,7 +167,7 @@ func TestLoserCount(t *testing.T) {
 	cfg := cfgBuilder.Build(t)
 
 	locator := config.NewLocator(cfg)
-	cache := New(cfg, locator, testhelper.NewDiscardingLogEntry(t))
+	cache := New(cfg, locator, testhelper.SharedLogger(t))
 
 	req := &gitalypb.InfoRefsRequest{
 		Repository: &gitalypb.Repository{

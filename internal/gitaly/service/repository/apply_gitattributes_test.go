@@ -109,7 +109,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 	// We're using internal listener in order to route around
 	// Praefect in our tests. Otherwise Praefect would replace our
 	// carefully crafted transaction and server information.
-	logger := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.SharedLogger(t)
 
 	client := newMuxedRepositoryClient(t, ctx, cfg, "unix://"+cfg.InternalSocketPath(),
 		backchannel.NewClientHandshaker(

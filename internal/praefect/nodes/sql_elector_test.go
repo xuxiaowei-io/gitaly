@@ -32,7 +32,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 
-	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
+	logger := testhelper.SharedLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	socketName := "unix://" + praefectSocket
 
@@ -53,7 +53,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 
 	storageName := "default"
 	mockHistogramVec0 := promtest.NewMockHistogramVec()
-	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0"}, cc0, testhelper.NewDiscardingLogEntry(t), mockHistogramVec0, nil)
+	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0"}, cc0, testhelper.SharedLogger(t), mockHistogramVec0, nil)
 
 	ns := []*nodeStatus{cs0}
 	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
@@ -76,7 +76,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 	db := testdb.New(t)
 
 	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
-	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
+	logger := testhelper.SharedLogger(t).WithField("test", t.Name())
 
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	testhelper.NewServerWithHealth(t, gitalySocket)
@@ -112,7 +112,7 @@ func TestBasicFailover(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 
-	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
+	logger := testhelper.SharedLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	socketName := "unix://" + praefectSocket
 
@@ -227,7 +227,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 		shardName,
 		config.Config{},
 		nil,
-		testhelper.NewDiscardingLogger(t),
+		testhelper.SharedLogger(t),
 		[]*nodeStatus{{node: node}},
 	)
 	ctx := testhelper.Context(t)
@@ -426,7 +426,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 	errNonMuxed := status.Error(codes.Internal, "non-muxed connection")
 	errMuxed := status.Error(codes.Internal, "muxed connection")
 
-	logger := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.SharedLogger(t)
 
 	lm := listenmux.New(insecure.NewCredentials())
 	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
@@ -455,7 +455,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 
 	db := testdb.New(t)
 	mgr, err := NewManager(
-		testhelper.NewDiscardingLogEntry(t),
+		testhelper.SharedLogger(t),
 		config.Config{
 			Failover: config.Failover{
 				Enabled:          true,

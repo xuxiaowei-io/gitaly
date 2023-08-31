@@ -157,7 +157,7 @@ func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Regist
 
 // NewManager creates a new NodeMgr based on virtual storage configs
 func NewManager(
-	log *logrus.Entry,
+	log logrus.FieldLogger,
 	c config.Config,
 	db *sql.DB,
 	csg datastore.ConsistentStoragesGetter,

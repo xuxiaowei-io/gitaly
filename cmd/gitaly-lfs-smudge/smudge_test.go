@@ -84,7 +84,7 @@ func TestFilter_successful(t *testing.T) {
 				},
 			}
 
-			require.NoError(t, filter(ctx, cfg, &b, reader, testhelper.NewDiscardingLogger(t)))
+			require.NoError(t, filter(ctx, cfg, &b, reader, testhelper.SharedLogger(t)))
 			require.Equal(t, testData, b.String())
 		})
 	}
@@ -185,7 +185,7 @@ func TestFilter_unsuccessful(t *testing.T) {
 			cfg := tc.setupCfg(t, gitlabCfg)
 
 			var b bytes.Buffer
-			err := filter(ctx, cfg, &b, strings.NewReader(tc.data), testhelper.NewDiscardingLogger(t))
+			err := filter(ctx, cfg, &b, strings.NewReader(tc.data), testhelper.SharedLogger(t))
 
 			if tc.expectedError {
 				require.Error(t, err)
@@ -558,7 +558,7 @@ func TestProcess(t *testing.T) {
 			}
 
 			var outputBuffer bytes.Buffer
-			require.Equal(t, tc.expectedErr, process(ctx, tc.cfg, &outputBuffer, &inputBuffer, testhelper.NewDiscardingLogger(t)))
+			require.Equal(t, tc.expectedErr, process(ctx, tc.cfg, &outputBuffer, &inputBuffer, testhelper.SharedLogger(t)))
 			require.Equal(t, tc.expectedOutput, outputBuffer.String())
 		})
 	}

@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -66,7 +67,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	db := testdb.New(t)
-	logger := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.SharedLogger(t)
 	// the only thing used from the config is the grpc_latency_buckets which is not relevant for the test
 	txManager := transactions.NewManager(config.Config{})
 	sidechannelRegistry := sidechannel.NewRegistry()
@@ -78,7 +79,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 		backchannel.NewClientHandshaker(
 			logger,
 			NewBackchannelServerFactory(
-				logger,
+				logrus.NewEntry(logger),
 				transaction.NewServer(txManager),
 				sidechannelRegistry,
 			),

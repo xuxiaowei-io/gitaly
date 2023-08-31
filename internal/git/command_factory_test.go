@@ -45,7 +45,7 @@ func TestGitCommandProxy(t *testing.T) {
 
 	dir := testhelper.TempDir(t)
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t))
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer cleanup()
 
@@ -65,7 +65,7 @@ func TestGitCommandProxy(t *testing.T) {
 func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t))
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer cleanup()
 
@@ -111,7 +111,7 @@ func TestExecCommandFactory_gitConfiguration(t *testing.T) {
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))
 
 	defaultConfig := func() []string {
-		commandFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t))
+		commandFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t))
 		require.NoError(t, err)
 		defer cleanup()
 
@@ -199,7 +199,7 @@ func TestExecCommandFactory_gitConfiguration(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg.Git.Config = tc.config
 
-			commandFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t))
+			commandFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t))
 			require.NoError(t, err)
 			defer cleanup()
 
@@ -225,7 +225,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 
 	assertExecEnv := func(t *testing.T, cfg config.Cfg, expectedExecEnv git.ExecutionEnvironment) {
 		t.Helper()
-		gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t), git.WithSkipHooks())
+		gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t), git.WithSkipHooks())
 		require.NoError(t, err)
 		defer cleanup()
 
@@ -388,7 +388,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 					config.Cfg{
 						BinDir: setupData.binaryDir,
 					},
-					testhelper.NewDiscardingLogEntry(t),
+					testhelper.SharedLogger(t),
 					git.WithSkipHooks(),
 					// Override the constructors so that we don't have to change
 					// tests every time we're upgrading our bundled Git version.
@@ -446,7 +446,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 	t.Run("doesn't exist in the system", func(t *testing.T) {
 		testhelper.Unsetenv(t, "PATH")
 
-		_, _, err := git.NewExecCommandFactory(config.Cfg{}, testhelper.NewDiscardingLogEntry(t), git.WithSkipHooks())
+		_, _, err := git.NewExecCommandFactory(config.Cfg{}, testhelper.SharedLogger(t), git.WithSkipHooks())
 		require.EqualError(t, err, "setting up Git execution environment: could not set up any Git execution environments")
 	})
 }
@@ -684,7 +684,7 @@ func TestFsckConfiguration(t *testing.T) {
 			_, err := gittest.DefaultObjectHash.FromHex(text.ChompBytes(commitOut))
 			require.NoError(t, err)
 
-			gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t))
+			gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t))
 			require.NoError(t, err)
 			defer cleanup()
 
@@ -966,7 +966,7 @@ func TestTrace2PackObjectsMetrics(t *testing.T) {
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg,
 					gittest.CreateRepositoryConfig{SkipCreationViaService: true},
 				)
-				gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t), opts...)
+				gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t), opts...)
 				require.NoError(t, err)
 				defer cleanup()
 
@@ -1086,7 +1086,7 @@ func performPackObjectGit(t *testing.T, ctx context.Context, opts ...git.ExecCom
 		input.WriteString("\n")
 	}
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t), opts...)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t), opts...)
 	require.NoError(t, err)
 	defer cleanup()
 
@@ -1109,7 +1109,7 @@ func performRevList(t *testing.T, ctx context.Context, opts ...git.ExecCommandFa
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg,
 		gittest.CreateRepositoryConfig{SkipCreationViaService: true},
 	)
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.NewDiscardingLogEntry(t), opts...)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, testhelper.SharedLogger(t), opts...)
 	require.NoError(t, err)
 	defer cleanup()
 

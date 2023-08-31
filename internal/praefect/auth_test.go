@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
@@ -148,10 +149,10 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 			},
 		},
 	}
-	logEntry := testhelper.NewDiscardingLogEntry(t)
+	logger := testhelper.SharedLogger(t)
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(logger, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	defer nodeMgr.Stop()
 
@@ -161,7 +162,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 
 	srv := NewGRPCServer(&Dependencies{
 		Config:      conf,
-		Logger:      logEntry,
+		Logger:      logrus.NewEntry(logger),
 		Coordinator: coordinator,
 		Director:    coordinator.StreamDirector,
 		TxMgr:       txMgr,

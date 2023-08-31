@@ -298,7 +298,7 @@ func TestDnsResolver(t *testing.T) {
 			builder := NewBuilder(&BuilderConfig{
 				RefreshRate:     0, // No delay
 				LookupTimeout:   15 * time.Second,
-				Logger:          testhelper.NewDiscardingLogger(t),
+				Logger:          testhelper.SharedLogger(t),
 				DefaultGrpcPort: "1234",
 				Backoff:         &fakeBackoff{},
 			})
@@ -345,7 +345,7 @@ func TestDnsResolver_grpcCallWithOurDNSResolver(t *testing.T) {
 		grpc.WithResolvers(NewBuilder(&BuilderConfig{
 			RefreshRate:     0, // No delay
 			LookupTimeout:   500 * time.Millisecond,
-			Logger:          testhelper.NewDiscardingLogger(t),
+			Logger:          testhelper.SharedLogger(t),
 			DefaultGrpcPort: "1234",
 			Backoff:         backoff.NewDefaultExponential(rand.New(rand.NewSource(time.Now().UnixNano()))),
 		})),

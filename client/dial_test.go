@@ -676,7 +676,7 @@ var dialFuncs = []struct {
 	{
 		name: "DialSidechannel",
 		dial: func(t *testing.T, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-			sr := NewSidechannelRegistry(testhelper.NewDiscardingLogEntry(t))
+			sr := NewSidechannelRegistry(testhelper.SharedLogger(t))
 			return DialSidechannel(testhelper.Context(t), rawAddress, sr, connOpts)
 		},
 	},
@@ -805,5 +805,5 @@ func startFakeGitalyServer(t *testing.T) string {
 }
 
 func newLogger(tb testing.TB) *logrus.Entry {
-	return logrus.NewEntry(testhelper.NewDiscardingLogger(tb))
+	return logrus.NewEntry(testhelper.SharedLogger(tb))
 }
