@@ -262,6 +262,11 @@ func fetchInternalRemote(
 		localrepo.FetchOpts{
 			Prune:  true,
 			Stderr: &stderr,
+			// By default, Git will fetch any tags that point into the fetched references. This check
+			// requires time, and is ultimately a waste of compute because we already mirror all refs
+			// anyway, including tags. By adding `--no-tags` we can thus ask Git to skip that and thus
+			// accelerate the fetch.
+			Tags: localrepo.FetchOptsTagsNone,
 			CommandOptions: []git.CmdOpt{
 				git.WithConfig(git.ConfigPair{Key: "fetch.negotiationAlgorithm", Value: "skipping"}),
 				// Disable the consistency checks of objects fetched into the replicated repository.
