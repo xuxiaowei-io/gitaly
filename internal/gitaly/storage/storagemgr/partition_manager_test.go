@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
@@ -157,7 +158,8 @@ func TestPartitionManager(t *testing.T) {
 	}
 
 	type setupData struct {
-		steps steps
+		steps                     steps
+		transactionManagerFactory transactionManagerFactory
 	}
 
 	for _, tc := range []struct {
@@ -387,6 +389,31 @@ func TestPartitionManager(t *testing.T) {
 							ctx:           stepCtx,
 							expectedError: context.Canceled,
 						},
+					},
+					transactionManagerFactory: func(
+						storageMgr *storageManager,
+						commandFactory git.CommandFactory,
+						housekeepingManager housekeeping.Manager,
+						relativePath, absoluteStateDir, stagingDir string,
+					) *TransactionManager {
+						txMgr := NewTransactionManager(
+							storageMgr.database,
+							storageMgr.path,
+							relativePath,
+							absoluteStateDir,
+							stagingDir,
+							commandFactory,
+							housekeepingManager,
+							storageMgr.repoFactory,
+						)
+
+						// Unset the admission queue. This has the effect that we will block
+						// indefinitely when trying to submit the transaction to it in the
+						// commit step. Like this, we can racelessly verify that the context
+						// cancellation does indeed abort the commit.
+						txMgr.admissionQueue = nil
+
+						return txMgr
 					},
 				}
 			},
@@ -618,6 +645,10 @@ func TestPartitionManager(t *testing.T) {
 
 			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.NewDiscardingLogger(t))
 			require.NoError(t, err)
+
+			if setup.transactionManagerFactory != nil {
+				partitionManager.transactionManagerFactory = setup.transactionManagerFactory
+			}
 
 			defer func() {
 				partitionManager.Close()
