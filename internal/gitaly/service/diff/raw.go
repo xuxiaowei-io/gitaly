@@ -47,7 +47,7 @@ func (s *server) RawPatch(in *gitalypb.RawPatchRequest, stream gitalypb.DiffServ
 }
 
 func sendRawOutput(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, sender io.Writer, subCmd git.Command) error {
-	cmd, err := gitCmdFactory.New(ctx, repo, subCmd)
+	cmd, err := gitCmdFactory.New(ctx, repo, subCmd, git.WithSetupStdout())
 	if err != nil {
 		return structerr.NewInternal("cmd: %w", err)
 	}

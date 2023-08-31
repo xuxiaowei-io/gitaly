@@ -46,7 +46,7 @@ func GetCommitWithTrailers(
 			git.Flag{Name: "--format=%(trailers:unfold,separator=%x00)"},
 			git.Flag{Name: "--no-patch"},
 		},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return nil, fmt.Errorf("error when creating git show command: %w", err)
 	}

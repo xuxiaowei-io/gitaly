@@ -128,7 +128,7 @@ func listRefNames(ctx context.Context, repo git.RepositoryExecutor, chunker *chu
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  []string{prefix},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return err
 	}

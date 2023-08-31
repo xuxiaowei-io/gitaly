@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	pathPkg "path"
@@ -136,7 +137,7 @@ func TreeEntries(
 
 	treeObj, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:%s", revision, path)))
 	if err != nil {
-		if IsNotFound(err) {
+		if errors.As(err, &NotFoundError{}) {
 			return nil, nil
 		}
 		return nil, err

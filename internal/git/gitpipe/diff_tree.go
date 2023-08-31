@@ -80,6 +80,7 @@ func DiffTree(
 				Args:  []string{leftRevision, rightRevision},
 			},
 			git.WithStderr(&stderr),
+			git.WithSetupStdout(),
 		)
 		if err != nil {
 			sendRevisionResult(ctx, resultChan, RevisionResult{

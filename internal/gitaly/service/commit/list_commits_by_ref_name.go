@@ -1,6 +1,8 @@
 package commit
 
 import (
+	"errors"
+
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
@@ -27,7 +29,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 
 	for _, refName := range in.RefNames {
 		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(refName))
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			continue
 		}
 		if err != nil {

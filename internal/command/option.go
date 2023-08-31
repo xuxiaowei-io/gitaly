@@ -52,6 +52,15 @@ func WithStdout(stdout io.Writer) Option {
 	}
 }
 
+// WithSetupStdout instructs New() to configure the standard output pipe of the command it is creating. This allowsyou
+// to call Read() on the command as if it is an ordinary io.Reader, reading output directly from the stdout of the
+// process.
+func WithSetupStdout() Option {
+	return func(cfg *config) {
+		cfg.stdout = stdoutSentinel{}
+	}
+}
+
 // WithStderr sets up the command to write standard error to the given writer.
 func WithStderr(stderr io.Writer) Option {
 	return func(cfg *config) {

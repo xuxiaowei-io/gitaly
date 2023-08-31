@@ -41,7 +41,7 @@ func (s *server) eachDiff(ctx context.Context, repo *localrepo.Repo, subCmd git.
 
 	diffConfig := git.ConfigPair{Key: "diff.noprefix", Value: "false"}
 
-	cmd, err := repo.Exec(ctx, subCmd, git.WithConfig(diffConfig))
+	cmd, err := repo.Exec(ctx, subCmd, git.WithConfig(diffConfig), git.WithSetupStdout())
 	if err != nil {
 		return structerr.NewInternal("cmd: %w", err)
 	}

@@ -21,7 +21,7 @@ func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffSe
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--numstat"}, git.Flag{Name: "-z"}},
 		Args:  []string{in.LeftCommitId, in.RightCommitId},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return structerr.NewInternal("cmd: %w", err)
 	}

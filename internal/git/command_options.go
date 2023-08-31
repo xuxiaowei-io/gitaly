@@ -164,6 +164,14 @@ func WithStdout(w io.Writer) CmdOpt {
 	}
 }
 
+// WithSetupStdout sets up the command so that it can be `Read()` from.
+func WithSetupStdout() CmdOpt {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
+		c.commandOpts = append(c.commandOpts, command.WithSetupStdout())
+		return nil
+	}
+}
+
 // WithStderr sets the command's stderr.
 func WithStderr(w io.Writer) CmdOpt {
 	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {

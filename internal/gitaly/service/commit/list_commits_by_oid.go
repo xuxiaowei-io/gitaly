@@ -1,6 +1,8 @@
 package commit
 
 import (
+	"errors"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -41,7 +43,7 @@ func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream g
 
 	for _, oid := range in.Oid {
 		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(oid))
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			continue
 		}
 		if err != nil {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -88,16 +87,14 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 		{desc: "system", filter: "--system"},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			var stdout strings.Builder
 			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
 				Name:  "config",
 				Flags: []git.Option{git.Flag{Name: "--list"}, git.Flag{Name: tc.filter}},
-			}, git.WithEnv("HOME="+tmpHome))
-			require.NoError(t, err)
-
-			configContents, err := io.ReadAll(cmd)
+			}, git.WithEnv("HOME="+tmpHome), git.WithStdout(&stdout))
 			require.NoError(t, err)
 			require.NoError(t, cmd.Wait())
-			require.Empty(t, string(configContents))
+			require.Empty(t, stdout.String())
 		})
 	}
 }

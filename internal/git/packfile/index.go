@@ -92,7 +92,7 @@ func ReadIndex(idxPath string) (*Index, error) {
 		return nil, err
 	}
 
-	showIndex, err := command.New(ctx, []string{"git", "show-index"}, command.WithStdin(f))
+	showIndex, err := command.New(ctx, []string{"git", "show-index"}, command.WithStdin(f), command.WithSetupStdout())
 	if err != nil {
 		return nil, err
 	}

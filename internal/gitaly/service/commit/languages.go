@@ -140,7 +140,7 @@ func (s *server) disambiguateRevision(ctx context.Context, repo git.RepositoryEx
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
 		Args:  []string{"**/" + revision},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return "", err
 	}

@@ -217,9 +217,12 @@ func TestListConflictFiles(t *testing.T) {
 				}
 
 				return setupData{
-					client:        client,
-					request:       request,
-					expectedError: structerr.NewFailedPrecondition("getting objectreader: object not found"),
+					client:  client,
+					request: request,
+					expectedError: testhelper.WithInterceptedMetadata(
+						structerr.NewFailedPrecondition("getting objectreader: object not found"),
+						"revision", subCommitID.String(),
+					),
 				}
 			},
 		},

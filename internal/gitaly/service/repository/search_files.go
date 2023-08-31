@@ -49,7 +49,7 @@ func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest,
 		Args: []string{
 			string(req.GetRef()),
 		},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return structerr.NewInternal("cmd start failed: %w", err)
 	}
@@ -147,7 +147,7 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 		PostSepArgs: []string{
 			req.GetQuery(),
 		},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return structerr.NewInternal("cmd start failed: %w", err)
 	}

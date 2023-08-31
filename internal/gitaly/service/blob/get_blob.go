@@ -29,7 +29,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 
 	blob, err := objectReader.Object(ctx, git.Revision(in.Oid))
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			if err := stream.Send(&gitalypb.GetBlobResponse{}); err != nil {
 				return structerr.NewAborted("sending empty response: %w", err)
 			}

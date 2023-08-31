@@ -133,7 +133,7 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 		Name:  "for-each-ref",
 		Flags: options,
 		Args:  patterns,
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return err
 	}

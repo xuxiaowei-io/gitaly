@@ -242,7 +242,7 @@ func (s *server) handleArchive(ctx context.Context, p archiveParams) error {
 		Flags:       []git.Option{git.ValueFlag{Name: "--format", Value: p.format}, git.ValueFlag{Name: "--prefix", Value: p.in.GetPrefix() + "/"}},
 		Args:        args,
 		PostSepArgs: pathspecs,
-	}, git.WithEnv(env...), git.WithConfig(config...))
+	}, git.WithEnv(env...), git.WithConfig(config...), git.WithSetupStdout())
 	if err != nil {
 		return err
 	}

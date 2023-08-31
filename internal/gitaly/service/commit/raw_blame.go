@@ -2,10 +2,8 @@ package commit
 
 import (
 	"fmt"
-	"io"
 	"regexp"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -30,27 +28,22 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 		flags = append(flags, git.ValueFlag{Name: "-L", Value: blameRange})
 	}
 
+	sw := streamio.NewWriter(func(p []byte) error {
+		return stream.Send(&gitalypb.RawBlameResponse{Data: p})
+	})
+
 	cmd, err := s.gitCmdFactory.New(ctx, in.Repository, git.Command{
 		Name:        "blame",
 		Flags:       flags,
 		Args:        []string{revision},
 		PostSepArgs: []string{path},
-	})
+	}, git.WithStdout(sw))
 	if err != nil {
 		return structerr.NewInternal("cmd: %w", err)
 	}
 
-	sw := streamio.NewWriter(func(p []byte) error {
-		return stream.Send(&gitalypb.RawBlameResponse{Data: p})
-	})
-
-	_, err = io.Copy(sw, cmd)
-	if err != nil {
-		return structerr.NewAborted("send: %w", err)
-	}
-
 	if err := cmd.Wait(); err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Info("ignoring git-blame error")
+		return fmt.Errorf("streaming raw blame data: %w", err)
 	}
 
 	return nil

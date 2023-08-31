@@ -1,7 +1,6 @@
 package catfile
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -46,12 +45,12 @@ func TestGetCommit(t *testing.T) {
 		{
 			desc:        "not existing commit",
 			revision:    "not existing revision",
-			expectedErr: NotFoundError{errors.New("object not found")},
+			expectedErr: NotFoundError{"not existing revision^{commit}"},
 		},
 		{
 			desc:        "blob sha",
 			revision:    blobID.String(),
-			expectedErr: NotFoundError{errors.New("object not found")},
+			expectedErr: NotFoundError{blobID.String() + "^{commit}"},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

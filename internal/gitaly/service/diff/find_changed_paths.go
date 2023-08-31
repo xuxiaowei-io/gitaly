@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -80,7 +81,7 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 	cmd, err := s.gitCmdFactory.New(stream.Context(), in.Repository, git.Command{
 		Name:  "diff-tree",
 		Flags: flags,
-	}, git.WithStdin(strings.NewReader(strings.Join(requests, "\n")+"\n")))
+	}, git.WithStdin(strings.NewReader(strings.Join(requests, "\n")+"\n")), git.WithSetupStdout())
 	if err != nil {
 		return structerr.NewInternal("cmd err: %w", err)
 	}
@@ -262,7 +263,7 @@ func resolveObjectWithType(
 
 	info, err := objectInfoReader.Info(ctx, git.Revision(fmt.Sprintf("%s^{%s}", revision, expectedType)))
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if errors.As(err, &catfile.NotFoundError{}) {
 			return "", structerr.NewNotFound("revision can not be found: %q", revision)
 		}
 		return "", err

@@ -45,6 +45,7 @@ func (s *server) findRemoteRootRefCmd(ctx context.Context, request *gitalypb.Fin
 		},
 		git.WithDisabledHooks(),
 		git.WithConfigEnv(config...),
+		git.WithSetupStdout(),
 	)
 }
 

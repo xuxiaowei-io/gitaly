@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // ObjectInfo represents a header returned by `git cat-file --batch`
@@ -44,12 +45,20 @@ func (o *ObjectInfo) ObjectSize() int64 {
 }
 
 // NotFoundError is returned when requesting an object that does not exist.
-type NotFoundError struct{ error }
+type NotFoundError struct {
+	// Revision is the requested revision that could not be found.
+	Revision string
+}
 
-// IsNotFound tests whether err has type NotFoundError.
-func IsNotFound(err error) bool {
-	_, ok := err.(NotFoundError)
-	return ok
+func (NotFoundError) Error() string {
+	return "object not found"
+}
+
+// ErrorMetadata returns the error metadata attached to this error, indicating which revision could not be found.
+func (e NotFoundError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "revision", Value: e.Revision},
+	}
 }
 
 // ParseObjectInfo reads from a reader and parses the data into an ObjectInfo struct with the given
@@ -67,7 +76,7 @@ restart:
 	}
 
 	infoLine = strings.TrimSuffix(infoLine, string(terminator))
-	if strings.HasSuffix(infoLine, " missing") {
+	if revision, isMissing := strings.CutSuffix(infoLine, " missing"); isMissing {
 		// We use a hack to flush stdout of git-cat-file(1), which is that we request an
 		// object that cannot exist. This causes Git to write an error and immediately flush
 		// stdout. The only downside is that we need to filter this error here, but that's
@@ -76,7 +85,9 @@ restart:
 			goto restart
 		}
 
-		return nil, NotFoundError{fmt.Errorf("object not found")}
+		return nil, NotFoundError{
+			Revision: revision,
+		}
 	}
 
 	info := strings.Split(infoLine, " ")
@@ -161,6 +172,7 @@ func newObjectInfoReader(
 			Flags: flags,
 		},
 		git.WithSetupStdin(),
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return nil, err

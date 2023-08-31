@@ -293,6 +293,7 @@ func Revlist(
 				Args:  revisions,
 			},
 			git.WithStderr(&stderr),
+			git.WithSetupStdout(),
 		)
 		if err != nil {
 			sendRevisionResult(ctx, resultChan, RevisionResult{
@@ -430,7 +431,7 @@ func ForEachRef(
 			Name:  "for-each-ref",
 			Flags: flags,
 			Args:  patterns,
-		})
+		}, git.WithSetupStdout())
 		if err != nil {
 			sendRevisionResult(ctx, resultChan, RevisionResult{err: err})
 			return

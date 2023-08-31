@@ -224,7 +224,7 @@ func CatfileInfoAllObjects(
 		cmd, err := repo.Exec(ctx, git.Command{
 			Name:  "cat-file",
 			Flags: options,
-		}, git.WithStderr(&stderr))
+		}, git.WithStderr(&stderr), git.WithSetupStdout())
 		if err != nil {
 			sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 				err: fmt.Errorf("spawning cat-file failed: %w", err),

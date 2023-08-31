@@ -58,7 +58,7 @@ func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, r
 		"service": service,
 	}).Debug("handleInfoRefs")
 
-	cmdOpts := []git.CmdOpt{git.WithGitProtocol(req)}
+	cmdOpts := []git.CmdOpt{git.WithGitProtocol(req), git.WithStdout(w)}
 	if service == "receive-pack" {
 		cmdOpts = append(cmdOpts, git.WithRefTxHook(req.Repository))
 	}
@@ -69,15 +69,6 @@ func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, r
 	}
 	cmdOpts = append(cmdOpts, git.WithConfig(config...))
 
-	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.Command{
-		Name:  service,
-		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}, git.Flag{Name: "--advertise-refs"}},
-		Args:  []string{repoPath},
-	}, cmdOpts...)
-	if err != nil {
-		return structerr.NewInternal("cmd: %w", err)
-	}
-
 	if _, err := pktline.WriteString(w, fmt.Sprintf("# service=git-%s\n", service)); err != nil {
 		return structerr.NewInternal("pktLine: %w", err)
 	}
@@ -86,8 +77,13 @@ func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, r
 		return structerr.NewInternal("pktFlush: %w", err)
 	}
 
-	if _, err := io.Copy(w, cmd); err != nil {
-		return structerr.NewInternal("send: %w", err)
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.Command{
+		Name:  service,
+		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}, git.Flag{Name: "--advertise-refs"}},
+		Args:  []string{repoPath},
+	}, cmdOpts...)
+	if err != nil {
+		return structerr.NewInternal("cmd: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {

@@ -75,6 +75,7 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 			Args: []string{string(tagName)},
 		},
 		git.WithRefTxHook(repo),
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("for-each-ref error: %w", err)

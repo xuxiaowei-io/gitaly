@@ -39,6 +39,7 @@ func CheckAttr(ctx context.Context, repo git.RepositoryExecutor, names []string)
 		Args: append(names, endOfAttributes),
 	},
 		git.WithSetupStdin(),
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("start check-attr command: %w", err)

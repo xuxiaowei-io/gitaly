@@ -64,7 +64,7 @@ func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--numstat"}},
 		Args:  args,
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return nil, err
 	}

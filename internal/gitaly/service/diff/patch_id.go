@@ -36,6 +36,7 @@ func (s *server) GetPatchID(ctx context.Context, in *gitalypb.GetPatchIDRequest)
 			},
 		},
 		git.WithStderr(&diffCmdStderr),
+		git.WithSetupStdout(),
 	)
 	if err != nil {
 		return nil, structerr.New("spawning diff: %w", err)

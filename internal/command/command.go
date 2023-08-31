@@ -254,10 +254,9 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	// Start the command in its own process group (nice for signalling)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	// Three possible values for stdin:
-	//   * nil - Go implicitly uses /dev/null
-	//   * stdinSentinel - configure with cmd.StdinPipe(), allowing Write() to work
-	//   * Another io.Reader - becomes cmd.Stdin. Write() will not work
+	// If requested, we will set up the command such that `Write()` can be called on it directly. Otherwise,
+	// we simply pass as stdin whatever the user has asked us to set up. If no `stdin` was set up, the command
+	// will implicitly read from `/dev/null`.
 	if _, ok := cfg.stdin.(stdinSentinel); ok {
 		pipe, err := cmd.StdinPipe()
 		if err != nil {
@@ -265,21 +264,22 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 		}
 
 		command.writer = pipe
-	} else if cfg.stdin != nil {
+	} else {
 		cmd.Stdin = cfg.stdin
 	}
 
-	if cfg.stdout != nil {
-		// We don't assign a reader if an stdout override was passed. We assume
-		// output is going to be directly handled by the caller.
-		cmd.Stdout = cfg.stdout
-	} else {
+	// Similar, if requested, we will set up the command such that `Read()` can be called on it directly.
+	// Otherwise, we simply pass as stdout whatever the user has asked us to set up. If no `stdout` was set
+	// up, the command will implicitly write to `/dev/null`.
+	if _, ok := cfg.stdout.(stdoutSentinel); ok {
 		pipe, err := cmd.StdoutPipe()
 		if err != nil {
 			return nil, fmt.Errorf("creating stdout pipe: %w", err)
 		}
 
 		command.reader = pipe
+	} else {
+		cmd.Stdout = cfg.stdout
 	}
 
 	if cfg.stderr != nil {
@@ -538,6 +538,12 @@ type stdinSentinel struct{}
 
 func (stdinSentinel) Read([]byte) (int, error) {
 	return 0, errors.New("stdin sentinel should not be read from")
+}
+
+type stdoutSentinel struct{}
+
+func (stdoutSentinel) Write([]byte) (int, error) {
+	return 0, errors.New("stdout sentinel should not be written to")
 }
 
 // AllowedEnvironment filters the given slice of environment variables and

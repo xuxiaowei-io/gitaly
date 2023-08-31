@@ -292,6 +292,7 @@ func New(ctx context.Context, repo git.RepositoryExecutor, opts ...UpdaterOpt) (
 		},
 		txOption,
 		git.WithSetupStdin(),
+		git.WithSetupStdout(),
 		git.WithStderr(&stderr),
 	)
 	if err != nil {

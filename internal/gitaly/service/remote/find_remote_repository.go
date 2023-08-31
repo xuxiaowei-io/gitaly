@@ -3,7 +3,6 @@ package remote
 import (
 	"bytes"
 	"context"
-	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -15,6 +14,7 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 		return nil, structerr.NewInvalidArgument("empty remote can't be checked.")
 	}
 
+	var output bytes.Buffer
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.Command{
 			Name: "ls-remote",
@@ -23,15 +23,12 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 				"HEAD",
 			},
 		},
+		git.WithStdout(&output),
 	)
 	if err != nil {
 		return nil, structerr.NewInternal("error executing git command: %w", err)
 	}
 
-	output, err := io.ReadAll(cmd)
-	if err != nil {
-		return nil, structerr.NewInternal("unable to read stdout: %w", err)
-	}
 	if err := cmd.Wait(); err != nil {
 		return &gitalypb.FindRemoteRepositoryResponse{Exists: false}, nil
 	}
@@ -39,7 +36,7 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 	// The output of git-ls-remote is expected to be of the format:
 	//
 	//	58fbff2e0d3b620f591a748c158799ead87b51cd	HEAD\n
-	objectID, refname, ok := bytes.Cut(output, []byte("\t"))
+	objectID, refname, ok := bytes.Cut(output.Bytes(), []byte("\t"))
 	if !ok {
 		return &gitalypb.FindRemoteRepositoryResponse{Exists: false}, nil
 	}

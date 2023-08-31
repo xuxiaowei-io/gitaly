@@ -223,7 +223,7 @@ func (repo *Repo) findBundleHead(ctx context.Context, bundlePath string) (*git.R
 		Name:   "bundle",
 		Action: "list-heads",
 		Args:   []string{bundlePath, "HEAD"},
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return nil, fmt.Errorf("find bundle HEAD: %w", err)
 	}

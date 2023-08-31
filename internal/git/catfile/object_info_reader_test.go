@@ -45,7 +45,7 @@ func TestParseObjectInfo(t *testing.T) {
 		{
 			desc:        "non existing object",
 			input:       "bla missing\n",
-			expectedErr: NotFoundError{fmt.Errorf("object not found")},
+			expectedErr: NotFoundError{"bla"},
 		},
 		{
 			desc:        "missing newline",
@@ -175,7 +175,7 @@ func TestObjectInfoReader(t *testing.T) {
 		{
 			desc:        "nonexistent ref",
 			revision:    "refs/heads/does-not-exist",
-			expectedErr: NotFoundError{fmt.Errorf("object not found")},
+			expectedErr: NotFoundError{"refs/heads/does-not-exist"},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -383,7 +383,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadInfo(ctx)
-		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+		require.Equal(t, NotFoundError{"does-not-exist"}, err)
 	})
 
 	t.Run("reading object with newline", func(t *testing.T) {
@@ -419,7 +419,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadInfo(ctx)
-		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+		require.Equal(t, NotFoundError{"does-not-exist"}, err)
 
 		// Requesting another object info after the previous one has failed should continue
 		// to work alright.
@@ -447,7 +447,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, queue.Flush(ctx))
 
 		_, err = queue.ReadInfo(ctx)
-		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+		require.Equal(t, NotFoundError{"does\nnot\nexist"}, err)
 
 		// Requesting another object info after the previous one has failed should continue
 		// to work alright.

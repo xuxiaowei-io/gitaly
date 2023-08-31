@@ -109,7 +109,7 @@ func (repo *Repo) rebaseUsingMergeTree(ctx context.Context, cfg rebaseConfig, up
 		// the provided --right-only flag, the result should be only commits which
 		// exist on the branch that is to be rebased.
 		Args: []string{fmt.Sprintf("%s...%s", upstreamOID, branchOID)},
-	}, git.WithStderr(&stderr))
+	}, git.WithStderr(&stderr), git.WithSetupStdout())
 	if err != nil {
 		return "", structerr.NewInternal("start git rev-list: %w", err)
 	}

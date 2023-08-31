@@ -157,7 +157,7 @@ func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[str
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"}},
 		Args:  internalRefPrefixes,
-	})
+	}, git.WithSetupStdout())
 	if err != nil {
 		return nil, err
 	}
