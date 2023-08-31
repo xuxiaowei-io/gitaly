@@ -137,7 +137,7 @@ const (
 // terminated and reaped automatically when the context.Context that
 // created it is canceled.
 type Command struct {
-	reader       io.Reader
+	reader       io.ReadCloser
 	writer       io.WriteCloser
 	stderrBuffer *stderrBuffer
 	cmd          *exec.Cmd
@@ -384,8 +384,15 @@ func (c *Command) wait() {
 	}
 
 	if c.reader != nil {
-		// Prevent the command from blocking on writing to its stdout.
-		_, _ = io.Copy(io.Discard, c.reader)
+		if featureflag.CommandCloseStdout.IsEnabled(c.context) {
+			// Close stdout of the command. This causes us to receive an error when trying to consume the
+			// output and will also cause an error when stdout hasn't been fully consumed at the time of
+			// calling `Wait()`.
+			c.reader.Close()
+		} else {
+			// Prevent the command from blocking on writing to its stdout.
+			_, _ = io.Copy(io.Discard, c.reader)
+		}
 	}
 
 	c.waitError = c.cmd.Wait()
