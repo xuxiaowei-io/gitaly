@@ -64,16 +64,18 @@ type streamWrapper struct {
 	waiter *Waiter
 }
 
-func (sw *streamWrapper) RecvMsg(m interface{}) error {
-	if err := sw.ClientStream.RecvMsg(m); err != io.EOF {
-		return err
-	}
+func (sw *streamWrapper) RecvMsg(m interface{}) (err error) {
+	defer func() {
+		// We should always close the waiter, which waits for the connection to be fully teared down before move
+		// on. Otherwise, when upstream returns an error, there is a race between the gRPC handler and
+		// Sidechannel connection. This race sometimes makes the error message not fully flushed.
+		// For more information: https://gitlab.com/gitlab-org/gitaly/-/issues/5552
+		if waiterErr := sw.waiter.Close(); err == nil && waiterErr != nil && waiterErr != ErrCallbackDidNotRun {
+			err = fmt.Errorf("sidechannel: proxy callback: %w", waiterErr)
+		}
+	}()
 
-	if err := sw.waiter.Close(); err != nil && err != ErrCallbackDidNotRun {
-		return fmt.Errorf("sidechannel: proxy callback: %w", err)
-	}
-
-	return io.EOF
+	return sw.ClientStream.RecvMsg(m)
 }
 
 func hasSidechannelMetadata(ctx context.Context) bool {
