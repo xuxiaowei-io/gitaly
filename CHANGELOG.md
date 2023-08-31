@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 16.3.1 (2023-08-31)
+
+No changes.
+
 ## 16.3.0 (2023-08-21)
 
 ### Added (18 changes)
@@ -42,6 +46,10 @@
 ### updated (1 change)
 
 - [backup: Write an empty ref list for empty repositories](gitlab-org/gitaly@7fbae125172570e5bef222908388ba0ca1c9e43a) ([merge request](gitlab-org/gitaly!6090))
+
+## 16.2.5 (2023-08-31)
+
+No changes.
 
 ## 16.2.4 (2023-08-11)
 
@@ -98,6 +106,10 @@ No changes.
 ### Performance (1 change)
 
 - [localrepo: Avoid getting all branches for default branch detection](gitlab-org/gitaly@bdd3c05a2cc2889260050f2714884cc24503ae1a) by @blanet ([merge request](gitlab-org/gitaly!5725))
+
+## 16.1.5 (2023-08-31)
+
+No changes.
 
 ## 16.1.4 (2023-08-03)
 
