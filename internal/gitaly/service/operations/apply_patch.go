@@ -128,7 +128,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		git.WithEnv(
 			"GIT_COMMITTER_NAME="+string(header.GetUser().Name),
 			"GIT_COMMITTER_EMAIL="+string(header.GetUser().Email),
-			fmt.Sprintf("GIT_COMMITTER_DATE=%d %s", committerTime.Unix(), committerTime.Format("-0700")),
+			"GIT_COMMITTER_DATE="+git.FormatTime(committerTime),
 		),
 		git.WithStdin(streamio.NewReader(func() ([]byte, error) {
 			req, err := stream.Recv()

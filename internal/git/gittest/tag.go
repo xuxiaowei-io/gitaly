@@ -65,7 +65,7 @@ func WriteTag(
 
 	var env []string
 	if !config.Date.IsZero() {
-		env = append(env, fmt.Sprintf("GIT_COMMITTER_DATE=%d %s", config.Date.Unix(), config.Date.Format("-0700")))
+		env = append(env, "GIT_COMMITTER_DATE="+git.FormatTime(config.Date))
 	}
 
 	ExecOpts(tb, cfg, ExecConfig{
