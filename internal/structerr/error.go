@@ -1,4 +1,4 @@
-package structerr
+package structerr //nolint:gitaly-linters // Importing testhelper creates a cyclic dependency.
 
 import (
 	"errors"

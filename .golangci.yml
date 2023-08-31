@@ -147,6 +147,9 @@ linters-settings:
         unavailable_code:
           included-functions:
             - gitlab.com/gitlab-org/gitaly/v16/internal/structerr.NewUnavailable
+        testhelper_run:
+          included-functions:
+            - gitlab.com/gitlab-org/gitaly/v16/internal/testhelper.Run
 
 issues:
   exclude-use-default: false

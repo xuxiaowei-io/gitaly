@@ -1,4 +1,4 @@
-package safe_test
+package perm_test
 
 import (
 	"testing"

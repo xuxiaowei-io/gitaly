@@ -25,10 +25,6 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func createNewServer(t *testing.T, cfg config.Cfg, logger *logrus.Logger) *grpc.Server {
 	t.Helper()
 

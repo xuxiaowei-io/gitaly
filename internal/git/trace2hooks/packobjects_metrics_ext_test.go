@@ -19,10 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func TestPackObjectsMetrics(t *testing.T) {
 	t.Parallel()
 

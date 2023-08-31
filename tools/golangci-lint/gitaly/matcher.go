@@ -33,6 +33,8 @@ var funcNamePattern = regexp.MustCompile(`^\(?([^\\)].*)\)?\.(.*)$`)
 //     "gitlab.com/gitlab-org/gitaly/v15/internal/structerr.NewInternal",
 //   - A function of a struct inside a package:
 //     "(*gitlab.com/gitlab-org/gitaly/v15/internal/structerr.Error).Unwrap",
+//   - A local function call:
+//     "New(1)",
 //
 // This Matcher doesn't support interface match (yet).
 func (m *Matcher) MatchFunction(call *ast.CallExpr, rules []string) bool {
@@ -76,11 +78,18 @@ func (m *Matcher) functionName(call *ast.CallExpr) string {
 }
 
 func (m *Matcher) getFunction(call *ast.CallExpr) (*types.Func, bool) {
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
+	var ident *ast.Ident
+
+	switch ty := call.Fun.(type) {
+	case *ast.SelectorExpr:
+		ident = ty.Sel
+	case *ast.Ident:
+		ident = ty
+	default:
 		return nil, false
 	}
-	fn, ok := m.typesInfo.ObjectOf(sel.Sel).(*types.Func)
+
+	fn, ok := m.typesInfo.ObjectOf(ident).(*types.Func)
 	if !ok {
 		return nil, false
 	}

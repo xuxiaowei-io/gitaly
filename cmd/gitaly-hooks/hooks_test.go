@@ -120,10 +120,6 @@ func envForHooks(tb testing.TB, ctx context.Context, cfg config.Cfg, repo *gital
 	return env
 }
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func TestHooksPrePostWithSymlinkedStoragePath(t *testing.T) {
 	tempDir := testhelper.TempDir(t)
 

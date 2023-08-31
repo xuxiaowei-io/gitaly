@@ -39,10 +39,6 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func TestSanity(t *testing.T) {
 	serverSocketPath := runServer(t, testcfg.Build(t))
 

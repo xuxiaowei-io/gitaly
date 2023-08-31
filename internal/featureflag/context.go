@@ -1,4 +1,4 @@
-package featureflag
+package featureflag //nolint:gitaly-linters // Importing testhelper creates a cyclic dependency.
 
 import (
 	"context"

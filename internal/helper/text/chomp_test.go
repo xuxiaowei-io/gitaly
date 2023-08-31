@@ -1,9 +1,10 @@
-package text
+package text_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 )
 
 func TestChompBytes(t *testing.T) {
@@ -23,7 +24,7 @@ func TestChompBytes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.out, ChompBytes(tc.in))
+			require.Equal(t, tc.out, text.ChompBytes(tc.in))
 		})
 	}
 }
