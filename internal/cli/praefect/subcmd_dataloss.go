@@ -92,7 +92,7 @@ func datalossAction(ctx *cli.Context) error {
 	client := gitalypb.NewPraefectInfoServiceClient(conn)
 
 	for _, vs := range virtualStorages {
-		resp, err := client.DatalossCheck(ctx.Context, &gitalypb.DatalossCheckRequest{
+		stream, err := client.Dataloss(ctx.Context, &gitalypb.DatalossRequest{
 			VirtualStorage:             vs,
 			IncludePartiallyReplicated: includePartiallyAvailable,
 		})
@@ -100,8 +100,75 @@ func datalossAction(ctx *cli.Context) error {
 			return fmt.Errorf("error checking: %w", err)
 		}
 
+		var foundUnavailableRepos bool
+
 		indentPrintln(ctx.App.Writer, 0, "Virtual storage: %s", vs)
-		if len(resp.Repositories) == 0 {
+		for {
+			resp, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					return fmt.Errorf("getting response: %w", err)
+				}
+
+				break
+			}
+
+			if len(resp.Repositories) > 0 {
+				indentPrintln(ctx.App.Writer, 1, "Repositories:")
+			}
+
+			for _, repo := range resp.Repositories {
+				foundUnavailableRepos = true
+
+				unavailable := ""
+				if repo.Unavailable {
+					unavailable = " (unavailable)"
+				}
+
+				indentPrintln(ctx.App.Writer, 2, "%s%s:", repo.RelativePath, unavailable)
+
+				primary := repo.Primary
+				if primary == "" {
+					primary = "No Primary"
+				}
+				indentPrintln(ctx.App.Writer, 3, "Primary: %s", primary)
+
+				indentPrintln(ctx.App.Writer, 3, "In-Sync Storages:")
+				for _, storage := range repo.Storages {
+					if storage.BehindBy != 0 {
+						continue
+					}
+
+					indentPrintln(ctx.App.Writer, 4, "%s%s%s",
+						storage.Name,
+						assignedMessage(storage.Assigned),
+						unhealthyMessage(storage.Healthy),
+					)
+				}
+
+				indentPrintln(ctx.App.Writer, 3, "Outdated Storages:")
+				for _, storage := range repo.Storages {
+					if storage.BehindBy == 0 {
+						continue
+					}
+
+					plural := ""
+					if storage.BehindBy > 1 {
+						plural = "s"
+					}
+
+					indentPrintln(ctx.App.Writer, 4, "%s is behind by %d change%s or less%s%s",
+						storage.Name,
+						storage.BehindBy,
+						plural,
+						assignedMessage(storage.Assigned),
+						unhealthyMessage(storage.Healthy),
+					)
+				}
+			}
+		}
+
+		if !foundUnavailableRepos {
 			msg := "All repositories are available!"
 			if includePartiallyAvailable {
 				msg = "All repositories are fully available on all assigned storages!"
@@ -109,55 +176,6 @@ func datalossAction(ctx *cli.Context) error {
 
 			indentPrintln(ctx.App.Writer, 1, msg)
 			continue
-		}
-
-		indentPrintln(ctx.App.Writer, 1, "Repositories:")
-		for _, repo := range resp.Repositories {
-			unavailable := ""
-			if repo.Unavailable {
-				unavailable = " (unavailable)"
-			}
-
-			indentPrintln(ctx.App.Writer, 2, "%s%s:", repo.RelativePath, unavailable)
-
-			primary := repo.Primary
-			if primary == "" {
-				primary = "No Primary"
-			}
-			indentPrintln(ctx.App.Writer, 3, "Primary: %s", primary)
-
-			indentPrintln(ctx.App.Writer, 3, "In-Sync Storages:")
-			for _, storage := range repo.Storages {
-				if storage.BehindBy != 0 {
-					continue
-				}
-
-				indentPrintln(ctx.App.Writer, 4, "%s%s%s",
-					storage.Name,
-					assignedMessage(storage.Assigned),
-					unhealthyMessage(storage.Healthy),
-				)
-			}
-
-			indentPrintln(ctx.App.Writer, 3, "Outdated Storages:")
-			for _, storage := range repo.Storages {
-				if storage.BehindBy == 0 {
-					continue
-				}
-
-				plural := ""
-				if storage.BehindBy > 1 {
-					plural = "s"
-				}
-
-				indentPrintln(ctx.App.Writer, 4, "%s is behind by %d change%s or less%s%s",
-					storage.Name,
-					storage.BehindBy,
-					plural,
-					assignedMessage(storage.Assigned),
-					unhealthyMessage(storage.Healthy),
-				)
-			}
 		}
 	}
 
