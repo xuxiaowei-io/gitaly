@@ -16,8 +16,17 @@ service PraefectInfoService {
   // This comment is left unintentionally blank.
   rpc RepositoryReplicas(RepositoryReplicasRequest) returns (RepositoryReplicasResponse);
 
-  // DatalossCheck checks for unavailable repositories.
-  rpc DatalossCheck(DatalossCheckRequest) returns (DatalossCheckResponse);
+  // DatalossCheck provides information on repositories in Praefect that are in a degraded state and
+  // thus susceptible to dataloss. A repository is considered degraded when its replicas are
+  // outdated and/or unavailable.
+  rpc DatalossCheck(DatalossCheckRequest) returns (DatalossCheckResponse) {
+    option deprecated = true;
+  };
+
+  // Dataloss provides information on repositories in Praefect that are in a degraded state and 
+  // thus susceptible to dataloss. A repository is considered degraded when its replicas are 
+  // outdated and/or unavailable.
+  rpc Dataloss(DatalossRequest) returns (stream DatalossResponse);
 
   // SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
   // This causes the current version of the repository on the authoritative storage to be considered the
@@ -154,8 +163,52 @@ message SetAuthoritativeStorageRequest {
 message SetAuthoritativeStorageResponse {
 }
 
+// A request for data loss information
+message DatalossRequest {
+  // The virtual storage to get dataloss information for
+  string virtual_storage = 1;
+  // include_partially_unavailable indicates whether to include repositories which are available but
+  // are unavailable on some assigned storages.
+  bool include_partially_replicated = 2;
+}
+
+// Contains information about a repository that may be behind
+// the primary.
+message DatalossResponse {
+  // status of a repository
+  message Repository {
+    // This comment is left unintentionally blank.
+    message Storage {
+      // name of the storage
+      string name = 1;
+      // behind_by indicates how many generations this storage is behind.
+      int64 behind_by = 2;
+      // assigned indicates whether the storage is assigned to host the repository.
+      bool assigned = 3;
+      // healthy indicates whether the storage is considered healthy by the consensus of Praefect nodes.
+      bool healthy = 4;
+      // valid_primary indicates whether the storage is ready to act as the primary if necessary.
+      bool valid_primary = 5;
+    }
+
+    // relative path of the repository with outdated replicas
+    string relative_path = 1;
+    // storages on which the repository is outdated
+    repeated Storage storages = 2;
+    // unavailable indicates whether the repository is in unavailable.
+    bool unavailable = 3;
+
+    // current primary storage of the repository
+    string primary = 4;
+  }
+
+  // repositories with data loss
+  repeated Repository repositories = 2;
+}
+
 // This comment is left unintentionally blank.
 message DatalossCheckRequest {
+  option deprecated = true;
   // This comment is left unintentionally blank.
   string virtual_storage = 1;
   // include_partially_unavailable indicates whether to include repositories which are available but
@@ -165,6 +218,7 @@ message DatalossCheckRequest {
 
 // This comment is left unintentionally blank.
 message DatalossCheckResponse {
+  option deprecated = true;
   // This comment is left unintentionally blank.
   message Repository {
     // This comment is left unintentionally blank.

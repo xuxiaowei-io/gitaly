@@ -1,7 +1,6 @@
 package praefect
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
-	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func TestAcceptDatalossSubcommand(t *testing.T) {
@@ -74,7 +72,6 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 		desc                string
 		args                []string
 		virtualStorages     []*config.VirtualStorage
-		datalossCheck       func(context.Context, *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error)
 		output              string
 		matchError          errorMatcher
 		expectedGenerations map[string]int
