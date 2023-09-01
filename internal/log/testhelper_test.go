@@ -1,17 +1,11 @@
-package log
+package log_test
 
 import (
-	"io"
+	"testing"
 
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
-// newLogger creates a new logger for testing purposes. Use of `logrus.New()` is forbidden globally, but required here
-// to verify that we correctly configure our logging infrastructure.
-//
-//nolint:forbidigo
-func newLogger() *logrus.Logger {
-	logger := logrus.New()
-	logger.Out = io.Discard
-	return logger
+func TestMain(m *testing.M) {
+	testhelper.Run(m)
 }
