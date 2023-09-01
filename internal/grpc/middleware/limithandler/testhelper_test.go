@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 	"sync/atomic"
+	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"google.golang.org/grpc/interop/grpc_testing"
 )
 
@@ -12,6 +14,10 @@ type server struct {
 	grpc_testing.UnimplementedTestServiceServer
 	requestCount uint64
 	blockCh      chan struct{}
+}
+
+func TestMain(m *testing.M) {
+	testhelper.Run(m)
 }
 
 func (s *server) registerRequest() {

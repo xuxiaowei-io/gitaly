@@ -11,10 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func TestList(t *testing.T) {
 	t.Parallel()
 
