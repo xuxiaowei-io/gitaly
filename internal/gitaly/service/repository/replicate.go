@@ -411,7 +411,7 @@ func (s *server) syncObjectPool(ctx context.Context, sourceRepoProto, targetRepo
 		// In the case where the source repository does not have any Git alternates, but the
 		// existing target repository does, the target repository should have its alternates
 		// disconnected to match the current state of the source repository.
-		if err := objectpool.Disconnect(ctx, targetRepo); err != nil {
+		if err := objectpool.Disconnect(ctx, targetRepo, s.txManager); err != nil {
 			return fmt.Errorf("disconnect target from object pool: %w", err)
 		}
 

@@ -45,8 +45,11 @@ func transactionsDisabled(context.Context) bool { return false }
 // transactions. An optional feature flag can be added to conditionally enable transactional
 // behaviour. If none is given, it's always enabled.
 var transactionRPCs = map[string]transactionsCondition{
-	"/gitaly.CleanupService/ApplyBfgObjectMapStream":         transactionsEnabled,
-	"/gitaly.ConflictsService/ResolveConflicts":              transactionsEnabled,
+	"/gitaly.CleanupService/ApplyBfgObjectMapStream": transactionsEnabled,
+	"/gitaly.ConflictsService/ResolveConflicts":      transactionsEnabled,
+	"/gitaly.ObjectPoolService/DisconnectGitAlternates": func(ctx context.Context) bool {
+		return featureflag.TransactionalAlternatesDisconnect.IsEnabled(ctx)
+	},
 	"/gitaly.ObjectPoolService/FetchIntoObjectPool":          transactionsEnabled,
 	"/gitaly.OperationService/UserApplyPatch":                transactionsEnabled,
 	"/gitaly.OperationService/UserCherryPick":                transactionsEnabled,
@@ -89,7 +92,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	// transactional in the future if the need arises.
 	"/gitaly.ObjectPoolService/CreateObjectPool":           transactionsDisabled,
 	"/gitaly.ObjectPoolService/DeleteObjectPool":           transactionsDisabled,
-	"/gitaly.ObjectPoolService/DisconnectGitAlternates":    transactionsDisabled,
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool": transactionsDisabled,
 	"/gitaly.RepositoryService/RenameRepository":           transactionsDisabled,
 }

@@ -43,8 +43,11 @@ import (
 
 func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool, featureflag.InterceptReplicateRepository).
-		Run(t, testReplicateRepository)
+	testhelper.NewFeatureSets(
+		featureflag.ReplicateRepositoryObjectPool,
+		featureflag.InterceptReplicateRepository,
+		featureflag.TransactionalAlternatesDisconnect,
+	).Run(t, testReplicateRepository)
 }
 
 func testReplicateRepository(t *testing.T, ctx context.Context) {

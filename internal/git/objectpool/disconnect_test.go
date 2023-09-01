@@ -21,10 +21,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/grpc/peer"
 )
 
 func TestDisconnect(t *testing.T) {
@@ -35,7 +39,9 @@ func TestDisconnect(t *testing.T) {
 
 	type setupData struct {
 		repository      *localrepo.Repo
+		txManager       transaction.Manager
 		expectedObjects []git.ObjectID
+		expectedVotes   []transaction.PhasedVote
 		expectedError   error
 	}
 
@@ -230,6 +236,64 @@ func TestDisconnect(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "transactional disconnect successful with object pool",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				// If a repository is linked to an object pool, the transaction should contain
+				// migrate and disconnect votes.
+				repo, _ := setupRepoWithObjectPool(t, ctx)
+
+				return setupData{
+					repository: repo,
+					txManager:  transaction.NewTrackingManager(),
+					expectedVotes: []transaction.PhasedVote{
+						{Vote: voting.VoteFromData([]byte("migrate objects")), Phase: voting.Prepared},
+						{Vote: voting.VoteFromData([]byte("migrate objects")), Phase: voting.Committed},
+						{Vote: voting.VoteFromData([]byte("disconnect alternate")), Phase: voting.Prepared},
+						{Vote: voting.VoteFromData([]byte("disconnect alternate")), Phase: voting.Committed},
+					},
+				}
+			},
+		},
+		{
+			desc: "transactional disconnect successful without object pool",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				// If a repository is not linked to an object pool, the transaction should contain a
+				// vote indicating there is no alternate for the repository.
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+				return setupData{
+					repository: repo,
+					txManager:  transaction.NewTrackingManager(),
+					expectedVotes: []transaction.PhasedVote{
+						{Vote: voting.VoteFromData([]byte("no alternates")), Phase: voting.Committed},
+					},
+				}
+			},
+		},
+		{
+			desc: "transactional disconnect fails",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repo, _ := setupRepoWithObjectPool(t, ctx)
+
+				// Simulate transaction failure to validate that rollback is performed.
+				txManager := &transaction.MockManager{
+					VoteFn: func(_ context.Context, _ txinfo.Transaction, _ voting.Vote, _ voting.Phase) error {
+						// Return an error to simulate transaction failure.
+						return errors.New("transaction failed")
+					},
+				}
+
+				return setupData{
+					repository:    repo,
+					txManager:     txManager,
+					expectedError: errors.New("preparatory vote for migrating objects: transaction failed"),
+				}
+			},
+		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
@@ -243,7 +307,17 @@ func TestDisconnect(t *testing.T) {
 			altInfoBefore, err := stats.AlternatesInfoForRepository(repoPath)
 			require.NoError(t, err)
 
-			disconnectErr := Disconnect(ctx, setup.repository)
+			// If testcase uses transaction manager, inject transaction into context.
+			ctx := ctx
+			if setup.txManager != nil {
+				ctx = peer.NewContext(ctx, &peer.Peer{})
+				ctx, err = txinfo.InjectTransaction(ctx, 1, "primary", true)
+				require.NoError(t, err)
+				ctx = metadata.IncomingToOutgoing(ctx)
+				ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+			}
+
+			disconnectErr := Disconnect(ctx, setup.repository, setup.txManager)
 
 			altInfoAfter, err := stats.AlternatesInfoForRepository(repoPath)
 			require.NoError(t, err)
@@ -268,6 +342,12 @@ func TestDisconnect(t *testing.T) {
 
 			// The repository should be in a valid state after an object pool is disconnected.
 			gittest.Exec(t, cfg, "-C", repoPath, "fsck")
+
+			if setup.txManager != nil {
+				trackingManager, ok := setup.txManager.(*transaction.TrackingManager)
+				require.True(t, ok, "tracking manager required for validating votes")
+				require.Equal(t, setup.expectedVotes, trackingManager.Votes())
+			}
 		})
 	}
 }
@@ -308,7 +388,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 		// Now we try to remove the alternates file. This is expected to fail due to the
 		// consistency check.
 		altBackup := altPath + ".backup"
-		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup)
+		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup, nil)
 		require.Error(t, err, "removeAlternatesIfOk should fail")
 		require.IsType(t, &connectivityError{}, err, "error must be because of fsck")
 
@@ -345,7 +425,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 		// Now when we try to remove the alternates file we should notice the corruption and
 		// abort.
 		altBackup := altPath + ".backup"
-		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup)
+		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup, nil)
 		require.Error(t, err, "removeAlternatesIfOk should fail")
 		require.IsType(t, &connectivityError{}, err, "error must be because of connectivity check")
 		connectivityErr := err.(*connectivityError)
