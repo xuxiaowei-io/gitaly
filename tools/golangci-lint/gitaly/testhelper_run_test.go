@@ -26,5 +26,6 @@ func TestTesthelperRun(t *testing.T) {
 		"testhelper_run_no_testmain",
 		"testhelper_run_no_exec_testmain",
 		"testhelper_run_not_testhelper",
+		"testhelper_run_blackbox",
 	)
 }
