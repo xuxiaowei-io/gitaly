@@ -38,7 +38,7 @@ require (
 	github.com/urfave/cli/v2 v2.25.7
 	gitlab.com/gitlab-org/labkit v1.20.0
 	go.uber.org/goleak v1.2.1
-	gocloud.dev v0.33.0
+	gocloud.dev v0.34.0
 	golang.org/x/crypto v0.12.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	golang.org/x/sync v0.3.0
