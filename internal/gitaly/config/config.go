@@ -250,9 +250,6 @@ func (gl Gitlab) Validate() error {
 // Hooks contains the settings required for hooks
 type Hooks struct {
 	CustomHooksDir string `toml:"custom_hooks_dir,omitempty" json:"custom_hooks_dir"`
-	// customHooksDirIsDerived indicates whether the custom hooks directory has been derived from the
-	// `gitaly-shell.hooks` path.
-	customHooksDirIsDerived bool
 }
 
 // HTTPSettings contains configuration settings used to setup HTTP transport
@@ -602,7 +599,6 @@ func (cfg *Cfg) Validate() error {
 		cfg.validateStorages,
 		cfg.validateGit,
 		cfg.validateGitlabSecret,
-		cfg.validateCustomHooks,
 		cfg.validateBinDir,
 		cfg.validateRuntimeDir,
 		cfg.validateMaintenance,
@@ -690,7 +686,6 @@ func (cfg *Cfg) setDefaults() error {
 
 	if cfg.Hooks.CustomHooksDir == "" && cfg.GitlabShell.Dir != "" {
 		cfg.Hooks.CustomHooksDir = filepath.Join(cfg.GitlabShell.Dir, "hooks")
-		cfg.Hooks.customHooksDirIsDerived = true
 	}
 
 	if reflect.DeepEqual(cfg.DailyMaintenance, DailyJob{}) {
@@ -726,7 +721,9 @@ func (cfg *Cfg) validateGitlabSecret() error {
 	case len(cfg.Gitlab.Secret) > 0:
 		return nil
 	case len(cfg.Gitlab.SecretFile) > 0:
-		return validateIsFile(cfg.Gitlab.SecretFile, "gitlab.secret_file")
+		// Ideally, we would raise an error if the secret file doesn't exist, but there are too many setups out
+		// there right now where things are broken. So we don't and need to reintroduce this at a later point.
+		return nil
 	case len(cfg.GitlabShell.Dir) > 0:
 		// Note that we do not verify that the secret actually exists, but only verify that the directory
 		// exists. This is not as thorough as we could be, but is done in order to retain our legacy behaviour
@@ -735,18 +732,6 @@ func (cfg *Cfg) validateGitlabSecret() error {
 	default:
 		return fmt.Errorf("GitLab secret not configured")
 	}
-}
-
-func (cfg *Cfg) validateCustomHooks() error {
-	// We only validate the custom hooks directory in case it is explicitly set to a value. If it is empty then we
-	// assume that the administrator has no custom hooks configured. On the other hand, if the custom hooks
-	// directory would be derived from `gitlab_shell.dir`, it is totally valid if that derived directory does not
-	// exist.
-	if cfg.Hooks.CustomHooksDir == "" || cfg.Hooks.customHooksDirIsDerived {
-		return nil
-	}
-
-	return validateIsDirectory(cfg.Hooks.CustomHooksDir, "hooks.custom_hooks_dir")
 }
 
 func validateIsDirectory(path, name string) error {
@@ -759,21 +744,6 @@ func validateIsDirectory(path, name string) error {
 	}
 	if !s.IsDir() {
 		return fmt.Errorf("%s: not a directory: %q", name, path)
-	}
-
-	return nil
-}
-
-func validateIsFile(path, name string) error {
-	s, err := os.Stat(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("%s: path doesn't exist: %q", name, path)
-		}
-		return fmt.Errorf("%s: %w", name, err)
-	}
-	if !s.Mode().IsRegular() {
-		return fmt.Errorf("%s: not a file: %q", name, path)
 	}
 
 	return nil

@@ -802,11 +802,12 @@ func TestCfg_ValidateGitlabSecret(t *testing.T) {
 		{
 			desc: "with non-existent GitLab secret file",
 			setup: func(t *testing.T) (Cfg, error) {
+				// We do not create an error in this case even though we eventually should.
 				return Cfg{
 					Gitlab: Gitlab{
 						SecretFile: "/does/not/exist",
 					},
-				}, fmt.Errorf("%s: path doesn't exist: %q", "gitlab.secret_file", "/does/not/exist")
+				}, nil
 			},
 		},
 		{
@@ -863,54 +864,6 @@ func TestCfg_ValidateGitlabSecret(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, expectedErr := tc.setup(t)
 			require.Equal(t, expectedErr, cfg.validateGitlabSecret())
-		})
-	}
-}
-
-func TestCfg_validateCustomHooks(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		desc        string
-		cfg         Cfg
-		expectedErr error
-	}{
-		{
-			desc:        "unset custom hooks directory is valid",
-			cfg:         Cfg{},
-			expectedErr: nil,
-		},
-		{
-			desc: "hooks directory derived from gitlab-shell.dir is not validated",
-			cfg: Cfg{
-				GitlabShell: GitlabShell{
-					Dir: "/does/not/exist",
-				},
-			},
-			expectedErr: nil,
-		},
-		{
-			desc: "non-existent custom hooks directory is invalid",
-			cfg: Cfg{
-				Hooks: Hooks{
-					CustomHooksDir: "/does/not/exist",
-				},
-			},
-			expectedErr: fmt.Errorf("%s: path doesn't exist: %q", "hooks.custom_hooks_dir", "/does/not/exist"),
-		},
-		{
-			desc: "existing custom hooks directory is valid",
-			cfg: Cfg{
-				Hooks: Hooks{
-					CustomHooksDir: testhelper.TempDir(t),
-				},
-			},
-			expectedErr: nil,
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			require.NoError(t, tc.cfg.setDefaults())
-			require.Equal(t, tc.expectedErr, tc.cfg.validateCustomHooks())
 		})
 	}
 }
@@ -982,8 +935,7 @@ dir = '%s'`, gitlabShellDir))
 		SecretFile: filepath.Join(gitlabShellDir, ".gitlab_shell_secret"),
 	}, cfg.Gitlab)
 	require.Equal(t, Hooks{
-		CustomHooksDir:          filepath.Join(gitlabShellDir, "hooks"),
-		customHooksDirIsDerived: true,
+		CustomHooksDir: filepath.Join(gitlabShellDir, "hooks"),
 	}, cfg.Hooks)
 }
 
