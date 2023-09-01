@@ -726,7 +726,9 @@ func (cfg *Cfg) validateGitlabSecret() error {
 	case len(cfg.Gitlab.Secret) > 0:
 		return nil
 	case len(cfg.Gitlab.SecretFile) > 0:
-		return validateIsFile(cfg.Gitlab.SecretFile, "gitlab.secret_file")
+		// Ideally, we would raise an error if the secret file doesn't exist, but there are too many setups out
+		// there right now where things are broken. So we don't and need to reintroduce this at a later point.
+		return nil
 	case len(cfg.GitlabShell.Dir) > 0:
 		// Note that we do not verify that the secret actually exists, but only verify that the directory
 		// exists. This is not as thorough as we could be, but is done in order to retain our legacy behaviour
@@ -759,21 +761,6 @@ func validateIsDirectory(path, name string) error {
 	}
 	if !s.IsDir() {
 		return fmt.Errorf("%s: not a directory: %q", name, path)
-	}
-
-	return nil
-}
-
-func validateIsFile(path, name string) error {
-	s, err := os.Stat(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("%s: path doesn't exist: %q", name, path)
-		}
-		return fmt.Errorf("%s: %w", name, err)
-	}
-	if !s.Mode().IsRegular() {
-		return fmt.Errorf("%s: not a file: %q", name, path)
 	}
 
 	return nil

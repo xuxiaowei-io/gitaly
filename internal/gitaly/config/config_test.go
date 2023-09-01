@@ -802,11 +802,12 @@ func TestCfg_ValidateGitlabSecret(t *testing.T) {
 		{
 			desc: "with non-existent GitLab secret file",
 			setup: func(t *testing.T) (Cfg, error) {
+				// We do not create an error in this case even though we eventually should.
 				return Cfg{
 					Gitlab: Gitlab{
 						SecretFile: "/does/not/exist",
 					},
-				}, fmt.Errorf("%s: path doesn't exist: %q", "gitlab.secret_file", "/does/not/exist")
+				}, nil
 			},
 		},
 		{
