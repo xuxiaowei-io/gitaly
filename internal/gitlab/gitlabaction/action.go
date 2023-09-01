@@ -7,6 +7,9 @@ package gitlabaction
 type Action string
 
 const (
+	// Unknown indicates that the current action is unknown. This should in theory never be reported to the
+	// client.
+	Unknown = "unknown"
 	// ReceivePack indicates that a change has been performed via git-receive-pack(1), or in other words by
 	// a client-side push.
 	ReceivePack = "git-receive-pack"

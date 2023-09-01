@@ -47,7 +47,7 @@ func WithRefTxHook(repo storage.Repository) CmdOpt {
 			GitAlternateObjectDirectories: repo.GetGitAlternateObjectDirectories(),
 			GitObjectDirectory:            repo.GetGitObjectDirectory(),
 			RelativePath:                  repo.GetRelativePath(),
-		}, cfg, gitCmdFactory, nil, ReferenceTransactionHook); err != nil {
+		}, cfg, gitCmdFactory, gitlabaction.Unknown, nil, ReferenceTransactionHook); err != nil {
 			return fmt.Errorf("ref hook env var: %w", err)
 		}
 
@@ -78,6 +78,7 @@ func WithPackObjectsHookEnv(repo *gitalypb.Repository, protocol string) CmdOpt {
 			repo,
 			cfg,
 			gitCmdFactory,
+			gitlabaction.Unknown,
 			userDetails,
 			PackObjectsHook,
 		); err != nil {
@@ -107,7 +108,7 @@ type ReceivePackRequest interface {
 // git-receive-pack(1).
 func WithReceivePackHooks(req ReceivePackRequest, protocol string) CmdOpt {
 	return func(ctx context.Context, cfg config.Cfg, gitCmdFactory CommandFactory, cc *cmdCfg) error {
-		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, gitCmdFactory, &UserDetails{
+		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, gitCmdFactory, gitlabaction.ReceivePack, &UserDetails{
 			UserID:   req.GetGlId(),
 			Username: req.GetGlUsername(),
 			Protocol: protocol,
@@ -127,6 +128,7 @@ func (cc *cmdCfg) configureHooks(
 	repo *gitalypb.Repository,
 	cfg config.Cfg,
 	gitCmdFactory CommandFactory,
+	action gitlabaction.Action,
 	userDetails *UserDetails,
 	requestedHooks Hook,
 ) error {
@@ -151,7 +153,7 @@ func (cc *cmdCfg) configureHooks(
 		repo,
 		objectHash,
 		transaction,
-		gitlabaction.ReceivePack,
+		action,
 		userDetails,
 		requestedHooks,
 		featureflag.FromContext(ctx)).Env()
