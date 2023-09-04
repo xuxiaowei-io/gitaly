@@ -22,7 +22,6 @@ Please complete all but the "Reading material" section in your first few working
   - [ ] get access to [Stackdriver](https://about.gitlab.com/handbook/engineering/monitoring/#go-services)
   - [ ] join the `gcp-host-profiles-sg@gitlab.com` GCP group for access to [periodic profiling data](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1433#note_901717231)
   - [ ] request access to [Zendesk](https://about.gitlab.com/handbook/support/internal-support/#requesting-a-zendesk-light-agent-account)
-  - [ ] create [RubyGems.org](https://rubygems.org/sign_up) account and request access to `gitaly` gem
   - [ ] join the https://groups.google.com/a/gitlab.com/g/eng-dev-trace-gitaly/members Google group to be able to use [GCP tracing](https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/21356)
   - [ ] Log in to [Sentry](https://new-sentry.gitlab.net/settings/gitlab/teams/) via Okta and join the `#gitlab` group. This should allow you to view events and statistics related to Gitaly production.
 - If transferring from another team within GitLab:
