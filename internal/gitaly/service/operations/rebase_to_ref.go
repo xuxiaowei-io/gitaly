@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -74,10 +73,11 @@ func (s *Server) UserRebaseToRef(ctx context.Context, request *gitalypb.UserReba
 		return nil, structerr.NewInternal("could not read target reference: %w", err)
 	}
 
-	committer := git.NewSignature(string(request.User.Name), string(request.User.Email), time.Now())
-	if request.Timestamp != nil {
-		committer.When = request.Timestamp.AsTime()
+	committerDate, err := dateFromProto(request)
+	if err != nil {
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
+	committer := git.NewSignature(string(request.User.Name), string(request.User.Email), committerDate)
 
 	rebasedOID, err := quarantineRepo.Rebase(
 		ctx,

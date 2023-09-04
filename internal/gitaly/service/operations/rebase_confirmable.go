@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -54,10 +53,11 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		return structerr.NewInternal("%w", err)
 	}
 
-	committer := git.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
-	if header.Timestamp != nil {
-		committer.When = header.Timestamp.AsTime()
+	committerDate, err := dateFromProto(header)
+	if err != nil {
+		return structerr.NewInvalidArgument("%w", err)
 	}
+	committer := git.NewSignature(string(header.User.Name), string(header.User.Email), committerDate)
 
 	newrev, err := quarantineRepo.Rebase(
 		ctx,

@@ -93,12 +93,9 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		branchCreated = true
 	}
 
-	committerTime := time.Now()
-	if header.Timestamp != nil {
-		committerTime, err = dateFromProto(header)
-		if err != nil {
-			return structerr.NewInvalidArgument("%w", err)
-		}
+	committerDate, err := dateFromProto(header)
+	if err != nil {
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	worktreePath := newWorktreePath(path, "am-")
@@ -128,7 +125,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		git.WithEnv(
 			"GIT_COMMITTER_NAME="+string(header.GetUser().Name),
 			"GIT_COMMITTER_EMAIL="+string(header.GetUser().Email),
-			"GIT_COMMITTER_DATE="+git.FormatTime(committerTime),
+			"GIT_COMMITTER_DATE="+git.FormatTime(committerDate),
 		),
 		git.WithStdin(streamio.NewReader(func() ([]byte, error) {
 			req, err := stream.Recv()

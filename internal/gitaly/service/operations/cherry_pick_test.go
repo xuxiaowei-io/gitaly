@@ -575,8 +575,8 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 
 	expectedCommitID := gittest.ObjectHashDependent(t, map[string]string{
-		"sha1":   "92452444836a56b6fb1b2f0e4e62384d7d6f49db",
-		"sha256": "92cb8205718f443de173cff9997b3ea49e3ef5864b700a64403cae221a38338e",
+		"sha1":   "e4e27d5484b1862f887391fe3417fecb95ee4fef",
+		"sha256": "e0cc4d237718edca19b01bfe90d8742a940b82aa7596124d46f6ac02818bf232",
 	})
 	require.Equal(t, expectedCommitID, response.BranchUpdate.CommitId)
 
@@ -605,7 +605,7 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 			Date: &timestamppb.Timestamp{
 				Seconds: 12345,
 			},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, pickCommit)
 }

@@ -125,7 +125,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	targetRevision := git.Revision(req.TargetRevision)
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
 
-	committerTime, err := dateFromProto(req)
+	taggerDate, err := dateFromProto(req)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
@@ -140,7 +140,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		return nil, fmt.Errorf("detecting object hash: %w", err)
 	}
 
-	tag, tagID, err := s.createTag(ctx, quarantineRepo, targetRevision, req.TagName, req.Message, req.User, committerTime)
+	tag, tagID, err := s.createTag(ctx, quarantineRepo, targetRevision, req.TagName, req.Message, req.User, taggerDate)
 	if err != nil {
 		return nil, err
 	}

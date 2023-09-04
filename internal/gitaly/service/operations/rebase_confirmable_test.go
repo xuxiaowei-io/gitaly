@@ -181,8 +181,8 @@ func testUserRebaseConfirmableSkipEmptyCommits(t *testing.T, ctx context.Context
 		Body:     []byte("ours with additional changes"),
 		BodySize: 28,
 		Id: gittest.ObjectHashDependent(t, map[string]string{
-			"sha1":   "ef7f98be1f753f1a9fa895d999a855611d691629",
-			"sha256": "29c9b79bd0e742d7bb51ac0be5283f65fb806a94c19cb591b3621e58703164fa",
+			"sha1":   "346ded91d8ed7a2a49ba50a6a76d3d0f3ffd23f2",
+			"sha256": "eda1cf87f683b102b7cb65b289c984e66192ac785cac0af4aed63a28b33471eb",
 		}),
 		ParentIds: []string{theirs.String()},
 		TreeId: gittest.ObjectHashDependent(t, map[string]string{
@@ -194,7 +194,7 @@ func testUserRebaseConfirmableSkipEmptyCommits(t *testing.T, ctx context.Context
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
 			Date:     &timestamppb.Timestamp{Seconds: 123456},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, rebaseCommit)
 }
@@ -328,8 +328,8 @@ func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context)
 	}), "send header")
 
 	expectedCommitID := gittest.ObjectHashDependent(t, map[string]string{
-		"sha1":   "85b0186925c57efa608939afea01b627a2f4d4cf",
-		"sha256": "a14d9fb56edf718b4aaeaabd2de8cd2403820396ee905f9c87337c5bea8598cf",
+		"sha1":   "96ce8a9f0bc1706adbc5deb513c196607a85241a",
+		"sha256": "78ac6c2d059c6149231ad9b648d67194852bc0af3ac162a5fcfaf7b2f52270fd",
 	})
 
 	response, err := rebaseStream.Recv()
@@ -364,7 +364,7 @@ func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context)
 			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
 			Date:     committerDate,
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, commit)
 }

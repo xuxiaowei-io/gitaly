@@ -114,7 +114,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		)
 	}
 
-	commitDate, err := dateFromProto(req)
+	committerDate, err := dateFromProto(req)
 	if err != nil {
 		return "", structerr.NewInvalidArgument("%w", err)
 	}
@@ -133,10 +133,10 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		quarantineRepo,
 		string(req.GetAuthor().GetName()),
 		string(req.GetAuthor().GetEmail()),
-		commitDate,
+		committerDate,
 		string(req.GetUser().GetName()),
 		string(req.GetUser().GetEmail()),
-		commitDate,
+		committerDate,
 		message,
 		startCommit.String(),
 		endCommit.String(),
