@@ -7,17 +7,11 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
-	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
-
-// ErrObjectNotFound is returned in case an object could not be found.
-var ErrObjectNotFound = errors.New("object not found")
 
 // InvalidObjectError is returned when trying to get an object id that is invalid or does not exist.
 type InvalidObjectError string
@@ -66,86 +60,6 @@ func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, err
 	}
 
 	return data, nil
-}
-
-type readCommitConfig struct {
-	withTrailers bool
-}
-
-// ReadCommitOpt is an option for ReadCommit.
-type ReadCommitOpt func(*readCommitConfig)
-
-// WithTrailers will cause ReadCommit to parse commit trailers.
-func WithTrailers() ReadCommitOpt {
-	return func(cfg *readCommitConfig) {
-		cfg.withTrailers = true
-	}
-}
-
-// ReadCommit reads the commit specified by the given revision. If no such
-// revision exists, it will return an ErrObjectNotFound error.
-func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ...ReadCommitOpt) (*gitalypb.GitCommit, error) {
-	var cfg readCommitConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-
-	objectReader, cancel, err := repo.catfileCache.ObjectReader(ctx, repo)
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
-
-	var commit *gitalypb.GitCommit
-	if cfg.withTrailers {
-		commit, err = catfile.GetCommitWithTrailers(ctx, repo.gitCmdFactory, repo, objectReader, revision)
-	} else {
-		commit, err = catfile.GetCommit(ctx, objectReader, revision)
-	}
-
-	if err != nil {
-		if errors.As(err, &catfile.NotFoundError{}) {
-			return nil, ErrObjectNotFound
-		}
-		return nil, err
-	}
-
-	return commit, nil
-}
-
-// InvalidCommitError is returned when the revision does not point to a valid commit object.
-type InvalidCommitError git.Revision
-
-func (err InvalidCommitError) Error() string {
-	return fmt.Sprintf("invalid commit: %q", string(err))
-}
-
-// IsAncestor returns whether the parent is an ancestor of the child. InvalidCommitError is returned
-// if either revision does not point to a commit in the repository.
-func (repo *Repo) IsAncestor(ctx context.Context, parent, child git.Revision) (bool, error) {
-	const notValidCommitName = "fatal: Not a valid commit name"
-
-	stderr := &bytes.Buffer{}
-	if err := repo.ExecAndWait(ctx,
-		git.Command{
-			Name:  "merge-base",
-			Flags: []git.Option{git.Flag{Name: "--is-ancestor"}},
-			Args:  []string{parent.String(), child.String()},
-		},
-		git.WithStderr(stderr),
-	); err != nil {
-		status, ok := command.ExitStatus(err)
-		if ok && status == 1 {
-			return false, nil
-		} else if ok && strings.HasPrefix(stderr.String(), notValidCommitName) {
-			commitOID := strings.TrimSpace(strings.TrimPrefix(stderr.String(), notValidCommitName))
-			return false, InvalidCommitError(commitOID)
-		}
-
-		return false, fmt.Errorf("determine ancestry: %w, stderr: %q", err, stderr)
-	}
-
-	return true, nil
 }
 
 // BadObjectError is returned when attempting to walk a bad object.
