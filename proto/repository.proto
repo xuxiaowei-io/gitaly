@@ -749,6 +749,10 @@ message CreateForkRequest {
   // to be rewritten by Praefect. This is because Gitaly will use the source repository to perform a
   // gRPC call, which must use the original non-rewritten repository.
   Repository source_repository = 2;
+  // Revision to create the fork from. If set, the resulting fork will only have a single branch
+  // that matches the upstream revision. This revision will be the default branch of the repository.
+  // This field should be set to the unqualified revision, not the full reference name.
+  bytes revision = 3;
 }
 
 // CreateForkResponse is a response for the CreateFork RPC.

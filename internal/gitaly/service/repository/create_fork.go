@@ -38,13 +38,31 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		// allow us to easily set up HEAD to point to the correct ref. We thus have
 		// no easy choice but to use git-clone(1).
 		var stderr strings.Builder
+		flags := []git.Option{
+			git.Flag{Name: "--bare"},
+			git.Flag{Name: "--quiet"},
+		}
+
+		if req.GetRevision() != nil {
+			branch, ok := git.ReferenceName(req.GetRevision()).Branch()
+			if !ok {
+				return structerr.NewInvalidArgument("reference is not a branch").WithMetadata("reference", string(req.GetRevision()))
+			}
+
+			if branch == "" {
+				return structerr.NewInvalidArgument("branch name is empty")
+			}
+
+			flags = append(flags,
+				git.Flag{Name: "--single-branch"},
+				git.Flag{Name: fmt.Sprintf("--branch=%s", branch)},
+			)
+		}
+
 		cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
 			git.Command{
-				Name: "clone",
-				Flags: []git.Option{
-					git.Flag{Name: "--bare"},
-					git.Flag{Name: "--quiet"},
-				},
+				Name:  "clone",
+				Flags: flags,
 				Args: []string{
 					git.InternalGitalyURL,
 					targetPath,
@@ -69,6 +87,12 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 
 		if err := cmd.Wait(); err != nil {
 			return fmt.Errorf("fetching source repo: %w, stderr: %q", err, stderr.String())
+		}
+
+		if target, err := git.GetSymbolicRef(ctx, s.localrepo(targetRepository), "HEAD"); err != nil {
+			return fmt.Errorf("checking whether HEAD reference is sane: %w", err)
+		} else if req.GetRevision() != nil && target.Name.String() != string(req.GetRevision()) {
+			return structerr.NewInternal("HEAD points to unexpected reference").WithMetadata("expected_target", string(req.GetRevision())).WithMetadata("actual_target", target)
 		}
 
 		if err := s.removeOriginInRepo(ctx, repo); err != nil {
