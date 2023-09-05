@@ -36,9 +36,9 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		return nil, structerr.NewInternal("has branches: %w", err)
 	}
 
-	committerDate := time.Now()
-	if req.Timestamp != nil {
-		committerDate = req.Timestamp.AsTime()
+	committerDate, err := dateFromProto(req)
+	if err != nil {
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	cherryCommit, err := quarantineRepo.ReadCommit(ctx, git.Revision(req.Commit.Id))

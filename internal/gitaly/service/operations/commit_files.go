@@ -413,7 +413,7 @@ func (s *Server) userCommitFilesGit(
 	repoPath string,
 	actions []commitAction,
 ) (git.ObjectID, error) {
-	now, err := dateFromProto(header)
+	authorDate, err := dateFromProto(header)
 	if err != nil {
 		return "", structerr.NewInvalidArgument("getting date from proto: %w", err)
 	}
@@ -476,10 +476,10 @@ func (s *Server) userCommitFilesGit(
 	}
 
 	cfg := localrepo.WriteCommitConfig{
-		AuthorDate:     now,
+		AuthorDate:     authorDate,
 		AuthorName:     strings.TrimSpace(string(header.CommitAuthorName)),
 		AuthorEmail:    strings.TrimSpace(string(header.CommitAuthorEmail)),
-		CommitterDate:  now,
+		CommitterDate:  authorDate,
 		CommitterName:  strings.TrimSpace(string(header.User.Name)),
 		CommitterEmail: strings.TrimSpace(string(header.User.Email)),
 		Message:        string(header.CommitMessage),
