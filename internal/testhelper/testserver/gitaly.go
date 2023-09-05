@@ -344,7 +344,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	if gsd.git2goExecutor == nil {
-		gsd.git2goExecutor = git2go.NewExecutor(cfg, gsd.gitCmdFactory, gsd.locator)
+		gsd.git2goExecutor = git2go.NewExecutor(cfg, gsd.gitCmdFactory, gsd.locator, gsd.logger)
 	}
 
 	if gsd.updaterWithHooks == nil {

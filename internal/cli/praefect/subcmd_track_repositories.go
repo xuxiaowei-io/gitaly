@@ -58,10 +58,14 @@ func newTrackRepositoriesCommand() *cli.Command {
 }
 
 func trackRepositoriesAction(appCtx *cli.Context) error {
-	logger := log.Default()
-	conf, err := getConfig(logger, appCtx.String(configFlagName))
+	conf, err := readConfig(appCtx.String(configFlagName))
 	if err != nil {
 		return err
+	}
+
+	logger, err := log.Configure(os.Stderr, "text", "error")
+	if err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
 	}
 
 	db, clean, err := openDB(conf.DB, appCtx.App.ErrWriter)

@@ -320,7 +320,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	)
 	defer gitalyServerFactory.Stop()
 
-	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
+	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator, logger)
 
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
 

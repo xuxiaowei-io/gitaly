@@ -39,16 +39,16 @@ func UTCTextFormatter() logrus.Formatter {
 	return &utcFormatter{Formatter: &logrus.TextFormatter{TimestampFormat: LogTimestampFormatUTC}}
 }
 
-// defaultLogger is the logger that is returned via `Default()` and via logrus' direct log invocations like e.g.
-// `logrus.Info()`. By default it is configured to log to standard output, but in practice it should be configured via
-// a call to `Configure()` after the configuration has been loaded.
-var defaultLogger = func() *logrus.Logger {
-	//nolint:forbidigo // We reuse the standard logger such that dependencies which might use logrus are properly
-	// configured, as well.
-	logger := logrus.StandardLogger()
-	logger.Out = os.Stdout
-	return logger
-}()
+// SkipReplacingGlobalLoggers will cause `Configure()` to skip replacing global loggers. This is mostly a hack: command
+// line applications are expected to call `log.Configure()` in their subcommand actions, and that should indeed always
+// replace global loggers, as well. But when running tests, we invoke the subcommand actions multiple times, which is
+// thus re-configuring the logger repeatedly. Because global logger are per definition a global shared resource, the
+// consequence is that we might end up replacing the global loggers while tests are using them, and this race rightfully
+// gets detected by Go's race detector.
+//
+// This variable should thus only be set in the testhelper's setup routines such that we configure the global logger a
+// single time for all of our tests, only.
+var SkipReplacingGlobalLoggers bool
 
 // Config contains logging configuration values
 type Config struct {
@@ -60,20 +60,32 @@ type Config struct {
 // Configure configures the default and gRPC loggers. The gRPC logger's log level will be mapped in order to decrease
 // its default verbosity. Returns the configured default logger that would also be returned by `Default()`.
 func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) (logrus.FieldLogger, error) {
-	if err := configure(defaultLogger, out, format, level, hooks...); err != nil {
-		return nil, err
+	logger := logrus.New() //nolint:forbidigo
+
+	if err := configure(logger, out, format, level, hooks...); err != nil {
+		return nil, fmt.Errorf("configuring logger: %w", err)
 	}
 
-	// We replace the gRPC logger with a custom one because the default one is too chatty.
-	grpcLogger := logrus.New() //nolint:forbidigo
+	if !SkipReplacingGlobalLoggers {
+		// Replace the logrus standar logger. While we shouldn't ever be using it in our own codebase, there
+		// will very likely be cases where dependencies use it.
+		//
+		//nolint:forbidigo
+		if err := configure(logrus.StandardLogger(), out, format, level, hooks...); err != nil {
+			return nil, fmt.Errorf("configuring global logrus logger: %w", err)
+		}
 
-	if err := configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...); err != nil {
-		return nil, err
+		// We replace the gRPC logger with a custom one because the default one is too chatty.
+		grpcLogger := logrus.New() //nolint:forbidigo
+
+		if err := configure(grpcLogger, out, format, mapGRPCLogLevel(level), hooks...); err != nil {
+			return nil, fmt.Errorf("configuring global gRPC logger: %w", err)
+		}
+
+		grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
 	}
 
-	grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
-
-	return Default(), nil
+	return logger.WithField("pid", os.Getpid()), nil
 }
 
 func configure(logger *logrus.Logger, out io.Writer, format, level string, hooks ...logrus.Hook) error {
@@ -121,6 +133,3 @@ func mapGRPCLogLevel(level string) string {
 
 	return level
 }
-
-// Default returns the default logger that has been configured via `Configure()`.
-func Default() *logrus.Entry { return defaultLogger.WithField("pid", os.Getpid()) }

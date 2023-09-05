@@ -52,7 +52,7 @@ func testExecutorFeatureFlags(t *testing.T, ctx context.Context) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
+	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg), testhelper.SharedLogger(t))
 
 	flags, err := executor.FeatureFlags(ctx, repo)
 	require.NoError(t, err)

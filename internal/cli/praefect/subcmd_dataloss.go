@@ -3,6 +3,7 @@ package praefect
 import (
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
@@ -57,10 +58,14 @@ Example: praefect --config praefect.config.toml dataloss`,
 }
 
 func datalossAction(ctx *cli.Context) error {
-	logger := log.Default()
-	conf, err := getConfig(logger, ctx.String(configFlagName))
+	conf, err := readConfig(ctx.String(configFlagName))
 	if err != nil {
 		return err
+	}
+
+	logger, err := log.Configure(os.Stderr, "text", "error")
+	if err != nil {
+		return fmt.Errorf("configuring logger: %w", err)
 	}
 
 	includePartiallyAvailable := ctx.Bool("partially-unavailable")
