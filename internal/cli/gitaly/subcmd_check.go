@@ -3,7 +3,6 @@ package gitaly
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -29,6 +28,8 @@ Example: gitaly check gitaly.config.toml`,
 }
 
 func checkAction(ctx *cli.Context) error {
+	logger := log.ConfigureCommand()
+
 	if ctx.NArg() != 1 || ctx.Args().First() == "" {
 		if err := cli.ShowSubcommandHelp(ctx); err != nil {
 			return err
@@ -41,11 +42,6 @@ func checkAction(ctx *cli.Context) error {
 	cfg, err := loadConfig(configPath)
 	if err != nil {
 		return fmt.Errorf("loading configuration %q: %w", configPath, err)
-	}
-
-	logger, err := log.Configure(os.Stderr, "text", "error")
-	if err != nil {
-		return cli.Exit(fmt.Errorf("configuring logger failed: %w", err), 1)
 	}
 
 	fmt.Fprint(ctx.App.Writer, "Checking GitLab API access: ")

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -13,7 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/grpc"
@@ -68,13 +67,11 @@ To remove custom Git hooks for a specified repository, run the set subcommand wi
 }
 
 func setHooksAction(ctx *cli.Context) error {
+	log.ConfigureCommand()
+
 	cfg, err := loadConfig(ctx.String(flagConfig))
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
-	}
-
-	if _, err := gitalylog.Configure(os.Stdout, cfg.Logging.Format, cfg.Logging.Level); err != nil {
-		return fmt.Errorf("configuring loggers: %w", err)
 	}
 
 	storage := ctx.String(flagStorage)
