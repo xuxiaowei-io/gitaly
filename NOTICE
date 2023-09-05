@@ -16028,7 +16028,6 @@ package yamux
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"time"
 )
@@ -16076,7 +16075,7 @@ type Config struct {
 
 	// Logger is used to pass in the logger to be used. Either Logger or
 	// LogOutput can be set, not both.
-	Logger *log.Logger
+	Logger Logger
 }
 
 // DefaultConfig is used to return a default configuration
@@ -16176,7 +16175,7 @@ type Session struct {
 	config *Config
 
 	// logger is used for our logs
-	logger *log.Logger
+	logger Logger
 
 	// conn is the underlying connection
 	conn io.ReadWriteCloser
@@ -19110,6 +19109,13 @@ import (
 	"sync"
 	"time"
 )
+
+// Logger is a abstract of *log.Logger
+type Logger interface {
+	Print(v ...interface{})
+	Printf(format string, v ...interface{})
+	Println(v ...interface{})
+}
 
 var (
 	timerPool = &sync.Pool{
