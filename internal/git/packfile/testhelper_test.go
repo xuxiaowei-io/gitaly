@@ -1,4 +1,4 @@
-package log_test
+package packfile_test
 
 import (
 	"testing"

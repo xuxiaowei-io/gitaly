@@ -1,4 +1,4 @@
-package testhelper_run_no_exec_testmain
+package testhelper_run_no_exec_testmain // want package:"package has TestMain"
 
 import (
 	"testing"

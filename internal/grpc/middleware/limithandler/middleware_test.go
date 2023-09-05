@@ -27,10 +27,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func fixedLockKey(ctx context.Context) string {
 	return "fixed-id"
 }
