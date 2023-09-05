@@ -18,14 +18,9 @@ import (
 
 var buildOnceByName sync.Map
 
-// BuildGitalyGPG builds the gitaly-git2go command and installs it into the binary directory.
+// BuildGitalyGPG builds the gitaly-gpg command and installs it into the binary directory.
 func BuildGitalyGPG(tb testing.TB, cfg config.Cfg) string {
 	return buildGitalyCommand(tb, cfg, "gitaly-gpg")
-}
-
-// BuildGitalyGit2Go builds the gitaly-git2go command and installs it into the binary directory.
-func BuildGitalyGit2Go(tb testing.TB, cfg config.Cfg) string {
-	return buildGitalyCommand(tb, cfg, "gitaly-git2go")
 }
 
 // BuildGitalyWrapper builds the gitaly-wrapper command and installs it into the binary directory.

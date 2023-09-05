@@ -41,7 +41,6 @@ func setupOperationsServiceWithCfg(
 	tb testing.TB, ctx context.Context, cfg config.Cfg, options ...testserver.GitalyServerOpt,
 ) (context.Context, config.Cfg, gitalypb.OperationServiceClient) {
 	testcfg.BuildGitalySSH(tb, cfg)
-	testcfg.BuildGitalyGit2Go(tb, cfg)
 	testcfg.BuildGitalyHooks(tb, cfg)
 
 	serverSocketPath := runOperationServiceServer(tb, cfg, options...)
@@ -62,7 +61,6 @@ func setupOperationsService(
 	cfg := testcfg.Build(tb)
 
 	testcfg.BuildGitalySSH(tb, cfg)
-	testcfg.BuildGitalyGit2Go(tb, cfg)
 	testcfg.BuildGitalyHooks(tb, cfg)
 
 	serverSocketPath := runOperationServiceServer(tb, cfg, options...)

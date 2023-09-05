@@ -67,7 +67,6 @@ GITALY_PACKAGE    := $(shell go list -m 2>/dev/null || echo unknown)
 GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
 GO_LDFLAGS        := -X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION}
 SERVER_BUILD_TAGS := tracer_static,tracer_static_jaeger,tracer_static_stackdriver,continuous_profiler_stackdriver
-GIT2GO_BUILD_TAGS := static,system_libgit2
 
 # Temporary GNU build ID used as a placeholder value so that we can replace it
 # with our own one after binaries have been built. This is the ASCII encoding
@@ -80,7 +79,6 @@ FIPS_MODE ?=
 
 ifdef FIPS_MODE
     SERVER_BUILD_TAGS := ${SERVER_BUILD_TAGS},fips
-    GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},fips
 
     # Build Git with the OpenSSL backend for SHA256 in case FIPS-mode is
     # requested. Note that we explicitly don't do the same for SHA1: we
@@ -236,7 +234,7 @@ BUILD_GEM_OPTIONS ?=
 # All executables provided by Gitaly.
 GITALY_EXECUTABLES           = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)))
 # All executables packed inside the Gitaly binary.
-GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-gpg %gitaly-git2go %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
+GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-gpg %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
 # All executables that should be installed.
 GITALY_INSTALLED_EXECUTABLES = $(filter-out ${GITALY_PACKED_EXECUTABLES}, ${GITALY_EXECUTABLES})
 # Find all Go source files.
@@ -251,7 +249,7 @@ find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -path "${SO
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
     TEST_LOG_DIR='${TEST_LOG_DIR}' \
-    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile '${TEST_JUNIT_REPORT}' --jsonfile '${TEST_JSON_REPORT}' -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile '${TEST_JUNIT_REPORT}' --jsonfile '${TEST_JSON_REPORT}' -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 ## Test options passed to `dlv test`.
 DEBUG_OPTIONS      ?= $(patsubst -%,-test.%,${TEST_OPTIONS})
@@ -262,7 +260,7 @@ DEBUG_OPTIONS      ?= $(patsubst -%,-test.%,${TEST_OPTIONS})
 # DEBUG_OPTIONS: any additional options, will default to TEST_OPTIONS if not set.
 debug_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
-    ${DELVE} test --build-flags="-ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}'" ${TEST_PACKAGES} -- ${DEBUG_OPTIONS}
+    ${DELVE} test --build-flags="-ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS}'" ${TEST_PACKAGES} -- ${DEBUG_OPTIONS}
 
 unexport GOROOT
 ## GOCACHE_MAX_SIZE_KB is the maximum size of Go's build cache in kilobytes before it is cleaned up.
@@ -445,12 +443,12 @@ ${TOOLS_DIR}/gitaly-linters.so: ${SOURCE_DIR}/tools/golangci-lint/go.sum $(wildc
 .PHONY: lint
 ## Run Go linter.
 lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/gitaly-linters.so lint-gitaly-linters
-	${Q}${GOLANGCI_LINT} run --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
+	${Q}${GOLANGCI_LINT} run --build-tags "${SERVER_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-fix
 ## Run Go linter and write back fixes to the files (not supported by all linters).
 lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/gitaly-linters.so
-	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
+	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-docs
 ## Run markdownlint-cli2-config to lint the documentation.
@@ -561,7 +559,7 @@ ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 
 ${BUILD_DIR}/NOTICE: ${GO_LICENSES} ${GITALY_PACKED_EXECUTABLES}
 	${Q}rm -rf ${BUILD_DIR}/licenses
-	${Q}GOOS=linux GOFLAGS="-tags=${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" ${GO_LICENSES} save ${SOURCE_DIR}/... --save_path=${BUILD_DIR}/licenses
+	${Q}GOOS=linux GOFLAGS="-tags=${SERVER_BUILD_TAGS}" ${GO_LICENSES} save ${SOURCE_DIR}/... --save_path=${BUILD_DIR}/licenses
 	${Q}go run ${SOURCE_DIR}/tools/noticegen/noticegen.go -source ${BUILD_DIR}/licenses -template ${SOURCE_DIR}/tools/noticegen/notice.template > ${BUILD_DIR}/NOTICE
 
 ${BUILD_DIR}:
@@ -612,8 +610,6 @@ clear-go-build-cache-if-needed:
 ${BUILD_DIR}/intermediate/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
 ${BUILD_DIR}/intermediate/gitaly:            ${GITALY_PACKED_EXECUTABLES}
 ${BUILD_DIR}/intermediate/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go:     GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go:     libgit2
 ${BUILD_DIR}/intermediate/%:                 clear-go-build-cache-if-needed .FORCE
 	@ # We're building intermediate binaries first which contain a fixed build ID
 	@ # of "TEMP_GITALY_BUILD_ID". In the final binary we replace this build ID with

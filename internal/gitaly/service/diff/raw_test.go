@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
@@ -20,7 +19,6 @@ func TestRawDiff_successful(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupDiffService(t)
-	testcfg.BuildGitalyGit2Go(t, cfg)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	oldBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("old\n"))

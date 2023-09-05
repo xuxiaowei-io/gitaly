@@ -39,10 +39,3 @@ interfaces. These make sure Gitaly is protected against command injection, the
 correct `git` is used, and correct setup for observable command invocations are
 used. When working with `git(1)` in Ruby, please be sure to read the
 [Ruby shell scripting guide](https://docs.gitlab.com/ee/development/shell_commands.html).
-
-## Using LibGit2
-
-Gitaly uses [Git2Go](https://github.com/libgit2/git2go) for Golang, and
-[Rugged](https://github.com/libgit2/rugged) which both are thin adapters to call
-the C functions of LibGit2. Git2Go is always invoked through `cmd/gitaly-git2go`
-to mitigate issues with context cancellation and the potential for memory leaks.
