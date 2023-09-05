@@ -344,9 +344,6 @@ test:macos:
   variables:
     <<: *test_variables
     CACHE_PREFIX: !reference [.versions, macos]
-    # This is required to fix inconsistent deployment targets across CGo and
-    # libgit2.
-    MACOSX_DEPLOYMENT_TARGET: "12.0"
     PGDATA: /Volumes/RAMDisk/postgres
     PGHOST: localhost
     PGUSER: gitlab

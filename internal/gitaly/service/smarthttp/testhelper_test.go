@@ -40,7 +40,6 @@ func startSmartHTTPServerWithOptions(t *testing.T, cfg config.Cfg, opts []Server
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),

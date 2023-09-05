@@ -24,7 +24,6 @@ require (
 	github.com/hashicorp/yamux v0.1.1
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/libgit2/git2go/v34 v34.0.0
 	github.com/miekg/dns v1.1.55
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/opencontainers/runtime-spec v1.1.0

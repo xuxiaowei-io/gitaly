@@ -759,7 +759,6 @@ func validateIsDirectory(path, name string) error {
 var packedBinaries = map[string]struct{}{
 	"gitaly-hooks":      {},
 	"gitaly-ssh":        {},
-	"gitaly-git2go":     {},
 	"gitaly-lfs-smudge": {},
 	"gitaly-gpg":        {},
 }

@@ -75,7 +75,6 @@ To enable linting in your code editor:
 
 1. Run `make lint` at least once. That builds a version of `golangci-lint` for you.
 1. Point your code editor or code editor's plugin to the binary at `_build/tools/golangci-lint`.
-1. If necessary, add `_build/deps/libgit2/install/lib/pkgconfig` to your `PKG_CONFIG_PATH` environment variable.
 
 #### Experimenting with editing code
 

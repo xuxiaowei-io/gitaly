@@ -451,7 +451,6 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 			deps.GetTxManager(),
 			deps.GetLocator(),
 			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetUpdaterWithHooks(),

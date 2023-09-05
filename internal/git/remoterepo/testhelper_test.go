@@ -30,7 +30,6 @@ func setupGitalyServer(t *testing.T) config.Cfg {
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),

@@ -67,7 +67,6 @@ GITALY_PACKAGE    := $(shell go list -m 2>/dev/null || echo unknown)
 GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
 GO_LDFLAGS        := -X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION}
 SERVER_BUILD_TAGS := tracer_static,tracer_static_jaeger,tracer_static_stackdriver,continuous_profiler_stackdriver
-GIT2GO_BUILD_TAGS := static,system_libgit2
 
 # Temporary GNU build ID used as a placeholder value so that we can replace it
 # with our own one after binaries have been built. This is the ASCII encoding
@@ -80,7 +79,6 @@ FIPS_MODE ?=
 
 ifdef FIPS_MODE
     SERVER_BUILD_TAGS := ${SERVER_BUILD_TAGS},fips
-    GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},fips
 
     # Build Git with the OpenSSL backend for SHA256 in case FIPS-mode is
     # requested. Note that we explicitly don't do the same for SHA1: we
@@ -175,41 +173,6 @@ ifdef GIT_FIPS_BUILD_OPTIONS
 	GIT_BUILD_OPTIONS += ${GIT_FIPS_BUILD_OPTIONS}
 endif
 
-# libgit2 target
-# Git2Go and libgit2 may need to be updated in sync. Please refer to
-# https://github.com/libgit2/git2go/#which-go-version-to-use for a
-# compatibility matrix.
-GIT2GO_VERSION      ?= v34
-LIBGIT2_VERSION     ?= v1.5.1
-LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2.git
-LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
-LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
-LIBGIT2_INSTALL_DIR ?= ${DEPENDENCY_DIR}/libgit2/install
-
-ifeq ($(origin LIBGIT2_BUILD_OPTIONS),undefined)
-    ## Build options for libgit2.
-    LIBGIT2_BUILD_OPTIONS ?=
-    LIBGIT2_BUILD_OPTIONS += -DBUILD_CLI=OFF
-    LIBGIT2_BUILD_OPTIONS += -DBUILD_TESTS=OFF
-    LIBGIT2_BUILD_OPTIONS += -DBUILD_SHARED_LIBS=OFF
-    LIBGIT2_BUILD_OPTIONS += -DCMAKE_C_FLAGS=-fPIC
-    LIBGIT2_BUILD_OPTIONS += -DCMAKE_BUILD_TYPE=Release
-    LIBGIT2_BUILD_OPTIONS += -DCMAKE_INSTALL_PREFIX=${LIBGIT2_INSTALL_DIR}
-    LIBGIT2_BUILD_OPTIONS += -DCMAKE_INSTALL_LIBDIR=lib
-    LIBGIT2_BUILD_OPTIONS += -DUSE_SSH=OFF
-    LIBGIT2_BUILD_OPTIONS += -DUSE_HTTPS=OFF
-    LIBGIT2_BUILD_OPTIONS += -DUSE_ICONV=OFF
-    LIBGIT2_BUILD_OPTIONS += -DUSE_NTLMCLIENT=OFF
-    LIBGIT2_BUILD_OPTIONS += -DUSE_BUNDLED_ZLIB=ON
-    LIBGIT2_BUILD_OPTIONS += -DUSE_HTTP_PARSER=builtin
-    LIBGIT2_BUILD_OPTIONS += -DUSE_THREADS=ON
-    LIBGIT2_BUILD_OPTIONS += -DREGEX_BACKEND=builtin
-endif
-
-ifdef LIBGIT2_APPEND_BUILD_OPTIONS
-	LIBGIT2_BUILD_OPTIONS += ${LIBGIT2_APPEND_BUILD_OPTIONS}
-endif
-
 # These variables control test options and artifacts
 ## List of Go packages which shall be tested.
 ## Go packages to test when using the test-go target.
@@ -236,7 +199,7 @@ BUILD_GEM_OPTIONS ?=
 # All executables provided by Gitaly.
 GITALY_EXECUTABLES           = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)))
 # All executables packed inside the Gitaly binary.
-GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-gpg %gitaly-git2go %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
+GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-gpg %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
 # All executables that should be installed.
 GITALY_INSTALLED_EXECUTABLES = $(filter-out ${GITALY_PACKED_EXECUTABLES}, ${GITALY_EXECUTABLES})
 # Find all Go source files.
@@ -251,7 +214,7 @@ find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -path "${SO
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
     TEST_LOG_DIR='${TEST_LOG_DIR}' \
-    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile '${TEST_JUNIT_REPORT}' --jsonfile '${TEST_JSON_REPORT}' -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile '${TEST_JUNIT_REPORT}' --jsonfile '${TEST_JSON_REPORT}' -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 ## Test options passed to `dlv test`.
 DEBUG_OPTIONS      ?= $(patsubst -%,-test.%,${TEST_OPTIONS})
@@ -262,7 +225,7 @@ DEBUG_OPTIONS      ?= $(patsubst -%,-test.%,${TEST_OPTIONS})
 # DEBUG_OPTIONS: any additional options, will default to TEST_OPTIONS if not set.
 debug_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
-    ${DELVE} test --build-flags="-ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}'" ${TEST_PACKAGES} -- ${DEBUG_OPTIONS}
+    ${DELVE} test --build-flags="-ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS}'" ${TEST_PACKAGES} -- ${DEBUG_OPTIONS}
 
 unexport GOROOT
 ## GOCACHE_MAX_SIZE_KB is the maximum size of Go's build cache in kilobytes before it is cleaned up.
@@ -270,9 +233,6 @@ GOCACHE_MAX_SIZE_KB              ?= 5000000
 export GOCACHE                   ?= ${BUILD_DIR}/cache
 export GOPROXY                   ?= https://proxy.golang.org|https://proxy.golang.org
 export PATH                      := ${BUILD_DIR}/bin:${PATH}
-export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}
-# Allow the linker flag -D_THREAD_SAFE as libgit2 is compiled with it on FreeBSD
-export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 
 # By default, intermediate targets get deleted automatically after a successful
 # build. We do not want that though: there's some precious intermediate targets
@@ -371,7 +331,7 @@ run_go_tests += \
 endif
 
 .PHONY: prepare-tests
-prepare-tests: libgit2 ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
+prepare-tests: ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
 	${Q}mkdir -p "$(dir ${TEST_JUNIT_REPORT})"
 
 .PHONY: prepare-debug
@@ -444,13 +404,13 @@ ${TOOLS_DIR}/gitaly-linters.so: ${SOURCE_DIR}/tools/golangci-lint/go.sum $(wildc
 
 .PHONY: lint
 ## Run Go linter.
-lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/gitaly-linters.so lint-gitaly-linters
-	${Q}${GOLANGCI_LINT} run --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
+lint: ${GOLANGCI_LINT} ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/gitaly-linters.so lint-gitaly-linters
+	${Q}${GOLANGCI_LINT} run --build-tags "${SERVER_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-fix
 ## Run Go linter and write back fixes to the files (not supported by all linters).
-lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/gitaly-linters.so
-	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
+lint-fix: ${GOLANGCI_LINT} ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/gitaly-linters.so
+	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-docs
 ## Run markdownlint-cli2-config to lint the documentation.
@@ -552,16 +512,12 @@ build-git: ${DEPENDENCY_DIR}/git-distribution/git
 install-git: build-git
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "${DEPENDENCY_DIR}/git-distribution" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 
-.PHONY: libgit2
-## Build libgit2.
-libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
-
 ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 	${Q}mv $< $@
 
 ${BUILD_DIR}/NOTICE: ${GO_LICENSES} ${GITALY_PACKED_EXECUTABLES}
 	${Q}rm -rf ${BUILD_DIR}/licenses
-	${Q}GOOS=linux GOFLAGS="-tags=${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" ${GO_LICENSES} save ${SOURCE_DIR}/... --save_path=${BUILD_DIR}/licenses
+	${Q}GOOS=linux GOFLAGS="-tags=${SERVER_BUILD_TAGS}" ${GO_LICENSES} save ${SOURCE_DIR}/... --save_path=${BUILD_DIR}/licenses
 	${Q}go run ${SOURCE_DIR}/tools/noticegen/noticegen.go -source ${BUILD_DIR}/licenses -template ${SOURCE_DIR}/tools/noticegen/notice.template > ${BUILD_DIR}/NOTICE
 
 ${BUILD_DIR}:
@@ -612,8 +568,6 @@ clear-go-build-cache-if-needed:
 ${BUILD_DIR}/intermediate/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
 ${BUILD_DIR}/intermediate/gitaly:            ${GITALY_PACKED_EXECUTABLES}
 ${BUILD_DIR}/intermediate/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go:     GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go:     libgit2
 ${BUILD_DIR}/intermediate/%:                 clear-go-build-cache-if-needed .FORCE
 	@ # We're building intermediate binaries first which contain a fixed build ID
 	@ # of "TEMP_GITALY_BUILD_ID". In the final binary we replace this build ID with
@@ -627,24 +581,10 @@ ${BUILD_DIR}/intermediate/%:                 clear-go-build-cache-if-needed .FOR
 # change. The dependency on the phony target is required to always rebuild
 # these targets.
 .PHONY: dependency-version
-${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}" ] || >$@ echo -n "${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}"
 ${DEPENDENCY_DIR}/git-%.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION} ${GIT_BUILD_OPTIONS}" ] || >$@ echo -n "${GIT_VERSION} ${GIT_BUILD_OPTIONS}"
 ${DEPENDENCY_DIR}/protoc.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}" ] || >$@ echo -n "${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}"
-
-${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
-	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${LIBGIT2_SOURCE_DIR}
-	${Q}${GIT} -C "${LIBGIT2_SOURCE_DIR}" config remote.origin.url ${LIBGIT2_REPO_URL}
-	${Q}${GIT} -C "${LIBGIT2_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
-	${Q}${GIT} -C "${LIBGIT2_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${LIBGIT2_VERSION}
-	${Q}${GIT} -C "${LIBGIT2_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
-	${Q}rm -rf ${LIBGIT2_BUILD_DIR}
-	${Q}mkdir -p ${LIBGIT2_BUILD_DIR}
-	${Q}cd ${LIBGIT2_BUILD_DIR} && cmake ${LIBGIT2_SOURCE_DIR} ${LIBGIT2_BUILD_OPTIONS}
-	${Q}CMAKE_BUILD_PARALLEL_LEVEL=$(shell nproc) cmake --build ${LIBGIT2_BUILD_DIR} --target install
-	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
 # This target is responsible for checking out Git sources. In theory, we'd only
 # need to depend on the source directory. But given that the source directory

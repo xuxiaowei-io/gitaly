@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -20,15 +19,14 @@ import (
 //nolint:revive // This is unintentionally missing documentation.
 type Server struct {
 	gitalypb.UnimplementedOperationServiceServer
-	hookManager    hook.Manager
-	txManager      transaction.Manager
-	locator        storage.Locator
-	conns          *client.Pool
-	git2goExecutor *git2go.Executor
-	gitCmdFactory  git.CommandFactory
-	catfileCache   catfile.Cache
-	updater        *updateref.UpdaterWithHooks
-	signingKey     string
+	hookManager   hook.Manager
+	txManager     transaction.Manager
+	locator       storage.Locator
+	conns         *client.Pool
+	gitCmdFactory git.CommandFactory
+	catfileCache  catfile.Cache
+	updater       *updateref.UpdaterWithHooks
+	signingKey    string
 }
 
 // NewServer creates a new instance of a grpc OperationServiceServer
@@ -37,22 +35,20 @@ func NewServer(
 	txManager transaction.Manager,
 	locator storage.Locator,
 	conns *client.Pool,
-	git2goExecutor *git2go.Executor,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	updater *updateref.UpdaterWithHooks,
 	signingKey string,
 ) *Server {
 	return &Server{
-		hookManager:    hookManager,
-		txManager:      txManager,
-		locator:        locator,
-		conns:          conns,
-		git2goExecutor: git2goExecutor,
-		gitCmdFactory:  gitCmdFactory,
-		catfileCache:   catfileCache,
-		updater:        updater,
-		signingKey:     signingKey,
+		hookManager:   hookManager,
+		txManager:     txManager,
+		locator:       locator,
+		conns:         conns,
+		gitCmdFactory: gitCmdFactory,
+		catfileCache:  catfileCache,
+		updater:       updater,
+		signingKey:    signingKey,
 	}
 }
 

@@ -36,7 +36,6 @@ func setup(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobService
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),

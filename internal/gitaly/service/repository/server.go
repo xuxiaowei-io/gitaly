@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
@@ -29,7 +28,6 @@ type server struct {
 	cfg                 config.Cfg
 	loggingCfg          config.Logging
 	catfileCache        catfile.Cache
-	git2goExecutor      *git2go.Executor
 	housekeepingManager housekeeping.Manager
 	backupSink          backup.Sink
 	backupLocator       backup.Locator
@@ -46,7 +44,6 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	connsPool *client.Pool,
-	git2goExecutor *git2go.Executor,
 	housekeepingManager housekeeping.Manager,
 	backupSink backup.Sink,
 	backupLocator backup.Locator,
@@ -60,7 +57,6 @@ func NewServer(
 		cfg:                 cfg,
 		loggingCfg:          cfg.Logging,
 		catfileCache:        catfileCache,
-		git2goExecutor:      git2goExecutor,
 		housekeepingManager: housekeepingManager,
 		backupSink:          backupSink,
 		backupLocator:       backupLocator,

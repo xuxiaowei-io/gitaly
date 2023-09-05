@@ -63,7 +63,6 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.Gita
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),

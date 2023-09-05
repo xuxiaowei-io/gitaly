@@ -23,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
@@ -320,8 +319,6 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	)
 	defer gitalyServerFactory.Stop()
 
-	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator, logger)
-
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
 
 	streamCache := streamcache.New(cfg.PackObjectsCache, logger)
@@ -375,7 +372,6 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 			PackObjectsCache:    streamCache,
 			PackObjectsLimiter:  packObjectsLimiter,
 			RepositoryCounter:   repoCounter,
-			Git2goExecutor:      git2goExecutor,
 			UpdaterWithHooks:    updaterWithHooks,
 			HousekeepingManager: housekeepingManager,
 			BackupSink:          backupSink,
