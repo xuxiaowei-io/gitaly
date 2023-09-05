@@ -208,12 +208,6 @@ func TestRunner_Run(t *testing.T) {
 }
 
 func TestRunner_Run_noAvailableStorages(t *testing.T) {
-	testhelper.SkipQuarantinedTest(
-		t,
-		"https://gitlab.com/gitlab-org/gitaly/-/issues/5504",
-		"TestRunner_Run_noAvailableStorages",
-	)
-
 	t.Parallel()
 
 	const (
@@ -241,8 +235,8 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		DB: dbConf,
 	}
 	cfg := Cfg{
-		RunInterval:         time.Minute,
-		LivenessInterval:    time.Second,
+		RunInterval:         time.Hour,
+		LivenessInterval:    time.Hour,
 		RepositoriesInBatch: 2,
 	}
 
