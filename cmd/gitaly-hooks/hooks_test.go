@@ -826,9 +826,10 @@ remote: error executing git hook
 			var stderr, stdout bytes.Buffer
 
 			gittest.ExecOpts(t, cfg, gittest.ExecConfig{
-				Env:    envForHooks(t, ctx, cfg, repo, glHookValues{GitalyLogDir: logDir}, proxyValues{}),
-				Stdout: &stdout,
-				Stderr: &stderr,
+				Env:              envForHooks(t, ctx, cfg, repo, glHookValues{GitalyLogDir: logDir}, proxyValues{}),
+				Stdout:           &stdout,
+				Stderr:           &stderr,
+				ExpectedExitCode: 128,
 			}, args...)
 
 			require.Equal(t, "", stdout.String())

@@ -26,6 +26,9 @@ type ExecConfig struct {
 	// Env contains environment variables that should be appended to the spawned command's
 	// environment.
 	Env []string
+	// ExpectedExitCode is used to check the resulting exit code of the command. This can be used in case a command
+	// is expected to return an error code.
+	ExpectedExitCode int
 }
 
 // Exec runs a git command and returns the standard output, or fails.
@@ -59,13 +62,18 @@ func ExecOpts(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string)
 }
 
 func handleExecErr(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args []string, err error) {
-	if execCfg.Stderr == nil {
-		tb.Log(cfg.Git.BinPath, args)
-		if ee, ok := err.(*exec.ExitError); ok {
-			tb.Logf("%s\n", ee.Stderr)
+	var stderr []byte
+	if ee, ok := err.(*exec.ExitError); ok {
+		if execCfg.ExpectedExitCode == ee.ExitCode() {
+			return
 		}
-		tb.Fatal(err)
+		stderr = ee.Stderr
 	}
+	tb.Log(cfg.Git.BinPath, args)
+	if len(stderr) > 0 {
+		tb.Logf("%s\n", stderr)
+	}
+	tb.Fatal(err)
 }
 
 // NewCommand creates a new Git command ready for execution.
