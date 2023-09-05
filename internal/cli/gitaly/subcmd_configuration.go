@@ -1,10 +1,10 @@
 package gitaly
 
 import (
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/cmd"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const validationErrorCode = 2
@@ -40,7 +40,7 @@ Example: gitaly configuration validate < gitaly.config.toml`,
 }
 
 func validateConfigurationAction(ctx *cli.Context) error {
-	logrus.SetLevel(logrus.ErrorLevel)
+	log.ConfigureCommand()
 
 	cfg, err := config.Load(ctx.App.Reader)
 	if err != nil {

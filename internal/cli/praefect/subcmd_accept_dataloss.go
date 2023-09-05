@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -47,6 +48,8 @@ Example: praefect --config praefect.config.toml accept-dataloss --virtual-storag
 }
 
 func acceptDatalossAction(ctx *cli.Context) error {
+	log.ConfigureCommand()
+
 	conf, err := readConfig(ctx.String(configFlagName))
 	if err != nil {
 		return err

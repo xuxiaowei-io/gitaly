@@ -5,6 +5,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/cmd"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 )
 
@@ -26,6 +27,8 @@ Example: praefect configuration validate < praefect.config.toml`,
 }
 
 func configurationValidateAction(ctx *cli.Context) error {
+	log.ConfigureCommand()
+
 	if ctx.Args().Present() {
 		_ = cli.ShowSubcommandHelp(ctx)
 		return cli.Exit("invalid argument(s)", 1)

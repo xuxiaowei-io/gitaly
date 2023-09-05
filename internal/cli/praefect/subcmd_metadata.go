@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -57,6 +58,8 @@ Examples:
 }
 
 func metadataAction(appCtx *cli.Context) error {
+	log.ConfigureCommand()
+
 	conf, err := readConfig(appCtx.String(configFlagName))
 	if err != nil {
 		return err
