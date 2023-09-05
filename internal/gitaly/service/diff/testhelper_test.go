@@ -35,7 +35,6 @@ func setupDiffService(tb testing.TB, opt ...testserver.GitalyServerOpt) (config.
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),

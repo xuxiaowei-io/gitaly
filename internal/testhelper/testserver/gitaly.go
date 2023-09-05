@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
@@ -268,7 +267,6 @@ type gitalyServerDeps struct {
 	packObjectsLimiter  limiter.Limiter
 	limitHandler        *limithandler.LimiterMiddleware
 	repositoryCounter   *counter.RepositoryCounter
-	git2goExecutor      *git2go.Executor
 	updaterWithHooks    *updateref.UpdaterWithHooks
 	housekeepingManager housekeeping.Manager
 	backupSink          backup.Sink
@@ -343,10 +341,6 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		gsd.repositoryCounter = counter.NewRepositoryCounter(cfg.Storages)
 	}
 
-	if gsd.git2goExecutor == nil {
-		gsd.git2goExecutor = git2go.NewExecutor(cfg, gsd.gitCmdFactory, gsd.locator, gsd.logger)
-	}
-
 	if gsd.updaterWithHooks == nil {
 		gsd.updaterWithHooks = updateref.NewUpdaterWithHooks(cfg, gsd.locator, gsd.hookMgr, gsd.gitCmdFactory, gsd.catfileCache)
 	}
@@ -388,7 +382,6 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		PackObjectsLimiter:  gsd.packObjectsLimiter,
 		LimitHandler:        gsd.limitHandler,
 		RepositoryCounter:   gsd.repositoryCounter,
-		Git2goExecutor:      gsd.git2goExecutor,
 		UpdaterWithHooks:    gsd.updaterWithHooks,
 		HousekeepingManager: gsd.housekeepingManager,
 		PartitionManager:    partitionManager,

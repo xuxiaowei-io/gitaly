@@ -7,7 +7,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
@@ -38,7 +37,6 @@ type Dependencies struct {
 	PackObjectsLimiter  limiter.Limiter
 	LimitHandler        *limithandler.LimiterMiddleware
 	RepositoryCounter   *counter.RepositoryCounter
-	Git2goExecutor      *git2go.Executor
 	UpdaterWithHooks    *updateref.UpdaterWithHooks
 	HousekeepingManager housekeeping.Manager
 	PartitionManager    *storagemgr.PartitionManager
@@ -109,11 +107,6 @@ func (dc *Dependencies) GetLimitHandler() *limithandler.LimiterMiddleware {
 // GetRepositoryCounter returns the repository counter.
 func (dc *Dependencies) GetRepositoryCounter() *counter.RepositoryCounter {
 	return dc.RepositoryCounter
-}
-
-// GetGit2goExecutor returns the git2go executor.
-func (dc *Dependencies) GetGit2goExecutor() *git2go.Executor {
-	return dc.Git2goExecutor
 }
 
 // GetUpdaterWithHooks returns the updater with hooks executor.

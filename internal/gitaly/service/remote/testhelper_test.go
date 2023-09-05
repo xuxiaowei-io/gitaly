@@ -39,7 +39,6 @@ func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.Gi
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
 			deps.GetBackupSink(),
 			deps.GetBackupLocator(),
