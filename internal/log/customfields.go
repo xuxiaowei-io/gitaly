@@ -1,4 +1,4 @@
-package log //nolint:gitaly-linters // Importing testhelper creates a cyclic dependency.
+package log
 
 import (
 	"context"
