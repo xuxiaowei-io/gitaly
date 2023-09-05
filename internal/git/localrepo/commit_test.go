@@ -3,6 +3,7 @@ package localrepo
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,156 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
+
+func TestRepo_ReadCommit(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, repo, repoPath := setupRepo(t)
+
+	firstParentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first parent"))
+	secondParentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second parent"))
+
+	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "file", Mode: "100644", Content: "content"},
+	})
+	commitWithoutTrailers := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(firstParentID, secondParentID),
+		gittest.WithTree(treeID),
+		gittest.WithMessage("subject\n\nbody\n"),
+		gittest.WithBranch("main"),
+	)
+	commitWithTrailers := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(commitWithoutTrailers),
+		gittest.WithTree(treeID),
+		gittest.WithMessage("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
+	)
+
+	// We can't use git-commit-tree(1) directly, but have to manually write signed commits.
+	signedCommit := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+		Stdin: strings.NewReader(fmt.Sprintf(
+			`tree %s
+parent %s
+author %[3]s
+committer %[3]s
+gpgsig -----BEGIN PGP SIGNATURE-----
+some faked pgp-signature
+ -----END PGP SIGNATURE-----
+
+signed commit subject
+
+signed commit body
+`, treeID, firstParentID, gittest.DefaultCommitterSignature)),
+	}, "-C", repoPath, "hash-object", "-t", "commit", "-w", "--stdin"))
+
+	for _, tc := range []struct {
+		desc           string
+		revision       git.Revision
+		opts           []ReadCommitOpt
+		expectedCommit *gitalypb.GitCommit
+		expectedErr    error
+	}{
+		{
+			desc:        "invalid commit",
+			revision:    gittest.DefaultObjectHash.ZeroOID.Revision(),
+			expectedErr: ErrObjectNotFound,
+		},
+		{
+			desc:        "invalid commit with trailers",
+			revision:    gittest.DefaultObjectHash.ZeroOID.Revision(),
+			expectedErr: ErrObjectNotFound,
+			opts:        []ReadCommitOpt{WithTrailers()},
+		},
+		{
+			desc:     "valid commit",
+			revision: "refs/heads/main",
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     commitWithoutTrailers.String(),
+				TreeId: treeID.String(),
+				ParentIds: []string{
+					firstParentID.String(),
+					secondParentID.String(),
+				},
+				Subject:   []byte("subject"),
+				Body:      []byte("subject\n\nbody\n"),
+				BodySize:  14,
+				Author:    gittest.DefaultCommitAuthor,
+				Committer: gittest.DefaultCommitAuthor,
+			},
+		},
+		{
+			desc:     "trailers do not get parsed without WithTrailers()",
+			revision: commitWithTrailers.Revision(),
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     commitWithTrailers.String(),
+				TreeId: treeID.String(),
+				ParentIds: []string{
+					commitWithoutTrailers.String(),
+				},
+				Subject:   []byte("with trailers"),
+				Body:      []byte("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
+				BodySize:  71,
+				Author:    gittest.DefaultCommitAuthor,
+				Committer: gittest.DefaultCommitAuthor,
+			},
+		},
+		{
+			desc:     "trailers get parsed with WithTrailers()",
+			revision: commitWithTrailers.Revision(),
+			opts:     []ReadCommitOpt{WithTrailers()},
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     commitWithTrailers.String(),
+				TreeId: treeID.String(),
+				ParentIds: []string{
+					commitWithoutTrailers.String(),
+				},
+				Subject:   []byte("with trailers"),
+				Body:      []byte("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
+				BodySize:  71,
+				Author:    gittest.DefaultCommitAuthor,
+				Committer: gittest.DefaultCommitAuthor,
+				Trailers: []*gitalypb.CommitTrailer{
+					{
+						Key:   []byte("Signed-off-by"),
+						Value: []byte("John Doe <john.doe@example.com>"),
+					},
+				},
+			},
+		},
+		{
+			desc:     "with PGP signature",
+			revision: git.Revision(signedCommit),
+			opts:     []ReadCommitOpt{},
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     signedCommit,
+				TreeId: treeID.String(),
+				ParentIds: []string{
+					firstParentID.String(),
+				},
+				Subject:       []byte("signed commit subject"),
+				Body:          []byte("signed commit subject\n\nsigned commit body\n"),
+				BodySize:      42,
+				Author:        gittest.DefaultCommitAuthor,
+				Committer:     gittest.DefaultCommitAuthor,
+				SignatureType: gitalypb.SignatureType_PGP,
+			},
+		},
+		{
+			desc:        "not a commit",
+			revision:    "refs/heads/main^{tree}",
+			expectedErr: ErrObjectNotFound,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			commit, err := repo.ReadCommit(ctx, tc.revision, tc.opts...)
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedCommit, commit)
+		})
+	}
+}
 
 //go:generate rm -rf testdata/gpg-keys testdata/signing_gpg_key testdata/signing_gpg_key.pub
 //go:generate mkdir -p testdata/gpg-keys
@@ -321,6 +471,78 @@ func testWriteCommitValidation(t *testing.T, ctx context.Context) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := repo.WriteCommit(ctx, tc.cfg)
 			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestRepo_IsAncestor(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, repo, repoPath := setupRepo(t)
+
+	parentCommitID := gittest.WriteCommit(t, cfg, repoPath)
+	childCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parentCommitID))
+
+	for _, tc := range []struct {
+		desc         string
+		parent       git.Revision
+		child        git.Revision
+		isAncestor   bool
+		errorMatcher func(testing.TB, error)
+	}{
+		{
+			desc:       "parent is ancestor",
+			parent:     parentCommitID.Revision(),
+			child:      childCommitID.Revision(),
+			isAncestor: true,
+		},
+		{
+			desc:       "parent is not ancestor",
+			parent:     childCommitID.Revision(),
+			child:      parentCommitID.Revision(),
+			isAncestor: false,
+		},
+		{
+			desc:   "parent is not valid commit",
+			parent: gittest.DefaultObjectHash.ZeroOID.Revision(),
+			child:  childCommitID.Revision(),
+			errorMatcher: func(tb testing.TB, err error) {
+				require.Equal(tb, InvalidCommitError(gittest.DefaultObjectHash.ZeroOID), err)
+			},
+		},
+		{
+			desc:   "child is not valid commit",
+			parent: childCommitID.Revision(),
+			child:  gittest.DefaultObjectHash.ZeroOID.Revision(),
+			errorMatcher: func(tb testing.TB, err error) {
+				require.Equal(tb, InvalidCommitError(gittest.DefaultObjectHash.ZeroOID), err)
+			},
+		},
+		{
+			desc:   "child points to a tree",
+			parent: childCommitID.Revision(),
+			child:  childCommitID.Revision() + "^{tree}",
+			errorMatcher: func(tb testing.TB, actualErr error) {
+				treeOID, err := repo.ResolveRevision(ctx, childCommitID.Revision()+"^{tree}")
+				require.NoError(tb, err)
+				require.EqualError(tb, actualErr, fmt.Sprintf(
+					`determine ancestry: exit status 128, stderr: "error: object %s is a tree, not a commit\nfatal: Not a valid commit name %s^{tree}\n"`,
+					treeOID, childCommitID,
+				))
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			isAncestor, err := repo.IsAncestor(ctx, tc.parent, tc.child)
+			if tc.errorMatcher != nil {
+				tc.errorMatcher(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.isAncestor, isAncestor)
 		})
 	}
 }

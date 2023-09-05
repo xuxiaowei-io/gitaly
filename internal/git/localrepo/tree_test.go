@@ -794,7 +794,7 @@ func requireTreeEquals(
 			)
 			require.NoError(t, err)
 
-			require.Equal(t, expect.Entries[i].Type, ToEnum(objectInfo.Type))
+			require.Equal(t, expect.Entries[i].Type, ObjectTypeFromString(objectInfo.Type))
 		}
 
 		if entry.Type == Tree {

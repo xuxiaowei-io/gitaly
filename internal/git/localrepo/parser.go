@@ -66,7 +66,7 @@ func (p *Parser) NextEntry() (*TreeEntry, error) {
 		Mode: string(treeEntryMode),
 		OID:  objectID,
 		Path: string(treeEntryPath),
-		Type: ToEnum(string(treeEntryType)),
+		Type: ObjectTypeFromString(string(treeEntryType)),
 	}, nil
 }
 

@@ -10,26 +10,75 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-// ErrMissingTree indicates a missing tree when attemping to write a commit
-var ErrMissingTree = errors.New("missing tree")
+var (
+	// ErrMissingTree indicates a missing tree when attemping to write a commit
+	ErrMissingTree = errors.New("missing tree")
+	// ErrMissingCommitterName indicates an attempt to write a commit without a
+	// comitter name
+	ErrMissingCommitterName = errors.New("missing committer name")
+	// ErrMissingAuthorName indicates an attempt to write a commit without a
+	// comitter name
+	ErrMissingAuthorName = errors.New("missing author name")
+	// ErrDisallowedCharacters indicates the name and/or email contains disallowed
+	// characters
+	ErrDisallowedCharacters = errors.New("disallowed characters")
+	// ErrObjectNotFound is returned in case an object could not be found.
+	ErrObjectNotFound = errors.New("object not found")
+)
 
-// ErrMissingCommitterName indicates an attempt to write a commit without a
-// comitter name
-var ErrMissingCommitterName = errors.New("missing committer name")
+type readCommitConfig struct {
+	withTrailers bool
+}
 
-// ErrMissingAuthorName indicates an attempt to write a commit without a
-// comitter name
-var ErrMissingAuthorName = errors.New("missing author name")
+// ReadCommitOpt is an option for ReadCommit.
+type ReadCommitOpt func(*readCommitConfig)
 
-// ErrDisallowedCharacters indicates the name and/or email contains disallowed
-// characters
-var ErrDisallowedCharacters = errors.New("disallowed characters")
+// WithTrailers will cause ReadCommit to parse commit trailers.
+func WithTrailers() ReadCommitOpt {
+	return func(cfg *readCommitConfig) {
+		cfg.withTrailers = true
+	}
+}
+
+// ReadCommit reads the commit specified by the given revision. If no such
+// revision exists, it will return an ErrObjectNotFound error.
+func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ...ReadCommitOpt) (*gitalypb.GitCommit, error) {
+	var cfg readCommitConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	objectReader, cancel, err := repo.catfileCache.ObjectReader(ctx, repo)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+
+	var commit *gitalypb.GitCommit
+	if cfg.withTrailers {
+		commit, err = catfile.GetCommitWithTrailers(ctx, repo.gitCmdFactory, repo, objectReader, revision)
+	} else {
+		commit, err = catfile.GetCommit(ctx, objectReader, revision)
+	}
+
+	if err != nil {
+		if errors.As(err, &catfile.NotFoundError{}) {
+			return nil, ErrObjectNotFound
+		}
+		return nil, err
+	}
+
+	return commit, nil
+}
 
 // WriteCommitConfig contains fields for writing a commit
 type WriteCommitConfig struct {
@@ -172,4 +221,39 @@ func (repo *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.O
 	}
 
 	return oid, nil
+}
+
+// InvalidCommitError is returned when the revision does not point to a valid commit object.
+type InvalidCommitError git.Revision
+
+func (err InvalidCommitError) Error() string {
+	return fmt.Sprintf("invalid commit: %q", string(err))
+}
+
+// IsAncestor returns whether the parent is an ancestor of the child. InvalidCommitError is returned
+// if either revision does not point to a commit in the repository.
+func (repo *Repo) IsAncestor(ctx context.Context, parent, child git.Revision) (bool, error) {
+	const notValidCommitName = "fatal: Not a valid commit name"
+
+	stderr := &bytes.Buffer{}
+	if err := repo.ExecAndWait(ctx,
+		git.Command{
+			Name:  "merge-base",
+			Flags: []git.Option{git.Flag{Name: "--is-ancestor"}},
+			Args:  []string{parent.String(), child.String()},
+		},
+		git.WithStderr(stderr),
+	); err != nil {
+		status, ok := command.ExitStatus(err)
+		if ok && status == 1 {
+			return false, nil
+		} else if ok && strings.HasPrefix(stderr.String(), notValidCommitName) {
+			commitOID := strings.TrimSpace(strings.TrimPrefix(stderr.String(), notValidCommitName))
+			return false, InvalidCommitError(commitOID)
+		}
+
+		return false, fmt.Errorf("determine ancestry: %w, stderr: %q", err, stderr)
+	}
+
+	return true, nil
 }

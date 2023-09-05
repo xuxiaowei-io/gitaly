@@ -15,20 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
-// ObjectType is an Enum for the type of object of
-// the ls-tree entry, which can be can be tree, blob or commit
-type ObjectType int
-
 // Entries holds every ls-tree Entry
 type Entries []TreeEntry
-
-// Enum values for ObjectType
-const (
-	Unknown ObjectType = iota
-	Tree
-	Blob
-	Submodule
-)
 
 func (e Entries) Len() int {
 	return len(e)
@@ -68,21 +56,6 @@ func (b TreeEntriesByPath) Less(i, j int) bool {
 	}
 
 	return iPath < jPath
-}
-
-// ToEnum translates a string representation of the object type into an
-// ObjectType enum.
-func ToEnum(s string) ObjectType {
-	switch s {
-	case "tree":
-		return Tree
-	case "blob":
-		return Blob
-	case "commit":
-		return Submodule
-	default:
-		return Unknown
-	}
 }
 
 // TreeEntry represents an entry of a git tree object.
