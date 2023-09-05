@@ -26,6 +26,13 @@ import (
 // ErrPartitionManagerClosed is returned when the PartitionManager stops processing transactions.
 var ErrPartitionManagerClosed = errors.New("partition manager closed")
 
+type transactionManagerFactory func(
+	storageMgr *storageManager,
+	cmdFactory git.CommandFactory,
+	housekeepingManager housekeeping.Manager,
+	relativePath, absoluteStateDir, stagingDir string,
+) *TransactionManager
+
 // PartitionManager is responsible for managing the lifecycle of each TransactionManager.
 type PartitionManager struct {
 	// storages are the storages configured in this Gitaly server. The map is keyed by the storage name.
@@ -34,6 +41,9 @@ type PartitionManager struct {
 	commandFactory git.CommandFactory
 	// housekeepingManager access to the housekeeping.Manager.
 	housekeepingManager housekeeping.Manager
+	// transactionManagerFactory is a factory to create TransactionManagers. This shouldn't ever be changed
+	// during normal operation, but can be used to adjust the transaction manager's behaviour in tests.
+	transactionManagerFactory transactionManagerFactory
 }
 
 // storageManager represents a single storage.
@@ -221,7 +231,28 @@ func NewPartitionManager(
 		}
 	}
 
-	return &PartitionManager{storages: storages, commandFactory: cmdFactory, housekeepingManager: housekeepingManager}, nil
+	return &PartitionManager{
+		storages:            storages,
+		commandFactory:      cmdFactory,
+		housekeepingManager: housekeepingManager,
+		transactionManagerFactory: func(
+			storageMgr *storageManager,
+			cmdFactory git.CommandFactory,
+			housekeepingManager housekeeping.Manager,
+			relativePath, absoluteStateDir, stagingDir string,
+		) *TransactionManager {
+			return NewTransactionManager(
+				storageMgr.database,
+				storageMgr.path,
+				relativePath,
+				absoluteStateDir,
+				stagingDir,
+				cmdFactory,
+				housekeepingManager,
+				storageMgr.repoFactory,
+			)
+		},
+	}, nil
 }
 
 func stagingDirectoryPath(storagePath string) string {
@@ -283,7 +314,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := NewTransactionManager(storageMgr.database, storageMgr.path, relativePath, absoluteStateDir, stagingDir, pm.commandFactory, pm.housekeepingManager, storageMgr.repoFactory)
+			mgr := pm.transactionManagerFactory(storageMgr, pm.commandFactory, pm.housekeepingManager, relativePath, absoluteStateDir, stagingDir)
 
 			ptn.transactionManager = mgr
 
