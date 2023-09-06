@@ -253,3 +253,23 @@ func GetReferences(ctx context.Context, repoExecutor RepositoryExecutor, cfg Get
 
 	return refs, nil
 }
+
+// GetSymbolicRef reads the symbolic reference.
+func GetSymbolicRef(ctx context.Context, repoExecutor RepositoryExecutor, refname ReferenceName) (Reference, error) {
+	var stdout strings.Builder
+	if err := repoExecutor.ExecAndWait(ctx, Command{
+		Name: "symbolic-ref",
+		Args: []string{string(refname)},
+	}, WithDisabledHooks(), WithStdout(&stdout)); err != nil {
+		return Reference{}, err
+	}
+
+	symref, trailing, ok := strings.Cut(stdout.String(), "\n")
+	if !ok {
+		return Reference{}, fmt.Errorf("expected symbolic reference to be terminated by newline")
+	} else if len(trailing) > 0 {
+		return Reference{}, fmt.Errorf("symbolic reference has trailing data")
+	}
+
+	return NewSymbolicReference(refname, ReferenceName(symref)), nil
+}

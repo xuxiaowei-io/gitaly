@@ -46,3 +46,15 @@ func GetReferences(tb testing.TB, cfg config.Cfg, repoPath string, optionalCfg .
 
 	return refs
 }
+
+// GetSymbolicRef reads symbolic references in the Git repository.
+func GetSymbolicRef(tb testing.TB, cfg config.Cfg, repoPath string, refname git.ReferenceName) git.Reference {
+	symref, err := git.GetSymbolicRef(
+		testhelper.Context(tb),
+		NewRepositoryPathExecutor(tb, cfg, repoPath),
+		refname,
+	)
+	require.NoError(tb, err)
+
+	return symref
+}

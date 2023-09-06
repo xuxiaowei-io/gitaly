@@ -321,22 +321,12 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 
 // HeadReference returns the current value of HEAD.
 func (repo *Repo) HeadReference(ctx context.Context) (git.ReferenceName, error) {
-	var stdout strings.Builder
-	if err := repo.ExecAndWait(ctx, git.Command{
-		Name: "symbolic-ref",
-		Args: []string{"HEAD"},
-	}, git.WithDisabledHooks(), git.WithStdout(&stdout)); err != nil {
+	symref, err := git.GetSymbolicRef(ctx, repo, "HEAD")
+	if err != nil {
 		return "", err
 	}
 
-	symref, trailing, ok := strings.Cut(stdout.String(), "\n")
-	if !ok {
-		return "", fmt.Errorf("expected symbolic reference to be terminated by newline")
-	} else if len(trailing) > 0 {
-		return "", fmt.Errorf("symbolic reference has trailing data")
-	}
-
-	return git.ReferenceName(symref), nil
+	return git.ReferenceName(symref.Target), nil
 }
 
 // GuessHead tries to guess what branch HEAD would be pointed at. If no
