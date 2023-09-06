@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/gitalyclient"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func uploadArchive(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
+func uploadArchive(ctx context.Context, conn *grpc.ClientConn, registry *sidechannel.Registry, req string) (int32, error) {
 	var request gitalypb.SSHUploadArchiveRequest
 	if err := protojson.Unmarshal([]byte(req), &request); err != nil {
 		return 0, fmt.Errorf("json unmarshal: %w", err)
@@ -20,5 +21,5 @@ func uploadArchive(ctx context.Context, conn *grpc.ClientConn, registry *client.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	return client.UploadArchive(ctx, conn, os.Stdin, os.Stdout, os.Stderr, &request)
+	return gitalyclient.UploadArchive(ctx, conn, os.Stdin, os.Stdout, os.Stderr, &request)
 }
