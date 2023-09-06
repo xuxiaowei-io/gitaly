@@ -79,7 +79,7 @@ func WithHandshaker(handshaker Handshaker) DialOption {
 // `grpc.DialContext()`.
 func WithGrpcOptions(opts []grpc.DialOption) DialOption {
 	return func(cfg *dialConfig) {
-		cfg.grpcOpts = opts
+		cfg.grpcOpts = append(cfg.grpcOpts, opts...)
 	}
 }
 
