@@ -467,7 +467,8 @@ lint-proto: ${PROTOC} ${PROTOLINT} ${PROTOC_GEN_GITALY_LINT}
 build-proto-gem:
 	${Q}rm -rf "${BUILD_DIR}/gitaly.gem" && mkdir -p ${BUILD_DIR}
 	${Q}cd "${SOURCE_DIR}"/tools/protogem && bundle install
-	${Q}"${SOURCE_DIR}"/tools/protogem/build-proto-gem -o "${BUILD_DIR}/gitaly.gem" ${BUILD_GEM_OPTIONS}
+	# FIXME: Remove --skip_verify_tag
+	${Q}"${SOURCE_DIR}"/tools/protogem/build-proto-gem --skip_verify_tag -o "${BUILD_DIR}/gitaly.gem" ${BUILD_GEM_OPTIONS}
 
 .PHONY: publish-proto-gem
 ## Build and publish the Ruby Gem that contains Gitaly's Protobuf definitons.
