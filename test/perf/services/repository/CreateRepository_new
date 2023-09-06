@@ -1,0 +1,15 @@
+goos: darwin
+goarch: arm64
+pkg: gitlab.com/gitlab-org/gitaly/v16/test/perf/services/repository
+Benchmark_CreateRepository-10    	       6	 167771819 ns/op	  515418 B/op	    3991 allocs/op
+Benchmark_CreateRepository-10    	       5	 211097033 ns/op	  563513 B/op	    4544 allocs/op
+Benchmark_CreateRepository-10    	       6	 218541694 ns/op	  506169 B/op	    3976 allocs/op
+Benchmark_CreateRepository-10    	       7	 203891327 ns/op	  467363 B/op	    3579 allocs/op
+Benchmark_CreateRepository-10    	       6	 210752361 ns/op	  513078 B/op	    3984 allocs/op
+Benchmark_CreateRepository-10    	       6	 201083646 ns/op	  506017 B/op	    3977 allocs/op
+Benchmark_CreateRepository-10    	       6	 185229125 ns/op	  499548 B/op	    3978 allocs/op
+Benchmark_CreateRepository-10    	       6	 203291340 ns/op	  506945 B/op	    3985 allocs/op
+Benchmark_CreateRepository-10    	       5	 215656900 ns/op	  562723 B/op	    4547 allocs/op
+Benchmark_CreateRepository-10    	       6	 201047326 ns/op	  506389 B/op	    3978 allocs/op
+PASS
+ok  	gitlab.com/gitlab-org/gitaly/v16/test/perf/services/repository	19.473s
