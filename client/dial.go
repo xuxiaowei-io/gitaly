@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/dnsresolver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"google.golang.org/grpc"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 // DefaultDialOpts hold the default DialOptions for connection to Gitaly over UNIX-socket
@@ -56,19 +55,7 @@ func FailOnNonTempDialError() []grpc.DialOption {
 // HealthCheckDialer uses provided dialer as an actual dialer, but issues a health check request to the remote
 // to verify the connection was set properly and could be used with no issues.
 func HealthCheckDialer(base Dialer) Dialer {
-	return func(ctx context.Context, address string, dialOptions []grpc.DialOption) (*grpc.ClientConn, error) {
-		cc, err := base(ctx, address, dialOptions)
-		if err != nil {
-			return nil, err
-		}
-
-		if _, err := healthpb.NewHealthClient(cc).Check(ctx, &healthpb.HealthCheckRequest{}); err != nil {
-			_ = cc.Close()
-			return nil, err
-		}
-
-		return cc, nil
-	}
+	return Dialer(client.HealthCheckDialer(client.Dialer(base)))
 }
 
 // DNSResolverBuilderConfig exposes the DNS resolver builder option. It is used to build Gitaly
