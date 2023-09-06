@@ -42,8 +42,7 @@ func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, erro
 // injects sr as a sidechannel registry, so that Gitaly can establish
 // sidechannels back to the client.
 func DialSidechannel(ctx context.Context, rawAddress string, sr *SidechannelRegistry, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-	clientHandshaker := sidechannel.NewClientHandshaker(sr.logger, sr.registry)
-	return client.Dial(ctx, rawAddress, client.WithGrpcOptions(connOpts), client.WithHandshaker(clientHandshaker))
+	return sidechannel.Dial(ctx, sr.registry, sr.logger, rawAddress, connOpts)
 }
 
 // FailOnNonTempDialError helps to identify if remote listener is ready to accept new connections.
