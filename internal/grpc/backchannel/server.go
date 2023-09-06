@@ -99,8 +99,6 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 	// gRPC server closes the conn if there is an error, which closes the multiplexing
 	// session as well.
 
-	logger := s.logger.WithField("component", "backchannel.YamuxServer").WriterLevel(logrus.ErrorLevel)
-
 	// Open the server side of the multiplexing session.
 	//
 	// Gitaly is using custom settings with a lower accept backlog and higher receive
@@ -109,16 +107,14 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 	cfg := DefaultConfiguration()
 	cfg.AcceptBacklog = 1
 	cfg.MaximumStreamWindowSizeBytes = 16 * 1024 * 1024
-	muxSession, err := yamux.Server(conn, muxConfig(logger, cfg))
+	muxSession, err := yamux.Server(conn, muxConfig(s.logger.WithField("component", "backchannel.YamuxServer"), cfg))
 	if err != nil {
-		logger.Close()
 		return nil, nil, fmt.Errorf("create multiplexing session: %w", err)
 	}
 
 	// Accept the client's stream. This is the client's gRPC session to the server.
 	clientToServerStream, err := muxSession.Accept()
 	if err != nil {
-		logger.Close()
 		return nil, nil, fmt.Errorf("accept client's stream: %w", err)
 	}
 
@@ -133,7 +129,6 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 		)...,
 	)
 	if err != nil {
-		logger.Close()
 		return nil, nil, fmt.Errorf("dial backchannel: %w", err)
 	}
 
@@ -147,7 +142,7 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 
 				var firstErr error
 				for _, closer := range []io.Closer{
-					backchannelConn, muxSession, logger,
+					backchannelConn, muxSession,
 				} {
 					if err := closer.Close(); err != nil && firstErr == nil {
 						firstErr = err

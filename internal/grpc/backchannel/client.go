@@ -115,18 +115,14 @@ func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, e
 		return nil, fmt.Errorf("write backchannel magic bytes: %w", err)
 	}
 
-	logger := ch.logger.WithField("component", "backchannel.YamuxClient").WriterLevel(logrus.ErrorLevel)
-
 	// Initiate the multiplexing session.
-	muxSession, err := yamux.Client(conn, muxConfig(logger, ch.cfg))
+	muxSession, err := yamux.Client(conn, muxConfig(ch.logger.WithField("component", "backchannel.YamuxClient"), ch.cfg))
 	if err != nil {
-		logger.Close()
 		return nil, fmt.Errorf("open multiplexing session: %w", err)
 	}
 
 	go func() {
 		<-muxSession.CloseChan()
-		logger.Close()
 	}()
 
 	// Initiate the stream to the server. This is used by the client's gRPC session.

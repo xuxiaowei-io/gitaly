@@ -29,20 +29,21 @@
 package backchannel
 
 import (
-	"io"
 	"net"
 	"sync"
 
 	"github.com/hashicorp/yamux"
+	"github.com/sirupsen/logrus"
 )
 
 // magicBytes are sent by the client to server to identify as a multiplexing aware client.
 var magicBytes = []byte("backchannel")
 
 // muxConfig returns a new config to use with the multiplexing session.
-func muxConfig(logger io.Writer, cfg Configuration) *yamux.Config {
+func muxConfig(logger logrus.FieldLogger, cfg Configuration) *yamux.Config {
 	yamuxCfg := yamux.DefaultConfig()
-	yamuxCfg.LogOutput = logger
+	yamuxCfg.Logger = logger
+	yamuxCfg.LogOutput = nil
 	// gRPC is already configured to send keep alives so we don't need yamux to do this for us.
 	// gRPC is a better choice as it sends the keep alives also to non-multiplexed connections.
 	yamuxCfg.EnableKeepAlive = false
