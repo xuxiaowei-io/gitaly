@@ -156,12 +156,8 @@ func TestCreateRepositoryFromBundle(t *testing.T) {
 			// Verify connectivity and validity of the repository objects.
 			gittest.Exec(t, cfg, "-C", repoPath, "fsck")
 
-			refs, err := repo.GetReferences(ctx)
-			require.NoError(t, err)
-
-			headRef, err := repo.HeadReference(ctx)
-			require.NoError(t, err)
-			head := git.NewSymbolicReference("HEAD", headRef)
+			refs := gittest.GetReferences(t, cfg, repoPath)
+			head := gittest.GetSymbolicRef(t, cfg, repoPath, "HEAD")
 
 			// Verify repository contains references from the bundle.
 			require.ElementsMatch(t, setup.expectedRefs, append(refs, head))

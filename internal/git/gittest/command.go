@@ -1,16 +1,20 @@
 package gittest
 
 import (
+	"context"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // ExecConfig contains configuration for ExecOpts.
@@ -111,4 +115,52 @@ func createCommand(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...st
 	cmd.Stderr = execCfg.Stderr
 
 	return cmd
+}
+
+var _ git.RepositoryExecutor = RepositoryPathExecutor{}
+
+// RepositoryPathExecutor is a `git.RepositoryExecutor` that knows to execute commands in a Git repository identified by
+// its absolute path.
+type RepositoryPathExecutor struct {
+	storage.Repository
+	factory git.CommandFactory
+}
+
+// NewRepositoryPathExecutor creates a new ReposiotryPathExecutor for the given repository.
+func NewRepositoryPathExecutor(tb testing.TB, cfg config.Cfg, repoPath string) RepositoryPathExecutor {
+	relativePath, err := filepath.Rel(cfg.Storages[0].Path, repoPath)
+	require.NoError(tb, err)
+
+	return RepositoryPathExecutor{
+		Repository: &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: relativePath,
+		},
+		factory: NewCommandFactory(tb, cfg),
+	}
+}
+
+// Exec executes a command in the given repository.
+func (e RepositoryPathExecutor) Exec(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) (*command.Command, error) {
+	return e.factory.New(ctx, e.Repository, cmd, opts...)
+}
+
+// ExecAndWait executes a command in the given repository and waits for it to exit.
+func (e RepositoryPathExecutor) ExecAndWait(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) error {
+	command, err := e.Exec(ctx, cmd, opts...)
+	if err != nil {
+		return err
+	}
+
+	return command.Wait()
+}
+
+// GitVersion determines the Git version used by the executor.
+func (e RepositoryPathExecutor) GitVersion(ctx context.Context) (git.Version, error) {
+	return e.factory.GitVersion(ctx)
+}
+
+// ObjectHash determines the object hash used by the repository.
+func (e RepositoryPathExecutor) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
+	return git.DetectObjectHash(ctx, e.factory, e.Repository)
 }

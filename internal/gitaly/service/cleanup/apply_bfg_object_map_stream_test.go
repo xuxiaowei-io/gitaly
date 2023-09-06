@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -26,8 +25,6 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	cfg, protoRepo, repoPath, client := setupCleanupService(t, ctx)
 
 	testcfg.BuildGitalyHooks(t, cfg)
-
-	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("blob contents"))
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithTreeEntries(
@@ -78,9 +75,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure that the internal refs are gone, but the others still exist
-	refs, err := repo.GetReferences(ctx, "refs/")
-	require.NoError(t, err)
-
+	refs := gittest.GetReferences(t, cfg, repoPath)
 	refNames := make([]string, len(refs))
 	for i, branch := range refs {
 		refNames[i] = branch.Name.String()

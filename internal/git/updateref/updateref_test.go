@@ -371,15 +371,13 @@ func TestUpdater_invalidStateTransitions(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, repo, _, updater := setupUpdater(t, ctx)
+			cfg, _, repoPath, updater := setupUpdater(t, ctx)
 			defer func() { require.Equal(t, tc.expectedErr, updater.Close()) }()
 
 			require.Equal(t, tc.expectedErr, tc.perform(t, updater))
 
 			// Verify no references were created.
-			refs, err := repo.GetReferences(ctx)
-			require.NoError(t, err)
-			require.Empty(t, refs)
+			require.Empty(t, gittest.GetReferences(t, cfg, repoPath))
 		})
 	}
 }
@@ -574,7 +572,7 @@ func TestUpdater_bulkOperation(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	cfg, _, repoPath, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
@@ -596,9 +594,7 @@ func TestUpdater_bulkOperation(t *testing.T) {
 		require.NoError(t, updater.Commit())
 	}
 
-	refs, err := repo.GetReferences(ctx, "refs/")
-	require.NoError(t, err)
-	require.ElementsMatch(t, expectedRefs, refs)
+	require.ElementsMatch(t, expectedRefs, gittest.GetReferences(t, cfg, repoPath))
 }
 
 func TestUpdater_contextCancellation(t *testing.T) {
