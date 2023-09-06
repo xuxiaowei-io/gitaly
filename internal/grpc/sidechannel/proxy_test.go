@@ -187,8 +187,8 @@ func dialProxy(tb testing.TB, upstreamAddr string) (*grpc.ClientConn, error) {
 	clientHandshaker := backchannel.NewClientHandshaker(testhelper.SharedLogger(tb), factory, backchannel.DefaultConfiguration())
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
-		grpc.WithUnaryInterceptor(NewUnaryProxy(registry)),
-		grpc.WithStreamInterceptor(NewStreamProxy(registry)),
+		grpc.WithUnaryInterceptor(NewUnaryProxy(registry, testhelper.SharedLogger(tb))),
+		grpc.WithStreamInterceptor(NewStreamProxy(registry, testhelper.SharedLogger(tb))),
 	}
 
 	return grpc.Dial(upstreamAddr, dialOpts...)

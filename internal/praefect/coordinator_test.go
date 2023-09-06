@@ -165,7 +165,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 	db := testdb.New(t)
 	txMgr := transactions.NewManager(conf)
 
-	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -767,7 +767,7 @@ func TestStreamDirector_maintenance(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodeSet.Close()
 

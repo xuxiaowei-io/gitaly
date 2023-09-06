@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
@@ -98,12 +99,13 @@ func DialNodes(
 	errorTracker tracker.ErrorTracker,
 	handshaker client.Handshaker,
 	sidechannelRegistry *sidechannel.Registry,
+	log logrus.FieldLogger,
 ) (NodeSet, error) {
 	set := make(NodeSet, len(virtualStorages))
 	for _, virtualStorage := range virtualStorages {
 		set[virtualStorage.Name] = make(map[string]Node, len(virtualStorage.Nodes))
 		for _, node := range virtualStorage.Nodes {
-			conn, err := nodes.Dial(ctx, node, registry, errorTracker, handshaker, sidechannelRegistry)
+			conn, err := nodes.Dial(ctx, node, registry, errorTracker, handshaker, sidechannelRegistry, log)
 			if err != nil {
 				return nil, fmt.Errorf("dial %q/%q: %w", virtualStorage.Name, node.Storage, err)
 			}

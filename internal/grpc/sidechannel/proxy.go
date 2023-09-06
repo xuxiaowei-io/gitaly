@@ -5,38 +5,39 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"google.golang.org/grpc"
 	grpcMetadata "google.golang.org/grpc/metadata"
 )
 
 // NewUnaryProxy creates a gRPC client middleware that proxies sidechannels.
-func NewUnaryProxy(registry *Registry) grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+func NewUnaryProxy(registry *Registry, log logrus.FieldLogger) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
 		if !hasSidechannelMetadata(ctx) {
 			return invoker(ctx, method, req, reply, cc, opts...)
 		}
 
 		ctx, waiter := RegisterSidechannel(ctx, registry, proxy(ctx))
 		defer func() {
-			// We aleady check the error further down.
-			_ = waiter.Close()
+			if waiterErr := waiter.Close(); waiterErr != nil && waiterErr != ErrCallbackDidNotRun {
+				if err == nil {
+					err = fmt.Errorf("sidechannel: proxy callback: %w", waiterErr)
+				} else {
+					// If upstream returns non-successful error and the waiter fails to close, we should
+					// prioritize the returned error because that error is propagated back to downstream.
+					// The waiter error (most likely unexpected close) is logged instead.
+					log.Warnf("sidechannel: proxy callback: %w", waiterErr)
+				}
+			}
 		}()
 
-		if err := invoker(ctx, method, req, reply, cc, opts...); err != nil {
-			return err
-		}
-
-		if err := waiter.Close(); err != nil && err != ErrCallbackDidNotRun {
-			return fmt.Errorf("sidechannel: proxy callback: %w", err)
-		}
-
-		return nil
+		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
 
 // NewStreamProxy creates a gRPC client middleware that proxies sidechannels.
-func NewStreamProxy(registry *Registry) grpc.StreamClientInterceptor {
+func NewStreamProxy(registry *Registry, log logrus.FieldLogger) grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		if !hasSidechannelMetadata(ctx) {
 			return streamer(ctx, desc, cc, method, opts...)
@@ -55,13 +56,14 @@ func NewStreamProxy(registry *Registry) grpc.StreamClientInterceptor {
 			return nil, err
 		}
 
-		return &streamWrapper{ClientStream: cs, waiter: waiter}, nil
+		return &streamWrapper{ClientStream: cs, waiter: waiter, log: log}, nil
 	}
 }
 
 type streamWrapper struct {
 	grpc.ClientStream
 	waiter *Waiter
+	log    logrus.FieldLogger
 }
 
 func (sw *streamWrapper) RecvMsg(m interface{}) (err error) {
@@ -70,8 +72,15 @@ func (sw *streamWrapper) RecvMsg(m interface{}) (err error) {
 		// on. Otherwise, when upstream returns an error, there is a race between the gRPC handler and
 		// Sidechannel connection. This race sometimes makes the error message not fully flushed.
 		// For more information: https://gitlab.com/gitlab-org/gitaly/-/issues/5552
-		if waiterErr := sw.waiter.Close(); err == nil && waiterErr != nil && waiterErr != ErrCallbackDidNotRun {
-			err = fmt.Errorf("sidechannel: proxy callback: %w", waiterErr)
+		if waiterErr := sw.waiter.Close(); waiterErr != nil && waiterErr != ErrCallbackDidNotRun {
+			if err == nil {
+				err = fmt.Errorf("sidechannel: proxy callback: %w", waiterErr)
+			} else {
+				// If upstream returns non-successful error and the waiter fails to close, we should
+				// prioritize the returned error because that error is propagated back to downstream.
+				// The waiter error (most likely unexpected close) is logged instead.
+				sw.log.WithError(waiterErr).Error("sidechannel proxying failed")
+			}
 		}
 	}()
 

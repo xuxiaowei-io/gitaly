@@ -519,6 +519,7 @@ func TestVerifier(t *testing.T) {
 					backchannel.DefaultConfiguration(),
 				),
 				sidechannelRegistry,
+				testhelper.SharedLogger(t),
 			)
 			require.NoError(t, err)
 			t.Cleanup(nodeSet.Close)

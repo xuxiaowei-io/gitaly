@@ -59,7 +59,7 @@ func TestGetObjectPoolHandler(t *testing.T) {
 			},
 		}
 
-		nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, nil, nil, nil, nil)
+		nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, nil, nil, nil, nil, testhelper.SharedLogger(t))
 		require.NoError(t, err)
 		t.Cleanup(nodeSet.Close)
 
