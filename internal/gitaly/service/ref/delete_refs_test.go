@@ -76,8 +76,7 @@ func TestDeleteRefs_successful(t *testing.T) {
 			require.NoError(t, err)
 
 			// Ensure that the internal refs are gone, but the others still exist
-			refs, err := localrepo.NewTestRepo(t, cfg, repo).GetReferences(ctx, "refs/")
-			require.NoError(t, err)
+			refs := gittest.GetReferences(t, cfg, repoPath)
 
 			refNames := make([]string, len(refs))
 			for i, branch := range refs {
