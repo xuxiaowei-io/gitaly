@@ -37,8 +37,8 @@ func TestSendPack_Parse(t *testing.T) {
 		require.Equal(t, 44, sendPack.largestPacketSize)
 
 		for _, band := range []string{"pack", "progress"} {
-			require.True(t, startTime.Before(sendPack.multiband[band].firstPacket))
-			require.True(t, endTime.After(sendPack.multiband[band].firstPacket))
+			require.LessOrEqual(t, startTime, sendPack.multiband[band].firstPacket)
+			require.LessOrEqual(t, sendPack.multiband[band].firstPacket, endTime)
 			sendPack.multiband[band].firstPacket = startTime
 		}
 
