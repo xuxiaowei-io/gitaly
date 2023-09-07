@@ -14,11 +14,11 @@ import (
 
 // WriteBlobs writes n distinct blobs into the git repository's object
 // database. Each object has the current time in nanoseconds as contents.
-func WriteBlobs(tb testing.TB, cfg config.Cfg, testRepoPath string, n int) []string {
-	var blobIDs []string
+func WriteBlobs(tb testing.TB, cfg config.Cfg, testRepoPath string, n int) []git.ObjectID {
+	var blobIDs []git.ObjectID
 	for i := 0; i < n; i++ {
 		contents := []byte(strconv.Itoa(time.Now().Nanosecond()))
-		blobIDs = append(blobIDs, WriteBlob(tb, cfg, testRepoPath, contents).String())
+		blobIDs = append(blobIDs, WriteBlob(tb, cfg, testRepoPath, contents))
 	}
 
 	return blobIDs
