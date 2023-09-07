@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -34,7 +35,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 		{
 			desc:  "error reading",
 			input: ReaderFunc(func([]byte) (int, error) { return 0, assert.AnError }),
-			error: assert.AnError,
+			error: structerr.New("writing blob: %w", assert.AnError),
 		},
 		{
 			desc:    "successful empty blob",

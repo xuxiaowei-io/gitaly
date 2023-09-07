@@ -1,12 +1,13 @@
 package git
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // WriteBlobConfig is the configuration used to write blobs into the repository.
@@ -17,9 +18,6 @@ type WriteBlobConfig struct {
 
 // WriteBlob writes a blob into the given repository.
 func WriteBlob(ctx context.Context, repoExecutor RepositoryExecutor, content io.Reader, cfg WriteBlobConfig) (ObjectID, error) {
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-
 	options := []Option{
 		Flag{Name: "--stdin"},
 		Flag{Name: "-w"},
@@ -28,24 +26,26 @@ func WriteBlob(ctx context.Context, repoExecutor RepositoryExecutor, content io.
 		options = append(options, ValueFlag{Name: "--path", Value: cfg.Path})
 	}
 
+	var stdout, stderr strings.Builder
 	cmd, err := repoExecutor.Exec(ctx,
 		Command{
 			Name:  "hash-object",
 			Flags: options,
 		},
 		WithStdin(content),
-		WithStdout(stdout),
-		WithStderr(stderr),
+		WithStdout(&stdout),
+		WithStderr(&stderr),
 	)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("executing hash-object: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		if stderr.Len() == 0 {
-			return "", err
+		if exitStatus, ok := command.ExitStatus(err); ok {
+			return "", structerr.New("writing blob failed with error code %d", exitStatus).WithMetadata("stderr", stderr.String())
 		}
-		return "", fmt.Errorf("%w, stderr: %q", err, stderr)
+
+		return "", structerr.New("writing blob: %w", err)
 	}
 
 	objectHash, err := repoExecutor.ObjectHash(ctx)
@@ -53,9 +53,9 @@ func WriteBlob(ctx context.Context, repoExecutor RepositoryExecutor, content io.
 		return "", fmt.Errorf("detecting object hash: %w", err)
 	}
 
-	oid, err := objectHash.FromHex(text.ChompBytes(stdout.Bytes()))
+	oid, err := objectHash.FromHex(strings.TrimSuffix(stdout.String(), "\n"))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("reading blob object ID: %w", err)
 	}
 
 	return oid, nil
