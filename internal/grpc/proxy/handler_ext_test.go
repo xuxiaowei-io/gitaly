@@ -18,7 +18,7 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -511,7 +511,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 			go testhelper.MustServe(t, server, listener)
 			defer server.Stop()
 
-			conn, err := client.Dial("tcp://"+listener.Addr().String(), []grpc.DialOption{grpc.WithBlock()})
+			conn, err := client.Dial(ctx, "tcp://"+listener.Addr().String(), client.WithGrpcOptions([]grpc.DialOption{grpc.WithBlock()}))
 			require.NoError(t, err)
 			defer conn.Close()
 			client := grpc_testing.NewTestServiceClient(conn)

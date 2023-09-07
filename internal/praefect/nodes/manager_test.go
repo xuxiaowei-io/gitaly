@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -458,6 +458,8 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 }
 
 func TestNodeStatus_IsHealthy(t *testing.T) {
+	ctx := testhelper.Context(t)
+
 	checkNTimes := func(t *testing.T, ctx context.Context, ns *nodeStatus, n int) {
 		for i := 0; i < n; i++ {
 			_, err := ns.CheckHealth(ctx)
@@ -470,12 +472,11 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 
 	healthSrv := testhelper.NewServerWithHealth(t, socket)
 
-	clientConn, err := client.Dial(address, nil)
+	clientConn, err := client.Dial(ctx, address)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, clientConn.Close()) }()
 
 	node := config.Node{Storage: "gitaly-0", Address: address}
-	ctx := testhelper.Context(t)
 
 	logger := testhelper.SharedLogger(t)
 	latencyHistMock := &promtest.MockHistogramVec{}

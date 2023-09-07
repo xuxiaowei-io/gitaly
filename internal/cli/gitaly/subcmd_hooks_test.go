@@ -2,6 +2,7 @@ package gitaly
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/fs"
 	"os/exec"
@@ -10,12 +11,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	gclient "gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -41,7 +41,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 	// The generated socket path already has the unix prefix. This needs to be
 	// removed because the Gitaly config does not expect a scheme to be present.
 	cfg.SocketPath = strings.TrimPrefix(serverSocketPath, "unix://")
-	client := newRepositoryClient(t, cfg, serverSocketPath)
+	client := newRepositoryClient(t, ctx, cfg, serverSocketPath)
 
 	configPath := testcfg.WriteTemporaryGitalyConfigFile(t, cfg)
 
@@ -216,16 +216,16 @@ func TestSetHooksSubcommand(t *testing.T) {
 	}
 }
 
-func newRepositoryClient(tb testing.TB, cfg config.Cfg, serverSocketPath string) gitalypb.RepositoryServiceClient {
+func newRepositoryClient(tb testing.TB, ctx context.Context, cfg config.Cfg, serverSocketPath string) gitalypb.RepositoryServiceClient {
 	tb.Helper()
 
 	connOpts := []grpc.DialOption{
-		internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
+		client.UnaryInterceptor(), client.StreamInterceptor(),
 	}
 	if cfg.Auth.Token != "" {
 		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
-	conn, err := gclient.Dial(serverSocketPath, connOpts)
+	conn, err := client.Dial(ctx, serverSocketPath, client.WithGrpcOptions(connOpts))
 	require.NoError(tb, err)
 	tb.Cleanup(func() { require.NoError(tb, conn.Close()) })
 

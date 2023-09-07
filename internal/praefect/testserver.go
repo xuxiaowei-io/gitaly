@@ -9,9 +9,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	gitalycfgauth "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -110,7 +110,7 @@ func listenAvailPort(tb testing.TB) (net.Listener, int) {
 	return listener, listener.Addr().(*net.TCPAddr).Port
 }
 
-func dialLocalPort(tb testing.TB, port int, backend bool) *grpc.ClientConn {
+func dialLocalPort(tb testing.TB, ctx context.Context, port int, backend bool) *grpc.ClientConn {
 	opts := []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithUnaryInterceptor(correlation.UnaryClientCorrelationInterceptor()),
@@ -124,8 +124,9 @@ func dialLocalPort(tb testing.TB, port int, backend bool) *grpc.ClientConn {
 	}
 
 	cc, err := client.Dial(
+		ctx,
 		fmt.Sprintf("tcp://localhost:%d", port),
-		opts,
+		client.WithGrpcOptions(opts),
 	)
 	require.NoError(tb, err)
 
@@ -275,7 +276,7 @@ func RunPraefectServer(
 	replMgrDone := startProcessBacklog(ctx, replmgr)
 
 	// dial client to praefect
-	cc := dialLocalPort(tb, port, false)
+	cc := dialLocalPort(tb, ctx, port, false)
 
 	cleanup := func() {
 		cc.Close()

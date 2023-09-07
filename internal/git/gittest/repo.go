@@ -11,11 +11,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -97,7 +96,7 @@ type CreateRepositoryConfig struct {
 func dialService(tb testing.TB, ctx context.Context, cfg config.Cfg) *grpc.ClientConn {
 	tb.Helper()
 
-	dialOptions := []grpc.DialOption{internalclient.UnaryInterceptor(), internalclient.StreamInterceptor()}
+	dialOptions := []grpc.DialOption{client.UnaryInterceptor(), client.StreamInterceptor()}
 	if cfg.Auth.Token != "" {
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
@@ -114,7 +113,7 @@ func dialService(tb testing.TB, ctx context.Context, cfg config.Cfg) *grpc.Clien
 		require.FailNow(tb, "cannot dial service without configured address")
 	}
 
-	conn, err := client.DialContext(ctx, addr, dialOptions)
+	conn, err := client.Dial(ctx, addr, client.WithGrpcOptions(dialOptions))
 	require.NoError(tb, err)
 	return conn
 }

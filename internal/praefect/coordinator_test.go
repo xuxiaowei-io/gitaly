@@ -16,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
@@ -24,6 +23,7 @@ import (
 	gconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
@@ -2158,9 +2158,9 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 					gitalypb.RegisterOperationServiceServer(srv, operationServer)
 				}, testserver.WithDiskCache(&mockDiskCache{}), testserver.WithDisablePraefect())
 
-				conn, err := client.DialContext(ctx, addr, []grpc.DialOption{
+				conn, err := client.Dial(ctx, addr, client.WithGrpcOptions([]grpc.DialOption{
 					grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
-				})
+				}))
 				require.NoError(t, err)
 				defer conn.Close()
 

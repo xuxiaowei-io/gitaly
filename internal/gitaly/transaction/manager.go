@@ -9,10 +9,9 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -67,10 +66,10 @@ type PoolManager struct {
 func NewManager(cfg config.Cfg, backchannels *backchannel.Registry) *PoolManager {
 	return &PoolManager{
 		backchannels: backchannels,
-		conns: client.NewPoolWithOptions(client.WithDialOptions(append(
+		conns: client.NewPool(client.WithDialOptions(append(
 			client.FailOnNonTempDialError(),
-			internalclient.UnaryInterceptor(),
-			internalclient.StreamInterceptor())...,
+			client.UnaryInterceptor(),
+			client.StreamInterceptor())...,
 		)),
 		votingDelayMetric: prometheus.NewHistogram(
 			prometheus.HistogramOpts{

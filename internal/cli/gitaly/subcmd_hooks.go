@@ -9,9 +9,8 @@ import (
 
 	"github.com/urfave/cli/v2"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -151,8 +150,8 @@ func dial(ctx context.Context, addr, token string, timeout time.Duration, opts .
 
 	opts = append(opts,
 		grpc.WithBlock(),
-		internalclient.UnaryInterceptor(),
-		internalclient.StreamInterceptor(),
+		client.UnaryInterceptor(),
+		client.StreamInterceptor(),
 	)
 
 	if len(token) > 0 {
@@ -163,7 +162,7 @@ func dial(ctx context.Context, addr, token string, timeout time.Duration, opts .
 		)
 	}
 
-	return client.DialContext(ctx, addr, opts)
+	return client.Dial(ctx, addr, client.WithGrpcOptions(opts))
 }
 
 func getAddressWithScheme(cfg config.Cfg) (string, error) {
