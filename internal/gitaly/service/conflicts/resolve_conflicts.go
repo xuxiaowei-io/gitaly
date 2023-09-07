@@ -308,7 +308,9 @@ func (s *server) resolveConflictsWithGit(
 				return "", structerr.NewInternal("%w", err)
 			}
 
-			blobOID, err := repo.WriteBlob(ctx, filepath.Base(path), resolvedContent)
+			blobOID, err := repo.WriteBlob(ctx, resolvedContent, localrepo.WriteBlobConfig{
+				Path: filepath.Base(path),
+			})
 			if err != nil {
 				return "", structerr.NewInternal("writing blob: %w", err)
 			}

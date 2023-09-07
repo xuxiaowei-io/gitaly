@@ -218,7 +218,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 	require.NoError(t, err)
 
 	quarantinedRepo := localrepo.NewTestRepo(t, cfg, quarantine.QuarantinedRepo())
-	blobID, err := quarantinedRepo.WriteBlob(ctx, "", strings.NewReader("allyourbasearebelongtous"))
+	blobID, err := quarantinedRepo.WriteBlob(ctx, strings.NewReader("allyourbasearebelongtous"), localrepo.WriteBlobConfig{})
 	require.NoError(t, err)
 
 	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(

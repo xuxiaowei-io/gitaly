@@ -68,7 +68,9 @@ func TestRepo_WriteBlob(t *testing.T) {
 			require.NoError(t, os.MkdirAll(filepath.Dir(attributesPath), perm.SharedDir))
 			require.NoError(t, os.WriteFile(attributesPath, []byte(tc.attributes), perm.PublicFile))
 
-			sha, err := repo.WriteBlob(ctx, "file-path", tc.input)
+			sha, err := repo.WriteBlob(ctx, tc.input, WriteBlobConfig{
+				Path: "file-path",
+			})
 			require.Equal(t, tc.error, err)
 			if tc.error != nil {
 				return

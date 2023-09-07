@@ -10,21 +10,30 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 )
 
+// WriteBlobConfig is the configuration used to write blobs into the repository.
+type WriteBlobConfig struct {
+	//  Path is used by git to decide which filters to run on the content.
+	Path string
+}
+
 // WriteBlob writes a blob to the repository's object database and
-// returns its object ID. Path is used by git to decide which filters to
-// run on the content.
-func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader) (git.ObjectID, error) {
+// returns its object ID.
+func (repo *Repo) WriteBlob(ctx context.Context, content io.Reader, cfg WriteBlobConfig) (git.ObjectID, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
+	options := []git.Option{
+		git.Flag{Name: "--stdin"},
+		git.Flag{Name: "-w"},
+	}
+	if cfg.Path != "" {
+		options = append(options, git.ValueFlag{Name: "--path", Value: cfg.Path})
+	}
+
 	cmd, err := repo.Exec(ctx,
 		git.Command{
-			Name: "hash-object",
-			Flags: []git.Option{
-				git.ValueFlag{Name: "--path", Value: path},
-				git.Flag{Name: "--stdin"},
-				git.Flag{Name: "-w"},
-			},
+			Name:  "hash-object",
+			Flags: options,
 		},
 		git.WithStdin(content),
 		git.WithStdout(stdout),
