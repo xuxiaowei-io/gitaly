@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -278,8 +277,7 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 			setup: func(t *testing.T) setupData {
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
-				require.NoError(t, err)
+				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("updated"))
 
 				tree := &localrepo.TreeEntry{
 					Type: localrepo.Tree,
