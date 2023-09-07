@@ -5,6 +5,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 func newListStoragesCommand() *cli.Command {
@@ -44,6 +45,8 @@ Example: praefect --config praefect.config.toml list-storages --virtual-storage 
 }
 
 func listStoragesAction(ctx *cli.Context) error {
+	log.ConfigureCommand()
+
 	conf, err := readConfig(ctx.String(configFlagName))
 	if err != nil {
 		return err

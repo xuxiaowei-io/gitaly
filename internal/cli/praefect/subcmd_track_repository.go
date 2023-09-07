@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -87,14 +86,11 @@ type trackRepositoryRequest struct {
 var errAuthoritativeRepositoryNotExist = errors.New("authoritative repository does not exist")
 
 func trackRepositoryAction(appCtx *cli.Context) error {
+	logger := log.ConfigureCommand()
+
 	conf, err := readConfig(appCtx.String(configFlagName))
 	if err != nil {
 		return err
-	}
-
-	logger, err := log.Configure(os.Stderr, "text", "error")
-	if err != nil {
-		return fmt.Errorf("configuring logger: %w", err)
 	}
 
 	virtualStorage := appCtx.String(paramVirtualStorage)
