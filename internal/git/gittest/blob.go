@@ -9,27 +9,41 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 // WriteBlobs writes n distinct blobs into the git repository's object
 // database. Each object has the current time in nanoseconds as contents.
-func WriteBlobs(tb testing.TB, cfg config.Cfg, testRepoPath string, n int) []git.ObjectID {
-	var blobIDs []git.ObjectID
+func WriteBlobs(tb testing.TB, cfg config.Cfg, repoPath string, n int) []git.ObjectID {
+	tb.Helper()
+
+	ctx := testhelper.Context(tb)
+	repoExecutor := NewRepositoryPathExecutor(tb, cfg, repoPath)
+
+	blobIDs := make([]git.ObjectID, 0, n)
 	for i := 0; i < n; i++ {
 		contents := []byte(strconv.Itoa(time.Now().Nanosecond()))
-		blobIDs = append(blobIDs, WriteBlob(tb, cfg, testRepoPath, contents))
+
+		blobID, err := git.WriteBlob(ctx, repoExecutor, bytes.NewReader(contents), git.WriteBlobConfig{})
+		require.NoError(tb, err)
+
+		blobIDs = append(blobIDs, blobID)
 	}
 
 	return blobIDs
 }
 
 // WriteBlob writes the given contents as a blob into the repository and returns its OID.
-func WriteBlob(tb testing.TB, cfg config.Cfg, testRepoPath string, contents []byte) git.ObjectID {
-	hex := text.ChompBytes(ExecOpts(tb, cfg, ExecConfig{Stdin: bytes.NewReader(contents)},
-		"-C", testRepoPath, "hash-object", "-w", "--stdin",
-	))
-	oid, err := DefaultObjectHash.FromHex(hex)
+func WriteBlob(tb testing.TB, cfg config.Cfg, repoPath string, contents []byte) git.ObjectID {
+	tb.Helper()
+
+	blobID, err := git.WriteBlob(
+		testhelper.Context(tb),
+		NewRepositoryPathExecutor(tb, cfg, repoPath),
+		bytes.NewReader(contents),
+		git.WriteBlobConfig{},
+	)
 	require.NoError(tb, err)
-	return oid
+
+	return blobID
 }
