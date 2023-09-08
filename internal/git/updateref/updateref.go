@@ -16,6 +16,24 @@ import (
 // errClosed is returned when accessing an updater that has already been closed.
 var errClosed = errors.New("closed")
 
+//MultipleUpdatesError indicates that a reference cannot have multiple updates
+//within the same transaction.
+type MultipleUpdatesError struct{
+	// ReferenceName is the name of the reference that has multiple updates.
+	ReferenceName string
+}
+func (e MultipleUpdatesError) Error() string {
+	return "reference has been updated multiple times within a transaction"
+}
+
+// ErrorMetadata implements the `structerr.ErrorMetadater` interface and provides the name of the reference that
+// has multiple updates.
+func (e MultipleUpdatesError) ErrorMetadata() []structerr.MetadataItem {
+	return []structerr.MetadataItem{
+		{Key: "reference", Value: e.ReferenceName},
+	}
+}
+
 // AlreadyLockedError indicates a reference cannot be locked because another
 // process has already locked it.
 type AlreadyLockedError struct {
@@ -464,6 +482,7 @@ var (
 	nonExistentObjectRegex       = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write ref '(.*)' with nonexistent object (.*)\n$`)
 	nonCommitObjectRegex         = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write non-commit object (.*) to branch '(.*)'\n`)
 	mismatchingStateRegex        = regexp.MustCompile(`^fatal: .*: cannot lock ref '(.*)': is at (.*) but expected (.*)\n$`)
+	multipleUpdatesRegex         = regexp.MustCompile(`^fatal: .*: multiple updates for ref '(.*)' not allowed\n$`)
 )
 
 func (u *Updater) setState(state string) error {
@@ -545,6 +564,13 @@ func (u *Updater) parseStderr() error {
 	matches = referenceAlreadyExistsRegex.FindSubmatch(stderr)
 	if len(matches) > 1 {
 		return ReferenceAlreadyExistsError{
+			ReferenceName: string(matches[1]),
+		}
+	}
+
+	matches = multipleUpdatesRegex.FindSubmatch(stderr)
+	if len(matches) > 1 {
+		return MultipleUpdatesError{
 			ReferenceName: string(matches[1]),
 		}
 	}

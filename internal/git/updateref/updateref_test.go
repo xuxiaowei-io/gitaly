@@ -881,3 +881,20 @@ func BenchmarkUpdater(b *testing.B) {
 		}
 	})
 }
+
+func TestUpdater_multipleUpdateError(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, _, repoPath, updater := setupUpdater(t, ctx)
+	defer func() { require.Equal(t, MultipleUpdatesError{ReferenceName: "refs/heads/test_a"}, updater.Close()) }()
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("test_a"))
+
+	require.NoError(t, updater.Start())
+	require.NoError(t, updater.Delete("refs/heads/test_a"))
+	require.NoError(t, updater.Create("refs/heads/test_a", commitID))
+	require.Equal(t, MultipleUpdatesError{ReferenceName: "refs/heads/test_a"}, updater.Commit())
+}
