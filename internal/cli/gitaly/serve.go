@@ -55,10 +55,10 @@ func newServeCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "serve",
 		Usage: "launch the server daemon",
-		Description: `Launch the Gitaly server daemon.
+		UsageText: `gitaly serve <gitaly_config_file>
 
 Example: gitaly serve gitaly.config.toml`,
-		ArgsUsage:       "<configfile>",
+		Description:     "Launch the Gitaly server daemon.",
 		Action:          serveAction,
 		HideHelpCommand: true,
 	}
