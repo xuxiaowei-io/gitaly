@@ -26,22 +26,21 @@ const (
 
 func newHooksCommand() *cli.Command {
 	return &cli.Command{
-		Name:  "hooks",
-		Usage: "manage Git hooks",
+		Name:      "hooks",
+		Usage:     "manage Git hooks",
+		UsageText: "gitaly hooks set",
 		Description: `Manage hooks for a Git repository.
 
-Provides the following subcommand:
-
-- set`,
+Provides the "set" subcommand.`,
 		HideHelpCommand: true,
 		Subcommands: []*cli.Command{
 			{
 				Name:  "set",
 				Usage: "set custom hooks for a Git repository",
+				UsageText: `gitaly hooks set --storage <storage_name> --repository <path_on_storage> --config <gitaly_config_file> < <hooks_tarbar_file>.tar
+
+Example: gitaly hooks set --storage default --repository @hashed/path/repository.git --config gitaly.config.toml < hooks_tarball.tar`,
 				Description: `Reads a tarball containing custom Git hooks from stdin and writes the hooks to the specified repository.
-
-Example: gitaly hooks set --storage default --repository @hashed/<path_to_git_repository>/repository.git --config gitaly.config.toml < hooks_tarball.tar
-
 To remove custom Git hooks for a specified repository, run the set subcommand with an empty tarball file.`,
 				Action: setHooksAction,
 				Flags: []cli.Flag{

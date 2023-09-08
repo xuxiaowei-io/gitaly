@@ -13,6 +13,20 @@ To help users discover `gitaly` and `praefect` features through the CLI:
 - Always provide a value for the `Description` field key. This field key provides a lot of space to describe the command
   or subcommand. At a minimum, provide a longer full sentence restatement of (but don't duplicate) the `Usage` field key
   value.
+- Always provide a value for the `UsageText` field key. Use this field key to provide:
+
+  - A template for invocation with placeholder values.
+  - Optional flags in square brackets.
+  - One or more examples with plausible values.
+
+  For example:
+
+  ```go
+  UsageText: `gitaly subcommand <placeholder_value> --mandatory-flag <placeholder_value> [--optional-flag]
+
+  Example: gitaly subcommand plausible-value.toml --mandatory-flag  plausible-value`,
+  ```
+
 - Because of a [known issue](https://gitlab.com/gitlab-org/gitaly/-/issues/5350), always set the `HideHelpCommand`
   field key to `true`. Setting this hides the `COMMANDS:` section of the help text,
   which hides a generated list of available subcommands, if available.
@@ -33,10 +47,11 @@ To help users discover `gitaly` and `praefect` features through the CLI:
 When adding or updating `gitaly` and `praefect` CLI tools, use the following guidance for values for the different field
 keys for commands and subcommands:
 
-| Field key     | All lower case | Use period | Example key and value                                                                 |
-|:--------------|:---------------|:-----------|:--------------------------------------------------------------------------------------|
-| `Name`        | Yes            | No         | `Name: "example"`                                                                     |
-| `Usage`       | Yes            | No         | `Usage: "short description of example command"`                                       |
+| Field key     | All lower case | Use period | Example key and value |
+|:--------------|:---------------|:-----------|:----------------------|
+| `Name`        | Yes            | No         | `Name: "example"`     |
+| `Usage`       | Yes            | No         | `Usage: "short description of example command"` |
+| `UsageText`   | No             | No         | `example subcommand <example_placeholder>\n\nExample: example subcommand plausible-value.toml` |
 | `Description` | No             | Yes        | `Description: "This is a long description of all the things example command can do."` |
 
 ### Specific rules for `Usage`

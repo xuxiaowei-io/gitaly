@@ -23,16 +23,16 @@ Provides the following subcommand:
 			{
 				Name:  "validate",
 				Usage: "validate Gitaly configuration",
+				UsageText: `gitaly configuration validate < <gitaly_config_file>
+
+Example: gitaly configuration validate < gitaly.config.toml`,
 				Description: `Check that input provided on stdin is valid Gitaly configuration.
 Use validate before starting Gitaly.
 
-Prints all configuration problems to stdout in JSON format.
-The output's structure includes:
+Prints all configuration problems to stdout in JSON format. The output's structure includes:
 
 - A key, which is the path to the configuration field where the problem is detected.
-- A message, with an explanation of the problem.
-
-Example: gitaly configuration validate < gitaly.config.toml`,
+- A message, with an explanation of the problem.`,
 				Action: validateConfigurationAction,
 			},
 		},
