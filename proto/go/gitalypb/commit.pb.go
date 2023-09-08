@@ -2845,23 +2845,24 @@ func (x *RawBlameResponse) GetData() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// LastCommitForPathRequest is a request for the LastCommitForPath RPC.
 type LastCommitForPathRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository to run the query in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// Revision is the committish that is used as the start commit to perform the search.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
-	// This comment is left unintentionally blank.
-	// This comment is left unintentionally blank.
+	// Path is the path for which the last commit should be searched. This path can either point to a blob or to a
+	// tree. The path must be relative and must not escape the repository root. If the path is empty or "/", then the
+	// repository root will be searched instead.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// This comment is left unintentionally blank.
-	LiteralPathspec bool `protobuf:"varint,4,opt,name=literal_pathspec,json=literalPathspec,proto3" json:"literal_pathspec,omitempty"` // Deprecate after Rails stops using this
-	// This comment is left unintentionally blank.
+	// LiteralPathspec will treat the path literally. No globbing or pathspec magic is performed. This option is
+	// deprecated in favor of GlobalOptions.
+	LiteralPathspec bool `protobuf:"varint,4,opt,name=literal_pathspec,json=literalPathspec,proto3" json:"literal_pathspec,omitempty"`
+	// GlobalOptions contains the global options used to modify the behaviour of Git.
 	GlobalOptions *GlobalOptions `protobuf:"bytes,5,opt,name=global_options,json=globalOptions,proto3" json:"global_options,omitempty"`
 }
 
@@ -2932,13 +2933,13 @@ func (x *LastCommitForPathRequest) GetGlobalOptions() *GlobalOptions {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// LastCommitForPathResponse is a response for the LastCommitForPath RPC.
 type LastCommitForPathResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// commit is nil when the commit was not found
+	// Commit is the commit that has last modified the given path. Unset in case the path could not be found.
 	Commit *GitCommit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
 }
 

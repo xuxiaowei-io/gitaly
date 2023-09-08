@@ -54,7 +54,12 @@ type CommitServiceClient interface {
 	CommitLanguages(ctx context.Context, in *CommitLanguagesRequest, opts ...grpc.CallOption) (*CommitLanguagesResponse, error)
 	// This comment is left unintentionally blank.
 	RawBlame(ctx context.Context, in *RawBlameRequest, opts ...grpc.CallOption) (CommitService_RawBlameClient, error)
-	// This comment is left unintentionally blank.
+	// LastCommitForPath returns the last commit that has changed a given path.
+	//
+	// The following special cases apply and have grown historically:
+	//
+	// - Absolute paths that or relative paths that escape the repository root will cause an error.
+	// - A nonexistent path inside the repostiory leads to a successful but empty response.
 	LastCommitForPath(ctx context.Context, in *LastCommitForPathRequest, opts ...grpc.CallOption) (*LastCommitForPathResponse, error)
 	// This comment is left unintentionally blank.
 	ListLastCommitsForTree(ctx context.Context, in *ListLastCommitsForTreeRequest, opts ...grpc.CallOption) (CommitService_ListLastCommitsForTreeClient, error)
@@ -694,7 +699,12 @@ type CommitServiceServer interface {
 	CommitLanguages(context.Context, *CommitLanguagesRequest) (*CommitLanguagesResponse, error)
 	// This comment is left unintentionally blank.
 	RawBlame(*RawBlameRequest, CommitService_RawBlameServer) error
-	// This comment is left unintentionally blank.
+	// LastCommitForPath returns the last commit that has changed a given path.
+	//
+	// The following special cases apply and have grown historically:
+	//
+	// - Absolute paths that or relative paths that escape the repository root will cause an error.
+	// - A nonexistent path inside the repostiory leads to a successful but empty response.
 	LastCommitForPath(context.Context, *LastCommitForPathRequest) (*LastCommitForPathResponse, error)
 	// This comment is left unintentionally blank.
 	ListLastCommitsForTree(*ListLastCommitsForTreeRequest, CommitService_ListLastCommitsForTreeServer) error

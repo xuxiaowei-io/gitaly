@@ -3,6 +3,7 @@ package commit
 import (
 	"context"
 	"errors"
+	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -66,5 +67,18 @@ func validateLastCommitForPathRequest(locator storage.Locator, in *gitalypb.Last
 	if err := git.ValidateRevision(in.Revision); err != nil {
 		return err
 	}
+
+	path := string(in.GetPath())
+	switch {
+	case path == "", path == "/":
+		// We map both the empty path and "/" to instead refer to the root directory, so these are fine.
+	case filepath.IsAbs(path):
+		// Strictly speaking this is already handled by `filepath.IsLocal()`, but handling this case explicitly
+		// allows us to generate a better error message.
+		return structerr.NewInvalidArgument("path is an absolute path").WithMetadata("path", path)
+	case !filepath.IsLocal(path):
+		return structerr.NewInvalidArgument("path escapes repository").WithMetadata("path", path)
+	}
+
 	return nil
 }

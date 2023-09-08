@@ -115,7 +115,12 @@ service CommitService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // LastCommitForPath returns the last commit that has changed a given path.
+  //
+  // The following special cases apply and have grown historically:
+  //
+  // - Absolute paths that or relative paths that escape the repository root will cause an error.
+  // - A nonexistent path inside the repostiory leads to a successful but empty response.
   rpc LastCommitForPath(LastCommitForPathRequest) returns (LastCommitForPathResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -696,25 +701,26 @@ message RawBlameResponse {
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
+// LastCommitForPathRequest is a request for the LastCommitForPath RPC.
 message LastCommitForPathRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository to run the query in.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // Revision is the committish that is used as the start commit to perform the search.
   bytes revision = 2;
-  // This comment is left unintentionally blank.
-  // This comment is left unintentionally blank.
-  // This comment is left unintentionally blank.
+  // Path is the path for which the last commit should be searched. This path can either point to a blob or to a
+  // tree. The path must be relative and must not escape the repository root. If the path is empty or "/", then the
+  // repository root will be searched instead.
   bytes path = 3;
-  // This comment is left unintentionally blank.
-  bool literal_pathspec = 4; // Deprecate after Rails stops using this
-  // This comment is left unintentionally blank.
+  // LiteralPathspec will treat the path literally. No globbing or pathspec magic is performed. This option is
+  // deprecated in favor of GlobalOptions.
+  bool literal_pathspec = 4;
+  // GlobalOptions contains the global options used to modify the behaviour of Git.
   GlobalOptions global_options = 5;
 }
 
-// This comment is left unintentionally blank.
+// LastCommitForPathResponse is a response for the LastCommitForPath RPC.
 message LastCommitForPathResponse {
-  // commit is nil when the commit was not found
+  // Commit is the commit that has last modified the given path. Unset in case the path could not be found.
   GitCommit commit = 1;
 }
 

@@ -127,6 +127,28 @@ func TestLastCommitForPath(t *testing.T) {
 			},
 		},
 		{
+			desc: "absolute path escaping",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: repoProto,
+				Revision:   []byte(latestCommitID),
+				Path:       []byte(repoPath),
+			},
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.NewInvalidArgument("path is an absolute path").WithMetadata("path", repoPath),
+			),
+		},
+		{
+			desc: "relative path escaping root directory",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: repoProto,
+				Revision:   []byte(latestCommitID),
+				Path:       []byte("foo/bar/../../../baz"),
+			},
+			expectedErr: testhelper.ToInterceptedMetadata(
+				structerr.NewInvalidArgument("path escapes repository").WithMetadata("path", "foo/bar/../../../baz"),
+			),
+		},
+		{
 			desc: "deleted file",
 			request: &gitalypb.LastCommitForPathRequest{
 				Repository: repoProto,
