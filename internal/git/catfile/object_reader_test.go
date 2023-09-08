@@ -1,6 +1,7 @@
 package catfile
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -165,7 +167,10 @@ func TestObjectReader_reader(t *testing.T) {
 func TestObjectReader_object(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.MailmapOptions).Run(t, testObjectReaderObject)
+}
+
+func testObjectReaderObject(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -235,6 +240,43 @@ func TestObjectReader_object(t *testing.T) {
 
 			_, err = io.Copy(io.Discard, object)
 			require.NoError(t, err)
+		}
+	})
+
+	t.Run("read existing object with mailmap", func(t *testing.T) {
+		mailmapContents := "A U Thor <author@example.com> Scrooge McDuck <scrooge@mcduck.com>"
+
+		commitID := gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithTreeEntries(
+				gittest.TreeEntry{Path: ".mailmap", Mode: "100644", Content: mailmapContents},
+			),
+			gittest.WithBranch("main"),
+		)
+
+		var commitContents []byte
+
+		if featureflag.MailmapOptions.IsEnabled(ctx) {
+			commitContents = gittest.Exec(t, cfg, "-C", repoPath, "cat-file",
+				"--use-mailmap", "-p", commitID.String())
+		} else {
+			commitContents = gittest.Exec(t, cfg, "-C", repoPath, "cat-file",
+				"-p", commitID.String())
+		}
+
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		object, err := reader.Object(ctx, "refs/heads/main")
+		require.NoError(t, err)
+
+		data, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, commitContents, data)
+
+		if featureflag.MailmapOptions.IsEnabled(ctx) {
+			require.Contains(t, string(data), "A U Thor <author@example.com>")
+		} else {
+			require.Contains(t, string(data), "Scrooge McDuck <scrooge@mcduck.com>")
 		}
 	})
 }
