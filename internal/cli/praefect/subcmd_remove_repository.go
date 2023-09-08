@@ -30,32 +30,32 @@ const (
 func newRemoveRepositoryCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "remove-repository",
-		Usage: "remove a repository from the cluster",
-		Description: "This command removes all state associated with a given repository from the Gitaly Cluster.\n" +
-			"This includes both on-disk repositories on all relevant Gitaly nodes as well as any potential\n" +
-			"database state as tracked by Praefect, or optionally only database state.\n" +
-			"Runs in dry-run mode by default, and checks whether the repository exists" +
-			"without actually removing it from the database and disk.\n" +
-			"When -apply is used, the repository will be removed from the database as well as\n" +
-			"the individual Gitaly nodes on which it exists.\n" +
-			"When -apply and -db-only are used, the repository will be removed from the\n" +
-			"database but left in-place on the gitaly nodes.",
+		Usage: "remove a repository",
+		UsageText: `praefect --config <praefect_config_file> remove-repository [--apply] [--db-only] --virtual-storage <virtual_storage> --relative-path <relative_path_on_virtual_storage>
+
+Example: praefect --config praefect.config.toml remove-repository --virtual-storage default --relative-path @hashed/repositories/repository.git`,
+		Description: `Removes a specified repository from the Gitaly Cluster, including:
+
+- Repository state tracked by Praefect in the Praefect database.
+- (Optional) Replicas of the repository on all physical storages.
+
+By default, runs in dry-run mode to check if the repository exists in the Praefect database.`,
 		HideHelpCommand: true,
 		Action:          removeRepositoryAction,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     paramVirtualStorage,
-				Usage:    "name of the repository's virtual storage",
+				Usage:    "virtual storage containing the repository",
 				Required: true,
 			},
 			&cli.StringFlag{
 				Name:     paramRelativePath,
-				Usage:    "relative path to the repository",
+				Usage:    "relative path to the repository on the virtual storage",
 				Required: true,
 			},
 			&cli.BoolFlag{
 				Name:  paramApply,
-				Usage: "physically remove the repository from disk and the database",
+				Usage: "remove the repository from physical storages and the database",
 			},
 			&cli.BoolFlag{
 				Name:  paramDBOnly,
