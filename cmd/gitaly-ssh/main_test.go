@@ -7,19 +7,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"google.golang.org/grpc"
 )
 
 func TestRun(t *testing.T) {
-	var successPacker packFn = func(context.Context, *grpc.ClientConn, *client.SidechannelRegistry, string) (int32, error) {
+	var successPacker packFn = func(context.Context, *grpc.ClientConn, *sidechannel.Registry, string) (int32, error) {
 		return 0, nil
 	}
-	var exitCodePacker packFn = func(context.Context, *grpc.ClientConn, *client.SidechannelRegistry, string) (int32, error) {
+	var exitCodePacker packFn = func(context.Context, *grpc.ClientConn, *sidechannel.Registry, string) (int32, error) {
 		return 123, nil
 	}
-	var errorPacker packFn = func(context.Context, *grpc.ClientConn, *client.SidechannelRegistry, string) (int32, error) {
+	var errorPacker packFn = func(context.Context, *grpc.ClientConn, *sidechannel.Registry, string) (int32, error) {
 		return 1, fmt.Errorf("fail")
 	}
 

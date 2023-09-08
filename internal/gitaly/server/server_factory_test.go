@@ -11,11 +11,11 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"golang.org/x/sync/errgroup"
@@ -65,7 +65,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			endpoint, err := starter.ComposeEndpoint(schema, listener.Addr().String())
 			require.NoError(t, err)
 
-			cc, err = client.Dial(endpoint, nil)
+			cc, err = client.Dial(ctx, endpoint)
 			require.NoError(t, err)
 		}
 		t.Cleanup(func() { assert.NoError(t, cc.Close()) })

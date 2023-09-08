@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
@@ -36,7 +35,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
@@ -257,15 +256,21 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 		hookManager = hm
 	}
 
-	conns := client.NewPoolWithOptions(
-		client.WithDialer(client.HealthCheckDialer(client.DialContext)),
+	conns := client.NewPool(
+		client.WithDialer(client.HealthCheckDialer(
+			func(ctx context.Context, address string, opts []grpc.DialOption) (*grpc.ClientConn, error) {
+				return client.Dial(ctx, address, client.WithGrpcOptions(opts))
+			},
+		)),
 		client.WithDialOptions(append(
 			client.FailOnNonTempDialError(),
-			internalclient.UnaryInterceptor(),
-			internalclient.StreamInterceptor())...,
+			client.UnaryInterceptor(),
+			client.StreamInterceptor())...,
 		),
 	)
-	defer conns.Close()
+	defer func() {
+		_ = conns.Close()
+	}()
 
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()

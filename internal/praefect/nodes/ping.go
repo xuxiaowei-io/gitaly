@@ -9,8 +9,7 @@ import (
 	"sync"
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -73,15 +72,15 @@ func (p *Ping) Address() string {
 func (p *Ping) dial(ctx context.Context) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithBlock(),
-		internalclient.UnaryInterceptor(),
-		internalclient.StreamInterceptor(),
+		client.UnaryInterceptor(),
+		client.StreamInterceptor(),
 	}
 
 	if len(p.token) > 0 {
 		opts = append(opts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(p.token)))
 	}
 
-	return client.DialContext(ctx, p.address, opts)
+	return client.Dial(ctx, p.address, client.WithGrpcOptions(opts))
 }
 
 func (p *Ping) healthCheck(ctx context.Context, cc *grpc.ClientConn) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {

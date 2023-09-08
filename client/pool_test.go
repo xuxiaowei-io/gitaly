@@ -230,7 +230,7 @@ func TestPool_Dial_same_addr_another_token(t *testing.T) {
 	defer func() { stop1() }()
 
 	pool := NewPool()
-	defer pool.Close()
+	defer testhelper.MustClose(t, pool)
 
 	// all good - server is running and serving requests
 	conn, err := pool.Dial(ctx, addr, "")

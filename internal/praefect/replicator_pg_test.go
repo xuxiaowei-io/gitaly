@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -36,7 +36,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	defer srv.Stop()
 	go testhelper.MustServe(t, srv, ln)
 
-	targetCC, err := client.Dial(ln.Addr().Network()+":"+ln.Addr().String(), nil)
+	targetCC, err := client.Dial(ctx, ln.Addr().Network()+":"+ln.Addr().String())
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, targetCC)
 

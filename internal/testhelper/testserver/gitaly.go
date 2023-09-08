@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -30,7 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
@@ -139,14 +138,14 @@ func (gs GitalyServer) Address() string {
 func waitHealthy(tb testing.TB, ctx context.Context, addr string, authToken string) {
 	grpcOpts := []grpc.DialOption{
 		grpc.WithBlock(),
-		internalclient.UnaryInterceptor(),
-		internalclient.StreamInterceptor(),
+		client.UnaryInterceptor(),
+		client.StreamInterceptor(),
 	}
 	if authToken != "" {
 		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(authToken)))
 	}
 
-	conn, err := client.DialContext(ctx, addr, grpcOpts)
+	conn, err := client.Dial(ctx, addr, client.WithGrpcOptions(grpcOpts))
 	require.NoError(tb, err)
 	defer testhelper.MustClose(tb, conn)
 
@@ -173,7 +172,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 	}
 
 	deps := gsd.createDependencies(tb, cfg)
-	tb.Cleanup(func() { gsd.conns.Close() })
+	tb.Cleanup(func() { testhelper.MustClose(tb, gsd.conns) })
 
 	serverFactory := server.NewGitalyServerFactory(
 		cfg,
@@ -280,7 +279,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	if gsd.conns == nil {
-		gsd.conns = client.NewPool(internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
+		gsd.conns = client.NewPool(client.WithDialOptions(client.UnaryInterceptor(), client.StreamInterceptor()))
 	}
 
 	if gsd.locator == nil {

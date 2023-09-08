@@ -9,15 +9,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 )
 
-type packFn func(context.Context, *grpc.ClientConn, *client.SidechannelRegistry, string) (int32, error)
+type packFn func(context.Context, *grpc.ClientConn, *sidechannel.Registry, string) (int32, error)
 
 type gitalySSHCommand struct {
 	// The git packer that shall be executed. One of receivePack,
@@ -117,8 +117,8 @@ func (cmd gitalySSHCommand) run(logger logrus.FieldLogger) (int, error) {
 		}
 	}
 
-	registry := client.NewSidechannelRegistry(logger)
-	conn, err := getConnection(ctx, cmd.address, registry)
+	registry := sidechannel.NewRegistry()
+	conn, err := getConnection(ctx, cmd.address, registry, logger)
 	if err != nil {
 		return 1, err
 	}
@@ -132,25 +132,25 @@ func (cmd gitalySSHCommand) run(logger logrus.FieldLogger) (int, error) {
 	return int(code), nil
 }
 
-func getConnection(ctx context.Context, url string, registry *client.SidechannelRegistry) (*grpc.ClientConn, error) {
+func getConnection(ctx context.Context, url string, registry *sidechannel.Registry, logger logrus.FieldLogger) (*grpc.ClientConn, error) {
 	if url == "" {
 		return nil, fmt.Errorf("gitaly address can not be empty")
 	}
 
 	if useSidechannel() {
-		return client.DialSidechannel(ctx, url, registry, dialOpts())
+		return sidechannel.Dial(ctx, registry, logger, url, dialOpts())
 	}
 
-	return client.DialContext(ctx, url, dialOpts())
+	return client.Dial(ctx, url, client.WithGrpcOptions(dialOpts()))
 }
 
 func dialOpts() []grpc.DialOption {
-	connOpts := client.DefaultDialOpts
+	var connOpts []grpc.DialOption
 	if token := os.Getenv("GITALY_TOKEN"); token != "" {
 		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)))
 	}
 
-	return append(connOpts, internalclient.UnaryInterceptor(), internalclient.StreamInterceptor())
+	return append(connOpts, client.UnaryInterceptor(), client.StreamInterceptor())
 }
 
 func useSidechannel() bool { return os.Getenv("GITALY_USE_SIDECHANNEL") == "1" }

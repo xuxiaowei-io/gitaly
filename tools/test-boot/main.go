@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"google.golang.org/grpc"
 )
 
@@ -112,9 +112,9 @@ func spawnAndWait(ctx context.Context, gitalyBin, configPath, socketPath string)
 	for i := 0; i < 300; i++ {
 		ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 
-		conn, err := client.DialContext(ctx, "unix://"+socketPath, []grpc.DialOption{
+		conn, err := client.Dial(ctx, "unix://"+socketPath, client.WithGrpcOptions([]grpc.DialOption{
 			grpc.WithBlock(),
-		})
+		}))
 
 		cancel()
 

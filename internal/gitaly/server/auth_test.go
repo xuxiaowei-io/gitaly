@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -26,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -188,7 +188,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	logger := testhelper.SharedLogger(t)
 	registry := backchannel.NewRegistry()
 	conns := client.NewPool()
-	t.Cleanup(func() { conns.Close() })
+	t.Cleanup(func() { testhelper.MustClose(t, conns) })
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg, registry)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -234,7 +234,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 	}
 
 	conns := client.NewPool()
-	t.Cleanup(func() { conns.Close() })
+	t.Cleanup(func() { testhelper.MustClose(t, conns) })
 
 	srv, err := NewGitalyServerFactory(
 		cfg,

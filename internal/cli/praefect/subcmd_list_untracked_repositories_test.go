@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -24,6 +24,9 @@ import (
 
 func TestListUntrackedRepositoriesCommand(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
 
@@ -53,11 +56,10 @@ func TestListUntrackedRepositoriesCommand(t *testing.T) {
 
 	praefectServer := testserver.StartPraefect(t, conf)
 
-	cc, err := client.Dial(praefectServer.Address(), nil)
+	cc, err := client.Dial(ctx, praefectServer.Address())
 	require.NoError(t, err)
 	defer func() { require.NoError(t, cc.Close()) }()
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
-	ctx := testhelper.Context(t)
 
 	praefectStorage := conf.VirtualStorages[0].Name
 

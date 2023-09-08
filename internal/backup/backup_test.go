@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -20,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -430,7 +430,7 @@ func TestManager_Restore_latest(t *testing.T) {
 
 			ctx := testhelper.Context(t)
 
-			cc, err := client.Dial(cfg.SocketPath, nil)
+			cc, err := client.Dial(ctx, cfg.SocketPath)
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, cc)
 
@@ -773,7 +773,7 @@ func TestManager_Restore_specific(t *testing.T) {
 
 			ctx := testhelper.Context(t)
 
-			cc, err := client.Dial(cfg.SocketPath, nil)
+			cc, err := client.Dial(ctx, cfg.SocketPath)
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, cc)
 

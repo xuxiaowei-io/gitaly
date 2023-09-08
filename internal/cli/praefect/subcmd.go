@@ -9,8 +9,7 @@ import (
 	"time"
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 	"google.golang.org/grpc"
@@ -62,8 +61,8 @@ func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, 
 
 	opts = append(opts,
 		grpc.WithBlock(),
-		internalclient.UnaryInterceptor(),
-		internalclient.StreamInterceptor(),
+		client.UnaryInterceptor(),
+		client.StreamInterceptor(),
 	)
 
 	if len(token) > 0 {
@@ -74,7 +73,7 @@ func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, 
 		)
 	}
 
-	return client.DialContext(ctx, addr, opts)
+	return client.Dial(ctx, addr, client.WithGrpcOptions(opts))
 }
 
 type requiredParameterError string

@@ -11,8 +11,7 @@ import (
 
 	migrate "github.com/rubenv/sql-migrate"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
-	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -263,14 +262,14 @@ func NewClockSyncCheck(clockDriftCheck func(ntpHost string, driftThreshold time.
 						g.Go(func() error {
 							opts := []grpc.DialOption{
 								grpc.WithBlock(),
-								internalclient.UnaryInterceptor(),
-								internalclient.StreamInterceptor(),
+								client.UnaryInterceptor(),
+								client.StreamInterceptor(),
 							}
 							if len(node.Token) > 0 {
 								opts = append(opts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(node.Token)))
 							}
 
-							cc, err := client.DialContext(ctx, node.Address, opts)
+							cc, err := client.Dial(ctx, node.Address, client.WithGrpcOptions(opts))
 							if err != nil {
 								return fmt.Errorf("%s machine: %w", node.Address, err)
 							}

@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -28,6 +28,9 @@ import (
 
 func TestTrackRepositoriesSubcommand(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
 	testcfg.BuildGitalyHooks(t, g2Cfg)
@@ -65,10 +68,9 @@ func TestTrackRepositoriesSubcommand(t *testing.T) {
 	}
 	confPath := writeConfigToFile(t, conf)
 
-	gitalyCC, err := client.Dial(g1Addr, nil)
+	gitalyCC, err := client.Dial(ctx, g1Addr)
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, gitalyCC)
-	ctx := testhelper.Context(t)
 
 	gitaly1RepositoryClient := gitalypb.NewRepositoryServiceClient(gitalyCC)
 

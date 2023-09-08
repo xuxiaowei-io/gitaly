@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -53,7 +53,7 @@ func TestRepository_ObjectHash(t *testing.T) {
 	ctx = metadata.OutgoingToIncoming(ctx)
 
 	pool := client.NewPool()
-	defer pool.Close()
+	defer testhelper.MustClose(t, pool)
 
 	type setupData struct {
 		repo           *remoterepo.Repo

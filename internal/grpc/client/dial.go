@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -79,7 +80,7 @@ func WithHandshaker(handshaker Handshaker) DialOption {
 // `grpc.DialContext()`.
 func WithGrpcOptions(opts []grpc.DialOption) DialOption {
 	return func(cfg *dialConfig) {
-		cfg.grpcOpts = opts
+		cfg.grpcOpts = append(cfg.grpcOpts, opts...)
 	}
 }
 
@@ -247,4 +248,30 @@ func defaultServiceConfig() string {
 	}
 
 	return string(configJSON)
+}
+
+// FailOnNonTempDialError helps to identify if remote listener is ready to accept new connections.
+func FailOnNonTempDialError() []grpc.DialOption {
+	return []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.FailOnNonTempDialError(true),
+	}
+}
+
+// HealthCheckDialer uses provided dialer as an actual dialer, but issues a health check request to the remote
+// to verify the connection was set properly and could be used with no issues.
+func HealthCheckDialer(base Dialer) Dialer {
+	return func(ctx context.Context, address string, dialOptions []grpc.DialOption) (*grpc.ClientConn, error) {
+		cc, err := base(ctx, address, dialOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		if _, err := healthpb.NewHealthClient(cc).Check(ctx, &healthpb.HealthCheckRequest{}); err != nil {
+			_ = cc.Close()
+			return nil, err
+		}
+
+		return cc, nil
+	}
 }

@@ -12,10 +12,10 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -175,7 +175,7 @@ func executeHook(ctx context.Context, cmd hookCommand, args []string) error {
 
 	ctx = injectMetadataIntoOutgoingCtx(ctx, payload)
 
-	conn, err := dialGitaly(payload)
+	conn, err := dialGitaly(ctx, payload)
 	if err != nil {
 		return fmt.Errorf("error when connecting to gitaly: %w", err)
 	}
@@ -207,8 +207,8 @@ func injectMetadataIntoOutgoingCtx(ctx context.Context, payload git.HooksPayload
 
 func noopSender(c chan error) {}
 
-func dialGitaly(payload git.HooksPayload) (*grpc.ClientConn, error) {
-	dialOpts := client.DefaultDialOpts
+func dialGitaly(ctx context.Context, payload git.HooksPayload) (*grpc.ClientConn, error) {
+	var dialOpts []grpc.DialOption
 	if payload.InternalSocketToken != "" {
 		dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(payload.InternalSocketToken)))
 	}
@@ -234,7 +234,7 @@ func dialGitaly(payload git.HooksPayload) (*grpc.ClientConn, error) {
 
 	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(unaryInterceptors...)))
 	dialOpts = append(dialOpts, grpc.WithStreamInterceptor(grpc_middleware.ChainStreamClient(streamInterceptors...)))
-	conn, err := client.Dial("unix://"+payload.InternalSocket, dialOpts)
+	conn, err := client.Dial(ctx, "unix://"+payload.InternalSocket, client.WithGrpcOptions(dialOpts))
 	if err != nil {
 		return nil, fmt.Errorf("error when dialing: %w", err)
 	}

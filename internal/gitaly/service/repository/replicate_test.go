@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -26,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -851,7 +851,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	getGitalySSHInvocationParams := listenGitalySSHCalls(t, localCfg)
 
 	connsPool := client.NewPool()
-	defer connsPool.Close()
+	defer testhelper.MustClose(t, connsPool)
 
 	// Use the `assert` package such that we can get information about why hooks have failed via
 	// the hook logs in case it did fail unexpectedly.
@@ -895,7 +895,7 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	connsPool := client.NewPool()
-	defer connsPool.Close()
+	defer testhelper.MustClose(t, connsPool)
 
 	err := fetchInternalRemote(ctx, &transaction.MockManager{}, connsPool, repo, &gitalypb.Repository{
 		StorageName:  repoProto.GetStorageName(),
