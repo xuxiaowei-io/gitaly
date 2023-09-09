@@ -16,12 +16,13 @@ import (
 // errClosed is returned when accessing an updater that has already been closed.
 var errClosed = errors.New("closed")
 
-//MultipleUpdatesError indicates that a reference cannot have multiple updates
-//within the same transaction.
-type MultipleUpdatesError struct{
+// MultipleUpdatesError indicates that a reference cannot have multiple updates
+// within the same transaction.
+type MultipleUpdatesError struct {
 	// ReferenceName is the name of the reference that has multiple updates.
 	ReferenceName string
 }
+
 func (e MultipleUpdatesError) Error() string {
 	return "reference has been updated multiple times within a transaction"
 }
