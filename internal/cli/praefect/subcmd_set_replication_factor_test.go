@@ -30,53 +30,53 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 	}{
 		{
 			desc:  "unexpected positional arguments",
-			args:  []string{"-virtual-storage=virtual-storage", "-repository=relative-path", "-replication-factor=1", "positonal-arg"},
+			args:  []string{"-virtual-storage=virtual-storage", "-relative-path=relative-path", "-replication-factor=1", "positonal-arg"},
 			error: cli.Exit(unexpectedPositionalArgsError{Command: "set-replication-factor"}, 1),
 		},
 		{
 			desc:  "missing virtual-storage",
-			args:  []string{"-repository=relative-path", "-replication-factor=1"},
+			args:  []string{"-relative-path=relative-path", "-replication-factor=1"},
 			error: errors.New(`Required flag "virtual-storage" not set`),
 		},
 		{
-			desc:  "missing repository",
+			desc:  "missing relative-path",
 			args:  []string{"-virtual-storage=virtual-storage", "-replication-factor=1"},
-			error: errors.New(`Required flag "repository" not set`),
+			error: errors.New(`Required flag "relative-path" not set`),
 		},
 		{
 			desc:  "missing replication-factor",
-			args:  []string{"-virtual-storage=virtual-storage", "-repository=relative-path"},
+			args:  []string{"-virtual-storage=virtual-storage", "-relative-path=relative-path"},
 			error: errors.New(`Required flag "replication-factor" not set`),
 		},
 		{
 			desc:  "replication factor too small",
-			args:  []string{"-virtual-storage=virtual-storage", "-repository=relative-path", "-replication-factor=0"},
+			args:  []string{"-virtual-storage=virtual-storage", "-relative-path=relative-path", "-replication-factor=0"},
 			error: status.Error(codes.InvalidArgument, "set replication factor: attempted to set replication factor 0 but minimum is 1"),
 		},
 		{
 			desc:  "replication factor too big",
-			args:  []string{"-virtual-storage=virtual-storage", "-repository=relative-path", "-replication-factor=3"},
+			args:  []string{"-virtual-storage=virtual-storage", "-relative-path=relative-path", "-replication-factor=3"},
 			error: status.Error(codes.InvalidArgument, "set replication factor: attempted to set replication factor 3 but virtual storage only contains 2 storages"),
 		},
 		{
 			desc:  "virtual storage not found",
-			args:  []string{"-virtual-storage=non-existent", "-repository=relative-path", "-replication-factor=2"},
+			args:  []string{"-virtual-storage=non-existent", "-relative-path=relative-path", "-replication-factor=2"},
 			error: status.Error(codes.InvalidArgument, `set replication factor: virtual storage "non-existent" not found`),
 		},
 		{
 			desc:  "repository not found",
-			args:  []string{"-virtual-storage=virtual-storage", "-repository=non-existent", "-replication-factor=2"},
+			args:  []string{"-virtual-storage=virtual-storage", "-relative-path=non-existent", "-replication-factor=2"},
 			error: status.Error(codes.InvalidArgument, `set replication factor: repository "virtual-storage"/"non-existent" not found`),
 		},
 		{
 			desc:  "assignments are disabled",
-			args:  []string{"-virtual-storage=virtual-storage", "-repository=relative-path", "-replication-factor=1"},
+			args:  []string{"-virtual-storage=virtual-storage", "-relative-path=relative-path", "-replication-factor=1"},
 			store: praefect.NewDisabledAssignmentStore(nil),
 			error: status.Error(codes.Internal, `set replication factor: assignments are disabled`),
 		},
 		{
 			desc:   "successfully set",
-			args:   []string{"-virtual-storage=virtual-storage", "-repository=relative-path", "-replication-factor=2"},
+			args:   []string{"-virtual-storage=virtual-storage", "-relative-path=relative-path", "-replication-factor=2"},
 			stdout: "current assignments: primary, secondary\n",
 		},
 	} {
