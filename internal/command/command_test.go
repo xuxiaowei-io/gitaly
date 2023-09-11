@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -242,11 +243,20 @@ func testCommandWaitContextCancellationKillsCommand(t *testing.T, ctx context.Co
 		require.Equal(t, &fs.PathError{
 			Op: "read", Path: "|0", Err: os.ErrClosed,
 		}, err)
-	}
 
-	err = cmd.Wait()
-	require.Equal(t, err, fmt.Errorf("signal: terminated: %w", context.Canceled))
-	require.ErrorIs(t, err, context.Canceled)
+		err = cmd.Wait()
+		// Depending on whether the closed file descriptor or the sent signal arrive first, cat(1) may fail
+		// either with SIGPIPE or with SIGKILL.
+		require.Contains(t, []error{
+			fmt.Errorf("signal: %s: %w", syscall.SIGTERM, context.Canceled),
+			fmt.Errorf("signal: %s: %w", syscall.SIGPIPE, context.Canceled),
+		}, err)
+		require.ErrorIs(t, err, context.Canceled)
+	} else {
+		err = cmd.Wait()
+		require.Equal(t, err, fmt.Errorf("signal: terminated: %w", context.Canceled))
+		require.ErrorIs(t, err, context.Canceled)
+	}
 }
 
 func TestNew_setupStdin(t *testing.T) {

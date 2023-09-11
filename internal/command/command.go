@@ -146,6 +146,7 @@ type Command struct {
 
 	waitError       error
 	waitOnce        sync.Once
+	teardownOnce    sync.Once
 	processExitedCh chan struct{}
 
 	finalizers []func(context.Context, *Command)
@@ -310,6 +311,14 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 		go func() {
 			select {
 			case <-ctx.Done():
+				// Before we kill the child process we need to close the process' standard streams. If
+				// we don't, it may happen that the signal gets delivered and that the process exits
+				// before we close the streams in `command.Wait()`. This would cause downstream readers
+				// to potentially miss those errors when reading stdout.
+				if featureflag.CommandCloseStdout.IsEnabled(ctx) {
+					command.teardownStandardStreams()
+				}
+
 				// If the context has been cancelled and we didn't explicitly reap
 				// the child process then we need to manually kill it and release
 				// all associated resources.
@@ -378,23 +387,7 @@ func (c *Command) Wait() error {
 func (c *Command) wait() {
 	defer close(c.processExitedCh)
 
-	if c.writer != nil {
-		// Prevent the command from blocking on waiting for stdin to be closed
-		c.writer.Close()
-	}
-
-	if c.reader != nil {
-		if featureflag.CommandCloseStdout.IsEnabled(c.context) {
-			// Close stdout of the command. This causes us to receive an error when trying to consume the
-			// output and will also cause an error when stdout hasn't been fully consumed at the time of
-			// calling `Wait()`.
-			c.reader.Close()
-		} else {
-			// Prevent the command from blocking on writing to its stdout.
-			_, _ = io.Copy(io.Discard, c.reader)
-		}
-	}
-
+	c.teardownStandardStreams()
 	c.waitError = c.cmd.Wait()
 
 	// If the context is done, the process was likely terminated due to it. If so,
@@ -424,6 +417,27 @@ func (c *Command) wait() {
 	for _, finalizer := range c.finalizers {
 		finalizer(c.context, c)
 	}
+}
+
+func (c *Command) teardownStandardStreams() {
+	c.teardownOnce.Do(func() {
+		if c.writer != nil {
+			// Prevent the command from blocking on waiting for stdin to be closed
+			c.writer.Close()
+		}
+
+		if c.reader != nil {
+			if featureflag.CommandCloseStdout.IsEnabled(c.context) {
+				// Close stdout of the command. This causes us to receive an error when trying to consume the
+				// output and will also cause an error when stdout hasn't been fully consumed at the time of
+				// calling `Wait()`.
+				c.reader.Close()
+			} else {
+				// Prevent the command from blocking on writing to its stdout.
+				_, _ = io.Copy(io.Discard, c.reader)
+			}
+		}
+	})
 }
 
 func (c *Command) logProcessComplete() {
