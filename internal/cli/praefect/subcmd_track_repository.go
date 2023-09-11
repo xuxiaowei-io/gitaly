@@ -49,12 +49,17 @@ func newTrackRepositoryCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:     paramRelativePath,
-				Usage:    "relative path to the repository",
+				Usage:    "relative path of the repository on the virtual storage. Usually starts with '@hashed'",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     paramReplicaPath,
+				Usage:    "path of the repository on the physical storage. Can start with '@cluster' or match the relative path",
 				Required: true,
 			},
 			&cli.StringFlag{
 				Name:  paramAuthoritativeStorage,
-				Usage: "storage with the repository to consider as authoritative",
+				Usage: "physical storage to consider as authoritative for the repository",
 			},
 			&cli.BoolFlag{
 				Name:  "replicate-immediately",
@@ -73,6 +78,7 @@ func newTrackRepositoryCommand() *cli.Command {
 
 type trackRepositoryRequest struct {
 	RelativePath         string `json:"relative_path"`
+	ReplicaPath          string `json:"replica_path"`
 	VirtualStorage       string `json:"virtual_storage"`
 	AuthoritativeStorage string `json:"authoritative_storage"`
 }
@@ -88,6 +94,7 @@ func trackRepositoryAction(appCtx *cli.Context) error {
 
 	virtualStorage := appCtx.String(paramVirtualStorage)
 	relativePath := appCtx.String(paramRelativePath)
+	replicaPath := appCtx.String(paramReplicaPath)
 	authoritativeStorage := appCtx.String(paramAuthoritativeStorage)
 	replicateImmediately := appCtx.Bool("replicate-immediately")
 
@@ -109,6 +116,7 @@ func trackRepositoryAction(appCtx *cli.Context) error {
 
 	req := trackRepositoryRequest{
 		RelativePath:         relativePath,
+		ReplicaPath:          replicaPath,
 		AuthoritativeStorage: authoritativeStorage,
 		VirtualStorage:       virtualStorage,
 	}
@@ -129,6 +137,7 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 	logger.WithFields(logrus.Fields{
 		"virtual_storage":       req.VirtualStorage,
 		"relative_path":         req.RelativePath,
+		"replica_path":          req.ReplicaPath,
 		"authoritative_storage": req.AuthoritativeStorage,
 	}).Debug("track repository")
 
@@ -229,6 +238,7 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 				RepositoryID:      repositoryID,
 				Change:            datastore.UpdateRepo,
 				RelativePath:      req.RelativePath,
+				ReplicaPath:       req.ReplicaPath,
 				VirtualStorage:    req.VirtualStorage,
 				SourceNodeStorage: primary,
 				TargetNodeStorage: secondary,
@@ -287,7 +297,7 @@ func (req *trackRepositoryRequest) trackRepository(
 		repositoryID,
 		req.VirtualStorage,
 		req.RelativePath,
-		req.RelativePath,
+		req.ReplicaPath,
 		primary,
 		nil,
 		secondaries,
@@ -325,14 +335,14 @@ func (req *trackRepositoryRequest) authoritativeRepositoryExists(ctx context.Con
 
 		for _, node := range vs.Nodes {
 			if node.Storage == nodeName {
-				logger.Debugf("check if repository %q exists on gitaly %q at %q", req.RelativePath, node.Storage, node.Address)
+				logger.Debugf("check if repository %q exists on gitaly %q at %q", req.ReplicaPath, node.Storage, node.Address)
 				repo := &gitalypb.Repository{
 					StorageName:  node.Storage,
-					RelativePath: req.RelativePath,
+					RelativePath: req.ReplicaPath,
 				}
 				exists, err := repositoryExists(ctx, repo, node.Address, node.Token)
 				if err != nil {
-					fmt.Fprintf(w, "checking if repository exists %q, %q", node.Storage, req.RelativePath)
+					fmt.Fprintf(w, "checking if repository exists %q, %q", node.Storage, req.ReplicaPath)
 					return false, nil
 				}
 				return exists, nil
