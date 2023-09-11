@@ -27,7 +27,8 @@ func newTrackRepositoriesCommand() *cli.Command {
 			"The -input-path flag must be the path of a file containing the details of the repositories\n" +
 			"to track as a list of newline-delimited JSON objects. Each line must contain the details for\n" +
 			"one and only one repository. Each item must contain the following keys:\n\n" +
-			"  relative_path - The relative path of the repository on-disk.\n" +
+			"  relative_path - The relative path on the virtual storage. Usually starts with '@hashed'\n" +
+			"  replica_path - The relative path on physical storage. Can start with '@cluster' or match 'relative_path'.\n" +
 			"  virtual_storage - The Praefect virtual storage name.\n" +
 			"  authoritative_storage - Which storage to consider as the canonical copy of the repository.\n\n" +
 			"If -replicate-immediately is used, the command will attempt to replicate the repositories\n" +
@@ -110,7 +111,12 @@ func trackRepositoriesAction(appCtx *cli.Context) error {
 		if request.RelativePath == "" {
 			badReq.errs = append(badReq.errs, requiredParameterError(paramRelativePath))
 		}
-		badReq.path = request.RelativePath
+		badReq.relativePath = request.RelativePath
+
+		if request.ReplicaPath == "" {
+			badReq.errs = append(badReq.errs, requiredParameterError(paramReplicaPath))
+		}
+		badReq.replicaPath = request.ReplicaPath
 
 		if request.VirtualStorage == "" {
 			badReq.errs = append(badReq.errs, requiredParameterError(paramVirtualStorage))
@@ -187,9 +193,10 @@ func trackRepositoriesAction(appCtx *cli.Context) error {
 }
 
 type invalidRequest struct {
-	line int
-	path string
-	errs []error
+	line         int
+	relativePath string
+	replicaPath  string
+	errs         []error
 }
 
 type dupPathError struct {
@@ -205,7 +212,7 @@ func printInvalidRequests(w io.Writer, repoErrs []invalidRequest, pathLines map[
 	fmt.Fprintf(w, "Found %v invalid request(s) in %q:\n", len(repoErrs), inputPath)
 
 	for _, l := range repoErrs {
-		fmt.Fprintf(w, "  line %v, relative_path: %q\n", l.line, l.path)
+		fmt.Fprintf(w, "  line %v, relative_path: %q, replica_path: %q\n", l.line, l.relativePath, l.replicaPath)
 		for _, err := range l.errs {
 			if dup, ok := err.(*dupPathError); ok {
 				// The complete set of duplicate reqNums won't be known until input is

@@ -19,7 +19,8 @@ import (
 const (
 	defaultDialTimeout        = 10 * time.Second
 	paramVirtualStorage       = "virtual-storage"
-	paramRelativePath         = "repository"
+	paramRelativePath         = "relative-path"
+	paramReplicaPath          = "replica-path"
 	paramAuthoritativeStorage = "authoritative-storage"
 )
 
