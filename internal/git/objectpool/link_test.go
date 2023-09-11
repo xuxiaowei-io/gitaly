@@ -183,6 +183,32 @@ func TestLink(t *testing.T) {
 			},
 		},
 		{
+			desc: "transactional repository already linked",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				cfg, pool, repo := setupObjectPool(t, ctx)
+
+				// Inject transaction manager to record transactions.
+				txManager := transaction.NewTrackingManager()
+				pool.txManager = txManager
+
+				// When transactions are enabled, a vote is cast if the repository is already linked
+				// to the same object pool.
+				altPath, err := repo.InfoAlternatesPath()
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(altPath, []byte(getRelAltPath(t, repo, pool.Repo)), perm.SharedFile))
+
+				return setupData{
+					cfg:       cfg,
+					repo:      repo,
+					pool:      pool,
+					txManager: txManager,
+					expectedVotes: []transaction.PhasedVote{
+						{Vote: voting.VoteFromData([]byte("repository linked")), Phase: voting.Committed},
+					},
+				}
+			},
+		},
+		{
 			desc: "repository link transaction fails",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				cfg, pool, repo := setupObjectPool(t, ctx)

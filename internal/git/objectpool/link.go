@@ -2,6 +2,7 @@ package objectpool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 )
 
 // Link will link the given repository to the object pool. This is done by writing the object pool's
@@ -33,6 +35,12 @@ func (o *ObjectPool) Link(ctx context.Context, repo *localrepo.Repo) (returnedEr
 	}
 
 	if linked {
+		// When the repository is already linked to the repository, cast a vote to ensure the
+		// repository is consistent with the other replicas.
+		if err := transaction.VoteOnContext(ctx, o.txManager, voting.VoteFromData([]byte("repository linked")), voting.Committed); err != nil {
+			return fmt.Errorf("vote on linked repository: %w", err)
+		}
+
 		return nil
 	}
 
@@ -148,7 +156,7 @@ func (o *ObjectPool) LinkedToRepository(repo *localrepo.Repo) (bool, error) {
 
 	relPath, err := getAlternateObjectDir(repo)
 	if err != nil {
-		if err == ErrAlternateObjectDirNotExist {
+		if errors.Is(err, ErrAlternateObjectDirNotExist) {
 			return false, nil
 		}
 		return false, err
