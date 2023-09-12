@@ -1023,7 +1023,9 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			return ErrRepositoryNotFound
 		}
 
-		logEntry := &gitalypb.LogEntry{}
+		logEntry := &gitalypb.LogEntry{
+			RelativePath: mgr.relativePath,
+		}
 
 		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
 		if err != nil {

@@ -2250,6 +2250,7 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				Database: DatabaseState{
 					string(keyLogEntry(relativePath, 1)): &gitalypb.LogEntry{
+						RelativePath: relativePath,
 						ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
 							{
 								ReferenceName: []byte("refs/heads/main"),
