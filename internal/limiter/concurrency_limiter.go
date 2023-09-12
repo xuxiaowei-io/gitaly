@@ -35,9 +35,10 @@ type QueueTickerCreator func() helper.Ticker
 
 // keyedConcurrencyLimiter is a concurrency limiter that applies to a specific keyed resource.
 type keyedConcurrencyLimiter struct {
-	refcount               int
-	monitor                ConcurrencyMonitor
-	maxQueuedTickerCreator QueueTickerCreator
+	refcount              int
+	monitor               ConcurrencyMonitor
+	maxQueueWait          time.Duration
+	setWaitTimeoutContext func() context.Context
 
 	// concurrencyTokens is the channel of available concurrency tokens, where every token
 	// allows one concurrent call to the concurrency-limited function.
@@ -85,24 +86,24 @@ func (sem *keyedConcurrencyLimiter) acquire(ctx context.Context, limitingKey str
 	sem.monitor.Queued(ctx, limitingKey, len(sem.queueTokens))
 	defer sem.monitor.Dequeued(ctx)
 
-	// Set up the ticker that keeps us from waiting indefinitely on the concurrency token.
-	var ticker helper.Ticker
-	if sem.maxQueuedTickerCreator != nil {
-		ticker = sem.maxQueuedTickerCreator()
-	} else {
-		ticker = helper.Ticker(helper.NewManualTicker())
+	if sem.maxQueueWait != 0 {
+		if sem.setWaitTimeoutContext != nil {
+			ctx = sem.setWaitTimeoutContext()
+		} else {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, sem.maxQueueWait)
+			defer cancel()
+		}
 	}
-
-	defer ticker.Stop()
-	ticker.Reset()
 
 	// Try to acquire the concurrency token now that we're in the queue.
 	select {
 	case sem.concurrencyTokens <- struct{}{}:
 		return nil
-	case <-ticker.C():
-		return ErrMaxQueueTime
 	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return ErrMaxQueueTime
+		}
 		return ctx.Err()
 	}
 }
@@ -137,9 +138,11 @@ type ConcurrencyLimiter struct {
 	// This limit is global and applies before the concurrency limit. Subsequent incoming
 	// operations will be rejected with an error immediately.
 	maxQueueLength int64
-	// maxQueuedTickerCreator is a function that creates a ticker used to determine how long a
-	// call may be queued.
-	maxQueuedTickerCreator QueueTickerCreator
+	// maxQueueWait is a time duration of an operation allowed to wait in the queue.
+	maxQueueWait time.Duration
+	// SetWaitTimeoutContext is a function for setting up timeout context. If this is nill, context.WithTimeout is
+	// used. This function is for internal testing purpose only.
+	SetWaitTimeoutContext func() context.Context
 
 	// monitor is a monitor that will get notified of the state of concurrency-limited RPC
 	// calls.
@@ -153,17 +156,17 @@ type ConcurrencyLimiter struct {
 }
 
 // NewConcurrencyLimiter creates a new concurrency rate limiter.
-func NewConcurrencyLimiter(maxConcurrencyLimit, maxQueueLength int, maxQueuedTickerCreator QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
+func NewConcurrencyLimiter(maxConcurrencyLimit, maxQueueLength int, maxQueueWait time.Duration, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
 	if monitor == nil {
 		monitor = NewNoopConcurrencyMonitor()
 	}
 
 	return &ConcurrencyLimiter{
-		maxConcurrencyLimit:    int64(maxConcurrencyLimit),
-		maxQueueLength:         int64(maxQueueLength),
-		maxQueuedTickerCreator: maxQueuedTickerCreator,
-		monitor:                monitor,
-		limitsByKey:            make(map[string]*keyedConcurrencyLimiter),
+		maxConcurrencyLimit: int64(maxConcurrencyLimit),
+		maxQueueLength:      int64(maxQueueLength),
+		maxQueueWait:        maxQueueWait,
+		monitor:             monitor,
+		limitsByKey:         make(map[string]*keyedConcurrencyLimiter),
 	}
 }
 
@@ -236,10 +239,11 @@ func (c *ConcurrencyLimiter) getConcurrencyLimit(limitingKey string) *keyedConcu
 		}
 
 		c.limitsByKey[limitingKey] = &keyedConcurrencyLimiter{
-			monitor:                c.monitor,
-			maxQueuedTickerCreator: c.maxQueuedTickerCreator,
-			concurrencyTokens:      make(chan struct{}, c.maxConcurrencyLimit),
-			queueTokens:            queueTokens,
+			monitor:               c.monitor,
+			maxQueueWait:          c.maxQueueWait,
+			setWaitTimeoutContext: c.SetWaitTimeoutContext,
+			concurrencyTokens:     make(chan struct{}, c.maxConcurrencyLimit),
+			queueTokens:           queueTokens,
 		}
 	}
 

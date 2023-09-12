@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -22,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	hookPkg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -862,16 +862,19 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 
 			cfg := cfgWithCache(t, 0)
 
-			ticker := helper.NewManualTicker()
+			limiterCtx, cancel, simulateTimeout := testhelper.ContextWithSimulatedTimeout(ctx)
+			defer cancel()
+
 			monitor := limiter.NewPackObjectsConcurrencyMonitor(
 				cfg.Prometheus.GRPCLatencyBuckets,
 			)
 			limiter := limiter.NewConcurrencyLimiter(
 				1,
 				0,
-				func() helper.Ticker { return ticker },
+				1*time.Millisecond,
 				monitor,
 			)
+			limiter.SetWaitTimeoutContext = func() context.Context { return limiterCtx }
 
 			registry := prometheus.NewRegistry()
 			registry.MustRegister(monitor)
@@ -947,7 +950,7 @@ func TestPackObjects_concurrencyLimit(t *testing.T) {
 gitaly_pack_objects_in_progress 1
 `), "gitaly_pack_objects_in_progress"))
 
-				ticker.Tick()
+				simulateTimeout()
 
 				err := <-errChan
 				testhelper.RequireGrpcCode(
