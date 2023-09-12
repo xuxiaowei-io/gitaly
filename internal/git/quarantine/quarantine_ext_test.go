@@ -39,7 +39,7 @@ func TestQuarantine_localrepo(t *testing.T) {
 	})
 
 	t.Run("writes are not visible in parent repo", func(t *testing.T) {
-		blobID, err := quarantined.WriteBlob(ctx, "", strings.NewReader("contents"))
+		blobID, err := quarantined.WriteBlob(ctx, strings.NewReader("contents"), localrepo.WriteBlobConfig{})
 		require.NoError(t, err)
 
 		_, err = repo.ReadObject(ctx, blobID)
@@ -51,7 +51,7 @@ func TestQuarantine_localrepo(t *testing.T) {
 	})
 
 	t.Run("writes are visible after migrating", func(t *testing.T) {
-		blobID, err := quarantined.WriteBlob(ctx, "", strings.NewReader("contents"))
+		blobID, err := quarantined.WriteBlob(ctx, strings.NewReader("contents"), localrepo.WriteBlobConfig{})
 		require.NoError(t, err)
 
 		_, err = repo.ReadObject(ctx, blobID)

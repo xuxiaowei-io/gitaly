@@ -320,7 +320,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 	quarantine, err := quarantine.New(ctx, repoProto, locator)
 	require.NoError(t, err)
 	quarantinedRepo := localrepo.NewTestRepo(t, cfg, quarantine.QuarantinedRepo())
-	blobID, err := quarantinedRepo.WriteBlob(ctx, "", strings.NewReader("1834298812398123"))
+	blobID, err := quarantinedRepo.WriteBlob(ctx, strings.NewReader("1834298812398123"), localrepo.WriteBlobConfig{})
 	require.NoError(t, err)
 
 	expectQuarantined := func(t *testing.T, env []string, quarantined bool) {

@@ -193,10 +193,8 @@ func testWriteCommit(t *testing.T, ctx context.Context) {
 
 	repo := NewTestRepo(t, cfg, repoProto)
 
-	blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("something"))
-	require.NoError(t, err)
-	changedBlobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("changed"))
-	require.NoError(t, err)
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("something"))
+	changedBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("changed"))
 
 	treeEntryA := TreeEntry{Path: "file", Mode: "100644", OID: blobID}
 	treeA := &TreeEntry{
@@ -398,13 +396,13 @@ func TestWriteCommit_validation(t *testing.T) {
 func testWriteCommitValidation(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := NewTestRepo(t, cfg, repoProto)
 
-	blobID, err := repo.WriteBlob(ctx, "", strings.NewReader("foo"))
-	require.NoError(t, err)
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foo"))
+
 	tree := &TreeEntry{
 		Type: Tree,
 		Mode: "040000",

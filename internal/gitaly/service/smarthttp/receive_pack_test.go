@@ -878,7 +878,7 @@ type push struct {
 func setupPush(t *testing.T, ctx context.Context, cfg config.Cfg, sourceRepoPath string, createChanges func(repoPath string) []refUpdate) push {
 	t.Helper()
 
-	repoPath := testhelper.TempDir(t)
+	repoPath := filepath.Join(cfg.Storages[0].Path, gittest.NewRepositoryName(t))
 	gittest.Exec(t, cfg, "clone", "--bare", "--mirror", sourceRepoPath, repoPath)
 
 	refUpdates := createChanges(repoPath)

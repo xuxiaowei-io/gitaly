@@ -27,11 +27,8 @@ func TestTreeEntry_Write(t *testing.T) {
 	})
 	repo := NewTestRepo(t, cfg, repoProto)
 
-	differentContentBlobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("different content"))
-	require.NoError(t, err)
-
-	blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("foobar\n"))
-	require.NoError(t, err)
+	differentContentBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("different content"))
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar\n"))
 
 	tree := &TreeEntry{
 		Type: Tree,
@@ -47,8 +44,7 @@ func TestTreeEntry_Write(t *testing.T) {
 	require.NoError(t, tree.Write(ctx, repo))
 	treeID := tree.OID
 
-	nonExistentBlobID, err := repo.WriteBlob(ctx, "file1", bytes.NewBufferString("content"))
-	require.NoError(t, err)
+	nonExistentBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
 
 	nonExistentBlobPath := filepath.Join(repoPath, "objects", string(nonExistentBlobID)[0:2], string(nonExistentBlobID)[2:])
 	require.NoError(t, os.Remove(nonExistentBlobPath))

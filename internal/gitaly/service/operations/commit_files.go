@@ -314,7 +314,9 @@ func applyAction(
 			}
 		}
 
-		blobID, err := repo.WriteBlob(ctx, filepath.Join(action.Path, ".gitkeep"), strings.NewReader(""))
+		blobID, err := repo.WriteBlob(ctx, strings.NewReader(""), localrepo.WriteBlobConfig{
+			Path: filepath.Join(action.Path, ".gitkeep"),
+		})
 		if err != nil {
 			return err
 		}
@@ -621,7 +623,9 @@ func (s *Server) userCommitFiles(
 
 		switch pbAction.header.Action {
 		case gitalypb.UserCommitFilesActionHeader_CREATE:
-			blobID, err := quarantineRepo.WriteBlob(ctx, path, content)
+			blobID, err := quarantineRepo.WriteBlob(ctx, content, localrepo.WriteBlobConfig{
+				Path: path,
+			})
 			if err != nil {
 				return fmt.Errorf("write created blob: %w", err)
 			}
@@ -645,7 +649,9 @@ func (s *Server) userCommitFiles(
 			var oid git.ObjectID
 			if !pbAction.header.InferContent {
 				var err error
-				oid, err = quarantineRepo.WriteBlob(ctx, path, content)
+				oid, err = quarantineRepo.WriteBlob(ctx, content, localrepo.WriteBlobConfig{
+					Path: path,
+				})
 				if err != nil {
 					return err
 				}
@@ -656,7 +662,9 @@ func (s *Server) userCommitFiles(
 				OID:     oid.String(),
 			})
 		case gitalypb.UserCommitFilesActionHeader_UPDATE:
-			oid, err := quarantineRepo.WriteBlob(ctx, path, content)
+			oid, err := quarantineRepo.WriteBlob(ctx, content, localrepo.WriteBlobConfig{
+				Path: path,
+			})
 			if err != nil {
 				return fmt.Errorf("write updated blob: %w", err)
 			}

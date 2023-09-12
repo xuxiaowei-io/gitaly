@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -34,7 +35,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 		{
 			desc:  "error reading",
 			input: ReaderFunc(func([]byte) (int, error) { return 0, assert.AnError }),
-			error: assert.AnError,
+			error: structerr.New("writing blob: %w", assert.AnError),
 		},
 		{
 			desc:    "successful empty blob",
@@ -68,7 +69,9 @@ func TestRepo_WriteBlob(t *testing.T) {
 			require.NoError(t, os.MkdirAll(filepath.Dir(attributesPath), perm.SharedDir))
 			require.NoError(t, os.WriteFile(attributesPath, []byte(tc.attributes), perm.PublicFile))
 
-			sha, err := repo.WriteBlob(ctx, "file-path", tc.input)
+			sha, err := repo.WriteBlob(ctx, tc.input, WriteBlobConfig{
+				Path: "file-path",
+			})
 			require.Equal(t, tc.error, err)
 			if tc.error != nil {
 				return

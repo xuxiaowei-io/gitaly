@@ -15,7 +15,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -40,24 +39,23 @@ func TestRepositoryProfile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, PackfilesInfo{}, packfilesInfo)
 
-	blobs := 10
-	blobIDs := gittest.WriteBlobs(t, cfg, repoPath, blobs)
+	blobIDs := gittest.WriteBlobs(t, cfg, repoPath, 10)
 
 	looseObjects, err := LooseObjects(repo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(blobs), looseObjects)
+	require.Equal(t, uint64(len(blobIDs)), looseObjects)
 
 	for _, blobID := range blobIDs {
 		commitID := gittest.WriteCommit(t, cfg, repoPath,
 			gittest.WithTreeEntries(gittest.TreeEntry{
-				Mode: "100644", Path: "blob", OID: git.ObjectID(blobID),
+				Mode: "100644", Path: "blob", OID: blobID,
 			}),
 		)
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+blobID, commitID.String())
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+blobID.String(), commitID.String())
 	}
 
 	// write a loose object
-	gittest.WriteBlobs(t, cfg, repoPath, 1)
+	gittest.WriteBlob(t, cfg, repoPath, []byte("blob-a"))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b", "-d")
 
@@ -66,7 +64,7 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Equal(t, uint64(1), looseObjects)
 
 	// write another loose object
-	blobID := gittest.WriteBlobs(t, cfg, repoPath, 1)[0]
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("blob-b")).String()
 
 	// due to OS semantics, ensure that the blob has a timestamp that is after the packfile
 	theFuture := time.Now().Add(10 * time.Minute)

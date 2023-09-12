@@ -60,11 +60,11 @@ func TestRepo_Quarantine(t *testing.T) {
 	require.NoError(t, err)
 
 	quarantinedBlob := []byte("quarantined blob")
-	quarantinedBlobOID, err := quarantinedRepo.WriteBlob(ctx, "", bytes.NewReader(quarantinedBlob))
+	quarantinedBlobOID, err := quarantinedRepo.WriteBlob(ctx, bytes.NewReader(quarantinedBlob), WriteBlobConfig{})
 	require.NoError(t, err)
 
 	unquarantinedBlob := []byte("unquarantined blob")
-	unquarantinedBlobOID, err := unquarantinedRepo.WriteBlob(ctx, "", bytes.NewReader(unquarantinedBlob))
+	unquarantinedBlobOID, err := unquarantinedRepo.WriteBlob(ctx, bytes.NewReader(unquarantinedBlob), WriteBlobConfig{})
 	require.NoError(t, err)
 
 	for _, tc := range []struct {
