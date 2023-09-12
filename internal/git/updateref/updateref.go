@@ -13,8 +13,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
-// errClosed is returned when accessing an updater that has already been closed.
-var errClosed = errors.New("closed")
+var (
+	// errClosed is returned when accessing an updater that has already been closed.
+	errClosed = errors.New("closed")
+	// ErrPackedRefsLocked indicates an operation failed due to the 'packed-refs' being locked. This is
+	// the case if either `packed-refs.new` or `packed-refs.lock` exists in the repository.
+	ErrPackedRefsLocked = errors.New("packed-refs locked")
+)
 
 // MultipleUpdatesError indicates that a reference cannot have multiple updates
 // within the same transaction.
@@ -475,6 +480,7 @@ func (u *Updater) write(format string, args ...interface{}) error {
 }
 
 var (
+	packedRefsLockedRegex        = regexp.MustCompile(`(packed-refs\.lock': File exists\.\n)|(packed-refs\.new: File exists\n$)`)
 	refLockedRegex               = regexp.MustCompile(`^fatal: (prepare|commit): cannot lock ref '(.+?)': Unable to create '.*': File exists.`)
 	refInvalidFormatRegex        = regexp.MustCompile(`^fatal: invalid ref format: (.*)\n$`)
 	referenceAlreadyExistsRegex  = regexp.MustCompile(`^fatal: .*: cannot lock ref '(.*)': reference already exists\n$`)
@@ -514,6 +520,11 @@ func (u *Updater) parseStderr() error {
 	matches := refLockedRegex.FindSubmatch(stderr)
 	if len(matches) > 2 {
 		return AlreadyLockedError{ReferenceName: string(matches[2])}
+	}
+
+	matches = packedRefsLockedRegex.FindSubmatch(stderr)
+	if len(matches) > 1 {
+		return ErrPackedRefsLocked
 	}
 
 	matches = refInvalidFormatRegex.FindSubmatch(stderr)
