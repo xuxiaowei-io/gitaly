@@ -71,7 +71,7 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 	ln, err := net.Listen("unix", filepath.Join(tmp, "praefect"))
 	require.NoError(t, err)
 
-	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, nil, nil, nil, nil)
+	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, nil, nil, nil, nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodeSet.Close()
 

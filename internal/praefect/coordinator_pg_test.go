@@ -220,6 +220,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				testhelper.SharedLogger(t),
 			)
 			require.NoError(t, err)
 			defer nodeSet.Close()

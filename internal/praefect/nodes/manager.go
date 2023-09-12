@@ -124,10 +124,18 @@ const (
 )
 
 // Dial dials a node with the necessary interceptors configured.
-func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, handshaker client.Handshaker, sidechannelRegistry *sidechannel.Registry) (*grpc.ClientConn, error) {
+func Dial(
+	ctx context.Context,
+	node *config.Node,
+	registry *protoregistry.Registry,
+	errorTracker tracker.ErrorTracker,
+	handshaker client.Handshaker,
+	sidechannelRegistry *sidechannel.Registry,
+	log logrus.FieldLogger,
+) (*grpc.ClientConn, error) {
 	streamInterceptors := []grpc.StreamClientInterceptor{
 		grpcprometheus.StreamClientInterceptor,
-		sidechannel.NewStreamProxy(sidechannelRegistry),
+		sidechannel.NewStreamProxy(sidechannelRegistry, log),
 	}
 
 	if errorTracker != nil {
@@ -136,7 +144,7 @@ func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Regist
 
 	unaryInterceptors := []grpc.UnaryClientInterceptor{
 		grpcprometheus.UnaryClientInterceptor,
-		sidechannel.NewUnaryProxy(sidechannelRegistry),
+		sidechannel.NewUnaryProxy(sidechannelRegistry, log),
 	}
 
 	b := backoff.DefaultConfig
@@ -181,7 +189,7 @@ func NewManager(
 
 		ns := make([]*nodeStatus, 0, len(virtualStorage.Nodes))
 		for _, node := range virtualStorage.Nodes {
-			conn, err := Dial(ctx, node, registry, errorTracker, handshaker, sidechannelRegistry)
+			conn, err := Dial(ctx, node, registry, errorTracker, handshaker, sidechannelRegistry, log)
 			if err != nil {
 				return nil, err
 			}

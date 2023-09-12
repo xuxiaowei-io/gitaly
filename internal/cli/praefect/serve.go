@@ -280,6 +280,7 @@ func server(
 			errTracker,
 			clientHandshaker,
 			sidechannelRegistry,
+			logger,
 		)
 		if err != nil {
 			return fmt.Errorf("dial nodes: %w", err)

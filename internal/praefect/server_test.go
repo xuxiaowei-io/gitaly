@@ -106,7 +106,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 				nil,
 			),
 			backchannel.DefaultConfiguration(),
-		), nil)
+		), nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -159,7 +159,7 @@ func TestGitalyServerInfo(t *testing.T) {
 			},
 		}
 
-		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil)
+		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil, testhelper.SharedLogger(t))
 		require.NoError(t, err)
 		t.Cleanup(nodeSet.Close)
 
@@ -225,7 +225,7 @@ func TestGitalyServerInfo(t *testing.T) {
 			},
 		}
 
-		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil)
+		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil, testhelper.SharedLogger(t))
 		require.NoError(t, err)
 		t.Cleanup(nodeSet.Close)
 
@@ -262,7 +262,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil)
+	nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodes.Close()
 
@@ -294,7 +294,7 @@ func TestDiskStatistics(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	nodes, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil, nil)
+	nodes, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil, nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodes.Close()
 
@@ -618,7 +618,7 @@ func TestRenameRepository(t *testing.T) {
 	)
 
 	ctx := testhelper.Context(t)
-	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, clientHandshaker, nil)
+	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, clientHandshaker, nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodeSet.Close()
 

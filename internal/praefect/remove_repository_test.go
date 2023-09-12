@@ -101,7 +101,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 				electionStrategy = config.ElectionStrategySQL
 			}
 
-			nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, nil, nil, nil, nil)
+			nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, nil, nil, nil, nil, testhelper.SharedLogger(t))
 			require.NoError(t, err)
 			defer nodeSet.Close()
 

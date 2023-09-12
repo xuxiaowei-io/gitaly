@@ -7,10 +7,12 @@ import (
 	"net"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -78,6 +80,72 @@ func TestUnaryProxy(t *testing.T) { testUnaryProxy(t, true) }
 
 func TestUnaryProxy_withoutCloseWrite(t *testing.T) { testUnaryProxy(t, false) }
 
+func TestUnaryProxy_upstreamError(t *testing.T) {
+	upstreamAddr := startServer(
+		t,
+		func(ctx context.Context, request *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
+			conn, err := OpenSidechannel(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer conn.Close()
+
+			buf, err := io.ReadAll(conn)
+			if err != nil {
+				return nil, fmt.Errorf("server read: %w", err)
+			}
+			if string(buf) != "hello" {
+				return nil, fmt.Errorf("server: unexpected request: %q", buf)
+			}
+
+			if _, err := io.WriteString(conn, "left-over data in sidechannel connection"); err != nil {
+				return nil, fmt.Errorf("server write: %w", err)
+			}
+
+			return nil, structerr.NewFailedPrecondition("expected error")
+		},
+	)
+
+	proxyAddr := startServer(
+		t,
+		func(ctx context.Context, request *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
+			conn, err := dialProxy(t, upstreamAddr)
+			if err != nil {
+				return nil, err
+			}
+			defer conn.Close()
+
+			ctxOut := metadata.IncomingToOutgoing(ctx)
+			return healthpb.NewHealthClient(conn).Check(ctxOut, request)
+		},
+	)
+	ctx := testhelper.Context(t)
+
+	conn, registry := dial(t, proxyAddr)
+	err := call(ctx, conn, registry, func(conn *ClientConn) (err error) {
+		defer func() {
+			assert.NoError(t, err)
+		}()
+
+		if _, err := io.WriteString(conn, "hello"); err != nil {
+			return fmt.Errorf("client write: %w", err)
+		}
+		if err := conn.CloseWrite(); err != nil {
+			return err
+		}
+
+		buf, err := io.ReadAll(conn)
+		if err != nil {
+			return fmt.Errorf("client read: %w", err)
+		}
+		if string(buf) != "left-over data in sidechannel connection" {
+			return fmt.Errorf("received incomplete data from sidechannel connection")
+		}
+		return nil
+	})
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("expected error"), err)
+}
+
 func testUnaryProxy(t *testing.T, closeWrite bool) {
 	upstreamAddr := startServer(
 		t,
@@ -119,8 +187,8 @@ func dialProxy(tb testing.TB, upstreamAddr string) (*grpc.ClientConn, error) {
 	clientHandshaker := backchannel.NewClientHandshaker(testhelper.SharedLogger(tb), factory, backchannel.DefaultConfiguration())
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
-		grpc.WithUnaryInterceptor(NewUnaryProxy(registry)),
-		grpc.WithStreamInterceptor(NewStreamProxy(registry)),
+		grpc.WithUnaryInterceptor(NewUnaryProxy(registry, testhelper.SharedLogger(tb))),
+		grpc.WithStreamInterceptor(NewStreamProxy(registry, testhelper.SharedLogger(tb))),
 	}
 
 	return grpc.Dial(upstreamAddr, dialOpts...)
@@ -129,6 +197,89 @@ func dialProxy(tb testing.TB, upstreamAddr string) (*grpc.ClientConn, error) {
 func TestStreamProxy(t *testing.T) { testStreamProxy(t, true) }
 
 func TestStreamProxy_noCloseWrite(t *testing.T) { testStreamProxy(t, false) }
+
+func TestStreamProxy_upstreamError(t *testing.T) {
+	upstreamAddr := startStreamServer(
+		t,
+		func(stream gitalypb.SSHService_SSHUploadPackServer) error {
+			conn, err := OpenSidechannel(stream.Context())
+			if err != nil {
+				return err
+			}
+			defer conn.Close()
+
+			buf, err := io.ReadAll(conn)
+			if err != nil {
+				return fmt.Errorf("server read: %w", err)
+			}
+			if string(buf) != "hello" {
+				return fmt.Errorf("server: unexpected request: %q", buf)
+			}
+
+			if _, err := io.WriteString(conn, "left-over data in sidechannel connection"); err != nil {
+				return fmt.Errorf("server write: %w", err)
+			}
+			return structerr.NewFailedPrecondition("expected error")
+		},
+	)
+
+	proxyAddr := startStreamServer(
+		t,
+		func(stream gitalypb.SSHService_SSHUploadPackServer) error {
+			conn, err := dialProxy(t, upstreamAddr)
+			if err != nil {
+				return err
+			}
+			defer conn.Close()
+
+			ctxOut := metadata.IncomingToOutgoing(stream.Context())
+			client, err := gitalypb.NewSSHServiceClient(conn).SSHUploadPack(ctxOut)
+			if err != nil {
+				return err
+			}
+			if _, err := client.Recv(); err != io.EOF {
+				return err
+			}
+
+			return nil
+		},
+	)
+	ctx := testhelper.Context(t)
+
+	conn, registry := dial(t, proxyAddr)
+	ctx, waiter := RegisterSidechannel(ctx, registry, func(conn *ClientConn) (err error) {
+		defer func() {
+			assert.NoError(t, err)
+		}()
+
+		if _, err := io.WriteString(conn, "hello"); err != nil {
+			return fmt.Errorf("client write: %w", err)
+		}
+		if err := conn.CloseWrite(); err != nil {
+			return err
+		}
+
+		buf, err := io.ReadAll(conn)
+		if err != nil {
+			return fmt.Errorf("client read: %w", err)
+		}
+
+		if string(buf) != "left-over data in sidechannel connection" {
+			return fmt.Errorf("received incomplete data from sidechannel connection")
+		}
+
+		return nil
+	})
+	defer testhelper.MustClose(t, waiter)
+
+	client, err := gitalypb.NewSSHServiceClient(conn).SSHUploadPack(ctx)
+	require.NoError(t, err)
+
+	_, err = client.Recv()
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("expected error"), err)
+
+	require.NoError(t, waiter.Close())
+}
 
 func testStreamProxy(t *testing.T, closeWrite bool) {
 	upstreamAddr := startStreamServer(

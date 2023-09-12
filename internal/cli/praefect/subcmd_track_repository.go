@@ -198,6 +198,7 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 		nil,
 		nil,
 		nil,
+		logger,
 	)
 	if err != nil {
 		return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
