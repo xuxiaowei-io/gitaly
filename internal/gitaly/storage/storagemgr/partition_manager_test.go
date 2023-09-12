@@ -364,6 +364,30 @@ func TestPartitionManager(t *testing.T) {
 							expectedError: context.Canceled,
 						},
 					},
+					transactionManagerFactory: func(
+						storageMgr *storageManager,
+						commandFactory git.CommandFactory,
+						housekeepingManager housekeeping.Manager,
+						relativePath, absoluteStateDir, stagingDir string,
+					) *TransactionManager {
+						txMgr := NewTransactionManager(
+							storageMgr.database,
+							storageMgr.path,
+							relativePath,
+							absoluteStateDir,
+							stagingDir,
+							commandFactory,
+							housekeepingManager,
+							storageMgr.repoFactory,
+						)
+
+						// Fake a preexisting apply notification. This ensures that we would
+						// block indefinitely waiting for the notifcation and thus allows us to
+						// assert that we can indeed cancel this via the context.
+						txMgr.applyNotifications[0] = make(chan struct{})
+
+						return txMgr
+					},
 				}
 			},
 		},
