@@ -1004,11 +1004,6 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		mgr.applyNotifications[i] = make(chan struct{})
 	}
 
-	// Remove any packed-refs lockfiles found on startup.
-	if err := mgr.removePackedRefsLocks(mgr.ctx); err != nil {
-		return fmt.Errorf("remove stale packed-refs locks: %w", err)
-	}
-
 	if err := mgr.removeStaleWALFiles(mgr.ctx, mgr.appendedLogIndex); err != nil {
 		return fmt.Errorf("remove stale packs: %w", err)
 	}
@@ -1356,8 +1351,7 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 
 	// If we get an error due to existing stale reference locks, we should clear it up
 	// and retry running git-update-ref(1).
-	var updateRefError updateref.AlreadyLockedError
-	if errors.As(err, &updateRefError) {
+	if errors.Is(err, updateref.ErrPackedRefsLocked) || errors.As(err, &updateref.AlreadyLockedError{}) {
 		// Before clearing stale reference locks, we add should ensure that housekeeping doesn't
 		// run git-pack-refs(1), which could create new reference locks. So we add an inhibitor.
 		success, cleanup, err := mgr.housekeepingManager.AddPackRefsInhibitor(ctx, mgr.repositoryPath)
@@ -1371,6 +1365,11 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 		// to delete these locks.
 		if err := mgr.housekeepingManager.CleanStaleData(ctx, ctxlogrus.Extract(ctx), mgr.repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
 			return nil, fmt.Errorf("running reflock cleanup: %w", err)
+		}
+
+		// Remove possible locks and temporary files covering `packed-refs`.
+		if err := mgr.removePackedRefsLocks(mgr.ctx); err != nil {
+			return nil, fmt.Errorf("remove stale packed-refs locks: %w", err)
 		}
 
 		// We try a second time, this should succeed. If not, there is something wrong and
