@@ -2,6 +2,7 @@ package objectpool
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,6 +122,43 @@ func TestLink(t *testing.T) {
 			},
 		},
 		{
+			desc: "repository already linked",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				cfg, pool, repo := setupObjectPool(t, ctx)
+
+				// When the repository is already linked to the object pool, the link operation does
+				// nothing and completes normally.
+				altPath, err := repo.InfoAlternatesPath()
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(altPath, []byte(getRelAltPath(t, repo, pool.Repo)), perm.SharedFile))
+
+				return setupData{
+					cfg:  cfg,
+					repo: repo,
+					pool: pool,
+				}
+			},
+		},
+		{
+			desc: "repository linked to different object pool",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				cfg, pool, repo := setupObjectPool(t, ctx)
+
+				// If the repository alternates file already references a different object pool, the
+				// linking operation fails.
+				altPath, err := repo.InfoAlternatesPath()
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(altPath, []byte("../different/object/pool"), perm.SharedFile))
+
+				return setupData{
+					cfg:           cfg,
+					repo:          repo,
+					pool:          pool,
+					expectedError: errors.New("unexpected alternates content: \"../different/object/pool\""),
+				}
+			},
+		},
+		{
 			desc: "transactional repository link",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				cfg, pool, repo := setupObjectPool(t, ctx)
@@ -141,6 +179,43 @@ func TestLink(t *testing.T) {
 						{Vote: expectedVote, Phase: voting.Prepared},
 						{Vote: expectedVote, Phase: voting.Committed},
 					},
+				}
+			},
+		},
+		{
+			desc: "repository link transaction fails",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				cfg, pool, repo := setupObjectPool(t, ctx)
+
+				// Simulate transaction failure to validate that error is returned.
+				txManager := &transaction.MockManager{
+					VoteFn: func(context.Context, txinfo.Transaction, voting.Vote, voting.Phase) error {
+						return errors.New("transaction failed")
+					},
+				}
+				pool.txManager = txManager
+
+				poolPath := gittest.RepositoryPath(t, pool)
+				repoPath := gittest.RepositoryPath(t, repo)
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+
+				// Pull in all references from the repository.
+				gittest.Exec(t, cfg, "-C", poolPath, "fetch", repoPath, "+refs/*:refs/*")
+
+				// Repack both the object pool and the pool member such that they both have bitmaps.
+				// When a transaction fails, the bitmaps are expected to remain intact.
+				gittest.Exec(t, cfg, "-C", poolPath, "repack", "-adb")
+				requireHasBitmap(t, pool.Repo, true)
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-adb")
+				requireHasBitmap(t, repo, true)
+
+				return setupData{
+					cfg:           cfg,
+					repo:          repo,
+					pool:          pool,
+					txManager:     txManager,
+					expectedError: errors.New("committing alternates: voting on locked file: preimage vote: transaction failed"),
 				}
 			},
 		},
