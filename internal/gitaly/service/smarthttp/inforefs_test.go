@@ -283,13 +283,17 @@ func TestInfoRefsReceivePack_successful(t *testing.T) {
 
 func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testInfoRefsReceivePackHiddenRefs)
+}
+
+func testInfoRefsReceivePackHiddenRefs(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
-	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))

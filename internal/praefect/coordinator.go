@@ -41,16 +41,21 @@ type transactionsCondition func(context.Context) bool
 func transactionsEnabled(context.Context) bool  { return true }
 func transactionsDisabled(context.Context) bool { return false }
 
+func transactionsFlag(flag featureflag.FeatureFlag) transactionsCondition {
+	return func(ctx context.Context) bool {
+		return flag.IsEnabled(ctx)
+	}
+}
+
 // transactionRPCs contains the list of repository-scoped mutating calls which may take part in
 // transactions. An optional feature flag can be added to conditionally enable transactional
 // behaviour. If none is given, it's always enabled.
 var transactionRPCs = map[string]transactionsCondition{
-	"/gitaly.CleanupService/ApplyBfgObjectMapStream": transactionsEnabled,
-	"/gitaly.ConflictsService/ResolveConflicts":      transactionsEnabled,
-	"/gitaly.ObjectPoolService/DisconnectGitAlternates": func(ctx context.Context) bool {
-		return featureflag.TransactionalAlternatesDisconnect.IsEnabled(ctx)
-	},
+	"/gitaly.CleanupService/ApplyBfgObjectMapStream":         transactionsEnabled,
+	"/gitaly.ConflictsService/ResolveConflicts":              transactionsEnabled,
+	"/gitaly.ObjectPoolService/DisconnectGitAlternates":      transactionsFlag(featureflag.TransactionalAlternatesDisconnect),
 	"/gitaly.ObjectPoolService/FetchIntoObjectPool":          transactionsEnabled,
+	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool":   transactionsFlag(featureflag.TransactionalLinkRepository),
 	"/gitaly.OperationService/UserApplyPatch":                transactionsEnabled,
 	"/gitaly.OperationService/UserCherryPick":                transactionsEnabled,
 	"/gitaly.OperationService/UserCommitFiles":               transactionsEnabled,
@@ -90,10 +95,9 @@ var transactionRPCs = map[string]transactionsCondition{
 
 	// The following RPCs currently aren't transactional, but we may consider making them
 	// transactional in the future if the need arises.
-	"/gitaly.ObjectPoolService/CreateObjectPool":           transactionsDisabled,
-	"/gitaly.ObjectPoolService/DeleteObjectPool":           transactionsDisabled,
-	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool": transactionsDisabled,
-	"/gitaly.RepositoryService/RenameRepository":           transactionsDisabled,
+	"/gitaly.ObjectPoolService/CreateObjectPool": transactionsDisabled,
+	"/gitaly.ObjectPoolService/DeleteObjectPool": transactionsDisabled,
+	"/gitaly.RepositoryService/RenameRepository": transactionsDisabled,
 }
 
 // forcePrimaryRoutingRPCs tracks RPCs which need to always get routed to the primary. This should
