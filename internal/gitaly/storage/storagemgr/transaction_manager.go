@@ -1109,7 +1109,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	defer close(mgr.initialized)
 
 	var appliedLogIndex gitalypb.LogIndex
-	if err := mgr.readKey(keyAppliedLogIndex(mgr.relativePath), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
+	if err := mgr.readKey(keyAppliedLogIndex(mgr.partitionID), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
 		return fmt.Errorf("read applied log index: %w", err)
 	}
 
@@ -1123,7 +1123,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	// As the log indexes in the keys are encoded in big endian, the latest log entry can be found by taking
 	// the first key when iterating the log entry key space in reverse.
 	if err := mgr.db.View(func(txn databaseTransaction) error {
-		logPrefix := keyPrefixLogEntries(mgr.relativePath)
+		logPrefix := keyPrefixLogEntries(mgr.partitionID)
 
 		iterator := txn.NewIterator(badger.IteratorOptions{Reverse: true, Prefix: logPrefix})
 		defer iterator.Close()
@@ -1675,13 +1675,13 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logEntry *g
 
 // deleteLogEntry deletes the log entry at the given index from the log.
 func (mgr *TransactionManager) deleteLogEntry(index LogIndex) error {
-	return mgr.deleteKey(keyLogEntry(mgr.relativePath, index))
+	return mgr.deleteKey(keyLogEntry(mgr.partitionID, index))
 }
 
 // readLogEntry returns the log entry from the given position in the log.
 func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry, error) {
 	var logEntry gitalypb.LogEntry
-	key := keyLogEntry(mgr.relativePath, index)
+	key := keyLogEntry(mgr.partitionID, index)
 
 	if err := mgr.readKey(key, &logEntry); err != nil {
 		return nil, fmt.Errorf("read key: %w", err)
@@ -1690,14 +1690,14 @@ func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry,
 	return &logEntry, nil
 }
 
-// storeLogEntry stores the log entry in the repository's write-ahead log at the given index.
+// storeLogEntry stores the log entry in the partition's write-ahead log at the given index.
 func (mgr *TransactionManager) storeLogEntry(index LogIndex, entry *gitalypb.LogEntry) error {
-	return mgr.setKey(keyLogEntry(mgr.relativePath, index), entry)
+	return mgr.setKey(keyLogEntry(mgr.partitionID, index), entry)
 }
 
-// storeAppliedLogIndex stores the repository's applied log index in the database.
+// storeAppliedLogIndex stores the partition's applied log index in the database.
 func (mgr *TransactionManager) storeAppliedLogIndex(index LogIndex) error {
-	return mgr.setKey(keyAppliedLogIndex(mgr.relativePath), index.toProto())
+	return mgr.setKey(keyAppliedLogIndex(mgr.partitionID), index.toProto())
 }
 
 // setKey marshals and stores a given protocol buffer message into the database under the given key.
@@ -1741,19 +1741,19 @@ func (mgr *TransactionManager) deleteKey(key []byte) error {
 	})
 }
 
-// keyAppliedLogIndex returns the database key storing a repository's last applied log entry's index.
-func keyAppliedLogIndex(repositoryID string) []byte {
-	return []byte(fmt.Sprintf("repository/%s/log/index/applied", repositoryID))
+// keyAppliedLogIndex returns the database key storing a partition's last applied log entry's index.
+func keyAppliedLogIndex(ptnID partitionID) []byte {
+	return []byte(fmt.Sprintf("partition/%s/log/index/applied", ptnID.MarshalBinary()))
 }
 
-// keyLogEntry returns the database key storing a repository's log entry at a given index.
-func keyLogEntry(repositoryID string, index LogIndex) []byte {
+// keyLogEntry returns the database key storing a partition's log entry at a given index.
+func keyLogEntry(ptnID partitionID, index LogIndex) []byte {
 	marshaledIndex := make([]byte, binary.Size(index))
 	binary.BigEndian.PutUint64(marshaledIndex, uint64(index))
-	return []byte(fmt.Sprintf("%s%s", keyPrefixLogEntries(repositoryID), marshaledIndex))
+	return []byte(fmt.Sprintf("%s%s", keyPrefixLogEntries(ptnID), marshaledIndex))
 }
 
 // keyPrefixLogEntries returns the key prefix holding repository's write-ahead log entries.
-func keyPrefixLogEntries(repositoryID string) []byte {
-	return []byte(fmt.Sprintf("repository/%s/log/entry/", repositoryID))
+func keyPrefixLogEntries(ptnID partitionID) []byte {
+	return []byte(fmt.Sprintf("partition/%s/log/entry/", ptnID.MarshalBinary()))
 }
