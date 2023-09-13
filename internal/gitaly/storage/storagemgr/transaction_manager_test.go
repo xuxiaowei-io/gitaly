@@ -3334,26 +3334,27 @@ func TestTransactionManager(t *testing.T) {
 			desc: "failing initialization prevents transaction beginning",
 			steps: steps{
 				StartManager{
-					ModifyRepository: func(_ testing.TB, _ config.Cfg, repoPath string) {
-						// Remove the repository's directory and create a file in its place
-						// to fail the initialization.
-						require.NoError(t, os.RemoveAll(repoPath))
-						require.NoError(t, os.WriteFile(repoPath, nil, perm.PrivateDir))
+					Hooks: testHooks{
+						BeforeReadAppliedLogIndex: func(hookContext) {
+							// Raise a panic when the manager is about to read the applied log
+							// index when initializing. In reality this would crash the server but
+							// in tests it serves as a way to abort the initialization in correct
+							// location.
+							panic(errSimulatedCrash)
+						},
 					},
-					ExpectedError: errNotDirectory,
+					ExpectedError: errSimulatedCrash,
 				},
 				Begin{
 					ExpectedError: errInitializationFailed,
 				},
 				AssertManager{
-					ExpectedError: errNotDirectory,
+					ExpectedError: errSimulatedCrash,
 				},
 			},
 			expectedState: StateAssertion{
-				// The file still exists on the disk but this skips the repository assertions.
-				Repository: RepositoryState{
-					NotFound: true,
-				},
+				// The test case fails before the partition's state directory is created.
+				Directory: testhelper.DirectoryState{},
 			},
 		},
 		{
