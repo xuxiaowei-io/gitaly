@@ -267,6 +267,8 @@ func TestTransactionManager(t *testing.T) {
 		BeforeAppendLogEntry hookFunc
 		// BeforeDeleteLogEntry is called before a log entry is deleted.
 		BeforeDeleteLogEntry hookFunc
+		// beforeReadAppliedLogIndex is invoked before a the applied log index is read.
+		BeforeReadAppliedLogIndex hookFunc
 		// beforeStoreAppliedLogIndex is invoked before a the applied log index is stored.
 		BeforeStoreAppliedLogIndex hookFunc
 		// WaitForTransactionsWhenClosing waits for a in-flight to finish before returning
@@ -3757,6 +3759,7 @@ func TestTransactionManager(t *testing.T) {
 							}
 						},
 						beforeDeleteLogEntry:       step.Hooks.BeforeDeleteLogEntry,
+						beforeReadAppliedLogIndex:  step.Hooks.BeforeReadAppliedLogIndex,
 						beforeStoreAppliedLogIndex: step.Hooks.BeforeStoreAppliedLogIndex,
 					})
 
