@@ -156,6 +156,8 @@ type Transaction struct {
 	// to finish where needed.
 	finished chan struct{}
 
+	// relativePath is the relative path of the repository this transaction is targeting.
+	relativePath string
 	// stagingDirectory is the directory where the transaction stages its files prior
 	// to them being logged. It is cleaned up when the transaction finishes.
 	stagingDirectory string
@@ -211,10 +213,11 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 	mgr.mutex.Lock()
 
 	txn := &Transaction{
-		readOnly: opts.ReadOnly,
-		commit:   mgr.commit,
-		snapshot: Snapshot{ReadIndex: mgr.appendedLogIndex},
-		finished: make(chan struct{}),
+		readOnly:     opts.ReadOnly,
+		commit:       mgr.commit,
+		snapshot:     Snapshot{ReadIndex: mgr.appendedLogIndex},
+		finished:     make(chan struct{}),
+		relativePath: mgr.relativePath,
 	}
 
 	mgr.snapshotLocks[txn.snapshot.ReadIndex].activeSnapshotters.Add(1)
@@ -262,12 +265,13 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 		}
 
 		if err := mgr.createRepositorySnapshot(ctx,
-			filepath.Join(mgr.storagePath, txn.snapshotRelativePath(mgr.relativePath)),
+			mgr.getAbsolutePath(txn.relativePath),
+			mgr.getAbsolutePath(txn.snapshotRelativePath(txn.relativePath)),
 		); err != nil {
 			return nil, fmt.Errorf("create snapshot: %w", err)
 		}
 
-		txn.snapshotRepository = mgr.repositoryFactory.Build(txn.snapshotRelativePath(mgr.relativePath))
+		txn.snapshotRepository = mgr.repositoryFactory.Build(txn.snapshotRelativePath(txn.relativePath))
 		if !txn.readOnly {
 			txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
 			if err := os.MkdirAll(filepath.Join(txn.quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
@@ -305,7 +309,7 @@ func (txn *Transaction) RewriteRepository(repo *gitalypb.Repository) *gitalypb.R
 // correct locations there. This effectively does a copy-free clone of the repository. Since the files
 // are shared between the snapshot and the repository, they must not be modified. Git doesn't modify
 // existing files but writes new ones so this property is upheld.
-func (mgr *TransactionManager) createRepositorySnapshot(ctx context.Context, snapshotPath string) error {
+func (mgr *TransactionManager) createRepositorySnapshot(ctx context.Context, repositoryPath, snapshotPath string) error {
 	// This creates the parent directory hierarchy regardless of whether the repository exists or not. It also
 	// doesn't consider the permissions in the storage. While not 100% correct, we have no logic that cares about
 	// the storage hierarchy above repositories.
@@ -318,7 +322,7 @@ func (mgr *TransactionManager) createRepositorySnapshot(ctx context.Context, sna
 
 	mgr.stateLock.RLock()
 	defer mgr.stateLock.RUnlock()
-	if err := createDirectorySnapshot(ctx, mgr.getAbsolutePath(mgr.relativePath), snapshotPath, map[string]struct{}{
+	if err := createDirectorySnapshot(ctx, repositoryPath, snapshotPath, map[string]struct{}{
 		// Don't include worktrees in the snapshot. All of the worktrees in the repository should be leftover
 		// state from before transaction management was introduced as the transactions would create their
 		// worktrees in the snapshot.
@@ -1018,7 +1022,7 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	}
 
 	if err := func() (commitErr error) {
-		repositoryExists, err := mgr.doesRepositoryExist(mgr.relativePath)
+		repositoryExists, err := mgr.doesRepositoryExist(transaction.relativePath)
 		if err != nil {
 			return fmt.Errorf("does repository exist: %w", err)
 		}
@@ -1028,7 +1032,7 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 		}
 
 		logEntry := &gitalypb.LogEntry{
-			RelativePath: mgr.relativePath,
+			RelativePath: transaction.relativePath,
 		}
 
 		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
@@ -1308,7 +1312,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		return nil, nil
 	}
 
-	quarantinedRepo, err := mgr.repositoryFactory.Build(mgr.relativePath).Quarantine(transaction.quarantineDirectory)
+	quarantinedRepo, err := mgr.repositoryFactory.Build(transaction.relativePath).Quarantine(transaction.quarantineDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("quarantine: %w", err)
 	}
