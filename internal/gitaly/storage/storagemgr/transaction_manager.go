@@ -1211,9 +1211,9 @@ func (mgr *TransactionManager) getAbsolutePath(relativePath string) string {
 // removePackedRefsLocks removes any packed-refs.lock and packed-refs.new files present in the manager's
 // repository. No grace period for the locks is given as any lockfiles present must be stale and can be
 // safely removed immediately.
-func (mgr *TransactionManager) removePackedRefsLocks(ctx context.Context) error {
+func (mgr *TransactionManager) removePackedRefsLocks(ctx context.Context, repositoryPath string) error {
 	for _, lock := range []string{".new", ".lock"} {
-		lockPath := filepath.Join(mgr.getAbsolutePath(mgr.relativePath), "packed-refs"+lock)
+		lockPath := filepath.Join(repositoryPath, "packed-refs"+lock)
 
 		// We deliberately do not fsync this deletion. Should a crash occur before this is persisted
 		// to disk, the restarted transaction manager will simply remove them again.
@@ -1452,9 +1452,11 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 	// If we get an error due to existing stale reference locks, we should clear it up
 	// and retry running git-update-ref(1).
 	if errors.Is(err, updateref.ErrPackedRefsLocked) || errors.As(err, &updateref.AlreadyLockedError{}) {
+		repositoryPath := mgr.getAbsolutePath(repository.GetRelativePath())
+
 		// Before clearing stale reference locks, we add should ensure that housekeeping doesn't
 		// run git-pack-refs(1), which could create new reference locks. So we add an inhibitor.
-		success, cleanup, err := mgr.housekeepingManager.AddPackRefsInhibitor(ctx, mgr.getAbsolutePath(mgr.relativePath))
+		success, cleanup, err := mgr.housekeepingManager.AddPackRefsInhibitor(ctx, repositoryPath)
 		if !success {
 			return nil, fmt.Errorf("add pack-refs inhibitor: %w", err)
 		}
@@ -1468,7 +1470,7 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 		}
 
 		// Remove possible locks and temporary files covering `packed-refs`.
-		if err := mgr.removePackedRefsLocks(mgr.ctx); err != nil {
+		if err := mgr.removePackedRefsLocks(mgr.ctx, repositoryPath); err != nil {
 			return nil, fmt.Errorf("remove stale packed-refs locks: %w", err)
 		}
 
