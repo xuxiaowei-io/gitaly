@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
@@ -88,7 +87,7 @@ func TestRepositoryExistsHandler(t *testing.T) {
 
 			srv := NewGRPCServer(&Dependencies{
 				Config: config.Config{Failover: config.Failover{ElectionStrategy: electionStrategy}},
-				Logger: logrus.NewEntry(testhelper.SharedLogger(t)),
+				Logger: testhelper.SharedLogger(t),
 				Director: func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 					return nil, errServedByGitaly
 				},

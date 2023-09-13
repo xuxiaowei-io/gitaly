@@ -11,7 +11,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
@@ -115,7 +114,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		db.TruncateAll(t)
 
 		logger := testhelper.SharedLogger(t)
-		logHook := test.NewLocal(logger)
+		logHook := testhelper.AddLoggerHook(logger)
 
 		ctx := testhelper.Context(t)
 
@@ -154,14 +153,15 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages4.Values())
 		require.Equal(t, "replica-path", replicaPath)
 
-		require.Len(t, logHook.AllEntries(), 1)
-		assert.Equal(t, "received payload can't be processed, cache disabled", logHook.LastEntry().Message)
+		logEntries := logHook.AllEntries()
+		require.Len(t, logEntries, 1)
+		assert.Equal(t, "received payload can't be processed, cache disabled", logEntries[0].Message)
 		assert.Equal(t, logrus.Fields{
 			"channel":   "notification_channel_1",
 			"component": "caching_storage_provider",
 			"error":     expErr,
-		}, logHook.LastEntry().Data)
-		assert.Equal(t, logrus.ErrorLevel, logHook.LastEntry().Level)
+		}, logEntries[0].Data)
+		assert.Equal(t, logrus.ErrorLevel, logEntries[0].Level)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
 			# HELP gitaly_praefect_uptodate_storages_cache_access_total Total number of cache access operations during defining of up to date storages for reads distribution (per virtual storage)

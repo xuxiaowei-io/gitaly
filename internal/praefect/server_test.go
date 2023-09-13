@@ -101,7 +101,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 		backchannel.NewClientHandshaker(
 			logger,
 			NewBackchannelServerFactory(
-				logrus.NewEntry(logger),
+				logger,
 				transaction.NewServer(mgr),
 				nil,
 			),
@@ -539,7 +539,7 @@ func TestRemoveRepository(t *testing.T) {
 		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
 		nil, backchannel.NewClientHandshaker(
 			logger,
-			NewBackchannelServerFactory(logrus.NewEntry(logger), transaction.NewServer(txMgr), nil),
+			NewBackchannelServerFactory(logger, transaction.NewServer(txMgr), nil),
 			backchannel.DefaultConfiguration(),
 		), nil,
 	)
@@ -610,7 +610,7 @@ func TestRenameRepository(t *testing.T) {
 	clientHandshaker := backchannel.NewClientHandshaker(
 		logger,
 		NewBackchannelServerFactory(
-			logrus.NewEntry(logger),
+			logger,
 			transaction.NewServer(txManager),
 			nil,
 		),

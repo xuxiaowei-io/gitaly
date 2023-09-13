@@ -512,7 +512,7 @@ func TestVerifier(t *testing.T) {
 				backchannel.NewClientHandshaker(
 					logger,
 					NewBackchannelServerFactory(
-						logrus.NewEntry(logger),
+						logger,
 						transaction.NewServer(txManager),
 						sidechannelRegistry,
 					),
@@ -638,7 +638,8 @@ func TestVerifier(t *testing.T) {
 			).Scan(&lockedRows))
 			require.Equal(t, 3, lockedRows)
 
-			logger, hook := test.NewNullLogger()
+			logger = testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
 
 			healthyStorages := StaticHealthChecker{"virtual-storage": []string{gitaly1, gitaly2, gitaly3}}
 			if tc.healthyStorages != nil {
@@ -660,7 +661,7 @@ func TestVerifier(t *testing.T) {
 				// Ensure the removals and errors are correctly logged
 				var actualRemovals logRecord
 				actualErrors := map[string]map[string][]string{}
-				for _, entry := range hook.Entries {
+				for _, entry := range hook.AllEntries() {
 					switch entry.Message {
 					case "removing metadata records of non-existent replicas":
 						if len(step.expectedRemovals) == 0 {

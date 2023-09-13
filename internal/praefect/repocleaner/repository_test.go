@@ -262,9 +262,8 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 	}
 
 	logger := testhelper.SharedLogger(t)
-	entry := logger.WithContext(ctx)
-	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
-	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil, testhelper.SharedLogger(t))
+	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
+	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil, logger)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 

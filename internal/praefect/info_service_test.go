@@ -4,7 +4,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -78,7 +77,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 		backchannel.NewClientHandshaker(
 			logger,
 			NewBackchannelServerFactory(
-				logrus.NewEntry(logger),
+				logger,
 				transaction.NewServer(txManager),
 				sidechannelRegistry,
 			),
