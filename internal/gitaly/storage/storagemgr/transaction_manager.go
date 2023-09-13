@@ -318,7 +318,7 @@ func (mgr *TransactionManager) createRepositorySnapshot(ctx context.Context, sna
 
 	mgr.stateLock.RLock()
 	defer mgr.stateLock.RUnlock()
-	if err := createDirectorySnapshot(ctx, mgr.repositoryPath, snapshotPath, map[string]struct{}{
+	if err := createDirectorySnapshot(ctx, mgr.getAbsolutePath(mgr.relativePath), snapshotPath, map[string]struct{}{
 		// Don't include worktrees in the snapshot. All of the worktrees in the repository should be leftover
 		// state from before transaction management was introduced as the transactions would create their
 		// worktrees in the snapshot.
@@ -656,8 +656,6 @@ type TransactionManager struct {
 
 	// repository is the repository this TransactionManager is acting on.
 	repository *localrepo.Repo
-	// repositoryPath is the path to the repository this TransactionManager is acting on.
-	repositoryPath string
 	// storagePath is an absolute path to the root of the storage this TransactionManager
 	// is operating in.
 	storagePath string
@@ -719,7 +717,6 @@ func NewTransactionManager(
 		repositoryFactory:    repositoryFactory,
 		repository:           repositoryFactory.Build(relativePath),
 		storagePath:          storagePath,
-		repositoryPath:       filepath.Join(storagePath, relativePath),
 		relativePath:         relativePath,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
@@ -1167,7 +1164,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 
 // doesRepositoryExist returns whether the repository exists or not.
 func (mgr *TransactionManager) doesRepositoryExist(relativePath string) (bool, error) {
-	stat, err := os.Stat(filepath.Join(mgr.storagePath, relativePath))
+	stat, err := os.Stat(mgr.getAbsolutePath(relativePath))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return false, nil
@@ -1207,12 +1204,17 @@ func (mgr *TransactionManager) createStateDirectory() error {
 	return nil
 }
 
+// getAbsolutePath returns the relative path's absolute path in the storage.
+func (mgr *TransactionManager) getAbsolutePath(relativePath string) string {
+	return filepath.Join(mgr.storagePath, relativePath)
+}
+
 // removePackedRefsLocks removes any packed-refs.lock and packed-refs.new files present in the manager's
 // repository. No grace period for the locks is given as any lockfiles present must be stale and can be
 // safely removed immediately.
 func (mgr *TransactionManager) removePackedRefsLocks(ctx context.Context) error {
 	for _, lock := range []string{".new", ".lock"} {
-		lockPath := filepath.Join(mgr.repositoryPath, "packed-refs"+lock)
+		lockPath := filepath.Join(mgr.getAbsolutePath(mgr.relativePath), "packed-refs"+lock)
 
 		// We deliberately do not fsync this deletion. Should a crash occur before this is persisted
 		// to disk, the restarted transaction manager will simply remove them again.
@@ -1453,7 +1455,7 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 	if errors.Is(err, updateref.ErrPackedRefsLocked) || errors.As(err, &updateref.AlreadyLockedError{}) {
 		// Before clearing stale reference locks, we add should ensure that housekeeping doesn't
 		// run git-pack-refs(1), which could create new reference locks. So we add an inhibitor.
-		success, cleanup, err := mgr.housekeepingManager.AddPackRefsInhibitor(ctx, mgr.repositoryPath)
+		success, cleanup, err := mgr.housekeepingManager.AddPackRefsInhibitor(ctx, mgr.getAbsolutePath(mgr.relativePath))
 		if !success {
 			return nil, fmt.Errorf("add pack-refs inhibitor: %w", err)
 		}
@@ -1585,11 +1587,11 @@ func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, update
 
 // applyRepositoryDeletion deletes the repository.
 func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, index LogIndex) error {
-	if err := os.RemoveAll(mgr.repositoryPath); err != nil {
+	if err := os.RemoveAll(mgr.getAbsolutePath(mgr.relativePath)); err != nil {
 		return fmt.Errorf("remove repository: %w", err)
 	}
 
-	if err := safe.NewSyncer().Sync(filepath.Dir(mgr.repositoryPath)); err != nil {
+	if err := safe.NewSyncer().Sync(filepath.Dir(mgr.getAbsolutePath(mgr.relativePath))); err != nil {
 		return fmt.Errorf("sync: %w", err)
 	}
 
@@ -1600,7 +1602,7 @@ func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, inde
 // has an associated pack file. This is done by hard linking the pack and index from the
 // log into the repository's object directory.
 func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix string, logIndex LogIndex) error {
-	packDirectory := filepath.Join(mgr.repositoryPath, "objects", "pack")
+	packDirectory := filepath.Join(mgr.getAbsolutePath(mgr.relativePath), "objects", "pack")
 	for _, fileExtension := range []string{
 		".pack",
 		".idx",
@@ -1635,7 +1637,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		return nil
 	}
 
-	destinationDir := filepath.Join(mgr.repositoryPath, repoutil.CustomHooksDir)
+	destinationDir := filepath.Join(mgr.getAbsolutePath(mgr.relativePath), repoutil.CustomHooksDir)
 	if err := os.RemoveAll(destinationDir); err != nil {
 		return fmt.Errorf("remove directory: %w", err)
 	}
