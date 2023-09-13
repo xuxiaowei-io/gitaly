@@ -654,8 +654,6 @@ type TransactionManager struct {
 	// repositoryFactory is used to build localrepo.Repo instances.
 	repositoryFactory localrepo.StorageScopedFactory
 
-	// repository is the repository this TransactionManager is acting on.
-	repository *localrepo.Repo
 	// storagePath is an absolute path to the root of the storage this TransactionManager
 	// is operating in.
 	storagePath string
@@ -715,7 +713,6 @@ func NewTransactionManager(
 		closed:               make(chan struct{}),
 		commandFactory:       cmdFactory,
 		repositoryFactory:    repositoryFactory,
-		repository:           repositoryFactory.Build(relativePath),
 		storagePath:          storagePath,
 		relativePath:         relativePath,
 		db:                   newDatabaseAdapter(db),
@@ -838,7 +835,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 	// in the main object database of the snapshot.
 	//
 	// This is pending https://gitlab.com/groups/gitlab-org/-/epics/11242.
-	quarantinedRepo, err := mgr.repository.Quarantine(transaction.quarantineDirectory)
+	quarantinedRepo, err := mgr.repositoryFactory.Build(mgr.relativePath).Quarantine(transaction.quarantineDirectory)
 	if err != nil {
 		return fmt.Errorf("quarantine: %w", err)
 	}
@@ -1305,7 +1302,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		return nil, nil
 	}
 
-	quarantinedRepo, err := mgr.repository.Quarantine(transaction.quarantineDirectory)
+	quarantinedRepo, err := mgr.repositoryFactory.Build(mgr.relativePath).Quarantine(transaction.quarantineDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("quarantine: %w", err)
 	}
@@ -1404,7 +1401,7 @@ func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, def
 	}
 
 	var stderr bytes.Buffer
-	if err := mgr.repository.ExecAndWait(ctx, git.Command{
+	if err := mgr.repositoryFactory.Build(mgr.relativePath).ExecAndWait(ctx, git.Command{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD", string(defaultBranch.ReferenceName)},
 	}, git.WithStderr(&stderr), git.WithDisabledHooks()); err != nil {
@@ -1464,7 +1461,7 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 		// We ask housekeeping to cleanup stale reference locks. We don't add a grace period, because
 		// transaction manager is the only process which writes into the repository, so it is safe
 		// to delete these locks.
-		if err := mgr.housekeepingManager.CleanStaleData(ctx, log.FromContext(ctx), mgr.repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
+		if err := mgr.housekeepingManager.CleanStaleData(ctx, log.FromContext(ctx), repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
 			return nil, fmt.Errorf("running reflock cleanup: %w", err)
 		}
 
@@ -1573,7 +1570,7 @@ func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, update
 		return nil
 	}
 
-	updater, err := mgr.prepareReferenceTransaction(ctx, updates, mgr.repository)
+	updater, err := mgr.prepareReferenceTransaction(ctx, updates, mgr.repositoryFactory.Build(mgr.relativePath))
 	if err != nil {
 		return fmt.Errorf("prepare reference transaction: %w", err)
 	}
