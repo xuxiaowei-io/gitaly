@@ -5,11 +5,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -210,7 +214,13 @@ func TestNew_spawnTimeout(t *testing.T) {
 func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	testhelper.NewFeatureSets(featureflag.CommandCloseStdout).Run(t, testCommandWaitContextCancellationKillsCommand)
+}
+
+func testCommandWaitContextCancellationKillsCommand(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	cmd, err := New(ctx, []string{"cat", "/dev/urandom"}, WithSetupStdout())
 	require.NoError(t, err)
@@ -222,9 +232,31 @@ func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {
 
 	cancel()
 
-	err = cmd.Wait()
-	require.Equal(t, err, fmt.Errorf("signal: terminated: %w", context.Canceled))
-	require.ErrorIs(t, err, context.Canceled)
+	// We only verify that reading the command causes us to fail in an expected way when the feature flag is
+	// enabled. The case where the feature flag is disabled is indeterministic.
+	if featureflag.CommandCloseStdout.IsEnabled(ctx) {
+		// Verify that the cancelled context causes us to receive a read error when consuming the command's output. In
+		// older days this used to succeed just fine, which had the consequence that we obtain partial stdout of the
+		// killed process without noticing that it in fact got killed.
+		_, err = io.ReadAll(cmd)
+
+		require.Equal(t, &fs.PathError{
+			Op: "read", Path: "|0", Err: os.ErrClosed,
+		}, err)
+
+		err = cmd.Wait()
+		// Depending on whether the closed file descriptor or the sent signal arrive first, cat(1) may fail
+		// either with SIGPIPE or with SIGKILL.
+		require.Contains(t, []error{
+			fmt.Errorf("signal: %s: %w", syscall.SIGTERM, context.Canceled),
+			fmt.Errorf("signal: %s: %w", syscall.SIGPIPE, context.Canceled),
+		}, err)
+		require.ErrorIs(t, err, context.Canceled)
+	} else {
+		err = cmd.Wait()
+		require.Equal(t, err, fmt.Errorf("signal: terminated: %w", context.Canceled))
+		require.ErrorIs(t, err, context.Canceled)
+	}
 }
 
 func TestNew_setupStdin(t *testing.T) {
@@ -268,6 +300,23 @@ func TestCommand_read(t *testing.T) {
 
 		require.NoError(t, cmd.Wait())
 	})
+}
+
+func TestCommand_readPartial(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.CommandCloseStdout).Run(t, testCommandReadPartial)
+}
+
+func testCommandReadPartial(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	cmd, err := New(ctx, []string{"head", "-c", "1000000", "/dev/urandom"}, WithSetupStdout())
+	require.NoError(t, err)
+	if featureflag.CommandCloseStdout.IsEnabled(ctx) {
+		require.EqualError(t, cmd.Wait(), "signal: broken pipe")
+	} else {
+		require.NoError(t, cmd.Wait())
+	}
 }
 
 func TestNew_nulByteInArgument(t *testing.T) {
