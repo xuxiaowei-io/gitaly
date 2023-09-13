@@ -1397,15 +1397,15 @@ func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, tr
 }
 
 // applyDefaultBranchUpdate applies the default branch update to the repository from the log entry.
-func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, defaultBranch *gitalypb.LogEntry_DefaultBranchUpdate) error {
-	if defaultBranch == nil {
+func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	if logEntry.DefaultBranchUpdate == nil {
 		return nil
 	}
 
 	var stderr bytes.Buffer
-	if err := mgr.repositoryFactory.Build(mgr.relativePath).ExecAndWait(ctx, git.Command{
+	if err := mgr.repositoryFactory.Build(logEntry.RelativePath).ExecAndWait(ctx, git.Command{
 		Name: "symbolic-ref",
-		Args: []string{"HEAD", string(defaultBranch.ReferenceName)},
+		Args: []string{"HEAD", string(logEntry.DefaultBranchUpdate.ReferenceName)},
 	}, git.WithStderr(&stderr), git.WithDisabledHooks()); err != nil {
 		return structerr.New("exec symbolic-ref: %w", err).WithMetadata("stderr", stderr.String())
 	}
@@ -1519,25 +1519,25 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 		// If the repository is being deleted, just delete it without any other changes given
 		// they'd all be removed anyway. Reapplying the other changes after a crash would also
 		// not work if the repository was successfully deleted before the crash.
-		if err := mgr.applyRepositoryDeletion(ctx, logIndex); err != nil {
+		if err := mgr.applyRepositoryDeletion(ctx, logEntry); err != nil {
 			return fmt.Errorf("apply repository deletion: %w", err)
 		}
 	} else {
 		if logEntry.PackPrefix != "" {
-			if err := mgr.applyPackFile(ctx, logEntry.PackPrefix, logIndex); err != nil {
+			if err := mgr.applyPackFile(ctx, logIndex, logEntry); err != nil {
 				return fmt.Errorf("apply pack file: %w", err)
 			}
 		}
 
-		if err := mgr.applyReferenceUpdates(ctx, logEntry.ReferenceUpdates); err != nil {
+		if err := mgr.applyReferenceUpdates(ctx, logEntry); err != nil {
 			return fmt.Errorf("apply reference updates: %w", err)
 		}
 
-		if err := mgr.applyDefaultBranchUpdate(ctx, logEntry.DefaultBranchUpdate); err != nil {
+		if err := mgr.applyDefaultBranchUpdate(ctx, logEntry); err != nil {
 			return fmt.Errorf("writing default branch: %w", err)
 		}
 
-		if err := mgr.applyCustomHooks(ctx, logIndex, logEntry.CustomHooksUpdate); err != nil {
+		if err := mgr.applyCustomHooks(ctx, logEntry); err != nil {
 			return fmt.Errorf("apply custom hooks: %w", err)
 		}
 	}
@@ -1567,12 +1567,15 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 }
 
 // applyReferenceUpdates applies the applies the given reference updates to the repository.
-func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, updates []*gitalypb.LogEntry_ReferenceUpdate) error {
-	if len(updates) == 0 {
+func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	if len(logEntry.ReferenceUpdates) == 0 {
 		return nil
 	}
 
-	updater, err := mgr.prepareReferenceTransaction(ctx, updates, mgr.repositoryFactory.Build(mgr.relativePath))
+	updater, err := mgr.prepareReferenceTransaction(ctx,
+		logEntry.ReferenceUpdates,
+		mgr.repositoryFactory.Build(logEntry.RelativePath),
+	)
 	if err != nil {
 		return fmt.Errorf("prepare reference transaction: %w", err)
 	}
@@ -1585,12 +1588,13 @@ func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, update
 }
 
 // applyRepositoryDeletion deletes the repository.
-func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, index LogIndex) error {
-	if err := os.RemoveAll(mgr.getAbsolutePath(mgr.relativePath)); err != nil {
+func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	repositoryPath := mgr.getAbsolutePath(logEntry.RelativePath)
+	if err := os.RemoveAll(repositoryPath); err != nil {
 		return fmt.Errorf("remove repository: %w", err)
 	}
 
-	if err := safe.NewSyncer().Sync(filepath.Dir(mgr.getAbsolutePath(mgr.relativePath))); err != nil {
+	if err := safe.NewSyncer().Sync(filepath.Dir(repositoryPath)); err != nil {
 		return fmt.Errorf("sync: %w", err)
 	}
 
@@ -1600,8 +1604,8 @@ func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, inde
 // applyPackFile unpacks the objects from the pack file into the repository if the log entry
 // has an associated pack file. This is done by hard linking the pack and index from the
 // log into the repository's object directory.
-func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix string, logIndex LogIndex) error {
-	packDirectory := filepath.Join(mgr.getAbsolutePath(mgr.relativePath), "objects", "pack")
+func (mgr *TransactionManager) applyPackFile(ctx context.Context, logIndex LogIndex, logEntry *gitalypb.LogEntry) error {
+	packDirectory := filepath.Join(mgr.getAbsolutePath(logEntry.RelativePath), "objects", "pack")
 	for _, fileExtension := range []string{
 		".pack",
 		".idx",
@@ -1609,7 +1613,7 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix str
 	} {
 		if err := os.Link(
 			filepath.Join(walFilesPathForLogIndex(mgr.stateDirectory, logIndex), "objects"+fileExtension),
-			filepath.Join(packDirectory, packPrefix+fileExtension),
+			filepath.Join(packDirectory, logEntry.PackPrefix+fileExtension),
 		); err != nil {
 			if !errors.Is(err, fs.ErrExist) {
 				return fmt.Errorf("link file: %w", err)
@@ -1631,12 +1635,12 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix str
 // applyCustomHooks applies the custom hooks to the repository from the log entry. The hooks are extracted at
 // `<repo>/custom_hooks`. The custom hooks are fsynced prior to returning so it is safe to delete the log entry
 // afterwards.
-func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex LogIndex, update *gitalypb.LogEntry_CustomHooksUpdate) error {
-	if update == nil {
+func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	if logEntry.CustomHooksUpdate == nil {
 		return nil
 	}
 
-	destinationDir := filepath.Join(mgr.getAbsolutePath(mgr.relativePath), repoutil.CustomHooksDir)
+	destinationDir := filepath.Join(mgr.getAbsolutePath(logEntry.RelativePath), repoutil.CustomHooksDir)
 	if err := os.RemoveAll(destinationDir); err != nil {
 		return fmt.Errorf("remove directory: %w", err)
 	}
@@ -1645,7 +1649,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	if err := repoutil.ExtractHooks(ctx, bytes.NewReader(update.CustomHooksTar), destinationDir, true); err != nil {
+	if err := repoutil.ExtractHooks(ctx, bytes.NewReader(logEntry.CustomHooksUpdate.CustomHooksTar), destinationDir, true); err != nil {
 		return fmt.Errorf("extract hooks: %w", err)
 	}
 
