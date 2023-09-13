@@ -113,6 +113,50 @@ func TestRawBlame(t *testing.T) {
 			},
 		},
 		{
+			desc: "out-of-range",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				// We write a file with a single line, only, but the request asks us to blame line
+				// 10.
+				commit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\n"},
+				))
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte(commit),
+						Path:       []byte("path"),
+						Range:      []byte("10,10"),
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.NewInternal("blaming file: exit status 128").WithMetadata("stderr", "fatal: file path has only 1 line\n"),
+					),
+				}
+			},
+		},
+		{
+			desc: "missing path",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commit := gittest.WriteCommit(t, cfg, repoPath)
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte(commit),
+						Path:       []byte("does-not-exist"),
+						Range:      []byte("1,1"),
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.NewInternal("blaming file: exit status 128").WithMetadata("stderr", "fatal: no such path does-not-exist in "+commit.String()+"\n"),
+					),
+				}
+			},
+		},
+		{
 			desc: "simple blame",
 			setup: func(t *testing.T) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
