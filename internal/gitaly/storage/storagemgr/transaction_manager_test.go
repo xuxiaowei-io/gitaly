@@ -3584,7 +3584,6 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Repositories: RepositoryStates{},
-				Directory:    testhelper.DirectoryState{},
 			},
 		},
 		{

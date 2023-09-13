@@ -654,9 +654,6 @@ type TransactionManager struct {
 	// repositoryFactory is used to build localrepo.Repo instances.
 	repositoryFactory localrepo.StorageScopedFactory
 
-	// repositoryExists marks whether the repository exists or not. The repository may not exist if it has
-	// never been created, or if it has been deleted.
-	repositoryExists bool
 	// repository is the repository this TransactionManager is acting on.
 	repository *localrepo.Repo
 	// repositoryPath is the path to the repository this TransactionManager is acting on.
@@ -1023,13 +1020,17 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	}
 
 	if err := func() (commitErr error) {
-		if !mgr.repositoryExists {
+		repositoryExists, err := mgr.doesRepositoryExist(mgr.relativePath)
+		if err != nil {
+			return fmt.Errorf("does repository exist: %w", err)
+		}
+
+		if !repositoryExists {
 			return ErrRepositoryNotFound
 		}
 
 		logEntry := &gitalypb.LogEntry{}
 
-		var err error
 		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("verify references: %w", err)
@@ -1140,14 +1141,8 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		return fmt.Errorf("determine appended log index: %w", err)
 	}
 
-	if err := mgr.determineRepositoryExistence(); err != nil {
-		return fmt.Errorf("determine repository existence: %w", err)
-	}
-
-	if mgr.repositoryExists {
-		if err := mgr.createStateDirectory(); err != nil {
-			return fmt.Errorf("create state directory: %w", err)
-		}
+	if err := mgr.createStateDirectory(); err != nil {
+		return fmt.Errorf("create state directory: %w", err)
 	}
 
 	// Create a snapshot lock for the applied index as it is used for synchronizing
@@ -1170,40 +1165,22 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	return nil
 }
 
-// determineRepositoryExistence determines whether the repository exists or not by looking
-// at whether the directory exists and whether there is a deletion request logged.
-func (mgr *TransactionManager) determineRepositoryExistence() error {
-	stat, err := os.Stat(mgr.repositoryPath)
+// doesRepositoryExist returns whether the repository exists or not.
+func (mgr *TransactionManager) doesRepositoryExist(relativePath string) (bool, error) {
+	stat, err := os.Stat(filepath.Join(mgr.storagePath, relativePath))
 	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("stat repository directory: %w", err)
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
 		}
+
+		return false, fmt.Errorf("stat repository directory: %w", err)
 	}
 
-	if stat != nil {
-		if !stat.IsDir() {
-			return errNotDirectory
-		}
-
-		mgr.repositoryExists = true
+	if !stat.IsDir() {
+		return false, errNotDirectory
 	}
 
-	// Check whether the last log entry is a repository deletion. If so,
-	// the repository has been deleted but the deletion wasn't yet applied.
-	// The deletion is the last entry always as no further writes are
-	// accepted if the repository doesn't exist.
-	if mgr.appliedLogIndex < mgr.appendedLogIndex {
-		logEntry, err := mgr.readLogEntry(mgr.appendedLogIndex)
-		if err != nil {
-			return fmt.Errorf("read log entry: %w", err)
-		}
-
-		if logEntry.RepositoryDeletion != nil {
-			mgr.repositoryExists = false
-		}
-	}
-
-	return nil
+	return true, nil
 }
 
 func (mgr *TransactionManager) createStateDirectory() error {
@@ -1516,9 +1493,6 @@ func (mgr *TransactionManager) appendLogEntry(nextLogIndex LogIndex, logEntry *g
 	mgr.mutex.Lock()
 	mgr.appendedLogIndex = nextLogIndex
 	mgr.snapshotLocks[nextLogIndex] = &snapshotLock{applied: make(chan struct{})}
-	if logEntry.RepositoryDeletion != nil {
-		mgr.repositoryExists = false
-	}
 	mgr.mutex.Unlock()
 
 	return nil
