@@ -3249,6 +3249,7 @@ func TestTransactionManager(t *testing.T) {
 				Repository: RepositoryState{
 					NotFound: true,
 				},
+				Directory: testhelper.DirectoryState{},
 			},
 		},
 		{
@@ -3286,6 +3287,18 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Repository: RepositoryState{
 					NotFound: true,
+				},
+				Directory: testhelper.DirectoryState{
+					"/":        {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":     {Mode: fs.ModeDir | perm.PrivateDir},
+					"/hooks":   {Mode: fs.ModeDir | perm.PrivateDir},
+					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/hooks/1/pre-receive": {
+						Mode:    umask.Mask(fs.ModePerm),
+						Content: []byte("hook content"),
+					},
+					"/hooks/1/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
+					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
 				},
 			},
 		},
@@ -3949,20 +3962,20 @@ func TestTransactionManager(t *testing.T) {
 				}
 
 				RequireRepositoryState(t, ctx, setup.Config, repo, tc.expectedState.Repository)
-
-				expectedDirectory := tc.expectedState.Directory
-				if expectedDirectory == nil {
-					// Set the base state as the default so we don't have to repeat it in every test case but it
-					// gets asserted.
-					expectedDirectory = testhelper.DirectoryState{
-						"/":      {Mode: fs.ModeDir | perm.PrivateDir},
-						"/wal":   {Mode: fs.ModeDir | perm.PrivateDir},
-						"/hooks": {Mode: fs.ModeDir | perm.PrivateDir},
-					}
-				}
-
-				testhelper.RequireDirectoryState(t, stateDir, "", expectedDirectory)
 			}
+
+			expectedDirectory := tc.expectedState.Directory
+			if expectedDirectory == nil {
+				// Set the base state as the default so we don't have to repeat it in every test case but it
+				// gets asserted.
+				expectedDirectory = testhelper.DirectoryState{
+					"/":      {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":   {Mode: fs.ModeDir | perm.PrivateDir},
+					"/hooks": {Mode: fs.ModeDir | perm.PrivateDir},
+				}
+			}
+
+			testhelper.RequireDirectoryState(t, stateDir, "", expectedDirectory)
 
 			entries, err := os.ReadDir(stagingDir)
 			require.NoError(t, err)
