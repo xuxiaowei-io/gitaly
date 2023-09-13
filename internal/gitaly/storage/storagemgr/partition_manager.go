@@ -27,6 +27,7 @@ import (
 var ErrPartitionManagerClosed = errors.New("partition manager closed")
 
 type transactionManagerFactory func(
+	partitionID partitionID,
 	storageMgr *storageManager,
 	cmdFactory git.CommandFactory,
 	housekeepingManager housekeeping.Manager,
@@ -244,12 +245,14 @@ func NewPartitionManager(
 		commandFactory:      cmdFactory,
 		housekeepingManager: housekeepingManager,
 		transactionManagerFactory: func(
+			partitionID partitionID,
 			storageMgr *storageManager,
 			cmdFactory git.CommandFactory,
 			housekeepingManager housekeeping.Manager,
 			relativePath, absoluteStateDir, stagingDir string,
 		) *TransactionManager {
 			return NewTransactionManager(
+				partitionID,
 				storageMgr.database,
 				storageMgr.path,
 				relativePath,
@@ -322,7 +325,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := pm.transactionManagerFactory(storageMgr, pm.commandFactory, pm.housekeepingManager, relativePath, absoluteStateDir, stagingDir)
+			mgr := pm.transactionManagerFactory(partitionID, storageMgr, pm.commandFactory, pm.housekeepingManager, relativePath, absoluteStateDir, stagingDir)
 
 			ptn.transactionManager = mgr
 

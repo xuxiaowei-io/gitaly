@@ -659,6 +659,8 @@ type TransactionManager struct {
 	storagePath string
 	// relativePath is the repository's relative path inside the storage.
 	relativePath string
+	// partitionID is the ID of the partition this manager is operating on. This is used to determine the database keys.
+	partitionID partitionID
 	// db is the handle to the key-value store used for storing the write-ahead log related state.
 	db database
 	// admissionQueue is where the incoming writes are waiting to be admitted to the transaction
@@ -696,6 +698,7 @@ type TransactionManager struct {
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
 func NewTransactionManager(
+	ptnID partitionID,
 	db *badger.DB,
 	storagePath,
 	relativePath,
@@ -715,6 +718,7 @@ func NewTransactionManager(
 		repositoryFactory:    repositoryFactory,
 		storagePath:          storagePath,
 		relativePath:         relativePath,
+		partitionID:          ptnID,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
 		initialized:          make(chan struct{}),

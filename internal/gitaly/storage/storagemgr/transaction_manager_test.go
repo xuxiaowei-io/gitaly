@@ -260,6 +260,9 @@ func TestTransactionManager(t *testing.T) {
 	// TransactionManager.Run execution.
 	errSimulatedCrash := errors.New("simulated crash")
 
+	// partitionID is the partition ID used in the tests for the TransactionManager.
+	const partitionID partitionID = 1
+
 	type testHooks struct {
 		// BeforeApplyLogEntry is called before a log entry is applied to the repository.
 		BeforeApplyLogEntry hookFunc
@@ -4165,7 +4168,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or closed.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+				transactionManager = NewTransactionManager(partitionID, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 				// managerErr is used for synchronizing manager closing and returning
 				// the error from Run.
 				managerErr chan error
@@ -4212,7 +4215,7 @@ func TestTransactionManager(t *testing.T) {
 					require.NoError(t, os.RemoveAll(stagingDir))
 					require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
-					transactionManager = NewTransactionManager(database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+					transactionManager = NewTransactionManager(partitionID, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
 						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
@@ -4600,7 +4603,9 @@ func BenchmarkTransactionManager(b *testing.B) {
 				stagingDir := filepath.Join(storagePath, "staging", strconv.Itoa(i))
 				require.NoError(b, os.MkdirAll(stagingDir, perm.PrivateDir))
 
-				manager := NewTransactionManager(database, storagePath, repo.RelativePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
+				// Valid partition IDs are >=1.
+				partitionID := partitionID(i + 1)
+				manager := NewTransactionManager(partitionID, database, storagePath, repo.RelativePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 
