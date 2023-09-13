@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
@@ -299,7 +298,7 @@ func (v *MetadataVerifier) updateMetadata(ctx context.Context, results []verific
 				"virtual_storage": result.job.virtualStorage,
 				"storage":         result.job.storage,
 				"relative_path":   result.job.relativePath,
-				logrus.ErrorKey:   result.error,
+				"error":           result.error,
 			}).Error("failed to verify replica's existence")
 		} else if !result.exists {
 			logRecords.markRemoved(result.job.virtualStorage, result.job.relativePath, result.job.storage)

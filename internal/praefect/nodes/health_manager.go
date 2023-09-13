@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
@@ -201,7 +200,7 @@ func (hm *HealthManager) performHealthChecks(ctx context.Context) ([]string, []s
 				resp, err := client.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 				if err != nil {
 					hm.log.WithFields(log.Fields{
-						logrus.ErrorKey:   err,
+						"error":           err,
 						"virtual_storage": virtualStorages[i],
 						"storage":         physicalStorages[i],
 						"correlation_id":  correlationID,

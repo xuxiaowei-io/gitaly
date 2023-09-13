@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gitalyconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -838,7 +837,7 @@ func TestVerifier_runExpiredLeaseReleaser(t *testing.T) {
 	actualReleased := map[string]map[string]map[string]struct{}{}
 	require.Len(t, hook.AllEntries(), 2)
 	for _, entry := range hook.AllEntries() {
-		require.Equal(t, "released stale verification leases", entry.Message, entry.Data[logrus.ErrorKey])
+		require.Equal(t, "released stale verification leases", entry.Message, entry.Data["error"])
 		for virtualStorage, relativePaths := range entry.Data["leases_released"].(map[string]map[string][]string) {
 			for relativePath, storages := range relativePaths {
 				for _, storage := range storages {
