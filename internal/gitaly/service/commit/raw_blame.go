@@ -3,6 +3,7 @@ package commit
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -32,18 +33,19 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 		return stream.Send(&gitalypb.RawBlameResponse{Data: p})
 	})
 
+	var stderr strings.Builder
 	cmd, err := s.gitCmdFactory.New(ctx, in.Repository, git.Command{
 		Name:        "blame",
 		Flags:       flags,
 		Args:        []string{revision},
 		PostSepArgs: []string{path},
-	}, git.WithStdout(sw))
+	}, git.WithStdout(sw), git.WithStderr(&stderr))
 	if err != nil {
-		return structerr.NewInternal("cmd: %w", err)
+		return fmt.Errorf("starting blame: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("streaming raw blame data: %w", err)
+		return structerr.New("blaming file: %w", err).WithMetadata("stderr", stderr.String())
 	}
 
 	return nil
