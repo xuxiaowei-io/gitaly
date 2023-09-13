@@ -12,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
+	spb "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestRawBlame(t *testing.T) {
@@ -117,10 +119,9 @@ func TestRawBlame(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-				// We write a file with a single line, only, but the request asks us to blame line
-				// 10.
+				// We write a file with three lines, only, but the request asks us to blame line 10.
 				commit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\n"},
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\n"},
 				))
 
 				return setupData{
@@ -131,7 +132,17 @@ func TestRawBlame(t *testing.T) {
 						Range:      []byte("10,10"),
 					},
 					expectedErr: testhelper.ToInterceptedMetadata(
-						structerr.NewInternal("blaming file: exit status 128").WithMetadata("stderr", "fatal: file path has only 1 line\n"),
+						structerr.NewInvalidArgument("range is outside of the file length").
+							WithMetadata("revision", commit.String()).
+							WithMetadata("path", "path").
+							WithMetadata("lines", 3).
+							WithDetail(&gitalypb.RawBlameError{
+								Error: &gitalypb.RawBlameError_OutOfRange{
+									OutOfRange: &gitalypb.RawBlameError_OutOfRangeError{
+										ActualLines: 3,
+									},
+								},
+							}),
 					),
 				}
 			},
@@ -151,7 +162,16 @@ func TestRawBlame(t *testing.T) {
 						Range:      []byte("1,1"),
 					},
 					expectedErr: testhelper.ToInterceptedMetadata(
-						structerr.NewInternal("blaming file: exit status 128").WithMetadata("stderr", "fatal: no such path does-not-exist in "+commit.String()+"\n"),
+						structerr.NewNotFound("path not found in revision").
+							WithMetadata("revision", commit.String()).
+							WithMetadata("path", "does-not-exist").
+							WithDetail(&gitalypb.RawBlameError{
+								Error: &gitalypb.RawBlameError_PathNotFound{
+									PathNotFound: &gitalypb.PathNotFoundError{
+										Path: []byte("does-not-exist"),
+									},
+								},
+							}),
 					),
 				}
 			},
@@ -315,7 +335,7 @@ filename path
 			})
 
 			data, err := io.ReadAll(reader)
-			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.RequireGrpcError(t, setup.expectedErr, err, protocmp.SortRepeatedFields(&spb.Status{}, "details"))
 			require.Equal(t, setup.expectedData, string(data))
 		})
 	}

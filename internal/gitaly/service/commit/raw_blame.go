@@ -3,6 +3,7 @@ package commit
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -12,7 +13,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
-var validBlameRange = regexp.MustCompile(`\A\d+,\d+\z`)
+var (
+	validBlameRange           = regexp.MustCompile(`\A\d+,\d+\z`)
+	blameLineCountErrorRegexp = regexp.MustCompile("^fatal: file .* has only (\\d) lines?\n$")
+)
 
 func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitService_RawBlameServer) error {
 	if err := validateRawBlameRequest(s.locator, in); err != nil {
@@ -45,6 +49,40 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 	}
 
 	if err := cmd.Wait(); err != nil {
+		errorMessage := stderr.String()
+
+		if strings.HasPrefix(errorMessage, "fatal: no such path ") {
+			return structerr.NewNotFound("path not found in revision").
+				WithMetadata("path", path).
+				WithMetadata("revision", revision).
+				WithDetail(&gitalypb.RawBlameError{
+					Error: &gitalypb.RawBlameError_PathNotFound{
+						PathNotFound: &gitalypb.PathNotFoundError{
+							Path: in.GetPath(),
+						},
+					},
+				})
+		}
+
+		if matches := blameLineCountErrorRegexp.FindStringSubmatch(errorMessage); len(matches) == 2 {
+			lines, err := strconv.ParseUint(matches[1], 10, 64)
+			if err != nil {
+				return structerr.New("failed parsing actual lines").WithMetadata("lines", matches[1])
+			}
+
+			return structerr.NewInvalidArgument("range is outside of the file length").
+				WithMetadata("path", path).
+				WithMetadata("revision", revision).
+				WithMetadata("lines", lines).
+				WithDetail(&gitalypb.RawBlameError{
+					Error: &gitalypb.RawBlameError_OutOfRange{
+						OutOfRange: &gitalypb.RawBlameError_OutOfRangeError{
+							ActualLines: lines,
+						},
+					},
+				})
+		}
+
 		return structerr.New("blaming file: %w", err).WithMetadata("stderr", stderr.String())
 	}
 

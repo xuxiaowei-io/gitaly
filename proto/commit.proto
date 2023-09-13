@@ -703,6 +703,23 @@ message RawBlameResponse {
   bytes data = 1;
 }
 
+// RawBlameError is used as error detail when the RawBlame RPC fails in a specific way.
+message RawBlameError {
+  // OutOfRangeError indicates that the specified file range that is to be blamed exceeds the length of the blamed
+  // file.
+  message OutOfRangeError {
+    // ActualLines contains the actual number of lines that can be blamed in the file.
+    uint64 actual_lines = 1;
+  }
+
+  oneof error {
+    // PathNotFound is returned when the blamed path cannot be found in the revision.
+    PathNotFoundError path_not_found = 1;
+    // OutOfRangeError is returned when the specified blamed range exceeds the file length.
+    OutOfRangeError out_of_range = 2;
+  }
+}
+
 // LastCommitForPathRequest is a request for the LastCommitForPath RPC.
 message LastCommitForPathRequest {
   // Repository is the repository to run the query in.
