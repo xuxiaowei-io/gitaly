@@ -85,39 +85,22 @@ func (rr *remoteRepository) GetCustomHooks(ctx context.Context, out io.Writer) e
 	return nil
 }
 
-// CreateBundle fetches a bundle that contains refs matching patterns.
+// CreateBundle fetches a bundle that contains refs matching patterns. When
+// patterns is nil all refs are bundled.
 func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error {
+	if patterns != nil {
+		return rr.createBundlePatterns(ctx, out, patterns)
+	}
+
+	return rr.createBundle(ctx, out)
+}
+
+func (rr *remoteRepository) createBundle(ctx context.Context, out io.Writer) error {
 	repoClient := rr.newRepoClient()
-	stream, err := repoClient.CreateBundleFromRefList(ctx)
-	if err != nil {
-		return fmt.Errorf("remote repository: create bundle: %w", err)
-	}
-	c := chunk.New(&createBundleFromRefListSender{
-		stream: stream,
+	stream, err := repoClient.CreateBundle(ctx, &gitalypb.CreateBundleRequest{
+		Repository: rr.repo,
 	})
-
-	buf := bufio.NewReader(patterns)
-	for {
-		line, err := buf.ReadBytes('\n')
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return fmt.Errorf("remote repository: create bundle: %w", err)
-		}
-
-		line = bytes.TrimSuffix(line, []byte("\n"))
-
-		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
-			Repository: rr.repo,
-			Patterns:   [][]byte{line},
-		}); err != nil {
-			return fmt.Errorf("remote repository: create bundle: %w", err)
-		}
-	}
-	if err := c.Flush(); err != nil {
-		return fmt.Errorf("remote repository: create bundle: %w", err)
-	}
-	if err := stream.CloseSend(); err != nil {
+	if err != nil {
 		return fmt.Errorf("remote repository: create bundle: %w", err)
 	}
 
@@ -131,6 +114,56 @@ func (rr *remoteRepository) CreateBundle(ctx context.Context, out io.Writer, pat
 
 	if _, err := io.Copy(out, bundle); err != nil {
 		return fmt.Errorf("remote repository: create bundle: %w", err)
+	}
+
+	return nil
+}
+
+func (rr *remoteRepository) createBundlePatterns(ctx context.Context, out io.Writer, patterns io.Reader) error {
+	repoClient := rr.newRepoClient()
+	stream, err := repoClient.CreateBundleFromRefList(ctx)
+	if err != nil {
+		return fmt.Errorf("remote repository: create bundle patterns: %w", err)
+	}
+	c := chunk.New(&createBundleFromRefListSender{
+		stream: stream,
+	})
+
+	buf := bufio.NewReader(patterns)
+	for {
+		line, err := buf.ReadBytes('\n')
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return fmt.Errorf("remote repository: create bundle patterns: %w", err)
+		}
+
+		line = bytes.TrimSuffix(line, []byte("\n"))
+
+		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
+			Repository: rr.repo,
+			Patterns:   [][]byte{line},
+		}); err != nil {
+			return fmt.Errorf("remote repository: create bundle patterns: %w", err)
+		}
+	}
+	if err := c.Flush(); err != nil {
+		return fmt.Errorf("remote repository: create bundle patterns: %w", err)
+	}
+	if err := stream.CloseSend(); err != nil {
+		return fmt.Errorf("remote repository: create bundle patterns: %w", err)
+	}
+
+	bundle := streamio.NewReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		if structerr.GRPCCode(err) == codes.FailedPrecondition {
+			err = localrepo.ErrEmptyBundle
+		}
+		return resp.GetData(), err
+	})
+
+	if _, err := io.Copy(out, bundle); err != nil {
+		return fmt.Errorf("remote repository: create bundle patterns: %w", err)
 	}
 
 	return nil
@@ -310,7 +343,8 @@ func (r *localRepository) GetCustomHooks(ctx context.Context, out io.Writer) err
 	return nil
 }
 
-// CreateBundle fetches a bundle that contains refs matching patterns.
+// CreateBundle fetches a bundle that contains refs matching patterns. When
+// patterns is nil all refs are bundled.
 func (r *localRepository) CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error {
 	err := r.repo.CreateBundle(ctx, out, &localrepo.CreateBundleOpts{
 		Patterns: patterns,

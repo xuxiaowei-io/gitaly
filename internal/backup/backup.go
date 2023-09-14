@@ -83,7 +83,8 @@ type Repository interface {
 	ListRefs(ctx context.Context) ([]git.Reference, error)
 	// GetCustomHooks fetches the custom hooks archive.
 	GetCustomHooks(ctx context.Context, out io.Writer) error
-	// CreateBundle fetches a bundle that contains refs matching patterns.
+	// CreateBundle fetches a bundle that contains refs matching patterns. When
+	// patterns is nil all refs are bundled.
 	CreateBundle(ctx context.Context, out io.Writer, patterns io.Reader) error
 	// Remove removes the repository. Does not return an error if the
 	// repository cannot be found.
