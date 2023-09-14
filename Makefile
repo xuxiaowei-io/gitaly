@@ -652,4 +652,4 @@ ${PROTOC_GEN_DOC}:    TOOL_PACKAGE = github.com/pseudomuto/protoc-gen-doc/cmd/pr
 ${DELVE}:             TOOL_PACKAGE = github.com/go-delve/delve/cmd/dlv
 
 ${BENCHMARK_REPO}:
-	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab.git $@
+	${GIT} clone --mirror ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab.git $@
