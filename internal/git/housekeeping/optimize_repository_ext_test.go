@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -173,9 +171,8 @@ func TestPruneIfNeeded(t *testing.T) {
 			}
 
 			logger, hook := test.NewNullLogger()
-			ctx := ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
-			require.NoError(t, housekeeping.NewManager(cfg.Prometheus, nil).OptimizeRepository(ctx, repo))
+			require.NoError(t, housekeeping.NewManager(cfg.Prometheus, nil).OptimizeRepository(ctx, logger, repo))
 			require.Equal(t, tc.expectedLogEntries, hook.Entries[len(hook.Entries)-1].Data["optimizations"])
 		})
 	}

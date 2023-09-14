@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
@@ -41,6 +41,7 @@ func WithOptimizationStrategyConstructor(strategyConstructor OptimizationStrateg
 // or not depends on a set of heuristics.
 func (m *RepositoryManager) OptimizeRepository(
 	ctx context.Context,
+	logger logrus.FieldLogger,
 	repo *localrepo.Repo,
 	opts ...OptimizeRepositoryOption,
 ) error {
@@ -83,7 +84,7 @@ func (m *RepositoryManager) OptimizeRepository(
 		strategy = cfg.StrategyConstructor(repositoryInfo)
 	}
 
-	return m.optimizeFunc(ctx, m, repo, strategy)
+	return m.optimizeFunc(ctx, m, logger, repo, strategy)
 }
 
 func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats.RepositoryInfo) {
@@ -139,6 +140,7 @@ func (m *RepositoryManager) reportDataStructureSize(dataStructure string, size u
 func optimizeRepository(
 	ctx context.Context,
 	m *RepositoryManager,
+	logger logrus.FieldLogger,
 	repo *localrepo.Repo,
 	strategy OptimizationStrategy,
 ) error {
@@ -148,7 +150,7 @@ func optimizeRepository(
 	optimizations := make(map[string]string)
 	defer func() {
 		totalTimer.ObserveDuration()
-		ctxlogrus.Extract(ctx).WithField("optimizations", optimizations).Info("optimized repository")
+		logger.WithField("optimizations", optimizations).Info("optimized repository")
 
 		for task, status := range optimizations {
 			m.tasksTotal.WithLabelValues(task, status).Inc()
@@ -158,7 +160,7 @@ func optimizeRepository(
 	}()
 
 	timer := prometheus.NewTimer(m.tasksLatency.WithLabelValues("clean-stale-data"))
-	if err := m.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()); err != nil {
+	if err := m.CleanStaleData(ctx, logger, repo, DefaultStaleDataCleanup()); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 	timer.ObserveDuration()

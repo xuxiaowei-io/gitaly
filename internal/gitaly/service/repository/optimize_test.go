@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -258,7 +259,7 @@ type mockHousekeepingManager struct {
 	strategyCh chan housekeeping.OptimizationStrategy
 }
 
-func (m mockHousekeepingManager) OptimizeRepository(_ context.Context, _ *localrepo.Repo, opts ...housekeeping.OptimizeRepositoryOption) error {
+func (m mockHousekeepingManager) OptimizeRepository(_ context.Context, _ logrus.FieldLogger, _ *localrepo.Repo, opts ...housekeeping.OptimizeRepositoryOption) error {
 	var cfg housekeeping.OptimizeRepositoryConfig
 	for _, opt := range opts {
 		opt(&cfg)

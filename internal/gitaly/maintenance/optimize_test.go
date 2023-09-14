@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -26,7 +27,7 @@ type mockOptimizer struct {
 	cfg    config.Cfg
 }
 
-func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, repository storage.Repository) error {
+func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, logger logrus.FieldLogger, repository storage.Repository) error {
 	mo.actual = append(mo.actual, repository)
 	l := config.NewLocator(mo.cfg)
 	gitCmdFactory := gittest.NewCommandFactory(mo.t, mo.cfg)
@@ -35,7 +36,7 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, repository stor
 	txManager := transaction.NewManager(mo.cfg, backchannel.NewRegistry())
 	housekeepingManager := housekeeping.NewManager(mo.cfg.Prometheus, txManager)
 
-	return housekeepingManager.OptimizeRepository(ctx, localrepo.New(l, gitCmdFactory, catfileCache, repository))
+	return housekeepingManager.OptimizeRepository(ctx, logger, localrepo.New(l, gitCmdFactory, catfileCache, repository))
 }
 
 func TestOptimizeReposRandomly(t *testing.T) {
@@ -103,13 +104,15 @@ func TestOptimizeReposRandomly(t *testing.T) {
 				tickerDone = true
 			}
 
+			logger := testhelper.SharedLogger(t)
+
 			mo := &mockOptimizer{
 				t:   t,
 				cfg: cfg,
 			}
 			walker := OptimizeReposRandomly(cfg, mo, ticker, rand.New(rand.NewSource(1)))
 
-			require.NoError(t, walker(ctx, testhelper.SharedLogger(t), tc.storages))
+			require.NoError(t, walker(ctx, logger, tc.storages))
 			require.ElementsMatch(t, tc.expected, mo.actual)
 			require.True(t, tickerDone)
 			// We expect one more tick than optimized repositories because of the

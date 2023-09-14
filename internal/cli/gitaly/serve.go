@@ -430,8 +430,8 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	shutdownWorkers, err := maintenance.StartWorkers(
 		ctx,
 		logger,
-		maintenance.DailyOptimizationWorker(cfg, maintenance.OptimizerFunc(func(ctx context.Context, repo storage.Repository) error {
-			return housekeepingManager.OptimizeRepository(ctx, localrepo.New(locator, gitCmdFactory, catfileCache, repo))
+		maintenance.DailyOptimizationWorker(cfg, maintenance.OptimizerFunc(func(ctx context.Context, logger logrus.FieldLogger, repo storage.Repository) error {
+			return housekeepingManager.OptimizeRepository(ctx, logger, localrepo.New(locator, gitCmdFactory, catfileCache, repo))
 		})),
 	)
 	if err != nil {

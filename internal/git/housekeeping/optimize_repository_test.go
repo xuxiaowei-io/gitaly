@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
@@ -1027,7 +1028,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 			manager := NewManager(cfg.Prometheus, txManager)
 
-			err := manager.OptimizeRepository(ctx, setup.repo, setup.options...)
+			err := manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), setup.repo, setup.options...)
 			require.Equal(t, setup.expectedErr, err)
 
 			expectedMetrics := setup.expectedMetrics
@@ -1075,7 +1076,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error {
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error {
 			reqReceivedCh <- struct{}{}
 			ch <- struct{}{}
 
@@ -1083,14 +1084,14 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		}
 
 		go func() {
-			require.NoError(t, manager.OptimizeRepository(ctx, repo))
+			require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
 		}()
 
 		<-reqReceivedCh
 		// When repository optimizations are performed for a specific repository already,
 		// then any subsequent calls to the same repository should just return immediately
 		// without doing any optimizations at all.
-		require.NoError(t, manager.OptimizeRepository(ctx, repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
 
 		<-ch
 	})
@@ -1107,7 +1108,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error {
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error {
 			// This should only happen if housekeeping is running successfully.
 			// So by sending data on this channel we can notify the test that this
 			// function ran successfully.
@@ -1126,7 +1127,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		}
 
 		go func() {
-			require.NoError(t, manager.OptimizeRepository(ctx, repo))
+			require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
 		}()
 
 		// Only if optimizeFunc is run, we shall receive data here, this acts as test that
@@ -1141,7 +1142,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error {
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error {
 			require.FailNow(t, "housekeeping run should have been skipped")
 			return nil
 		}
@@ -1152,7 +1153,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		// check that the state actually exists.
 		require.Contains(t, manager.repositoryStates.values, repoPath)
 
-		require.NoError(t, manager.OptimizeRepository(ctx, repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
 
 		// After running the cleanup, the state should be removed.
 		cleanup()
@@ -1174,7 +1175,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		reposOptimized := make(map[string]struct{})
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(_ context.Context, _ *RepositoryManager, repo *localrepo.Repo, _ OptimizationStrategy) error {
+		manager.optimizeFunc = func(_ context.Context, _ *RepositoryManager, _ logrus.FieldLogger, repo *localrepo.Repo, _ OptimizationStrategy) error {
 			reposOptimized[repo.GetRelativePath()] = struct{}{}
 
 			if repo.GetRelativePath() == repoFirst.GetRelativePath() {
@@ -1188,13 +1189,13 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		// We block in the first call so that we can assert that a second call
 		// to a different repository performs the optimization regardless without blocking.
 		go func() {
-			require.NoError(t, manager.OptimizeRepository(ctx, repoFirst))
+			require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repoFirst))
 		}()
 
 		<-reqReceivedCh
 
 		// Because this optimizes a different repository this call shouldn't block.
-		require.NoError(t, manager.OptimizeRepository(ctx, repoSecond))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repoSecond))
 
 		<-ch
 
@@ -1211,7 +1212,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		var optimizations int
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error {
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error {
 			optimizations++
 
 			if optimizations == 1 {
@@ -1226,7 +1227,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			require.NoError(t, manager.OptimizeRepository(ctx, repo))
+			require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
 		}()
 
 		<-reqReceivedCh
@@ -1235,9 +1236,9 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		// that all subsequent calls which try to optimize the same repository return immediately.
 		// Furthermore, we expect to see only a single call to the optimizing function because we
 		// don't want to optimize the same repository concurrently.
-		require.NoError(t, manager.OptimizeRepository(ctx, repo))
-		require.NoError(t, manager.OptimizeRepository(ctx, repo))
-		require.NoError(t, manager.OptimizeRepository(ctx, repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
 		assert.Equal(t, 1, optimizations)
 
 		<-ch
@@ -1246,9 +1247,9 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		// When performing optimizations sequentially though the repository
 		// should be unlocked after every call, and consequentially we should
 		// also see multiple calls to the optimizing function.
-		require.NoError(t, manager.OptimizeRepository(ctx, repo))
-		require.NoError(t, manager.OptimizeRepository(ctx, repo))
-		require.NoError(t, manager.OptimizeRepository(ctx, repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
 		assert.Equal(t, 4, optimizations)
 	})
 }
