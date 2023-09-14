@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -493,11 +494,16 @@ func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []git.Refer
 		}
 	}()
 
+	buf := bufio.NewWriter(w)
 	for _, ref := range refs {
-		_, err = fmt.Fprintf(w, "%s %s\n", ref.Target, ref.Name)
+		_, err = fmt.Fprintf(buf, "%s %s\n", ref.Target, ref.Name)
 		if err != nil {
 			return fmt.Errorf("write refs: %w", err)
 		}
+	}
+
+	if err := buf.Flush(); err != nil {
+		return fmt.Errorf("write refs: %w", err)
 	}
 
 	return nil
