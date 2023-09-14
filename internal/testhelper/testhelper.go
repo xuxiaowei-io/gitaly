@@ -222,6 +222,33 @@ func Context(tb testing.TB, opts ...ContextOpt) context.Context {
 	return ctx
 }
 
+// ContextWithSimulatedTimeout creates a new context and allows the caller to simulate a timeout event. It returns a new
+// context, a cancelation function, and a function that triggers the timeout event. After timeout, ctx.Done() channel
+// is closed and ctx.Err() returns context.DeadlineExceeded. The context can be cancelled earlier by calling the
+// returned cancelation function. This behavior is similar to any context returned from context.WithTimeout() or
+// context.WithDeadline().
+func ContextWithSimulatedTimeout(ctx context.Context) (context.Context, context.CancelFunc, context.CancelFunc) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	tctx := &timeoutContext{ctx}
+	return tctx, func() { cancel(nil) }, func() { cancel(errSimulatedDeadlineExceeded) }
+}
+
+var errSimulatedDeadlineExceeded = fmt.Errorf("simulated deadline exceeded")
+
+type timeoutContext struct {
+	context.Context
+}
+
+func (c *timeoutContext) Err() error {
+	if c.Context.Err() == nil {
+		return nil
+	}
+	if err := context.Cause(c); errors.Is(err, errSimulatedDeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+	return c.Context.Err()
+}
+
 // ContextWithoutCancel returns a non-cancellable context.
 func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx := context.Background()

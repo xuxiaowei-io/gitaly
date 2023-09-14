@@ -297,18 +297,10 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	packObjectsMonitor := limiter.NewPackObjectsConcurrencyMonitor(
 		cfg.Prometheus.GRPCLatencyBuckets,
 	)
-	newTickerFunc := func() helper.Ticker {
-		return helper.NewManualTicker()
-	}
-	if cfg.PackObjectsLimiting.MaxQueueWait > 0 {
-		newTickerFunc = func() helper.Ticker {
-			return helper.NewTimerTicker(cfg.PackObjectsLimiting.MaxQueueWait.Duration())
-		}
-	}
 	packObjectsLimiter := limiter.NewConcurrencyLimiter(
 		cfg.PackObjectsLimiting.MaxConcurrency,
 		cfg.PackObjectsLimiting.MaxQueueLength,
-		newTickerFunc,
+		cfg.PackObjectsLimiting.MaxQueueWait.Duration(),
 		packObjectsMonitor,
 	)
 

@@ -205,20 +205,10 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 	for _, limit := range cfg.Concurrency {
 		limit := limit
 
-		newTickerFunc := func() helper.Ticker {
-			return helper.NewManualTicker()
-		}
-
-		if limit.MaxQueueWait > 0 {
-			newTickerFunc = func() helper.Ticker {
-				return helper.NewTimerTicker(limit.MaxQueueWait.Duration())
-			}
-		}
-
 		result[limit.RPC] = limiter.NewConcurrencyLimiter(
 			limit.MaxPerRepo,
 			limit.MaxQueueSize,
-			newTickerFunc,
+			limit.MaxQueueWait.Duration(),
 			limiter.NewPerRPCPromMonitor(
 				"gitaly", limit.RPC,
 				queuedMetric, inProgressMetric, acquiringSecondsMetric, middleware.requestsDroppedMetric,
@@ -232,9 +222,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 		result[replicateRepositoryFullMethod] = limiter.NewConcurrencyLimiter(
 			1,
 			0,
-			func() helper.Ticker {
-				return helper.NewManualTicker()
-			},
+			0,
 			limiter.NewPerRPCPromMonitor(
 				"gitaly", replicateRepositoryFullMethod,
 				queuedMetric, inProgressMetric, acquiringSecondsMetric, middleware.requestsDroppedMetric,

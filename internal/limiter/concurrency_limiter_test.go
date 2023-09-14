@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -157,7 +156,7 @@ func TestLimiter(t *testing.T) {
 			limiter := NewConcurrencyLimiter(
 				tt.maxConcurrency,
 				0,
-				nil,
+				0,
 				gauge,
 			)
 			wg := sync.WaitGroup{}
@@ -248,7 +247,7 @@ func TestConcurrencyLimiter_queueLimit(t *testing.T) {
 	monitorCh := make(chan struct{})
 	monitor := &blockingQueueCounter{queuedCh: monitorCh}
 	ch := make(chan struct{})
-	limiter := NewConcurrencyLimiter(1, queueLimit, nil, monitor)
+	limiter := NewConcurrencyLimiter(1, queueLimit, 0, monitor)
 
 	// occupied with one live request that takes a long time to complete
 	go func() {
@@ -325,9 +324,11 @@ func (b *blockingDequeueCounter) Dequeued(context.Context) {
 }
 
 func TestLimitConcurrency_queueWaitTime(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
-	ticker := helper.NewManualTicker()
+	ctx := testhelper.Context(t)
+	limiterCtx, cancel, simulateTimeout := testhelper.ContextWithSimulatedTimeout(ctx)
+	defer cancel()
 
 	dequeuedCh := make(chan struct{})
 	monitor := &blockingDequeueCounter{dequeuedCh: dequeuedCh}
@@ -335,11 +336,10 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 	limiter := NewConcurrencyLimiter(
 		1,
 		0,
-		func() helper.Ticker {
-			return ticker
-		},
+		1*time.Millisecond,
 		monitor,
 	)
+	limiter.SetWaitTimeoutContext = func() context.Context { return limiterCtx }
 
 	ch := make(chan struct{})
 	var wg sync.WaitGroup
@@ -355,7 +355,7 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 
 	<-dequeuedCh
 
-	ticker.Tick()
+	simulateTimeout()
 
 	errChan := make(chan error)
 	go func() {
@@ -383,4 +383,50 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 	assert.Equal(t, monitor.droppedTime, 1)
 	close(ch)
 	wg.Wait()
+}
+
+func TestLimitConcurrency_queueWaitTimeRealTimeout(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	limiter := NewConcurrencyLimiter(
+		1,
+		0,
+		1*time.Millisecond,
+		&counter{},
+	)
+
+	waitAcquire := make(chan struct{})
+	release := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+			close(waitAcquire)
+			<-release
+			return nil, nil
+		})
+		require.NoError(t, err)
+	}()
+
+	<-waitAcquire
+	_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+		return nil, nil
+	})
+
+	var structErr structerr.Error
+	require.True(t, errors.As(err, &structErr))
+	details := structErr.Details()
+	require.Len(t, details, 1)
+
+	limitErr, ok := details[0].(*gitalypb.LimitError)
+	require.True(t, ok)
+
+	testhelper.RequireGrpcCode(t, err, codes.ResourceExhausted)
+	assert.Equal(t, ErrMaxQueueTime.Error(), limitErr.ErrorMessage)
+	assert.Equal(t, durationpb.New(0), limitErr.RetryAfter)
+
+	close(release)
 }
