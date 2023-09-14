@@ -3,12 +3,17 @@ package ref
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"os/exec"
+	"strings"
+	"syscall"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/lines"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -129,13 +134,14 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 		options = append(options, opts.cmdArgs...)
 	}
 
+	var stderr strings.Builder
 	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "for-each-ref",
 		Flags: options,
 		Args:  patterns,
-	}, git.WithSetupStdout())
+	}, git.WithSetupStdout(), git.WithStderr(&stderr))
 	if err != nil {
-		return err
+		return fmt.Errorf("spawning for-each-ref: %w", err)
 	}
 
 	if err := lines.Send(cmd, writer, lines.SenderOpts{
@@ -144,10 +150,31 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 		Limit:          opts.Limit,
 		PageTokenError: opts.PageTokenError,
 	}); err != nil {
-		return err
+		return fmt.Errorf("sending lines: %w", err)
 	}
 
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// When we have a limit set up and have sent all references upstream then the call to `Wait()` may
+			// indeed cause us to tear down the still-running git-for-each-ref(1) process. Because we close stdout
+			// before sending a signal the end result may be that the process will die with EPIPE because it failed
+			// to write to stdout.
+			//
+			// This is an expected error though, and thus we ignore it here.
+			status, ok := exitErr.ProcessState.Sys().(syscall.WaitStatus)
+			if ok && status.Signaled() && status.Signal() == syscall.SIGPIPE {
+				return nil
+			}
+
+			return structerr.New("listing failed with exit code %d", status.ExitStatus()).
+				WithMetadata("stderr", stderr.String())
+		}
+
+		return fmt.Errorf("waiting for for-each-ref: %w", err)
+	}
+
+	return nil
 }
 
 type paginationOpts struct {

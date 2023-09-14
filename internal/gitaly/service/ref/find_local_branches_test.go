@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -233,6 +234,42 @@ func TestFindLocalBranches(t *testing.T) {
 			},
 		},
 		{
+			desc: "with pagination limit and many filtered branches",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID, commit := writeCommit(t, ctx, cfg, repo, gittest.WithBranch("branch-a"), gittest.WithMessage("commit a"))
+
+				updater, err := updateref.New(ctx, gittest.NewRepositoryPathExecutor(t, cfg, repoPath))
+				require.NoError(t, err)
+
+				// Create a bunch of local branches. When we only ask for a very small subset, this will
+				// cause us to `Wait()` for git-for-each-ref(1) early while it is still enumerating the
+				// branches. We thus close its stdout early and then wait for it to terminate, which can
+				// lead to the process receiving the EPIPE signal if we didn't take proper care.
+				//
+				// So the more references we have, the more likely it is that we'll see the issue.
+				require.NoError(t, updater.Start())
+				for i := 0; i < 1000; i++ {
+					require.NoError(t, updater.Create(git.ReferenceName(fmt.Sprintf("refs/heads/branch-%d", i)), commitID))
+				}
+				require.NoError(t, updater.Commit())
+
+				return setupData{
+					request: &gitalypb.FindLocalBranchesRequest{
+						Repository: repo,
+						PaginationParams: &gitalypb.PaginationParameter{
+							Limit: 2,
+						},
+					},
+					expectedBranches: []*gitalypb.Branch{
+						{Name: []byte("refs/heads/branch-0"), TargetCommit: commit},
+						{Name: []byte("refs/heads/branch-1"), TargetCommit: commit},
+					},
+				}
+			},
+		},
+		{
 			desc: "invalid page token",
 			setup: func(t *testing.T) setupData {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -246,7 +283,7 @@ func TestFindLocalBranches(t *testing.T) {
 							PageToken: "refs/heads/does-not-exist",
 						},
 					},
-					expectedErr: structerr.NewInternal("finding refs: could not find page token"),
+					expectedErr: structerr.NewInternal("finding refs: sending lines: could not find page token"),
 				}
 			},
 		},
