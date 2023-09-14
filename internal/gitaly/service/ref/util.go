@@ -3,11 +3,13 @@ package ref
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"os/exec"
 	"strings"
+	"syscall"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/lines"
@@ -152,8 +154,20 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 	}
 
 	if err := cmd.Wait(); err != nil {
-		if exitStatus, ok := command.ExitStatus(err); ok {
-			return structerr.New("listing failed with exit code %d", exitStatus).
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// When we have a limit set up and have sent all references upstream then the call to `Wait()` may
+			// indeed cause us to tear down the still-running git-for-each-ref(1) process. Because we close stdout
+			// before sending a signal the end result may be that the process will die with EPIPE because it failed
+			// to write to stdout.
+			//
+			// This is an expected error though, and thus we ignore it here.
+			status, ok := exitErr.ProcessState.Sys().(syscall.WaitStatus)
+			if ok && status.Signaled() && status.Signal() == syscall.SIGPIPE {
+				return nil
+			}
+
+			return structerr.New("listing failed with exit code %d", status.ExitStatus()).
 				WithMetadata("stderr", stderr.String())
 		}
 
