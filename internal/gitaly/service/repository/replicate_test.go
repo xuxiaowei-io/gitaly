@@ -47,6 +47,7 @@ func TestReplicateRepository(t *testing.T) {
 		featureflag.ReplicateRepositoryObjectPool,
 		featureflag.InterceptReplicateRepository,
 		featureflag.TransactionalAlternatesDisconnect,
+		featureflag.TransactionalLinkRepository,
 	).Run(t, testReplicateRepository)
 }
 

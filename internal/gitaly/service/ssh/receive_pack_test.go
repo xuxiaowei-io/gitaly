@@ -402,8 +402,12 @@ func TestReceivePack_customHookFailure(t *testing.T) {
 
 func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testReceivePackHidesObjectPoolReferences)
+}
 
-	ctx := testhelper.Context(t)
+func testReceivePackHidesObjectPoolReferences(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
