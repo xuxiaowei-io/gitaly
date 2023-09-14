@@ -5416,6 +5416,9 @@ func TestTransactionManager(t *testing.T) {
 				RepositoryAssertion{
 					TransactionID: 3,
 					Repositories: RepositoryStates{
+						"pool": {
+							DefaultBranch: "refs/heads/main",
+						},
 						"member": {
 							DefaultBranch: "refs/heads/main",
 							Alternate:     "../../pool/objects",
@@ -5628,6 +5631,107 @@ func TestTransactionManager(t *testing.T) {
 						},
 					),
 					"/wal/3/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc: "repository's alternate is automatically snapshotted",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						"pool": {
+							DefaultBranch: "refs/heads/main",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+						},
+						"member": {
+							DefaultBranch: "refs/heads/main",
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+							Alternate: "../../pool/objects",
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 3,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					},
+					"member": {
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						Alternate: "../../pool/objects",
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
 				},
 			},
 		},

@@ -79,12 +79,21 @@ func TestFsck(t *testing.T) {
 				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "objects")))
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects"), nil, perm.SharedFile))
 
-				return setupData{
+				setupData := setupData{
 					repo: repo,
 					requireResponse: func(actual *gitalypb.FsckResponse) {
 						require.Regexp(t, "^fatal: not a git repository: '.+'\n$", string(actual.Error))
 					},
 				}
+
+				if testhelper.IsWALEnabled() {
+					setupData.requireResponse = nil
+					setupData.requireError = func(actual error) {
+						require.Regexp(t, "begin transaction: .+/objects/info/alternates: not a directory$", actual.Error())
+					}
+				}
+
+				return setupData
 			},
 		},
 		{

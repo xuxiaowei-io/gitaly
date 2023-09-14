@@ -297,11 +297,30 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, r
 			return nil, fmt.Errorf("snapshot root relative path: %w", err)
 		}
 
+		snapshotRepositoryPath := mgr.getAbsolutePath(txn.snapshotRelativePath(txn.relativePath))
 		if err := mgr.createRepositorySnapshot(ctx,
 			mgr.getAbsolutePath(txn.relativePath),
-			mgr.getAbsolutePath(txn.snapshotRelativePath(txn.relativePath)),
+			snapshotRepositoryPath,
 		); err != nil {
 			return nil, fmt.Errorf("create snapshot: %w", err)
+		}
+
+		// Read the repository's 'objects/info/alternates' file to figure out whether it is connected
+		// to an alternate. If so, we need to include the alternate repository in the snapshot along
+		// with the repository itself to ensure the objects from the alternate are also available.
+		if alternate, err := readAlternatesFile(snapshotRepositoryPath); err != nil && !errors.Is(err, errNoAlternate) {
+			return nil, fmt.Errorf("get alternate path: %w", err)
+		} else if alternate != "" {
+			// The repository had an alternate. The path is a relative from the repository's 'objects' directory
+			// to the alternates 'objects' directory. Build the relative path of the alternate repository.
+			alternateRelativePath := filepath.Dir(filepath.Join(txn.relativePath, "objects", alternate))
+			// Include the alternate repository in the snapshot as well.
+			if err := mgr.createRepositorySnapshot(ctx,
+				mgr.getAbsolutePath(alternateRelativePath),
+				mgr.getAbsolutePath(txn.snapshotRelativePath(alternateRelativePath)),
+			); err != nil {
+				return nil, fmt.Errorf("create alternate snapshot: %w", err)
+			}
 		}
 
 		txn.repositoryExists, err = mgr.doesRepositoryExist(txn.snapshotRelativePath(txn.relativePath))
