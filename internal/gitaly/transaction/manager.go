@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -177,5 +176,5 @@ func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction) error {
 }
 
 func (m *PoolManager) log(ctx context.Context) log.Logger {
-	return ctxlogrus.Extract(ctx).WithField("component", "transaction.PoolManager")
+	return log.FromContext(ctx).WithField("component", "transaction.PoolManager")
 }

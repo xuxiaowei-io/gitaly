@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/archive"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -98,7 +98,7 @@ func (s *server) addAlternateFiles(ctx context.Context, repository *gitalypb.Rep
 
 	altObjDirs, err := git.AlternateObjectDirectories(ctx, storageRoot, repoPath)
 	if err != nil {
-		ctxlogrus.Extract(ctx).WithField("error", err).Warn("error getting alternate object directories")
+		log.FromContext(ctx).WithField("error", err).Warn("error getting alternate object directories")
 		return nil
 	}
 

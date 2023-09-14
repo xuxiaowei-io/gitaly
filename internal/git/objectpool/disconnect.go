@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 )
 
@@ -210,7 +210,7 @@ func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, ba
 			return
 		}
 
-		logger := ctxlogrus.Extract(ctx)
+		logger := log.FromContext(ctx)
 
 		// If we would do a os.Rename, and then someone else comes and clobbers
 		// our file, it's gone forever. This trick with os.Link and os.Rename

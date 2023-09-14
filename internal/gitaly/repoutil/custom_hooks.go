@@ -12,12 +12,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
@@ -123,7 +123,7 @@ func SetCustomHooks(
 		// future modifications to the repository's hooks will be prevented. If
 		// this occurs, the `.lock` file will have to be manually removed.
 		if err := hooksLock.Unlock(); err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Error("failed to unlock hooks")
+			log.FromContext(ctx).WithError(err).Error("failed to unlock hooks")
 		}
 	}()
 
@@ -138,7 +138,7 @@ func SetCustomHooks(
 
 	defer func() {
 		if err := os.RemoveAll(tmpDir.Path()); err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Warn("failed to remove temporary directory")
+			log.FromContext(ctx).WithError(err).Warn("failed to remove temporary directory")
 		}
 	}()
 

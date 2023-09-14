@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -57,8 +57,7 @@ func handleResolveConflictsErr(err error, stream gitalypb.ConflictsService_Resol
 				// log the error since the interceptor won't catch this
 				// error due to the unique way the RPC is defined to
 				// handle resolution errors
-				ctxlogrus.
-					Extract(stream.Context()).
+				log.FromContext(stream.Context()).
 					WithError(err).
 					Error("ResolveConflicts: unable to resolve conflict")
 				return stream.SendAndClose(&gitalypb.ResolveConflictsResponse{

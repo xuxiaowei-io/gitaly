@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // BuildSSHInvocation builds a command line to invoke SSH with the provided key and known hosts.
@@ -26,7 +26,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 
 	cleanup := func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Error("failed to remove tmp directory with ssh key/config")
+			log.FromContext(ctx).WithError(err).Error("failed to remove tmp directory with ssh key/config")
 		}
 	}
 

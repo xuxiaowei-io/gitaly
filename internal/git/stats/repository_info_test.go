@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
@@ -19,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -103,7 +103,7 @@ func TestLogObjectInfo(t *testing.T) {
 		t.Parallel()
 
 		logger, hook := test.NewNullLogger()
-		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
+		ctx := log.FromLogrusEntry(logger.WithField("test", "logging")).ToContext(ctx)
 
 		_, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
@@ -152,7 +152,7 @@ func TestLogObjectInfo(t *testing.T) {
 		t.Parallel()
 
 		logger, hook := test.NewNullLogger()
-		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
+		ctx := log.FromLogrusEntry(logger.WithField("test", "logging")).ToContext(ctx)
 
 		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,

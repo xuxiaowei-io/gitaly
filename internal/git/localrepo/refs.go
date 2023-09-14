@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 )
 
@@ -164,7 +164,7 @@ func (repo *Repo) setDefaultBranchWithTransaction(ctx context.Context, txManager
 	}
 	defer func() {
 		if err := lockingFileWriter.Close(); err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Error("closing locked HEAD: %w", err)
+			log.FromContext(ctx).WithError(err).Error("closing locked HEAD: %w", err)
 		}
 	}()
 

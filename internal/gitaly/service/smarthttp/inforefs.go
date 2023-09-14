@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -54,7 +54,7 @@ func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitaly
 }
 
 func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, req *gitalypb.InfoRefsRequest, w io.Writer) error {
-	ctxlogrus.Extract(ctx).WithFields(log.Fields{
+	log.FromContext(ctx).WithFields(logrus.Fields{
 		"service": service,
 	}).Debug("handleInfoRefs")
 

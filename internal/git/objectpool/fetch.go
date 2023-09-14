@@ -8,7 +8,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
@@ -25,7 +24,7 @@ var objectPoolRefspec = fmt.Sprintf("+refs/*:%s/*", git.ObjectPoolRefNamespace)
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
 func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo) error {
-	logger := ctxlogrus.Extract(ctx)
+	logger := log.FromContext(ctx)
 
 	if !o.Exists() {
 		return structerr.NewInvalidArgument("object pool does not exist")

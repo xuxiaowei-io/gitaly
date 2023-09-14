@@ -9,13 +9,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -32,7 +32,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "unknown", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -56,7 +56,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -180,7 +180,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "replica-path-1", "g1", []string{"g2", "g3"}, nil, true, false))
 		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "replica-path-2", "g1", []string{"g2"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -230,7 +230,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -266,7 +266,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "replica-path-1", "g1", nil, nil, true, false))
 		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "replica-path-2", "g1", nil, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -331,7 +331,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			},
 		}
 
-		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), mockRepositoryStore, []string{"storage-1", "storage-2"})
+		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), mockRepositoryStore, []string{"storage-1", "storage-2"})
 		require.NoError(t, err)
 		cache.Connected()
 

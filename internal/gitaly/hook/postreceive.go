@@ -9,9 +9,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -119,12 +119,12 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 
 	if isPrimary(payload) {
 		if err := m.postReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Warn("stopping transaction because post-receive hook failed")
+			log.FromContext(ctx).WithError(err).Warn("stopping transaction because post-receive hook failed")
 
 			// If the post-receive hook declines the push, then we need to stop any
 			// secondaries voting on the transaction.
 			if err := m.stopTransaction(ctx, payload); err != nil {
-				ctxlogrus.Extract(ctx).WithError(err).Error("failed stopping transaction in post-receive hook")
+				log.FromContext(ctx).WithError(err).Error("failed stopping transaction in post-receive hook")
 			}
 
 			return err

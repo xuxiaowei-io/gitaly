@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // FixDirectoryPermissions does a recursive directory walk to look for
@@ -20,7 +20,7 @@ func FixDirectoryPermissions(ctx context.Context, path string) error {
 func fixDirectoryPermissions(ctx context.Context, path string, retriedPaths map[string]struct{}) error {
 	return filepath.Walk(path, func(path string, info os.FileInfo, errIncoming error) error {
 		if info == nil {
-			ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
+			log.FromContext(ctx).WithFields(logrus.Fields{
 				"path": path,
 			}).WithError(errIncoming).Error("nil FileInfo in perm.fixDirectoryPermissions")
 

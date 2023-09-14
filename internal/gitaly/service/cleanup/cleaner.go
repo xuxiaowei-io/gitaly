@@ -7,10 +7,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // forEachFunc can be called for every entry in the filter-repo or BFG object
@@ -120,7 +120,7 @@ func (c *cleaner) processEntry(ctx context.Context, updater *updateref.Updater, 
 		return nil
 	}
 
-	ctxlogrus.Extract(c.ctx).WithFields(log.Fields{
+	log.FromContext(ctx).WithFields(logrus.Fields{
 		"sha":  oldSHA,
 		"refs": refs,
 	}).Info("removing internal references")
@@ -162,7 +162,7 @@ func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[str
 		return nil, err
 	}
 
-	logger := ctxlogrus.Extract(ctx)
+	logger := log.FromContext(ctx)
 	out := make(map[string][]git.ReferenceName)
 	scanner := bufio.NewScanner(cmd)
 
@@ -171,7 +171,7 @@ func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[str
 
 		objectName, refName, ok := strings.Cut(line, " ")
 		if !ok {
-			logger.WithFields(log.Fields{"line": line}).Warn("failed to parse git refs")
+			logger.WithFields(logrus.Fields{"line": line}).Warn("failed to parse git refs")
 			return nil, fmt.Errorf("failed to parse git refs")
 		}
 

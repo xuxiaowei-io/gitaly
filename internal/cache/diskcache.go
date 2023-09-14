@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -243,7 +242,7 @@ func (c *DiskCache) GetStream(ctx context.Context, repo *gitalypb.Repository, re
 		return nil, err
 	}
 
-	ctxlogrus.Extract(ctx).
+	log.FromContext(ctx).
 		WithField("stream_path", respPath).
 		Info("getting stream")
 
@@ -282,7 +281,7 @@ func (c *DiskCache) PutStream(ctx context.Context, repo *gitalypb.Repository, re
 		return err
 	}
 
-	ctxlogrus.Extract(ctx).
+	log.FromContext(ctx).
 		WithField("stream_path", reqPath).
 		Info("putting stream")
 

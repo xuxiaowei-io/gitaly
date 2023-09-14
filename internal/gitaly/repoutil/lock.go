@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
@@ -41,7 +41,7 @@ func Lock(ctx context.Context, locator storage.Locator, repository storage.Repos
 
 	unlock := func() {
 		if err := locker.Close(); err != nil {
-			ctxlogrus.Extract(ctx).Error("closing repository locker: %w", err)
+			log.FromContext(ctx).Error("closing repository locker: %w", err)
 		}
 	}
 

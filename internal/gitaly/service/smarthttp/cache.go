@@ -5,11 +5,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -53,7 +53,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 		return missFn(w)
 	}
 
-	logger := ctxlogrus.Extract(ctx).WithFields(log.Fields{"service": uploadPackSvc})
+	logger := log.FromContext(ctx).WithFields(logrus.Fields{"service": uploadPackSvc})
 	logger.Debug("Attempting to fetch cached response")
 	countAttempt()
 

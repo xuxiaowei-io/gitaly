@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -120,7 +120,7 @@ func LooseObjects(repo *localrepo.Repo) (uint64, error) {
 func LogRepositoryInfo(ctx context.Context, repo *localrepo.Repo) {
 	repoInfo, err := RepositoryInfoForRepository(repo)
 	if err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Warn("failed reading repository info")
+		log.FromContext(ctx).WithError(err).Warn("failed reading repository info")
 	} else {
 		repoInfo.Log(ctx)
 	}
@@ -184,7 +184,7 @@ func RepositoryInfoForRepository(repo *localrepo.Repo) (RepositoryInfo, error) {
 
 // Log logs the repository information as a structured entry under the `repository_info` field.
 func (i RepositoryInfo) Log(ctx context.Context) {
-	ctxlogrus.Extract(ctx).WithField("repository_info", i).Info("repository info")
+	log.FromContext(ctx).WithField("repository_info", i).Info("repository info")
 }
 
 // ReferencesInfo contains information about references.

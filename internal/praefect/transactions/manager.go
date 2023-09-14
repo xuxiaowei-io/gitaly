@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -77,7 +76,7 @@ func (mgr *Manager) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (mgr *Manager) log(ctx context.Context) log.Logger {
-	return ctxlogrus.Extract(ctx).WithField("component", "transactions.Manager")
+	return log.FromContext(ctx).WithField("component", "transactions.Manager")
 }
 
 // CancelFunc is the transaction cancellation function returned by

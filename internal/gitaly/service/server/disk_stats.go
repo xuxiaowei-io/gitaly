@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -12,7 +12,7 @@ func (s *server) DiskStatistics(ctx context.Context, _ *gitalypb.DiskStatisticsR
 	for _, shard := range s.storages {
 		shardInfo, err := getStorageStatus(shard)
 		if err != nil {
-			ctxlogrus.Extract(ctx).WithField("storage", shard).WithError(err).Error("to retrieve shard disk statistics")
+			log.FromContext(ctx).WithField("storage", shard).WithError(err).Error("to retrieve shard disk statistics")
 			results = append(results, &gitalypb.DiskStatisticsResponse_StorageStatus{StorageName: shard.Name})
 			continue
 		}

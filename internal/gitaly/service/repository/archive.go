@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -83,7 +82,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		return stream.Send(&gitalypb.GetArchiveResponse{Data: p})
 	})
 
-	ctxlogrus.Extract(ctx).WithField("request_hash", requestHash(in)).Info("request details")
+	log.FromContext(ctx).WithField("request_hash", requestHash(in)).Info("request details")
 
 	return s.handleArchive(ctx, archiveParams{
 		writer:       writer,

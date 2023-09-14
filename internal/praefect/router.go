@@ -3,8 +3,8 @@ package praefect
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 )
 
@@ -27,7 +27,7 @@ func (e additionalRepositoryNotFoundError) Error() string {
 }
 
 func addRouteLogField(ctx context.Context, fields logrus.Fields) {
-	ctxlogrus.AddFields(ctx, logrus.Fields{"route": fields})
+	log.AddFields(ctx, logrus.Fields{"route": fields})
 }
 
 func routerNodeStorages(secondaries []RouterNode) []string {

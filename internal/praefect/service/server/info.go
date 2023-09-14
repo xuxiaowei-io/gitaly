@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -52,7 +52,7 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 			client := gitalypb.NewServerServiceClient(conn)
 			resp, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
 			if err != nil {
-				ctxlogrus.Extract(ctx).WithField("storage", storage).WithError(err).Error("error getting server info")
+				log.FromContext(ctx).WithField("storage", storage).WithError(err).Error("error getting server info")
 				return
 			}
 

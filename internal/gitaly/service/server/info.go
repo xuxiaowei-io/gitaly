@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/fstype"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -27,7 +27,7 @@ func (s *server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 
 		gitalyMetadata, err := storage.ReadMetadataFile(shard.Path)
 		if err != nil {
-			ctxlogrus.Extract(ctx).WithField("storage", shard).WithError(err).Error("reading gitaly metadata file")
+			log.FromContext(ctx).WithField("storage", shard).WithError(err).Error("reading gitaly metadata file")
 		}
 
 		storageStatuses = append(storageStatuses, &gitalypb.ServerInfoResponse_StorageStatus{
