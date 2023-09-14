@@ -354,9 +354,11 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 		}
 	}()
 
-	w := NewLazyWriter(func() (io.WriteCloser, error) {
-		return mgr.sink.GetWriter(ctx, step.BundlePath)
-	})
+	w, err := mgr.sink.GetWriter(ctx, step.BundlePath)
+	if err != nil {
+		return fmt.Errorf("write bundle: %w", err)
+	}
+
 	defer func() {
 		if err := w.Close(); err != nil && returnErr == nil {
 			returnErr = fmt.Errorf("write bundle: %w", err)
