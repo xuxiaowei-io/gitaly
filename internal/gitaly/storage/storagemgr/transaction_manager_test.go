@@ -291,10 +291,10 @@ func TestTransactionManager(t *testing.T) {
 		// ExpectedError is the expected error to be raised from the manager's Run. Panics are converted
 		// to errors and asserted to match this as well.
 		ExpectedError error
-		// ModifyRepository allows for running modifying the repository prior the manager starting. This
-		// may be necessary to test some states that can be reached from hard crashes but not during the
-		// tests.
-		ModifyRepository func(tb testing.TB, cfg config.Cfg, repoPath string)
+		// ModifyStorage allows modifying the storage prior to the manager starting. This
+		// may be necessary to test some states that can be reached from hard crashes
+		// but not during the tests.
+		ModifyStorage func(tb testing.TB, cfg config.Cfg, storagePath string)
 	}
 
 	// CloseManager closes a TransactionManager.
@@ -517,8 +517,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create reference with existing reference lock",
 			steps: steps{
 				StartManager{
-					ModifyRepository: func(_ testing.TB, _ config.Cfg, repoPath string) {
-						err := os.WriteFile(fmt.Sprintf("%s/refs/heads/main.lock", repoPath), []byte{}, 0o666)
+					ModifyStorage: func(_ testing.TB, _ config.Cfg, storagePath string) {
+						err := os.WriteFile(filepath.Join(storagePath, relativePath, "refs", "heads", "main.lock"), []byte{}, 0o666)
 						require.NoError(t, err)
 					},
 				},
@@ -559,7 +559,8 @@ func TestTransactionManager(t *testing.T) {
 				},
 				CloseManager{},
 				StartManager{
-					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+					ModifyStorage: func(tb testing.TB, cfg config.Cfg, storagePath string) {
+						repoPath := filepath.Join(storagePath, relativePath)
 						// Pack the reference and create a stale lockfile for it.
 						gittest.Exec(tb, cfg, "-C", repoPath, "pack-refs", "--all")
 
@@ -606,7 +607,8 @@ func TestTransactionManager(t *testing.T) {
 				},
 				CloseManager{},
 				StartManager{
-					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+					ModifyStorage: func(tb testing.TB, cfg config.Cfg, storagePath string) {
+						repoPath := filepath.Join(storagePath, relativePath)
 						// Pack the reference and create a stale lockfile for it.
 						gittest.Exec(tb, cfg, "-C", repoPath, "pack-refs", "--all")
 
@@ -1194,9 +1196,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete symbolic reference pointing to non-existent reference",
 			steps: steps{
 				StartManager{
-					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+					ModifyStorage: func(tb testing.TB, cfg config.Cfg, storagePath string) {
 						gittest.Exec(tb, cfg,
-							"-C", repoPath,
+							"-C", filepath.Join(storagePath, relativePath),
 							"symbolic-ref", "refs/heads/symbolic", "refs/heads/main",
 						)
 					},
@@ -1220,9 +1222,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete symbolic reference",
 			steps: steps{
 				StartManager{
-					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+					ModifyStorage: func(tb testing.TB, cfg config.Cfg, storagePath string) {
 						gittest.Exec(tb, cfg,
-							"-C", repoPath,
+							"-C", filepath.Join(storagePath, relativePath),
 							"symbolic-ref", "refs/heads/symbolic", "refs/heads/main",
 						)
 					},
@@ -1266,9 +1268,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update symbolic reference",
 			steps: steps{
 				StartManager{
-					ModifyRepository: func(tb testing.TB, cfg config.Cfg, repoPath string) {
+					ModifyStorage: func(tb testing.TB, cfg config.Cfg, storagePath string) {
 						gittest.Exec(tb, cfg,
-							"-C", repoPath,
+							"-C", filepath.Join(storagePath, relativePath),
 							"symbolic-ref", "refs/heads/symbolic", "refs/heads/main",
 						)
 					},
@@ -3414,8 +3416,8 @@ func TestTransactionManager(t *testing.T) {
 					// we have to test the behavior by manually creating a stale pack here.
 					//
 					// The Manager starts up and we expect the pack file to be gone at the end of the test.
-					ModifyRepository: func(_ testing.TB, _ config.Cfg, repoPath string) {
-						packFilePath := packFilePath(walFilesPathForLSN(repoPath, 1))
+					ModifyStorage: func(_ testing.TB, _ config.Cfg, storagePath string) {
+						packFilePath := packFilePath(walFilesPathForLSN(filepath.Join(storagePath, relativePath), 1))
 						require.NoError(t, os.MkdirAll(filepath.Dir(packFilePath), perm.PrivateDir))
 						require.NoError(t, os.WriteFile(
 							packFilePath,
@@ -4877,8 +4879,8 @@ func TestTransactionManager(t *testing.T) {
 				case StartManager:
 					require.False(t, managerRunning, "test error: manager started while it was already running")
 
-					if step.ModifyRepository != nil {
-						step.ModifyRepository(t, setup.Config, repoPath)
+					if step.ModifyStorage != nil {
+						step.ModifyStorage(t, setup.Config, storagePath)
 					}
 
 					managerRunning = true
