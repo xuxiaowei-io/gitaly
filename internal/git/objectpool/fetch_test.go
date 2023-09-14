@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -329,10 +328,11 @@ func TestObjectPool_logStats(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			logger, hook := test.NewNullLogger()
+			logger := testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
 			pool := tc.setup(t)
 
-			require.NoError(t, pool.logStats(ctx, logrus.NewEntry(logger)))
+			require.NoError(t, pool.logStats(ctx, logger))
 
 			logEntries := hook.AllEntries()
 			require.Len(t, logEntries, 1)

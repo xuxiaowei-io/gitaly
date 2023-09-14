@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -31,8 +29,8 @@ func (m *mockService) UnaryCall(
 
 // This test doesn't use testhelper.NewFeatureSets intentionally.
 func TestFeatureFlagLogs(t *testing.T) {
-	logger, loggerHook := test.NewNullLogger()
-	logger.SetLevel(logrus.InfoLevel)
+	logger := testhelper.NewLogger(t)
+	loggerHook := testhelper.AddLoggerHook(logger)
 
 	listener, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
@@ -41,7 +39,7 @@ func TestFeatureFlagLogs(t *testing.T) {
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			grpcmwlogrus.UnaryServerInterceptor(
-				logrus.NewEntry(logger),
+				logger.Entry,
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						grpcmwlogrus.DefaultMessageProducer,

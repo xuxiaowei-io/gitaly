@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
@@ -398,11 +396,12 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	tLogger, hook := test.NewNullLogger()
+	tLogger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(tLogger)
 
 	// instantiate a praefect server and trigger warning
 	_, _, cleanup := RunPraefectServer(t, ctx, conf, BuildOptions{
-		WithLogger:  logrus.NewEntry(tLogger),
+		WithLogger:  tLogger,
 		WithNodeMgr: nullNodeMgr{}, // to suppress node address issues
 	})
 	defer cleanup()
@@ -429,11 +428,11 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 		},
 	}
 
-	tLogger, hook = test.NewNullLogger()
+	hook.Reset()
 
 	// instantiate a praefect server and trigger warning
 	_, _, cleanup = RunPraefectServer(t, ctx, conf, BuildOptions{
-		WithLogger:  logrus.NewEntry(tLogger),
+		WithLogger:  tLogger,
 		WithNodeMgr: nullNodeMgr{}, // to suppress node address issues
 	})
 	defer cleanup()
@@ -478,11 +477,11 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 		},
 	}
 
-	tLogger, hook = test.NewNullLogger()
+	hook.Reset()
 
 	// instantiate a praefect server and trigger warning
 	_, _, cleanup = RunPraefectServer(t, ctx, conf, BuildOptions{
-		WithLogger:  logrus.NewEntry(tLogger),
+		WithLogger:  tLogger,
 		WithNodeMgr: nullNodeMgr{}, // to suppress node address issues
 	})
 	defer cleanup()

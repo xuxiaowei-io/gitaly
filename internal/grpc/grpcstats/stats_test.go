@@ -10,7 +10,6 @@ import (
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -55,7 +54,8 @@ func TestPayloadBytes(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 
 	opts := []grpc.ServerOption{
 		grpc.StatsHandler(log.PerRPCLogHandler{
@@ -64,7 +64,7 @@ func TestPayloadBytes(t *testing.T) {
 		}),
 		grpc.ChainUnaryInterceptor(
 			grpcmwlogrus.UnaryServerInterceptor(
-				logrus.NewEntry(logger),
+				logger.Entry,
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
@@ -76,7 +76,7 @@ func TestPayloadBytes(t *testing.T) {
 		),
 		grpc.ChainStreamInterceptor(
 			grpcmwlogrus.StreamServerInterceptor(
-				logrus.NewEntry(logger),
+				logger.Entry,
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),

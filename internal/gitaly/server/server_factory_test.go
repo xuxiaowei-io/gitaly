@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap/starter"
@@ -142,7 +141,8 @@ func TestGitalyServerFactory(t *testing.T) {
 		t.Setenv("GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN", ".")
 
 		cfg := testcfg.Build(t)
-		logger, hook := test.NewNullLogger()
+		logger := testhelper.NewLogger(t)
+		hook := testhelper.AddLoggerHook(logger)
 		sf := NewGitalyServerFactory(
 			cfg,
 			logger.WithContext(ctx),

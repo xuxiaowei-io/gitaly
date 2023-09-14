@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -201,7 +200,9 @@ func TestRepositoryStoreCollector(t *testing.T) {
 				timeout = 0
 			}
 
-			logger, hook := test.NewNullLogger()
+			logger := testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
+
 			c := NewRepositoryStoreCollector(logger, []string{"virtual-storage-1", "virtual-storage-2"}, tx, timeout)
 			err := testutil.CollectAndCompare(c, strings.NewReader(fmt.Sprintf(`
 # HELP gitaly_praefect_unavailable_repositories Number of repositories that have no healthy, up to date replicas.
@@ -210,8 +211,8 @@ gitaly_praefect_unavailable_repositories{virtual_storage="virtual-storage-1"} %d
 gitaly_praefect_unavailable_repositories{virtual_storage="virtual-storage-2"} 0
 			`, tc.count)))
 			if tc.error != nil {
-				require.Equal(t, "failed collecting unavailable repository count metric", hook.Entries[0].Message)
-				require.Equal(t, logrus.Fields{"error": tc.error, "component": "RepositoryStoreCollector"}, hook.Entries[0].Data)
+				require.Equal(t, "failed collecting unavailable repository count metric", hook.AllEntries()[0].Message)
+				require.Equal(t, logrus.Fields{"error": tc.error, "component": "RepositoryStoreCollector"}, hook.AllEntries()[0].Data)
 				return
 			}
 
@@ -240,7 +241,7 @@ func (c *checkIfQueriedDB) ExecContext(ctx context.Context, query string, args .
 }
 
 func TestRepositoryStoreCollector_CollectNotCalledOnRegister(t *testing.T) {
-	logger, _ := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
 
 	var db checkIfQueriedDB
 	c := NewRepositoryStoreCollector(logger, []string{"virtual-storage-1", "virtual-storage-2"}, &db, 2*time.Second)
@@ -349,9 +350,10 @@ WHERE virtual_storage = 'virtual-storage-1' AND storage != 'gitaly-1'
 	`)
 	require.NoError(t, err)
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	require.NoError(t, testutil.CollectAndCompare(
-		NewVerificationQueueDepthCollector(logrus.NewEntry(logger), tx, time.Minute, 30*time.Second, map[string][]string{
+		NewVerificationQueueDepthCollector(logger, tx, time.Minute, 30*time.Second, map[string][]string{
 			"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 			"virtual-storage-2": {"gitaly-1", "gitaly-2", "gitaly-3"},
 		}),

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -203,7 +202,8 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, logger)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)

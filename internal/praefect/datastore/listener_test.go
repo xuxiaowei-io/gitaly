@@ -12,7 +12,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
@@ -182,7 +181,8 @@ func TestResilientListener_Listen(t *testing.T) {
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	const channel = "channel_z"
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	connected := make(chan struct{})
 	disconnected := make(chan struct{})
 	handler := mockListenHandler{

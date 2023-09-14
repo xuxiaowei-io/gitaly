@@ -10,7 +10,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -34,8 +33,8 @@ func TestAdaptiveCalculator_alreadyStarted(t *testing.T) {
 func TestAdaptiveCalculator_realTimerTicker(t *testing.T) {
 	t.Parallel()
 
-	logger, hook := test.NewNullLogger()
-	logger.SetLevel(logrus.InfoLevel)
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 
 	limit := newTestLimit("testLimit", 25, 100, 10, 0.5)
 	watcher := newTestWatcher("testWatcher", []string{"", "", "", "", ""}, nil)
@@ -548,9 +547,8 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher2"} 5
 	}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			logger, hook := test.NewNullLogger()
-			hook.Reset()
-			logger.SetLevel(logrus.InfoLevel)
+			logger := testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
 
 			tickerDone := make(chan struct{})
 			ticker := helper.NewCountTicker(tc.waitEvents, func() {

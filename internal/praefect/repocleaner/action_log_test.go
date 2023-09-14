@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
@@ -12,7 +11,8 @@ import (
 func TestLogWarnAction_Perform(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	action := NewLogWarnAction(logger)
 	err := action.Perform(ctx, "vs1", "g1", []string{"p/1", "p/2"})
 	require.NoError(t, err)

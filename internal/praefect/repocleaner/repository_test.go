@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -151,8 +150,8 @@ func TestRunner_Run(t *testing.T) {
 		require.NoError(t, repoStore.CreateRepository(ctx, int64(i), conf.VirtualStorages[0].Name, set.relativePath, set.relativePath, set.primary, set.secondaries, nil, false, false))
 	}
 
-	logger, loggerHook := test.NewNullLogger()
-	logger.SetLevel(logrus.DebugLevel)
+	logger := testhelper.NewLogger(t)
+	loggerHook := testhelper.AddLoggerHook(logger)
 
 	entry := logger.WithContext(ctx)
 	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
@@ -287,8 +286,9 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		// Continue execution of the first runner after the second completes.
 		defer close(releaseFirst)
 
-		logger, loggerHook := test.NewNullLogger()
-		logger.SetLevel(logrus.DebugLevel)
+		logger := testhelper.NewLogger(t)
+		logger.Logger.SetLevel(logrus.DebugLevel)
+		loggerHook := testhelper.AddLoggerHook(logger)
 
 		runner := NewRunner(cfg, logger, praefect.StaticHealthChecker{virtualStorage: []string{storage1}}, nodeSet.Connections(), storageCleanup, storageCleanup, actionStub{
 			PerformMethod: func(ctx context.Context, virtualStorage, storage string, notExisting []string) error {

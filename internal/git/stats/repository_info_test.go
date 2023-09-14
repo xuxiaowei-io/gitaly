@@ -12,13 +12,11 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -102,8 +100,9 @@ func TestLogObjectInfo(t *testing.T) {
 	t.Run("shared repo with multiple alternates", func(t *testing.T) {
 		t.Parallel()
 
-		logger, hook := test.NewNullLogger()
-		ctx := log.FromLogrusEntry(logger.WithField("test", "logging")).ToContext(ctx)
+		logger := testhelper.NewLogger(t)
+		hook := testhelper.AddLoggerHook(logger)
+		ctx := logger.ToContext(ctx)
 
 		_, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
@@ -151,8 +150,9 @@ func TestLogObjectInfo(t *testing.T) {
 	t.Run("repo without alternates", func(t *testing.T) {
 		t.Parallel()
 
-		logger, hook := test.NewNullLogger()
-		ctx := log.FromLogrusEntry(logger.WithField("test", "logging")).ToContext(ctx)
+		logger := testhelper.NewLogger(t)
+		hook := testhelper.AddLoggerHook(logger)
+		ctx := logger.ToContext(ctx)
 
 		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
@@ -170,10 +169,11 @@ func TestPruneIfNeeded(t *testing.T) {
 				}
 			}
 
-			logger, hook := test.NewNullLogger()
+			logger := testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
 
 			require.NoError(t, housekeeping.NewManager(cfg.Prometheus, nil).OptimizeRepository(ctx, logger, repo))
-			require.Equal(t, tc.expectedLogEntries, hook.Entries[len(hook.Entries)-1].Data["optimizations"])
+			require.Equal(t, tc.expectedLogEntries, hook.LastEntry().Data["optimizations"])
 		})
 	}
 }

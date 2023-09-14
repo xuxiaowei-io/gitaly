@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -81,12 +80,13 @@ func TestPruneOldGitalyProcessDirectories(t *testing.T) {
 			nonPrunableDirs = append(nonPrunableDirs, dirPath)
 		}
 
-		logger, hook := test.NewNullLogger()
+		logger := testhelper.NewLogger(t)
+		hook := testhelper.AddLoggerHook(logger)
 		require.NoError(t, PruneOldGitalyProcessDirectories(logger, cfg.RuntimeDir))
 
 		actualLogs := map[string]string{}
 		actualErrs := map[string]error{}
-		for _, entry := range hook.Entries {
+		for _, entry := range hook.AllEntries() {
 			actualLogs[entry.Data["path"].(string)] = entry.Message
 			if entry.Data["error"] != nil {
 				err, ok := entry.Data["error"].(error)
@@ -116,9 +116,10 @@ func TestPruneOldGitalyProcessDirectories(t *testing.T) {
 		_, err := SetupRuntimeDirectory(cfg, 0)
 		require.NoError(t, err)
 
-		logger, hook := test.NewNullLogger()
+		logger := testhelper.NewLogger(t)
+		hook := testhelper.AddLoggerHook(logger)
 		require.NoError(t, PruneOldGitalyProcessDirectories(logger, cfg.RuntimeDir))
-		require.Len(t, hook.Entries, 1)
+		require.Len(t, hook.AllEntries(), 1)
 		require.Equal(t, "removed gitaly directory with no pid", hook.LastEntry().Message)
 	})
 }

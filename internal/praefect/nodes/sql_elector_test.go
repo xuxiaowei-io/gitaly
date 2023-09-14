@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -404,7 +403,8 @@ func TestElectNewPrimary(t *testing.T) {
 			_, err := tx.Exec(testCase.initialReplQueueInsert)
 			require.NoError(t, err)
 
-			logger, hook := test.NewNullLogger()
+			logger := testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
 
 			elector := newSQLElector(shardName, config.Config{}, db.DB, logger, ns)
 			ctx := testhelper.Context(t)

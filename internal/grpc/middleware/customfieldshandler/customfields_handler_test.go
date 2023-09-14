@@ -8,7 +8,6 @@ import (
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -77,7 +76,8 @@ func TestInterceptor(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 
 	s := createNewServer(t, cfg, logger)
 	defer s.Stop()
