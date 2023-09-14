@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -392,6 +393,7 @@ func (mgr *Manager) negatedKnownRefs(ctx context.Context, step *Step) (io.ReadCl
 		}
 		defer reader.Close()
 
+		buf := bufio.NewWriter(w)
 		d := git.NewShowRefDecoder(reader)
 		for {
 			var ref git.Reference
@@ -403,10 +405,15 @@ func (mgr *Manager) negatedKnownRefs(ctx context.Context, step *Step) (io.ReadCl
 				return
 			}
 
-			if _, err := fmt.Fprintf(w, "^%s\n", ref.Target); err != nil {
+			if _, err := fmt.Fprintf(buf, "^%s\n", ref.Target); err != nil {
 				_ = w.CloseWithError(err)
 				return
 			}
+		}
+
+		if err := buf.Flush(); err != nil {
+			_ = w.CloseWithError(err)
+			return
 		}
 	}()
 
@@ -495,11 +502,17 @@ func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []git.Refer
 		}
 	}()
 
+	buf := bufio.NewWriter(w)
+
 	for _, ref := range refs {
-		_, err = fmt.Fprintf(w, "%s %s\n", ref.Target, ref.Name)
+		_, err = fmt.Fprintf(buf, "%s %s\n", ref.Target, ref.Name)
 		if err != nil {
 			return fmt.Errorf("write refs: %w", err)
 		}
+	}
+
+	if err := buf.Flush(); err != nil {
+		return fmt.Errorf("write refs: %w", err)
 	}
 
 	return nil
