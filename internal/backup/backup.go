@@ -328,33 +328,38 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 		return nil
 	}
 
-	negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
-	if err != nil {
-		return fmt.Errorf("write bundle: %w", err)
-	}
-	defer func() {
-		if err := negatedRefs.Close(); err != nil && returnErr == nil {
-			returnErr = fmt.Errorf("write bundle: %w", err)
+	var patterns io.Reader
+	if len(step.PreviousRefPath) > 0 {
+		negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
+		if err != nil {
+			return fmt.Errorf("write bundle: %w", err)
 		}
-	}()
-
-	patternReader, patternWriter := io.Pipe()
-	defer func() {
-		if err := patternReader.Close(); err != nil && returnErr == nil {
-			returnErr = fmt.Errorf("write bundle: %w", err)
-		}
-	}()
-	go func() {
-		defer patternWriter.Close()
-
-		for _, ref := range refs {
-			_, err := fmt.Fprintln(patternWriter, ref.Name)
-			if err != nil {
-				_ = patternWriter.CloseWithError(err)
-				return
+		defer func() {
+			if err := negatedRefs.Close(); err != nil && returnErr == nil {
+				returnErr = fmt.Errorf("write bundle: %w", err)
 			}
-		}
-	}()
+		}()
+
+		patternReader, patternWriter := io.Pipe()
+		defer func() {
+			if err := patternReader.Close(); err != nil && returnErr == nil {
+				returnErr = fmt.Errorf("write bundle: %w", err)
+			}
+		}()
+		go func() {
+			defer patternWriter.Close()
+
+			for _, ref := range refs {
+				_, err := fmt.Fprintln(patternWriter, ref.Name)
+				if err != nil {
+					_ = patternWriter.CloseWithError(err)
+					return
+				}
+			}
+		}()
+
+		patterns = io.MultiReader(negatedRefs, patternReader)
+	}
 
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, step.BundlePath)
@@ -365,7 +370,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 		}
 	}()
 
-	if err := repo.CreateBundle(ctx, w, io.MultiReader(negatedRefs, patternReader)); err != nil {
+	if err := repo.CreateBundle(ctx, w, patterns); err != nil {
 		if errors.Is(err, localrepo.ErrEmptyBundle) {
 			return fmt.Errorf("write bundle: %w: no changes to bundle", ErrSkipped)
 		}
