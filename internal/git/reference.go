@@ -92,7 +92,10 @@ func (r ReferenceName) Revision() Revision {
 // not a branch, `false` is returned.
 func (r ReferenceName) Branch() (string, bool) {
 	if strings.HasPrefix(r.String(), "refs/heads/") {
-		return r.String()[len("refs/heads/"):], true
+		branch := r.String()[len("refs/heads/"):]
+		if branch != "" {
+			return branch, true
+		}
 	}
 	return "", false
 }

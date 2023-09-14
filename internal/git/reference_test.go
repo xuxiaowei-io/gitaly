@@ -238,6 +238,11 @@ func TestReferenceName_Branch(t *testing.T) {
 			expected:  "foo/master",
 		},
 		{
+			desc:      "missing branch",
+			reference: "refs/heads/",
+			expected:  "",
+		},
+		{
 			desc:      "unqualified branch is not a branch",
 			reference: "master",
 			expected:  "",
