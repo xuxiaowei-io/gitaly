@@ -606,6 +606,7 @@ func TestExecCommandFactory_config(t *testing.T) {
 
 	expectedEnv := []string{
 		"gc.auto=0",
+		"maintenance.auto=0",
 		"core.autocrlf=input",
 		"core.usereplacerefs=false",
 		"core.fsync=objects,derived-metadata,reference",

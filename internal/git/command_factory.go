@@ -586,6 +586,9 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// of it ourselves.
 		{Key: "gc.auto", Value: "0"},
 
+		// Disable automatic maintenance as we never enable any tasks.
+		{Key: "maintenance.auto", Value: "0"},
+
 		// CRLF line endings will get replaced with LF line endings
 		// when writing blobs to the object database. No conversion is
 		// done when reading blobs from the object database. This is
