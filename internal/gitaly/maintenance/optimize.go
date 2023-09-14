@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -68,15 +67,15 @@ func shuffledStoragesCopy(randSrc *rand.Rand, storages []config.Storage) []confi
 
 // Optimizer knows how to optimize a repository
 type Optimizer interface {
-	OptimizeRepository(context.Context, storage.Repository) error
+	OptimizeRepository(context.Context, logrus.FieldLogger, storage.Repository) error
 }
 
 // OptimizerFunc is an adapter to allow the use of an ordinary function as an Optimizer
-type OptimizerFunc func(context.Context, storage.Repository) error
+type OptimizerFunc func(context.Context, logrus.FieldLogger, storage.Repository) error
 
 // OptimizeRepository calls o(ctx, repo)
-func (o OptimizerFunc) OptimizeRepository(ctx context.Context, repo storage.Repository) error {
-	return o(ctx, repo)
+func (o OptimizerFunc) OptimizeRepository(ctx context.Context, logger logrus.FieldLogger, repo storage.Repository) error {
+	return o(ctx, logger, repo)
 }
 
 // DailyOptimizationWorker creates a worker that runs repository maintenance daily
@@ -110,9 +109,7 @@ func optimizeRepo(
 		"start_time":    start.UTC(),
 	})
 
-	ctx = ctxlogrus.ToContext(ctx, logEntry)
-
-	err := o.OptimizeRepository(ctx, repo)
+	err := o.OptimizeRepository(ctx, l, repo)
 	logEntry = logEntry.WithField("time_ms", time.Since(start).Milliseconds())
 
 	if err != nil {

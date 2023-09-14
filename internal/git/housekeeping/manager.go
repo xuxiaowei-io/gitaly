@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -15,10 +16,10 @@ import (
 // such as the cleanup of unneeded files and optimizations for the repository's data structures.
 type Manager interface {
 	// CleanStaleData removes any stale data in the repository as per the provided configuration.
-	CleanStaleData(ctx context.Context, repo *localrepo.Repo, cfg CleanStaleDataConfig) error
+	CleanStaleData(context.Context, logrus.FieldLogger, *localrepo.Repo, CleanStaleDataConfig) error
 	// OptimizeRepository optimizes the repository's data structures such that it can be more
 	// efficiently served.
-	OptimizeRepository(context.Context, *localrepo.Repo, ...OptimizeRepositoryOption) error
+	OptimizeRepository(context.Context, logrus.FieldLogger, *localrepo.Repo, ...OptimizeRepositoryOption) error
 	// AddPackRefsInhibitor allows clients to block housekeeping from running git-pack-refs(1).
 	AddPackRefsInhibitor(ctx context.Context, repoPath string) (bool, func(), error)
 }
@@ -213,7 +214,7 @@ type RepositoryManager struct {
 	dataStructureCount                     *prometheus.HistogramVec
 	dataStructureSize                      *prometheus.HistogramVec
 	dataStructureTimeSinceLastOptimization *prometheus.HistogramVec
-	optimizeFunc                           func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error
+	optimizeFunc                           func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error
 	repositoryStates                       repositoryStates
 }
 

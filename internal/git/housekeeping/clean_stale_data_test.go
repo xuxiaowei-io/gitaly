@@ -401,7 +401,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 
 			mgr := NewManager(cfg.Prometheus, nil)
 
-			require.NoError(t, mgr.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+			require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -506,7 +506,7 @@ func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 
 			mgr := NewManager(cfg.Prometheus, nil)
 
-			require.NoError(t, mgr.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+			require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 
 			var actual []string
 			require.NoError(t, filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, _ error) error {
@@ -633,7 +633,7 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 
 			mgr := NewManager(cfg.Prometheus, nil)
 
-			require.NoError(t, mgr.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+			require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -769,7 +769,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			mgr := NewManager(cfg.Prometheus, nil)
 
-			require.NoError(t, mgr.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+			require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 			for _, subcase := range []struct {
 				desc          string
 				entry         entry
@@ -813,7 +813,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 					require.NoError(t, err)
 					require.ElementsMatch(t, subcase.expectedFiles, staleFiles)
 
-					require.NoError(t, mgr.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+					require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 
 					entry.validate(t, repoPath)
 				})
@@ -867,7 +867,7 @@ func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
 
 	mgr := NewManager(cfg.Prometheus, nil)
 
-	require.NoError(t, mgr.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+	require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 
 	for _, entry := range entries {
 		entry.validate(t, repoPath)
@@ -997,7 +997,7 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 
 			mgr := NewManager(cfg.Prometheus, nil)
 
-			require.NoError(t, mgr.CleanStaleData(ctx, repo, tc.cfg))
+			require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, tc.cfg))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -1110,7 +1110,7 @@ func TestRepositoryManager_CleanStaleData_missingRepo(t *testing.T) {
 
 	require.NoError(t, os.RemoveAll(repoPath))
 
-	require.NoError(t, NewManager(cfg.Prometheus, nil).CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+	require.NoError(t, NewManager(cfg.Prometheus, nil).CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 }
 
 func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
@@ -1151,7 +1151,7 @@ func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
 
 	mgr := NewManager(cfg.Prometheus, nil)
 
-	require.NoError(t, mgr.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+	require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 	require.Equal(t,
 		`[core]
 	repositoryformatversion = 0
@@ -1190,7 +1190,7 @@ func TestRepositoryManager_CleanStaleData_unsetConfigurationTransactional(t *tes
 		AuthInfo: backchannel.WithID(nil, 1234),
 	})
 
-	require.NoError(t, NewManager(cfg.Prometheus, txManager).CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+	require.NoError(t, NewManager(cfg.Prometheus, txManager).CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 	require.Equal(t, 2, len(txManager.Votes()))
 
 	configKeys := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local", "--name-only")
@@ -1242,7 +1242,7 @@ func TestRepositoryManager_CleanStaleData_pruneEmptyConfigSections(t *testing.T)
 
 	mgr := NewManager(cfg.Prometheus, nil)
 
-	require.NoError(t, mgr.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()))
+	require.NoError(t, mgr.CleanStaleData(ctx, testhelper.SharedLogger(t), repo, DefaultStaleDataCleanup()))
 	require.Equal(t, `[core]
 	repositoryformatversion = 0
 	filemode = true

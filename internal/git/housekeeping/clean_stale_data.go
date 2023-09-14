@@ -11,8 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -91,13 +90,13 @@ func DefaultStaleDataCleanup() CleanStaleDataConfig {
 }
 
 // CleanStaleData removes any stale data in the repository as per the provided configuration.
-func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo, cfg CleanStaleDataConfig) error {
+func (m *RepositoryManager) CleanStaleData(ctx context.Context, logger logrus.FieldLogger, repo *localrepo.Repo, cfg CleanStaleDataConfig) error {
 	span, ctx := tracing.StartSpanIfHasParent(ctx, "housekeeping.CleanStaleData", nil)
 	defer span.Finish()
 
 	repoPath, err := repo.Path()
 	if err != nil {
-		myLogger(ctx).WithError(err).Warn("housekeeping failed to get repo path")
+		myLogger(logger).WithError(err).Warn("housekeeping failed to get repo path")
 		if structerr.GRPCCode(err) == codes.NotFound {
 			return nil
 		}
@@ -110,7 +109,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 			return
 		}
 
-		logEntry := myLogger(ctx)
+		logEntry := myLogger(logger)
 		for staleDataType, count := range staleDataByType {
 			logEntry = logEntry.WithField(fmt.Sprintf("stale_data.%s", staleDataType), count)
 			m.prunedFilesTotal.WithLabelValues(staleDataType).Add(float64(count))
@@ -135,7 +134,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 				continue
 			}
 			staleDataByType["failures"]++
-			myLogger(ctx).WithError(err).WithField("path", path).Warn("unable to remove stale file")
+			myLogger(logger).WithError(err).WithField("path", path).Warn("unable to remove stale file")
 		}
 	}
 
@@ -657,6 +656,6 @@ func removeEmptyDirs(ctx context.Context, target string) (int, error) {
 	return prunedDirsTotal + 1, nil
 }
 
-func myLogger(ctx context.Context) *log.Entry {
-	return ctxlogrus.Extract(ctx).WithField("system", "housekeeping")
+func myLogger(logger logrus.FieldLogger) logrus.FieldLogger {
+	return logger.WithField("system", "housekeeping")
 }
