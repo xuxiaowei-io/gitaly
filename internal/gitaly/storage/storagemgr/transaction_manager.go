@@ -206,9 +206,11 @@ type Transaction struct {
 // The returned Transaction's read snapshot includes all writes that were committed prior to the
 // Begin call. Begin blocks until the committed writes have been applied to the repository.
 //
+// relativePath is the relative path of the target repository the transaction is operating on.
+//
 // readOnly indicates whether this is a read-only transaction. Read-only transactions are not
 // configured with a quarantine directory and do not commit a log entry.
-func (mgr *TransactionManager) Begin(ctx context.Context, readOnly bool) (_ *Transaction, returnedErr error) {
+func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, readOnly bool) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
 	// and the LSNs are loaded.
 	select {
@@ -220,6 +222,12 @@ func (mgr *TransactionManager) Begin(ctx context.Context, readOnly bool) (_ *Tra
 		}
 	}
 
+	if relativePath == "" {
+		// For now we don't have a use case for transactions that don't target a repository.
+		// Until support is implemented, error out.
+		return nil, errors.New("relative path not set")
+	}
+
 	mgr.mutex.Lock()
 
 	txn := &Transaction{
@@ -227,7 +235,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context, readOnly bool) (_ *Tra
 		commit:       mgr.commit,
 		snapshotLSN:  mgr.appendedLSN,
 		finished:     make(chan struct{}),
-		relativePath: mgr.relativePath,
+		relativePath: relativePath,
 	}
 
 	mgr.snapshotLocks[txn.snapshotLSN].activeSnapshotters.Add(1)
@@ -687,12 +695,9 @@ type TransactionManager struct {
 	commandFactory git.CommandFactory
 	// repositoryFactory is used to build localrepo.Repo instances.
 	repositoryFactory localrepo.StorageScopedFactory
-
 	// storagePath is an absolute path to the root of the storage this TransactionManager
 	// is operating in.
 	storagePath string
-	// relativePath is the repository's relative path inside the storage.
-	relativePath string
 	// partitionID is the ID of the partition this manager is operating on. This is used to determine the database keys.
 	partitionID partitionID
 	// db is the handle to the key-value store used for storing the write-ahead log related state.
@@ -736,7 +741,6 @@ func NewTransactionManager(
 	logger log.Logger,
 	db *badger.DB,
 	storagePath,
-	relativePath,
 	stateDir,
 	stagingDir string,
 	cmdFactory git.CommandFactory,
@@ -753,7 +757,6 @@ func NewTransactionManager(
 		commandFactory:       cmdFactory,
 		repositoryFactory:    repositoryFactory,
 		storagePath:          storagePath,
-		relativePath:         relativePath,
 		partitionID:          ptnID,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),

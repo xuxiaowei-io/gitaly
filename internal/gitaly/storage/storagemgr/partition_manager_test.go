@@ -378,7 +378,7 @@ func TestPartitionManager(t *testing.T) {
 						storageMgr *storageManager,
 						commandFactory git.CommandFactory,
 						housekeepingManager housekeeping.Manager,
-						relativePath, absoluteStateDir, stagingDir string,
+						absoluteStateDir, stagingDir string,
 					) transactionManager {
 						return stoppedTransactionManager{
 							transactionManager: NewTransactionManager(
@@ -386,7 +386,6 @@ func TestPartitionManager(t *testing.T) {
 								storageMgr.logger,
 								storageMgr.database,
 								storageMgr.path,
-								relativePath,
 								absoluteStateDir,
 								stagingDir,
 								commandFactory,
@@ -426,14 +425,13 @@ func TestPartitionManager(t *testing.T) {
 						storageMgr *storageManager,
 						commandFactory git.CommandFactory,
 						housekeepingManager housekeeping.Manager,
-						relativePath, absoluteStateDir, stagingDir string,
+						absoluteStateDir, stagingDir string,
 					) transactionManager {
 						txMgr := NewTransactionManager(
 							partitionID,
 							logger,
 							storageMgr.database,
 							storageMgr.path,
-							relativePath,
 							absoluteStateDir,
 							stagingDir,
 							commandFactory,

@@ -313,6 +313,8 @@ func TestTransactionManager(t *testing.T) {
 		// TransactionID is the identifier given to the transaction created. This is used to identify
 		// the transaction in later steps.
 		TransactionID int
+		// RelativePath is the relative path of the repository this transaction is operating on.
+		RelativePath string
 		// ReadOnly indicates whether this is a read-only transaction.
 		ReadOnly bool
 		// Context is the context to use for the Begin call.
@@ -4404,6 +4406,110 @@ func TestTransactionManager(t *testing.T) {
 				Repositories: RepositoryStates{},
 			},
 		},
+		{
+			desc: "two repositories created in different transactions",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "repository-1",
+				},
+				Begin{
+					TransactionID: 2,
+					RelativePath:  "repository-2",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs:       [][]byte{setup.Commits.First.Pack},
+					CustomHooks: validCustomHooks(t),
+				},
+				CreateRepository{
+					TransactionID: 2,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/branch": setup.Commits.Third.OID,
+					},
+					DefaultBranch: "refs/heads/branch",
+					Packs: [][]byte{
+						setup.Commits.First.Pack,
+						setup.Commits.Second.Pack,
+						setup.Commits.Third.Pack,
+					},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 2,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"repository-1": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+					},
+					"repository-2": {
+						DefaultBranch: "refs/heads/branch",
+						References: []git.Reference{
+							{Name: "refs/heads/branch", Target: setup.Commits.Third.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+						},
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/2":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/2/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/2/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+						},
+					),
+					"/wal/2/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -4516,7 +4622,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or closed.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+				transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 				// managerErr is used for synchronizing manager closing and returning
 				// the error from Run.
 				managerErr chan error
@@ -4563,7 +4669,7 @@ func TestTransactionManager(t *testing.T) {
 					require.NoError(t, os.RemoveAll(stagingDir))
 					require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
-					transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+					transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
 						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
@@ -4606,7 +4712,12 @@ func TestTransactionManager(t *testing.T) {
 						beginCtx = step.Context
 					}
 
-					transaction, err := transactionManager.Begin(beginCtx, step.ReadOnly)
+					beginRelativePath := step.RelativePath
+					if beginRelativePath == "" {
+						beginRelativePath = relativePath
+					}
+
+					transaction, err := transactionManager.Begin(beginCtx, beginRelativePath, step.ReadOnly)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
 						require.Equal(t, step.ExpectedSnapshotLSN, transaction.SnapshotLSN())
@@ -4860,7 +4971,7 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 			// Begin a transaction to wait until the manager has applied all log entries currently
 			// committed. This ensures the disk state assertions run with all log entries fully applied
 			// to the repository.
-			tx, err := mgr.Begin(ctx, false)
+			tx, err := mgr.Begin(ctx, "non-existent", false)
 			require.NoError(t, err)
 			require.NoError(t, tx.Rollback())
 
@@ -4970,10 +5081,12 @@ func BenchmarkTransactionManager(b *testing.B) {
 			require.NoError(b, err)
 
 			// Set up the repositories and start their TransactionManagers.
+			var relativePaths []string
 			for i := 0; i < tc.numberOfRepositories; i++ {
 				repo, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
+				relativePaths = append(relativePaths, repo.RelativePath)
 
 				// Set up two commits that the updaters update their references back and forth.
 				// The commit IDs are the same across all repositories as the parameters used to
@@ -4992,7 +5105,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 
 				// Valid partition IDs are >=1.
 				partitionID := partitionID(i + 1)
-				manager := NewTransactionManager(partitionID, logger, database, storagePath, repo.RelativePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
+				manager := NewTransactionManager(partitionID, logger, database, storagePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 
@@ -5006,7 +5119,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				require.NoError(b, err)
 
 				for j := 0; j < tc.concurrentUpdaters; j++ {
-					transaction, err := manager.Begin(ctx, false)
+					transaction, err := manager.Begin(ctx, repo.RelativePath, false)
 					require.NoError(b, err)
 					transaction.UpdateReferences(getReferenceUpdates(j, objectHash.ZeroOID, commit1))
 					require.NoError(b, transaction.Commit(ctx))
@@ -5017,15 +5130,16 @@ func BenchmarkTransactionManager(b *testing.B) {
 			var transactionWG sync.WaitGroup
 			transactionChan := make(chan struct{})
 
-			for _, manager := range managers {
+			for i, manager := range managers {
 				manager := manager
+				relativePath := relativePaths[i]
 				for i := 0; i < tc.concurrentUpdaters; i++ {
 
 					// Build the reference updates that this updater will go back and forth with.
 					currentReferences := getReferenceUpdates(i, commit1, commit2)
 					nextReferences := getReferenceUpdates(i, commit2, commit1)
 
-					transaction, err := manager.Begin(ctx, false)
+					transaction, err := manager.Begin(ctx, relativePath, false)
 					require.NoError(b, err)
 					transaction.UpdateReferences(currentReferences)
 
@@ -5037,7 +5151,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 						defer transactionWG.Done()
 
 						for range transactionChan {
-							transaction, err := manager.Begin(ctx, false)
+							transaction, err := manager.Begin(ctx, relativePath, false)
 							require.NoError(b, err)
 							transaction.UpdateReferences(nextReferences)
 							assert.NoError(b, transaction.Commit(ctx))

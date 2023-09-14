@@ -29,7 +29,7 @@ var ErrPartitionManagerClosed = errors.New("partition manager closed")
 // transactionManager is the interface of TransactionManager as used by PartitionManager. See the
 // TransactionManager's documentation for more details.
 type transactionManager interface {
-	Begin(context.Context, bool) (*Transaction, error)
+	Begin(context.Context, string, bool) (*Transaction, error)
 	Run() error
 	Close()
 	isClosing() bool
@@ -40,7 +40,7 @@ type transactionManagerFactory func(
 	storageMgr *storageManager,
 	cmdFactory git.CommandFactory,
 	housekeepingManager housekeeping.Manager,
-	relativePath, absoluteStateDir, stagingDir string,
+	absoluteStateDir, stagingDir string,
 ) transactionManager
 
 // PartitionManager is responsible for managing the lifecycle of each TransactionManager.
@@ -258,14 +258,13 @@ func NewPartitionManager(
 			storageMgr *storageManager,
 			cmdFactory git.CommandFactory,
 			housekeepingManager housekeeping.Manager,
-			relativePath, absoluteStateDir, stagingDir string,
+			absoluteStateDir, stagingDir string,
 		) transactionManager {
 			return NewTransactionManager(
 				partitionID,
 				logger,
 				storageMgr.database,
 				storageMgr.path,
-				relativePath,
 				absoluteStateDir,
 				stagingDir,
 				cmdFactory,
@@ -340,7 +339,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := pm.transactionManagerFactory(partitionID, storageMgr, pm.commandFactory, pm.housekeepingManager, relativePath, absoluteStateDir, stagingDir)
+			mgr := pm.transactionManagerFactory(partitionID, storageMgr, pm.commandFactory, pm.housekeepingManager, absoluteStateDir, stagingDir)
 
 			ptn.transactionManager = mgr
 
@@ -398,7 +397,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath
 		ptn.pendingTransactionCount++
 		storageMgr.mu.Unlock()
 
-		transaction, err := ptn.transactionManager.Begin(ctx, readOnly)
+		transaction, err := ptn.transactionManager.Begin(ctx, relativePath, readOnly)
 		if err != nil {
 			// The pending transaction count needs to be decremented since the transaction is no longer
 			// inflight. A transaction failing does not necessarily mean the transaction manager has
