@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes/tracker"
@@ -99,7 +99,7 @@ func DialNodes(
 	errorTracker tracker.ErrorTracker,
 	handshaker client.Handshaker,
 	sidechannelRegistry *sidechannel.Registry,
-	log logrus.FieldLogger,
+	log log.Logger,
 ) (NodeSet, error) {
 	set := make(NodeSet, len(virtualStorages))
 	for _, virtualStorage := range virtualStorages {

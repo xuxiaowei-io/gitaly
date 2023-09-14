@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -87,7 +86,7 @@ func main() {
 	os.Exit(code)
 }
 
-func (cmd gitalySSHCommand) run(logger logrus.FieldLogger) (int, error) {
+func (cmd gitalySSHCommand) run(logger log.Logger) (int, error) {
 	// Configure distributed tracing
 	closer := tracing.Initialize(tracing.WithServiceName("gitaly-ssh"))
 	defer closer.Close()
@@ -132,7 +131,7 @@ func (cmd gitalySSHCommand) run(logger logrus.FieldLogger) (int, error) {
 	return int(code), nil
 }
 
-func getConnection(ctx context.Context, url string, registry *sidechannel.Registry, logger logrus.FieldLogger) (*grpc.ClientConn, error) {
+func getConnection(ctx context.Context, url string, registry *sidechannel.Registry, logger log.Logger) (*grpc.ClientConn, error) {
 	if url == "" {
 		return nil, fmt.Errorf("gitaly address can not be empty")
 	}

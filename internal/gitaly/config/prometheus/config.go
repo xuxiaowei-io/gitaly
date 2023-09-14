@@ -7,9 +7,9 @@ import (
 
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // Config contains additional configuration data for prometheus
@@ -30,7 +30,7 @@ func DefaultConfig() Config {
 }
 
 // Configure configures latency buckets for prometheus timing histograms
-func (c *Config) Configure(logger logrus.FieldLogger) {
+func (c *Config) Configure(logger log.Logger) {
 	if len(c.GRPCLatencyBuckets) == 0 {
 		return
 	}

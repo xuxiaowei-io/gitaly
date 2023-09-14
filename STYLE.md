@@ -201,9 +201,9 @@ event.
 
 When logging an error, use the `WithError(err)` method.
 
-### Use the `logrus.FieldLogger` interface
+### Use the `log.Logger` interface
 
-In case you want to pass around the logger, use the `logrus.FieldLogger`
+In case you want to pass around the logger, use the `log.Logger`
 interface instead of either `*logrus.Entry` or `*logrus.Logger`.
 
 ### Use snake case for fields

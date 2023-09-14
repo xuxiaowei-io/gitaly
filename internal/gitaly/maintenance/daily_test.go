@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -28,7 +28,7 @@ func TestStartDaily(t *testing.T) {
 	}
 
 	storagesQ := make(chan []string)
-	fn := func(_ context.Context, _ logrus.FieldLogger, s []string) error {
+	fn := func(_ context.Context, _ log.Logger, s []string) error {
 		storagesQ <- s
 		return nil
 	}

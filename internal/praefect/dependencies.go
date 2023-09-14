@@ -1,9 +1,9 @@
 package praefect
 
 import (
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
@@ -14,7 +14,7 @@ import (
 // Dependencies consolidates Praefect service dependencies for injection.
 type Dependencies struct {
 	Config          config.Config
-	Logger          logrus.FieldLogger
+	Logger          log.Logger
 	Coordinator     *Coordinator
 	Director        proxy.StreamDirector
 	NodeMgr         nodes.Manager

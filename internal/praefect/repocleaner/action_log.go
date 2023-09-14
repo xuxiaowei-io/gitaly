@@ -4,16 +4,17 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // LogWarnAction is an implementation of the Action interface that allows to log a warning message
 // for the repositories that are not known for the praefect.
 type LogWarnAction struct {
-	logger logrus.FieldLogger
+	logger log.Logger
 }
 
 // NewLogWarnAction return new instance of the LogWarnAction.
-func NewLogWarnAction(logger logrus.FieldLogger) *LogWarnAction {
+func NewLogWarnAction(logger log.Logger) *LogWarnAction {
 	return &LogWarnAction{
 		logger: logger.WithField("component", "repocleaner.log_warn_action"),
 	}

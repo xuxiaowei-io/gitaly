@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -21,7 +22,7 @@ import (
 // is still left in place even if all of the replicas are lost to ensure the data loss doesn't
 // go unnoticed.
 type MetadataVerifier struct {
-	log                  logrus.FieldLogger
+	log                  log.Logger
 	db                   glsql.Querier
 	conns                Connections
 	batchSize            int
@@ -48,7 +49,7 @@ const (
 
 // NewMetadataVerifier creates a new MetadataVerifier.
 func NewMetadataVerifier(
-	log logrus.FieldLogger,
+	log log.Logger,
 	db glsql.Querier,
 	conns Connections,
 	healthChecker HealthChecker,

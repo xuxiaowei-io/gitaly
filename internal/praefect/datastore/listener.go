@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	promclient "github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 )
@@ -106,12 +106,12 @@ func (mh metricsHandlerMiddleware) Disconnect(err error) {
 type ResilientListener struct {
 	conf           config.DB
 	ticker         helper.Ticker
-	logger         logrus.FieldLogger
+	logger         log.Logger
 	reconnectTotal *promclient.CounterVec
 }
 
 // NewResilientListener returns instance of the *ResilientListener.
-func NewResilientListener(conf config.DB, ticker helper.Ticker, logger logrus.FieldLogger) *ResilientListener {
+func NewResilientListener(conf config.DB, ticker helper.Ticker, logger log.Logger) *ResilientListener {
 	return &ResilientListener{
 		conf:   conf,
 		ticker: ticker,

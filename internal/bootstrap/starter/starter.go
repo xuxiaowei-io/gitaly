@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -110,7 +110,7 @@ type Server interface {
 }
 
 // New creates a new bootstrap.Starter from a config and a GracefulStoppableServer
-func New(cfg Config, server Server, logger logrus.FieldLogger) bootstrap.Starter {
+func New(cfg Config, server Server, logger log.Logger) bootstrap.Starter {
 	return func(listenWithHandover bootstrap.ListenFunc, errCh chan<- error, connTotal *prometheus.CounterVec) error {
 		listen := listenWithHandover
 		if !cfg.HandoverOnUpgrade {

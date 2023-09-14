@@ -10,7 +10,6 @@ import (
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
@@ -109,7 +108,7 @@ func serveAction(ctx *cli.Context) error {
 	return nil
 }
 
-func configure(configPath string) (config.Cfg, logrus.FieldLogger, error) {
+func configure(configPath string) (config.Cfg, log.Logger, error) {
 	cfg, err := loadConfig(configPath)
 	if err != nil {
 		return config.Cfg{}, nil, fmt.Errorf("load config: config_path %q: %w", configPath, err)
@@ -135,7 +134,7 @@ func configure(configPath string) (config.Cfg, logrus.FieldLogger, error) {
 	return cfg, logger, nil
 }
 
-func preloadLicenseDatabase(logger logrus.FieldLogger) {
+func preloadLicenseDatabase(logger log.Logger) {
 	// the first call to `licensedb.Detect` could be too long
 	// https://github.com/go-enry/go-license-detector/issues/13
 	// this is why we're calling it here to preload license database
@@ -145,7 +144,7 @@ func preloadLicenseDatabase(logger logrus.FieldLogger) {
 	logger.Info("License database preloaded")
 }
 
-func run(cfg config.Cfg, logger logrus.FieldLogger) error {
+func run(cfg config.Cfg, logger log.Logger) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -422,7 +421,7 @@ func run(cfg config.Cfg, logger logrus.FieldLogger) error {
 	shutdownWorkers, err := maintenance.StartWorkers(
 		ctx,
 		logger,
-		maintenance.DailyOptimizationWorker(cfg, maintenance.OptimizerFunc(func(ctx context.Context, logger logrus.FieldLogger, repo storage.Repository) error {
+		maintenance.DailyOptimizationWorker(cfg, maintenance.OptimizerFunc(func(ctx context.Context, logger log.Logger, repo storage.Repository) error {
 			return housekeepingManager.OptimizeRepository(ctx, logger, localrepo.New(locator, gitCmdFactory, catfileCache, repo))
 		})),
 	)

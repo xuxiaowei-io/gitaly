@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -39,7 +40,7 @@ type Action interface {
 // found repositories are known by praefect and runs a special action.
 type Runner struct {
 	cfg           Cfg
-	logger        logrus.FieldLogger
+	logger        log.Logger
 	healthChecker praefect.HealthChecker
 	conns         praefect.Connections
 	walker        *Walker
@@ -59,7 +60,7 @@ type Cfg struct {
 }
 
 // NewRunner returns instance of the Runner.
-func NewRunner(cfg Cfg, logger logrus.FieldLogger, healthChecker praefect.HealthChecker, conns praefect.Connections, stateOwner StateOwner, acquirer Acquirer, action Action) *Runner {
+func NewRunner(cfg Cfg, logger log.Logger, healthChecker praefect.HealthChecker, conns praefect.Connections, stateOwner StateOwner, acquirer Acquirer, action Action) *Runner {
 	return &Runner{
 		cfg:           cfg,
 		logger:        logger.WithField("component", "repocleaner.repository_existence"),
@@ -149,7 +150,7 @@ func (gs *Runner) run(ctx context.Context) {
 	}
 }
 
-func (gs *Runner) loggerWith(virtualStorage, storage string) logrus.FieldLogger {
+func (gs *Runner) loggerWith(virtualStorage, storage string) log.Logger {
 	return gs.logger.WithFields(logrus.Fields{"virtual_storage": virtualStorage, "storage": storage})
 }
 

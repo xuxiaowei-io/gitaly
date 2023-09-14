@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 	grpcMetadata "google.golang.org/grpc/metadata"
 )
 
 // NewUnaryProxy creates a gRPC client middleware that proxies sidechannels.
-func NewUnaryProxy(registry *Registry, log logrus.FieldLogger) grpc.UnaryClientInterceptor {
+func NewUnaryProxy(registry *Registry, log log.Logger) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
 		if !hasSidechannelMetadata(ctx) {
 			return invoker(ctx, method, req, reply, cc, opts...)
@@ -37,7 +37,7 @@ func NewUnaryProxy(registry *Registry, log logrus.FieldLogger) grpc.UnaryClientI
 }
 
 // NewStreamProxy creates a gRPC client middleware that proxies sidechannels.
-func NewStreamProxy(registry *Registry, log logrus.FieldLogger) grpc.StreamClientInterceptor {
+func NewStreamProxy(registry *Registry, log log.Logger) grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		if !hasSidechannelMetadata(ctx) {
 			return streamer(ctx, desc, cc, method, opts...)
@@ -63,7 +63,7 @@ func NewStreamProxy(registry *Registry, log logrus.FieldLogger) grpc.StreamClien
 type streamWrapper struct {
 	grpc.ClientStream
 	waiter *Waiter
-	log    logrus.FieldLogger
+	log    log.Logger
 }
 
 func (sw *streamWrapper) RecvMsg(m interface{}) (err error) {

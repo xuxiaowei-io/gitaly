@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -29,7 +30,7 @@ type ErrorResponse struct {
 
 //nolint:revive // This is unintentionally missing documentation.
 type GitlabNetClient struct {
-	logger     logrus.FieldLogger
+	logger     log.Logger
 	httpClient *HTTPClient
 	user       string
 	password   string
@@ -52,7 +53,7 @@ func (e *APIError) Error() string {
 
 //nolint:revive // This is unintentionally missing documentation.
 func NewGitlabNetClient(
-	logger logrus.FieldLogger,
+	logger log.Logger,
 	user,
 	password,
 	secret string,

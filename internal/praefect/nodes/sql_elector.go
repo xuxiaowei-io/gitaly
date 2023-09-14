@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/metrics"
@@ -83,12 +84,12 @@ type sqlElector struct {
 	nodes           []*sqlCandidate
 	primaryNode     *sqlCandidate
 	db              *sql.DB
-	log             logrus.FieldLogger
+	log             log.Logger
 	failoverTimeout time.Duration
 	doneCh          chan struct{}
 }
 
-func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLogger, ns []*nodeStatus) *sqlElector {
+func newSQLElector(name string, c config.Config, db *sql.DB, log log.Logger, ns []*nodeStatus) *sqlElector {
 	log = log.WithField("virtual_storage", name)
 	praefectName := GeneratePraefectName(c, log)
 
@@ -118,7 +119,7 @@ func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLog
 // doesn't change across restarts since that may temporarily make it
 // look like there are more Praefect processes active for
 // determining a quorum.
-func GeneratePraefectName(c config.Config, log logrus.FieldLogger) string {
+func GeneratePraefectName(c config.Config, log log.Logger) string {
 	name, err := os.Hostname()
 	if err != nil {
 		name = uuid.New().String()

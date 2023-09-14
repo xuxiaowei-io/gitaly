@@ -35,10 +35,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 var (
@@ -132,7 +132,7 @@ type cache struct {
 	createFile func() (namedWriteCloser, error)
 	stop       chan struct{}
 	stopOnce   sync.Once
-	logger     logrus.FieldLogger
+	logger     log.Logger
 	dir        string
 	sleepLoop  *dontpanic.Forever
 
@@ -142,7 +142,7 @@ type cache struct {
 }
 
 // New returns a new cache instance.
-func New(cfg config.StreamCacheConfig, logger logrus.FieldLogger) Cache {
+func New(cfg config.StreamCacheConfig, logger log.Logger) Cache {
 	if cfg.Enabled {
 		packObjectsCacheEnabled.WithLabelValues(
 			cfg.Dir,
@@ -165,7 +165,7 @@ func newCacheWithSleep(
 	maxAge time.Duration,
 	filestoreSleep func(time.Duration) <-chan time.Time,
 	cleanSleep func(time.Duration) <-chan time.Time,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 ) *cache {
 	fs := newFilestore(dir, maxAge, filestoreSleep, logger)
 

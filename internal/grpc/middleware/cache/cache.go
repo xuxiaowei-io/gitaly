@@ -6,14 +6,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	diskcache "gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
-func methodErrLogger(logger logrus.FieldLogger, method string) func(error) {
+func methodErrLogger(logger log.Logger, method string) func(error) {
 	return func(err error) {
 		countMethodErr(method)
 		logger.WithField("full_method_name", method).Error(err)
@@ -42,7 +42,7 @@ func shouldInvalidate(mi protoregistry.MethodInfo) bool {
 
 // StreamInvalidator will invalidate any mutating RPC that targets a
 // repository in a gRPC stream based RPC
-func StreamInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry, logger logrus.FieldLogger) grpc.StreamServerInterceptor {
+func StreamInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry, logger log.Logger) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		if shouldIgnore(reg, info.FullMethod) {
 			return handler(srv, ss)
@@ -69,7 +69,7 @@ func StreamInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry, lo
 
 // UnaryInvalidator will invalidate any mutating RPC that targets a
 // repository in a gRPC unary RPC
-func UnaryInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry, logger logrus.FieldLogger) grpc.UnaryServerInterceptor {
+func UnaryInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry, logger log.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		if shouldIgnore(reg, info.FullMethod) {
 			return handler(ctx, req)

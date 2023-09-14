@@ -9,9 +9,9 @@ import (
 
 	"github.com/cloudflare/tableflip"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"golang.org/x/sys/unix"
 )
 
@@ -35,7 +35,7 @@ type Listener interface {
 
 // Bootstrap handles graceful upgrades
 type Bootstrap struct {
-	logger     logrus.FieldLogger
+	logger     log.Logger
 	upgrader   upgrader
 	listenFunc ListenFunc
 	errChan    chan error
@@ -77,7 +77,7 @@ type upgrader interface {
 //     freezes during a graceful shutdown
 //
 // gitaly-wrapper is supposed to set EnvUpgradesEnabled in order to enable graceful upgrades
-func New(logger logrus.FieldLogger, totalConn *prometheus.CounterVec) (*Bootstrap, error) {
+func New(logger log.Logger, totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 	pidFile := os.Getenv(EnvPidFile)
 	upgradesEnabled, _ := env.GetBool(EnvUpgradesEnabled, false)
 
@@ -107,7 +107,7 @@ func New(logger logrus.FieldLogger, totalConn *prometheus.CounterVec) (*Bootstra
 	return _new(logger, upg, upg.Fds.Listen, upgradesEnabled, totalConn)
 }
 
-func _new(logger logrus.FieldLogger, upg upgrader, listenFunc ListenFunc, upgradesEnabled bool, totalConn *prometheus.CounterVec) (*Bootstrap, error) {
+func _new(logger log.Logger, upg upgrader, listenFunc ListenFunc, upgradesEnabled bool, totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 	if upgradesEnabled {
 		go func() {
 			sig := make(chan os.Signal, 1)

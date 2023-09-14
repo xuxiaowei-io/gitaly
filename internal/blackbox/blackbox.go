@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 )
 
@@ -75,7 +75,7 @@ func (m httpPostMetrics) Collect(metrics chan<- prometheus.Metric) {
 // Blackbox encapsulates all details required to run the blackbox prober.
 type Blackbox struct {
 	cfg    Config
-	logger logrus.FieldLogger
+	logger log.Logger
 
 	fetchReferenceDiscoveryMetrics httpReferenceDiscoveryMetrics
 	httpPostMetrics                httpPostMetrics
@@ -83,7 +83,7 @@ type Blackbox struct {
 }
 
 // New creates a new Blackbox structure.
-func New(cfg Config, logger logrus.FieldLogger) Blackbox {
+func New(cfg Config, logger log.Logger) Blackbox {
 	return Blackbox{
 		cfg:    cfg,
 		logger: logger,

@@ -10,14 +10,14 @@ import (
 	"net/url"
 
 	"github.com/git-lfs/git-lfs/v3/lfs"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
-func filter(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader, logger logrus.FieldLogger) (returnedErr error) {
+func filter(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader, logger log.Logger) (returnedErr error) {
 	client, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return fmt.Errorf("creating HTTP client: %w", err)
@@ -63,7 +63,7 @@ const (
 	processStateSmudgeContent
 )
 
-func process(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader, logger logrus.FieldLogger) error {
+func process(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader, logger log.Logger) error {
 	client, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return fmt.Errorf("creating HTTP client: %w", err)
@@ -287,7 +287,7 @@ func process(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reade
 	return nil
 }
 
-func smudgeOneObject(ctx context.Context, cfg smudge.Config, gitlabClient *gitlab.HTTPClient, from io.Reader, logger logrus.FieldLogger) (io.ReadCloser, error) {
+func smudgeOneObject(ctx context.Context, cfg smudge.Config, gitlabClient *gitlab.HTTPClient, from io.Reader, logger log.Logger) (io.ReadCloser, error) {
 	ptr, contents, err := lfs.DecodeFrom(from)
 	if err != nil {
 		// This isn't a valid LFS pointer. Just copy the existing pointer data.

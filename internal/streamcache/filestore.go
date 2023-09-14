@@ -12,9 +12,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 var (
@@ -60,7 +60,7 @@ type filestore struct {
 	sleepLoop *dontpanic.Forever
 }
 
-func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration) <-chan time.Time, logger logrus.FieldLogger) *filestore {
+func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration) <-chan time.Time, logger log.Logger) *filestore {
 	fs := &filestore{
 		dir:       dir,
 		maxAge:    maxAge,

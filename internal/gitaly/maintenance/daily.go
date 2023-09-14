@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // StoragesJob runs a job on storages. The string slice param indicates which
 // storages are currently enabled for the feature.
-type StoragesJob func(context.Context, logrus.FieldLogger, []string) error
+type StoragesJob func(context.Context, log.Logger, []string) error
 
 // DailyWorker allows for a storage job to be executed on a daily schedule
 type DailyWorker struct {
@@ -40,7 +40,7 @@ func (dw DailyWorker) nextTime(hour, minute int) time.Time {
 
 // StartDaily will run the provided job every day at the specified time for the
 // specified duration. Only the specified storages wil be worked on.
-func (dw DailyWorker) StartDaily(ctx context.Context, l logrus.FieldLogger, schedule config.DailyJob, job StoragesJob) error {
+func (dw DailyWorker) StartDaily(ctx context.Context, l log.Logger, schedule config.DailyJob, job StoragesJob) error {
 	if schedule.Duration == 0 || len(schedule.Storages) == 0 || schedule.Disabled {
 		return nil
 	}

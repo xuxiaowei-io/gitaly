@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -59,7 +58,7 @@ func (nopCloser) Close() error {
 	return nil
 }
 
-func configureLogging(ctx context.Context, environment []string) (logrus.FieldLogger, io.Closer, error) {
+func configureLogging(ctx context.Context, environment []string) (log.Logger, io.Closer, error) {
 	var closer io.Closer = nopCloser{}
 	writer := io.Discard
 
@@ -82,7 +81,7 @@ func configureLogging(ctx context.Context, environment []string) (logrus.FieldLo
 	return logger.WithField(correlation.FieldName, correlation.ExtractFromContext(ctx)), closer, nil
 }
 
-func run(ctx context.Context, environment []string, out io.Writer, in io.Reader, logger logrus.FieldLogger) error {
+func run(ctx context.Context, environment []string, out io.Writer, in io.Reader, logger log.Logger) error {
 	cfg, err := smudge.ConfigFromEnvironment(environment)
 	if err != nil {
 		return fmt.Errorf("loading configuration: %w", err)

@@ -45,7 +45,7 @@ import (
 
 // NewBackchannelServerFactory returns a ServerFactory that serves the RefTransactionServer on the backchannel
 // connection.
-func NewBackchannelServerFactory(logger logrus.FieldLogger, refSvc gitalypb.RefTransactionServer, registry *sidechannel.Registry) backchannel.ServerFactory {
+func NewBackchannelServerFactory(logger log.Logger, refSvc gitalypb.RefTransactionServer, registry *sidechannel.Registry) backchannel.ServerFactory {
 	logMsgProducer := log.MessageProducer(
 		log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
 		structerr.FieldsProducer,
@@ -236,7 +236,7 @@ func registerServices(
 	grpcprometheus.Register(srv)
 }
 
-func warnDupeAddrs(logger logrus.FieldLogger, conf config.Config) {
+func warnDupeAddrs(logger log.Logger, conf config.Config) {
 	var fishy bool
 
 	for _, virtualStorage := range conf.VirtualStorages {

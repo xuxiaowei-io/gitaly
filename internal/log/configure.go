@@ -34,10 +34,10 @@ type Config struct {
 
 // Configure configures the default and gRPC loggers. The gRPC logger's log level will be mapped in order to decrease
 // its default verbosity. Returns the configured default logger that would also be returned by `Default()`.
-func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) (logrus.FieldLogger, error) {
-	logger := logrus.New() //nolint:forbidigo
+func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook) (Logger, error) {
+	l := logrus.New() //nolint:forbidigo
 
-	if err := configure(logger, out, format, level, hooks...); err != nil {
+	if err := configure(l, out, format, level, hooks...); err != nil {
 		return nil, fmt.Errorf("configuring logger: %w", err)
 	}
 
@@ -60,7 +60,7 @@ func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook)
 		grpcmwlogrus.ReplaceGrpcLogger(grpcLogger.WithField("pid", os.Getpid()))
 	}
 
-	return logger.WithField("pid", os.Getpid()), nil
+	return FromLogrusEntry(l.WithField("pid", os.Getpid())), nil
 }
 
 // ConfigureCommand configures the logging infrastructure such that it can be used with simple one-off commands. This
@@ -78,7 +78,7 @@ func Configure(out io.Writer, format string, level string, hooks ...logrus.Hook)
 //     uninteresting.
 //
 // Servers and commands with special requirements should instead use `Configure()`.
-func ConfigureCommand() logrus.FieldLogger {
+func ConfigureCommand() Logger {
 	logger, err := Configure(os.Stderr, "text", "error")
 	if err != nil {
 		// The configuration can't really return an error as we invoke it with known-good parameters.

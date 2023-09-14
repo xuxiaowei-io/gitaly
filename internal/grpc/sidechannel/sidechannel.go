@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -136,7 +136,7 @@ func NewServerHandshaker(registry *Registry) *ServerHandshaker {
 
 // NewClientHandshaker is used to enable sidechannel support on outbound
 // gRPC connections.
-func NewClientHandshaker(logger logrus.FieldLogger, registry *Registry) client.Handshaker {
+func NewClientHandshaker(logger log.Logger, registry *Registry) client.Handshaker {
 	cfg := backchannel.DefaultConfiguration()
 	// If a client hangs up while the server is writing data to it then the
 	// server will block for 5 minutes by default before erroring out. This

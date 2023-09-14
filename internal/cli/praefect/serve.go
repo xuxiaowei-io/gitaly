@@ -95,7 +95,7 @@ func serveAction(ctx *cli.Context) error {
 	return nil
 }
 
-func run(conf config.Config, appName string, logger logrus.FieldLogger) error {
+func run(conf config.Config, appName string, logger log.Logger) error {
 	configure(logger, appName, conf)
 
 	starterConfigs, err := getStarterConfigs(conf)
@@ -141,7 +141,7 @@ func readConfig(path string) (config.Config, error) {
 	return conf, nil
 }
 
-func configure(logger logrus.FieldLogger, appName string, conf config.Config) {
+func configure(logger log.Logger, appName string, conf config.Config) {
 	tracing.Initialize(tracing.WithServiceName(appName))
 
 	if conf.PrometheusListenAddr != "" {
@@ -154,7 +154,7 @@ func configure(logger logrus.FieldLogger, appName string, conf config.Config) {
 func server(
 	cfgs []starter.Config,
 	conf config.Config,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 	b bootstrap.Listener,
 	promreg prometheus.Registerer,
 	dbPromRegistry interface {
@@ -572,7 +572,7 @@ func getStarterConfigs(conf config.Config) ([]starter.Config, error) {
 	return cfgs, nil
 }
 
-func initDatabase(ctx context.Context, logger logrus.FieldLogger, conf config.Config) (*sql.DB, func(), error) {
+func initDatabase(ctx context.Context, logger log.Logger, conf config.Config) (*sql.DB, func(), error) {
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	db, err := glsql.OpenDB(openDBCtx, conf.DB)

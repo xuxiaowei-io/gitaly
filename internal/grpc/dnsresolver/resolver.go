@@ -6,14 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backoff"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"google.golang.org/grpc/resolver"
 )
 
 type dnsResolver struct {
-	logger *logrus.Entry
+	logger log.Logger
 	retry  backoff.Strategy
 
 	ctx           context.Context

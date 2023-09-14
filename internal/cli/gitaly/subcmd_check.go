@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -62,7 +61,7 @@ func checkAction(ctx *cli.Context) error {
 	return nil
 }
 
-func checkAPI(cfg config.Cfg, logger logrus.FieldLogger) (*gitlab.CheckInfo, error) {
+func checkAPI(cfg config.Cfg, logger log.Logger) (*gitlab.CheckInfo, error) {
 	gitlabAPI, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return nil, err

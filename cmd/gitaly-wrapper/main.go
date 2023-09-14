@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -107,7 +106,7 @@ func findProcess(pidFilePath string) (*os.Process, error) {
 	return nil, nil
 }
 
-func spawnProcess(logger logrus.FieldLogger, bin string, args []string) (*os.Process, error) {
+func spawnProcess(logger log.Logger, bin string, args []string) (*os.Process, error) {
 	cmd := exec.Command(bin, args...)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=true", bootstrap.EnvUpgradesEnabled))
 
@@ -133,7 +132,7 @@ func isRuntimeSig(s os.Signal) bool {
 	return s == unix.SIGURG
 }
 
-func forwardSignals(gitaly *os.Process, log logrus.FieldLogger) {
+func forwardSignals(gitaly *os.Process, log log.Logger) {
 	sigs := make(chan os.Signal, 1)
 	go func() {
 		for sig := range sigs {

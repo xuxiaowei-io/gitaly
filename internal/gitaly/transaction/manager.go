@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -175,6 +176,6 @@ func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction) error {
 	return nil
 }
 
-func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
+func (m *PoolManager) log(ctx context.Context) log.Logger {
 	return ctxlogrus.Extract(ctx).WithField("component", "transaction.PoolManager")
 }

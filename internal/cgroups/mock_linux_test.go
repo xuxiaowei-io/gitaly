@@ -28,10 +28,10 @@ import (
 
 	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/containerd/cgroups/v3/cgroup1"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -141,11 +141,11 @@ func (m *mockCgroup) setupMockCgroupFiles(
 	}
 }
 
-func (m *mockCgroup) newCgroupManager(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *CGroupManager {
+func (m *mockCgroup) newCgroupManager(cfg cgroupscfg.Config, logger log.Logger, pid int) *CGroupManager {
 	return newCgroupManagerWithMode(cfg, logger, pid, cgrps.Legacy)
 }
 
-func (m *mockCgroup) pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
+func (m *mockCgroup) pruneOldCgroups(cfg cgroupscfg.Config, logger log.Logger) {
 	pruneOldCgroupsWithMode(cfg, logger, cgrps.Legacy)
 }
 
@@ -212,10 +212,10 @@ func (m *mockCgroupV2) setupMockCgroupFiles(
 	}
 }
 
-func (m *mockCgroupV2) newCgroupManager(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *CGroupManager {
+func (m *mockCgroupV2) newCgroupManager(cfg cgroupscfg.Config, logger log.Logger, pid int) *CGroupManager {
 	return newCgroupManagerWithMode(cfg, logger, pid, cgrps.Unified)
 }
 
-func (m *mockCgroupV2) pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
+func (m *mockCgroupV2) pruneOldCgroups(cfg cgroupscfg.Config, logger log.Logger) {
 	pruneOldCgroupsWithMode(cfg, logger, cgrps.Unified)
 }

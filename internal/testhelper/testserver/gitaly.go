@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
@@ -33,7 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -108,7 +107,7 @@ func runPraefectProxy(tb testing.TB, gitalyCfg config.Cfg, gitalyAddr string) Pr
 			VerificationInterval: -1,
 		},
 		Replication: praefectconfig.DefaultReplicationConfig(),
-		Logging: gitalylog.Config{
+		Logging: log.Config{
 			Format: "json",
 			Level:  "info",
 		},
@@ -252,7 +251,7 @@ func registerHealthServerIfNotRegistered(srv *grpc.Server) {
 
 type gitalyServerDeps struct {
 	disablePraefect     bool
-	logger              *logrus.Logger
+	logger              log.Logger
 	conns               *client.Pool
 	locator             storage.Locator
 	txMgr               transaction.Manager
@@ -392,8 +391,8 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 // GitalyServerOpt is a helper type to shorten declarations.
 type GitalyServerOpt func(gitalyServerDeps) gitalyServerDeps
 
-// WithLogger sets a logrus.Logger instance that will be used for gitaly services initialisation.
-func WithLogger(logger *logrus.Logger) GitalyServerOpt {
+// WithLogger sets a log.Logger instance that will be used for gitaly services initialisation.
+func WithLogger(logger log.Logger) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.logger = logger
 		return deps

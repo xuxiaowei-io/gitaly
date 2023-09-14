@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	prommetrics "gitlab.com/gitlab-org/gitaly/v16/internal/prometheus/metrics"
@@ -34,7 +35,7 @@ type Replicator interface {
 
 type defaultReplicator struct {
 	rs  datastore.RepositoryStore
-	log logrus.FieldLogger
+	log log.Logger
 }
 
 func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.ReplicationEvent, sourceCC, targetCC *grpc.ClientConn) error {
@@ -200,7 +201,7 @@ func (dr defaultReplicator) Rename(ctx context.Context, event datastore.Replicat
 
 // ReplMgr is a replication manager for handling replication jobs
 type ReplMgr struct {
-	log                              *logrus.Entry
+	log                              log.Logger
 	queue                            datastore.ReplicationEventQueue
 	hc                               HealthChecker
 	nodes                            NodeSet
@@ -249,7 +250,7 @@ func WithParallelStorageProcessingWorkers(n uint) func(*ReplMgr) {
 
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
-func NewReplMgr(log logrus.FieldLogger, storageNames map[string][]string, queue datastore.ReplicationEventQueue, rs datastore.RepositoryStore, hc HealthChecker, nodes NodeSet, opts ...ReplMgrOpt) ReplMgr {
+func NewReplMgr(log log.Logger, storageNames map[string][]string, queue datastore.ReplicationEventQueue, rs datastore.RepositoryStore, hc HealthChecker, nodes NodeSet, opts ...ReplMgrOpt) ReplMgr {
 	r := ReplMgr{
 		log:                          log.WithField("component", "replication_manager"),
 		queue:                        queue,
@@ -514,7 +515,7 @@ func (r ReplMgr) handleNode(ctx context.Context, virtualStorage string, target N
 	return len(events)
 }
 
-func (r ReplMgr) startHealthUpdate(ctx context.Context, logger logrus.FieldLogger, events []datastore.ReplicationEvent) context.CancelFunc {
+func (r ReplMgr) startHealthUpdate(ctx context.Context, logger log.Logger, events []datastore.ReplicationEvent) context.CancelFunc {
 	healthUpdateCtx, healthUpdateCancel := context.WithCancel(ctx)
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
@@ -533,7 +534,7 @@ func (r ReplMgr) startHealthUpdate(ctx context.Context, logger logrus.FieldLogge
 	return healthUpdateCancel
 }
 
-func (r ReplMgr) handleNodeEvent(ctx context.Context, logger logrus.FieldLogger, targetConnection *grpc.ClientConn, event datastore.ReplicationEvent) datastore.JobState {
+func (r ReplMgr) handleNodeEvent(ctx context.Context, logger log.Logger, targetConnection *grpc.ClientConn, event datastore.ReplicationEvent) datastore.JobState {
 	cid := getCorrelationID(event.Meta)
 	ctx = correlation.ContextWithCorrelation(ctx, cid)
 

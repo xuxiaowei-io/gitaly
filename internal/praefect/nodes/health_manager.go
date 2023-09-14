@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -33,7 +34,7 @@ type HealthClients map[string]map[string]grpc_health_v1.HealthClient
 // `node_status` table. Each Praefect node is identified by their host name and the provided
 // stable ID. The stable ID should uniquely identify a Praefect instance on the host.
 type HealthManager struct {
-	log         logrus.FieldLogger
+	log         log.Logger
 	db          glsql.Querier
 	handleError func(error) error
 	// clients contains connections to the configured physical storages within each
@@ -59,7 +60,7 @@ type HealthManager struct {
 // NewHealthManager returns a new health manager that monitors which nodes in the cluster
 // are healthy.
 func NewHealthManager(
-	log logrus.FieldLogger,
+	log log.Logger,
 	db glsql.Querier,
 	praefectName string,
 	clients HealthClients,

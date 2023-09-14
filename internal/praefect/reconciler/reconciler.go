@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/advisorylock"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
@@ -16,7 +16,7 @@ const logBatchSize = 25
 
 // Reconciler implements reconciliation logic for repairing outdated repository replicas.
 type Reconciler struct {
-	log                              logrus.FieldLogger
+	log                              log.Logger
 	db                               glsql.Querier
 	hc                               praefect.HealthChecker
 	storages                         map[string][]string
@@ -27,7 +27,7 @@ type Reconciler struct {
 }
 
 // NewReconciler returns a new Reconciler for repairing outdated repositories.
-func NewReconciler(log logrus.FieldLogger, db glsql.Querier, hc praefect.HealthChecker, storages map[string][]string, buckets []float64) *Reconciler {
+func NewReconciler(log log.Logger, db glsql.Querier, hc praefect.HealthChecker, storages map[string][]string, buckets []float64) *Reconciler {
 	log = log.WithField("component", "reconciler")
 
 	r := &Reconciler{

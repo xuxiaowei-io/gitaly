@@ -104,7 +104,7 @@ func main() {
 // configureLogger configures the logger used by gitaly-hooks. As both stdout and stderr might be interpreted by Git, we
 // need to log to a file instead. If the `log.GitalyLogDirEnvKey` environment variable is set, we thus log to a file
 // contained in the directory pointed to by it, otherwise we discard any log messages.
-func configureLogger(ctx context.Context) (logrus.FieldLogger, error) {
+func configureLogger(ctx context.Context) (log.Logger, error) {
 	writer := io.Discard
 
 	if logDir := os.Getenv(log.GitalyLogDirEnvKey); logDir != "" {

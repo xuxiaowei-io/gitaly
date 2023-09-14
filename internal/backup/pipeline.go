@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -155,14 +156,14 @@ func (e PipelineErrors) Error() string {
 
 // LoggingPipeline outputs logging for each command executed
 type LoggingPipeline struct {
-	log logrus.FieldLogger
+	log log.Logger
 
 	mu   sync.Mutex
 	errs PipelineErrors
 }
 
 // NewLoggingPipeline creates a new logging pipeline
-func NewLoggingPipeline(log logrus.FieldLogger) *LoggingPipeline {
+func NewLoggingPipeline(log log.Logger) *LoggingPipeline {
 	return &LoggingPipeline{
 		log: log,
 	}
@@ -201,7 +202,7 @@ func (p *LoggingPipeline) Done() error {
 	return nil
 }
 
-func (p *LoggingPipeline) cmdLogger(cmd Command) logrus.FieldLogger {
+func (p *LoggingPipeline) cmdLogger(cmd Command) log.Logger {
 	return p.log.WithFields(logrus.Fields{
 		"command":         cmd.Name(),
 		"storage_name":    cmd.Repository().StorageName,

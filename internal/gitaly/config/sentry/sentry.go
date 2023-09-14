@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	sentry "github.com/getsentry/sentry-go"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // Config contains configuration for sentry
@@ -15,7 +15,7 @@ type Config struct {
 }
 
 // ConfigureSentry configures the sentry DSN
-func ConfigureSentry(logger logrus.FieldLogger, version string, sentryConf Config) {
+func ConfigureSentry(logger log.Logger, version string, sentryConf Config) {
 	if sentryConf.DSN == "" {
 		return
 	}

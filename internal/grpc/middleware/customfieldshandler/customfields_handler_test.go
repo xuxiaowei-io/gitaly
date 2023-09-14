@@ -25,10 +25,10 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func createNewServer(t *testing.T, cfg config.Cfg, logger *logrus.Logger) *grpc.Server {
+func createNewServer(t *testing.T, cfg config.Cfg, logger log.Logger) *grpc.Server {
 	t.Helper()
 
-	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
+	logrusEntry := logger.WithField("test", t.Name())
 
 	opts := []grpc.ServerOption{
 		grpc.ChainStreamInterceptor(

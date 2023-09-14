@@ -12,13 +12,13 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger/v4"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
@@ -51,7 +51,7 @@ type storageManager struct {
 	// mu synchronizes access to the fields of storageManager.
 	mu sync.Mutex
 	// logger handles all logging for storageManager.
-	logger logrus.FieldLogger
+	logger log.Logger
 	// path is the absolute path to the storage's root.
 	path string
 	// repoFactory is a factory type that builds localrepo instances for this storage.
@@ -180,7 +180,7 @@ func NewPartitionManager(
 	cmdFactory git.CommandFactory,
 	housekeepingManager housekeeping.Manager,
 	localRepoFactory localrepo.Factory,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 ) (*PartitionManager, error) {
 	storages := make(map[string]*storageManager, len(configuredStorages))
 	for _, storage := range configuredStorages {

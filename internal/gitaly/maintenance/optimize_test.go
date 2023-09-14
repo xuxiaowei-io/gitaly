@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -16,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -27,7 +27,7 @@ type mockOptimizer struct {
 	cfg    config.Cfg
 }
 
-func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, logger logrus.FieldLogger, repository storage.Repository) error {
+func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, logger log.Logger, repository storage.Repository) error {
 	mo.actual = append(mo.actual, repository)
 	l := config.NewLocator(mo.cfg)
 	gitCmdFactory := gittest.NewCommandFactory(mo.t, mo.cfg)

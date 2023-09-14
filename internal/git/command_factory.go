@@ -125,7 +125,7 @@ type ExecCommandFactory struct {
 	locator               storage.Locator
 	cfg                   config.Cfg
 	execEnvs              []ExecutionEnvironment
-	logger                logrus.FieldLogger
+	logger                log.Logger
 	cgroupsManager        cgroups.Manager
 	trace2Hooks           []trace2.Hook
 	invalidCommandsMetric *prometheus.CounterVec
@@ -137,7 +137,7 @@ type ExecCommandFactory struct {
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
 // cleanup function shall be executed when the server shuts down.
-func NewExecCommandFactory(cfg config.Cfg, logger logrus.FieldLogger, opts ...ExecCommandFactoryOption) (_ *ExecCommandFactory, _ func(), returnedErr error) {
+func NewExecCommandFactory(cfg config.Cfg, logger log.Logger, opts ...ExecCommandFactoryOption) (_ *ExecCommandFactory, _ func(), returnedErr error) {
 	var factoryCfg execCommandFactoryConfig
 	for _, opt := range opts {
 		opt(&factoryCfg)
@@ -196,7 +196,7 @@ func NewExecCommandFactory(cfg config.Cfg, logger logrus.FieldLogger, opts ...Ex
 
 // setupGitExecutionEnvironments assembles a Git execution environment that can be used to run Git
 // commands. It warns if no path was specified in the configuration.
-func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig, logger logrus.FieldLogger) ([]ExecutionEnvironment, func(), error) {
+func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig, logger log.Logger) ([]ExecutionEnvironment, func(), error) {
 	sharedEnvironment := []string{
 		// Force English locale for consistency on output messages and to help us debug in
 		// case we get bug reports from customers whose system-locale would be different.
@@ -309,7 +309,7 @@ func (cf *ExecCommandFactory) HooksPath(ctx context.Context) string {
 	return cf.hookDirs.tempHooksPath
 }
 
-func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig, logger logrus.FieldLogger) (hookDirectories, func(), error) {
+func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig, logger log.Logger) (hookDirectories, func(), error) {
 	if factoryCfg.hooksPath != "" {
 		return hookDirectories{
 			tempHooksPath: factoryCfg.hooksPath,

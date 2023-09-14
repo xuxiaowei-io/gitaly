@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 )
@@ -320,7 +321,7 @@ type referencedObjectTypes struct {
 	Trees   uint64 `json:"trees"`
 }
 
-func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
+func (o *ObjectPool) logStats(ctx context.Context, logger log.Logger) error {
 	fields := logrus.Fields{}
 
 	repoInfo, err := stats.RepositoryInfoForRepository(o.Repo)

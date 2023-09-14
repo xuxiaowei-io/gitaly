@@ -33,14 +33,14 @@ import (
 	"sync"
 
 	"github.com/hashicorp/yamux"
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // magicBytes are sent by the client to server to identify as a multiplexing aware client.
 var magicBytes = []byte("backchannel")
 
 // muxConfig returns a new config to use with the multiplexing session.
-func muxConfig(logger logrus.FieldLogger, cfg Configuration) *yamux.Config {
+func muxConfig(logger log.Logger, cfg Configuration) *yamux.Config {
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.Logger = logger
 	yamuxCfg.LogOutput = nil

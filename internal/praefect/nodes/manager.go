@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/metrics"
@@ -131,7 +132,7 @@ func Dial(
 	errorTracker tracker.ErrorTracker,
 	handshaker client.Handshaker,
 	sidechannelRegistry *sidechannel.Registry,
-	log logrus.FieldLogger,
+	log log.Logger,
 ) (*grpc.ClientConn, error) {
 	streamInterceptors := []grpc.StreamClientInterceptor{
 		grpcprometheus.StreamClientInterceptor,
@@ -165,7 +166,7 @@ func Dial(
 
 // NewManager creates a new NodeMgr based on virtual storage configs
 func NewManager(
-	log logrus.FieldLogger,
+	log log.Logger,
 	c config.Config,
 	db *sql.DB,
 	csg datastore.ConsistentStoragesGetter,
@@ -335,7 +336,7 @@ func (n *Mgr) HealthyNodes() map[string][]string {
 //nolint:revive // This is unintentionally missing documentation.
 func (n *Mgr) Nodes() map[string][]Node { return n.nodes }
 
-func newConnectionStatus(node config.Node, cc *grpc.ClientConn, l logrus.FieldLogger, latencyHist prommetrics.HistogramVec, errorTracker tracker.ErrorTracker) *nodeStatus {
+func newConnectionStatus(node config.Node, cc *grpc.ClientConn, l log.Logger, latencyHist prommetrics.HistogramVec, errorTracker tracker.ErrorTracker) *nodeStatus {
 	return &nodeStatus{
 		node:        node,
 		clientConn:  cc,
@@ -348,7 +349,7 @@ func newConnectionStatus(node config.Node, cc *grpc.ClientConn, l logrus.FieldLo
 type nodeStatus struct {
 	node        config.Node
 	clientConn  *grpc.ClientConn
-	log         logrus.FieldLogger
+	log         log.Logger
 	latencyHist prommetrics.HistogramVec
 	mtx         sync.RWMutex
 	statuses    []bool

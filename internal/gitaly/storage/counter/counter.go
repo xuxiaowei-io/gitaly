@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/walk"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // RepositoryCounter provides metrics with a count of repositories present
@@ -61,7 +61,7 @@ func (c *RepositoryCounter) Collect(metrics chan<- prometheus.Metric) {
 func (c *RepositoryCounter) StartCountingRepositories(
 	ctx context.Context,
 	locator storage.Locator,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 ) {
 	dontpanic.Go(logger, func() {
 		c.countRepositories(ctx, locator, logger)
@@ -71,7 +71,7 @@ func (c *RepositoryCounter) StartCountingRepositories(
 func (c *RepositoryCounter) countRepositories(
 	ctx context.Context,
 	locator storage.Locator,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 ) {
 	defer func() {
 		c.suppressMetric.Store(false)
