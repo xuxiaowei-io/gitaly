@@ -3,6 +3,7 @@ package storagemgr
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -89,6 +90,66 @@ func RequireRepositoryState(tb testing.TB, ctx context.Context, cfg config.Cfg, 
 		},
 	)
 	testhelper.RequireDirectoryState(tb, filepath.Join(repoPath, repoutil.CustomHooksDir), "", expected.CustomHooks)
+}
+
+type repositoryBuilder func(relativePath string) *localrepo.Repo
+
+// RepositoryStates describes the state of repositories in a storage. The key is the relative path of a repository that
+// is expected to exist and the value the expected state contained in the repository.
+type RepositoryStates map[string]RepositoryState
+
+// RequireRepositories finds all Git repositories in the given storage path. It asserts the set of existing repositories match the expected set
+// and that all of the repositories contain the expected state.
+func RequireRepositories(tb testing.TB, ctx context.Context, cfg config.Cfg, storagePath string, buildRepository repositoryBuilder, expected RepositoryStates) {
+	tb.Helper()
+
+	var actualRelativePaths []string
+	require.NoError(tb, filepath.WalkDir(storagePath, func(path string, d fs.DirEntry, err error) error {
+		require.NoError(tb, err)
+
+		if !d.IsDir() {
+			return nil
+		}
+
+		if err := storage.ValidateGitDirectory(path); err != nil {
+			require.ErrorAs(tb, err, &storage.InvalidGitDirectoryError{})
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(storagePath, path)
+		require.NoError(tb, err)
+
+		actualRelativePaths = append(actualRelativePaths, relativePath)
+		return nil
+	}))
+
+	var expectedRelativePaths []string
+	for relativePath := range expected {
+		expectedRelativePaths = append(expectedRelativePaths, relativePath)
+	}
+
+	// Sort the slices instead of using ElementsMatch so the state assertions are always done in the
+	// same order as well.
+	sort.Strings(actualRelativePaths)
+	sort.Strings(expectedRelativePaths)
+
+	require.Equal(tb, expectedRelativePaths, actualRelativePaths,
+		"expected and actual set of repositories in the storage don't match")
+
+	for _, relativePath := range expectedRelativePaths {
+		func() {
+			defer func() {
+				// RequireRepositoryState works within a repository and doesn't thus print out the
+				// relative path of the repository that failed. If the call failed the test,
+				// print out the relative path to ease troubleshooting.
+				if tb.Failed() {
+					require.Failf(tb, "unexpected repository state", "relative path: %q", relativePath)
+				}
+			}()
+
+			RequireRepositoryState(tb, ctx, cfg, buildRepository(relativePath), expected[relativePath])
+		}()
+	}
 }
 
 // DatabaseState describes the expected state of the key-value store. The keys in the map are the expected keys
