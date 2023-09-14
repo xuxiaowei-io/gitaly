@@ -63,8 +63,7 @@ func TestPayloadBytes(t *testing.T) {
 			FieldProducers: []log.FieldsProducer{FieldsProducer},
 		}),
 		grpc.ChainUnaryInterceptor(
-			grpcmwlogrus.UnaryServerInterceptor(
-				logger.Entry,
+			logger.UnaryServerInterceptor(
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
@@ -75,8 +74,7 @@ func TestPayloadBytes(t *testing.T) {
 			log.UnaryLogDataCatcherServerInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
-			grpcmwlogrus.StreamServerInterceptor(
-				logger.Entry,
+			logger.StreamServerInterceptor(
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),

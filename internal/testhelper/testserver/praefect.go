@@ -64,7 +64,7 @@ func StartPraefect(tb testing.TB, cfg config.Config) PraefectServer {
 
 	// Redirect log output of the server to the Praefect server logger. This will cause us to write logs into a
 	// Praefect-specific logger.
-	logWriter := testhelper.NewLogger(tb, testhelper.WithLoggerName("praefect")).WithField("component", "praefect").Writer()
+	logWriter := testhelper.NewLogger(tb, testhelper.WithLoggerName("praefect")).Entry.WithField("component", "praefect").Writer()
 	tb.Cleanup(func() { testhelper.MustClose(tb, logWriter) })
 
 	cmd := exec.Command(binaryPath, "-config", configFilePath)

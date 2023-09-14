@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -90,7 +91,7 @@ func NewTestRepo(tb testing.TB, cfg config.Cfg, repo storage.Repository, factory
 	logger := logrus.New()
 	logger.Out = io.Discard
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, logger, factoryOpts...)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, log.FromLogrusEntry(logrus.NewEntry(logger)), factoryOpts...)
 	tb.Cleanup(cleanup)
 	require.NoError(tb, err)
 

@@ -27,7 +27,7 @@ func Example() {
 	// can use the registry to access available backchannels by their peer ID.
 	registry := backchannel.NewRegistry()
 
-	logger := logrus.NewEntry(logrus.New())
+	logger := log.FromLogrusEntry(logrus.NewEntry(logrus.New()))
 
 	// ServerHandshaker initiates the multiplexing session on the server side. Once that is done,
 	// it creates the backchannel connection and stores it into the registry. For each connection,

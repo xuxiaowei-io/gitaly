@@ -40,7 +40,7 @@ func TestAdaptiveCalculator_realTimerTicker(t *testing.T) {
 	watcher := newTestWatcher("testWatcher", []string{"", "", "", "", ""}, nil)
 
 	calibration := 10 * time.Millisecond
-	calculator := NewAdaptiveCalculator(calibration, logger.WithContext(testhelper.Context(t)), []AdaptiveLimiter{limit}, []ResourceWatcher{watcher})
+	calculator := NewAdaptiveCalculator(calibration, logger, []AdaptiveLimiter{limit}, []ResourceWatcher{watcher})
 
 	stop, err := calculator.Start(testhelper.Context(t))
 	require.NoError(t, err)
@@ -556,7 +556,7 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher2"} 5
 			})
 
 			calibration := 10 * time.Millisecond
-			calculator := NewAdaptiveCalculator(calibration, logger.WithContext(testhelper.Context(t)), tc.limits, tc.watchers)
+			calculator := NewAdaptiveCalculator(calibration, logger, tc.limits, tc.watchers)
 			calculator.tickerCreator = func(duration time.Duration) helper.Ticker { return ticker }
 
 			stop, err := calculator.Start(testhelper.Context(t))

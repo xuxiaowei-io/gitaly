@@ -9,14 +9,14 @@ import (
 	"strings"
 	"syscall"
 
-	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // PruneOldGitalyProcessDirectories removes leftover temporary directories that belonged to processes that
 // no longer exist. Directories are expected to be in the form gitaly-<pid>.
 // The removals are logged prior to being executed. Unexpected directory entries are logged
 // but not removed.
-func PruneOldGitalyProcessDirectories(log log.FieldLogger, directory string) error {
+func PruneOldGitalyProcessDirectories(log log.Logger, directory string) error {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return fmt.Errorf("list gitaly process directory: %w", err)

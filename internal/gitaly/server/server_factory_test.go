@@ -145,7 +145,7 @@ func TestGitalyServerFactory(t *testing.T) {
 		hook := testhelper.AddLoggerHook(logger)
 		sf := NewGitalyServerFactory(
 			cfg,
-			logger.WithContext(ctx),
+			logger,
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg), logger),
 			nil,

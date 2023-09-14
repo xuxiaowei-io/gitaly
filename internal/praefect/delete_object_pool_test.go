@@ -72,7 +72,7 @@ func TestDeleteObjectPoolHandler(t *testing.T) {
 	logger := testhelper.NewLogger(t)
 	hook := testhelper.AddLoggerHook(logger)
 	praefectSrv := grpc.NewServer(grpc.ChainStreamInterceptor(
-		grpcmwlogrus.StreamServerInterceptor(logger.Entry, grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
+		logger.StreamServerInterceptor(grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
 	))
 	praefectSrv.RegisterService(&grpc.ServiceDesc{
 		ServiceName: "gitaly.ObjectPoolService",

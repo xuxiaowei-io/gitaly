@@ -95,8 +95,7 @@ func TestFieldsProducer(t *testing.T) {
 	service := &mockService{}
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			grpcmwlogrus.UnaryServerInterceptor(
-				logger.Entry,
+			logger.UnaryServerInterceptor(
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						grpcmwlogrus.DefaultMessageProducer,

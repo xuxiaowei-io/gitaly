@@ -32,13 +32,13 @@ func createNewServer(t *testing.T, cfg config.Cfg, logger log.Logger) *grpc.Serv
 	opts := []grpc.ServerOption{
 		grpc.ChainStreamInterceptor(
 			StreamInterceptor,
-			grpcmwlogrus.StreamServerInterceptor(logrusEntry,
+			logrusEntry.StreamServerInterceptor(
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
 		),
 		grpc.ChainUnaryInterceptor(
 			UnaryInterceptor,
-			grpcmwlogrus.UnaryServerInterceptor(logrusEntry,
+			logrusEntry.UnaryServerInterceptor(
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
 		),

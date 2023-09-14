@@ -153,8 +153,7 @@ func TestRunner_Run(t *testing.T) {
 	logger := testhelper.NewLogger(t)
 	loggerHook := testhelper.AddLoggerHook(logger)
 
-	entry := logger.WithContext(ctx)
-	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
+	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
 	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodeSet.Close()
