@@ -246,7 +246,7 @@ func TestFindLocalBranches(t *testing.T) {
 							PageToken: "refs/heads/does-not-exist",
 						},
 					},
-					expectedErr: structerr.NewInternal("finding refs: could not find page token"),
+					expectedErr: structerr.NewInternal("finding refs: sending lines: could not find page token"),
 				}
 			},
 		},

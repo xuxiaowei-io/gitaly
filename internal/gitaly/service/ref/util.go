@@ -5,10 +5,13 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/lines"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -129,13 +132,14 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 		options = append(options, opts.cmdArgs...)
 	}
 
+	var stderr strings.Builder
 	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "for-each-ref",
 		Flags: options,
 		Args:  patterns,
-	}, git.WithSetupStdout())
+	}, git.WithSetupStdout(), git.WithStderr(&stderr))
 	if err != nil {
-		return err
+		return fmt.Errorf("spawning for-each-ref: %w", err)
 	}
 
 	if err := lines.Send(cmd, writer, lines.SenderOpts{
@@ -144,10 +148,19 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 		Limit:          opts.Limit,
 		PageTokenError: opts.PageTokenError,
 	}); err != nil {
-		return err
+		return fmt.Errorf("sending lines: %w", err)
 	}
 
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		if exitStatus, ok := command.ExitStatus(err); ok {
+			return structerr.New("listing failed with exit code %d", exitStatus).
+				WithMetadata("stderr", stderr.String())
+		}
+
+		return fmt.Errorf("waiting for for-each-ref: %w", err)
+	}
+
+	return nil
 }
 
 type paginationOpts struct {
