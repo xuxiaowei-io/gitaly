@@ -177,6 +177,28 @@ func TestRawBlame(t *testing.T) {
 			},
 		},
 		{
+			desc: "path escapes repository root",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commit := gittest.WriteCommit(t, cfg, repoPath)
+				escapingPath := "im/gonna/../../../escape"
+
+				return setupData{
+					request: &gitalypb.RawBlameRequest{
+						Repository: repo,
+						Revision:   []byte(commit),
+						Path:       []byte(escapingPath),
+						Range:      []byte("1,1"),
+					},
+					expectedErr: testhelper.ToInterceptedMetadata(
+						structerr.NewInvalidArgument("path escapes repository root").
+							WithMetadata("path", escapingPath),
+					),
+				}
+			},
+		},
+		{
 			desc: "simple blame",
 			setup: func(t *testing.T) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)

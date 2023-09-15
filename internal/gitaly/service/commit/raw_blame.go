@@ -2,6 +2,7 @@ package commit
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -99,6 +100,11 @@ func validateRawBlameRequest(locator storage.Locator, in *gitalypb.RawBlameReque
 
 	if len(in.GetPath()) == 0 {
 		return fmt.Errorf("empty Path")
+	}
+
+	if !filepath.IsLocal(string(in.GetPath())) {
+		return structerr.NewInvalidArgument("path escapes repository root").
+			WithMetadata("path", string(in.GetPath()))
 	}
 
 	blameRange := in.GetRange()
