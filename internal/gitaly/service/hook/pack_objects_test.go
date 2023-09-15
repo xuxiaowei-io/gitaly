@@ -106,8 +106,7 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtim
 	}
 	stdin := commitID.String() + "\n--not\n\n"
 
-	start1 := make(chan struct{})
-	start2 := make(chan struct{})
+	syncCh := make(chan struct{})
 
 	var wg sync.WaitGroup
 
@@ -129,9 +128,6 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtim
 				RuntimeDir: runtimeDir,
 			},
 			func(c *net.UnixConn) error {
-				defer close(start2)
-
-				<-start1
 				if _, err := io.WriteString(c, stdin); err != nil {
 					return err
 				}
@@ -143,6 +139,15 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtim
 				// one. Afterwards we exit immediately without reading the rest of the response.
 				buf := make([]byte, 1)
 				_, err := io.ReadFull(c, buf)
+
+				// Step 2: unblock the second Goroutine such that it can start invoking the RPC. At this
+				// point in time we know that git-pack-objects(1) is running already and originally
+				// created by this Goroutine.
+				syncCh <- struct{}{}
+				// Step 3: we wait for the second Goroutine to catch up and end up in the code that
+				// handles the sidechannel.
+				<-syncCh
+
 				return err
 			},
 		)
@@ -161,6 +166,11 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtim
 			testhelper.RequireGrpcError(t, structerr.NewCanceled("pack objects hook: broken pipe"), err)
 		}
 		require.NoError(t, wt.Wait())
+
+		cancel()
+
+		// Step 6: unblock the second Goroutine such that it can resume processing the git-pack-objects(1) data.
+		syncCh <- struct{}{}
 	}()
 
 	// The second call sends the same request as we do in the first one, but starts at a point where the first call
@@ -183,7 +193,15 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtim
 				RuntimeDir: runtimeDir,
 			},
 			func(c *net.UnixConn) error {
-				<-start2
+				// Step 4: unblock the first Goroutine such that it can exit. We know know that both
+				// Goroutines are handling the git-pack-objects(1) data.
+				syncCh <- struct{}{}
+				// Step 5: we wait for the first Goroutine to stop processing the RPC. After this point,
+				// we're the only ones still processing output of git-pack-objects(1).
+				<-syncCh
+
+				// Step 7: remainder of this logic. The first Goroutine has finished processing the RPC
+				// and is about to exit. Furthermore, it has cancelled its context.
 
 				if _, err := io.WriteString(c, stdin); err != nil {
 					return err
@@ -204,12 +222,14 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtim
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, wt)
 
+		// Step 1: we wait for the first Goroutine to have started processing its call.
+		<-syncCh
+
 		_, err = client.PackObjectsHookWithSidechannel(ctx, req)
 		assert.NoError(t, err)
 		assert.NoError(t, wt.Wait())
 	}()
 
-	close(start1)
 	wg.Wait()
 
 	// Sanity check: second call received valid response
