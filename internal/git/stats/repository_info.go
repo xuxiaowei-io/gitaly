@@ -522,26 +522,21 @@ func (a AlternatesInfo) AbsoluteObjectDirectories() []string {
 	return alternatePaths
 }
 
-// AlternatesInfoForRepository reads the alternates file and returns information on it. This
-// function does not return an error in case the alternates file doesn't exist. Existence can be
-// checked via the `Exists` field of the returned `AlternatesInfo` structure.
-func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
-	file, err := os.Open(filepath.Join(repoPath, "objects", "info", "alternates"))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return AlternatesInfo{
-				Exists: false,
-			}, nil
-		}
+// AlternatesFilePath returns the 'objects/info/alternates'
+// file's path in the repository.
+func AlternatesFilePath(repoPath string) string {
+	return filepath.Join(repoPath, "objects", "info", "alternates")
+}
 
-		return AlternatesInfo{}, err
+// ReadAlternatesFile returns the repository's alternate object directory paths
+// from '<repo>/objects/infop/alternates' and returns them. Returns a wrapped
+// fs.ErrNotExist if the file doesn't exist.
+func ReadAlternatesFile(repoPath string) ([]string, error) {
+	file, err := os.Open(AlternatesFilePath(repoPath))
+	if err != nil {
+		return nil, fmt.Errorf("open: %w", err)
 	}
 	defer file.Close()
-
-	stat, err := file.Stat()
-	if err != nil {
-		return AlternatesInfo{}, err
-	}
 
 	var alternatePaths []string
 	scanner := bufio.NewScanner(file)
@@ -559,8 +554,30 @@ func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
 			alternatePaths = append(alternatePaths, scanner.Text())
 		}
 	}
+
 	if err := scanner.Err(); err != nil {
-		return AlternatesInfo{}, fmt.Errorf("scanning alternate paths: %w", err)
+		return nil, fmt.Errorf("scanning alternate paths: %w", err)
+	}
+
+	return alternatePaths, nil
+}
+
+// AlternatesInfoForRepository reads the alternates file and returns information on it. This
+// function does not return an error in case the alternates file doesn't exist. Existence can be
+// checked via the `Exists` field of the returned `AlternatesInfo` structure.
+func AlternatesInfoForRepository(repoPath string) (AlternatesInfo, error) {
+	alternatePaths, err := ReadAlternatesFile(repoPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return AlternatesInfo{Exists: false}, nil
+		}
+
+		return AlternatesInfo{}, fmt.Errorf("read alternates file: %w", err)
+	}
+
+	stat, err := os.Stat(AlternatesFilePath(repoPath))
+	if err != nil {
+		return AlternatesInfo{}, fmt.Errorf("stat: %w", err)
 	}
 
 	return AlternatesInfo{

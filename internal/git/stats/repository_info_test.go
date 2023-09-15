@@ -752,6 +752,75 @@ func TestAlternatesInfoForRepository(t *testing.T) {
 	}
 }
 
+func TestReadAlternatesFile(t *testing.T) {
+	for _, tc := range []struct {
+		desc               string
+		alternatesContent  []byte
+		expectedAlternates []string
+		expectedError      error
+	}{
+		{
+			desc:          "no alternates file",
+			expectedError: fs.ErrNotExist,
+		},
+		{
+			desc:              "empty alternates",
+			alternatesContent: []byte(""),
+		},
+		{
+			desc:              "empty lines",
+			alternatesContent: []byte("\n\n"),
+		},
+		{
+			desc:               "path between empty lines",
+			alternatesContent:  []byte("\n/path/1\n"),
+			expectedAlternates: []string{"/path/1"},
+		},
+		{
+			desc:               "path without newline",
+			alternatesContent:  []byte("../some/path"),
+			expectedAlternates: []string{"../some/path"},
+		},
+		{
+			desc:               "path with newline",
+			alternatesContent:  []byte("../some/path\n"),
+			expectedAlternates: []string{"../some/path"},
+		},
+		{
+			desc:               "multiple different paths",
+			alternatesContent:  []byte("path/1\n/path/2\npath/3"),
+			expectedAlternates: []string{"path/1", "/path/2", "path/3"},
+		},
+		{
+			desc:               "same path multiple times",
+			alternatesContent:  []byte("path/1\npath/1\n"),
+			expectedAlternates: []string{"path/1", "path/1"},
+		},
+		{
+			desc:               "commented line ignored",
+			alternatesContent:  []byte("path/1\n#THIS LINE IS IGNORED\npath/2\n"),
+			expectedAlternates: []string{"path/1", "path/2"},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
+
+			_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+
+			if tc.alternatesContent != nil {
+				require.NoError(t, os.WriteFile(AlternatesFilePath(repoPath), tc.alternatesContent, fs.ModePerm))
+			}
+
+			alternates, err := ReadAlternatesFile(repoPath)
+			require.ErrorIs(t, err, tc.expectedError)
+			require.Equal(t, tc.expectedAlternates, alternates)
+		})
+	}
+}
+
 func TestReferencesInfoForRepository(t *testing.T) {
 	t.Parallel()
 
