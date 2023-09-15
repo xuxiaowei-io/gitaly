@@ -720,6 +720,44 @@ func TestUpdater_capturesStderr(t *testing.T) {
 	require.Equal(t, expectedErr, updater.Commit())
 }
 
+func TestUpdater_packedRefsLocked(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc      string
+		runMethod func(u *Updater) error
+	}{
+		{desc: "commit", runMethod: func(u *Updater) error { return u.Commit() }},
+		{desc: "prepare", runMethod: func(u *Updater) error { return u.Prepare() }},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			for _, lockFile := range []string{"packed-refs.lock", "packed-refs.new"} {
+				lockFile := lockFile
+				t.Run(lockFile, func(t *testing.T) {
+					t.Parallel()
+
+					ctx := testhelper.Context(t)
+
+					cfg, _, repoPath, updater := setupUpdater(t, ctx)
+					defer func() { require.Equal(t, ErrPackedRefsLocked, updater.Close()) }()
+
+					// Write a reference an pack it.
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+					gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
+					// Write a lock file file so we can assert a lock related error is raised.
+					require.NoError(t, os.WriteFile(filepath.Join(repoPath, lockFile), nil, fs.ModePerm))
+
+					require.NoError(t, updater.Start())
+					require.NoError(t, updater.Delete("refs/heads/main"))
+					require.Equal(t, ErrPackedRefsLocked, updater.Commit())
+				})
+			}
+		})
+	}
+}
+
 func BenchmarkUpdater(b *testing.B) {
 	ctx := testhelper.Context(b)
 
