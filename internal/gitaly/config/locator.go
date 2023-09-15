@@ -84,22 +84,19 @@ func (l *configLocator) ValidateRepository(repo storage.Repository, opts ...stor
 	}
 
 	if !cfg.SkipRepositoryExistenceCheck {
-		if _, err := os.Stat(path); err != nil {
+		if err := storage.ValidateGitDirectory(path); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return storage.NewRepositoryNotFoundError(repo.GetStorageName(), repo.GetRelativePath())
 			}
 
-			return structerr.New("statting repository: %w", err).WithMetadata("repository_path", path)
-		}
-
-		for _, element := range []string{"objects", "refs", "HEAD"} {
-			if _, err := os.Stat(filepath.Join(path, element)); err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					return structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, element).WithMetadata("repository_path", path)
-				}
-
-				return structerr.New("statting %q: %w", element, err).WithMetadata("repository_path", path)
+			var errInvalidGitDir storage.InvalidGitDirectoryError
+			if errors.As(err, &errInvalidGitDir) {
+				return structerr.NewFailedPrecondition(
+					"%w: %q does not exist", storage.ErrRepositoryNotValid, errInvalidGitDir.MissingEntry,
+				).WithMetadata("repository_path", path)
 			}
+
+			return structerr.New("validate git directory: %w", err).WithMetadata("repository_path", path)
 		}
 
 		// See: https://gitlab.com/gitlab-org/gitaly/issues/1339

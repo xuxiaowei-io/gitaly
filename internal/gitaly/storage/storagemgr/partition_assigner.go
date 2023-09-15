@@ -5,15 +5,35 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io/fs"
+	"path/filepath"
 	"strconv"
 	"sync"
 
 	"github.com/dgraph-io/badger/v4"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 )
 
-// errPartitionAssignmentNotFound is returned when attempting to access a
-// partition assignment in the database that doesn't yet exist.
-var errPartitionAssignmentNotFound = errors.New("partition assignment not found")
+var (
+	// errPartitionAssignmentNotFound is returned when attempting to access a
+	// partition assignment in the database that doesn't yet exist.
+	errPartitionAssignmentNotFound = errors.New("partition assignment not found")
+	// errNoAlternate is used internally by partitionAssigner to signal a repository
+	// has no alternates.
+	errNoAlternate = errors.New("repository has no alternate")
+	// errMultipleAlternates is returned when a repository has multiple alternates
+	// configured.
+	errMultipleAlternates = errors.New("repository has multiple alternates")
+	// errAlternatePointsToSelf is returned when a repository's alternate points to the
+	// repository itself.
+	errAlternatePointsToSelf = errors.New("repository's alternate points to self")
+	// errAlternateHasAlternate is returned when a repository's alternate itself has an
+	// alternate listed.
+	errAlternateHasAlternate = errors.New("repository's alternate has an alternate itself")
+)
+
+const prefixPartitionAssignment = "partition_assignment/"
 
 // partitionID uniquely identifies a partition.
 type partitionID uint64
@@ -40,7 +60,7 @@ func newPartitionAssignmentTable(db *badger.DB) *partitionAssignmentTable {
 }
 
 func (pt *partitionAssignmentTable) key(relativePath string) []byte {
-	return []byte(fmt.Sprintf("partition_assignment/%s", relativePath))
+	return []byte(fmt.Sprintf("%s%s", prefixPartitionAssignment, relativePath))
 }
 
 func (pt *partitionAssignmentTable) getPartitionID(relativePath string) (partitionID, error) {
@@ -90,11 +110,14 @@ type partitionAssigner struct {
 	idSequence *badger.Sequence
 	// partitionAssignmentTable contains the partition assignment records.
 	partitionAssignmentTable *partitionAssignmentTable
+	// storagePath is the path to the root directory of the storage the relative
+	// paths are computed against.
+	storagePath string
 }
 
 // newPartitionAssigner returns a new partitionAssigner. Close must be called on the
 // returned instance to release acquired resources.
-func newPartitionAssigner(db *badger.DB) (*partitionAssigner, error) {
+func newPartitionAssigner(db *badger.DB, storagePath string) (*partitionAssigner, error) {
 	seq, err := db.GetSequence([]byte("partition_id_seq"), 100)
 	if err != nil {
 		return nil, fmt.Errorf("get sequence: %w", err)
@@ -104,6 +127,7 @@ func newPartitionAssigner(db *badger.DB) (*partitionAssigner, error) {
 		repositoryLocks:          make(map[string]chan struct{}),
 		idSequence:               seq,
 		partitionAssignmentTable: newPartitionAssignmentTable(db),
+		storagePath:              storagePath,
 	}, nil
 }
 
@@ -126,10 +150,16 @@ func (pa *partitionAssigner) allocatePartitionID() (partitionID, error) {
 	return partitionID(id), nil
 }
 
-// getPartititionID returns the partition ID of the repository. If the repository wasn't yet assigned into
+// getPartitionID returns the partition ID of the repository. If the repository wasn't yet assigned into
 // a partition, it will be assigned into one and the assignment stored. Further accesses return the stored
-// partition ID. Each repository goes into its own partition. The method is safe to call concurrently.
+// partition ID. Repositories without an alternate go into their own partitions. Repositories with an alternate
+// are assigned into the same partition as the alternate repository. The alternate is assigned into a partition
+// if it hasn't yet been. The method is safe to call concurrently.
 func (pa *partitionAssigner) getPartitionID(ctx context.Context, relativePath string) (partitionID, error) {
+	return pa.getPartitionIDRecursive(ctx, relativePath, false)
+}
+
+func (pa *partitionAssigner) getPartitionIDRecursive(ctx context.Context, relativePath string, recursiveCall bool) (partitionID, error) {
 	ptnID, err := pa.partitionAssignmentTable.getPartitionID(relativePath)
 	if err != nil {
 		if !errors.Is(err, errPartitionAssignmentNotFound) {
@@ -183,16 +213,94 @@ func (pa *partitionAssigner) getPartitionID(ctx context.Context, relativePath st
 			return ptnID, nil
 		}
 
-		// Each repository goes into its own partition. Allocate a new partition ID for this
-		// repository.
+		ptnID, err = pa.assignPartitionID(ctx, relativePath, recursiveCall)
+		if err != nil {
+			return 0, fmt.Errorf("assign partition ID: %w", err)
+		}
+	}
+
+	return ptnID, nil
+}
+
+func (pa *partitionAssigner) assignPartitionID(ctx context.Context, relativePath string, recursiveCall bool) (partitionID, error) {
+	// Check if the repository has an alternate. If so, it needs to go into the same
+	// partition with it.
+	ptnID, err := pa.getAlternatePartitionID(ctx, relativePath, recursiveCall)
+	if err != nil {
+		if !errors.Is(err, errNoAlternate) {
+			return 0, fmt.Errorf("get alternate partition ID: %w", err)
+		}
+
+		// The repository has no alternate. Unpooled repositories go into their own partitions.
+		// Allocate a new partition ID for this repository.
 		ptnID, err = pa.allocatePartitionID()
 		if err != nil {
 			return 0, fmt.Errorf("acquire partition id: %w", err)
 		}
+	}
 
-		if err := pa.partitionAssignmentTable.setPartitionID(relativePath, ptnID); err != nil {
-			return 0, fmt.Errorf("set partition: %w", err)
+	if err := pa.partitionAssignmentTable.setPartitionID(relativePath, ptnID); err != nil {
+		return 0, fmt.Errorf("set partition: %w", err)
+	}
+
+	return ptnID, nil
+}
+
+func (pa *partitionAssigner) getAlternatePartitionID(ctx context.Context, relativePath string, recursiveCall bool) (partitionID, error) {
+	alternates, err := stats.ReadAlternatesFile(filepath.Join(pa.storagePath, relativePath))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return 0, errNoAlternate
 		}
+
+		return 0, fmt.Errorf("read alternates file: %w", err)
+	}
+
+	if len(alternates) == 0 {
+		return 0, errNoAlternate
+	} else if recursiveCall {
+		// recursive being true indicates we've arrived here through another repository's alternate.
+		// Repositories in Gitaly should only have a single alternate that points to the repository's
+		// pool. Chains of alternates are unexpected and could go arbitrarily long, so fail the operation.
+		return 0, errAlternateHasAlternate
+	} else if len(alternates) > 1 {
+		// Repositories shouldn't have more than one alternate given they should only be
+		// linked to a single pool at most.
+		return 0, errMultipleAlternates
+	}
+
+	// The relative path should point somewhere within the same storage.
+	alternateRelativePath, err := storage.ValidateRelativePath(
+		pa.storagePath,
+		// Take the relative path to the repository, not 'repository/objects'.
+		filepath.Dir(
+			// The path in alternates file points to the object directory of the alternate
+			// repository. The path is relative to the repository's own object directory.
+			filepath.Join(relativePath, "objects", alternates[0]),
+		),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("validate relative path: %w", err)
+	}
+
+	if alternateRelativePath == relativePath {
+		// The alternate must not point to the repository itself. Not only is it non-sensical
+		// but it would also cause a dead lock as the repository is locked during this call
+		// already.
+		return 0, errAlternatePointsToSelf
+	}
+
+	// The relative path should point to a Git directory.
+	if err := storage.ValidateGitDirectory(filepath.Join(pa.storagePath, alternateRelativePath)); err != nil {
+		return 0, fmt.Errorf("validate git directory: %w", err)
+	}
+
+	// Recursively get the alternate's partition ID or assign it one. This time
+	// we set recursive to true to fail the operation if the alternate itself has an
+	// alternate configured.
+	ptnID, err := pa.getPartitionIDRecursive(ctx, alternateRelativePath, true)
+	if err != nil {
+		return 0, fmt.Errorf("get partition ID: %w", err)
 	}
 
 	return ptnID, nil
