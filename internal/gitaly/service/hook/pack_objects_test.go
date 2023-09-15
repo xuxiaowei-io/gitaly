@@ -3,6 +3,7 @@ package hook
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"net"
@@ -30,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -83,8 +85,6 @@ func TestParsePackObjectsArgs(t *testing.T) {
 }
 
 func TestServer_PackObjectsHook_separateContext(t *testing.T) {
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5548")
-
 	t.Parallel()
 	runTestsWithRuntimeDir(t, testServerPackObjectsHookSeparateContextWithRuntimeDir)
 }
@@ -98,7 +98,11 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtim
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	// We write a commit with a large blob such that the response needs to be split over multiple messages.
 	// Otherwise it may happen that the request will finish before we can actually cancel the context.
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	data := make([]byte, 10*streamio.WriteBufferSize)
+	_, _ = rand.Read(data[:])
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "path", Mode: "100644", Content: string(data)},
+	))
 
 	req := &gitalypb.PackObjectsHookWithSidechannelRequest{
 		Repository: repo,
