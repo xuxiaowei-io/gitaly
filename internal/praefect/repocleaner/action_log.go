@@ -3,7 +3,6 @@ package repocleaner
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
@@ -23,7 +22,7 @@ func NewLogWarnAction(logger log.Logger) *LogWarnAction {
 // Perform logs a warning for each repository that is not known to praefect.
 func (al LogWarnAction) Perform(_ context.Context, virtualStorage, storage string, replicaPaths []string) error {
 	for _, replicaPath := range replicaPaths {
-		al.logger.WithFields(logrus.Fields{
+		al.logger.WithFields(log.Fields{
 			"virtual_storage":       virtualStorage,
 			"storage":               storage,
 			"relative_replica_path": replicaPath,

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
@@ -252,7 +251,7 @@ func (c *Coordinator) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call grpcCall) (*proxy.StreamParameters, error) {
-	log.AddFields(ctx, logrus.Fields{
+	log.AddFields(ctx, log.Fields{
 		"virtual_storage": call.targetRepo.StorageName,
 		"relative_path":   call.targetRepo.RelativePath,
 	})
@@ -1070,7 +1069,7 @@ func (c *Coordinator) newRequestFinalizer(
 		ctx, cancel := context.WithTimeout(helper.SuppressCancellation(originalCtx), 30*time.Second)
 		defer cancel()
 
-		logEntry := log.FromContext(ctx).WithFields(logrus.Fields{
+		logEntry := log.FromContext(ctx).WithFields(log.Fields{
 			"replication.cause":   cause,
 			"replication.change":  change,
 			"replication.primary": primary,

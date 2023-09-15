@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
@@ -110,7 +109,7 @@ WHERE snapshot.repository_id = $1
 	}
 
 	if current != previous {
-		log.FromContext(ctx).WithFields(logrus.Fields{
+		log.FromContext(ctx).WithFields(log.Fields{
 			"repository_id":    repositoryID,
 			"current_primary":  current.String,
 			"previous_primary": previous.String,

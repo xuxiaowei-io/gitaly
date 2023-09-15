@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -43,7 +42,7 @@ func cleanTempDir(logger log.Logger, locator storage.Locator, storages []config.
 		start := time.Now()
 		err := clean(logger, locator, storage)
 
-		entry := logger.WithFields(logrus.Fields{
+		entry := logger.WithFields(log.Fields{
 			"time_ms": time.Since(start).Milliseconds(),
 			"storage": storage.Name,
 		})

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -104,7 +103,7 @@ func (mgr *Manager) RegisterTransaction(ctx context.Context, voters []Voter, thr
 	}
 	mgr.transactions[transactionID] = transaction
 
-	mgr.log(ctx).WithFields(logrus.Fields{
+	mgr.log(ctx).WithFields(log.Fields{
 		"transaction.id":     transactionID,
 		"transaction.voters": voters,
 	}).Debug("RegisterTransaction")
@@ -137,7 +136,7 @@ func (mgr *Manager) cancelTransaction(ctx context.Context, transaction *transact
 		}
 	}
 
-	mgr.log(ctx).WithFields(logrus.Fields{
+	mgr.log(ctx).WithFields(log.Fields{
 		"transaction.id":              transaction.ID(),
 		"transaction.committed":       fmt.Sprintf("%d/%d", committed, len(state)),
 		"transaction.subtransactions": transaction.CountSubtransactions(),
@@ -171,7 +170,7 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 		mgr.delayMetric.WithLabelValues("vote").Observe(delay.Seconds())
 	}()
 
-	logger := mgr.log(ctx).WithFields(logrus.Fields{
+	logger := mgr.log(ctx).WithFields(log.Fields{
 		"transaction.id":    transactionID,
 		"transaction.voter": node,
 		"transaction.hash":  vote.String(),
@@ -223,7 +222,7 @@ func (mgr *Manager) StopTransaction(ctx context.Context, transactionID uint64) e
 		return err
 	}
 
-	mgr.log(ctx).WithFields(logrus.Fields{
+	mgr.log(ctx).WithFields(log.Fields{
 		"transaction.id": transactionID,
 	}).Debug("VoteTransaction: transaction stopped")
 	mgr.counterMetric.WithLabelValues("stopped").Inc()

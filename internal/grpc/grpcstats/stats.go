@@ -3,7 +3,7 @@ package grpcstats
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc/stats"
 )
 
@@ -50,15 +50,15 @@ type PayloadBytesStats struct {
 }
 
 // Fields returns logging info.
-func (s *PayloadBytesStats) Fields() logrus.Fields {
-	return logrus.Fields{
+func (s *PayloadBytesStats) Fields() log.Fields {
+	return log.Fields{
 		"grpc.request.payload_bytes":  s.InPayloadBytes,
 		"grpc.response.payload_bytes": s.OutPayloadBytes,
 	}
 }
 
 // FieldsProducer extracts stats info from the context and returns it as a logging fields.
-func FieldsProducer(ctx context.Context, _ error) logrus.Fields {
+func FieldsProducer(ctx context.Context, _ error) log.Fields {
 	payloadBytesStats := payloadBytesStatsFromContext(ctx)
 	if payloadBytesStats != nil {
 		return payloadBytesStats.Fields()

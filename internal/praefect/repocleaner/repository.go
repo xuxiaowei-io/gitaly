@@ -7,7 +7,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
@@ -151,7 +150,7 @@ func (gs *Runner) run(ctx context.Context) {
 }
 
 func (gs *Runner) loggerWith(virtualStorage, storage string) log.Logger {
-	return gs.logger.WithFields(logrus.Fields{"virtual_storage": virtualStorage, "storage": storage})
+	return gs.logger.WithFields(log.Fields{"virtual_storage": virtualStorage, "storage": storage})
 }
 
 // Walker allows walk by the repositories of the gitaly storage.

@@ -7,12 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
@@ -262,7 +262,7 @@ func TestObjectPool_logStats(t *testing.T) {
 	for _, tc := range []struct {
 		desc           string
 		setup          func(t *testing.T) *ObjectPool
-		expectedFields logrus.Fields
+		expectedFields log.Fields
 	}{
 		{
 			desc: "empty object pool",
@@ -270,7 +270,7 @@ func TestObjectPool_logStats(t *testing.T) {
 				_, pool, _ := setupObjectPool(t, ctx)
 				return pool
 			},
-			expectedFields: logrus.Fields{
+			expectedFields: log.Fields{
 				"references.dangling": referencedObjectTypes{},
 				"references.normal":   referencedObjectTypes{},
 				"repository_info": stats.RepositoryInfo{
@@ -285,7 +285,7 @@ func TestObjectPool_logStats(t *testing.T) {
 				gittest.WriteCommit(t, cfg, gittest.RepositoryPath(t, pool), gittest.WithBranch("main"))
 				return pool
 			},
-			expectedFields: logrus.Fields{
+			expectedFields: log.Fields{
 				"references.dangling": referencedObjectTypes{},
 				"references.normal": referencedObjectTypes{
 					Commits: 1,
@@ -309,7 +309,7 @@ func TestObjectPool_logStats(t *testing.T) {
 				gittest.WriteCommit(t, cfg, gittest.RepositoryPath(t, pool), gittest.WithReference("refs/dangling/commit"))
 				return pool
 			},
-			expectedFields: logrus.Fields{
+			expectedFields: log.Fields{
 				"references.dangling": referencedObjectTypes{
 					Commits: 1,
 				},

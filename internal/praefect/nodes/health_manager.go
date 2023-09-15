@@ -200,7 +200,7 @@ func (hm *HealthManager) performHealthChecks(ctx context.Context) ([]string, []s
 				ctx := correlation.ContextWithCorrelation(ctx, correlationID)
 				resp, err := client.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 				if err != nil {
-					hm.log.WithFields(logrus.Fields{
+					hm.log.WithFields(log.Fields{
 						logrus.ErrorKey:   err,
 						"virtual_storage": virtualStorages[i],
 						"storage":         physicalStorages[i],

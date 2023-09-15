@@ -7,7 +7,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	promconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -104,7 +103,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 
 		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
-		require.Equal(t, logrus.Fields{
+		require.Equal(t, log.Fields{
 			"limit.limiting_type":            TypePerRPC,
 			"limit.limiting_key":             fullMethod,
 			"limit.concurrency_queue_ms":     int64(1000),
@@ -177,7 +176,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 1
 
 		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
-		require.Equal(t, logrus.Fields{
+		require.Equal(t, log.Fields{
 			"limit.limiting_type":            TypePerRPC,
 			"limit.limiting_key":             fullMethod,
 			"limit.concurrency_queue_ms":     int64(1000),
@@ -230,7 +229,7 @@ queued{grpc_method="unknown",grpc_service="unknown",system="gitaly"} 0
 
 		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
-		require.Equal(t, logrus.Fields{
+		require.Equal(t, log.Fields{
 			"limit.limiting_type":            TypePerRPC,
 			"limit.limiting_key":             fullMethod,
 			"limit.concurrency_queue_ms":     int64(1000),
@@ -286,7 +285,7 @@ gitaly_pack_objects_queued 1
 
 		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
-		require.Equal(t, logrus.Fields{
+		require.Equal(t, log.Fields{
 			"limit.limiting_type":            TypePackObjects,
 			"limit.limiting_key":             "1234",
 			"limit.concurrency_queue_ms":     int64(1000),
@@ -361,7 +360,7 @@ gitaly_pack_objects_queued 1
 
 		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
-		require.Equal(t, logrus.Fields{
+		require.Equal(t, log.Fields{
 			"limit.limiting_type":            TypePackObjects,
 			"limit.limiting_key":             "1234",
 			"limit.concurrency_queue_ms":     int64(1000),
@@ -417,7 +416,7 @@ gitaly_pack_objects_queued 0
 
 		stats := log.CustomFieldsFromContext(ctx)
 		require.NotNil(t, stats)
-		require.Equal(t, logrus.Fields{
+		require.Equal(t, log.Fields{
 			"limit.limiting_type":            TypePackObjects,
 			"limit.limiting_key":             "1234",
 			"limit.concurrency_queue_ms":     int64(1000),

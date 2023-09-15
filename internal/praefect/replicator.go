@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
@@ -49,7 +48,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		RelativePath: event.Job.ReplicaPath,
 	}
 
-	logger := dr.log.WithFields(logrus.Fields{
+	logger := dr.log.WithFields(log.Fields{
 		logWithVirtualStorage:    event.Job.VirtualStorage,
 		logWithReplTarget:        event.Job.TargetNodeStorage,
 		"replication_job_source": event.Job.SourceNodeStorage,
@@ -380,7 +379,7 @@ func (r ReplMgr) ProcessStale(ctx context.Context, ticker helper.Ticker, staleAf
 				if err != nil {
 					r.log.WithError(err).Error("background periodical acknowledgement for stale replication jobs")
 				} else if n > 0 {
-					logger := r.log.WithFields(logrus.Fields{"component": "ProcessStale", "count": n})
+					logger := r.log.WithFields(log.Fields{"component": "ProcessStale", "count": n})
 					logger.Info("stale replication jobs deleted")
 				}
 				ticker.Reset()
@@ -474,7 +473,7 @@ func (r ReplMgr) processBacklog(ctx context.Context, b BackoffFactory, virtualSt
 }
 
 func (r ReplMgr) handleNode(ctx context.Context, virtualStorage string, target Node) int {
-	logger := r.log.WithFields(logrus.Fields{logWithVirtualStorage: virtualStorage, logWithReplTarget: target.Storage})
+	logger := r.log.WithFields(log.Fields{logWithVirtualStorage: virtualStorage, logWithReplTarget: target.Storage})
 
 	events, err := r.queue.Dequeue(ctx, virtualStorage, target.Storage, int(r.dequeueBatchSize))
 	if err != nil {
@@ -498,7 +497,7 @@ func (r ReplMgr) handleNode(ctx context.Context, virtualStorage string, target N
 	for state, eventIDs := range eventIDsByState {
 		ackIDs, err := r.queue.Acknowledge(ctx, state, eventIDs)
 		if err != nil {
-			logger.WithFields(logrus.Fields{"state": state, "event_ids": eventIDs}).
+			logger.WithFields(log.Fields{"state": state, "event_ids": eventIDs}).
 				WithError(err).
 				Error("failed to acknowledge replication events")
 			continue
@@ -506,7 +505,7 @@ func (r ReplMgr) handleNode(ctx context.Context, virtualStorage string, target N
 
 		notAckIDs := subtractUint64(ackIDs, eventIDs)
 		if len(notAckIDs) > 0 {
-			logger.WithFields(logrus.Fields{"state": state, "event_ids": notAckIDs}).
+			logger.WithFields(log.Fields{"state": state, "event_ids": notAckIDs}).
 				WithError(err).
 				Error("replication events were not acknowledged")
 		}

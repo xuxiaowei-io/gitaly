@@ -64,12 +64,12 @@ func methodNameMatcherFromEnv() func(string) bool {
 
 // FieldsProducer returns fields that need to be added into the logging context. error argument is
 // the result of RPC handling.
-type FieldsProducer func(context.Context, error) logrus.Fields
+type FieldsProducer func(context.Context, error) Fields
 
 // MessageProducer returns a wrapper that extends passed mp to accept additional fields generated
 // by each of the fieldsProducers.
 func MessageProducer(mp grpcmwlogrus.MessageProducer, fieldsProducers ...FieldsProducer) grpcmwlogrus.MessageProducer {
-	return func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+	return func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields Fields) {
 		for _, fieldsProducer := range fieldsProducers {
 			for key, val := range fieldsProducer(ctx, err) {
 				fields[key] = val
@@ -86,7 +86,7 @@ type messageProducerHolder struct {
 	level  logrus.Level
 	code   codes.Code
 	err    error
-	fields logrus.Fields
+	fields Fields
 }
 
 type messageProducerHolderKey struct{}
@@ -106,7 +106,7 @@ func messageProducerPropagationFrom(ctx context.Context) *messageProducerHolder 
 // to the special holder that should be present in the context.
 // Should be used only in combination with PerRPCLogHandler.
 func PropagationMessageProducer(actual grpcmwlogrus.MessageProducer) grpcmwlogrus.MessageProducer {
-	return func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+	return func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields Fields) {
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp == nil {
 			return
@@ -158,7 +158,7 @@ func (lh PerRPCLogHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
 		}
 
 		if mpp.fields == nil {
-			mpp.fields = logrus.Fields{}
+			mpp.fields = Fields{}
 		}
 		for _, fp := range lh.FieldProducers {
 			for k, v := range fp(ctx, mpp.err) {

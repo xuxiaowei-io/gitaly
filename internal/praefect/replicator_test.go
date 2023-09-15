@@ -305,7 +305,7 @@ func confirmChecksums(ctx context.Context, logger log.Logger, primaryClient, rep
 		return false, err
 	}
 
-	logger.WithFields(logrus.Fields{
+	logger.WithFields(log.Fields{
 		"primary_checksum": primaryChecksum,
 		"replica_checksum": replicaChecksum,
 	}).Info("checksum comparison completed")

@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	glcli "gitlab.com/gitlab-org/gitaly/v16/internal/cli"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
@@ -135,7 +134,7 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 	logger log.Logger,
 	replicateImmediately bool,
 ) error {
-	logger.WithFields(logrus.Fields{
+	logger.WithFields(log.Fields{
 		"virtual_storage":       req.VirtualStorage,
 		"relative_path":         req.RelativePath,
 		"replica_path":          req.ReplicaPath,

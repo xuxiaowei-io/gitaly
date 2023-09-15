@@ -17,7 +17,6 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command/commandcounter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -207,7 +206,7 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 
 	logPid := -1
 	defer func() {
-		log.FromContext(ctx).WithFields(logrus.Fields{
+		log.FromContext(ctx).WithFields(log.Fields{
 			"pid":  logPid,
 			"path": nameAndArgs[0],
 			"args": nameAndArgs[1:],
@@ -454,7 +453,7 @@ func (c *Command) logProcessComplete() {
 	userTime := cmd.ProcessState.UserTime()
 	realTime := time.Since(c.startTime)
 
-	fields := logrus.Fields{
+	fields := log.Fields{
 		"pid":                    cmd.ProcessState.Pid(),
 		"path":                   cmd.Path,
 		"args":                   cmd.Args,
@@ -473,7 +472,7 @@ func (c *Command) logProcessComplete() {
 
 	rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage)
 	if ok {
-		entry = entry.WithFields(logrus.Fields{
+		entry = entry.WithFields(log.Fields{
 			"command.maxrss":  rusage.Maxrss,
 			"command.inblock": rusage.Inblock,
 			"command.oublock": rusage.Oublock,

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -203,7 +202,7 @@ func (p *LoggingPipeline) Done() error {
 }
 
 func (p *LoggingPipeline) cmdLogger(cmd Command) log.Logger {
-	return p.log.WithFields(logrus.Fields{
+	return p.log.WithFields(log.Fields{
 		"command":         cmd.Name(),
 		"storage_name":    cmd.Repository().StorageName,
 		"relative_path":   cmd.Repository().RelativePath,

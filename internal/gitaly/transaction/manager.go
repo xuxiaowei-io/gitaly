@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -112,7 +111,7 @@ func (m *PoolManager) Vote(
 		return err
 	}
 
-	logger := m.log(ctx).WithFields(logrus.Fields{
+	logger := m.log(ctx).WithFields(log.Fields{
 		"transaction.id":    tx.ID,
 		"transaction.voter": tx.Node,
 		"transaction.hash":  vote.String(),
@@ -164,7 +163,7 @@ func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction) error {
 	if _, err := client.StopTransaction(ctx, &gitalypb.StopTransactionRequest{
 		TransactionId: tx.ID,
 	}); err != nil {
-		m.log(ctx).WithFields(logrus.Fields{
+		m.log(ctx).WithFields(log.Fields{
 			"transaction.id":    tx.ID,
 			"transaction.voter": tx.Node,
 		}).Error("stopping transaction failed")

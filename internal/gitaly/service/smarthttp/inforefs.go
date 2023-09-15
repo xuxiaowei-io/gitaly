@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -54,7 +53,7 @@ func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitaly
 }
 
 func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, req *gitalypb.InfoRefsRequest, w io.Writer) error {
-	log.FromContext(ctx).WithFields(logrus.Fields{
+	log.FromContext(ctx).WithFields(log.Fields{
 		"service": service,
 	}).Debug("handleInfoRefs")
 

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -162,5 +161,5 @@ func TestFieldsProducer(t *testing.T) {
 	fields := log.CustomFieldsFromContext(ctx)
 	fields.RecordMax("stub", 42)
 
-	require.Equal(t, logrus.Fields{"stub": 42}, FieldsProducer(ctx, nil))
+	require.Equal(t, log.Fields{"stub": 42}, FieldsProducer(ctx, nil))
 }

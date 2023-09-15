@@ -239,7 +239,7 @@ package transaction
 type Manager struct {}
 
 func (m Manager) StartTransaction(ctx context.Context) {
-    log.FromContext(ctx).WithFields(logrus.Fields{
+    log.FromContext(ctx).WithFields(log.Fields{
         "component": "transaction.Manager",
     }).Debug("StartTransaction")
 }

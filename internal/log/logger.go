@@ -9,10 +9,13 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Fields contains key-value pairs of structured logging data.
+type Fields = logrus.Fields
+
 // Logger is the logging type used by Gitaly.
 type Logger interface {
 	WithField(key string, value any) Logger
-	WithFields(fields logrus.Fields) Logger
+	WithFields(fields Fields) Logger
 	WithError(err error) Logger
 
 	Debugf(format string, args ...any)
@@ -62,7 +65,7 @@ func (l LogrusLogger) WithField(key string, value any) Logger {
 }
 
 // WithFields creates a new logger with the given fields appended.
-func (l LogrusLogger) WithFields(fields logrus.Fields) Logger {
+func (l LogrusLogger) WithFields(fields Fields) Logger {
 	return LogrusLogger{Entry: l.Entry.WithFields(fields)}
 }
 
@@ -96,6 +99,6 @@ func FromContext(ctx context.Context) LogrusLogger {
 
 // AddFields adds the given log fields to the context so that it will be used by any context logger extracted via
 // `FromContext()`.
-func AddFields(ctx context.Context, fields logrus.Fields) {
+func AddFields(ctx context.Context, fields Fields) {
 	ctxlogrus.AddFields(ctx, fields)
 }

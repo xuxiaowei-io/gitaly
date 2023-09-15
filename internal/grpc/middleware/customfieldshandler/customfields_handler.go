@@ -4,7 +4,6 @@ import (
 	"context"
 
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 )
@@ -32,7 +31,7 @@ func StreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.Str
 }
 
 // FieldsProducer extracts custom fields info from the context and returns it as a logging fields.
-func FieldsProducer(ctx context.Context, _ error) logrus.Fields {
+func FieldsProducer(ctx context.Context, _ error) log.Fields {
 	if fields := log.CustomFieldsFromContext(ctx); fields != nil {
 		return fields.Fields()
 	}

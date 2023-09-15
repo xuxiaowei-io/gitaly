@@ -3,8 +3,8 @@ package repocleaner
 import (
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -19,7 +19,7 @@ func TestLogWarnAction_Perform(t *testing.T) {
 	require.Len(t, hook.AllEntries(), 2)
 
 	exp := []map[string]interface{}{{
-		"Data": logrus.Fields{
+		"Data": log.Fields{
 			"component":             "repocleaner.log_warn_action",
 			"virtual_storage":       "vs1",
 			"storage":               "g1",
@@ -27,7 +27,7 @@ func TestLogWarnAction_Perform(t *testing.T) {
 		},
 		"Message": "repository is not managed by praefect",
 	}, {
-		"Data": logrus.Fields{
+		"Data": log.Fields{
 			"component":             "repocleaner.log_warn_action",
 			"virtual_storage":       "vs1",
 			"storage":               "g1",

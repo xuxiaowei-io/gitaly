@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
@@ -144,7 +143,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 	}
 
 	if err := s.userCommitFiles(ctx, header, stream, objectHash); err != nil {
-		log.AddFields(ctx, logrus.Fields{
+		log.AddFields(ctx, log.Fields{
 			"repository_storage":       header.Repository.StorageName,
 			"repository_relative_path": header.Repository.RelativePath,
 			"branch_name":              header.BranchName,
@@ -154,7 +153,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 		})
 
 		if startRepo := header.GetStartRepository(); startRepo != nil {
-			log.AddFields(ctx, logrus.Fields{
+			log.AddFields(ctx, log.Fields{
 				"start_repository_storage":       startRepo.StorageName,
 				"start_repository_relative_path": startRepo.RelativePath,
 			})

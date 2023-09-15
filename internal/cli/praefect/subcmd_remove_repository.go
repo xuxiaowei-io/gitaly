@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -128,7 +127,7 @@ type removeRepository struct {
 func (cmd *removeRepository) exec(ctx context.Context, logger log.Logger, db *sql.DB, cfg config.Config) error {
 	// Remove repository explicitly from all storages and clean up database info.
 	// This prevents creation of the new replication events.
-	logger.WithFields(logrus.Fields{
+	logger.WithFields(log.Fields{
 		"virtual_storage": cmd.virtualStorage,
 		"relative_path":   cmd.relativePath,
 	}).Debug("remove repository")

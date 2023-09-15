@@ -156,7 +156,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		logEntries := logHook.AllEntries()
 		require.Len(t, logEntries, 1)
 		assert.Equal(t, "received payload can't be processed, cache disabled", logEntries[0].Message)
-		assert.Equal(t, logrus.Fields{
+		assert.Equal(t, log.Fields{
 			"channel":   "notification_channel_1",
 			"component": "caching_storage_provider",
 			"error":     expErr,

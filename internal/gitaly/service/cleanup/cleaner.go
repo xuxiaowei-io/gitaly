@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -120,7 +119,7 @@ func (c *cleaner) processEntry(ctx context.Context, updater *updateref.Updater, 
 		return nil
 	}
 
-	log.FromContext(ctx).WithFields(logrus.Fields{
+	log.FromContext(ctx).WithFields(log.Fields{
 		"sha":  oldSHA,
 		"refs": refs,
 	}).Info("removing internal references")
@@ -171,7 +170,7 @@ func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[str
 
 		objectName, refName, ok := strings.Cut(line, " ")
 		if !ok {
-			logger.WithFields(logrus.Fields{"line": line}).Warn("failed to parse git refs")
+			logger.WithFields(log.Fields{"line": line}).Warn("failed to parse git refs")
 			return nil, fmt.Errorf("failed to parse git refs")
 		}
 

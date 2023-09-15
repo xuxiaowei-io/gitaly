@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -195,12 +196,12 @@ func TestRunner_Run(t *testing.T) {
 	require.GreaterOrEqual(t, len(loggerHook.AllEntries()), 2)
 	require.Equal(
 		t,
-		map[string]interface{}{"Data": logrus.Fields{"component": "repocleaner.repository_existence"}, "Message": "started"},
+		map[string]interface{}{"Data": log.Fields{"component": "repocleaner.repository_existence"}, "Message": "started"},
 		map[string]interface{}{"Data": loggerHook.AllEntries()[0].Data, "Message": loggerHook.AllEntries()[0].Message},
 	)
 	require.Equal(
 		t,
-		map[string]interface{}{"Data": logrus.Fields{"component": "repocleaner.repository_existence"}, "Message": "completed"},
+		map[string]interface{}{"Data": log.Fields{"component": "repocleaner.repository_existence"}, "Message": "completed"},
 		map[string]interface{}{"Data": loggerHook.LastEntry().Data, "Message": loggerHook.LastEntry().Message},
 	)
 }
@@ -316,7 +317,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		require.Greater(t, len(entries), 2)
 		require.Equal(
 			t,
-			map[string]interface{}{"Data": logrus.Fields{"component": "repocleaner.repository_existence"}, "Message": "no storages to verify"},
+			map[string]interface{}{"Data": log.Fields{"component": "repocleaner.repository_existence"}, "Message": "no storages to verify"},
 			map[string]interface{}{"Data": loggerHook.AllEntries()[1].Data, "Message": loggerHook.AllEntries()[1].Message},
 		)
 	}()

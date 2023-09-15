@@ -12,9 +12,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
 )
@@ -212,7 +212,7 @@ gitaly_praefect_unavailable_repositories{virtual_storage="virtual-storage-2"} 0
 			`, tc.count)))
 			if tc.error != nil {
 				require.Equal(t, "failed collecting unavailable repository count metric", hook.AllEntries()[0].Message)
-				require.Equal(t, logrus.Fields{"error": tc.error, "component": "RepositoryStoreCollector"}, hook.AllEntries()[0].Data)
+				require.Equal(t, log.Fields{"error": tc.error, "component": "RepositoryStoreCollector"}, hook.AllEntries()[0].Data)
 				return
 			}
 

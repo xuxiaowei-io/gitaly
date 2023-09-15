@@ -293,7 +293,7 @@ func (v *MetadataVerifier) updateMetadata(ctx context.Context, results []verific
 		successfullyVerifieds[i] = result.error == nil
 
 		if result.error != nil {
-			v.log.WithFields(logrus.Fields{
+			v.log.WithFields(log.Fields{
 				"repository_id":   result.job.repositoryID,
 				"replica_path":    result.job.replicaPath,
 				"virtual_storage": result.job.virtualStorage,
@@ -307,7 +307,7 @@ func (v *MetadataVerifier) updateMetadata(ctx context.Context, results []verific
 	}
 
 	if len(logRecords) > 0 {
-		v.log.WithFields(logrus.Fields{
+		v.log.WithFields(log.Fields{
 			"perform_deletions": v.performDeletions,
 			"replicas":          logRecords,
 		}).Info("removing metadata records of non-existent replicas")

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -419,7 +418,7 @@ func (n *nodeStatus) CheckHealth(ctx context.Context) (bool, error) {
 	resp, err := health.Check(ctx, &healthpb.HealthCheckRequest{})
 	n.latencyHist.WithLabelValues(n.node.Storage).Observe(time.Since(start).Seconds())
 	if err != nil {
-		n.log.WithError(err).WithFields(logrus.Fields{
+		n.log.WithError(err).WithFields(log.Fields{
 			"storage": n.node.Storage,
 			"address": n.node.Address,
 		}).Warn("error when pinging healthcheck")

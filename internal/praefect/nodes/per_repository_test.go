@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -567,7 +568,7 @@ func TestPerRepositoryElector(t *testing.T) {
 				if previousPrimary != primary {
 					require.NotNil(t, logEntry)
 					require.Equal(t, "primary node changed", logEntry.Message)
-					require.Equal(t, logrus.Fields{
+					require.Equal(t, log.Fields{
 						"repository_id":    repositoryID,
 						"current_primary":  primary,
 						"previous_primary": previousPrimary,
