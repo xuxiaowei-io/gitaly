@@ -150,17 +150,16 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, runtim
 		defer testhelper.MustClose(t, wt)
 
 		_, err = client.PackObjectsHookWithSidechannel(ctx, req)
-
 		if runtime.GOOS == "darwin" {
-			assert.Contains(t, []codes.Code{codes.Canceled, codes.Internal}, status.Code(err))
-
-			if status.Code(err) == codes.Internal {
-				assert.Contains(t, err.Error(), "write: socket is not connected")
-			}
+			require.Error(t, err)
+			// macOS uses different logic than Linux systems because the sendfile(3P) syscall is not
+			// available. The resulting error message is non-deterministic and includes the actual path of
+			// the pipe we're trying to write to.
+			require.Regexp(t, "pack objects hook: write unix ->.*: write: broken pipe", err.Error())
+			testhelper.RequireGrpcCode(t, err, codes.Canceled)
 		} else {
-			testhelper.AssertGrpcCode(t, err, codes.Canceled)
+			testhelper.RequireGrpcError(t, structerr.NewCanceled("pack objects hook: broken pipe"), err)
 		}
-
 		require.NoError(t, wt.Wait())
 	}()
 
