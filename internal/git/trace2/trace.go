@@ -64,8 +64,8 @@ func (trace *Trace) Inspect(detailed bool) string {
 		}
 		if detailed {
 			output.WriteString(fmt.Sprintf("%s | %s ",
-				t.StartTime.UTC().Format(time.RFC3339),
-				t.FinishTime.UTC().Format(time.RFC3339)))
+				t.StartTime.UTC().Format(time.RFC3339Nano),
+				t.FinishTime.UTC().Format(time.RFC3339Nano)))
 		}
 		output.WriteString(fmt.Sprintf("| %-1s | %s | %s%s",
 			t.ChildID,

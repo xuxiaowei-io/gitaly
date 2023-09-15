@@ -113,12 +113,12 @@ func TestParser_Parse(t *testing.T) {
 {"event":"region_leave","sid":"1234/20230222T120504.839855Z-Ha0f0bee5-P0000ccc6","thread":"main","file":"progress.c","line":346,"repo":1,"t_rel":0.001083,"nesting":2,"category":"progress","label":"Enumerating objects"}
 `,
 			expectedTrace: `
-2023-02-22T12:05:04Z | 0001-01-01T00:00:00Z |   | main | root
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .version
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .start (argv="git pack-objects toon --compression=0")
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .def_repo
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .pack-objects:enumerate-objects
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | ..progress:Enumerating objects
+2023-02-22T12:05:04.840009Z | 0001-01-01T00:00:00Z |   | main | root
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .version
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .start (argv="git pack-objects toon --compression=0")
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .def_repo
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .pack-objects:enumerate-objects
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | ..progress:Enumerating objects
 `,
 		},
 		{
@@ -149,131 +149,131 @@ func TestParser_Parse(t *testing.T) {
 			desc:   "sampled git status events",
 			events: string(testhelper.MustReadFile(t, "testdata/git-status.event")),
 			expectedTrace: `
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | root (code="0")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .version
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .start (argv="git status")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .def_repo
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .index:do_read_index (msg=".git/index")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..cache_tree:read
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..data:index:read/version (data="2")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..data:index:read/cache_nr (data="1585")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .progress:Refresh index
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..index:preload
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..index:refresh
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..data:progress:total_objects (data="1585")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .status:worktrees
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..diff:setup
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..diff:write back to queue
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .status:index
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..unpack_trees:unpack_trees
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..diff:setup
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..diff:write back to queue
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .status:untracked
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | ..dir:read_directory
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .data:status:count/changed (data="0")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .data:status:count/untracked (data="1")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .data:status:count/ignored (data="0")
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .status:print
-2023-02-21T08:10:10Z | 2023-02-21T08:10:10Z |   | main | .data_json:traverse_trees:statistics (data="{\"traverse_trees_count\":1,\"traverse_trees_max_depth\":1}")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.687877Z |   | main | root (code="0")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .version
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .start (argv="git status")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .def_repo
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .index:do_read_index (msg=".git/index")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..cache_tree:read
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..data:index:read/version (data="2")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..data:index:read/cache_nr (data="1585")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .progress:Refresh index
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..index:preload
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..index:refresh
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..data:progress:total_objects (data="1585")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .status:worktrees
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..diff:setup
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..diff:write back to queue
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .status:index
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..unpack_trees:unpack_trees
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..diff:setup
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..diff:write back to queue
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .status:untracked
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | ..dir:read_directory
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .data:status:count/changed (data="0")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .data:status:count/untracked (data="1")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .data:status:count/ignored (data="0")
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .status:print
+2023-02-21T08:10:10.668546Z | 2023-02-21T08:10:10.668546Z |   | main | .data_json:traverse_trees:statistics (data="{\"traverse_trees_count\":1,\"traverse_trees_max_depth\":1}")
 `,
 		},
 		{
 			desc:   "sampled git fetch events",
 			events: string(testhelper.MustReadFile(t, "testdata/git-fetch.event")),
 			expectedTrace: `
-2023-02-22T07:24:36Z | 2023-02-22T07:24:40Z |   | main | root (code="0")
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z |   | main | .version
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z |   | main | .start (argv="git fetch origin master")
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z |   | main | .def_repo
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z |   | main | .index:do_read_index (msg=".git/index")
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z |   | main | ..cache_tree:read
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z |   | main | ..data:index:read/version (data="2")
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z |   | main | ..data:index:read/cache_nr (data="1589")
-2023-02-22T07:24:36Z | 2023-02-22T07:24:40Z |   | main | .fetch:remote_refs (code="0")
-2023-02-22T07:24:36Z | 2023-02-22T07:24:39Z | 0 | main | ..child_start (argv="ssh -o SendEnv=GIT_PROTOCOL git@gitlab.com git-upload-pack 'gitlab-org/gitaly.git'")
-2023-02-22T07:24:39Z | 2023-02-22T07:24:39Z | 0 | main | ...data:transfer:negotiated-version (data="2")
-2023-02-22T07:24:39Z | 2023-02-22T07:24:39Z | 1 | main | ..child_start (argv="git rev-list --objects --stdin --not --all --quiet --alternate-refs" code="0")
-2023-02-22T07:24:40Z | 2023-02-22T07:24:40Z | 1 | main | ...version
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z | 1 | main | ...start (argv="git rev-list --objects --stdin --not --all --quiet --alternate-refs")
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z | 1 | main | ...def_repo
-2023-02-22T07:24:39Z | 2023-02-22T07:24:39Z |   | main | ..fetch:consume_refs
-2023-02-22T07:24:40Z | 2023-02-22T07:24:40Z |   | main | .submodule:parallel/fetch (msg="max:1")
-2023-02-22T07:24:40Z | 2023-02-22T07:24:40Z | 2 | main | .child_start (argv="git maintenance run --auto --no-quiet" code="0")
-2023-02-22T07:24:40Z | 2023-02-22T07:24:40Z | 2 | main | ..version
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z | 2 | main | ..start (argv="git maintenance run --auto --no-quiet")
-2023-02-22T07:24:36Z | 2023-02-22T07:24:36Z | 2 | main | ..def_repo
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:40.291735Z |   | main | root (code="0")
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z |   | main | .version
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z |   | main | .start (argv="git fetch origin master")
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z |   | main | .def_repo
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z |   | main | .index:do_read_index (msg=".git/index")
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z |   | main | ..cache_tree:read
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z |   | main | ..data:index:read/version (data="2")
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z |   | main | ..data:index:read/cache_nr (data="1589")
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:40.291735Z |   | main | .fetch:remote_refs (code="0")
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:39.291735Z | 0 | main | ..child_start (argv="ssh -o SendEnv=GIT_PROTOCOL git@gitlab.com git-upload-pack 'gitlab-org/gitaly.git'")
+2023-02-22T07:24:39.291735Z | 2023-02-22T07:24:39.291735Z | 0 | main | ...data:transfer:negotiated-version (data="2")
+2023-02-22T07:24:39.291735Z | 2023-02-22T07:24:39.291735Z | 1 | main | ..child_start (argv="git rev-list --objects --stdin --not --all --quiet --alternate-refs" code="0")
+2023-02-22T07:24:40.148998Z | 2023-02-22T07:24:40.148998Z | 1 | main | ...version
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z | 1 | main | ...start (argv="git rev-list --objects --stdin --not --all --quiet --alternate-refs")
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z | 1 | main | ...def_repo
+2023-02-22T07:24:39.291735Z | 2023-02-22T07:24:39.291735Z |   | main | ..fetch:consume_refs
+2023-02-22T07:24:40.291735Z | 2023-02-22T07:24:40.291735Z |   | main | .submodule:parallel/fetch (msg="max:1")
+2023-02-22T07:24:40.291735Z | 2023-02-22T07:24:40.291735Z | 2 | main | .child_start (argv="git maintenance run --auto --no-quiet" code="0")
+2023-02-22T07:24:40.54863Z | 2023-02-22T07:24:40.54863Z | 2 | main | ..version
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z | 2 | main | ..start (argv="git maintenance run --auto --no-quiet")
+2023-02-22T07:24:36.291735Z | 2023-02-22T07:24:36.291735Z | 2 | main | ..def_repo
 `,
 		},
 		{
 			desc:   "sampled git commit events",
 			events: string(testhelper.MustReadFile(t, "testdata/git-commit.event")),
 			expectedTrace: `
-2023-02-22T11:26:37Z | 2023-02-22T11:26:38Z |   | main | root (code="0")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .version
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .start (argv="git commit --amend")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .def_repo
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .index:do_read_index (msg=".git/index")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..cache_tree:read
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..data:index:read/version (data="2")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..data:index:read/cache_nr (data="1590")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .index:preload
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..data:index:preload/sum_lstat (data="1590")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .index:preload
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..data:index:preload/sum_lstat (data="0")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .index:refresh
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..data:index:refresh/sum_lstat (data="0")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..data:index:refresh/sum_scan (data="0")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .cache_tree:update
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .index:do_write_index (msg="/gitaly/.git/index.lock")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..cache_tree:write
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..data:index:write/version (data="2")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..data:index:write/cache_nr (data="1590")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .status:worktrees
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..diff:setup
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..diff:write back to queue
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .status:index
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..unpack_trees:unpack_trees
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..diff:setup
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..diff:write back to queue
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .status:untracked
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | ..dir:read_directory
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .data:status:count/changed (data="5")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .data:status:count/untracked (data="0")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .data:status:count/ignored (data="0")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .status:print
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z |   | main | .cache_tree:update
-2023-02-22T11:26:37Z | 2023-02-22T11:26:38Z | 0 | main | .child_start (argv="nvim /gitaly/.git/COMMIT_EDITMSG" code="0")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z | 0 | main | ..version
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z | 0 | main | ..start (argv="git diff --no-color --no-ext-diff -U0 -- COMMIT_EDITMSG")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z | 0 | main | ..error (msg="this operation must be run in a work tree")
-2023-02-22T11:26:38Z | 2023-02-22T11:26:38Z | 0 | main | ..version
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z | 0 | main | ..start (argv="git branch --no-color --show-current")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z | 0 | main | ..def_repo
-2023-02-22T11:26:38Z | 2023-02-22T11:26:38Z | 1 | main | .child_start (argv="git maintenance run --auto --no-quiet" code="0")
-2023-02-22T11:26:38Z | 2023-02-22T11:26:38Z | 1 | main | ..version
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z | 1 | main | ..start (argv="git maintenance run --auto --no-quiet")
-2023-02-22T11:26:37Z | 2023-02-22T11:26:37Z | 1 | main | ..def_repo
-2023-02-22T11:26:38Z | 2023-02-22T11:26:38Z |   | main | .diff:setup
-2023-02-22T11:26:38Z | 2023-02-22T11:26:38Z |   | main | .diff:write back to queue
-2023-02-22T11:26:38Z | 2023-02-22T11:26:38Z |   | main | .data_json:traverse_trees:statistics (data="{\"traverse_trees_count\":2,\"traverse_trees_max_depth\":2}")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:38.174893Z |   | main | root (code="0")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .version
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .start (argv="git commit --amend")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .def_repo
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .index:do_read_index (msg=".git/index")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..cache_tree:read
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..data:index:read/version (data="2")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..data:index:read/cache_nr (data="1590")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .index:preload
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..data:index:preload/sum_lstat (data="1590")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .index:preload
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..data:index:preload/sum_lstat (data="0")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .index:refresh
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..data:index:refresh/sum_lstat (data="0")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..data:index:refresh/sum_scan (data="0")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .cache_tree:update
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .index:do_write_index (msg="/gitaly/.git/index.lock")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..cache_tree:write
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..data:index:write/version (data="2")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..data:index:write/cache_nr (data="1590")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .status:worktrees
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..diff:setup
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..diff:write back to queue
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .status:index
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..unpack_trees:unpack_trees
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..diff:setup
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..diff:write back to queue
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .status:untracked
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | ..dir:read_directory
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .data:status:count/changed (data="5")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .data:status:count/untracked (data="0")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .data:status:count/ignored (data="0")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .status:print
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z |   | main | .cache_tree:update
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:38.174893Z | 0 | main | .child_start (argv="nvim /gitaly/.git/COMMIT_EDITMSG" code="0")
+2023-02-22T11:26:37.353241Z | 2023-02-22T11:26:37.353241Z | 0 | main | ..version
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z | 0 | main | ..start (argv="git diff --no-color --no-ext-diff -U0 -- COMMIT_EDITMSG")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z | 0 | main | ..error (msg="this operation must be run in a work tree")
+2023-02-22T11:26:38.624567Z | 2023-02-22T11:26:38.624567Z | 0 | main | ..version
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z | 0 | main | ..start (argv="git branch --no-color --show-current")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z | 0 | main | ..def_repo
+2023-02-22T11:26:38.174893Z | 2023-02-22T11:26:38.174893Z | 1 | main | .child_start (argv="git maintenance run --auto --no-quiet" code="0")
+2023-02-22T11:26:38.667832Z | 2023-02-22T11:26:38.667832Z | 1 | main | ..version
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z | 1 | main | ..start (argv="git maintenance run --auto --no-quiet")
+2023-02-22T11:26:37.174893Z | 2023-02-22T11:26:37.174893Z | 1 | main | ..def_repo
+2023-02-22T11:26:38.174893Z | 2023-02-22T11:26:38.174893Z |   | main | .diff:setup
+2023-02-22T11:26:38.174893Z | 2023-02-22T11:26:38.174893Z |   | main | .diff:write back to queue
+2023-02-22T11:26:38.174893Z | 2023-02-22T11:26:38.174893Z |   | main | .data_json:traverse_trees:statistics (data="{\"traverse_trees_count\":2,\"traverse_trees_max_depth\":2}")
 `,
 		},
 		{
 			desc:   "sampled git pack objects events",
 			events: string(testhelper.MustReadFile(t, "testdata/git-pack-objects.event")),
 			expectedTrace: `
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | root (code="0")
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .version
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .start (argv="git pack-objects toon --compression=0")
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .def_repo
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .pack-objects:enumerate-objects
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | ..progress:Enumerating objects
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .pack-objects:prepare-pack
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | ..progress:Counting objects
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .pack-objects:write-pack-file
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | ..progress:Writing objects
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | ..data:pack-objects:write_pack_file/wrote (data="1")
-2023-02-22T12:05:04Z | 2023-02-22T12:05:04Z |   | main | .data:fsync:fsync/writeout-only (data="2")
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | root (code="0")
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .version
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .start (argv="git pack-objects toon --compression=0")
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .def_repo
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .pack-objects:enumerate-objects
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | ..progress:Enumerating objects
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .pack-objects:prepare-pack
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | ..progress:Counting objects
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .pack-objects:write-pack-file
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | ..progress:Writing objects
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | ..data:pack-objects:write_pack_file/wrote (data="1")
+2023-02-22T12:05:04.840009Z | 2023-02-22T12:05:04.840009Z |   | main | .data:fsync:fsync/writeout-only (data="2")
 `,
 		},
 	}
