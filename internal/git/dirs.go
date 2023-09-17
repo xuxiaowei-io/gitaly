@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // alternateOutsideStorageError is returned when an alternates file contains an
@@ -43,7 +43,7 @@ func AlternateObjectDirectories(ctx context.Context, storageRoot, repoPath strin
 }
 
 func altObjectDirs(ctx context.Context, storagePrefix, objDir string, depth int) ([]string, error) {
-	logEntry := ctxlogrus.Extract(ctx)
+	logEntry := log.FromContext(ctx)
 	const maxAlternatesDepth = 5 // Taken from https://github.com/git/git/blob/v2.23.0/sha1-file.c#L575
 	if depth > maxAlternatesDepth {
 		logEntry.WithField("objdir", objDir).Warn("ignoring deeply nested alternate object directory")

@@ -12,21 +12,21 @@ import (
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // Try will wrap the provided function with a panic recovery. If a panic occurs,
 // the recovered panic will be sent to Sentry and logged as an error.
 // Returns `true` if no panic and `false` otherwise.
-func Try(logger logrus.FieldLogger, fn func()) bool { return catchAndLog(logger, fn) }
+func Try(logger log.Logger, fn func()) bool { return catchAndLog(logger, fn) }
 
 // Go will run the provided function in a goroutine and recover from any
 // panics.  If a panic occurs, the recovered panic will be sent to Sentry
 // and logged as an error. Go is best used in fire-and-forget goroutines where
 // observability is lost.
-func Go(logger logrus.FieldLogger, fn func()) { go Try(logger, fn) }
+func Go(logger log.Logger, fn func()) { go Try(logger, fn) }
 
-func catchAndLog(logger logrus.FieldLogger, fn func()) bool {
+func catchAndLog(logger log.Logger, fn func()) bool {
 	var id *sentry.EventID
 	var recovered interface{}
 	normal := true
@@ -57,7 +57,7 @@ func catchAndLog(logger logrus.FieldLogger, fn func()) bool {
 
 // Forever encapsulates logic to run a function forever.
 type Forever struct {
-	logger  logrus.FieldLogger
+	logger  log.Logger
 	backoff time.Duration
 
 	cancelOnce sync.Once
@@ -67,7 +67,7 @@ type Forever struct {
 
 // NewForever creates a new Forever struct. The given duration controls how long retry of a
 // function should be delayed if the function were to thrown an error.
-func NewForever(logger logrus.FieldLogger, backoff time.Duration) *Forever {
+func NewForever(logger log.Logger, backoff time.Duration) *Forever {
 	return &Forever{
 		logger:   logger,
 		backoff:  backoff,

@@ -8,12 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
@@ -55,7 +55,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 		}
 		defer func() {
 			if err := locker.Close(); err != nil {
-				ctxlogrus.Extract(ctx).WithError(err).Error("unlocking gitattributes")
+				log.FromContext(ctx).WithError(err).Error("unlocking gitattributes")
 			}
 		}()
 

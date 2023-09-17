@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -106,7 +107,7 @@ func Example() {
 	// Gitaly responding to a non-multiplexed client
 }
 
-func invokeWithMuxedClient(logger *logrus.Entry, address string) error {
+func invokeWithMuxedClient(logger log.Logger, address string) error {
 	// clientHandshaker's ClientHandshake gets called on each established connection. The Server returned by the
 	// ServerFactory is started on Praefect's end of the connection, which Gitaly can call.
 	clientHandshaker := backchannel.NewClientHandshaker(logger, func() backchannel.Server {

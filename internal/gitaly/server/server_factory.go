@@ -3,11 +3,11 @@ package server
 import (
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 )
 
@@ -17,7 +17,7 @@ type GitalyServerFactory struct {
 	cacheInvalidator cache.Invalidator
 	limitHandlers    []*limithandler.LimiterMiddleware
 	cfg              config.Cfg
-	logger           logrus.FieldLogger
+	logger           log.Logger
 	externalServers  []*grpc.Server
 	internalServers  []*grpc.Server
 }
@@ -25,7 +25,7 @@ type GitalyServerFactory struct {
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server's.
 func NewGitalyServerFactory(
 	cfg config.Cfg,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 	registry *backchannel.Registry,
 	cacheInvalidator cache.Invalidator,
 	limitHandlers []*limithandler.LimiterMiddleware,

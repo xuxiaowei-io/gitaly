@@ -132,7 +132,7 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 	db *sql.DB,
 	cfg config.Config,
 	w io.Writer,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 	replicateImmediately bool,
 ) error {
 	logger.WithFields(logrus.Fields{
@@ -329,7 +329,7 @@ func repositoryExists(ctx context.Context, repo *gitalypb.Repository, addr, toke
 	return res.GetExists(), nil
 }
 
-func (req *trackRepositoryRequest) authoritativeRepositoryExists(ctx context.Context, cfg config.Config, logger logrus.FieldLogger, w io.Writer, nodeName string) (bool, error) {
+func (req *trackRepositoryRequest) authoritativeRepositoryExists(ctx context.Context, cfg config.Config, logger log.Logger, w io.Writer, nodeName string) (bool, error) {
 	for _, vs := range cfg.VirtualStorages {
 		if vs.Name != req.VirtualStorage {
 			continue

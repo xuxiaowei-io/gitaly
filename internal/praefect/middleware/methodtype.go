@@ -3,14 +3,14 @@ package middleware
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/metrics"
 	"google.golang.org/grpc"
 )
 
 // MethodTypeUnaryInterceptor returns a Unary Interceptor that records the method type of incoming RPC requests
-func MethodTypeUnaryInterceptor(r *protoregistry.Registry, logger logrus.FieldLogger) grpc.UnaryServerInterceptor {
+func MethodTypeUnaryInterceptor(r *protoregistry.Registry, logger log.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		observeMethodType(r, logger, info.FullMethod)
 
@@ -21,7 +21,7 @@ func MethodTypeUnaryInterceptor(r *protoregistry.Registry, logger logrus.FieldLo
 }
 
 // MethodTypeStreamInterceptor returns a Stream Interceptor that records the method type of incoming RPC requests
-func MethodTypeStreamInterceptor(r *protoregistry.Registry, logger logrus.FieldLogger) grpc.StreamServerInterceptor {
+func MethodTypeStreamInterceptor(r *protoregistry.Registry, logger log.Logger) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		observeMethodType(r, logger, info.FullMethod)
 
@@ -31,7 +31,7 @@ func MethodTypeStreamInterceptor(r *protoregistry.Registry, logger logrus.FieldL
 	}
 }
 
-func observeMethodType(registry *protoregistry.Registry, logger logrus.FieldLogger, fullMethod string) {
+func observeMethodType(registry *protoregistry.Registry, logger log.Logger, fullMethod string) {
 	if registry.IsInterceptedMethod(fullMethod) {
 		return
 	}

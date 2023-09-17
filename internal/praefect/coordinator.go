@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
@@ -17,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/metrics"
@@ -252,7 +252,7 @@ func (c *Coordinator) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call grpcCall) (*proxy.StreamParameters, error) {
-	ctxlogrus.AddFields(ctx, logrus.Fields{
+	log.AddFields(ctx, logrus.Fields{
 		"virtual_storage": call.targetRepo.StorageName,
 		"relative_path":   call.targetRepo.RelativePath,
 	})
@@ -491,14 +491,14 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 					defer nodeErrors.Unlock()
 					nodeErrors.errByNode[secondary.Storage] = err
 
-					ctxlogrus.Extract(ctx).WithError(err).
+					log.FromContext(ctx).WithError(err).
 						Error("proxying to secondary failed")
 
 					// Cancels failed node's voter in its current subtransaction.
 					// Also updates internal state of subtransaction to fail and
 					// release blocked voters if quorum becomes impossible.
 					if err := c.txMgr.CancelTransactionNodeVoter(transaction.ID(), secondary.Storage); err != nil {
-						ctxlogrus.Extract(ctx).WithError(err).
+						log.FromContext(ctx).WithError(err).
 							Error("canceling secondary voter failed")
 					}
 
@@ -544,8 +544,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 				continue
 			}
 
-			ctxlogrus.
-				Extract(ctx).
+			log.FromContext(ctx).
 				WithError(err).
 				Error("coordinator proxy stream finalizer failure")
 		}
@@ -590,7 +589,7 @@ func (c *Coordinator) maintenanceStreamParameters(ctx context.Context, call grpc
 				defer nodeErrors.Unlock()
 				nodeErrors.errByNode[node.Storage] = err
 
-				ctxlogrus.Extract(ctx).WithField("gitaly_storage", node.Storage).WithError(err).Error("proxying maintenance RPC to node failed")
+				log.FromContext(ctx).WithField("gitaly_storage", node.Storage).WithError(err).Error("proxying maintenance RPC to node failed")
 
 				// We ignore any errors returned by nodes such that they all have a
 				// chance to finish their maintenance RPC in a best-effort strategy.
@@ -667,7 +666,7 @@ func streamParametersContext(ctx context.Context) context.Context {
 func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
-	ctxlogrus.Extract(ctx).Debugf("Stream director received method %s", fullMethodName)
+	log.FromContext(ctx).Debugf("Stream director received method %s", fullMethodName)
 
 	mi, err := c.registry.LookupMethod(fullMethodName)
 	if err != nil {
@@ -952,7 +951,7 @@ func getUpdatedAndOutdatedSecondaries(
 
 	nodesByState := make(map[string][]string)
 	defer func() {
-		ctxlogrus.Extract(ctx).
+		log.FromContext(ctx).
 			WithField("transaction.primary", route.Primary.Storage).
 			WithField("transaction.secondaries", nodesByState).
 			Info("transactional node states")
@@ -1071,18 +1070,18 @@ func (c *Coordinator) newRequestFinalizer(
 		ctx, cancel := context.WithTimeout(helper.SuppressCancellation(originalCtx), 30*time.Second)
 		defer cancel()
 
-		log := ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
+		logEntry := log.FromContext(ctx).WithFields(logrus.Fields{
 			"replication.cause":   cause,
 			"replication.change":  change,
 			"replication.primary": primary,
 		})
 		if len(updatedSecondaries) > 0 {
-			log = log.WithField("replication.updated", updatedSecondaries)
+			logEntry = logEntry.WithField("replication.updated", updatedSecondaries)
 		}
 		if len(outdatedSecondaries) > 0 {
-			log = log.WithField("replication.outdated", outdatedSecondaries)
+			logEntry = logEntry.WithField("replication.outdated", outdatedSecondaries)
 		}
-		log.Info("queueing replication jobs")
+		logEntry.Info("queueing replication jobs")
 
 		switch change {
 		case datastore.UpdateRepo:
@@ -1101,7 +1100,7 @@ func (c *Coordinator) newRequestFinalizer(
 					return fmt.Errorf("rename repository: %w", err)
 				}
 
-				ctxlogrus.Extract(ctx).WithError(err).Info("renamed repository does not have a store entry")
+				log.FromContext(ctx).WithError(err).Info("renamed repository does not have a store entry")
 			}
 		case datastore.CreateRepo:
 			repositorySpecificPrimariesEnabled := c.conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository
@@ -1148,7 +1147,7 @@ func (c *Coordinator) newRequestFinalizer(
 			g.Go(func() error {
 				if _, err := c.queue.Enqueue(ctx, event); err != nil {
 					if errors.As(err, &datastore.ReplicationEventExistsError{}) {
-						ctxlogrus.Extract(ctx).WithError(err).Info("replication event queue already has similar entry")
+						log.FromContext(ctx).WithError(err).Info("replication event queue already has similar entry")
 						return nil
 					}
 

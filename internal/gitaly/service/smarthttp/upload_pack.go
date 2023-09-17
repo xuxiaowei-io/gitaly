@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -64,7 +64,7 @@ func (s *server) runStatsCollector(ctx context.Context, r io.Reader) (io.Reader,
 
 		stats, err := stats.ParsePackfileNegotiation(pr)
 		if err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Debug("failed parsing packfile negotiation")
+			log.FromContext(ctx).WithError(err).Debug("failed parsing packfile negotiation")
 			return
 		}
 		stats.UpdateMetrics(s.packfileNegotiationMetrics)
@@ -141,6 +141,6 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 		return nil, structerr.NewFailedPrecondition("waiting for upload-pack: %w", err)
 	}
 
-	ctxlogrus.Extract(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")
+	log.FromContext(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")
 	return nil, nil
 }

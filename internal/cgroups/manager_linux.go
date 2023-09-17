@@ -11,8 +11,8 @@ import (
 	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // cfs_period_us hardcoded to be 100ms.
@@ -38,11 +38,11 @@ type CGroupManager struct {
 	handler cgroupHandler
 }
 
-func newCgroupManager(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *CGroupManager {
+func newCgroupManager(cfg cgroupscfg.Config, logger log.Logger, pid int) *CGroupManager {
 	return newCgroupManagerWithMode(cfg, logger, pid, cgrps.Mode())
 }
 
-func newCgroupManagerWithMode(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int, mode cgrps.CGMode) *CGroupManager {
+func newCgroupManagerWithMode(cfg cgroupscfg.Config, logger log.Logger, pid int, mode cgrps.CGMode) *CGroupManager {
 	var handler cgroupHandler
 	switch mode {
 	case cgrps.Legacy, cgrps.Hybrid:
@@ -173,11 +173,11 @@ func (cgm *CGroupManager) configRepositoryResources() *specs.LinuxResources {
 	return &reposResources
 }
 
-func pruneOldCgroups(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
+func pruneOldCgroups(cfg cgroupscfg.Config, logger log.Logger) {
 	pruneOldCgroupsWithMode(cfg, logger, cgrps.Mode())
 }
 
-func pruneOldCgroupsWithMode(cfg cgroupscfg.Config, logger logrus.FieldLogger, mode cgrps.CGMode) {
+func pruneOldCgroupsWithMode(cfg cgroupscfg.Config, logger log.Logger, mode cgrps.CGMode) {
 	if cfg.HierarchyRoot == "" {
 		return
 	}

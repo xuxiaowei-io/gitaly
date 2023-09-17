@@ -8,7 +8,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
@@ -16,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 )
@@ -24,7 +24,7 @@ var objectPoolRefspec = fmt.Sprintf("+refs/*:%s/*", git.ObjectPoolRefNamespace)
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
 func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo) error {
-	logger := ctxlogrus.Extract(ctx)
+	logger := log.FromContext(ctx)
 
 	if !o.Exists() {
 		return structerr.NewInvalidArgument("object pool does not exist")
@@ -320,7 +320,7 @@ type referencedObjectTypes struct {
 	Trees   uint64 `json:"trees"`
 }
 
-func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
+func (o *ObjectPool) logStats(ctx context.Context, logger log.Logger) error {
 	fields := logrus.Fields{}
 
 	repoInfo, err := stats.RepositoryInfoForRepository(o.Repo)

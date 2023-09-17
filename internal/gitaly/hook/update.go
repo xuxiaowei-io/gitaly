@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -20,12 +20,12 @@ func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repos
 
 	if isPrimary(payload) {
 		if err := m.updateHook(ctx, payload, repo, ref, oldValue, newValue, env, stdout, stderr); err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Warn("stopping transaction because update hook failed")
+			log.FromContext(ctx).WithError(err).Warn("stopping transaction because update hook failed")
 
 			// If the update hook declines the push, then we need
 			// to stop any secondaries voting on the transaction.
 			if err := m.stopTransaction(ctx, payload); err != nil {
-				ctxlogrus.Extract(ctx).WithError(err).Error("failed stopping transaction in update hook")
+				log.FromContext(ctx).WithError(err).Error("failed stopping transaction in update hook")
 			}
 
 			return err

@@ -13,20 +13,20 @@ import (
 	"github.com/containerd/cgroups/v3/cgroup2"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 type cgroupV2Handler struct {
 	cfg    cgroupscfg.Config
-	logger logrus.FieldLogger
+	logger log.Logger
 
 	*cgroupsMetrics
 	pid int
 }
 
-func newV2Handler(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *cgroupV2Handler {
+func newV2Handler(cfg cgroupscfg.Config, logger log.Logger, pid int) *cgroupV2Handler {
 	return &cgroupV2Handler{
 		cfg:            cfg,
 		logger:         logger,
@@ -190,7 +190,7 @@ func (cvh *cgroupV2Handler) stats() (Stats, error) {
 	return stats, nil
 }
 
-func pruneOldCgroupsV2(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
+func pruneOldCgroupsV2(cfg cgroupscfg.Config, logger log.Logger) {
 	if err := config.PruneOldGitalyProcessDirectories(
 		logger,
 		filepath.Join(cfg.Mountpoint, cfg.HierarchyRoot),

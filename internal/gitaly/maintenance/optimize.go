@@ -9,21 +9,21 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // WorkerFunc is a function that does a unit of work meant to run in the background
-type WorkerFunc func(context.Context, logrus.FieldLogger) error
+type WorkerFunc func(context.Context, log.Logger) error
 
 // StartWorkers will start any background workers and returns a function that
 // can be used to shut down the background workers.
 func StartWorkers(
 	ctx context.Context,
-	l logrus.FieldLogger,
+	l log.Logger,
 	workers ...WorkerFunc,
 ) (func(), error) {
 	errQ := make(chan error)
@@ -67,20 +67,20 @@ func shuffledStoragesCopy(randSrc *rand.Rand, storages []config.Storage) []confi
 
 // Optimizer knows how to optimize a repository
 type Optimizer interface {
-	OptimizeRepository(context.Context, logrus.FieldLogger, storage.Repository) error
+	OptimizeRepository(context.Context, log.Logger, storage.Repository) error
 }
 
 // OptimizerFunc is an adapter to allow the use of an ordinary function as an Optimizer
-type OptimizerFunc func(context.Context, logrus.FieldLogger, storage.Repository) error
+type OptimizerFunc func(context.Context, log.Logger, storage.Repository) error
 
 // OptimizeRepository calls o(ctx, repo)
-func (o OptimizerFunc) OptimizeRepository(ctx context.Context, logger logrus.FieldLogger, repo storage.Repository) error {
+func (o OptimizerFunc) OptimizeRepository(ctx context.Context, logger log.Logger, repo storage.Repository) error {
 	return o(ctx, logger, repo)
 }
 
 // DailyOptimizationWorker creates a worker that runs repository maintenance daily
 func DailyOptimizationWorker(cfg config.Cfg, optimizer Optimizer) WorkerFunc {
-	return func(ctx context.Context, l logrus.FieldLogger) error {
+	return func(ctx context.Context, l log.Logger) error {
 		return NewDailyWorker().StartDaily(
 			ctx,
 			l,
@@ -97,7 +97,7 @@ func DailyOptimizationWorker(cfg config.Cfg, optimizer Optimizer) WorkerFunc {
 
 func optimizeRepo(
 	ctx context.Context,
-	l logrus.FieldLogger,
+	l log.Logger,
 	o Optimizer,
 	repo *gitalypb.Repository,
 ) error {
@@ -125,7 +125,7 @@ func walkReposShuffled(
 	ctx context.Context,
 	locator storage.Locator,
 	walker *randomWalker,
-	l logrus.FieldLogger,
+	l log.Logger,
 	s config.Storage,
 	o Optimizer,
 	ticker helper.Ticker,
@@ -187,7 +187,7 @@ func walkReposShuffled(
 // Any errors during the optimization will be logged. Any other errors will be returned and cause
 // the walk to end prematurely.
 func OptimizeReposRandomly(cfg config.Cfg, optimizer Optimizer, ticker helper.Ticker, rand *rand.Rand) StoragesJob {
-	return func(ctx context.Context, l logrus.FieldLogger, enabledStorageNames []string) error {
+	return func(ctx context.Context, l log.Logger, enabledStorageNames []string) error {
 		enabledNames := map[string]struct{}{}
 		for _, sName := range enabledStorageNames {
 			enabledNames[sName] = struct{}{}

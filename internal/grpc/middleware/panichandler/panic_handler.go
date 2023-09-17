@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +18,7 @@ func toPanicError(grpcMethodName string, r interface{}) error {
 }
 
 // UnaryPanicHandler creates a new unary server interceptor that handles panics.
-func UnaryPanicHandler(logger logrus.FieldLogger) grpc.UnaryServerInterceptor {
+func UnaryPanicHandler(logger log.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		defer handleCrash(logger, info.FullMethod, func(grpcMethodName string, r interface{}) {
 			err = toPanicError(grpcMethodName, r)
@@ -28,7 +29,7 @@ func UnaryPanicHandler(logger logrus.FieldLogger) grpc.UnaryServerInterceptor {
 }
 
 // StreamPanicHandler creates a new stream server interceptor that handles panics.
-func StreamPanicHandler(logger logrus.FieldLogger) grpc.StreamServerInterceptor {
+func StreamPanicHandler(logger log.Logger) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 		defer handleCrash(logger, info.FullMethod, func(grpcMethodName string, r interface{}) {
 			err = toPanicError(grpcMethodName, r)
@@ -45,7 +46,7 @@ func InstallPanicHandler(handler PanicHandler) {
 	additionalHandlers = append(additionalHandlers, handler)
 }
 
-func handleCrash(logger logrus.FieldLogger, grpcMethodName string, handler PanicHandler) {
+func handleCrash(logger log.Logger, grpcMethodName string, handler PanicHandler) {
 	if r := recover(); r != nil {
 		logger.WithFields(logrus.Fields{
 			"error":  r,

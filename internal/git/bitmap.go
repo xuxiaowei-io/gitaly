@@ -6,12 +6,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/packfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 var badBitmapRequestCount = promauto.NewCounterVec(
@@ -26,7 +26,7 @@ var badBitmapRequestCount = promauto.NewCounterVec(
 // repoPath, and if it finds any, it logs a warning. This is to help us
 // investigate https://gitlab.com/gitlab-org/gitaly/issues/1728.
 func WarnIfTooManyBitmaps(ctx context.Context, locator storage.Locator, storageName, repoPath string) {
-	logEntry := ctxlogrus.Extract(ctx)
+	logEntry := log.FromContext(ctx)
 
 	storageRoot, err := locator.GetStorageByName(storageName)
 	if err != nil {

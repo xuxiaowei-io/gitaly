@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
@@ -150,7 +149,7 @@ func configure() (_ func(), returnedErr error) {
 	return cleanup, nil
 }
 
-func configureTestDirectory(logger logrus.FieldLogger) (_ func(), returnedErr error) {
+func configureTestDirectory(logger log.Logger) (_ func(), returnedErr error) {
 	if testDirectory != "" {
 		return nil, errors.New("test directory has already been configured")
 	}

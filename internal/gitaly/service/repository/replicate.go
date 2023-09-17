@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -23,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
@@ -151,7 +151,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 			return fmt.Errorf("error deleting invalid repo: %w", err)
 		}
 
-		ctxlogrus.Extract(ctx).WithField("repo_path", repoPath).Warn("removed invalid repository")
+		log.FromContext(ctx).WithField("repo_path", repoPath).Warn("removed invalid repository")
 	}
 
 	if err := s.createFromSnapshot(ctx, in.GetSource(), in.GetRepository()); err != nil {

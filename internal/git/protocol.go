@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -50,7 +50,7 @@ func gitProtocolEnv(ctx context.Context, req RequestWithGitProtocol) []string {
 	case "":
 		protocol = "v0"
 	default:
-		ctxlogrus.Extract(ctx).WithField("git_protocol", gp).Warn("invalid git protocol requested")
+		log.FromContext(ctx).WithField("git_protocol", gp).Warn("invalid git protocol requested")
 		protocol = "invalid"
 	}
 

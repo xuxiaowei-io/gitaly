@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -52,7 +52,7 @@ type ResourceWatcher interface {
 type AdaptiveCalculator struct {
 	sync.Mutex
 
-	logger logrus.FieldLogger
+	logger log.Logger
 	// started tells whether the calculator already starts. One calculator is allowed to be used once.
 	started bool
 	// calibration is the time duration until the next calibration event.
@@ -79,7 +79,7 @@ type AdaptiveCalculator struct {
 
 // NewAdaptiveCalculator constructs a AdaptiveCalculator object. It's the responsibility of the caller to validate
 // the correctness of input AdaptiveLimiter and ResourceWatcher.
-func NewAdaptiveCalculator(calibration time.Duration, logger logrus.FieldLogger, limits []AdaptiveLimiter, watchers []ResourceWatcher) *AdaptiveCalculator {
+func NewAdaptiveCalculator(calibration time.Duration, logger log.Logger, limits []AdaptiveLimiter, watchers []ResourceWatcher) *AdaptiveCalculator {
 	watcherTimeouts := map[ResourceWatcher]*atomic.Int32{}
 	for _, watcher := range watchers {
 		watcherTimeouts[watcher] = &atomic.Int32{}

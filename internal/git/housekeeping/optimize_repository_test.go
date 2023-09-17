@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
@@ -26,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
@@ -1076,7 +1076,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error {
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error {
 			reqReceivedCh <- struct{}{}
 			ch <- struct{}{}
 
@@ -1108,7 +1108,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error {
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error {
 			// This should only happen if housekeeping is running successfully.
 			// So by sending data on this channel we can notify the test that this
 			// function ran successfully.
@@ -1142,7 +1142,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error {
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error {
 			require.FailNow(t, "housekeeping run should have been skipped")
 			return nil
 		}
@@ -1175,7 +1175,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		reposOptimized := make(map[string]struct{})
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(_ context.Context, _ *RepositoryManager, _ logrus.FieldLogger, repo *localrepo.Repo, _ OptimizationStrategy) error {
+		manager.optimizeFunc = func(_ context.Context, _ *RepositoryManager, _ log.Logger, repo *localrepo.Repo, _ OptimizationStrategy) error {
 			reposOptimized[repo.GetRelativePath()] = struct{}{}
 
 			if repo.GetRelativePath() == repoFirst.GetRelativePath() {
@@ -1212,7 +1212,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		var optimizations int
 
 		manager := NewManager(gitalycfgprom.Config{}, nil)
-		manager.optimizeFunc = func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error {
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error {
 			optimizations++
 
 			if optimizations == 1 {

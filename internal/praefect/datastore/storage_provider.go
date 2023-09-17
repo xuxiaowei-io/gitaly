@@ -10,8 +10,8 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/datastructure"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 )
 
@@ -44,12 +44,12 @@ type CachingConsistentStoragesGetter struct {
 	// access is access method to use: 0 - without caching; 1 - with caching.
 	access int32
 	// callbackLogger should be used only inside of the methods used as callbacks.
-	callbackLogger   logrus.FieldLogger
+	callbackLogger   log.Logger
 	cacheAccessTotal *prometheus.CounterVec
 }
 
 // NewCachingConsistentStoragesGetter returns a ConsistentStoragesGetter that uses caching.
-func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
+func NewCachingConsistentStoragesGetter(logger log.Logger, csg ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
 	cached := &CachingConsistentStoragesGetter{
 		csg:            csg,
 		caches:         make(map[string]*virtualStorageCache, len(virtualStorages)),

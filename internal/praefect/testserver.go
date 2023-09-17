@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/nodes"
@@ -40,7 +41,7 @@ type BuildOptions struct {
 	// WithAnnotations sets a proto-registry to use by praefect service.
 	WithAnnotations *protoregistry.Registry
 	// WithLogger sets a logger to use by praefect service.
-	WithLogger *logrus.Entry
+	WithLogger log.Logger
 	// WithNodeMgr sets an implementation of the node manager to use by praefect service.
 	WithNodeMgr nodes.Manager
 	// WithRepoStore sets an implementation of the repositories store to use by praefect service.

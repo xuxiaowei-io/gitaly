@@ -3,11 +3,11 @@ package nodes
 import (
 	"testing"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
@@ -533,7 +533,7 @@ func TestPerRepositoryElector(t *testing.T) {
 					logger, hook := test.NewNullLogger()
 					elector := NewPerRepositoryElector(tx)
 
-					primary, err := elector.GetPrimary(ctxlogrus.ToContext(ctx, logrus.NewEntry(logger)), "", repositoryID)
+					primary, err := elector.GetPrimary(log.FromLogrusEntry(logrus.NewEntry(logger)).ToContext(ctx), "", repositoryID)
 					assert.Equal(t, step.error, err)
 					assert.Less(t, len(hook.Entries), 2)
 

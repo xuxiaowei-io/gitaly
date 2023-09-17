@@ -8,8 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
@@ -17,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -31,7 +31,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		return structerr.NewInternal("%w", err)
 	}
 
-	ctxlogrus.Extract(ctx).WithFields(log.Fields{
+	log.FromContext(ctx).WithFields(logrus.Fields{
 		"GlRepository":     req.GetRepository().GetGlRepository(),
 		"GitConfigOptions": req.GitConfigOptions,
 		"GitProtocol":      req.GitProtocol,
@@ -60,7 +60,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		if errSend := stream.Send(&gitalypb.SSHUploadPackResponse{
 			ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
 		}); errSend != nil {
-			ctxlogrus.Extract(ctx).WithError(errSend).Error("send final status code")
+			log.FromContext(ctx).WithError(errSend).Error("send final status code")
 		}
 
 		return structerr.NewInternal("%w", err)
@@ -115,7 +115,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		stats, errIgnore := stats.ParsePackfileNegotiation(pr)
 		negotiation = &stats
 		if errIgnore != nil {
-			ctxlogrus.Extract(ctx).WithError(errIgnore).Debug("failed parsing packfile negotiation")
+			log.FromContext(ctx).WithError(errIgnore).Debug("failed parsing packfile negotiation")
 			return
 		}
 		stats.UpdateMetrics(s.packfileNegotiationMetrics)
@@ -179,7 +179,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		return nil, status, fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())
 	}
 
-	ctxlogrus.Extract(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
+	log.FromContext(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
 
 	return nil, 0, nil
 }

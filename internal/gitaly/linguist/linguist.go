@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/go-enry/go-enry/v2"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -15,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // ByteCountPerLanguage represents a counter value (bytes) per language.
@@ -51,7 +51,7 @@ func Color(language string) string {
 func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
 	stats, err := initLanguageStats(inst.repo)
 	if err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Info("linguist load from cache")
+		log.FromContext(ctx).WithError(err).Info("linguist load from cache")
 	}
 	if stats.CommitID == commitID {
 		return stats.Totals, nil

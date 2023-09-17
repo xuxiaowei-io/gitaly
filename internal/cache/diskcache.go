@@ -8,13 +8,12 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
@@ -76,7 +75,7 @@ func withDisabledWalker() Option {
 
 // DiskCache stores and retrieves byte streams for repository related RPCs
 type DiskCache struct {
-	logger      logrus.FieldLogger
+	logger      log.Logger
 	locator     storage.Locator
 	storages    []config.Storage
 	keyer       leaseKeyer
@@ -100,7 +99,7 @@ type DiskCache struct {
 }
 
 // New will create a new DiskCache with the given Keyer.
-func New(cfg config.Cfg, locator storage.Locator, logger logrus.FieldLogger, opts ...Option) *DiskCache {
+func New(cfg config.Cfg, locator storage.Locator, logger log.Logger, opts ...Option) *DiskCache {
 	var cacheConfig cacheConfig
 	for _, opt := range opts {
 		opt(&cacheConfig)
@@ -243,7 +242,7 @@ func (c *DiskCache) GetStream(ctx context.Context, repo *gitalypb.Repository, re
 		return nil, err
 	}
 
-	ctxlogrus.Extract(ctx).
+	log.FromContext(ctx).
 		WithField("stream_path", respPath).
 		Info("getting stream")
 
@@ -282,7 +281,7 @@ func (c *DiskCache) PutStream(ctx context.Context, repo *gitalypb.Repository, re
 		return err
 	}
 
-	ctxlogrus.Extract(ctx).
+	log.FromContext(ctx).
 		WithField("stream_path", reqPath).
 		Info("putting stream")
 

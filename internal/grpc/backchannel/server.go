@@ -8,7 +8,7 @@ import (
 	"net"
 
 	"github.com/hashicorp/yamux"
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -73,7 +73,7 @@ func withSessionInfo(authInfo credentials.AuthInfo, id ID, muxSession *yamux.Ses
 // ServerHandshaker implements the server side handshake of the multiplexed connection.
 type ServerHandshaker struct {
 	registry *Registry
-	logger   logrus.FieldLogger
+	logger   log.Logger
 	dialOpts []grpc.DialOption
 }
 
@@ -85,7 +85,7 @@ func (s *ServerHandshaker) Magic() string { return string(magicBytes) }
 // are handshaked prior to initializing the multiplexing session. The Registry is used to store the backchannel connections.
 // DialOptions can be used to set custom dial options for the backchannel connections. They must not contain a dialer or
 // transport credentials as those set by the handshaker.
-func NewServerHandshaker(logger logrus.FieldLogger, reg *Registry, dialOpts []grpc.DialOption) *ServerHandshaker {
+func NewServerHandshaker(logger log.Logger, reg *Registry, dialOpts []grpc.DialOption) *ServerHandshaker {
 	return &ServerHandshaker{registry: reg, logger: logger, dialOpts: dialOpts}
 }
 

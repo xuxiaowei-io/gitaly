@@ -6,9 +6,9 @@ import (
 	"io"
 	"net"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/grpc"
 )
@@ -186,7 +186,7 @@ func (cc *ClientConn) CloseWrite() error {
 
 // Dial configures the dialer to establish a Gitaly backchannel connection instead of a regular gRPC connection. It
 // also injects sr as a sidechannel registry, so that Gitaly can establish sidechannels back to the client.
-func Dial(ctx context.Context, registry *Registry, logger logrus.FieldLogger, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
+func Dial(ctx context.Context, registry *Registry, logger log.Logger, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
 	clientHandshaker := NewClientHandshaker(logger, registry)
 	return client.Dial(ctx, rawAddress, client.WithGrpcOptions(connOpts), client.WithHandshaker(clientHandshaker))
 }

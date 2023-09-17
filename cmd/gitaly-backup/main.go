@@ -7,14 +7,13 @@ import (
 	"io"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 type subcmd interface {
 	Flags(*flag.FlagSet)
-	Run(ctx context.Context, logger logrus.FieldLogger, stdin io.Reader, stdout io.Writer) error
+	Run(ctx context.Context, logger log.Logger, stdin io.Reader, stdout io.Writer) error
 }
 
 var subcommands = map[string]subcmd{

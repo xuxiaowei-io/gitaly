@@ -9,10 +9,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -43,7 +43,7 @@ func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.BoolVar(&cmd.serverSide, "server-side", false, "use server-side backups. Note: The feature is not ready for production use.")
 }
 
-func (cmd *createSubcommand) Run(ctx context.Context, logger logrus.FieldLogger, stdin io.Reader, stdout io.Writer) error {
+func (cmd *createSubcommand) Run(ctx context.Context, logger log.Logger, stdin io.Reader, stdout io.Writer) error {
 	pool := client.NewPool(client.WithDialOptions(client.UnaryInterceptor(), client.StreamInterceptor()))
 	defer func() {
 		_ = pool.Close()

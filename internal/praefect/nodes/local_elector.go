@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/metrics"
 )
 
@@ -18,12 +18,12 @@ type localElector struct {
 	shardName   string
 	nodes       []Node
 	primaryNode Node
-	log         logrus.FieldLogger
+	log         log.Logger
 
 	doneCh chan struct{}
 }
 
-func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus) *localElector {
+func newLocalElector(name string, log log.Logger, ns []*nodeStatus) *localElector {
 	nodes := make([]Node, len(ns))
 	for i, n := range ns {
 		nodes[i] = n

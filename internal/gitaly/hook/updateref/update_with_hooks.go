@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -17,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -303,7 +303,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 		if errors.As(err, &customHookErr) {
 			// Only log the error when we've got a custom-hook error, but otherwise
 			// ignore it and continue with whatever we have been doing.
-			ctxlogrus.Extract(ctx).WithError(err).Error("custom post-receive hook returned an error")
+			log.FromContext(ctx).WithError(err).Error("custom post-receive hook returned an error")
 		} else {
 			return fmt.Errorf("running post-receive hooks: %w", wrapHookError(err, git.PostReceiveHook, stdout.String(), stderr.String()))
 		}

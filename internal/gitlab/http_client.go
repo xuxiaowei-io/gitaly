@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/prometheus/metrics"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
 )
@@ -27,12 +27,12 @@ var glIDRegex = regexp.MustCompile(`\A[0-9]+\z`)
 type HTTPClient struct {
 	*client.GitlabNetClient
 	latencyMetric metrics.HistogramVec
-	logger        logrus.FieldLogger
+	logger        log.Logger
 }
 
 // NewHTTPClient creates an HTTP client to talk to the Rails internal API
 func NewHTTPClient(
-	logger logrus.FieldLogger,
+	logger log.Logger,
 	gitlabCfg config.Gitlab,
 	tlsCfg config.TLS,
 	promCfg gitalycfgprom.Config,

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 )
 
 // StartCleaning starts tempdir cleanup in a goroutine.
-func StartCleaning(logger logrus.FieldLogger, locator storage.Locator, storages []config.Storage, d time.Duration) {
+func StartCleaning(logger log.Logger, locator storage.Locator, storages []config.Storage, d time.Duration) {
 	dontpanic.Go(logger, func() {
 		for {
 			cleanTempDir(logger, locator, storages)
@@ -37,7 +38,7 @@ func StartCleaning(logger logrus.FieldLogger, locator storage.Locator, storages 
 	})
 }
 
-func cleanTempDir(logger logrus.FieldLogger, locator storage.Locator, storages []config.Storage) {
+func cleanTempDir(logger log.Logger, locator storage.Locator, storages []config.Storage) {
 	for _, storage := range storages {
 		start := time.Now()
 		err := clean(logger, locator, storage)
@@ -55,7 +56,7 @@ func cleanTempDir(logger logrus.FieldLogger, locator storage.Locator, storages [
 
 type invalidCleanRoot string
 
-func clean(logger logrus.FieldLogger, locator storage.Locator, storage config.Storage) error {
+func clean(logger log.Logger, locator storage.Locator, storage config.Storage) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

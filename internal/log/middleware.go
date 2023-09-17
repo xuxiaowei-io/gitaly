@@ -6,7 +6,6 @@ import (
 
 	grpcmwlogging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"google.golang.org/grpc"
@@ -81,7 +80,7 @@ func MessageProducer(mp grpcmwlogrus.MessageProducer, fieldsProducers ...FieldsP
 }
 
 type messageProducerHolder struct {
-	logger *logrus.Entry
+	logger LogrusLogger
 	actual grpcmwlogrus.MessageProducer
 	format string
 	level  logrus.Level
@@ -113,7 +112,7 @@ func PropagationMessageProducer(actual grpcmwlogrus.MessageProducer) grpcmwlogru
 			return
 		}
 		*mpp = messageProducerHolder{
-			logger: ctxlogrus.Extract(ctx),
+			logger: FromContext(ctx),
 			actual: actual,
 			format: format,
 			level:  level,
@@ -170,7 +169,7 @@ func (lh PerRPCLogHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
 		// a logger we need to set logger manually into the context.
 		// It's needed because github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus.DefaultMessageProducer
 		// extracts logger from the context and use it to write the logs.
-		ctx = ctxlogrus.ToContext(ctx, mpp.logger)
+		ctx = mpp.logger.ToContext(ctx)
 		mpp.actual(ctx, mpp.format, mpp.level, mpp.code, mpp.err, mpp.fields)
 		return
 	}
@@ -191,7 +190,7 @@ func UnaryLogDataCatcherServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp != nil {
-			mpp.fields = ctxlogrus.Extract(ctx).Data
+			mpp.fields = FromContext(ctx).Entry.Data
 		}
 		return handler(ctx, req)
 	}
@@ -204,7 +203,7 @@ func StreamLogDataCatcherServerInterceptor() grpc.StreamServerInterceptor {
 		ctx := ss.Context()
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp != nil {
-			mpp.fields = ctxlogrus.Extract(ctx).Data
+			mpp.fields = FromContext(ctx).Entry.Data
 		}
 		return handler(srv, ss)
 	}

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backoff"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"google.golang.org/grpc/resolver"
 )
@@ -31,7 +31,7 @@ type BuilderConfig struct {
 	// LookupTimeout determines the timeout of underlying DNS query.
 	LookupTimeout time.Duration
 	// Logger defines a logger for logging internal activities
-	Logger logrus.FieldLogger
+	Logger log.Logger
 	// Backoff defines the backoff strategy when the resolver fails to resolve or pushes new
 	// state to client connection
 	Backoff backoff.Strategy

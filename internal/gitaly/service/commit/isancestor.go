@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -36,7 +36,7 @@ func (s *server) CommitIsAncestor(ctx context.Context, in *gitalypb.CommitIsAnce
 
 // Assumes that `path`, `ancestorID` and `childID` are populated :trollface:
 func (s *server) commitIsAncestorName(ctx context.Context, repo *gitalypb.Repository, ancestorID, childID string) (bool, error) {
-	ctxlogrus.Extract(ctx).WithFields(log.Fields{
+	log.FromContext(ctx).WithFields(logrus.Fields{
 		"ancestorSha": ancestorID,
 		"childSha":    childID,
 	}).Debug("commitIsAncestor")

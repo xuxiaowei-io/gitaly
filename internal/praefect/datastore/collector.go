@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 )
 
@@ -28,7 +28,7 @@ var (
 
 // RepositoryStoreCollector collects metrics from the RepositoryStore.
 type RepositoryStoreCollector struct {
-	log             logrus.FieldLogger
+	log             log.Logger
 	db              glsql.Querier
 	virtualStorages []string
 	timeout         time.Duration
@@ -36,7 +36,7 @@ type RepositoryStoreCollector struct {
 
 // NewRepositoryStoreCollector returns a new collector.
 func NewRepositoryStoreCollector(
-	log logrus.FieldLogger,
+	log log.Logger,
 	virtualStorages []string,
 	db glsql.Querier,
 	timeout time.Duration,
@@ -105,7 +105,7 @@ GROUP BY virtual_storage
 
 // QueueDepthCollector collects metrics describing replication queue depths
 type QueueDepthCollector struct {
-	log     logrus.FieldLogger
+	log     log.Logger
 	timeout time.Duration
 	db      glsql.Querier
 }
@@ -116,7 +116,7 @@ func (q *QueueDepthCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // NewQueueDepthCollector returns a new QueueDepthCollector
-func NewQueueDepthCollector(log logrus.FieldLogger, db glsql.Querier, timeout time.Duration) *QueueDepthCollector {
+func NewQueueDepthCollector(log log.Logger, db glsql.Querier, timeout time.Duration) *QueueDepthCollector {
 	return &QueueDepthCollector{
 		log:     log.WithField("component", "queue_depth_collector"),
 		timeout: timeout,
@@ -168,7 +168,7 @@ const (
 
 // VerificationQueueDepthCollector collects the verification queue depth metric from the database.
 type VerificationQueueDepthCollector struct {
-	log                    logrus.FieldLogger
+	log                    log.Logger
 	timeout                time.Duration
 	db                     glsql.Querier
 	verificationInterval   time.Duration
@@ -176,7 +176,7 @@ type VerificationQueueDepthCollector struct {
 }
 
 // NewVerificationQueueDepthCollector returns a new VerificationQueueDepthCollector
-func NewVerificationQueueDepthCollector(log logrus.FieldLogger, db glsql.Querier, timeout, verificationInterval time.Duration, configuredStorages map[string][]string) *VerificationQueueDepthCollector {
+func NewVerificationQueueDepthCollector(log log.Logger, db glsql.Querier, timeout, verificationInterval time.Duration, configuredStorages map[string][]string) *VerificationQueueDepthCollector {
 	v := &VerificationQueueDepthCollector{
 		log:                  log.WithField("component", "verification_queue_depth_collector"),
 		timeout:              timeout,

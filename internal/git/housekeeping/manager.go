@@ -6,20 +6,20 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // Manager is a housekeeping manager. It is supposed to handle housekeeping tasks for repositories
 // such as the cleanup of unneeded files and optimizations for the repository's data structures.
 type Manager interface {
 	// CleanStaleData removes any stale data in the repository as per the provided configuration.
-	CleanStaleData(context.Context, logrus.FieldLogger, *localrepo.Repo, CleanStaleDataConfig) error
+	CleanStaleData(context.Context, log.Logger, *localrepo.Repo, CleanStaleDataConfig) error
 	// OptimizeRepository optimizes the repository's data structures such that it can be more
 	// efficiently served.
-	OptimizeRepository(context.Context, logrus.FieldLogger, *localrepo.Repo, ...OptimizeRepositoryOption) error
+	OptimizeRepository(context.Context, log.Logger, *localrepo.Repo, ...OptimizeRepositoryOption) error
 	// AddPackRefsInhibitor allows clients to block housekeeping from running git-pack-refs(1).
 	AddPackRefsInhibitor(ctx context.Context, repoPath string) (bool, func(), error)
 }
@@ -214,7 +214,7 @@ type RepositoryManager struct {
 	dataStructureCount                     *prometheus.HistogramVec
 	dataStructureSize                      *prometheus.HistogramVec
 	dataStructureTimeSinceLastOptimization *prometheus.HistogramVec
-	optimizeFunc                           func(context.Context, *RepositoryManager, logrus.FieldLogger, *localrepo.Repo, OptimizationStrategy) error
+	optimizeFunc                           func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error
 	repositoryStates                       repositoryStates
 }
 

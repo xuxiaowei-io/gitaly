@@ -17,8 +17,6 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
@@ -207,13 +205,6 @@ func GetLocalhostListener(tb testing.TB) (net.Listener, string) {
 
 // ContextOpt returns a new context instance with the new additions to it.
 type ContextOpt func(context.Context) context.Context
-
-// ContextWithLogger allows to inject provided logger into the context.
-func ContextWithLogger(logger *log.Entry) ContextOpt {
-	return func(ctx context.Context) context.Context {
-		return ctxlogrus.ToContext(ctx, logger)
-	}
-}
 
 // Context returns that gets canceled at the end of the test.
 func Context(tb testing.TB, opts ...ContextOpt) context.Context {

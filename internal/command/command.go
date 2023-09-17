@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
@@ -208,7 +207,7 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 
 	logPid := -1
 	defer func() {
-		ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
+		log.FromContext(ctx).WithFields(logrus.Fields{
 			"pid":  logPid,
 			"path": nameAndArgs[0],
 			"args": nameAndArgs[1:],
@@ -470,7 +469,7 @@ func (c *Command) logProcessComplete() {
 		fields["command.cgroup_path"] = c.cgroupPath
 	}
 
-	entry := ctxlogrus.Extract(ctx).WithFields(fields)
+	entry := log.FromContext(ctx).WithFields(fields)
 
 	rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage)
 	if ok {

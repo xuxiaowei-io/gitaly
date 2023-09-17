@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/yamux"
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -50,14 +50,14 @@ func DefaultConfiguration() Configuration {
 
 // ClientHandshaker implements the client side handshake of the multiplexed connection.
 type ClientHandshaker struct {
-	logger        logrus.FieldLogger
+	logger        log.Logger
 	serverFactory ServerFactory
 	cfg           Configuration
 }
 
 // NewClientHandshaker returns a new client side implementation of the backchannel. The provided
 // logger is used to log multiplexing errors.
-func NewClientHandshaker(logger logrus.FieldLogger, serverFactory ServerFactory, cfg Configuration) ClientHandshaker {
+func NewClientHandshaker(logger log.Logger, serverFactory ServerFactory, cfg Configuration) ClientHandshaker {
 	return ClientHandshaker{logger: logger, serverFactory: serverFactory, cfg: cfg}
 }
 
@@ -71,7 +71,7 @@ func (ch ClientHandshaker) ClientHandshake(tc credentials.TransportCredentials) 
 type clientHandshake struct {
 	credentials.TransportCredentials
 	serverFactory ServerFactory
-	logger        logrus.FieldLogger
+	logger        log.Logger
 	cfg           Configuration
 }
 

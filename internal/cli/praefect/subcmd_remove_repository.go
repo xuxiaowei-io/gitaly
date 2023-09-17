@@ -116,7 +116,7 @@ func (w *writer) Write(b []byte) (int, error) {
 }
 
 type removeRepository struct {
-	logger         logrus.FieldLogger
+	logger         log.Logger
 	virtualStorage string
 	relativePath   string
 	apply          bool
@@ -125,7 +125,7 @@ type removeRepository struct {
 	w              io.Writer
 }
 
-func (cmd *removeRepository) exec(ctx context.Context, logger logrus.FieldLogger, db *sql.DB, cfg config.Config) error {
+func (cmd *removeRepository) exec(ctx context.Context, logger log.Logger, db *sql.DB, cfg config.Config) error {
 	// Remove repository explicitly from all storages and clean up database info.
 	// This prevents creation of the new replication events.
 	logger.WithFields(logrus.Fields{
@@ -208,7 +208,7 @@ func (cmd *removeRepository) removeRepository(ctx context.Context, repo *gitalyp
 	return true, nil
 }
 
-func (cmd *removeRepository) removeReplicationEvents(ctx context.Context, logger logrus.FieldLogger, db *sql.DB, ticker helper.Ticker) error {
+func (cmd *removeRepository) removeReplicationEvents(ctx context.Context, logger log.Logger, db *sql.DB, ticker helper.Ticker) error {
 	// Wait for the completion of the repository replication jobs.
 	// As some of them could be a repository creation jobs we need to remove those newly created
 	// repositories after replication finished.

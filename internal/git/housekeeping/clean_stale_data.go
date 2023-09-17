@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
@@ -90,7 +90,7 @@ func DefaultStaleDataCleanup() CleanStaleDataConfig {
 }
 
 // CleanStaleData removes any stale data in the repository as per the provided configuration.
-func (m *RepositoryManager) CleanStaleData(ctx context.Context, logger logrus.FieldLogger, repo *localrepo.Repo, cfg CleanStaleDataConfig) error {
+func (m *RepositoryManager) CleanStaleData(ctx context.Context, logger log.Logger, repo *localrepo.Repo, cfg CleanStaleDataConfig) error {
 	span, ctx := tracing.StartSpanIfHasParent(ctx, "housekeeping.CleanStaleData", nil)
 	defer span.Finish()
 
@@ -656,6 +656,6 @@ func removeEmptyDirs(ctx context.Context, target string) (int, error) {
 	return prunedDirsTotal + 1, nil
 }
 
-func myLogger(logger logrus.FieldLogger) logrus.FieldLogger {
+func myLogger(logger log.Logger) log.Logger {
 	return logger.WithField("system", "housekeeping")
 }

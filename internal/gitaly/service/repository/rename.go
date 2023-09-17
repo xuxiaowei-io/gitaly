@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -62,7 +62,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	}
 	defer func() {
 		if err := sourceLocker.Close(); err != nil {
-			ctxlogrus.Extract(ctx).Error("closing source repo locker: %w", err)
+			log.FromContext(ctx).Error("closing source repo locker: %w", err)
 		}
 	}()
 
@@ -72,7 +72,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	}
 	defer func() {
 		if err := targetLocker.Close(); err != nil {
-			ctxlogrus.Extract(ctx).Error("closing target repo locker: %w", err)
+			log.FromContext(ctx).Error("closing target repo locker: %w", err)
 		}
 	}()
 

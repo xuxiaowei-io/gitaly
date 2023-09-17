@@ -11,21 +11,21 @@ import (
 	"github.com/containerd/cgroups/v3/cgroup1"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 type cgroupV1Handler struct {
 	cfg       cgroupscfg.Config
-	logger    logrus.FieldLogger
+	logger    log.Logger
 	hierarchy func() ([]cgroup1.Subsystem, error)
 
 	*cgroupsMetrics
 	pid int
 }
 
-func newV1Handler(cfg cgroupscfg.Config, logger logrus.FieldLogger, pid int) *cgroupV1Handler {
+func newV1Handler(cfg cgroupscfg.Config, logger log.Logger, pid int) *cgroupV1Handler {
 	return &cgroupV1Handler{
 		cfg:    cfg,
 		logger: logger,
@@ -219,7 +219,7 @@ func defaultSubsystems(root string) ([]cgroup1.Subsystem, error) {
 	return subsystems, nil
 }
 
-func pruneOldCgroupsV1(cfg cgroupscfg.Config, logger logrus.FieldLogger) {
+func pruneOldCgroupsV1(cfg cgroupscfg.Config, logger log.Logger) {
 	if err := config.PruneOldGitalyProcessDirectories(
 		logger,
 		filepath.Join(cfg.Mountpoint, "memory",

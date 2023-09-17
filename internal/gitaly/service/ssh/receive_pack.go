@@ -8,12 +8,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -26,7 +26,7 @@ func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer)
 		return structerr.NewInternal("%w", err)
 	}
 
-	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
+	log.FromContext(stream.Context()).WithFields(logrus.Fields{
 		"GlID":             req.GlId,
 		"GlRepository":     req.GlRepository,
 		"GlUsername":       req.GlUsername,
@@ -128,7 +128,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		if errSend := stream.Send(&gitalypb.SSHReceivePackResponse{
 			ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
 		}); errSend != nil {
-			ctxlogrus.Extract(ctx).WithError(errSend).Error("send final status code")
+			log.FromContext(ctx).WithError(errSend).Error("send final status code")
 		}
 
 		// Detect the case where the user has cancelled the push and log it with a proper

@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -144,7 +144,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 	}
 
 	if err := s.userCommitFiles(ctx, header, stream, objectHash); err != nil {
-		ctxlogrus.AddFields(ctx, logrus.Fields{
+		log.AddFields(ctx, logrus.Fields{
 			"repository_storage":       header.Repository.StorageName,
 			"repository_relative_path": header.Repository.RelativePath,
 			"branch_name":              header.BranchName,
@@ -154,7 +154,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 		})
 
 		if startRepo := header.GetStartRepository(); startRepo != nil {
-			ctxlogrus.AddFields(ctx, logrus.Fields{
+			log.AddFields(ctx, logrus.Fields{
 				"start_repository_storage":       startRepo.StorageName,
 				"start_repository_relative_path": startRepo.RelativePath,
 			})

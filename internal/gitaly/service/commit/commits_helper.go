@@ -3,10 +3,10 @@ package commit
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/git/log"
+	gitlog "gitlab.com/gitlab-org/gitaly/v16/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -24,12 +24,12 @@ func (s *server) sendCommits(
 		revisions[i] = git.Revision(revision)
 	}
 
-	cmd, err := log.GitLogCommand(ctx, s.gitCmdFactory, repo, revisions, paths, options, extraArgs...)
+	cmd, err := gitlog.GitLogCommand(ctx, s.gitCmdFactory, repo, revisions, paths, options, extraArgs...)
 	if err != nil {
 		return err
 	}
 
-	logParser, cancel, err := log.NewParser(ctx, s.catfileCache, repo, cmd)
+	logParser, cancel, err := gitlog.NewParser(ctx, s.catfileCache, repo, cmd)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (s *server) sendCommits(
 	if err := cmd.Wait(); err != nil {
 		// We expect this error to be caused by non-existing references. In that
 		// case, we just log the error and send no commits to the `sender`.
-		ctxlogrus.Extract(ctx).WithError(err).Info("ignoring git-log error")
+		log.FromContext(ctx).WithError(err).Info("ignoring git-log error")
 	}
 
 	return nil
