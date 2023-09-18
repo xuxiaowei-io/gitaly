@@ -64,13 +64,7 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.Gita
 			deps.GetPackObjectsCache(),
 			deps.GetPackObjectsLimiter(),
 		))
-		gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetConnsPool(),
-		))
+		gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(deps))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))

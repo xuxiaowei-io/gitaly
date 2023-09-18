@@ -568,19 +568,15 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			cfg := testcfg.Build(t)
 
 			addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
+				gitalypb.RegisterRepositoryServiceServer(srv, repositorysvc.NewServer(deps))
+
 				cmdFactory := deps.GetGitCmdFactory()
 				if tc.wrapCommandFactory != nil {
 					cmdFactory = tc.wrapCommandFactory(t, deps.GetGitCmdFactory())
 				}
+				deps.GitCmdFactory = cmdFactory
 
-				gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-					deps.GetLocator(),
-					cmdFactory,
-					deps.GetCatfileCache(),
-					deps.GetTxManager(),
-					deps.GetConnsPool(),
-				))
-				gitalypb.RegisterRepositoryServiceServer(srv, repositorysvc.NewServer(deps))
+				gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps))
 			})
 			cfg.SocketPath = addr
 
