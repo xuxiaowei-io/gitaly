@@ -83,6 +83,8 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		}
 
 		oldTargetOID = oid
+	} else if errors.Is(err, git.ErrReferenceAmbiguous) {
+		return nil, structerr.NewInvalidArgument("target reference is ambiguous: %w", err)
 	} else if errors.Is(err, git.ErrReferenceNotFound) {
 		oldTargetOID = objectHash.ZeroOID
 	} else {
