@@ -141,7 +141,7 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 	// Because the client says nothing, the server would block. Because of
 	// the timeout, it won't block forever, and return with a non-zero exit
 	// code instead.
-	requireFailedSSHStream(t, structerr.NewDeadlineExceeded("waiting for packfile negotiation: context canceled"), func() (int32, error) {
+	requireFailedSSHStream(t, structerr.NewDeadlineExceeded("running upload-pack: waiting for negotiation: context canceled"), func() (int32, error) {
 		resp, err := stream.Recv()
 		if err != nil {
 			return 0, err
@@ -247,7 +247,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				return nil
 			},
 			expectedErr: structerr.NewInternal(
-				"cmd wait: exit status 128, stderr: \"fatal: unknown capability 'want %s multi_ack'\\n\"",
+				"running upload-pack: cmd wait: exit status 128, stderr: \"fatal: unknown capability 'want %s multi_ack'\\n\"",
 				commitID,
 			),
 		},
@@ -270,7 +270,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				return nil
 			},
 			expectedErr: structerr.NewInternal(
-				"cmd wait: exit status 128, stderr: %q",
+				"running upload-pack: cmd wait: exit status 128, stderr: %q",
 				"fatal: git upload-pack: protocol error, expected to get object ID, not 'command=fetch'\n",
 			),
 		},
@@ -290,7 +290,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: structerr.NewInternal("cmd wait: exit status 128, stderr: %q",
+			expectedErr: structerr.NewInternal(
+				"running upload-pack: cmd wait: exit status 128, stderr: %q",
 				"fatal: git upload-pack: not our ref "+strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen())+"\n",
 			),
 		},
@@ -308,7 +309,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: structerr.NewInternal("cmd wait: exit status 128, stderr: %q",
+			expectedErr: structerr.NewInternal(
+				"running upload-pack: cmd wait: exit status 128, stderr: %q",
 				"fatal: git upload-pack: protocol error, expected to get object ID, not 'want 1111 multi_ack'\n",
 			),
 		},
@@ -341,7 +343,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: structerr.NewCanceled("user canceled the fetch"),
+			expectedErr: structerr.NewCanceled("running upload-pack: user canceled the request"),
 		},
 		{
 			desc: "garbage",
@@ -354,7 +356,10 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				require.NoError(t, clientConn.CloseWrite())
 				return nil
 			},
-			expectedErr: structerr.NewInternal("cmd wait: exit status 128, stderr: %q", "fatal: unknown capability 'foobar'\n"),
+			expectedErr: structerr.NewInternal(
+				"running upload-pack: cmd wait: exit status 128, stderr: %q",
+				"fatal: unknown capability 'foobar'\n",
+			),
 		},
 		{
 			desc: "close and cancellation",
@@ -438,6 +443,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 }
 
 func requireFailedSSHStream(t *testing.T, expectedErr error, recv func() (int32, error)) {
+	t.Helper()
+
 	done := make(chan struct{})
 	var code int32
 	var err error
@@ -802,7 +809,7 @@ func TestUploadPack_gitFailure(t *testing.T) {
 	require.NoError(t, stream.CloseSend())
 
 	err = recvUntilError(t, stream)
-	testhelper.RequireGrpcError(t, structerr.NewInternal(`cmd wait: exit status 128, stderr: "fatal: bad config line 1 in file ./config\n"`), err)
+	testhelper.RequireGrpcError(t, structerr.NewInternal(`running upload-pack: cmd wait: exit status 128, stderr: "fatal: bad config line 1 in file ./config\n"`), err)
 }
 
 func recvUntilError(t *testing.T, stream gitalypb.SSHService_SSHUploadPackClient) error {

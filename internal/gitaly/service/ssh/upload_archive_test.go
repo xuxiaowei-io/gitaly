@@ -59,7 +59,7 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 	// Because the client says nothing, the server would block. Because of
 	// the timeout, it won't block forever, and return with a non-zero exit
 	// code instead.
-	requireFailedSSHStream(t, structerr.NewDeadlineExceeded("waiting for packfile negotiation: context canceled"), func() (int32, error) {
+	requireFailedSSHStream(t, structerr.NewDeadlineExceeded("running upload-archive: waiting for negotiation: context canceled"), func() (int32, error) {
 		resp, err := stream.Recv()
 		if err != nil {
 			return 0, err

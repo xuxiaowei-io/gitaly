@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -74,14 +72,7 @@ type sshUploadPackRequest interface {
 	GetGitProtocol() string
 }
 
-func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequest, stdin io.Reader, stdout, stderr io.Writer) (negotiation *stats.PackfileNegotiation, _ int, _ error) {
-	ctx, cancelCtx := context.WithCancel(rpcContext)
-	defer cancelCtx()
-
-	stdoutCounter := &helper.CountingWriter{W: stdout}
-	// Use large copy buffer to reduce the number of system calls
-	stdout = &largeBufferReaderFrom{Writer: stdoutCounter}
-
+func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, stdin io.Reader, stdout, stderr io.Writer) (negotiation *stats.PackfileNegotiation, _ int, _ error) {
 	repo := req.GetRepository()
 	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
@@ -126,17 +117,6 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		git.WithPackObjectsHookEnv(repo, "ssh"),
 	}
 
-	var stderrBuilder strings.Builder
-	stderr = io.MultiWriter(stderr, &stderrBuilder)
-
-	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, repo, stdin, stdout, stderr, git.Command{
-		Name: "upload-pack",
-		Args: []string{repoPath},
-	}, commandOpts...)
-	if err != nil {
-		return nil, 0, err
-	}
-
 	timeoutTicker := s.uploadPackRequestTimeoutTickerFactory()
 
 	// upload-pack negotiation is terminated by either a flush, or the "done"
@@ -145,40 +125,13 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 	// "flush" tells the server it can terminate, while "done" tells it to start
 	// generating a packfile. Add a timeout to the second case to mitigate
 	// use-after-check attacks.
-	go monitor.Monitor(ctx, pktline.PktDone(), timeoutTicker, cancelCtx)
-
-	if err := cmd.Wait(); err != nil {
+	if err := monitorStdinCommand(ctx, s.gitCmdFactory, repo, stdin, stdout, stderr, timeoutTicker, pktline.PktDone(), git.Command{
+		Name: "upload-pack",
+		Args: []string{repoPath},
+	}, commandOpts...); err != nil {
 		status, _ := command.ExitStatus(err)
-
-		// When waiting for the packfile negotiation to end times out we'll cancel the local
-		// context, but not cancel the overall RPC's context. Our statushandler middleware
-		// thus cannot observe the fact that we're cancelling the context, and neither do we
-		// provide any valuable information to the caller that we do indeed kill the command
-		// because of our own internal timeout.
-		//
-		// We thus need to special-case the situation where we cancel our own context in
-		// order to provide that information and return a proper gRPC error code.
-		if ctx.Err() != nil && rpcContext.Err() == nil {
-			return nil, status, structerr.NewDeadlineExceeded("waiting for packfile negotiation: %w", ctx.Err())
-		}
-
-		// A common error case is that the client is terminating the request prematurely,
-		// e.g. by killing their git-fetch(1) process because it's taking too long. This is
-		// an expected failure, but we're not in a position to easily tell this error apart
-		// from other errors returned by git-upload-pack(1). So we have to resort to parsing
-		// the error message returned by Git, and if we see that it matches we return an
-		// error with a `Canceled` error code.
-		//
-		// Note that we're being quite strict with how we match the error for now. We may
-		// have to make it more lenient in case we see that this doesn't catch all cases.
-		if stderrBuilder.String() == "fatal: the remote end hung up unexpectedly\n" {
-			return nil, status, structerr.NewCanceled("user canceled the fetch")
-		}
-
-		return nil, status, fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())
+		return nil, status, fmt.Errorf("running upload-pack: %w", err)
 	}
-
-	log.FromContext(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
 
 	return nil, 0, nil
 }

@@ -4,25 +4,41 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func monitorStdinCommand(
-	ctx context.Context,
+	rpcContext context.Context,
 	gitCmdFactory git.CommandFactory,
 	repo *gitalypb.Repository,
 	stdin io.Reader,
 	stdout, stderr io.Writer,
+	timeoutTicker helper.Ticker,
+	boundaryPacket []byte,
 	sc git.Command,
 	opts ...git.CmdOpt,
-) (*command.Command, *pktline.ReadMonitor, error) {
+) error {
+	ctx, cancelCtx := context.WithCancel(rpcContext)
+	defer cancelCtx()
+
+	var stderrBuilder strings.Builder
+	stderr = io.MultiWriter(stderr, &stderrBuilder)
+
+	stdoutCounter := &helper.CountingWriter{W: stdout}
+	// Use large copy buffer to reduce the number of system calls
+	stdout = &largeBufferReaderFrom{Writer: stdoutCounter}
+
 	stdinPipe, monitor, cleanup, err := pktline.NewReadMonitor(ctx, stdin)
 	if err != nil {
-		return nil, nil, fmt.Errorf("create monitor: %w", err)
+		return fmt.Errorf("create monitor: %w", err)
 	}
 
 	cmd, err := gitCmdFactory.New(ctx, repo, sc, append([]git.CmdOpt{
@@ -34,8 +50,47 @@ func monitorStdinCommand(
 	stdinPipe.Close() // this now belongs to cmd
 	if err != nil {
 		cleanup()
-		return nil, nil, fmt.Errorf("start cmd: %w", err)
+		return fmt.Errorf("starting command: %w", err)
 	}
 
-	return cmd, monitor, err
+	go monitor.Monitor(ctx, boundaryPacket, timeoutTicker, cancelCtx)
+
+	if err := cmd.Wait(); err != nil {
+		// The read monitor will cancel the local `ctx` when we do not observe a specific packet before the
+		// timeout ticker ticks. This is done to address a time-of-check-to-time-of-use-style race, where the
+		// client opens a connection but doesn't yet perform the negotiation of what data the server should
+		// send. Because access checks only happen at the beginning of the call, it may be the case that the
+		// client's permissions have changed since the RPC call started.
+		//
+		// To address this issue, we thus timebox the maximum amount of time between the start of the RPC call
+		// and the end of the negotiation phase. While this doesn't completely address the issue, it's the best
+		// we can reasonably do here.
+		//
+		// To distinguish cancellation of the overall RPC call and a timeout of the negotiation phase we use two
+		// different contexts. In the case where the local context has been cancelled, we know that the reason
+		// for cancellation is that the negotiation phase did not finish in time and thus return a more specific
+		// error.
+		if ctx.Err() != nil && rpcContext.Err() == nil {
+			return structerr.NewDeadlineExceeded("waiting for negotiation: %w", ctx.Err())
+		}
+
+		// A common error case is that the client is terminating the request prematurely,
+		// e.g. by killing their git-fetch(1) process because it's taking too long. This is
+		// an expected failure, but we're not in a position to easily tell this error apart
+		// from other errors returned by git-upload-pack(1). So we have to resort to parsing
+		// the error message returned by Git, and if we see that it matches we return an
+		// error with a `Canceled` error code.
+		//
+		// Note that we're being quite strict with how we match the error for now. We may
+		// have to make it more lenient in case we see that this doesn't catch all cases.
+		if stderrBuilder.String() == "fatal: the remote end hung up unexpectedly\n" {
+			return structerr.NewCanceled("user canceled the request")
+		}
+
+		return fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())
+	}
+
+	log.FromContext(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
+
+	return err
 }
