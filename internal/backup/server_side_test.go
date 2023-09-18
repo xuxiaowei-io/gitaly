@@ -157,7 +157,8 @@ func TestServerSideAdapter_Restore(t *testing.T) {
 				checksum := gittest.ChecksumRepo(t, cfg, templateRepoPath)
 
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				step := backupLocator.BeginFull(ctx, repo, "abc123")
+				backup := backupLocator.BeginFull(ctx, repo, "abc123")
+				step := backup.Steps[len(backup.Steps)-1]
 
 				w, err := backupSink.GetWriter(ctx, step.BundlePath)
 				require.NoError(t, err)
@@ -173,7 +174,7 @@ func TestServerSideAdapter_Restore(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, w.Close())
 
-				require.NoError(t, backupLocator.Commit(ctx, step))
+				require.NoError(t, backupLocator.Commit(ctx, backup))
 
 				return setupData{
 					repo:             repo,

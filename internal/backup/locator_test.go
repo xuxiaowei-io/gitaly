@@ -33,10 +33,15 @@ func TestLegacyLocator(t *testing.T) {
 	t.Run("Begin/Commit Full", func(t *testing.T) {
 		t.Parallel()
 
-		expected := &Step{
-			BundlePath:      repo.RelativePath + ".bundle",
-			RefPath:         repo.RelativePath + ".refs",
-			CustomHooksPath: filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+		expected := &Backup{
+			ObjectFormat: git.ObjectHashSHA1.Format,
+			Steps: []Step{
+				{
+					BundlePath:      repo.RelativePath + ".bundle",
+					RefPath:         repo.RelativePath + ".refs",
+					CustomHooksPath: filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+				},
+			},
 		}
 
 		full := l.BeginFull(ctx, repo, "abc123")
@@ -89,10 +94,15 @@ func TestPointerLocator(t *testing.T) {
 		}
 
 		const expectedIncrement = "001"
-		expected := &Step{
-			BundlePath:      filepath.Join(repo.RelativePath, backupID, expectedIncrement+".bundle"),
-			RefPath:         filepath.Join(repo.RelativePath, backupID, expectedIncrement+".refs"),
-			CustomHooksPath: filepath.Join(repo.RelativePath, backupID, expectedIncrement+".custom_hooks.tar"),
+		expected := &Backup{
+			ObjectFormat: git.ObjectHashSHA1.Format,
+			Steps: []Step{
+				{
+					BundlePath:      filepath.Join(repo.RelativePath, backupID, expectedIncrement+".bundle"),
+					RefPath:         filepath.Join(repo.RelativePath, backupID, expectedIncrement+".refs"),
+					CustomHooksPath: filepath.Join(repo.RelativePath, backupID, expectedIncrement+".custom_hooks.tar"),
+				},
+			},
 		}
 
 		full := l.BeginFull(ctx, repo, backupID)
@@ -146,19 +156,22 @@ func TestPointerLocator(t *testing.T) {
 					tc.setup(t, ctx, backupPath)
 				}
 
-				var expected *Step
+				var expected *Backup
 				for i := 1; i <= 3; i++ {
-					incrementID := i + tc.expectedOffset
-					var previousRefPath string
-					if incrementID > 1 {
-						previousRefPath = filepath.Join(repo.RelativePath, tc.expectedBackupID, fmt.Sprintf("%03d.refs", incrementID-1))
+					var previousRefPath, expectedIncrement string
+					expected = &Backup{
+						ObjectFormat: git.ObjectHashSHA1.Format,
 					}
-					expectedIncrement := fmt.Sprintf("%03d", incrementID)
-					expected = &Step{
-						BundlePath:      filepath.Join(repo.RelativePath, tc.expectedBackupID, expectedIncrement+".bundle"),
-						RefPath:         filepath.Join(repo.RelativePath, tc.expectedBackupID, expectedIncrement+".refs"),
-						PreviousRefPath: previousRefPath,
-						CustomHooksPath: filepath.Join(repo.RelativePath, tc.expectedBackupID, expectedIncrement+".custom_hooks.tar"),
+					for incrementID := 1; incrementID <= i+tc.expectedOffset; incrementID++ {
+						expectedIncrement = fmt.Sprintf("%03d", incrementID)
+						step := Step{
+							BundlePath:      filepath.Join(repo.RelativePath, tc.expectedBackupID, expectedIncrement+".bundle"),
+							RefPath:         filepath.Join(repo.RelativePath, tc.expectedBackupID, expectedIncrement+".refs"),
+							PreviousRefPath: previousRefPath,
+							CustomHooksPath: filepath.Join(repo.RelativePath, tc.expectedBackupID, expectedIncrement+".custom_hooks.tar"),
+						}
+						expected.Steps = append(expected.Steps, step)
+						previousRefPath = step.RefPath
 					}
 
 					step, err := l.BeginIncremental(ctx, repo, fallbackBackupID)
