@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -84,6 +85,96 @@ func TestCreateFork_successful(t *testing.T) {
 
 			_, err = os.Lstat(filepath.Join(forkedRepoPath, "hooks"))
 			require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
+		})
+	}
+}
+
+func TestCreateFork_revision(t *testing.T) {
+	t.Parallel()
+
+	mainRef := git.ReferenceName("refs/heads/main")
+	wipRef := git.ReferenceName("refs/heads/wip")
+	unknownRef := []byte("refs/heads/unknown")
+	invalidRef := []byte("v1.2.3")
+	ambiguousRef := git.ReferenceName("refs/heads/v1.0.0")
+
+	cfg, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
+	for _, tt := range []struct {
+		name         string
+		revision     []byte
+		expectedRefs []git.ReferenceName
+		expectedErr  string
+	}{
+		{
+			name:         "all branches",
+			revision:     nil,
+			expectedRefs: []git.ReferenceName{mainRef, wipRef, "refs/tags/v1.0.0"},
+		},
+		{
+			name:         "single revision with success",
+			revision:     []byte(wipRef),
+			expectedRefs: []git.ReferenceName{wipRef},
+		},
+		{
+			name:        "single unknown revision with failure",
+			revision:    unknownRef,
+			expectedErr: "Remote branch unknown not found in upstream origin",
+		},
+		{
+			name:        "single invalid revision with failure",
+			revision:    invalidRef,
+			expectedErr: "creating fork: reference is not a branch",
+		},
+		{
+			name:        "ambiguous reference",
+			revision:    []byte(ambiguousRef),
+			expectedErr: "checking whether HEAD reference is sane: exit status 128",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+			commitID := gittest.WriteCommit(t, cfg, repoPath)
+			for _, ref := range []git.ReferenceName{
+				mainRef,
+				wipRef,
+				"refs/tags/v1.0.0",
+			} {
+				gittest.WriteRef(t, cfg, repoPath, ref, commitID)
+			}
+
+			forkedRepo := &gitalypb.Repository{
+				RelativePath: gittest.NewRepositoryName(t),
+				StorageName:  repo.GetStorageName(),
+			}
+
+			_, err := client.CreateFork(ctx, &gitalypb.CreateForkRequest{
+				Repository:       forkedRepo,
+				SourceRepository: repo,
+				Revision:         tt.revision,
+			})
+
+			if tt.expectedErr != "" {
+				require.Contains(t, err.Error(), tt.expectedErr)
+			} else {
+				require.NoError(t, err)
+
+				replicaPath := gittest.GetReplicaPath(t, ctx, cfg, forkedRepo)
+				forkedRepoPath := filepath.Join(cfg.Storages[0].Path, replicaPath)
+
+				actualRefs := strings.Split(strings.Trim(string(gittest.Exec(t, cfg, "-C", forkedRepoPath, "show-ref")), "\n"), "\n")
+				var expectedRefs []string
+
+				for _, ref := range tt.expectedRefs {
+					expectedRefs = append(expectedRefs, fmt.Sprintf("%s %s", commitID.String(), ref))
+				}
+
+				require.Equal(t, expectedRefs, actualRefs)
+			}
 		})
 	}
 }
