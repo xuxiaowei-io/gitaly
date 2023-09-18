@@ -63,11 +63,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps,
 		ssh.WithPackfileNegotiationMetrics(sshPackfileNegotiationMetrics),
 	))
-	gitalypb.RegisterSmartHTTPServiceServer(srv, smarthttp.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetTxManager(),
-		deps.GetDiskCache(),
+	gitalypb.RegisterSmartHTTPServiceServer(srv, smarthttp.NewServer(deps,
 		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
 	))
 	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(
