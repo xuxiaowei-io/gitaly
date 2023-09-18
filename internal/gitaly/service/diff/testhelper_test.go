@@ -23,11 +23,7 @@ func setupDiffService(tb testing.TB, opt ...testserver.GitalyServerOpt) (config.
 	cfg := testcfg.Build(tb)
 
 	addr := testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterDiffServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-		))
+		gitalypb.RegisterDiffServiceServer(srv, NewServer(deps))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
 			deps.GetLocator(),

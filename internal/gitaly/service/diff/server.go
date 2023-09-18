@@ -4,6 +4,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -19,12 +20,12 @@ type server struct {
 }
 
 // NewServer creates a new instance of a gRPC DiffServer
-func NewServer(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache) gitalypb.DiffServiceServer {
+func NewServer(deps *service.Dependencies) gitalypb.DiffServiceServer {
 	return &server{
 		MsgSizeThreshold: msgSizeThreshold,
-		locator:          locator,
-		gitCmdFactory:    gitCmdFactory,
-		catfileCache:     catfileCache,
+		locator:          deps.GetLocator(),
+		gitCmdFactory:    deps.GetGitCmdFactory(),
+		catfileCache:     deps.GetCatfileCache(),
 	}
 }
 
