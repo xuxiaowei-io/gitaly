@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -181,39 +180,43 @@ func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
 	))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", "parent-ref", right.String())
+
 	t.Run("disallow conflicts to be merged", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, left, right, "disallowed-conflicts")
+		request := &gitalypb.UserMergeToRefRequest{
+			Repository:     repoProto,
+			User:           gittest.TestUser,
+			TargetRef:      []byte("refs/merge-requests/x/written"),
+			SourceSha:      left.String(),
+			Message:        []byte("message1"),
+			FirstParentRef: []byte("refs/heads/parent-ref"),
+		}
 
 		_, err := client.UserMergeToRef(ctx, request)
 		testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("Failed to create merge commit for source_sha %s and target_sha %s at refs/merge-requests/x/written", left, right), err)
-	})
 
-	targetRef := git.Revision("refs/merge-requests/foo")
-
-	t.Run("failing merge does not update target reference if skipping precursor update-ref", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, left, right, t.Name())
-		request.TargetRef = []byte(targetRef)
-
-		_, err := client.UserMergeToRef(ctx, request)
-		testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
-
-		hasRevision, err := repo.HasRevision(ctx, targetRef)
+		hasRevision, err := repo.HasRevision(ctx, "refs/merge-requests/written")
 		require.NoError(t, err)
 		require.False(t, hasRevision, "branch should not have been created")
 	})
-}
 
-func buildUserMergeToRefRequest(tb testing.TB, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, sourceSha, targetSha git.ObjectID, mergeBranchName string) *gitalypb.UserMergeToRefRequest {
-	gittest.Exec(tb, cfg, "-C", repoPath, "branch", mergeBranchName, targetSha.String())
+	t.Run("failing merge does not update target reference if skipping precursor update-ref", func(t *testing.T) {
+		request := &gitalypb.UserMergeToRefRequest{
+			Repository:     repoProto,
+			User:           gittest.TestUser,
+			TargetRef:      []byte("refs/merge-requests/foo"),
+			SourceSha:      left.String(),
+			Message:        []byte("message1"),
+			FirstParentRef: []byte("refs/heads/parent-ref"),
+		}
 
-	return &gitalypb.UserMergeToRefRequest{
-		Repository:     repo,
-		User:           gittest.TestUser,
-		TargetRef:      []byte("refs/merge-requests/x/written"),
-		SourceSha:      sourceSha.String(),
-		Message:        []byte("message1"),
-		FirstParentRef: []byte("refs/heads/" + mergeBranchName),
-	}
+		_, err := client.UserMergeToRef(ctx, request)
+		testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("Failed to create merge commit for source_sha %s and target_sha %s at refs/merge-requests/foo", left, right), err)
+
+		hasRevision, err := repo.HasRevision(ctx, "refs/merge-requests/foo")
+		require.NoError(t, err)
+		require.False(t, hasRevision, "branch should not have been created")
+	})
 }
 
 func TestUserMergeToRef_stableMergeID(t *testing.T) {
