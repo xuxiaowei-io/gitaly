@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/dnsresolver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 )
 
@@ -70,7 +71,7 @@ func DefaultDNSResolverBuilderConfig() *DNSResolverBuilderConfig {
 	return &DNSResolverBuilderConfig{
 		RefreshRate:     5 * time.Minute,
 		LookupTimeout:   15 * time.Second,
-		Logger:          logger,
+		Logger:          log.FromLogrusEntry(logrus.NewEntry(logger)),
 		Backoff:         backoff.NewDefaultExponential(rand.New(rand.NewSource(time.Now().UnixNano()))),
 		DefaultGrpcPort: "443",
 	}

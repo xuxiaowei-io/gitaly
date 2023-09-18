@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -99,7 +98,7 @@ func removeRepositoryHandler(rs datastore.RepositoryStore, conns Connections, pa
 				rewritten.RelativePath = replicaPath
 
 				if err := proxyRequest(ctx, conn, rewritten); err != nil {
-					log.FromContext(ctx).WithFields(logrus.Fields{
+					log.FromContext(ctx).WithFields(log.Fields{
 						"virtual_storage": virtualStorage,
 						"relative_path":   repo.RelativePath,
 						"storage":         rewrittenStorage,

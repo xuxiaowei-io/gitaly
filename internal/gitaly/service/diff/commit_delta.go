@@ -3,7 +3,6 @@ package diff
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -14,7 +13,7 @@ import (
 func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.DiffService_CommitDeltaServer) error {
 	ctx := stream.Context()
 
-	log.FromContext(ctx).WithFields(logrus.Fields{
+	log.FromContext(ctx).WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,
 		"RightCommitId": in.RightCommitId,
 		"Paths":         logPaths(in.Paths),

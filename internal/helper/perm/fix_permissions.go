@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
@@ -20,7 +19,7 @@ func FixDirectoryPermissions(ctx context.Context, path string) error {
 func fixDirectoryPermissions(ctx context.Context, path string, retriedPaths map[string]struct{}) error {
 	return filepath.Walk(path, func(path string, info os.FileInfo, errIncoming error) error {
 		if info == nil {
-			log.FromContext(ctx).WithFields(logrus.Fields{
+			log.FromContext(ctx).WithFields(log.Fields{
 				"path": path,
 			}).WithError(errIncoming).Error("nil FileInfo in perm.fixDirectoryPermissions")
 

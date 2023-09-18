@@ -7,7 +7,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -53,7 +52,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 		return missFn(w)
 	}
 
-	logger := log.FromContext(ctx).WithFields(logrus.Fields{"service": uploadPackSvc})
+	logger := log.FromContext(ctx).WithFields(log.Fields{"service": uploadPackSvc})
 	logger.Debug("Attempting to fetch cached response")
 	countAttempt()
 

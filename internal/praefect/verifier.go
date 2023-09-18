@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
@@ -293,13 +292,13 @@ func (v *MetadataVerifier) updateMetadata(ctx context.Context, results []verific
 		successfullyVerifieds[i] = result.error == nil
 
 		if result.error != nil {
-			v.log.WithFields(logrus.Fields{
+			v.log.WithFields(log.Fields{
 				"repository_id":   result.job.repositoryID,
 				"replica_path":    result.job.replicaPath,
 				"virtual_storage": result.job.virtualStorage,
 				"storage":         result.job.storage,
 				"relative_path":   result.job.relativePath,
-				logrus.ErrorKey:   result.error,
+				"error":           result.error,
 			}).Error("failed to verify replica's existence")
 		} else if !result.exists {
 			logRecords.markRemoved(result.job.virtualStorage, result.job.relativePath, result.job.storage)
@@ -307,7 +306,7 @@ func (v *MetadataVerifier) updateMetadata(ctx context.Context, results []verific
 	}
 
 	if len(logRecords) > 0 {
-		v.log.WithFields(logrus.Fields{
+		v.log.WithFields(log.Fields{
 			"perform_deletions": v.performDeletions,
 			"replicas":          logRecords,
 		}).Info("removing metadata records of non-existent replicas")

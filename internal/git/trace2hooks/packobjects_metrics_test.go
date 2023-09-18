@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -25,12 +24,12 @@ func TestPackObjectsMetrics_Handle(t *testing.T) {
 		desc            string
 		inputTrace      *trace2.Trace
 		expectedMetrics string
-		expectedFields  logrus.Fields
+		expectedFields  log.Fields
 	}{
 		{
 			desc:            "empty trace",
 			inputTrace:      nil,
-			expectedFields:  logrus.Fields{},
+			expectedFields:  log.Fields{},
 			expectedMetrics: ``,
 		},
 		{
@@ -41,7 +40,7 @@ func TestPackObjectsMetrics_Handle(t *testing.T) {
 				StartTime:  current,
 				FinishTime: time.Time{},
 			},
-			expectedFields:  logrus.Fields{},
+			expectedFields:  log.Fields{},
 			expectedMetrics: ``,
 		},
 		{
@@ -153,7 +152,7 @@ func TestPackObjectsMetrics_Handle(t *testing.T) {
 					),
 				},
 			}),
-			expectedFields: logrus.Fields{
+			expectedFields: log.Fields{
 				"pack_objects.written_object_count":           99,
 				"pack_objects.loosened_unused_packed_objects": 1234,
 				"pack_objects.stdin_packs_hints":              999,
@@ -314,7 +313,7 @@ gitaly_pack_objects_stages_seconds_count{stage="write-pack-file"} 1
 					),
 				},
 			}),
-			expectedFields: logrus.Fields{
+			expectedFields: log.Fields{
 				"pack_objects.written_object_count":           101,
 				"pack_objects.loosened_unused_packed_objects": 4690,
 				"pack_objects.stdin_packs_hints":              999,

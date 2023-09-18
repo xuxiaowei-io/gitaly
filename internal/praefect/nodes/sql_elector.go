@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
@@ -194,7 +193,7 @@ func (s *sqlElector) checkNodes(ctx context.Context) error {
 			defer wg.Done()
 			result, _ := n.CheckHealth(ctx)
 			if err := s.updateNode(ctx, tx, n, result); err != nil {
-				s.log.WithError(err).WithFields(logrus.Fields{
+				s.log.WithError(err).WithFields(log.Fields{
 					"storage": n.GetStorage(),
 					"address": n.GetAddress(),
 				}).Error("error checking node")
@@ -240,7 +239,7 @@ func (s *sqlElector) setPrimary(candidate *sqlCandidate) {
 			newPrimary = candidate.GetStorage()
 		}
 
-		s.log.WithFields(logrus.Fields{
+		s.log.WithFields(log.Fields{
 			"oldPrimary": oldPrimary,
 			"newPrimary": newPrimary,
 		}).Info("primary node changed")
@@ -406,7 +405,7 @@ func (s *sqlElector) electNewPrimary(ctx context.Context, tx *sql.Tx, candidates
 		fallbackChoice = true
 	}
 
-	s.log.WithFields(logrus.Fields{
+	s.log.WithFields(log.Fields{
 		"candidates":      candidateStorages,
 		"new_primary":     newPrimaryStorage,
 		"fallback_choice": fallbackChoice,

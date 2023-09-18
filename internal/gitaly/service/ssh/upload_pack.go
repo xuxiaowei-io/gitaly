@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
@@ -31,7 +30,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		return structerr.NewInternal("%w", err)
 	}
 
-	log.FromContext(ctx).WithFields(logrus.Fields{
+	log.FromContext(ctx).WithFields(log.Fields{
 		"GlRepository":     req.GetRepository().GetGlRepository(),
 		"GitConfigOptions": req.GitConfigOptions,
 		"GitProtocol":      req.GitProtocol,

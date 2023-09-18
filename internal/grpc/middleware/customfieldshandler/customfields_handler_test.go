@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -33,13 +31,13 @@ func createNewServer(t *testing.T, cfg config.Cfg, logger log.Logger) *grpc.Serv
 	opts := []grpc.ServerOption{
 		grpc.ChainStreamInterceptor(
 			StreamInterceptor,
-			grpcmwlogrus.StreamServerInterceptor(logrusEntry,
+			logrusEntry.StreamServerInterceptor(
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
 		),
 		grpc.ChainUnaryInterceptor(
 			UnaryInterceptor,
-			grpcmwlogrus.UnaryServerInterceptor(logrusEntry,
+			logrusEntry.UnaryServerInterceptor(
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
 		),
@@ -77,7 +75,8 @@ func TestInterceptor(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 
 	s := createNewServer(t, cfg, logger)
 	defer s.Stop()
@@ -162,5 +161,5 @@ func TestFieldsProducer(t *testing.T) {
 	fields := log.CustomFieldsFromContext(ctx)
 	fields.RecordMax("stub", 42)
 
-	require.Equal(t, logrus.Fields{"stub": 42}, FieldsProducer(ctx, nil))
+	require.Equal(t, log.Fields{"stub": 42}, FieldsProducer(ctx, nil))
 }

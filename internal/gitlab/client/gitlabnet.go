@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
@@ -169,7 +168,7 @@ func (c *GitlabNetClient) DoRequest(ctx context.Context, method, path string, da
 	start := time.Now()
 	response, err := c.httpClient.Do(request)
 
-	logger := c.logger.WithFields(logrus.Fields{
+	logger := c.logger.WithFields(log.Fields{
 		"method":      method,
 		"url":         request.URL.String(),
 		"duration_ms": time.Since(start) / time.Millisecond,

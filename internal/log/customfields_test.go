@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -25,7 +24,7 @@ func TestStatsFromContext_InitContext(t *testing.T) {
 	customFields := log.CustomFieldsFromContext(ctx)
 
 	require.NotNil(t, customFields)
-	require.Equal(t, customFields.Fields(), logrus.Fields{})
+	require.Equal(t, customFields.Fields(), log.Fields{})
 }
 
 func TestStatsFromContext_RecordSum(t *testing.T) {
@@ -39,7 +38,7 @@ func TestStatsFromContext_RecordSum(t *testing.T) {
 	customFields.RecordSum("foo", 1)
 
 	require.NotNil(t, customFields)
-	require.Equal(t, customFields.Fields(), logrus.Fields{"foo": 2})
+	require.Equal(t, customFields.Fields(), log.Fields{"foo": 2})
 }
 
 func TestStatsFromContext_RecordSumByRef(t *testing.T) {
@@ -55,7 +54,7 @@ func TestStatsFromContext_RecordSumByRef(t *testing.T) {
 	stats2 := log.CustomFieldsFromContext(ctx)
 
 	require.NotNil(t, stats2)
-	require.Equal(t, stats2.Fields(), logrus.Fields{"foo": 2})
+	require.Equal(t, stats2.Fields(), log.Fields{"foo": 2})
 }
 
 func TestStatsFromContext_RecordMax(t *testing.T) {
@@ -70,14 +69,14 @@ func TestStatsFromContext_RecordMax(t *testing.T) {
 	customFields.RecordMax("foo", 512)
 
 	require.NotNil(t, customFields)
-	require.Equal(t, customFields.Fields(), logrus.Fields{"foo": 1024})
+	require.Equal(t, customFields.Fields(), log.Fields{"foo": 1024})
 }
 
 func TestStatsFromContext_RecordMetadata(t *testing.T) {
 	for _, tc := range []struct {
 		desc           string
 		setup          func(context.Context)
-		expectedFields logrus.Fields
+		expectedFields log.Fields
 	}{
 		{
 			desc: "record a string metadata",
@@ -85,7 +84,7 @@ func TestStatsFromContext_RecordMetadata(t *testing.T) {
 				customFields := log.CustomFieldsFromContext(ctx)
 				customFields.RecordMetadata("foo", "bar")
 			},
-			expectedFields: logrus.Fields{"foo": "bar"},
+			expectedFields: log.Fields{"foo": "bar"},
 		},
 		{
 			desc: "override metadata of the same key",
@@ -94,7 +93,7 @@ func TestStatsFromContext_RecordMetadata(t *testing.T) {
 				customFields.RecordMetadata("foo", "bar")
 				customFields.RecordMetadata("foo", "baz") // override the existing value
 			},
-			expectedFields: logrus.Fields{"foo": "baz"},
+			expectedFields: log.Fields{"foo": "baz"},
 		},
 		{
 			desc: "record metadata with different types",
@@ -103,7 +102,7 @@ func TestStatsFromContext_RecordMetadata(t *testing.T) {
 				customFields.RecordMetadata("hello", 1234)
 				customFields.RecordMetadata("hi", []int{1, 2, 3, 4})
 			},
-			expectedFields: logrus.Fields{
+			expectedFields: log.Fields{
 				"hello": 1234,
 				"hi":    []int{1, 2, 3, 4},
 			},

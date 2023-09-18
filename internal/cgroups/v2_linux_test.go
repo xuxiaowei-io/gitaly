@@ -15,7 +15,6 @@ import (
 
 	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
@@ -500,7 +499,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 
 			pid := tc.setup(t, tc.cfg, mock)
 
-			logger, _ := test.NewNullLogger()
+			logger := testhelper.NewLogger(t)
 			mock.pruneOldCgroups(tc.cfg, logger)
 
 			// create cgroups directories with a different pid

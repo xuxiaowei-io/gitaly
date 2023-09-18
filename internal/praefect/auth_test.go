@@ -5,7 +5,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
@@ -162,7 +161,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 
 	srv := NewGRPCServer(&Dependencies{
 		Config:      conf,
-		Logger:      logrus.NewEntry(logger),
+		Logger:      logger,
 		Coordinator: coordinator,
 		Director:    coordinator.StreamDirector,
 		TxMgr:       txMgr,

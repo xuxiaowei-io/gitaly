@@ -8,7 +8,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -321,7 +320,7 @@ type referencedObjectTypes struct {
 }
 
 func (o *ObjectPool) logStats(ctx context.Context, logger log.Logger) error {
-	fields := logrus.Fields{}
+	fields := log.Fields{}
 
 	repoInfo, err := stats.RepositoryInfoForRepository(o.Repo)
 	if err != nil {

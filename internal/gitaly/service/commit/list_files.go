@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -16,7 +15,7 @@ import (
 )
 
 func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.CommitService_ListFilesServer) error {
-	log.FromContext(stream.Context()).WithFields(logrus.Fields{
+	log.FromContext(stream.Context()).WithFields(log.Fields{
 		"Revision": in.GetRevision(),
 	}).Debug("ListFiles")
 

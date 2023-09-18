@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gitalyconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -512,7 +510,7 @@ func TestVerifier(t *testing.T) {
 				backchannel.NewClientHandshaker(
 					logger,
 					NewBackchannelServerFactory(
-						logrus.NewEntry(logger),
+						logger,
 						transaction.NewServer(txManager),
 						sidechannelRegistry,
 					),
@@ -638,7 +636,8 @@ func TestVerifier(t *testing.T) {
 			).Scan(&lockedRows))
 			require.Equal(t, 3, lockedRows)
 
-			logger, hook := test.NewNullLogger()
+			logger = testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
 
 			healthyStorages := StaticHealthChecker{"virtual-storage": []string{gitaly1, gitaly2, gitaly3}}
 			if tc.healthyStorages != nil {
@@ -660,7 +659,7 @@ func TestVerifier(t *testing.T) {
 				// Ensure the removals and errors are correctly logged
 				var actualRemovals logRecord
 				actualErrors := map[string]map[string][]string{}
-				for _, entry := range hook.Entries {
+				for _, entry := range hook.AllEntries() {
 					switch entry.Message {
 					case "removing metadata records of non-existent replicas":
 						if len(step.expectedRemovals) == 0 {
@@ -807,8 +806,10 @@ func TestVerifier_runExpiredLeaseReleaser(t *testing.T) {
 	tx := db.Begin(t)
 	defer tx.Rollback(t)
 
-	logger, hook := test.NewNullLogger()
-	verifier := NewMetadataVerifier(logrus.NewEntry(logger), tx, nil, nil, 0, true)
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
+
+	verifier := NewMetadataVerifier(logger, tx, nil, nil, 0, true)
 	// set batch size lower than the number of locked leases to ensure the batching works
 	verifier.batchSize = 2
 
@@ -834,10 +835,10 @@ func TestVerifier_runExpiredLeaseReleaser(t *testing.T) {
 	// actualReleased contains the released leases from the logs. It's keyed
 	// as virtual storage -> relative path -> storage.
 	actualReleased := map[string]map[string]map[string]struct{}{}
-	require.Equal(t, 2, len(hook.AllEntries()))
-	for i := range hook.Entries {
-		require.Equal(t, "released stale verification leases", hook.Entries[i].Message, hook.Entries[i].Data[logrus.ErrorKey])
-		for virtualStorage, relativePaths := range hook.Entries[i].Data["leases_released"].(map[string]map[string][]string) {
+	require.Len(t, hook.AllEntries(), 2)
+	for _, entry := range hook.AllEntries() {
+		require.Equal(t, "released stale verification leases", entry.Message, entry.Data["error"])
+		for virtualStorage, relativePaths := range entry.Data["leases_released"].(map[string]map[string][]string) {
 			for relativePath, storages := range relativePaths {
 				for _, storage := range storages {
 					if actualReleased[virtualStorage] == nil {

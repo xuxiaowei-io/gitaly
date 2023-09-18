@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -329,7 +328,7 @@ func (c *treeEntriesSender) SetPaginationCursor(cursor string) {
 }
 
 func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gitalypb.CommitService_GetTreeEntriesServer) error {
-	log.FromContext(stream.Context()).WithFields(logrus.Fields{
+	log.FromContext(stream.Context()).WithFields(log.Fields{
 		"Revision": in.Revision,
 		"Path":     in.Path,
 	}).Debug("GetTreeEntries")

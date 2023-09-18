@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -16,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -151,11 +151,10 @@ func TestRunner_Run(t *testing.T) {
 		require.NoError(t, repoStore.CreateRepository(ctx, int64(i), conf.VirtualStorages[0].Name, set.relativePath, set.relativePath, set.primary, set.secondaries, nil, false, false))
 	}
 
-	logger, loggerHook := test.NewNullLogger()
-	logger.SetLevel(logrus.DebugLevel)
+	logger := testhelper.NewLogger(t)
+	loggerHook := testhelper.AddLoggerHook(logger)
 
-	entry := logger.WithContext(ctx)
-	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
+	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
 	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 	defer nodeSet.Close()
@@ -197,12 +196,12 @@ func TestRunner_Run(t *testing.T) {
 	require.GreaterOrEqual(t, len(loggerHook.AllEntries()), 2)
 	require.Equal(
 		t,
-		map[string]interface{}{"Data": logrus.Fields{"component": "repocleaner.repository_existence"}, "Message": "started"},
+		map[string]interface{}{"Data": log.Fields{"component": "repocleaner.repository_existence"}, "Message": "started"},
 		map[string]interface{}{"Data": loggerHook.AllEntries()[0].Data, "Message": loggerHook.AllEntries()[0].Message},
 	)
 	require.Equal(
 		t,
-		map[string]interface{}{"Data": logrus.Fields{"component": "repocleaner.repository_existence"}, "Message": "completed"},
+		map[string]interface{}{"Data": log.Fields{"component": "repocleaner.repository_existence"}, "Message": "completed"},
 		map[string]interface{}{"Data": loggerHook.LastEntry().Data, "Message": loggerHook.LastEntry().Message},
 	)
 }
@@ -262,9 +261,8 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 	}
 
 	logger := testhelper.SharedLogger(t)
-	entry := logger.WithContext(ctx)
-	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
-	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil, testhelper.SharedLogger(t))
+	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
+	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil, logger)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -288,8 +286,9 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		// Continue execution of the first runner after the second completes.
 		defer close(releaseFirst)
 
-		logger, loggerHook := test.NewNullLogger()
-		logger.SetLevel(logrus.DebugLevel)
+		logger := testhelper.NewLogger(t)
+		logger.Logger.SetLevel(logrus.DebugLevel)
+		loggerHook := testhelper.AddLoggerHook(logger)
 
 		runner := NewRunner(cfg, logger, praefect.StaticHealthChecker{virtualStorage: []string{storage1}}, nodeSet.Connections(), storageCleanup, storageCleanup, actionStub{
 			PerformMethod: func(ctx context.Context, virtualStorage, storage string, notExisting []string) error {
@@ -318,7 +317,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		require.Greater(t, len(entries), 2)
 		require.Equal(
 			t,
-			map[string]interface{}{"Data": logrus.Fields{"component": "repocleaner.repository_existence"}, "Message": "no storages to verify"},
+			map[string]interface{}{"Data": log.Fields{"component": "repocleaner.repository_existence"}, "Message": "no storages to verify"},
 			map[string]interface{}{"Data": loggerHook.AllEntries()[1].Data, "Message": loggerHook.AllEntries()[1].Message},
 		)
 	}()

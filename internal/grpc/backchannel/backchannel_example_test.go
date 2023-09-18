@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -27,7 +27,11 @@ func Example() {
 	// can use the registry to access available backchannels by their peer ID.
 	registry := backchannel.NewRegistry()
 
-	logger := logrus.NewEntry(logrus.New())
+	logger, err := log.Configure(os.Stderr, "text", "error")
+	if err != nil {
+		fmt.Printf("configuring logger: %v", err)
+		return
+	}
 
 	// ServerHandshaker initiates the multiplexing session on the server side. Once that is done,
 	// it creates the backchannel connection and stores it into the registry. For each connection,

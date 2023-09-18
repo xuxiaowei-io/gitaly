@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -71,9 +69,10 @@ func TestDeleteObjectPoolHandler(t *testing.T) {
 	defer secondaryConn.Close()
 
 	praefectLn, praefectAddr := testhelper.GetLocalhostListener(t)
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	praefectSrv := grpc.NewServer(grpc.ChainStreamInterceptor(
-		grpcmwlogrus.StreamServerInterceptor(logrus.NewEntry(logger), grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
+		logger.StreamServerInterceptor(grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
 	))
 	praefectSrv.RegisterService(&grpc.ServiceDesc{
 		ServiceName: "gitaly.ObjectPoolService",
@@ -107,9 +106,10 @@ func TestDeleteObjectPoolHandler(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, 2, len(hook.Entries), "expected a log entry for failed deletion")
-	require.Equal(t, "failed deleting repository", hook.Entries[0].Message)
-	require.Equal(t, repo.StorageName, hook.Entries[0].Data["virtual_storage"])
-	require.Equal(t, repo.RelativePath, hook.Entries[0].Data["relative_path"])
-	require.Equal(t, "secondary", hook.Entries[0].Data["storage"])
+	require.Len(t, hook.AllEntries(), 2, "expected a log entry for failed deletion")
+	entry := hook.AllEntries()[0]
+	require.Equal(t, "failed deleting repository", entry.Message)
+	require.Equal(t, repo.StorageName, entry.Data["virtual_storage"])
+	require.Equal(t, repo.RelativePath, entry.Data["relative_path"])
+	require.Equal(t, "secondary", entry.Data["storage"])
 }

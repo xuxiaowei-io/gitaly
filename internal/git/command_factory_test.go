@@ -15,7 +15,6 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -946,12 +945,12 @@ func TestTrace2PackObjectsMetrics(t *testing.T) {
 	for _, tc := range []struct {
 		desc              string
 		performGitCommand func(t *testing.T, ctx context.Context, opts ...git.ExecCommandFactoryOption)
-		assert            func(*testing.T, context.Context, logrus.Fields)
+		assert            func(*testing.T, context.Context, log.Fields)
 	}{
 		{
 			desc:              "git-pack-objects",
 			performGitCommand: performPackObjectGit,
-			assert: func(t *testing.T, ctx context.Context, statFields logrus.Fields) {
+			assert: func(t *testing.T, ctx context.Context, statFields log.Fields) {
 				require.Equal(t, "true", statFields["trace2.activated"])
 				require.Equal(t, "pack_objects_metrics", statFields["trace2.hooks"])
 				require.Contains(t, statFields, "pack_objects.enumerate_objects_ms")
@@ -983,7 +982,7 @@ func TestTrace2PackObjectsMetrics(t *testing.T) {
 				err = cmd.Wait()
 				require.NoError(t, err)
 			},
-			assert: func(t *testing.T, ctx context.Context, statFields logrus.Fields) {
+			assert: func(t *testing.T, ctx context.Context, statFields log.Fields) {
 				require.NotContains(t, statFields, "trace2.activated")
 				require.NotContains(t, statFields, "trace2.hooks")
 			},

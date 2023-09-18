@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	gitalycfgauth "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server/auth"
@@ -93,7 +92,7 @@ func defaultTxMgr(conf config.Config) *transactions.Manager {
 }
 
 func defaultNodeMgr(tb testing.TB, conf config.Config, rs datastore.RepositoryStore) nodes.Manager {
-	nodeMgr, err := nodes.NewManager(logrus.NewEntry(testhelper.SharedLogger(tb)), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(testhelper.SharedLogger(tb), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(tb, err)
 	nodeMgr.Start(0, time.Hour)
 	tb.Cleanup(nodeMgr.Stop)
@@ -207,7 +206,7 @@ func RunPraefectServer(
 		opt.WithAnnotations = protoregistry.GitalyProtoPreregistered
 	}
 	if opt.WithLogger == nil {
-		opt.WithLogger = logrus.NewEntry(testhelper.SharedLogger(tb))
+		opt.WithLogger = testhelper.SharedLogger(tb)
 	}
 	if opt.WithNodeMgr == nil {
 		opt.WithNodeMgr = defaultNodeMgr(tb, conf, opt.WithRepoStore)

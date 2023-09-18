@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // FieldsProducer adds feature_flags logging fields to gRPC logs. Only enabled flags are available.
@@ -15,7 +15,7 @@ import (
 //	{
 //	   "feature_flags": "feature_a feature_b feature_c"
 //	}
-func FieldsProducer(ctx context.Context, err error) logrus.Fields {
+func FieldsProducer(ctx context.Context, err error) log.Fields {
 	var enabledFlags []string
 	for flag, value := range featureflag.FromContext(ctx) {
 		if value {
@@ -27,7 +27,7 @@ func FieldsProducer(ctx context.Context, err error) logrus.Fields {
 	}
 
 	sort.Strings(enabledFlags)
-	return logrus.Fields{
+	return log.Fields{
 		"feature_flags": strings.Join(enabledFlags, " "),
 	}
 }

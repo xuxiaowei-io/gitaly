@@ -11,7 +11,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
@@ -131,7 +130,7 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	var mockReplicationDelayHistogramVec promtest.MockHistogramVec
 
 	logger := testhelper.SharedLogger(t)
-	loggerHook := test.NewLocal(logger)
+	loggerHook := testhelper.AddLoggerHook(logger)
 
 	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	queue.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
@@ -237,7 +236,7 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 			}
 
 			logger := testhelper.SharedLogger(t)
-			hook := test.NewLocal(logger)
+			hook := testhelper.AddLoggerHook(logger)
 			r := &defaultReplicator{rs: rs, log: logger}
 
 			require.NoError(t, r.Replicate(ctx, datastore.ReplicationEvent{
@@ -250,10 +249,13 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 				},
 			}, nil, nil))
 
-			require.Equal(t, logrus.InfoLevel, hook.LastEntry().Level)
-			require.Equal(t, returnedErr, hook.LastEntry().Data["error"])
-			require.Equal(t, "correlation-id", hook.LastEntry().Data[logWithCorrID])
-			require.Equal(t, tc.expectedMessage, hook.LastEntry().Message)
+			entries := hook.AllEntries()
+			require.Len(t, entries, 1)
+			lastEntry := entries[0]
+			require.Equal(t, logrus.InfoLevel, lastEntry.Level)
+			require.Equal(t, returnedErr, lastEntry.Data["error"])
+			require.Equal(t, "correlation-id", lastEntry.Data[logWithCorrID])
+			require.Equal(t, tc.expectedMessage, lastEntry.Message)
 		})
 	}
 }
@@ -303,7 +305,7 @@ func confirmChecksums(ctx context.Context, logger log.Logger, primaryClient, rep
 		return false, err
 	}
 
-	logger.WithFields(logrus.Fields{
+	logger.WithFields(log.Fields{
 		"primary_checksum": primaryChecksum,
 		"replica_checksum": replicaChecksum,
 	}).Info("checksum comparison completed")
@@ -791,7 +793,7 @@ func TestSubtractUint64(t *testing.T) {
 
 func TestReplMgr_ProcessStale(t *testing.T) {
 	logger := testhelper.SharedLogger(t)
-	hook := test.NewLocal(logger)
+	hook := testhelper.AddLoggerHook(logger)
 
 	queue := datastore.NewReplicationEventQueueInterceptor(nil)
 	mgr := NewReplMgr(logger.WithField("test", t.Name()), nil, queue, datastore.MockRepositoryStore{}, nil, nil)
@@ -817,9 +819,11 @@ func TestReplMgr_ProcessStale(t *testing.T) {
 	<-done
 
 	require.Equal(t, iterations, counter)
-	require.Len(t, hook.AllEntries(), 1)
-	require.Equal(t, logrus.ErrorLevel, hook.LastEntry().Level)
-	require.Equal(t, "background periodical acknowledgement for stale replication jobs", hook.LastEntry().Message)
-	require.Equal(t, "replication_manager", hook.LastEntry().Data["component"])
-	require.Equal(t, assert.AnError, hook.LastEntry().Data["error"])
+	entries := hook.AllEntries()
+	require.Len(t, entries, 1)
+	lastEntry := entries[0]
+	require.Equal(t, logrus.ErrorLevel, lastEntry.Level)
+	require.Equal(t, "background periodical acknowledgement for stale replication jobs", lastEntry.Message)
+	require.Equal(t, "replication_manager", lastEntry.Data["component"])
+	require.Equal(t, assert.AnError, lastEntry.Data["error"])
 }

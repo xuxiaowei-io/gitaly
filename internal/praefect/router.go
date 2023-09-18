@@ -3,7 +3,6 @@ package praefect
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 )
@@ -26,8 +25,8 @@ func (e additionalRepositoryNotFoundError) Error() string {
 	return "additional repository not found"
 }
 
-func addRouteLogField(ctx context.Context, fields logrus.Fields) {
-	log.AddFields(ctx, logrus.Fields{"route": fields})
+func addRouteLogField(ctx context.Context, fields log.Fields) {
+	log.AddFields(ctx, log.Fields{"route": fields})
 }
 
 func routerNodeStorages(secondaries []RouterNode) []string {
@@ -47,7 +46,7 @@ type RepositoryAccessorRoute struct {
 }
 
 func (r RepositoryAccessorRoute) addLogFields(ctx context.Context) {
-	addRouteLogField(ctx, logrus.Fields{
+	addRouteLogField(ctx, log.Fields{
 		logFieldReplicaPath: r.ReplicaPath,
 		logFieldStorage:     r.Node.Storage,
 	})
@@ -63,7 +62,7 @@ type RouterNode struct {
 }
 
 func (r RouterNode) addLogFields(ctx context.Context) {
-	addRouteLogField(ctx, logrus.Fields{
+	addRouteLogField(ctx, log.Fields{
 		logFieldStorage: r.Storage,
 	})
 }
@@ -77,7 +76,7 @@ type StorageMutatorRoute struct {
 }
 
 func (r StorageMutatorRoute) addLogFields(ctx context.Context) {
-	addRouteLogField(ctx, logrus.Fields{
+	addRouteLogField(ctx, log.Fields{
 		logFieldPrimary:     r.Primary,
 		logFieldSecondaries: routerNodeStorages(r.Secondaries),
 	})
@@ -102,7 +101,7 @@ type RepositoryMutatorRoute struct {
 }
 
 func (r RepositoryMutatorRoute) addLogFields(ctx context.Context) {
-	addRouteLogField(ctx, logrus.Fields{
+	addRouteLogField(ctx, log.Fields{
 		logFieldRepositoryID:          r.RepositoryID,
 		logFieldReplicaPath:           r.ReplicaPath,
 		logFieldAdditionalReplicaPath: r.AdditionalReplicaPath,
@@ -123,7 +122,7 @@ type RepositoryMaintenanceRoute struct {
 }
 
 func (r RepositoryMaintenanceRoute) addLogFields(ctx context.Context) {
-	addRouteLogField(ctx, logrus.Fields{
+	addRouteLogField(ctx, log.Fields{
 		logFieldRepositoryID: r.RepositoryID,
 		logFieldReplicaPath:  r.ReplicaPath,
 		"storages":           routerNodeStorages(r.Nodes),

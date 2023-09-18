@@ -3,8 +3,6 @@ package log
 import (
 	"context"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 )
 
 type requestCustomFieldsKey struct{}
@@ -52,12 +50,12 @@ func (fields *CustomFields) RecordMetadata(key string, value any) {
 	fields.anyFields[key] = value
 }
 
-// Fields returns all the fields as logrus.Fields
-func (fields *CustomFields) Fields() logrus.Fields {
+// Fields returns all the fields as Fields
+func (fields *CustomFields) Fields() Fields {
 	fields.Lock()
 	defer fields.Unlock()
 
-	f := logrus.Fields{}
+	f := Fields{}
 	for k, v := range fields.numericFields {
 		f[k] = v
 	}

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -64,10 +63,11 @@ func TestCleanTempDir(t *testing.T) {
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	cleanTempDir(logger, locator, cfg.Storages)
 
-	require.Equal(t, 2, len(hook.Entries), hook.Entries)
+	require.Len(t, hook.AllEntries(), 2)
 	require.Equal(t, "finished tempdir cleaner walk", hook.LastEntry().Message)
 }
 

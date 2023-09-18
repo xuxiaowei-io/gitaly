@@ -3,14 +3,14 @@ package structerr
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // FieldsProducer extracts metadata from err if it contains a `structerr.Error` and exposes it as
 // logged fields. This function is supposed to be used with `log.MessageProducer()`.
-func FieldsProducer(_ context.Context, err error) logrus.Fields {
+func FieldsProducer(_ context.Context, err error) log.Fields {
 	if metadata := ExtractMetadata(err); len(metadata) > 0 {
-		return logrus.Fields{
+		return log.Fields{
 			"error_metadata": metadata,
 		}
 	}

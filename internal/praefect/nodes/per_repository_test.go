@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -530,16 +529,17 @@ func TestPerRepositoryElector(t *testing.T) {
 
 			for _, step := range tc.steps {
 				runElection := func(tx *testdb.TxWrapper) (string, *logrus.Entry) {
-					logger, hook := test.NewNullLogger()
+					logger := testhelper.NewLogger(t)
+					hook := testhelper.AddLoggerHook(logger)
 					elector := NewPerRepositoryElector(tx)
 
-					primary, err := elector.GetPrimary(log.FromLogrusEntry(logrus.NewEntry(logger)).ToContext(ctx), "", repositoryID)
+					primary, err := elector.GetPrimary(logger.ToContext(ctx), "", repositoryID)
 					assert.Equal(t, step.error, err)
-					assert.Less(t, len(hook.Entries), 2)
+					assert.Less(t, len(hook.AllEntries()), 2)
 
 					var entry *logrus.Entry
-					if len(hook.Entries) == 1 {
-						entry = &hook.Entries[0]
+					if len(hook.AllEntries()) == 1 {
+						entry = hook.AllEntries()[0]
 					}
 
 					return primary, entry
@@ -568,7 +568,7 @@ func TestPerRepositoryElector(t *testing.T) {
 				if previousPrimary != primary {
 					require.NotNil(t, logEntry)
 					require.Equal(t, "primary node changed", logEntry.Message)
-					require.Equal(t, logrus.Fields{
+					require.Equal(t, log.Fields{
 						"repository_id":    repositoryID,
 						"current_primary":  primary,
 						"previous_primary": previousPrimary,

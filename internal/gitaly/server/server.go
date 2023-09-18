@@ -111,7 +111,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
 		customfieldshandler.StreamInterceptor,
-		grpcmwlogrus.StreamServerInterceptor(s.logger.WithField("component", "gitaly.StreamServerInterceptor"),
+		s.logger.WithField("component", "gitaly.StreamServerInterceptor").StreamServerInterceptor(
 			grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
 			logMsgProducer,
 			gitalylog.DeciderOption(),
@@ -127,7 +127,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		metadatahandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
 		customfieldshandler.UnaryInterceptor,
-		grpcmwlogrus.UnaryServerInterceptor(s.logger.WithField("component", "gitaly.UnaryServerInterceptor"),
+		s.logger.WithField("component", "gitaly.UnaryServerInterceptor").UnaryServerInterceptor(
 			grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
 			logMsgProducer,
 			gitalylog.DeciderOption(),

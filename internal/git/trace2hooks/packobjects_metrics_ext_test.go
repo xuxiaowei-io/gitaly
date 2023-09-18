@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -25,7 +24,7 @@ func TestPackObjectsMetrics(t *testing.T) {
 	for _, tc := range []struct {
 		desc      string
 		setupRepo func(ctx context.Context) (*gitalypb.Repository, config.Cfg, bytes.Buffer)
-		assert    func(*testing.T, logrus.Fields)
+		assert    func(*testing.T, log.Fields)
 	}{
 		{
 			desc: "pack blobs",
@@ -44,7 +43,7 @@ func TestPackObjectsMetrics(t *testing.T) {
 
 				return repoProto, cfg, input
 			},
-			assert: func(t *testing.T, statFields logrus.Fields) {
+			assert: func(t *testing.T, statFields log.Fields) {
 				require.Equal(t, 11, statFields["pack_objects.written_object_count"])
 			},
 		},
@@ -64,7 +63,7 @@ func TestPackObjectsMetrics(t *testing.T) {
 
 				return repoProto, cfg, input
 			},
-			assert: func(t *testing.T, statFields logrus.Fields) {
+			assert: func(t *testing.T, statFields log.Fields) {
 				require.Equal(t, 3, statFields["pack_objects.written_object_count"])
 			},
 		},
@@ -87,7 +86,7 @@ func TestPackObjectsMetrics(t *testing.T) {
 
 				return repoProto, cfg, input
 			},
-			assert: func(t *testing.T, statFields logrus.Fields) {
+			assert: func(t *testing.T, statFields log.Fields) {
 				require.Equal(t, 2, statFields["pack_objects.written_object_count"])
 			},
 		},
@@ -110,7 +109,7 @@ func TestPackObjectsMetrics(t *testing.T) {
 
 				return repoProto, cfg, input
 			},
-			assert: func(t *testing.T, statFields logrus.Fields) {
+			assert: func(t *testing.T, statFields log.Fields) {
 				require.Equal(t, 2, statFields["pack_objects.written_object_count"])
 			},
 		},
@@ -161,7 +160,7 @@ func TestPackObjectsMetrics(t *testing.T) {
 
 				return repoProto, cfg, input
 			},
-			assert: func(t *testing.T, statFields logrus.Fields) {
+			assert: func(t *testing.T, statFields log.Fields) {
 				require.Equal(t, 7, statFields["pack_objects.written_object_count"])
 			},
 		},

@@ -17,12 +17,10 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -350,9 +348,10 @@ func TestCommand_stderrLogging(t *testing.T) {
 		exit 1
 	`))
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = log.FromLogrusEntry(logrus.NewEntry(logger)).ToContext(ctx)
+	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
 	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
@@ -374,9 +373,10 @@ func TestCommand_stderrLoggingTruncation(t *testing.T) {
 		exit 1
 	`))
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = log.FromLogrusEntry(logrus.NewEntry(logger)).ToContext(ctx)
+	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
 	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
@@ -395,9 +395,10 @@ func TestCommand_stderrLoggingWithNulBytes(t *testing.T) {
 		exit 1
 	`))
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = log.FromLogrusEntry(logrus.NewEntry(logger)).ToContext(ctx)
+	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
 	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
@@ -418,9 +419,10 @@ func TestCommand_stderrLoggingLongLine(t *testing.T) {
 		exit 1
 	`))
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = log.FromLogrusEntry(logrus.NewEntry(logger)).ToContext(ctx)
+	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
 	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
@@ -465,9 +467,10 @@ func TestCommand_stderrLoggingMaxBytes(t *testing.T) {
 		exit 1
 	`))
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = log.FromLogrusEntry(logrus.NewEntry(logger)).ToContext(ctx)
+	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
 	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
@@ -490,10 +493,11 @@ func (m mockCgroupManager) AddCommand(*exec.Cmd, ...cgroups.AddCommandOption) (s
 func TestCommand_logMessage(t *testing.T) {
 	t.Parallel()
 
-	logger, hook := test.NewNullLogger()
-	logger.SetLevel(logrus.DebugLevel)
+	logger := testhelper.NewLogger(t)
+	logger.Logger.SetLevel(logrus.DebugLevel)
+	hook := testhelper.AddLoggerHook(logger)
 
-	ctx := log.FromLogrusEntry(logrus.NewEntry(logger)).ToContext(testhelper.Context(t))
+	ctx := logger.ToContext(testhelper.Context(t))
 
 	cmd, err := New(ctx, []string{"echo", "hello world"},
 		WithCgroup(mockCgroupManager{

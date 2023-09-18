@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -55,7 +53,8 @@ func TestPayloadBytes(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 
 	opts := []grpc.ServerOption{
 		grpc.StatsHandler(log.PerRPCLogHandler{
@@ -63,8 +62,7 @@ func TestPayloadBytes(t *testing.T) {
 			FieldProducers: []log.FieldsProducer{FieldsProducer},
 		}),
 		grpc.ChainUnaryInterceptor(
-			grpcmwlogrus.UnaryServerInterceptor(
-				logrus.NewEntry(logger),
+			logger.UnaryServerInterceptor(
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
@@ -75,8 +73,7 @@ func TestPayloadBytes(t *testing.T) {
 			log.UnaryLogDataCatcherServerInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
-			grpcmwlogrus.StreamServerInterceptor(
-				logrus.NewEntry(logger),
+			logger.StreamServerInterceptor(
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
@@ -171,7 +168,7 @@ func TestPayloadBytes_TagRPC(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx = (&PayloadBytes{}).TagRPC(ctx, nil)
 	require.Equal(t,
-		logrus.Fields{"grpc.request.payload_bytes": int64(0), "grpc.response.payload_bytes": int64(0)},
+		log.Fields{"grpc.request.payload_bytes": int64(0), "grpc.response.payload_bytes": int64(0)},
 		FieldsProducer(ctx, nil),
 	)
 }
@@ -187,22 +184,22 @@ func TestPayloadBytes_HandleRPC(t *testing.T) {
 	handler.HandleRPC(ctx, &stats.Begin{}) // sanity check we don't fail anything
 	handler.HandleRPC(ctx, &stats.InPayload{Length: 42})
 	require.Equal(t,
-		logrus.Fields{"grpc.request.payload_bytes": int64(42), "grpc.response.payload_bytes": int64(0)},
+		log.Fields{"grpc.request.payload_bytes": int64(42), "grpc.response.payload_bytes": int64(0)},
 		FieldsProducer(ctx, nil),
 	)
 	handler.HandleRPC(ctx, &stats.OutPayload{Length: 24})
 	require.Equal(t,
-		logrus.Fields{"grpc.request.payload_bytes": int64(42), "grpc.response.payload_bytes": int64(24)},
+		log.Fields{"grpc.request.payload_bytes": int64(42), "grpc.response.payload_bytes": int64(24)},
 		FieldsProducer(ctx, nil),
 	)
 	handler.HandleRPC(ctx, &stats.InPayload{Length: 38})
 	require.Equal(t,
-		logrus.Fields{"grpc.request.payload_bytes": int64(80), "grpc.response.payload_bytes": int64(24)},
+		log.Fields{"grpc.request.payload_bytes": int64(80), "grpc.response.payload_bytes": int64(24)},
 		FieldsProducer(ctx, nil),
 	)
 	handler.HandleRPC(ctx, &stats.OutPayload{Length: 66})
 	require.Equal(t,
-		logrus.Fields{"grpc.request.payload_bytes": int64(80), "grpc.response.payload_bytes": int64(90)},
+		log.Fields{"grpc.request.payload_bytes": int64(80), "grpc.response.payload_bytes": int64(90)},
 		FieldsProducer(ctx, nil),
 	)
 }
@@ -211,7 +208,7 @@ func TestPayloadBytesStats_Fields(t *testing.T) {
 	t.Parallel()
 
 	bytesStats := PayloadBytesStats{InPayloadBytes: 80, OutPayloadBytes: 90}
-	require.Equal(t, logrus.Fields{
+	require.Equal(t, log.Fields{
 		"grpc.request.payload_bytes":  int64(80),
 		"grpc.response.payload_bytes": int64(90),
 	}, bytesStats.Fields())
@@ -227,7 +224,7 @@ func TestFieldsProducer(t *testing.T) {
 		ctx := handler.TagRPC(ctx, nil)
 		handler.HandleRPC(ctx, &stats.InPayload{Length: 42})
 		handler.HandleRPC(ctx, &stats.OutPayload{Length: 24})
-		require.Equal(t, logrus.Fields{
+		require.Equal(t, log.Fields{
 			"grpc.request.payload_bytes":  int64(42),
 			"grpc.response.payload_bytes": int64(24),
 		}, FieldsProducer(ctx, nil))

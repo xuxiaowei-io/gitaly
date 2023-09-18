@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
@@ -381,7 +380,8 @@ func TestOptimizeRepository_logStatistics(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	cfg, client := setupRepositoryService(t, testserver.WithLogger(logger))
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)

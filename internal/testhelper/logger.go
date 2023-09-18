@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 var (
@@ -17,7 +19,7 @@ var (
 	sharedLoggersMutex sync.Mutex
 	// sharedLogger contains test case specific loggers keyed by the test name.
 	// sharedLoggersMutex should be acquired before accessing the map.
-	sharedLoggers = map[string]*logrus.Logger{}
+	sharedLoggers = map[string]log.LogrusLogger{}
 )
 
 // SharedLogger returns a logger that is global to the running test case.
@@ -32,7 +34,7 @@ var (
 // mechanism serves as a workaround to use the same logger everywhere in
 // the same test case. Using the same logger ensures the log messages
 // are properly ordered.
-func SharedLogger(tb testing.TB) *logrus.Logger {
+func SharedLogger(tb testing.TB) log.LogrusLogger {
 	sharedLoggersMutex.Lock()
 	defer sharedLoggersMutex.Unlock()
 
@@ -69,7 +71,7 @@ func WithLoggerName(name string) LoggerOption {
 
 // NewLogger returns a logger that records the log output and
 // prints it out only if the test fails.
-func NewLogger(tb testing.TB, options ...LoggerOption) *logrus.Logger {
+func NewLogger(tb testing.TB, options ...LoggerOption) log.LogrusLogger {
 	logOutput := &bytes.Buffer{}
 	logger := logrus.New() //nolint:forbidigo
 	logger.Out = logOutput
@@ -91,7 +93,32 @@ func NewLogger(tb testing.TB, options ...LoggerOption) *logrus.Logger {
 		}
 	})
 
-	return logger
+	return log.FromLogrusEntry(logrus.NewEntry(logger))
+}
+
+// LoggerHook  is a hook that can be installed on the test logger in order to intercept log entries.
+type LoggerHook struct {
+	hook *test.Hook
+}
+
+// AddLoggerHook installs a hook on the logger.
+func AddLoggerHook(logger log.LogrusLogger) LoggerHook {
+	return LoggerHook{hook: test.NewLocal(logger.Logger)}
+}
+
+// AllEntries returns all log entries that have been intercepted by the hook.
+func (h LoggerHook) AllEntries() []*logrus.Entry {
+	return h.hook.AllEntries()
+}
+
+// LastEntry returns the last log entry or `nil` if there are no logged entries.
+func (h LoggerHook) LastEntry() *logrus.Entry {
+	return h.hook.LastEntry()
+}
+
+// Reset empties the list of intercepted log entries.
+func (h LoggerHook) Reset() {
+	h.hook.Reset()
 }
 
 // CreateTestLogDir creates a new log directory for testing purposes if the environment variable

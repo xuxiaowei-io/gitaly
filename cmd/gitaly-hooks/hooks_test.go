@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
@@ -167,7 +166,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 	gitlabUser, gitlabPassword := "gitlab_user-1234", "gitlabsecret9887"
 	httpProxy, httpsProxy, noProxy := "http://test.example.com:8080", "https://test.example.com:8080", "*"
 
-	logger, _ := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
 
 	c := gitlab.TestServerOptions{
 		User:                        gitlabUser,
@@ -356,7 +355,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	glProtocol := "ssh"
 	changes := "oldhead newhead"
 
-	logger, _ := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
@@ -478,7 +477,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	glProtocol := "ssh"
 	changes := "oldhead newhead"
 
-	logger, _ := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
@@ -610,7 +609,8 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	logger, hook := test.NewNullLogger()
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
 	runHookServiceServer(t, cfg, false, testserver.WithLogger(logger))
 
 	testcfg.BuildGitalyHooks(t, cfg)

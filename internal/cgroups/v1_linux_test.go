@@ -15,7 +15,6 @@ import (
 
 	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
@@ -522,7 +521,8 @@ func TestPruneOldCgroups(t *testing.T) {
 
 			pid := tc.setup(t, tc.cfg, mock)
 
-			logger, hook := test.NewNullLogger()
+			logger := testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
 
 			mock.pruneOldCgroups(tc.cfg, logger)
 
@@ -542,7 +542,7 @@ func TestPruneOldCgroups(t *testing.T) {
 			} else {
 				require.DirExists(t, oldGitalyProcessMemoryDir)
 				require.DirExists(t, oldGitalyProcesssCPUDir)
-				require.Len(t, hook.Entries, 0)
+				require.Empty(t, hook.AllEntries())
 			}
 		})
 	}

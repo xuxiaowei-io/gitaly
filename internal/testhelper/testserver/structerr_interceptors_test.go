@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -88,8 +86,8 @@ func TestFieldsProducer(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	logger, loggerHook := test.NewNullLogger()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := testhelper.NewLogger(t)
+	loggerHook := testhelper.AddLoggerHook(logger)
 
 	listener, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
@@ -97,8 +95,7 @@ func TestFieldsProducer(t *testing.T) {
 	service := &mockService{}
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			grpcmwlogrus.UnaryServerInterceptor(
-				logrus.NewEntry(logger),
+			logger.UnaryServerInterceptor(
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						grpcmwlogrus.DefaultMessageProducer,

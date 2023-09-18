@@ -3,7 +3,6 @@ package panichandler
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -48,7 +47,7 @@ func InstallPanicHandler(handler PanicHandler) {
 
 func handleCrash(logger log.Logger, grpcMethodName string, handler PanicHandler) {
 	if r := recover(); r != nil {
-		logger.WithFields(logrus.Fields{
+		logger.WithFields(log.Fields{
 			"error":  r,
 			"method": grpcMethodName,
 		}).Error("grpc panic")

@@ -14,7 +14,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -486,7 +485,8 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, runtim
 
 			cfg := cfgWithCache(t, 0)
 
-			logger, hook := test.NewNullLogger()
+			logger := testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
 
 			cfg.SocketPath = runHooksServer(
 				t,

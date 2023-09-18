@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -16,14 +17,14 @@ import (
 // gRPC calls.
 type SidechannelRegistry struct {
 	registry *sidechannel.Registry
-	logger   logrus.FieldLogger
+	logger   log.Logger
 }
 
 // NewSidechannelRegistry returns a new registry.
 func NewSidechannelRegistry(logger logrus.FieldLogger) *SidechannelRegistry {
 	return &SidechannelRegistry{
 		registry: sidechannel.NewRegistry(),
-		logger:   logger,
+		logger:   log.FromLogrusEntry(logger.WithFields(logrus.Fields{})),
 	}
 }
 
@@ -89,7 +90,7 @@ func TestSidechannelServer(
 // SidechannelServer adds sidechannel support to a gRPC server
 func SidechannelServer(logger *logrus.Entry, creds credentials.TransportCredentials) grpc.ServerOption {
 	lm := listenmux.New(creds)
-	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
+	lm.Register(backchannel.NewServerHandshaker(log.FromLogrusEntry(logger), backchannel.NewRegistry(), nil))
 	return grpc.Creds(lm)
 }
 

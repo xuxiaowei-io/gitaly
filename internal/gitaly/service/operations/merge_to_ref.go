@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -106,7 +105,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	)
 	if err != nil {
 		log.FromContext(ctx).WithError(err).WithFields(
-			logrus.Fields{
+			log.Fields{
 				"source_sha": sourceOID,
 				"target_sha": oid,
 				"target_ref": string(request.TargetRef),
