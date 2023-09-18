@@ -90,11 +90,7 @@ func runOperationServiceServer(tb testing.TB, cfg config.Cfg, options ...testser
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
-		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-		))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps))
 	}, options...)
 }
 

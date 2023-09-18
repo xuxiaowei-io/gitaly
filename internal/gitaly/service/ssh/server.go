@@ -5,6 +5,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
@@ -27,16 +28,11 @@ type server struct {
 }
 
 // NewServer creates a new instance of a grpc SSHServer
-func NewServer(
-	locator storage.Locator,
-	gitCmdFactory git.CommandFactory,
-	txManager transaction.Manager,
-	serverOpts ...ServerOpt,
-) gitalypb.SSHServiceServer {
+func NewServer(deps *service.Dependencies, serverOpts ...ServerOpt) gitalypb.SSHServiceServer {
 	s := &server{
-		locator:       locator,
-		gitCmdFactory: gitCmdFactory,
-		txManager:     txManager,
+		locator:       deps.GetLocator(),
+		gitCmdFactory: deps.GetGitCmdFactory(),
+		txManager:     deps.GetTxManager(),
 		uploadPackRequestTimeoutTickerFactory: func() helper.Ticker {
 			return helper.NewTimerTicker(defaultUploadPackRequestTimeout)
 		},

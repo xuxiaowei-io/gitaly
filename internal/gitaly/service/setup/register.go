@@ -60,10 +60,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(deps))
 	gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps))
 	gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
-	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetTxManager(),
+	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps,
 		ssh.WithPackfileNegotiationMetrics(sshPackfileNegotiationMetrics),
 	))
 	gitalypb.RegisterSmartHTTPServiceServer(srv, smarthttp.NewServer(

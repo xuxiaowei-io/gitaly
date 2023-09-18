@@ -30,11 +30,7 @@ func runSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, ser
 
 func startSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, serverOpts ...testserver.GitalyServerOpt) testserver.GitalyServer {
 	return testserver.StartGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSSHServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			opts...))
+		gitalypb.RegisterSSHServiceServer(srv, NewServer(deps, opts...))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
 			deps.GetHookManager(),
 			deps.GetLocator(),
