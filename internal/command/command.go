@@ -585,12 +585,12 @@ func AllowedEnvironment(envs []string) []string {
 
 // ExitStatus will return the exit-code from an error returned by Wait().
 func ExitStatus(err error) (int, bool) {
-	exitError, ok := err.(*exec.ExitError)
-	if !ok {
-		return 0, false
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode(), true
 	}
 
-	return exitError.ExitCode(), true
+	return 0, false
 }
 
 func methodFromContext(ctx context.Context) (service string, method string) {
