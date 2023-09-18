@@ -237,5 +237,5 @@ func (p *parser) parseEventTime(parent *Trace, event *jsonEvent) (time.Time, err
 }
 
 func (p *parser) addTime(t time.Time, diffSeconds float64) time.Time {
-	return t.Add(time.Second * time.Duration(diffSeconds))
+	return t.Add(time.Duration(diffSeconds * float64(time.Second)))
 }
