@@ -580,18 +580,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					deps.GetTxManager(),
 					deps.GetConnsPool(),
 				))
-				gitalypb.RegisterRepositoryServiceServer(srv, repositorysvc.NewServer(
-					deps.GetCfg(),
-					deps.GetLocator(),
-					deps.GetTxManager(),
-					deps.GetGitCmdFactory(),
-					deps.GetCatfileCache(),
-					deps.GetConnsPool(),
-					deps.GetHousekeepingManager(),
-					deps.GetBackupSink(),
-					deps.GetBackupLocator(),
-					deps.GetRepositoryCounter(),
-				))
+				gitalypb.RegisterRepositoryServiceServer(srv, repositorysvc.NewServer(deps))
 			})
 			cfg.SocketPath = addr
 

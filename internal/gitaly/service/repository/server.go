@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -37,30 +38,19 @@ type server struct {
 }
 
 // NewServer creates a new instance of a gRPC repo server
-func NewServer(
-	cfg config.Cfg,
-	locator storage.Locator,
-	txManager transaction.Manager,
-	gitCmdFactory git.CommandFactory,
-	catfileCache catfile.Cache,
-	connsPool *client.Pool,
-	housekeepingManager housekeeping.Manager,
-	backupSink backup.Sink,
-	backupLocator backup.Locator,
-	repositoryCounter *counter.RepositoryCounter,
-) gitalypb.RepositoryServiceServer {
+func NewServer(deps *service.Dependencies) gitalypb.RepositoryServiceServer {
 	return &server{
-		locator:             locator,
-		txManager:           txManager,
-		gitCmdFactory:       gitCmdFactory,
-		conns:               connsPool,
-		cfg:                 cfg,
-		loggingCfg:          cfg.Logging,
-		catfileCache:        catfileCache,
-		housekeepingManager: housekeepingManager,
-		backupSink:          backupSink,
-		backupLocator:       backupLocator,
-		repositoryCounter:   repositoryCounter,
+		locator:             deps.GetLocator(),
+		txManager:           deps.GetTxManager(),
+		gitCmdFactory:       deps.GetGitCmdFactory(),
+		conns:               deps.GetConnsPool(),
+		cfg:                 deps.GetCfg(),
+		loggingCfg:          deps.GetCfg().Logging,
+		catfileCache:        deps.GetCatfileCache(),
+		housekeepingManager: deps.GetHousekeepingManager(),
+		backupSink:          deps.GetBackupSink(),
+		backupLocator:       deps.GetBackupLocator(),
+		repositoryCounter:   deps.GetRepositoryCounter(),
 
 		licenseCache: newLicenseCache(),
 	}

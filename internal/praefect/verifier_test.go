@@ -475,18 +475,9 @@ func TestVerifier(t *testing.T) {
 				registerFunc := setup.RegisterAll
 				if tc.erroringGitalys[storageName] {
 					registerFunc = func(srv *grpc.Server, deps *service.Dependencies) {
-						gitalypb.RegisterRepositoryServiceServer(srv, erroringRepositoryService{repository.NewServer(
-							deps.GetCfg(),
-							deps.GetLocator(),
-							deps.GetTxManager(),
-							deps.GetGitCmdFactory(),
-							deps.GetCatfileCache(),
-							deps.GetConnsPool(),
-							deps.GetHousekeepingManager(),
-							deps.GetBackupSink(),
-							deps.GetBackupLocator(),
-							deps.GetRepositoryCounter(),
-						)})
+						gitalypb.RegisterRepositoryServiceServer(srv, erroringRepositoryService{
+							repository.NewServer(deps),
+						})
 					}
 				}
 
