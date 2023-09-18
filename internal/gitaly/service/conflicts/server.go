@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -26,21 +27,14 @@ type server struct {
 }
 
 // NewServer creates a new instance of a grpc ConflictsServer
-func NewServer(
-	hookManager hook.Manager,
-	locator storage.Locator,
-	gitCmdFactory git.CommandFactory,
-	catfileCache catfile.Cache,
-	connsPool *client.Pool,
-	updater *updateref.UpdaterWithHooks,
-) gitalypb.ConflictsServiceServer {
+func NewServer(deps *service.Dependencies) gitalypb.ConflictsServiceServer {
 	return &server{
-		hookManager:   hookManager,
-		locator:       locator,
-		gitCmdFactory: gitCmdFactory,
-		catfileCache:  catfileCache,
-		pool:          connsPool,
-		updater:       updater,
+		hookManager:   deps.GetHookManager(),
+		locator:       deps.GetLocator(),
+		gitCmdFactory: deps.GetGitCmdFactory(),
+		catfileCache:  deps.GetCatfileCache(),
+		pool:          deps.GetConnsPool(),
+		updater:       deps.GetUpdaterWithHooks(),
 	}
 }
 
