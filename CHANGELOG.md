@@ -59,6 +59,10 @@ No changes.
 
 - [backup: Write an empty ref list for empty repositories](gitlab-org/gitaly@7fbae125172570e5bef222908388ba0ca1c9e43a) ([merge request](gitlab-org/gitaly!6090))
 
+## 16.2.7 (2023-09-18)
+
+No changes.
+
 ## 16.2.6 (2023-09-12)
 
 No changes.
