@@ -93,12 +93,7 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.Gita
 			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
-		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-		))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
 		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),

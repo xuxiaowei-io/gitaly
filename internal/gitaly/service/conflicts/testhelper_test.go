@@ -68,12 +68,7 @@ func runConflictsServer(tb testing.TB, cfg config.Cfg, hookManager hook.Manager)
 			deps.GetPackObjectsCache(),
 			deps.GetPackObjectsLimiter(),
 		))
-		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-		))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
 	}, testserver.WithHookManager(hookManager))
 }
 

@@ -116,12 +116,7 @@ func runOperationServiceServer(tb testing.TB, cfg config.Cfg, options ...testser
 			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
-		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-		))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
