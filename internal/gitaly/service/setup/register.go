@@ -68,7 +68,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	))
 	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(deps))
 	gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(deps))
-	gitalypb.RegisterServerServiceServer(srv, server.NewServer(deps.GetGitCmdFactory(), deps.GetCfg().Storages))
+	gitalypb.RegisterServerServiceServer(srv, server.NewServer(deps))
 	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(deps))
 	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps))
 	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(deps))
