@@ -28,28 +28,23 @@ import (
 type LegacyLocator struct{}
 
 // BeginFull returns the static paths for a legacy repository backup
-func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step {
+func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Backup {
 	return l.newFull(repo)
 }
 
 // BeginIncremental is not supported for legacy backups
-func (l LegacyLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Step, error) {
+func (l LegacyLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
 	return nil, errors.New("legacy layout: begin incremental: not supported")
 }
 
 // Commit is unused as the locations are static
-func (l LegacyLocator) Commit(ctx context.Context, full *Step) error {
+func (l LegacyLocator) Commit(ctx context.Context, full *Backup) error {
 	return nil
 }
 
 // FindLatest returns the static paths for a legacy repository backup
 func (l LegacyLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
-	return &Backup{
-		Steps: []Step{
-			*l.newFull(repo),
-		},
-		ObjectFormat: git.ObjectHashSHA1.Format,
-	}, nil
+	return l.newFull(repo), nil
 }
 
 // Find is not supported for legacy backups.
@@ -57,13 +52,18 @@ func (l LegacyLocator) Find(ctx context.Context, repo *gitalypb.Repository, back
 	return nil, errors.New("legacy layout: find: not supported")
 }
 
-func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
+func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Backup {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	return &Step{
-		BundlePath:      backupPath + ".bundle",
-		RefPath:         backupPath + ".refs",
-		CustomHooksPath: filepath.Join(backupPath, "custom_hooks.tar"),
+	return &Backup{
+		ObjectFormat: git.ObjectHashSHA1.Format,
+		Steps: []Step{
+			{
+				BundlePath:      backupPath + ".bundle",
+				RefPath:         backupPath + ".refs",
+				CustomHooksPath: filepath.Join(backupPath, "custom_hooks.tar"),
+			},
+		},
 	}
 }
 
@@ -84,13 +84,18 @@ type PointerLocator struct {
 }
 
 // BeginFull returns a tentative first step needed to create a new full backup.
-func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step {
+func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Backup {
 	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	return &Step{
-		BundlePath:      filepath.Join(repoPath, backupID, "001.bundle"),
-		RefPath:         filepath.Join(repoPath, backupID, "001.refs"),
-		CustomHooksPath: filepath.Join(repoPath, backupID, "001.custom_hooks.tar"),
+	return &Backup{
+		ObjectFormat: git.ObjectHashSHA1.Format,
+		Steps: []Step{
+			{
+				BundlePath:      filepath.Join(repoPath, backupID, "001.bundle"),
+				RefPath:         filepath.Join(repoPath, backupID, "001.refs"),
+				CustomHooksPath: filepath.Join(repoPath, backupID, "001.custom_hooks.tar"),
+			},
+		},
 	}
 }
 
@@ -98,7 +103,7 @@ func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository
 // backup.  The incremental backup is always based off of the latest full
 // backup. If there is no latest backup, a new full backup step is returned
 // using fallbackBackupID
-func (l PointerLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Repository, fallbackBackupID string) (*Step, error) {
+func (l PointerLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Repository, fallbackBackupID string) (*Backup, error) {
 	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
 	backupID, err := l.findLatestID(ctx, repoPath)
 	if err != nil {
@@ -125,16 +130,22 @@ func (l PointerLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Rep
 	}
 	id++
 
-	return &Step{
+	backup.Steps = append(backup.Steps, Step{
 		BundlePath:      filepath.Join(backupPath, fmt.Sprintf("%03d.bundle", id)),
 		RefPath:         filepath.Join(backupPath, fmt.Sprintf("%03d.refs", id)),
 		PreviousRefPath: previous.RefPath,
 		CustomHooksPath: filepath.Join(backupPath, fmt.Sprintf("%03d.custom_hooks.tar", id)),
-	}, nil
+	})
+
+	return backup, nil
 }
 
 // Commit persists the step so that it can be looked up by FindLatest
-func (l PointerLocator) Commit(ctx context.Context, step *Step) error {
+func (l PointerLocator) Commit(ctx context.Context, backup *Backup) error {
+	if len(backup.Steps) < 1 {
+		return fmt.Errorf("pointer locator: commit: no steps")
+	}
+	step := backup.Steps[len(backup.Steps)-1]
 	backupPath := filepath.Dir(step.BundlePath)
 	bundleName := filepath.Base(step.BundlePath)
 	repoPath := filepath.Dir(backupPath)

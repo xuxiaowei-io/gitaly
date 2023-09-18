@@ -60,14 +60,17 @@ type Step struct {
 
 // Locator finds sink backup paths for repositories
 type Locator interface {
-	// BeginFull returns a tentative first step needed to create a new full backup.
-	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step
+	// BeginFull returns the tentative backup paths needed to create a full backup.
+	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Backup
 
-	// BeginIncremental returns a tentative step needed to create a new incremental backup.
-	BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Step, error)
+	// BeginIncremental returns the backup with the last element of Steps being
+	// the tentative step needed to create an incremental backup.
+	BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error)
 
-	// Commit persists the step so that it can be looked up by FindLatest
-	Commit(ctx context.Context, step *Step) error
+	// Commit persists the backup so that it can be looked up by FindLatest. It
+	// is expected that the last element of Steps will be the newly created
+	// backup.
+	Commit(ctx context.Context, backup *Backup) error
 
 	// FindLatest returns the latest backup that was written by Commit
 	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
@@ -197,15 +200,15 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	var step *Step
+	var backup *Backup
 	if req.Incremental {
 		var err error
-		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, req.BackupID)
+		backup, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, req.BackupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		step = mgr.locator.BeginFull(ctx, req.VanityRepository, req.BackupID)
+		backup = mgr.locator.BeginFull(ctx, req.VanityRepository, req.BackupID)
 	}
 
 	refs, err := repo.ListRefs(ctx)
@@ -215,6 +218,8 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	case err != nil:
 		return fmt.Errorf("manager: %w", err)
 	}
+
+	step := &backup.Steps[len(backup.Steps)-1]
 
 	if err := mgr.writeRefs(ctx, step.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -226,7 +231,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if err := mgr.locator.Commit(ctx, step); err != nil {
+	if err := mgr.locator.Commit(ctx, backup); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
