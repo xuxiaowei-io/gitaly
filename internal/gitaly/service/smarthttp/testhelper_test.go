@@ -29,13 +29,7 @@ func startSmartHTTPServerWithOptions(t *testing.T, cfg config.Cfg, opts []Server
 		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(deps, opts...))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(deps))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps))
 	}, serverOpts...)
 }
 

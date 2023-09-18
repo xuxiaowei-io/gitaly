@@ -57,13 +57,7 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg,
 func runRepositoryService(tb testing.TB, cfg config.Cfg, opts ...testserver.GitalyServerOpt) (gitalypb.RepositoryServiceClient, string) {
 	serverSocketPath := testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(deps))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps))
 		gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(deps))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps))

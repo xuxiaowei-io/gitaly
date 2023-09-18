@@ -107,13 +107,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRefServiceServer(srv, NewServer(deps))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps))
 	}, testserver.WithTransactionManager(txManager))
 	cfg.SocketPath = addr
 

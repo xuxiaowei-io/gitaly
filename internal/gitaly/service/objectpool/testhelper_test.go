@@ -64,13 +64,7 @@ func setupWithConfig(t *testing.T, ctx context.Context, cfg config.Cfg, opts ...
 func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, logger log.Logger, opts ...testserver.GitalyServerOpt) string {
 	return testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterObjectPoolServiceServer(srv, NewServer(deps))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
 }
