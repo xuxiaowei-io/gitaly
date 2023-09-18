@@ -329,6 +329,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 	}
 
 	var patterns io.Reader
+	// Full backup, no need to check for known refs.
 	if len(step.PreviousRefPath) > 0 {
 		negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 		if err != nil {
