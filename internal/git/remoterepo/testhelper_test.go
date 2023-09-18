@@ -36,12 +36,7 @@ func setupGitalyServer(t *testing.T) config.Cfg {
 			deps.GetRepositoryCounter(),
 		))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
-		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetCatfileCache(),
-		))
+		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps))
 	})
 
 	return cfg

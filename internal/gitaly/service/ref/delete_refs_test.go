@@ -105,12 +105,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 	txManager := transaction.NewTrackingManager()
 
 	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRefServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetCatfileCache(),
-		))
+		gitalypb.RegisterRefServiceServer(srv, NewServer(deps))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
 			deps.GetLocator(),

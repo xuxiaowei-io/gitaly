@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -49,12 +50,12 @@ func createNewServer(t *testing.T, cfg config.Cfg, logger log.Logger) *grpc.Serv
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(
-		config.NewLocator(cfg),
-		gitCommandFactory,
-		transaction.NewManager(cfg, backchannel.NewRegistry()),
-		catfileCache,
-	))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(&service.Dependencies{
+		StorageLocator:     config.NewLocator(cfg),
+		GitCmdFactory:      gitCommandFactory,
+		TransactionManager: transaction.NewManager(cfg, backchannel.NewRegistry()),
+		CatfileCache:       catfileCache,
+	}))
 
 	return server
 }
