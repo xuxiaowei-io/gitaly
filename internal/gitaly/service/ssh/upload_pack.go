@@ -147,14 +147,6 @@ func validateFirstUploadPackRequest(locator storage.Locator, req *gitalypb.SSHUp
 	return nil
 }
 
-type largeBufferReaderFrom struct {
-	io.Writer
-}
-
-func (rf *largeBufferReaderFrom) ReadFrom(r io.Reader) (int64, error) {
-	return io.CopyBuffer(rf.Writer, r, make([]byte, 64*1024))
-}
-
 func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb.SSHUploadPackWithSidechannelRequest) (*gitalypb.SSHUploadPackWithSidechannelResponse, error) {
 	conn, err := sidechannel.OpenSidechannel(ctx)
 	if err != nil {

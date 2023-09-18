@@ -104,3 +104,11 @@ func runUploadCommand(
 
 	return err
 }
+
+type largeBufferReaderFrom struct {
+	io.Writer
+}
+
+func (rf *largeBufferReaderFrom) ReadFrom(r io.Reader) (int64, error) {
+	return io.CopyBuffer(rf.Writer, r, make([]byte, 64*1024))
+}
