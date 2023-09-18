@@ -57,16 +57,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
 	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(deps))
 	gitalypb.RegisterNamespaceServiceServer(srv, namespace.NewServer(deps))
-	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(
-		deps.GetHookManager(),
-		deps.GetTxManager(),
-		deps.GetLocator(),
-		deps.GetConnsPool(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-		deps.GetUpdaterWithHooks(),
-		deps.GetCfg().Git.SigningKey,
-	))
+	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(deps))
 	gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),

@@ -446,16 +446,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	transactionServer := &testTransactionServer{}
 
 	testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterOperationServiceServer(srv, NewServer(
-			deps.GetHookManager(),
-			deps.GetTxManager(),
-			deps.GetLocator(),
-			deps.GetConnsPool(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetUpdaterWithHooks(),
-			deps.GetCfg().Git.SigningKey,
-		))
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps))
 	})
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)

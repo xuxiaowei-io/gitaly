@@ -123,16 +123,7 @@ func TestUserCreateBranch_transactions(t *testing.T) {
 
 	cfg.ListenAddr = "127.0.0.1:0" // runs gitaly on the TCP address
 	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterOperationServiceServer(srv, NewServer(
-			deps.GetHookManager(),
-			deps.GetTxManager(),
-			deps.GetLocator(),
-			deps.GetConnsPool(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetUpdaterWithHooks(),
-			deps.GetCfg().Git.SigningKey,
-		))
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 			deps.GetHookManager(),
 			deps.GetLocator(),

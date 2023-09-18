@@ -79,18 +79,7 @@ func runOperationServiceServer(tb testing.TB, cfg config.Cfg, options ...testser
 	tb.Helper()
 
 	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		operationServer := NewServer(
-			deps.GetHookManager(),
-			deps.GetTxManager(),
-			deps.GetLocator(),
-			deps.GetConnsPool(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetUpdaterWithHooks(),
-			deps.GetCfg().Git.SigningKey,
-		)
-
-		gitalypb.RegisterOperationServiceServer(srv, operationServer)
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 			deps.GetHookManager(),
 			deps.GetLocator(),
