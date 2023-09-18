@@ -39,14 +39,7 @@ func startSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, s
 			deps.GetPackObjectsLimiter(),
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
-		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetHousekeepingManager(),
-			deps.GetRepositoryCounter(),
-		))
+		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(deps))
 	}, serverOpts...)
 }
 

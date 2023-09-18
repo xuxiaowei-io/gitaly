@@ -69,14 +69,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(deps))
 	gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(deps))
 	gitalypb.RegisterServerServiceServer(srv, server.NewServer(deps.GetGitCmdFactory(), deps.GetCfg().Storages))
-	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-		deps.GetTxManager(),
-		deps.GetHousekeepingManager(),
-		deps.GetRepositoryCounter(),
-	))
+	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(deps))
 	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 		deps.GetHookManager(),
 		deps.GetLocator(),
