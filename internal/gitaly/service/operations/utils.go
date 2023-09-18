@@ -2,11 +2,9 @@ package operations
 
 import (
 	"errors"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type cherryPickOrRevertRequest interface {
@@ -39,27 +37,4 @@ func validateCherryPickOrRevertRequest(locator storage.Locator, req cherryPickOr
 	}
 
 	return nil
-}
-
-type userTimestampProto interface {
-	GetUser() *gitalypb.User
-	GetTimestamp() *timestamppb.Timestamp
-}
-
-func dateFromProto(p userTimestampProto) (time.Time, error) {
-	date := time.Now()
-
-	if timestamp := p.GetTimestamp(); timestamp != nil {
-		date = timestamp.AsTime()
-	}
-
-	if user := p.GetUser(); user != nil {
-		location, err := time.LoadLocation(user.GetTimezone())
-		if err != nil {
-			return time.Time{}, err
-		}
-		date = date.In(location)
-	}
-
-	return date, nil
 }

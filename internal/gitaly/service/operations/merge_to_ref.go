@@ -44,7 +44,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, structerr.NewInvalidArgument("Invalid merge source")
 	}
 
-	authorDate, err := dateFromProto(request)
+	authorSignature, err := git.SignatureFromRequest(request)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
@@ -92,12 +92,8 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	mergeCommitID, err := s.merge(
 		ctx,
 		repo,
-		string(request.User.Name),
-		string(request.User.Email),
-		authorDate,
-		string(request.User.Name),
-		string(request.User.Email),
-		authorDate,
+		authorSignature,
+		authorSignature,
 		string(request.Message),
 		oid.String(),
 		sourceOID.String(),

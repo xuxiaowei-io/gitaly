@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -125,7 +124,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	targetRevision := git.Revision(req.TargetRevision)
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
 
-	taggerDate, err := dateFromProto(req)
+	taggerSignature, err := git.SignatureFromRequest(req)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
@@ -140,7 +139,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		return nil, fmt.Errorf("detecting object hash: %w", err)
 	}
 
-	tag, tagID, err := s.createTag(ctx, quarantineRepo, targetRevision, req.TagName, req.Message, req.User, taggerDate)
+	tag, tagID, err := s.createTag(ctx, quarantineRepo, targetRevision, req.TagName, req.Message, taggerSignature)
 	if err != nil {
 		return nil, err
 	}
@@ -230,8 +229,7 @@ func (s *Server) createTag(
 	targetRevision git.Revision,
 	tagName []byte,
 	message []byte,
-	committer *gitalypb.User,
-	committerTime time.Time,
+	tagger git.Signature,
 ) (*gitalypb.Tag, git.ObjectID, error) {
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
@@ -290,7 +288,7 @@ func (s *Server) createTag(
 	refObjectID := targetObjectID
 	var tagObject *gitalypb.Tag
 	if makingTag {
-		tagObjectID, err := repo.WriteTag(ctx, targetObjectID, targetObjectType, tagName, message, committer, committerTime)
+		tagObjectID, err := repo.WriteTag(ctx, targetObjectID, targetObjectType, tagName, message, tagger)
 		if err != nil {
 			var formatTagErr localrepo.FormatTagError
 			if errors.As(err, &formatTagErr) {

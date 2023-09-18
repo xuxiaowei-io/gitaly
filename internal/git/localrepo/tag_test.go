@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func TestFormatTag(t *testing.T) {
@@ -22,8 +21,7 @@ func TestFormatTag(t *testing.T) {
 		objectType string
 		tagName    []byte
 		tagBody    []byte
-		author     *gitalypb.User
-		authorDate time.Time
+		tagger     git.Signature
 		err        error
 	}{
 		// Just trivial tests here, most of this is tested in
@@ -33,9 +31,9 @@ func TestFormatTag(t *testing.T) {
 			objectID:   gittest.DefaultObjectHash.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
-			author: &gitalypb.User{
-				Name:  []byte("root"),
-				Email: []byte("root@localhost"),
+			tagger: git.Signature{
+				Name:  "root",
+				Email: "root@localhost",
 			},
 			tagBody: []byte(""),
 		},
@@ -45,9 +43,9 @@ func TestFormatTag(t *testing.T) {
 			objectType: "commit",
 			tagName:    []byte("my-tag\ninjection"),
 			tagBody:    []byte(""),
-			author: &gitalypb.User{
-				Name:  []byte("root"),
-				Email: []byte("root@localhost"),
+			tagger: git.Signature{
+				Name:  "root",
+				Email: "root@localhost",
 			},
 			err: FormatTagError{expectedLines: 4, actualLines: 5},
 		},
@@ -57,15 +55,15 @@ func TestFormatTag(t *testing.T) {
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
 			tagBody:    []byte(""),
-			author: &gitalypb.User{
-				Name:  []byte("root"),
-				Email: []byte("root@localhost"),
+			tagger: git.Signature{
+				Name:  "root",
+				Email: "root@localhost",
+				When:  time.Unix(12345, 0),
 			},
-			authorDate: time.Unix(12345, 0),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			signature, err := FormatTag(tc.objectID, tc.objectType, tc.tagName, tc.tagBody, tc.author, tc.authorDate)
+			signature, err := FormatTag(tc.objectID, tc.objectType, tc.tagName, tc.tagBody, tc.tagger)
 			if err != nil {
 				require.Equal(t, tc.err, err)
 				require.Equal(t, "", signature)
@@ -94,8 +92,7 @@ func TestRepo_WriteTag(t *testing.T) {
 		objectType  string
 		tagName     []byte
 		tagBody     []byte
-		author      *gitalypb.User
-		authorDate  time.Time
+		tagger      git.Signature
 		expectedTag string
 	}{
 		// Just trivial tests here, most of this is tested in
@@ -106,9 +103,9 @@ func TestRepo_WriteTag(t *testing.T) {
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
 			tagBody:    []byte(""),
-			author: &gitalypb.User{
-				Name:  []byte("root"),
-				Email: []byte("root@localhost"),
+			tagger: git.Signature{
+				Name:  "root",
+				Email: "root@localhost",
 			},
 		},
 		{
@@ -117,11 +114,11 @@ func TestRepo_WriteTag(t *testing.T) {
 			objectType: "commit",
 			tagName:    []byte("tag-with-timestamp"),
 			tagBody:    []byte(""),
-			author: &gitalypb.User{
-				Name:  []byte("root"),
-				Email: []byte("root@localhost"),
+			tagger: git.Signature{
+				Name:  "root",
+				Email: "root@localhost",
+				When:  time.Unix(12345, 0).UTC(),
 			},
-			authorDate: time.Unix(12345, 0).UTC(),
 			expectedTag: fmt.Sprintf(`object %s
 type commit
 tag tag-with-timestamp
@@ -134,11 +131,11 @@ tagger root <root@localhost> 12345 +0000
 			objectType: "commit",
 			tagName:    []byte("tag-with-timezone"),
 			tagBody:    []byte(""),
-			author: &gitalypb.User{
-				Name:  []byte("root"),
-				Email: []byte("root@localhost"),
+			tagger: git.Signature{
+				Name:  "root",
+				Email: "root@localhost",
+				When:  time.Unix(12345, 0).In(time.FixedZone("myzone", -60*60)),
 			},
-			authorDate: time.Unix(12345, 0).In(time.FixedZone("myzone", -60*60)),
 			expectedTag: fmt.Sprintf(`object %s
 type commit
 tag tag-with-timezone
@@ -147,7 +144,7 @@ tagger root <root@localhost> 12345 -0100
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.tagBody, tc.author, tc.authorDate)
+			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.tagBody, tc.tagger)
 			require.NoError(t, err)
 
 			repoTagObjID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", tagObjID.String())

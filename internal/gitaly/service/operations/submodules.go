@@ -246,19 +246,19 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 		return "", fmt.Errorf("resolving submodule branch: %w", err)
 	}
 
-	authorDate, err := dateFromProto(req)
+	authorSignature, err := git.SignatureFromRequest(req)
 	if err != nil {
 		return "", structerr.NewInvalidArgument("%w", err)
 	}
 
 	newCommitID, err := quarantineRepo.WriteCommit(ctx, localrepo.WriteCommitConfig{
 		Parents:        []git.ObjectID{currentBranchCommit},
-		AuthorDate:     authorDate,
-		AuthorName:     string(req.GetUser().GetName()),
-		AuthorEmail:    string(req.GetUser().GetEmail()),
-		CommitterName:  string(req.GetUser().GetName()),
-		CommitterEmail: string(req.GetUser().GetEmail()),
-		CommitterDate:  authorDate,
+		AuthorDate:     authorSignature.When,
+		AuthorName:     authorSignature.Name,
+		AuthorEmail:    authorSignature.Email,
+		CommitterName:  authorSignature.Name,
+		CommitterEmail: authorSignature.Email,
+		CommitterDate:  authorSignature.When,
 		Message:        string(req.GetCommitMessage()),
 		TreeID:         treeID,
 	})

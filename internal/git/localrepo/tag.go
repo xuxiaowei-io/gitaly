@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // FormatTagError is used by FormatTag() below
@@ -41,18 +40,17 @@ func FormatTag(
 	objectID git.ObjectID,
 	objectType string,
 	tagName, tagBody []byte,
-	committer *gitalypb.User,
-	committerDate time.Time,
+	tagger git.Signature,
 ) (string, error) {
-	if committerDate.IsZero() {
-		committerDate = time.Now()
+	if tagger.When.IsZero() {
+		tagger.When = time.Now()
 	}
 
 	tagHeaderFormat := "object %s\n" +
 		"type %s\n" +
 		"tag %s\n" +
 		"tagger %s <%s> %s\n"
-	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID.String(), objectType, tagName, committer.GetName(), committer.GetEmail(), git.FormatSignatureTime(committerDate))
+	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID.String(), objectType, tagName, tagger.Name, tagger.Email, git.FormatSignatureTime(tagger.When))
 
 	maxHeaderLines := 4
 	actualHeaderLines := strings.Count(tagBuf, "\n")
@@ -87,13 +85,12 @@ func (repo *Repo) WriteTag(
 	objectID git.ObjectID,
 	objectType string,
 	tagName, tagBody []byte,
-	committer *gitalypb.User,
-	committerDate time.Time,
+	tagger git.Signature,
 ) (git.ObjectID, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	tagBuf, err := FormatTag(objectID, objectType, tagName, tagBody, committer, committerDate)
+	tagBuf, err := FormatTag(objectID, objectType, tagName, tagBody, tagger)
 	if err != nil {
 		return "", err
 	}

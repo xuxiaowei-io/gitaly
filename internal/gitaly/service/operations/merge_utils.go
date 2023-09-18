@@ -3,7 +3,6 @@ package operations
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -12,12 +11,8 @@ import (
 func (s *Server) merge(
 	ctx context.Context,
 	quarantineRepo *localrepo.Repo,
-	authorName string,
-	authorMail string,
-	authorDate time.Time,
-	committerName string,
-	committerMail string,
-	committerDate time.Time,
+	author git.Signature,
+	committer git.Signature,
 	message string,
 	ours string,
 	theirs string,
@@ -38,12 +33,12 @@ func (s *Server) merge(
 		TreeID:         treeOID,
 		Message:        message,
 		Parents:        parents,
-		AuthorName:     authorName,
-		AuthorEmail:    authorMail,
-		AuthorDate:     authorDate,
-		CommitterName:  committerName,
-		CommitterEmail: committerMail,
-		CommitterDate:  committerDate,
+		AuthorName:     author.Name,
+		AuthorEmail:    author.Email,
+		AuthorDate:     author.When,
+		CommitterName:  committer.Name,
+		CommitterEmail: committer.Email,
+		CommitterDate:  committer.When,
 	}
 	if sign {
 		cfg.SigningKey = s.signingKey
