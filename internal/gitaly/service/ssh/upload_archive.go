@@ -53,7 +53,7 @@ func (s *server) sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 
 	timeoutTicker := s.uploadArchiveRequestTimeoutTickerFactory()
 
-	if err := monitorStdinCommand(ctx, s.gitCmdFactory, req.GetRepository(), stdin, stdout, stderr, timeoutTicker, pktline.PktFlush(), git.Command{
+	if err := runUploadCommand(ctx, s.gitCmdFactory, req.GetRepository(), stdin, stdout, stderr, timeoutTicker, pktline.PktFlush(), git.Command{
 		Name: "upload-archive",
 		Args: []string{repoPath},
 	}); err != nil {

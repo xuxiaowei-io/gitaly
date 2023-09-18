@@ -15,7 +15,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func monitorStdinCommand(
+// runUploadCommand runs an uploading command like git-upload-pack(1) or git-upload-archive(1). It serves multiple
+// purposes:
+//
+//   - It sets up a large buffer reader such that we can write the data more efficiently.
+//
+//   - It logs how many bytes have been sent.
+//
+//   - It installs a timeout such that we can address time-of-check-to-time-of-use-style races. Otherwise it would be
+//     possible to open the connection early, keep it open for an extended amount of time, and only do the negotiation of
+//     what is to be sent at a later point when permissions of the user might have changed.
+func runUploadCommand(
 	rpcContext context.Context,
 	gitCmdFactory git.CommandFactory,
 	repo *gitalypb.Repository,

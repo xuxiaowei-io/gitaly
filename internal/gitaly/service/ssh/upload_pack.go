@@ -125,7 +125,7 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 	// "flush" tells the server it can terminate, while "done" tells it to start
 	// generating a packfile. Add a timeout to the second case to mitigate
 	// use-after-check attacks.
-	if err := monitorStdinCommand(ctx, s.gitCmdFactory, repo, stdin, stdout, stderr, timeoutTicker, pktline.PktDone(), git.Command{
+	if err := runUploadCommand(ctx, s.gitCmdFactory, repo, stdin, stdout, stderr, timeoutTicker, pktline.PktDone(), git.Command{
 		Name: "upload-pack",
 		Args: []string{repoPath},
 	}, commandOpts...); err != nil {
