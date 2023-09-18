@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -102,6 +101,11 @@ func validateResolveConflictsHeader(locator storage.Locator, header *gitalypb.Re
 }
 
 func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader, stream gitalypb.ConflictsService_ResolveConflictsServer) error {
+	authorSignature, err := git.SignatureFromRequest(header)
+	if err != nil {
+		return structerr.NewInvalidArgument("%w", err)
+	}
+
 	b := bytes.NewBuffer(nil)
 	for {
 		req, err := stream.Recv()
@@ -154,11 +158,6 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	authorDate := time.Now()
-	if header.Timestamp != nil {
-		authorDate = header.Timestamp.AsTime()
-	}
-
 	objectHash, err := quarantineRepo.ObjectHash(ctx)
 	if err != nil {
 		return fmt.Errorf("detecting object hash: %w", err)
@@ -175,8 +174,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		header.GetTheirCommitOid(),
 		quarantineRepo,
 		resolutions,
-		authorDate,
-		header.User,
+		authorSignature,
 		header.GetCommitMessage(),
 	)
 	if err != nil {
@@ -203,8 +201,7 @@ func (s *server) resolveConflictsWithGit(
 	ours, theirs string,
 	repo *localrepo.Repo,
 	resolutions []conflict.Resolution,
-	authorDate time.Time,
-	user *gitalypb.User,
+	author git.Signature,
 	commitMessage []byte,
 ) (git.ObjectID, error) {
 	treeOID, err := repo.MergeTree(ctx, ours, theirs, localrepo.WithAllowUnrelatedHistories())
@@ -344,12 +341,12 @@ func (s *server) resolveConflictsWithGit(
 
 	commitOID, err := repo.WriteCommit(ctx, localrepo.WriteCommitConfig{
 		Parents:        []git.ObjectID{git.ObjectID(ours), git.ObjectID(theirs)},
-		CommitterDate:  authorDate,
-		CommitterEmail: string(user.GetEmail()),
-		CommitterName:  string(user.GetName()),
-		AuthorDate:     authorDate,
-		AuthorEmail:    string(user.GetEmail()),
-		AuthorName:     string(user.GetName()),
+		CommitterDate:  author.When,
+		CommitterEmail: author.Email,
+		CommitterName:  author.Name,
+		AuthorDate:     author.When,
+		AuthorEmail:    author.Email,
+		AuthorName:     author.Name,
 		Message:        string(commitMessage),
 		TreeID:         treeOID,
 	})
