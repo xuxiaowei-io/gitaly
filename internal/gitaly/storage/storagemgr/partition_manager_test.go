@@ -107,7 +107,7 @@ func TestPartitionManager(t *testing.T) {
 				// The closePartition step closes the transaction manager directly without calling close
 				// on the partition, so we check the manager directly here as well.
 				if ptn.isClosing() || ptn.transactionManager.isClosing() {
-					waitFor = append(waitFor, ptn.closed)
+					waitFor = append(waitFor, ptn.transactionManagerClosed)
 				}
 			}
 			sp.mu.Unlock()
