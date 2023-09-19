@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // LegacyLocator locates backup paths for historic backups. This is the
@@ -28,12 +28,12 @@ import (
 type LegacyLocator struct{}
 
 // BeginFull returns the static paths for a legacy repository backup
-func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Backup {
+func (l LegacyLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
 	return l.newFull(repo)
 }
 
 // BeginIncremental is not supported for legacy backups
-func (l LegacyLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
+func (l LegacyLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
 	return nil, errors.New("legacy layout: begin incremental: not supported")
 }
 
@@ -43,17 +43,17 @@ func (l LegacyLocator) Commit(ctx context.Context, full *Backup) error {
 }
 
 // FindLatest returns the static paths for a legacy repository backup
-func (l LegacyLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
+func (l LegacyLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
 	return l.newFull(repo), nil
 }
 
 // Find is not supported for legacy backups.
-func (l LegacyLocator) Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
+func (l LegacyLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
 	return nil, errors.New("legacy layout: find: not supported")
 }
 
-func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Backup {
-	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l LegacyLocator) newFull(repo storage.Repository) *Backup {
+	backupPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 
 	return &Backup{
 		ObjectFormat: git.ObjectHashSHA1.Format,
@@ -84,8 +84,8 @@ type PointerLocator struct {
 }
 
 // BeginFull returns a tentative first step needed to create a new full backup.
-func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Backup {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
+	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 
 	return &Backup{
 		ObjectFormat: git.ObjectHashSHA1.Format,
@@ -103,8 +103,8 @@ func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository
 // backup.  The incremental backup is always based off of the latest full
 // backup. If there is no latest backup, a new full backup step is returned
 // using fallbackBackupID
-func (l PointerLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Repository, fallbackBackupID string) (*Backup, error) {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) BeginIncremental(ctx context.Context, repo storage.Repository, fallbackBackupID string) (*Backup, error) {
+	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 	backupID, err := l.findLatestID(ctx, repoPath)
 	if err != nil {
 		if errors.Is(err, ErrDoesntExist) {
@@ -164,8 +164,8 @@ func (l PointerLocator) Commit(ctx context.Context, backup *Backup) error {
 // FindLatest returns the paths committed by the latest call to CommitFull.
 //
 // If there is no `LATEST` file, the result of the `Fallback` is used.
-func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
+	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 
 	backupID, err := l.findLatestID(ctx, repoPath)
 	if err != nil {
@@ -184,7 +184,7 @@ func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repositor
 
 // Find returns the repository backup at the given backupID. If the backup does
 // not exist then the error ErrDoesntExist is returned.
-func (l PointerLocator) Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
+func (l PointerLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
 	backup, err := l.find(ctx, repo, backupID)
 	if err != nil {
 		return nil, fmt.Errorf("pointer locator: %w", err)
@@ -192,8 +192,8 @@ func (l PointerLocator) Find(ctx context.Context, repo *gitalypb.Repository, bac
 	return backup, nil
 }
 
-func (l PointerLocator) find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 	backupPath := filepath.Join(repoPath, backupID)
 
 	latestIncrementID, err := l.findLatestID(ctx, backupPath)

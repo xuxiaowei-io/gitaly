@@ -61,11 +61,11 @@ type Step struct {
 // Locator finds sink backup paths for repositories
 type Locator interface {
 	// BeginFull returns the tentative backup paths needed to create a full backup.
-	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Backup
+	BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup
 
 	// BeginIncremental returns the backup with the last element of Steps being
 	// the tentative step needed to create an incremental backup.
-	BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error)
+	BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error)
 
 	// Commit persists the backup so that it can be looked up by FindLatest. It
 	// is expected that the last element of Steps will be the newly created
@@ -73,11 +73,11 @@ type Locator interface {
 	Commit(ctx context.Context, backup *Backup) error
 
 	// FindLatest returns the latest backup that was written by Commit
-	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
+	FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error)
 
 	// Find returns the repository backup at the given backupID. If the backup does
 	// not exist then the error ErrDoesntExist is returned.
-	Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error)
+	Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error)
 }
 
 // Repository abstracts git access required to make a repository backup
