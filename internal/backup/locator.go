@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -263,4 +265,67 @@ func (l PointerLocator) writeLatest(ctx context.Context, path, target string) (r
 	}
 
 	return nil
+}
+
+// ManifestLocator locates backup paths based on manifest files that are
+// written to a predetermined path:
+//
+//	manifests/<repo_storage_name>/<repo_relative_path>/<backup_id>.toml
+//
+// It relies on Fallback to determine paths of new backups.
+type ManifestLocator struct {
+	Sink     Sink
+	Fallback Locator
+}
+
+// BeginFull passes through to Fallback
+func (l ManifestLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
+	return l.Fallback.BeginFull(ctx, repo, backupID)
+}
+
+// BeginIncremental passes through to Fallback
+func (l ManifestLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+	return l.Fallback.BeginIncremental(ctx, repo, backupID)
+}
+
+// Commit passes through to Fallback, then writes a manifest file for the backup.
+func (l ManifestLocator) Commit(ctx context.Context, backup *Backup) (returnErr error) {
+	if err := l.Fallback.Commit(ctx, backup); err != nil {
+		return err
+	}
+
+	f, err := l.Sink.GetWriter(ctx, manifestPath(backup))
+	if err != nil {
+		return fmt.Errorf("manifest: commit: %w", err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("manifest: commit: %w", err)
+		}
+	}()
+
+	if err := toml.NewEncoder(f).Encode(backup); err != nil {
+		return fmt.Errorf("manifest: commit: %w", err)
+	}
+
+	return nil
+}
+
+// FindLatest passes through to Fallback
+func (l ManifestLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
+	return l.Fallback.FindLatest(ctx, repo)
+}
+
+// Find passes through to Fallback
+func (l ManifestLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+	return l.Fallback.Find(ctx, repo, backupID)
+}
+
+func manifestPath(backup *Backup) string {
+	storageName := backup.Repository.GetStorageName()
+	// Other locators strip the .git suffix off of relative paths. This suffix
+	// is determined by gitlab-rails not gitaly. So here we leave the relative
+	// path as-is so that new backups can be more independent.
+	relativePath := backup.Repository.GetRelativePath()
+	return path.Join("manifests", storageName, relativePath, backup.ID+".toml")
 }

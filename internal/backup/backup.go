@@ -41,25 +41,25 @@ type Sink interface {
 // Backup represents all the information needed to restore a backup for a repository
 type Backup struct {
 	// ID is the identifier that uniquely identifies the backup for this repository.
-	ID string
+	ID string `toml:"-"`
 	// Repository is the repository being backed up.
-	Repository storage.Repository
+	Repository storage.Repository `toml:"-"`
 	// Steps are the ordered list of steps required to restore this backup
-	Steps []Step
+	Steps []Step `toml:"steps"`
 	// ObjectFormat is the name of the object hash used by the repository.
-	ObjectFormat string
+	ObjectFormat string `toml:"object_format"`
 }
 
 // Step represents an incremental step that makes up a complete backup for a repository
 type Step struct {
 	// BundlePath is the path of the bundle
-	BundlePath string
+	BundlePath string `toml:"bundle_path,omitempty"`
 	// RefPath is the path of the ref file
-	RefPath string
+	RefPath string `toml:"ref_path,omitempty"`
 	// PreviousRefPath is the path of the previous ref file
-	PreviousRefPath string
+	PreviousRefPath string `toml:"previous_ref_path,omitempty"`
 	// CustomHooksPath is the path of the custom hooks archive
-	CustomHooksPath string
+	CustomHooksPath string `toml:"custom_hooks_path,omitempty"`
 }
 
 // Locator finds sink backup paths for repositories
