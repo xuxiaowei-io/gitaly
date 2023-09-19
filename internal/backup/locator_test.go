@@ -403,3 +403,83 @@ func TestPointerLocator(t *testing.T) {
 		})
 	})
 }
+
+func TestManifestLocator(t *testing.T) {
+	t.Parallel()
+
+	const backupID = "abc123"
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		RelativePath:           t.Name(),
+	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+
+	t.Run("BeginFull/Commit", func(t *testing.T) {
+		t.Parallel()
+
+		backupPath := testhelper.TempDir(t)
+		sink := NewFilesystemSink(backupPath)
+		var l Locator = PointerLocator{
+			Sink: sink,
+		}
+		l = ManifestLocator{
+			Sink:     sink,
+			Fallback: l,
+		}
+
+		full := l.BeginFull(ctx, repo, backupID)
+		require.NoError(t, l.Commit(ctx, full))
+
+		manifest := testhelper.MustReadFile(t, filepath.Join(backupPath, "manifests", repo.StorageName, repo.RelativePath, backupID+".toml"))
+		require.Equal(t, fmt.Sprintf(`object_format = 'sha1'
+
+[[steps]]
+bundle_path = '%[1]s/%[2]s/001.bundle'
+ref_path = '%[1]s/%[2]s/001.refs'
+custom_hooks_path = '%[1]s/%[2]s/001.custom_hooks.tar'
+`, repo.RelativePath, backupID), string(manifest))
+	})
+
+	t.Run("BeginIncremental/Commit", func(t *testing.T) {
+		t.Parallel()
+
+		backupPath := testhelper.TempDir(t)
+
+		testhelper.WriteFiles(t, backupPath, map[string]any{
+			filepath.Join(repo.RelativePath, "LATEST"):           "abc123",
+			filepath.Join(repo.RelativePath, "abc123", "LATEST"): "001",
+		})
+
+		sink := NewFilesystemSink(backupPath)
+		var l Locator = PointerLocator{
+			Sink: sink,
+		}
+		l = ManifestLocator{
+			Sink:     sink,
+			Fallback: l,
+		}
+
+		incremental, err := l.BeginIncremental(ctx, repo, backupID)
+		require.NoError(t, err)
+		require.NoError(t, l.Commit(ctx, incremental))
+
+		manifest := testhelper.MustReadFile(t, filepath.Join(backupPath, "manifests", repo.StorageName, repo.RelativePath, backupID+".toml"))
+		require.Equal(t, fmt.Sprintf(`object_format = 'sha1'
+
+[[steps]]
+bundle_path = '%[1]s/%[2]s/001.bundle'
+ref_path = '%[1]s/%[2]s/001.refs'
+custom_hooks_path = '%[1]s/%[2]s/001.custom_hooks.tar'
+
+[[steps]]
+bundle_path = '%[1]s/%[2]s/002.bundle'
+ref_path = '%[1]s/%[2]s/002.refs'
+previous_ref_path = '%[1]s/%[2]s/001.refs'
+custom_hooks_path = '%[1]s/%[2]s/002.custom_hooks.tar'
+`, repo.RelativePath, backupID), string(manifest))
+	})
+}
