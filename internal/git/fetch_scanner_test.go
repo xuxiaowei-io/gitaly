@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -8,6 +9,8 @@ import (
 )
 
 func TestFetchScannerScan(t *testing.T) {
+	t.Parallel()
+
 	blank := FetchStatusLine{}
 
 	for _, tc := range []struct {
@@ -122,12 +125,193 @@ func TestFetchScannerScan(t *testing.T) {
 			success:  true,
 		},
 	} {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			scanner := NewFetchScanner(strings.NewReader(tc.data))
 			require.Equal(t, tc.success, scanner.Scan())
 			require.Equal(t, tc.expected, scanner.StatusLine())
 			require.Equal(t, tc.isTagAdded, scanner.StatusLine().IsTagAdded())
 			require.Equal(t, tc.isTagUpdated, scanner.StatusLine().IsTagUpdated())
+		})
+	}
+}
+
+func TestFetchPorcelainScannerScan(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc           string
+		data           string
+		hash           ObjectHash
+		expectedStatus FetchPorcelainStatusLine
+		expectedError  error
+		success        bool
+	}{
+		{
+			desc:           "empty line",
+			data:           "",
+			expectedStatus: FetchPorcelainStatusLine{},
+		},
+		{
+			desc:           "blank line",
+			data:           " ",
+			hash:           ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{},
+			expectedError:  errors.New("invalid status line"),
+		},
+		{
+			desc:           "invalid flag",
+			data:           "? 0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 refs/heads/main",
+			hash:           ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{},
+			expectedError:  errors.New("invalid reference update type: '?'"),
+		},
+		{
+			desc: "valid fast-forward status",
+			data: "  0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 refs/heads/main",
+			hash: ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{
+				Type:      RefUpdateTypeFastForwardUpdate,
+				OldOID:    ObjectID("0000000000000000000000000000000000000000"),
+				NewOID:    ObjectID("0000000000000000000000000000000000000001"),
+				Reference: "refs/heads/main",
+			},
+			success: true,
+		},
+		{
+			desc: "valid forced status",
+			data: "+ 0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 refs/heads/main",
+			hash: ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{
+				Type:      RefUpdateTypeForcedUpdate,
+				OldOID:    ObjectID("0000000000000000000000000000000000000000"),
+				NewOID:    ObjectID("0000000000000000000000000000000000000001"),
+				Reference: "refs/heads/main",
+			},
+			success: true,
+		},
+		{
+			desc: "valid pruned status",
+			data: "- 0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 refs/heads/main",
+			hash: ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{
+				Type:      RefUpdateTypePruned,
+				OldOID:    ObjectID("0000000000000000000000000000000000000000"),
+				NewOID:    ObjectID("0000000000000000000000000000000000000001"),
+				Reference: "refs/heads/main",
+			},
+			success: true,
+		},
+		{
+			desc: "valid tag status",
+			data: "t 0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 refs/heads/main",
+			hash: ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{
+				Type:      RefUpdateTypeTagUpdate,
+				OldOID:    ObjectID("0000000000000000000000000000000000000000"),
+				NewOID:    ObjectID("0000000000000000000000000000000000000001"),
+				Reference: "refs/heads/main",
+			},
+			success: true,
+		},
+		{
+			desc: "valid fetched status",
+			data: "* 0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 refs/heads/main",
+			hash: ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{
+				Type:      RefUpdateTypeFetched,
+				OldOID:    ObjectID("0000000000000000000000000000000000000000"),
+				NewOID:    ObjectID("0000000000000000000000000000000000000001"),
+				Reference: "refs/heads/main",
+			},
+			success: true,
+		},
+		{
+			desc: "valid rejected status",
+			data: "! 0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 refs/heads/main",
+			hash: ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{
+				Type:      RefUpdateTypeUpdateFailed,
+				OldOID:    ObjectID("0000000000000000000000000000000000000000"),
+				NewOID:    ObjectID("0000000000000000000000000000000000000001"),
+				Reference: "refs/heads/main",
+			},
+			success: true,
+		},
+		{
+			desc: "valid up-to-date status",
+			data: "= 0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 refs/heads/main",
+			hash: ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{
+				Type:      RefUpdateTypeUnchanged,
+				OldOID:    ObjectID("0000000000000000000000000000000000000000"),
+				NewOID:    ObjectID("0000000000000000000000000000000000000001"),
+				Reference: "refs/heads/main",
+			},
+			success: true,
+		},
+		{
+			desc:           "invalid sha1 old OID",
+			data:           "  0 0000000000000000000000000000000000000001 refs/heads/main",
+			hash:           ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{},
+			expectedError:  errors.New("constructing old OID: invalid object ID: \"0\", expected length 40, got 1"),
+		},
+		{
+			desc:           "invalid sha1 new OID",
+			data:           "  0000000000000000000000000000000000000000 1 refs/heads/main",
+			hash:           ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{},
+			expectedError:  errors.New("constructing new OID: invalid object ID: \"1\", expected length 40, got 1"),
+		},
+		{
+			desc: "valid sha256 status",
+			data: "  0000000000000000000000000000000000000000000000000000000000000000 0000000000000000000000000000000000000000000000000000000000000001 refs/heads/main",
+			hash: ObjectHashSHA256,
+			expectedStatus: FetchPorcelainStatusLine{
+				Type:      RefUpdateTypeFastForwardUpdate,
+				OldOID:    ObjectID("0000000000000000000000000000000000000000000000000000000000000000"),
+				NewOID:    ObjectID("0000000000000000000000000000000000000000000000000000000000000001"),
+				Reference: "refs/heads/main",
+			},
+			success: true,
+		},
+		{
+			desc:           "invalid sha256 old OID",
+			data:           "  0 0000000000000000000000000000000000000000000000000000000000000001 refs/heads/main",
+			hash:           ObjectHashSHA256,
+			expectedStatus: FetchPorcelainStatusLine{},
+			expectedError:  errors.New("constructing old OID: invalid object ID: \"0\", expected length 64, got 1"),
+		},
+		{
+			desc:           "invalid sha256 new OID",
+			data:           "  0000000000000000000000000000000000000000000000000000000000000000 1 refs/heads/main",
+			hash:           ObjectHashSHA256,
+			expectedStatus: FetchPorcelainStatusLine{},
+			expectedError:  errors.New("constructing new OID: invalid object ID: \"1\", expected length 64, got 1"),
+		},
+		{
+			desc:           "invalid reference",
+			data:           "  0000000000000000000000000000000000000000 0000000000000000000000000000000000000001 main",
+			hash:           ObjectHashSHA1,
+			expectedStatus: FetchPorcelainStatusLine{},
+			expectedError:  errors.New("validating reference: reference is not fully qualified"),
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			scanner := NewFetchPorcelainScanner(strings.NewReader(tc.data), tc.hash)
+			require.Equal(t, tc.success, scanner.Scan())
+			require.Equal(t, tc.expectedStatus, scanner.StatusLine())
+			if tc.expectedError != nil {
+				require.EqualError(t, scanner.err, tc.expectedError.Error())
+			} else {
+				require.NoError(t, tc.expectedError)
+			}
 		})
 	}
 }
