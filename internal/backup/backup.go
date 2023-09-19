@@ -40,6 +40,10 @@ type Sink interface {
 
 // Backup represents all the information needed to restore a backup for a repository
 type Backup struct {
+	// ID is the identifier that uniquely identifies the backup for this repository.
+	ID string
+	// Repository is the repository being backed up.
+	Repository storage.Repository
 	// Steps are the ordered list of steps required to restore this backup
 	Steps []Step
 	// ObjectFormat is the name of the object hash used by the repository.

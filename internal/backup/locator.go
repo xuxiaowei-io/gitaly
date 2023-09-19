@@ -56,6 +56,7 @@ func (l LegacyLocator) newFull(repo storage.Repository) *Backup {
 	backupPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 
 	return &Backup{
+		Repository:   repo,
 		ObjectFormat: git.ObjectHashSHA1.Format,
 		Steps: []Step{
 			{
@@ -88,6 +89,8 @@ func (l PointerLocator) BeginFull(ctx context.Context, repo storage.Repository, 
 	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 
 	return &Backup{
+		ID:           backupID,
+		Repository:   repo,
 		ObjectFormat: git.ObjectHashSHA1.Format,
 		Steps: []Step{
 			{
@@ -130,6 +133,7 @@ func (l PointerLocator) BeginIncremental(ctx context.Context, repo storage.Repos
 	}
 	id++
 
+	backup.ID = fallbackBackupID
 	backup.Steps = append(backup.Steps, Step{
 		BundlePath:      filepath.Join(backupPath, fmt.Sprintf("%03d.bundle", id)),
 		RefPath:         filepath.Join(backupPath, fmt.Sprintf("%03d.refs", id)),
@@ -207,6 +211,8 @@ func (l PointerLocator) find(ctx context.Context, repo storage.Repository, backu
 	}
 
 	backup := Backup{
+		ID:           backupID,
+		Repository:   repo,
 		ObjectFormat: git.ObjectHashSHA1.Format,
 	}
 
