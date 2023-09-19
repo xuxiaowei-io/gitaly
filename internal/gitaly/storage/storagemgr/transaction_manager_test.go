@@ -3445,99 +3445,6 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "forced reference creation succeeds",
-			steps: steps{
-				StartManager{},
-				Begin{},
-				Commit{
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {Force: true, NewOID: setup.Commits.First.OID},
-					},
-				},
-			},
-			expectedState: StateAssertion{
-				Database: DatabaseState{
-					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
-				},
-				Repositories: RepositoryStates{
-					relativePath: {
-						DefaultBranch: "refs/heads/main",
-						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
-					},
-				},
-			},
-		},
-		{
-			desc: "forced reference update succeeds",
-			steps: steps{
-				StartManager{},
-				Begin{
-					TransactionID: 1,
-				},
-				Commit{
-					TransactionID: 1,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
-					},
-				},
-				Begin{
-					TransactionID: 2,
-					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-					},
-				},
-				Commit{
-					TransactionID: 2,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {Force: true, NewOID: setup.Commits.Second.OID},
-					},
-				},
-			},
-			expectedState: StateAssertion{
-				Database: DatabaseState{
-					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
-				},
-				Repositories: RepositoryStates{
-					relativePath: {
-						DefaultBranch: "refs/heads/main",
-						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
-					},
-				},
-			},
-		},
-		{
-			desc: "forced reference deletion succeeds",
-			steps: steps{
-				StartManager{},
-				Begin{
-					TransactionID: 1,
-				},
-				Commit{
-					TransactionID: 1,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
-					},
-				},
-				Begin{
-					TransactionID: 2,
-					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-					},
-				},
-				Commit{
-					TransactionID: 2,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {Force: true, NewOID: setup.ObjectHash.ZeroOID},
-					},
-				},
-			},
-			expectedState: StateAssertion{
-				Database: DatabaseState{
-					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
-				},
-			},
-		},
-		{
 			desc: "transaction rollbacked after already being rollbacked",
 			steps: steps{
 				StartManager{},
@@ -3699,7 +3606,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						tc.referenceName: {Force: true, NewOID: setup.Commits.First.OID},
+						tc.referenceName: {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: InvalidReferenceFormatError{ReferenceName: tc.referenceName},
 				},

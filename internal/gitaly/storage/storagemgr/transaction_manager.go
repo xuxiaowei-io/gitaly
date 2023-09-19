@@ -90,9 +90,6 @@ func (index LogIndex) String() string {
 
 // ReferenceUpdate describes the state of a reference's old and new tip in an update.
 type ReferenceUpdate struct {
-	// Force indicates this is a forced reference update. If set, the reference is pointed
-	// to the new value regardless of the old value.
-	Force bool
 	// OldOID is the old OID the reference is expected to point to prior to updating it.
 	// If the reference does not point to the old value, the reference verification fails.
 	OldOID git.ObjectID
@@ -455,9 +452,6 @@ func (txn *Transaction) walFilesPath() string {
 //     - The reference verification failures can be ignored instead of aborting the entire transaction.
 //     If done, the references that failed verification are dropped from the transaction but the updates
 //     that passed verification are still performed.
-//     - The reference verification may also be skipped if the write is force updating references. If
-//     done, the current state of the references is ignored and they are directly updated to point
-//     to the new tips.
 //  2. The transaction is appended to the write-ahead log. Once the write has been logged, it is effectively
 //     committed and will be applied to the repository even after restarting.
 //  3. The transaction is applied from the write-ahead log to the repository by actually performing the reference
@@ -1222,29 +1216,27 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 			return nil, InvalidReferenceFormatError{ReferenceName: referenceName}
 		}
 
-		if !update.Force {
-			actualOldTip, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision())
-			if errors.Is(err, git.ErrReferenceNotFound) {
-				objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
-				if err != nil {
-					return nil, fmt.Errorf("object hash: %w", err)
-				}
-
-				actualOldTip = objectHash.ZeroOID
-			} else if err != nil {
-				return nil, fmt.Errorf("resolve revision: %w", err)
+		actualOldTip, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision())
+		if errors.Is(err, git.ErrReferenceNotFound) {
+			objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("object hash: %w", err)
 			}
 
-			if update.OldOID != actualOldTip {
-				if transaction.skipVerificationFailures {
-					continue
-				}
+			actualOldTip = objectHash.ZeroOID
+		} else if err != nil {
+			return nil, fmt.Errorf("resolve revision: %w", err)
+		}
 
-				return nil, ReferenceVerificationError{
-					ReferenceName: referenceName,
-					ExpectedOID:   update.OldOID,
-					ActualOID:     actualOldTip,
-				}
+		if update.OldOID != actualOldTip {
+			if transaction.skipVerificationFailures {
+				continue
+			}
+
+			return nil, ReferenceVerificationError{
+				ReferenceName: referenceName,
+				ExpectedOID:   update.OldOID,
+				ActualOID:     actualOldTip,
 			}
 		}
 
