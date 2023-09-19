@@ -96,6 +96,8 @@ func TestUnaryLimitHandler(t *testing.T) {
 }
 
 func TestUnaryLimitHandler_queueing(t *testing.T) {
+	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5601")
+
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
