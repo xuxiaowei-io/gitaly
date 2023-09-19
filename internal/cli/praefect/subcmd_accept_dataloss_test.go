@@ -53,7 +53,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 		require.NoError(t, rs.SetGeneration(ctx, 1, storage, repo, generation))
 	}
 
-	ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(info.NewServer(conf, rs, nil, nil, nil))})
+	ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(info.NewServer(conf, testhelper.NewLogger(t), rs, nil, nil, nil))})
 	defer clean()
 
 	conf.SocketPath = ln.Addr().String()

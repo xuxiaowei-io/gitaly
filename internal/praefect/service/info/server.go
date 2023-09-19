@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
@@ -36,6 +37,7 @@ type PrimaryGetter interface {
 type Server struct {
 	gitalypb.UnimplementedPraefectInfoServiceServer
 	conf            config.Config
+	logger          log.Logger
 	rs              datastore.RepositoryStore
 	assignmentStore AssignmentStore
 	conns           service.Connections
@@ -45,6 +47,7 @@ type Server struct {
 // NewServer creates a new instance of a grpc InfoServiceServer
 func NewServer(
 	conf config.Config,
+	logger log.Logger,
 	rs datastore.RepositoryStore,
 	assignmentStore AssignmentStore,
 	conns service.Connections,
@@ -52,6 +55,7 @@ func NewServer(
 ) gitalypb.PraefectInfoServiceServer {
 	return &Server{
 		conf:            conf,
+		logger:          logger,
 		rs:              rs,
 		assignmentStore: assignmentStore,
 		conns:           conns,

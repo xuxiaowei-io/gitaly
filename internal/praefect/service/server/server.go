@@ -1,6 +1,7 @@
 package server
 
 import (
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -10,14 +11,16 @@ import (
 type Server struct {
 	gitalypb.UnimplementedServerServiceServer
 	conf   config.Config
+	logger log.Logger
 	conns  service.Connections
 	checks []service.CheckFunc
 }
 
 // NewServer creates a new instance of a grpc ServerServiceServer
-func NewServer(conf config.Config, conns service.Connections, checks []service.CheckFunc) gitalypb.ServerServiceServer {
+func NewServer(conf config.Config, logger log.Logger, conns service.Connections, checks []service.CheckFunc) gitalypb.ServerServiceServer {
 	s := &Server{
 		conf:   conf,
+		logger: logger,
 		conns:  conns,
 		checks: checks,
 	}

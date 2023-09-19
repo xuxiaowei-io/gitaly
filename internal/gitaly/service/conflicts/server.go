@@ -12,12 +12,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 type server struct {
 	gitalypb.UnimplementedConflictsServiceServer
+	logger        log.Logger
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
@@ -29,6 +31,7 @@ type server struct {
 // NewServer creates a new instance of a grpc ConflictsServer
 func NewServer(deps *service.Dependencies) gitalypb.ConflictsServiceServer {
 	return &server{
+		logger:        deps.GetLogger(),
 		hookManager:   deps.GetHookManager(),
 		locator:       deps.GetLocator(),
 		gitCmdFactory: deps.GetGitCmdFactory(),

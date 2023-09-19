@@ -409,6 +409,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		}
 
 		setup.RegisterAll(srv, &service.Dependencies{
+			Logger:              logger,
 			Cfg:                 cfg,
 			GitalyHookManager:   hookManager,
 			TransactionManager:  transactionManager,

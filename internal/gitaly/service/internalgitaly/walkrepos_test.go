@@ -77,6 +77,7 @@ func TestWalkRepos(t *testing.T) {
 	// the first repo 'a' is being streamed to the client.
 	deleteOnce := sync.Once{}
 	srv := NewServer(&service.Dependencies{
+		Logger:         testhelper.SharedLogger(t),
 		Cfg:            cfg,
 		StorageLocator: config.NewLocator(cfg),
 	})

@@ -72,7 +72,7 @@ func TestDatalossSubcommand(t *testing.T) {
 	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-3", "repository-2", 0))
 
 	ln, clean := listenAndServe(t, []svcRegistrar{
-		registerPraefectInfoServer(info.NewServer(cfg, gs, nil, nil, nil)),
+		registerPraefectInfoServer(info.NewServer(cfg, testhelper.NewLogger(t), gs, nil, nil, nil)),
 	})
 	defer clean()
 	cfg.SocketPath = ln.Addr().String()
