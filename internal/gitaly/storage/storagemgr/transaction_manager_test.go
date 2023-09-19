@@ -370,12 +370,13 @@ func TestTransactionManager(t *testing.T) {
 	// closed.
 	type RemoveRepository struct{}
 
-	// RepositoryAssertion asserts a given transaction's repository state matches the expected.
+	// RepositoryAssertion asserts a given transaction's view of repositories matches the expected.
 	type RepositoryAssertion struct {
 		// TransactionID identifies the transaction whose snapshot to assert.
 		TransactionID int
-		// Repository is the expected state of the repository.
-		Repository RepositoryState
+		// Repositories is the expected state of the repositories the transaction sees. The
+		// key is the repository's relative path and the value describes its expected state.
+		Repositories RepositoryStates
 	}
 
 	// StateAssertions models an assertion of the entire state managed by the TransactionManager.
@@ -2272,27 +2273,31 @@ func TestTransactionManager(t *testing.T) {
 				},
 				RepositoryAssertion{
 					TransactionID: 1,
-					Repository: RepositoryState{
-						DefaultBranch: "refs/heads/main",
-						Objects: []git.ObjectID{
-							setup.ObjectHash.EmptyTreeOID,
-							setup.Commits.First.OID,
-							setup.Commits.Second.OID,
-							setup.Commits.Third.OID,
-							setup.Commits.Diverging.OID,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/main",
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+								setup.Commits.Third.OID,
+								setup.Commits.Diverging.OID,
+							},
 						},
 					},
 				},
 				RepositoryAssertion{
 					TransactionID: 2,
-					Repository: RepositoryState{
-						DefaultBranch: "refs/heads/main",
-						Objects: []git.ObjectID{
-							setup.ObjectHash.EmptyTreeOID,
-							setup.Commits.First.OID,
-							setup.Commits.Second.OID,
-							setup.Commits.Third.OID,
-							setup.Commits.Diverging.OID,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/main",
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+								setup.Commits.Third.OID,
+								setup.Commits.Diverging.OID,
+							},
 						},
 					},
 				},
@@ -2309,26 +2314,28 @@ func TestTransactionManager(t *testing.T) {
 				// changes immediately.
 				RepositoryAssertion{
 					TransactionID: 2,
-					Repository: RepositoryState{
-						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-						},
-						Objects: []git.ObjectID{
-							setup.ObjectHash.EmptyTreeOID,
-							setup.Commits.First.OID,
-							setup.Commits.Second.OID,
-							setup.Commits.Third.OID,
-							setup.Commits.Diverging.OID,
-						},
-						CustomHooks: testhelper.DirectoryState{
-							"/": {Mode: fs.ModeDir | perm.PrivateDir},
-							"/pre-receive": {
-								Mode:    umask.Mask(fs.ModePerm),
-								Content: []byte("hook content"),
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/main",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 							},
-							"/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+								setup.Commits.Third.OID,
+								setup.Commits.Diverging.OID,
+							},
+							CustomHooks: testhelper.DirectoryState{
+								"/": {Mode: fs.ModeDir | perm.PrivateDir},
+								"/pre-receive": {
+									Mode:    umask.Mask(fs.ModePerm),
+									Content: []byte("hook content"),
+								},
+								"/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
+								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							},
 						},
 					},
 				},
@@ -2342,26 +2349,28 @@ func TestTransactionManager(t *testing.T) {
 				// Transaction 3 is should see the new changes as it began after transaction 1 was committed.
 				RepositoryAssertion{
 					TransactionID: 3,
-					Repository: RepositoryState{
-						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-						},
-						Objects: []git.ObjectID{
-							setup.ObjectHash.EmptyTreeOID,
-							setup.Commits.First.OID,
-							setup.Commits.Second.OID,
-							setup.Commits.Third.OID,
-							setup.Commits.Diverging.OID,
-						},
-						CustomHooks: testhelper.DirectoryState{
-							"/": {Mode: fs.ModeDir | perm.PrivateDir},
-							"/pre-receive": {
-								Mode:    umask.Mask(fs.ModePerm),
-								Content: []byte("hook content"),
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/main",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 							},
-							"/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+								setup.Commits.Third.OID,
+								setup.Commits.Diverging.OID,
+							},
+							CustomHooks: testhelper.DirectoryState{
+								"/": {Mode: fs.ModeDir | perm.PrivateDir},
+								"/pre-receive": {
+									Mode:    umask.Mask(fs.ModePerm),
+									Content: []byte("hook content"),
+								},
+								"/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
+								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							},
 						},
 					},
 				},
@@ -3089,9 +3098,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				RepositoryAssertion{
 					TransactionID: 2,
-					Repository: RepositoryState{
-						NotFound: true,
-					},
+					Repositories:  RepositoryStates{},
 				},
 				Rollback{
 					TransactionID: 2,
@@ -3243,9 +3250,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				RepositoryAssertion{
 					TransactionID: 2,
-					Repository: RepositoryState{
-						NotFound: true,
-					},
+					Repositories:  RepositoryStates{},
 				},
 				Rollback{
 					TransactionID: 2,
@@ -3289,9 +3294,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				RepositoryAssertion{
 					TransactionID: 2,
-					Repository: RepositoryState{
-						NotFound: true,
-					},
+					Repositories:  RepositoryStates{},
 				},
 				Rollback{
 					TransactionID: 2,
@@ -3314,9 +3317,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				RepositoryAssertion{
 					TransactionID: 1,
-					Repository: RepositoryState{
-						NotFound: true,
-					},
+					Repositories:  RepositoryStates{},
 				},
 				Rollback{
 					TransactionID: 1,
@@ -3392,14 +3393,16 @@ func TestTransactionManager(t *testing.T) {
 				// repository despite the committed deletion.
 				RepositoryAssertion{
 					TransactionID: 2,
-					Repository: RepositoryState{
-						DefaultBranch: "refs/heads/main",
-						Objects: []git.ObjectID{
-							setup.ObjectHash.EmptyTreeOID,
-							setup.Commits.First.OID,
-							setup.Commits.Second.OID,
-							setup.Commits.Third.OID,
-							setup.Commits.Diverging.OID,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/main",
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+								setup.Commits.Third.OID,
+								setup.Commits.Diverging.OID,
+							},
 						},
 					},
 				},
@@ -4003,10 +4006,14 @@ func TestTransactionManager(t *testing.T) {
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction's snapshot asserted before beginning it")
 					transaction := openTransactions[step.TransactionID]
 
-					RequireRepositoryState(t, ctx, setup.Config,
-						setup.RepositoryFactory.Build(
-							transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
-						), step.Repository)
+					RequireRepositories(t, ctx, setup.Config,
+						storagePath,
+						// Rewrite all of the repositories to point to their snapshots.
+						func(relativePath string) *localrepo.Repo {
+							return setup.RepositoryFactory.Build(
+								transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
+							)
+						}, step.Repositories)
 				default:
 					t.Fatalf("unhandled step type: %T", step)
 				}

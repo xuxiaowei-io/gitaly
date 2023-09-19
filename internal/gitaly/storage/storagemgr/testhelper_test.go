@@ -27,10 +27,6 @@ func TestMain(m *testing.M) {
 
 // RepositoryState describes the full asserted state of a repository.
 type RepositoryState struct {
-	// NotFound when set asserts the repository should not exist. When set
-	// the repository's directory asserted to not exist and the other
-	// assertions ignored.
-	NotFound bool
 	// DefaultBranch is the expected refname that HEAD points to.
 	DefaultBranch git.ReferenceName
 	// References are references expected to exist.
@@ -46,13 +42,6 @@ func RequireRepositoryState(tb testing.TB, ctx context.Context, cfg config.Cfg, 
 	tb.Helper()
 
 	repoPath, err := repo.Path()
-	if expected.NotFound {
-		require.Equal(tb, storage.NewRepositoryNotFoundError(
-			repo.GetStorageName(), repo.GetRelativePath(),
-		), err)
-		return
-	}
-
 	require.NoError(tb, err)
 
 	headReference, err := repo.HeadReference(ctx)
