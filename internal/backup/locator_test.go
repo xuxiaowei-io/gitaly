@@ -34,6 +34,8 @@ func TestLegacyLocator(t *testing.T) {
 		t.Parallel()
 
 		expected := &Backup{
+			ID:           "", // legacy storage can only store a single backup.
+			Repository:   repo,
 			ObjectFormat: git.ObjectHashSHA1.Format,
 			Steps: []Step{
 				{
@@ -54,6 +56,8 @@ func TestLegacyLocator(t *testing.T) {
 		t.Parallel()
 
 		expected := &Backup{
+			ID:           "", // legacy storage can only store a single backup.
+			Repository:   repo,
 			ObjectFormat: git.ObjectHashSHA1.Format,
 			Steps: []Step{
 				{
@@ -95,6 +99,8 @@ func TestPointerLocator(t *testing.T) {
 
 		const expectedIncrement = "001"
 		expected := &Backup{
+			ID:           backupID,
+			Repository:   repo,
 			ObjectFormat: git.ObjectHashSHA1.Format,
 			Steps: []Step{
 				{
@@ -160,6 +166,8 @@ func TestPointerLocator(t *testing.T) {
 				for i := 1; i <= 3; i++ {
 					var previousRefPath, expectedIncrement string
 					expected = &Backup{
+						ID:           fallbackBackupID,
+						Repository:   repo,
 						ObjectFormat: git.ObjectHashSHA1.Format,
 					}
 					for incrementID := 1; incrementID <= i+tc.expectedOffset; incrementID++ {
@@ -208,6 +216,8 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), perm.SharedFile))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("003"), perm.SharedFile))
 			expected := &Backup{
+				ID:           backupID,
+				Repository:   repo,
 				ObjectFormat: git.ObjectHashSHA1.Format,
 				Steps: []Step{
 					{
@@ -245,6 +255,8 @@ func TestPointerLocator(t *testing.T) {
 			}
 
 			expectedFallback := &Backup{
+				ID:           "",
+				Repository:   repo,
 				ObjectFormat: git.ObjectHashSHA1.Format,
 				Steps: []Step{
 					{
@@ -263,6 +275,8 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), perm.SharedFile))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("001"), perm.SharedFile))
 			expected := &Backup{
+				ID:           backupID,
+				Repository:   repo,
 				ObjectFormat: git.ObjectHashSHA1.Format,
 				Steps: []Step{
 					{
@@ -341,6 +355,8 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), perm.SharedDir))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("003"), perm.SharedFile))
 			expected := &Backup{
+				ID:           backupID,
+				Repository:   repo,
 				ObjectFormat: git.ObjectHashSHA1.Format,
 				Steps: []Step{
 					{
