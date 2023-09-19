@@ -52,104 +52,26 @@ var (
 
 // RegisterAll will register all the known gRPC services on  the provided gRPC service instance.
 func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
-	gitalypb.RegisterBlobServiceServer(srv, blob.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-	))
-	gitalypb.RegisterCleanupServiceServer(srv, cleanup.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-	))
-	gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-		deps.GetCfg(),
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-	))
-	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-	))
-	gitalypb.RegisterNamespaceServiceServer(srv, namespace.NewServer(deps.GetLocator()))
-	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(
-		deps.GetHookManager(),
-		deps.GetTxManager(),
-		deps.GetLocator(),
-		deps.GetConnsPool(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-		deps.GetUpdaterWithHooks(),
-		deps.GetCfg().Git.SigningKey,
-	))
-	gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetTxManager(),
-		deps.GetCatfileCache(),
-	))
-	gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-		deps.GetCfg(),
-		deps.GetLocator(),
-		deps.GetTxManager(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-		deps.GetConnsPool(),
-		deps.GetHousekeepingManager(),
-		deps.GetBackupSink(),
-		deps.GetBackupLocator(),
-		deps.GetRepositoryCounter(),
-	))
-	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetTxManager(),
+	gitalypb.RegisterBlobServiceServer(srv, blob.NewServer(deps))
+	gitalypb.RegisterCleanupServiceServer(srv, cleanup.NewServer(deps))
+	gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
+	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(deps))
+	gitalypb.RegisterNamespaceServiceServer(srv, namespace.NewServer(deps))
+	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(deps))
+	gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps))
+	gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
+	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps,
 		ssh.WithPackfileNegotiationMetrics(sshPackfileNegotiationMetrics),
 	))
-	gitalypb.RegisterSmartHTTPServiceServer(srv, smarthttp.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetTxManager(),
-		deps.GetDiskCache(),
+	gitalypb.RegisterSmartHTTPServiceServer(srv, smarthttp.NewServer(deps,
 		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
 	))
-	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(
-		deps.GetHookManager(),
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-		deps.GetConnsPool(),
-		deps.GetUpdaterWithHooks(),
-	))
-	gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-		deps.GetTxManager(),
-		deps.GetConnsPool(),
-	))
-	gitalypb.RegisterServerServiceServer(srv, server.NewServer(deps.GetGitCmdFactory(), deps.GetCfg().Storages))
-	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetCatfileCache(),
-		deps.GetTxManager(),
-		deps.GetHousekeepingManager(),
-		deps.GetRepositoryCounter(),
-	))
-	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
-		deps.GetHookManager(),
-		deps.GetLocator(),
-		deps.GetGitCmdFactory(),
-		deps.GetPackObjectsCache(),
-		deps.GetPackObjectsLimiter(),
-	))
-	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(
-		deps.GetCfg().Storages,
-		deps.GetLocator(),
-	))
+	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(deps))
+	gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(deps))
+	gitalypb.RegisterServerServiceServer(srv, server.NewServer(deps))
+	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(deps))
+	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps))
+	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(deps))
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 	reflection.Register(srv)

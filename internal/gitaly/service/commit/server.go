@@ -5,6 +5,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -18,17 +19,12 @@ type server struct {
 }
 
 // NewServer creates a new instance of a grpc CommitServiceServer
-func NewServer(
-	cfg config.Cfg,
-	locator storage.Locator,
-	gitCmdFactory git.CommandFactory,
-	catfileCache catfile.Cache,
-) gitalypb.CommitServiceServer {
+func NewServer(deps *service.Dependencies) gitalypb.CommitServiceServer {
 	return &server{
-		locator:       locator,
-		gitCmdFactory: gitCmdFactory,
-		catfileCache:  catfileCache,
-		cfg:           cfg,
+		locator:       deps.GetLocator(),
+		gitCmdFactory: deps.GetGitCmdFactory(),
+		catfileCache:  deps.GetCatfileCache(),
+		cfg:           deps.GetCfg(),
 	}
 }
 

@@ -36,18 +36,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 		cfg := testcfg.Build(t, testcfg.WithStorages(storage))
 		cfgs = append(cfgs, cfg)
 		cfgs[i].SocketPath = testserver.RunGitalyServer(t, cfgs[i], func(srv *grpc.Server, deps *service.Dependencies) {
-			gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-				deps.GetCfg(),
-				deps.GetLocator(),
-				deps.GetTxManager(),
-				deps.GetGitCmdFactory(),
-				deps.GetCatfileCache(),
-				deps.GetConnsPool(),
-				deps.GetHousekeepingManager(),
-				deps.GetBackupSink(),
-				deps.GetBackupLocator(),
-				deps.GetRepositoryCounter(),
-			))
+			gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 		}, testserver.WithDisablePraefect())
 		cfgNodes = append(cfgNodes, &config.Node{
 			Storage: cfgs[i].Storages[0].Name,

@@ -23,23 +23,8 @@ func setupDiffService(tb testing.TB, opt ...testserver.GitalyServerOpt) (config.
 	cfg := testcfg.Build(tb)
 
 	addr := testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterDiffServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-		))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			cfg,
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
+		gitalypb.RegisterDiffServiceServer(srv, NewServer(deps))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 	}, opt...)
 	cfg.SocketPath = addr
 

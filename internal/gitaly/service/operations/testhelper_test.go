@@ -79,54 +79,12 @@ func runOperationServiceServer(tb testing.TB, cfg config.Cfg, options ...testser
 	tb.Helper()
 
 	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		operationServer := NewServer(
-			deps.GetHookManager(),
-			deps.GetTxManager(),
-			deps.GetLocator(),
-			deps.GetConnsPool(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetUpdaterWithHooks(),
-			deps.GetCfg().Git.SigningKey,
-		)
-
-		gitalypb.RegisterOperationServiceServer(srv, operationServer)
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
-		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetCatfileCache(),
-		))
-		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-		))
-		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-		))
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
+		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps))
 	}, options...)
 }
 

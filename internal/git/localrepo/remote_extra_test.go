@@ -29,30 +29,9 @@ func TestRepo_FetchInternal(t *testing.T) {
 	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 	}, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
 	testcfg.BuildGitalySSH(t, cfg)

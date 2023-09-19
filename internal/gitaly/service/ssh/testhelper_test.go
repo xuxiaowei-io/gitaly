@@ -30,38 +30,10 @@ func runSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, ser
 
 func startSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, serverOpts ...testserver.GitalyServerOpt) testserver.GitalyServer {
 	return testserver.StartGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSSHServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			opts...))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			cfg,
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
-		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetHousekeepingManager(),
-			deps.GetRepositoryCounter(),
-		))
+		gitalypb.RegisterSSHServiceServer(srv, NewServer(deps, opts...))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
+		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(deps))
 	}, serverOpts...)
 }
 

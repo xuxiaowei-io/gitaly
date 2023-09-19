@@ -863,13 +863,7 @@ func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, assertUserDeta
 		gitalypb.RegisterHookServiceServer(srv, baggageAsserter{
 			t:                 t,
 			assertUserDetails: assertUserDetails,
-			wrapped: hook.NewServer(
-				deps.GetHookManager(),
-				deps.GetLocator(),
-				deps.GetGitCmdFactory(),
-				deps.GetPackObjectsCache(),
-				deps.GetPackObjectsLimiter(),
-			),
+			wrapped:           hook.NewServer(deps),
 		})
 	}, append(serverOpts, testserver.WithGitLabClient(gitlabClient))...)
 }

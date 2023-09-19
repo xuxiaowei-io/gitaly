@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -54,30 +53,13 @@ func runHooksServer(tb testing.TB, cfg config.Cfg, opts []serverOption, serverOp
 	serverOpts = append(serverOpts, testserver.WithDisablePraefect())
 
 	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		hookServer := NewServer(
-			gitalyhook.NewManager(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager(), deps.GetGitlabClient()),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		)
+		hookServer := NewServer(deps)
 		for _, opt := range opts {
 			opt(hookServer.(*server))
 		}
 
 		gitalypb.RegisterHookServiceServer(srv, hookServer)
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			cfg,
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 	}, serverOpts...)
 }
 

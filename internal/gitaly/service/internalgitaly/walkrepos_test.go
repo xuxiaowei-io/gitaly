@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -75,10 +76,10 @@ func TestWalkRepos(t *testing.T) {
 	// stream that allows us to hook in to stream responses. We then delete 'b' when
 	// the first repo 'a' is being streamed to the client.
 	deleteOnce := sync.Once{}
-	srv := NewServer(
-		[]config.Storage{{Name: storageName, Path: storageRoot}},
-		config.NewLocator(cfg),
-	)
+	srv := NewServer(&service.Dependencies{
+		Cfg:            cfg,
+		StorageLocator: config.NewLocator(cfg),
+	})
 	wsrv := &serverWrapper{
 		srv,
 		func(r *gitalypb.WalkReposRequest, s gitalypb.InternalGitaly_WalkReposServer) error {

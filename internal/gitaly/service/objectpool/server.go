@@ -5,6 +5,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
@@ -22,21 +23,14 @@ type server struct {
 }
 
 // NewServer creates a new instance of a gRPC repo server
-func NewServer(
-	locator storage.Locator,
-	gitCmdFactory git.CommandFactory,
-	catfileCache catfile.Cache,
-	txManager transaction.Manager,
-	housekeepingManager housekeeping.Manager,
-	repositoryCounter *counter.RepositoryCounter,
-) gitalypb.ObjectPoolServiceServer {
+func NewServer(deps *service.Dependencies) gitalypb.ObjectPoolServiceServer {
 	return &server{
-		locator:             locator,
-		gitCmdFactory:       gitCmdFactory,
-		catfileCache:        catfileCache,
-		txManager:           txManager,
-		housekeepingManager: housekeepingManager,
-		repositoryCounter:   repositoryCounter,
+		locator:             deps.GetLocator(),
+		gitCmdFactory:       deps.GetGitCmdFactory(),
+		catfileCache:        deps.GetCatfileCache(),
+		txManager:           deps.GetTxManager(),
+		housekeepingManager: deps.GetHousekeepingManager(),
+		repositoryCounter:   deps.GetRepositoryCounter(),
 	}
 }
 

@@ -25,25 +25,8 @@ func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.Gi
 	cfg := testcfg.Build(t)
 
 	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetConnsPool(),
-		))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 	}, opts...)
 	cfg.SocketPath = addr
 

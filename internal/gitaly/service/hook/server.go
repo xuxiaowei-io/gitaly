@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
@@ -31,19 +32,13 @@ type server struct {
 }
 
 // NewServer creates a new instance of a gRPC namespace server
-func NewServer(
-	manager gitalyhook.Manager,
-	locator storage.Locator,
-	gitCmdFactory git.CommandFactory,
-	packObjectsCache streamcache.Cache,
-	packObjectsLimiter limiter.Limiter,
-) gitalypb.HookServiceServer {
+func NewServer(deps *service.Dependencies) gitalypb.HookServiceServer {
 	srv := &server{
-		manager:            manager,
-		locator:            locator,
-		gitCmdFactory:      gitCmdFactory,
-		packObjectsCache:   packObjectsCache,
-		packObjectsLimiter: packObjectsLimiter,
+		manager:            deps.GetHookManager(),
+		locator:            deps.GetLocator(),
+		gitCmdFactory:      deps.GetGitCmdFactory(),
+		packObjectsCache:   deps.GetPackObjectsCache(),
+		packObjectsLimiter: deps.GetPackObjectsLimiter(),
 		runPackObjectsFn:   runPackObjects,
 	}
 

@@ -23,30 +23,9 @@ func setupGitalyServer(t *testing.T) config.Cfg {
 	cfg := testcfg.Build(t)
 
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
-		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-		))
-		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetCatfileCache(),
-		))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
+		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps))
 	})
 
 	return cfg

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -30,25 +31,16 @@ type Server struct {
 }
 
 // NewServer creates a new instance of a grpc OperationServiceServer
-func NewServer(
-	hookManager hook.Manager,
-	txManager transaction.Manager,
-	locator storage.Locator,
-	conns *client.Pool,
-	gitCmdFactory git.CommandFactory,
-	catfileCache catfile.Cache,
-	updater *updateref.UpdaterWithHooks,
-	signingKey string,
-) *Server {
+func NewServer(deps *service.Dependencies) *Server {
 	return &Server{
-		hookManager:   hookManager,
-		txManager:     txManager,
-		locator:       locator,
-		conns:         conns,
-		gitCmdFactory: gitCmdFactory,
-		catfileCache:  catfileCache,
-		updater:       updater,
-		signingKey:    signingKey,
+		hookManager:   deps.GetHookManager(),
+		txManager:     deps.GetTxManager(),
+		locator:       deps.GetLocator(),
+		conns:         deps.GetConnsPool(),
+		gitCmdFactory: deps.GetGitCmdFactory(),
+		catfileCache:  deps.GetCatfileCache(),
+		updater:       deps.GetUpdaterWithHooks(),
+		signingKey:    deps.GetCfg().Git.SigningKey,
 	}
 }
 

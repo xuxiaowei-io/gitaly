@@ -46,31 +46,9 @@ func setupRefService(tb testing.TB) (config.Cfg, gitalypb.RefServiceClient) {
 
 func runRefServiceServer(tb testing.TB, cfg config.Cfg) string {
 	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRefServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetCatfileCache(),
-		))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
+		gitalypb.RegisterRefServiceServer(srv, NewServer(deps))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
 	})
 }
 

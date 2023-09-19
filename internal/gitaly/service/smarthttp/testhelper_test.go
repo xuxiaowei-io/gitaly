@@ -26,40 +26,10 @@ func TestMain(m *testing.M) {
 
 func startSmartHTTPServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, serverOpts []testserver.GitalyServerOpt) testserver.GitalyServer {
 	return testserver.StartGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetDiskCache(),
-			opts...,
-		))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			cfg,
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetHousekeepingManager(),
-			deps.GetBackupSink(),
-			deps.GetBackupLocator(),
-			deps.GetRepositoryCounter(),
-		))
-		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetHousekeepingManager(),
-			deps.GetRepositoryCounter(),
-		))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
-			deps.GetHookManager(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-			deps.GetPackObjectsLimiter(),
-		))
+		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(deps, opts...))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps))
+		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(deps))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps))
 	}, serverOpts...)
 }
 

@@ -23,7 +23,7 @@ func setupNamespaceService(tb testing.TB, opts ...testserver.GitalyServerOpt) (c
 	cfg := cfgBuilder.Build(tb)
 
 	addr := testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterNamespaceServiceServer(srv, NewServer(deps.GetLocator()))
+		gitalypb.RegisterNamespaceServiceServer(srv, NewServer(deps))
 	}, opts...)
 
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
