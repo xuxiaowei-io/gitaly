@@ -135,14 +135,16 @@ func configure(configPath string) (config.Cfg, log.Logger, error) {
 }
 
 func preloadLicenseDatabase(logger log.Logger) {
-	// the first call to `licensedb.Detect` could be too long
-	// https://github.com/go-enry/go-license-detector/issues/13
-	// this is why we're calling it here to preload license database
-	// on server startup to avoid long initialization on gRPC
-	// method handling.
-	began := time.Now()
-	licensedb.Preload()
-	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("License database preloaded")
+	go func() {
+		// the first call to `licensedb.Detect` could be too long
+		// https://github.com/go-enry/go-license-detector/issues/13
+		// this is why we're calling it here to preload license database
+		// on server startup to avoid long initialization on gRPC
+		// method handling.
+		began := time.Now()
+		licensedb.Preload()
+		logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("License database preloaded")
+	}()
 }
 
 func run(cfg config.Cfg, logger log.Logger) error {
