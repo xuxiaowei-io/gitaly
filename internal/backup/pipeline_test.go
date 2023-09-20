@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -123,37 +125,88 @@ func (s MockStrategy) RemoveAllRepositories(ctx context.Context, req *RemoveAllR
 }
 
 func testPipeline(t *testing.T, init func() Pipeline) {
-	t.Run("create command", func(t *testing.T) {
-		t.Parallel()
-
-		strategy := MockStrategy{
-			CreateFunc: func(_ context.Context, req *CreateRequest) error {
-				switch req.Repository.StorageName {
-				case "normal":
-					return nil
-				case "skip":
-					return ErrSkipped
-				case "error":
-					return assert.AnError
-				}
-				require.Failf(t, "unexpected call to Create", "StorageName = %q", req.Repository.StorageName)
+	strategy := MockStrategy{
+		CreateFunc: func(_ context.Context, req *CreateRequest) error {
+			switch req.Repository.StorageName {
+			case "normal":
 				return nil
-			},
-		}
-		p := init()
-		ctx := testhelper.Context(t)
+			case "skip":
+				return ErrSkipped
+			case "error":
+				return assert.AnError
+			}
+			require.Failf(t, "unexpected call to Create", "StorageName = %q", req.Repository.StorageName)
+			return nil
+		},
+	}
 
-		commands := []Command{
-			NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}}),
-			NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "b.git", StorageName: "skip"}}),
-			NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "c.git", StorageName: "error"}}),
-		}
-		for _, cmd := range commands {
-			p.Handle(ctx, cmd)
-		}
-		err := p.Done()
-		require.EqualError(t, err, "pipeline: 1 failures encountered:\n - c.git: assert.AnError general error for testing\n")
-	})
+	for _, tc := range []struct {
+		desc           string
+		command        Command
+		level          logrus.Level
+		expectedFields log.Fields
+	}{
+		{
+			desc:    "Create command. Normal repository",
+			command: NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}}),
+			level:   logrus.InfoLevel,
+			expectedFields: log.Fields{
+				"command":         "create",
+				"gl_project_path": "",
+				"relative_path":   "a.git",
+				"storage_name":    "normal",
+			},
+		},
+		{
+			desc:    "Create command. Skipped repository",
+			command: NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "b.git", StorageName: "skip"}}),
+			level:   logrus.WarnLevel,
+			expectedFields: log.Fields{
+				"command":         "create",
+				"gl_project_path": "",
+				"relative_path":   "b.git",
+				"storage_name":    "skip",
+			},
+		},
+		{
+			desc:    "Create command. Error creating repository",
+			command: NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{RelativePath: "c.git", StorageName: "error"}}),
+			level:   logrus.ErrorLevel,
+			expectedFields: log.Fields{
+				"command":         "create",
+				"gl_project_path": "",
+				"relative_path":   "c.git",
+				"storage_name":    "error",
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			logger := testhelper.SharedLogger(t)
+			loggerHook := testhelper.AddLoggerHook(logger)
+
+			t.Parallel()
+
+			p := init()
+			ctx := testhelper.Context(t)
+
+			p.Handle(ctx, tc.command)
+
+			logEntries := loggerHook.AllEntries()
+
+			for _, logEntry := range logEntries {
+				require.Equal(t, tc.expectedFields, logEntry.Data)
+				require.Equal(t, tc.level, logEntry.Level)
+			}
+
+			err := p.Done()
+
+			if tc.level == logrus.ErrorLevel {
+				require.EqualError(t, err, "pipeline: 1 failures encountered:\n - c.git: assert.AnError general error for testing\n")
+			}
+		})
+	}
 
 	t.Run("restore command", func(t *testing.T) {
 		t.Parallel()
