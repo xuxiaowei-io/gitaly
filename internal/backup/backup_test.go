@@ -173,6 +173,7 @@ func TestManager_Create(t *testing.T) {
 					StorageName:  "some_storage",
 				}
 
+				manifestPath := filepath.Join(backupRoot, "manifests", vanityRepo.StorageName, vanityRepo.RelativePath, backupID+".toml")
 				refsPath := joinBackupPath(t, backupRoot, vanityRepo, backupID, "001.refs")
 				bundlePath := joinBackupPath(t, backupRoot, vanityRepo, backupID, "001.bundle")
 				customHooksPath := joinBackupPath(t, backupRoot, vanityRepo, backupID, "001.custom_hooks.tar")
@@ -222,6 +223,12 @@ func TestManager_Create(t *testing.T) {
 					require.FileExists(t, refsPath)
 				} else {
 					require.NoFileExists(t, refsPath)
+				}
+
+				if tc.createsBundle || tc.createsRefList {
+					require.FileExists(t, manifestPath)
+				} else {
+					require.NoFileExists(t, manifestPath)
 				}
 
 				if tc.createsCustomHooks {
