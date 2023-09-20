@@ -182,6 +182,15 @@ func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
 			expectedOldOID: validSourceSha, // arbitrary valid SHA
 			expectedError:  structerr.NewFailedPrecondition("could not update %s. Please refresh and try again", validTargetRef),
 		},
+		{
+			desc:           "ambiguous target reference",
+			repo:           repo,
+			user:           gittest.TestUser,
+			targetRef:      []byte("refs/merge-requests/x/m*"),
+			sourceSha:      validSourceSha,
+			firstParentRef: validFirstParentRef,
+			expectedError:  structerr.NewInvalidArgument(`target reference is ambiguous: reference is ambiguous: conflicts with "refs/merge-requests/x/merge"`),
+		},
 	}
 
 	for _, tc := range testCases {
@@ -201,7 +210,7 @@ func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
 				ExpectedOldOid: tc.expectedOldOID,
 			}
 			_, err := client.UserRebaseToRef(ctx, request)
-			testhelper.RequireGrpcError(t, err, tc.expectedError)
+			testhelper.RequireGrpcError(t, tc.expectedError, err)
 		})
 	}
 }

@@ -26,6 +26,11 @@ func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return &gitalypb.FindBranchResponse{}, nil
 		}
+
+		if errors.Is(err, git.ErrReferenceAmbiguous) {
+			return nil, structerr.NewInvalidArgument("target reference is ambiguous: %w", err)
+		}
+
 		return nil, err
 	}
 	commit, err := repo.ReadCommit(ctx, git.Revision(branchRef.Target))

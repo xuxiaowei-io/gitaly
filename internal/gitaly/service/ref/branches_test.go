@@ -87,7 +87,8 @@ func TestFailedFindBranchRequest(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRefService(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"), gittest.WithMessage("branch"))
 
 	testCases := []struct {
 		desc        string
@@ -105,6 +106,12 @@ func TestFailedFindBranchRequest(t *testing.T) {
 			repo:        repo,
 			branchName:  "",
 			expectedErr: status.Error(codes.InvalidArgument, "Branch name cannot be empty"),
+		},
+		{
+			desc:        "ambiguous branch name",
+			repo:        repo,
+			branchName:  "b*",
+			expectedErr: structerr.NewInvalidArgument(`target reference is ambiguous: reference is ambiguous: conflicts with "refs/heads/branch"`),
 		},
 	}
 
