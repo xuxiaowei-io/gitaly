@@ -24,15 +24,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var (
-	user = &gitalypb.User{
-		Name:  []byte("John Doe"),
-		Email: []byte("johndoe@gitlab.com"),
-		GlId:  "user-1",
-	}
-	conflictResolutionCommitMessage = "Solve conflicts"
-)
-
 func TestResolveConflicts(t *testing.T) {
 	t.Parallel()
 
@@ -43,17 +34,28 @@ func TestResolveConflicts(t *testing.T) {
 
 func testResolveConflicts(t *testing.T, ctx context.Context) {
 	type setupData struct {
-		cfg               config.Cfg
-		requestHeader     *gitalypb.ResolveConflictsRequest_Header
-		requestsFilesJSON []*gitalypb.ResolveConflictsRequest_FilesJson
-		client            gitalypb.ConflictsServiceClient
-		repo              *gitalypb.Repository
-		repoPath          string
-		expectedContent   map[string]map[string][]byte
-		expectedResponse  *gitalypb.ResolveConflictsResponse
-		expectedError     error
-		skipCommitCheck   bool
-		additionalChecks  func()
+		cfg                  config.Cfg
+		requestHeader        *gitalypb.ResolveConflictsRequest_Header
+		requestsFilesJSON    []*gitalypb.ResolveConflictsRequest_FilesJson
+		client               gitalypb.ConflictsServiceClient
+		repo                 *gitalypb.Repository
+		repoPath             string
+		expectedContent      map[string]map[string][]byte
+		expectedCommitAuthor *gitalypb.CommitAuthor
+		expectedResponse     *gitalypb.ResolveConflictsResponse
+		expectedError        error
+		skipCommitCheck      bool
+		additionalChecks     func()
+	}
+
+	conflictResolutionCommitMessage := "Solve conflicts"
+	defaultUser := gittest.TestUser
+	defaultTimestamp := &timestamppb.Timestamp{Seconds: 1234567890}
+	defaultCommitAuthor := &gitalypb.CommitAuthor{
+		Name:     []byte("Jane Doe"),
+		Email:    []byte("janedoe@gitlab.com"),
+		Date:     defaultTimestamp,
+		Timezone: []byte(gittest.TimezoneOffset),
 	}
 
 	for _, tc := range []struct {
@@ -88,14 +90,15 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"b": []byte("apricot"),
@@ -147,15 +150,16 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON[:50]},
 						{FilesJson: filesJSON[50:]},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("apricot"),
@@ -206,15 +210,16 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON[:50]},
 						{FilesJson: filesJSON[50:]},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("acai"),
@@ -275,15 +280,16 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON[:50]},
 						{FilesJson: filesJSON[50:]},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"subdir/a": []byte("apricot"),
@@ -330,15 +336,16 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON[:50]},
 						{FilesJson: filesJSON[50:]},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("apricot"),
@@ -396,15 +403,16 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON[:50]},
 						{FilesJson: filesJSON[50:]},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("apricot\n" + strings.Repeat("filler\n", 10) + "birne"),
@@ -470,15 +478,16 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON[:50]},
 						{FilesJson: filesJSON[50:]},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("apricot\n" + strings.Repeat("filler\n", 10) + "birne"),
@@ -537,8 +546,8 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
@@ -593,15 +602,16 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON[:50]},
 						{FilesJson: filesJSON[50:]},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("apricot"),
@@ -640,14 +650,15 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("\n"),
@@ -694,14 +705,15 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("\nA\n"),
@@ -748,14 +760,15 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("A\nB\nX\nD\nE\n"),
@@ -802,14 +815,15 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
 						{FilesJson: filesJSON},
 					},
-					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedCommitAuthor: defaultCommitAuthor,
+					expectedResponse:     &gitalypb.ResolveConflictsResponse{},
 					expectedContent: map[string]map[string][]byte{
 						"refs/heads/ours": {
 							"a": []byte("A\nB"),
@@ -856,8 +870,8 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
@@ -898,8 +912,8 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							SourceBranch:     []byte("ours"),
 							TargetBranch:     []byte("theirs"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
@@ -946,8 +960,8 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
@@ -996,8 +1010,8 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
@@ -1030,7 +1044,7 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							Timestamp:        &timestamppb.Timestamp{},
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					skipCommitCheck: true,
@@ -1051,14 +1065,14 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 					repo:     repo,
 					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
 						Header: &gitalypb.ResolveConflictsRequestHeader{
-							User:             user,
+							User:             defaultUser,
 							TargetRepository: repo,
 							OurCommitOid:     gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TheirCommitOid:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							Timestamp:        &timestamppb.Timestamp{},
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					skipCommitCheck: true,
@@ -1079,14 +1093,14 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 					repo:     repo,
 					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
 						Header: &gitalypb.ResolveConflictsRequestHeader{
-							User:           user,
+							User:           defaultUser,
 							Repository:     repo,
 							OurCommitOid:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TheirCommitOid: gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TargetBranch:   []byte("theirs"),
 							SourceBranch:   []byte("ours"),
 							CommitMessage:  []byte(conflictResolutionCommitMessage),
-							Timestamp:      &timestamppb.Timestamp{},
+							Timestamp:      defaultTimestamp,
 						},
 					},
 					skipCommitCheck: true,
@@ -1107,14 +1121,14 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 					repo:     repo,
 					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
 						Header: &gitalypb.ResolveConflictsRequestHeader{
-							User:             user,
+							User:             defaultUser,
 							Repository:       repo,
 							TargetRepository: repo,
 							TheirCommitOid:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							Timestamp:        &timestamppb.Timestamp{},
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					skipCommitCheck: true,
@@ -1135,14 +1149,14 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 					repo:     repo,
 					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
 						Header: &gitalypb.ResolveConflictsRequestHeader{
-							User:             user,
+							User:             defaultUser,
 							Repository:       repo,
 							TargetRepository: repo,
 							OurCommitOid:     gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							Timestamp:        &timestamppb.Timestamp{},
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					skipCommitCheck: true,
@@ -1163,14 +1177,14 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 					repo:     repo,
 					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
 						Header: &gitalypb.ResolveConflictsRequestHeader{
-							User:             user,
+							User:             defaultUser,
 							Repository:       repo,
 							TargetRepository: repo,
 							OurCommitOid:     gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TheirCommitOid:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
-							Timestamp:        &timestamppb.Timestamp{},
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					skipCommitCheck: true,
@@ -1191,14 +1205,14 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 					repo:     repo,
 					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
 						Header: &gitalypb.ResolveConflictsRequestHeader{
-							User:             user,
+							User:             defaultUser,
 							Repository:       repo,
 							TargetRepository: repo,
 							OurCommitOid:     gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TheirCommitOid:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TargetBranch:     []byte("theirs"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							Timestamp:        &timestamppb.Timestamp{},
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					skipCommitCheck: true,
@@ -1219,14 +1233,14 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 					repo:     repo,
 					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
 						Header: &gitalypb.ResolveConflictsRequestHeader{
-							User:             user,
+							User:             defaultUser,
 							Repository:       repo,
 							TargetRepository: repo,
 							OurCommitOid:     gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							TheirCommitOid:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							Timestamp:        &timestamppb.Timestamp{},
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					skipCommitCheck: true,
@@ -1290,8 +1304,8 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 							TargetBranch:     []byte("theirs"),
 							SourceBranch:     []byte("ours"),
 							CommitMessage:    []byte(conflictResolutionCommitMessage),
-							User:             user,
-							Timestamp:        &timestamppb.Timestamp{},
+							User:             defaultUser,
+							Timestamp:        defaultTimestamp,
 						},
 					},
 					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
@@ -1308,6 +1322,95 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 						objectsAfter := len(strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-list", "--objects", "--all")), "\n"))
 						require.Equal(t, objectsBefore, objectsAfter, "No new objets should've been added")
 					},
+				}
+			},
+		},
+		{
+			"no user timezone specified, use UTC",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsService(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("ours"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Path: "b", Mode: "100644", Content: "apricot"}))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("theirs"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Path: "c", Mode: "100644", Content: "acai"}))
+
+				filesJSON, err := json.Marshal([]map[string]interface{}{})
+				require.NoError(t, err)
+
+				return setupData{
+					cfg:      cfg,
+					client:   client,
+					repoPath: repoPath,
+					repo:     repo,
+					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
+						Header: &gitalypb.ResolveConflictsRequestHeader{
+							Repository:       repo,
+							TargetRepository: repo,
+							OurCommitOid:     ourCommitID.String(),
+							TheirCommitOid:   theirCommitID.String(),
+							TargetBranch:     []byte("theirs"),
+							SourceBranch:     []byte("ours"),
+							CommitMessage:    []byte(conflictResolutionCommitMessage),
+							User: &gitalypb.User{
+								Name:  []byte("Jane Doe"),
+								Email: []byte("janedoe@gitlab.com"),
+								GlId:  "user-123",
+							},
+							Timestamp: defaultTimestamp,
+						},
+					},
+					requestsFilesJSON: []*gitalypb.ResolveConflictsRequest_FilesJson{
+						{FilesJson: filesJSON},
+					},
+					expectedCommitAuthor: &gitalypb.CommitAuthor{
+						Name:     []byte("Jane Doe"),
+						Email:    []byte("janedoe@gitlab.com"),
+						Date:     defaultTimestamp,
+						Timezone: []byte("+0000"),
+					},
+					expectedResponse: &gitalypb.ResolveConflictsResponse{},
+					expectedContent: map[string]map[string][]byte{
+						"refs/heads/ours": {
+							"b": []byte("apricot"),
+							"c": []byte("acai"),
+						},
+					},
+				}
+			},
+		},
+		{
+			"invalid user timezone",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsService(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+				return setupData{
+					cfg:      cfg,
+					client:   client,
+					repoPath: repoPath,
+					repo:     repo,
+					requestHeader: &gitalypb.ResolveConflictsRequest_Header{
+						Header: &gitalypb.ResolveConflictsRequestHeader{
+							Repository:       repo,
+							TargetRepository: repo,
+							OurCommitOid:     gittest.DefaultObjectHash.EmptyTreeOID.String(),
+							TheirCommitOid:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
+							TargetBranch:     []byte("theirs"),
+							SourceBranch:     []byte("ours"),
+							CommitMessage:    []byte(conflictResolutionCommitMessage),
+							User: &gitalypb.User{
+								Name:     []byte("Jane Doe"),
+								Email:    []byte("janedoe@gitlab.com"),
+								GlId:     "user-123",
+								Timezone: "Invalid/Timezone",
+							},
+							Timestamp: defaultTimestamp,
+						},
+					},
+					expectedError:   structerr.NewInvalidArgument("unknown time zone Invalid/Timezone"),
+					skipCommitCheck: true,
 				}
 			},
 		},
@@ -1349,8 +1452,8 @@ func testResolveConflicts(t *testing.T, ctx context.Context) {
 				require.NoError(t, err)
 				require.Contains(t, headCommit.ParentIds, setup.requestHeader.Header.OurCommitOid)
 				require.Contains(t, headCommit.ParentIds, setup.requestHeader.Header.TheirCommitOid)
-				require.Equal(t, headCommit.Author.Email, user.Email)
-				require.Equal(t, headCommit.Committer.Email, user.Email)
+				testhelper.ProtoEqual(t, setup.expectedCommitAuthor, headCommit.Author)
+				testhelper.ProtoEqual(t, setup.expectedCommitAuthor, headCommit.Committer)
 				require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)
 			}
 

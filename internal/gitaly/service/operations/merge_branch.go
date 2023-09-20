@@ -62,18 +62,14 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		}
 	}
 
-	authorDate, err := dateFromProto(firstRequest)
+	authorSignature, err := git.SignatureFromRequest(firstRequest)
 	if err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	mergeCommitID, err := s.merge(ctx, quarantineRepo,
-		string(firstRequest.User.Name),
-		string(firstRequest.User.Email),
-		authorDate,
-		string(firstRequest.User.Name),
-		string(firstRequest.User.Email),
-		authorDate,
+		authorSignature,
+		authorSignature,
 		string(firstRequest.Message),
 		revision.String(),
 		firstRequest.CommitId,

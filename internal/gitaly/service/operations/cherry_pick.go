@@ -36,7 +36,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		return nil, structerr.NewInternal("has branches: %w", err)
 	}
 
-	committerDate, err := dateFromProto(req)
+	committerSignature, err := git.SignatureFromRequest(req)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
@@ -111,9 +111,9 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 			AuthorName:     string(cherryCommit.Author.Name),
 			AuthorEmail:    string(cherryCommit.Author.Email),
 			AuthorDate:     cherryDate,
-			CommitterName:  string(req.User.Name),
-			CommitterEmail: string(req.User.Email),
-			CommitterDate:  committerDate,
+			CommitterName:  committerSignature.Name,
+			CommitterEmail: committerSignature.Email,
+			CommitterDate:  committerSignature.When,
 			SigningKey:     s.signingKey,
 		},
 	)

@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -52,4 +55,32 @@ func FormatTime(t time.Time) string {
 // This function should not be used in all other contexts. Refer to `FormatTime()` for the reasoning.
 func FormatSignatureTime(t time.Time) string {
 	return fmt.Sprintf("%d %s", t.Unix(), t.Format("-0700"))
+}
+
+// RequestWithUserAndTimestamp represents a collection of requests that contains information used to
+// generate a signature for user.
+type RequestWithUserAndTimestamp interface {
+	GetUser() *gitalypb.User
+	GetTimestamp() *timestamppb.Timestamp
+}
+
+// SignatureFromRequest generates and returns a signature from the request, respecting the timezone
+// information of the user.
+func SignatureFromRequest(req RequestWithUserAndTimestamp) (Signature, error) {
+	date := time.Now()
+
+	if timestamp := req.GetTimestamp(); timestamp != nil {
+		date = timestamp.AsTime()
+	}
+
+	user := req.GetUser()
+	if user != nil {
+		location, err := time.LoadLocation(user.GetTimezone())
+		if err != nil {
+			return Signature{}, err
+		}
+		date = date.In(location)
+	}
+
+	return NewSignature(string(user.GetName()), string(user.GetEmail()), date), nil
 }

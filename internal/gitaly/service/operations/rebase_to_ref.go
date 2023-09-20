@@ -73,17 +73,16 @@ func (s *Server) UserRebaseToRef(ctx context.Context, request *gitalypb.UserReba
 		return nil, structerr.NewInternal("could not read target reference: %w", err)
 	}
 
-	committerDate, err := dateFromProto(request)
+	committerSignature, err := git.SignatureFromRequest(request)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
-	committer := git.NewSignature(string(request.User.Name), string(request.User.Email), committerDate)
 
 	rebasedOID, err := quarantineRepo.Rebase(
 		ctx,
 		oid.String(),
 		sourceOID.String(),
-		localrepo.RebaseWithCommitter(committer),
+		localrepo.RebaseWithCommitter(committerSignature),
 	)
 	if err != nil {
 		var conflictErr *localrepo.RebaseConflictError

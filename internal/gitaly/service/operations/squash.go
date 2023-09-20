@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -12,10 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-)
-
-const (
-	gitlabWorktreesSubDir = "gitlab-worktree"
 )
 
 // UserSquash collapses a range of commits identified via a start and end revision into a single
@@ -114,10 +111,20 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		)
 	}
 
-	committerDate, err := dateFromProto(req)
+	committerSignature, err := git.SignatureFromRequest(req)
 	if err != nil {
 		return "", structerr.NewInvalidArgument("%w", err)
 	}
+
+	authorLocation, err := time.LoadLocation(req.GetAuthor().GetTimezone())
+	if err != nil {
+		return "", structerr.NewInvalidArgument("%w", err)
+	}
+	authorSignature := git.NewSignature(
+		string(req.GetAuthor().GetName()),
+		string(req.GetAuthor().GetEmail()),
+		committerSignature.When.In(authorLocation),
+	)
 
 	message := string(req.GetCommitMessage())
 	// In previous implementation, we've used git commit-tree to create commit.
@@ -131,12 +138,8 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 	commitID, err := s.merge(
 		ctx,
 		quarantineRepo,
-		string(req.GetAuthor().GetName()),
-		string(req.GetAuthor().GetEmail()),
-		committerDate,
-		string(req.GetUser().GetName()),
-		string(req.GetUser().GetEmail()),
-		committerDate,
+		authorSignature,
+		committerSignature,
 		message,
 		startCommit.String(),
 		endCommit.String(),

@@ -53,17 +53,16 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		return structerr.NewInternal("%w", err)
 	}
 
-	committerDate, err := dateFromProto(header)
+	committerSignature, err := git.SignatureFromRequest(header)
 	if err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
-	committer := git.NewSignature(string(header.User.Name), string(header.User.Email), committerDate)
 
 	newrev, err := quarantineRepo.Rebase(
 		ctx,
 		startRevision.String(),
 		oldrev.String(),
-		localrepo.RebaseWithCommitter(committer),
+		localrepo.RebaseWithCommitter(committerSignature),
 	)
 	if err != nil {
 		var conflictErr *localrepo.RebaseConflictError

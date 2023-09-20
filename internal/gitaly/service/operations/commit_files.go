@@ -414,9 +414,9 @@ func (s *Server) userCommitFilesGit(
 	repoPath string,
 	actions []commitAction,
 ) (git.ObjectID, error) {
-	authorDate, err := dateFromProto(header)
+	committerSignature, err := git.SignatureFromRequest(header)
 	if err != nil {
-		return "", structerr.NewInvalidArgument("getting date from proto: %w", err)
+		return "", structerr.NewInvalidArgument("%w", err)
 	}
 
 	var treeish git.ObjectID
@@ -477,12 +477,12 @@ func (s *Server) userCommitFilesGit(
 	}
 
 	cfg := localrepo.WriteCommitConfig{
-		AuthorDate:     authorDate,
+		AuthorDate:     committerSignature.When,
 		AuthorName:     strings.TrimSpace(string(header.CommitAuthorName)),
 		AuthorEmail:    strings.TrimSpace(string(header.CommitAuthorEmail)),
-		CommitterDate:  authorDate,
-		CommitterName:  strings.TrimSpace(string(header.User.Name)),
-		CommitterEmail: strings.TrimSpace(string(header.User.Email)),
+		CommitterDate:  committerSignature.When,
+		CommitterName:  committerSignature.Name,
+		CommitterEmail: committerSignature.Email,
 		Message:        string(header.CommitMessage),
 		TreeID:         treeish,
 		SigningKey:     s.signingKey,

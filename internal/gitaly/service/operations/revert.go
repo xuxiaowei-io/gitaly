@@ -35,7 +35,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, structerr.NewInternal("has branches: %w", err)
 	}
 
-	authorDate, err := dateFromProto(req)
+	committerSignature, err := git.SignatureFromRequest(req)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
@@ -111,12 +111,12 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 			TreeID:         treeOID,
 			Message:        string(req.Message),
 			Parents:        []git.ObjectID{startRevision},
-			AuthorName:     string(req.User.Name),
-			AuthorEmail:    string(req.User.Email),
-			AuthorDate:     authorDate,
-			CommitterName:  string(req.User.Name),
-			CommitterEmail: string(req.User.Email),
-			CommitterDate:  authorDate,
+			AuthorName:     committerSignature.Name,
+			AuthorEmail:    committerSignature.Email,
+			AuthorDate:     committerSignature.When,
+			CommitterName:  committerSignature.Name,
+			CommitterEmail: committerSignature.Email,
+			CommitterDate:  committerSignature.When,
 			SigningKey:     s.signingKey,
 		},
 	)

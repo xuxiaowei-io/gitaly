@@ -1,12 +1,15 @@
 package git
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestNewSignature(t *testing.T) {
@@ -131,6 +134,122 @@ func TestFormatTime(t *testing.T) {
 
 				require.Equal(t, tc.expectedParsedTime, time.Unix(unixTime, 0).In(timezone.Location()))
 			})
+		})
+	}
+}
+
+func TestSignatureFromRequest(t *testing.T) {
+	t.Parallel()
+
+	const defaultUsername = "Jane Doe"
+	const defaultEmail = "janedoe@gitlab.com"
+
+	testCases := []struct {
+		desc  string
+		setup func() (RequestWithUserAndTimestamp, Signature, error)
+	}{
+		{
+			desc: "user with UTC timezone",
+			setup: func() (RequestWithUserAndTimestamp, Signature, error) {
+				timeNow := time.Now()
+				return &gitalypb.UserSquashRequest{
+						User: &gitalypb.User{
+							Name:     []byte(defaultUsername),
+							Email:    []byte(defaultEmail),
+							Timezone: "UTC",
+						},
+						Timestamp: timestamppb.New(timeNow),
+					},
+					Signature{
+						Name:  defaultUsername,
+						Email: defaultEmail,
+						When:  time.Unix(timeNow.Unix(), 0).In(time.UTC),
+					},
+					nil
+			},
+		},
+		{
+			desc: "user with Shanghai timezone",
+			setup: func() (RequestWithUserAndTimestamp, Signature, error) {
+				timezone := "Asia/Shanghai"
+				expectedLoc, err := time.LoadLocation(timezone)
+				require.NoError(t, err)
+				timeNow := time.Now()
+				return &gitalypb.UserSquashRequest{
+						User: &gitalypb.User{
+							Name:     []byte(defaultUsername),
+							Email:    []byte(defaultEmail),
+							Timezone: timezone,
+						},
+						Timestamp: timestamppb.New(timeNow),
+					},
+					Signature{
+						Name:  defaultUsername,
+						Email: defaultEmail,
+						When:  time.Unix(timeNow.Unix(), 0).In(expectedLoc),
+					},
+					nil
+			},
+		},
+		{
+			desc: "invalid timezone",
+			setup: func() (RequestWithUserAndTimestamp, Signature, error) {
+				timezone := "Invalid/Timezone"
+				expectedErr := fmt.Errorf("unknown time zone %s", timezone)
+				_, err := time.LoadLocation(timezone)
+				require.Equal(t, expectedErr, err)
+				return &gitalypb.UserSquashRequest{
+						User: &gitalypb.User{
+							Name:     []byte(defaultUsername),
+							Email:    []byte(defaultEmail),
+							Timezone: timezone,
+						},
+						Timestamp: timestamppb.New(time.Now()),
+					},
+					Signature{},
+					expectedErr
+			},
+		},
+		{
+			desc: "no timezone specified",
+			setup: func() (RequestWithUserAndTimestamp, Signature, error) {
+				timeNow := time.Now()
+				return &gitalypb.UserSquashRequest{
+						User: &gitalypb.User{
+							Name:  []byte(defaultUsername),
+							Email: []byte(defaultEmail),
+						},
+						Timestamp: timestamppb.New(timeNow),
+					},
+					Signature{
+						Name:  defaultUsername,
+						Email: defaultEmail,
+						When:  time.Unix(timeNow.Unix(), 0).In(time.UTC),
+					},
+					nil
+			},
+		},
+		{
+			desc: "request without user",
+			setup: func() (RequestWithUserAndTimestamp, Signature, error) {
+				timeNow := time.Now()
+				return &gitalypb.UserSquashRequest{
+						User:      nil,
+						Timestamp: timestamppb.New(timeNow),
+					},
+					Signature{
+						When: time.Unix(timeNow.Unix(), 0).In(time.UTC),
+					},
+					nil
+			},
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			req, expectedSignature, expectedErr := testCase.setup()
+			sig, err := SignatureFromRequest(req)
+			require.Equal(t, expectedErr, err)
+			require.Equal(t, expectedSignature, sig)
 		})
 	}
 }

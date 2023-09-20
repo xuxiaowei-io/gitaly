@@ -20,6 +20,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 )
 
+const (
+	gitlabWorktreesSubDir = "gitlab-worktree"
+)
+
 var errNoDefaultBranch = errors.New("no default branch")
 
 type gitError struct {
@@ -93,7 +97,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		branchCreated = true
 	}
 
-	committerDate, err := dateFromProto(header)
+	committerSignature, err := git.SignatureFromRequest(header)
 	if err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
@@ -123,9 +127,9 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 			},
 		},
 		git.WithEnv(
-			"GIT_COMMITTER_NAME="+string(header.GetUser().Name),
-			"GIT_COMMITTER_EMAIL="+string(header.GetUser().Email),
-			"GIT_COMMITTER_DATE="+git.FormatTime(committerDate),
+			"GIT_COMMITTER_NAME="+committerSignature.Name,
+			"GIT_COMMITTER_EMAIL="+committerSignature.Email,
+			"GIT_COMMITTER_DATE="+git.FormatTime(committerSignature.When),
 		),
 		git.WithStdin(streamio.NewReader(func() ([]byte, error) {
 			req, err := stream.Recv()
