@@ -54,8 +54,6 @@ func TestAdaptiveCalculator_realTimerTicker(t *testing.T) {
 func TestAdaptiveCalculator(t *testing.T) {
 	t.Parallel()
 
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5467")
-
 	tests := []struct {
 		desc       string
 		limits     []AdaptiveLimiter
@@ -555,7 +553,11 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher2"} 5
 				close(tickerDone)
 			})
 
-			calibration := 10 * time.Millisecond
+			// This test setup uses a manual ticker. This calibration duration is irrelevant to the actual
+			// calibration cycle of the calculation. However, the calculator uses this value to determine a
+			// timeout when polling events from the watchers. Thus, we need to pass an unrealistically high
+			// value. Otherwise, the tests might be flaky when running on slow machines.
+			calibration := 1 * time.Hour
 			calculator := NewAdaptiveCalculator(calibration, logger, tc.limits, tc.watchers)
 			calculator.tickerCreator = func(duration time.Duration) helper.Ticker { return ticker }
 
