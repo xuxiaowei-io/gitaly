@@ -140,8 +140,9 @@ func preloadLicenseDatabase(logger log.Logger) {
 	// this is why we're calling it here to preload license database
 	// on server startup to avoid long initialization on gRPC
 	// method handling.
+	began := time.Now()
 	licensedb.Preload()
-	logger.Info("License database preloaded")
+	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("License database preloaded")
 }
 
 func run(cfg config.Cfg, logger log.Logger) error {
@@ -170,9 +171,11 @@ func run(cfg config.Cfg, logger log.Logger) error {
 	cgroups.PruneOldCgroups(cfg.Cgroups, logger)
 	cgroupMgr := cgroups.NewManager(cfg.Cgroups, logger, os.Getpid())
 
+	began := time.Now()
 	if err := cgroupMgr.Setup(); err != nil {
 		return fmt.Errorf("failed setting up cgroups: %w", err)
 	}
+	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("finished initializing cgroups")
 
 	defer func() {
 		if err := cgroupMgr.Cleanup(); err != nil {
@@ -186,10 +189,13 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		}
 	}()
 
+	began = time.Now()
 	if err := gitaly.UnpackAuxiliaryBinaries(cfg.RuntimeDir); err != nil {
 		return fmt.Errorf("unpack auxiliary binaries: %w", err)
 	}
+	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("finished unpacking auxiliary binaries")
 
+	began = time.Now()
 	b, err := bootstrap.New(logger, promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_connections_total",
@@ -200,6 +206,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 	if err != nil {
 		return fmt.Errorf("init bootstrap: %w", err)
 	}
+	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("finished initializing bootstrap")
 
 	skipHooks, _ := env.GetBool("GITALY_TESTING_NO_GIT_HOOKS", false)
 	var commandFactoryOpts []git.ExecCommandFactoryOption
@@ -207,16 +214,20 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		commandFactoryOpts = append(commandFactoryOpts, git.WithSkipHooks())
 	}
 
+	began = time.Now()
 	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, logger, commandFactoryOpts...)
 	if err != nil {
 		return fmt.Errorf("creating Git command factory: %w", err)
 	}
 	defer cleanup()
+	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("finished initializing command factory")
 
+	began = time.Now()
 	gitVersion, err := gitCmdFactory.GitVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("git version detection: %w", err)
 	}
+	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("finished detecting git version")
 
 	if !gitVersion.IsSupported() {
 		return fmt.Errorf("unsupported Git version: %q", gitVersion)
