@@ -107,18 +107,25 @@ type Repository interface {
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
 func ResolveLocator(layout string, sink Sink) (Locator, error) {
-	legacy := LegacyLocator{}
+	var locator Locator = LegacyLocator{}
+
 	switch layout {
 	case "legacy":
-		return legacy, nil
 	case "pointer":
-		return PointerLocator{
+		locator = PointerLocator{
 			Sink:     sink,
-			Fallback: legacy,
-		}, nil
+			Fallback: locator,
+		}
 	default:
 		return nil, fmt.Errorf("unknown layout: %q", layout)
 	}
+
+	locator = ManifestLocator{
+		Sink:     sink,
+		Fallback: locator,
+	}
+
+	return locator, nil
 }
 
 // Manager manages process of the creating/restoring backups.
