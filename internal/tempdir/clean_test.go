@@ -109,6 +109,25 @@ func TestCleanerSafety(t *testing.T) {
 	t.Fatal("expected panic")
 }
 
+func TestDedupStorages(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t, testcfg.WithStorages("default"))
+	firstDupStorage := config.Storage{
+		Name: "A-dup",
+		Path: cfg.Storages[0].Path,
+	}
+	lastDupStorage := config.Storage{
+		Name: "z-dup",
+		Path: cfg.Storages[0].Path,
+	}
+	cfg.Storages = append(cfg.Storages, firstDupStorage, lastDupStorage)
+
+	deduped := dedupStorages(cfg.Storages)
+
+	require.Equal(t, []config.Storage{firstDupStorage}, deduped)
+}
+
 func chmod(t *testing.T, locator storage.Locator, storage config.Storage, p string, mode os.FileMode) {
 	root, err := locator.TempDir(storage.Name)
 	require.NoError(t, err)
