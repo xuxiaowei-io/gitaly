@@ -4306,7 +4306,10 @@ func TestTransactionManager(t *testing.T) {
 						}
 
 						rewrittenRepo := setup.RepositoryFactory.Build(
-							transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
+							transaction.RewriteRepository(&gitalypb.Repository{
+								StorageName:  setup.Config.Storages[0].Name,
+								RelativePath: transaction.relativePath,
+							}),
 						)
 
 						for _, pack := range step.QuarantinedPacks {
