@@ -39,7 +39,7 @@ func TestFeatureFlagLogs(t *testing.T) {
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			grpcmwlogrus.UnaryServerInterceptor(
-				logger.Entry,
+				logger.LogrusEntry(), //nolint:staticcheck
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
 						grpcmwlogrus.DefaultMessageProducer,

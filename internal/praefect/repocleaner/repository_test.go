@@ -287,7 +287,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		defer close(releaseFirst)
 
 		logger := testhelper.NewLogger(t)
-		logger.Logger.SetLevel(logrus.DebugLevel)
+		logger.LogrusEntry().Logger.SetLevel(logrus.DebugLevel) //nolint:staticcheck
 		loggerHook := testhelper.AddLoggerHook(logger)
 
 		runner := NewRunner(cfg, logger, praefect.StaticHealthChecker{virtualStorage: []string{storage1}}, nodeSet.Connections(), storageCleanup, storageCleanup, actionStub{

@@ -190,7 +190,7 @@ func UnaryLogDataCatcherServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp != nil {
-			mpp.fields = FromContext(ctx).Entry.Data
+			mpp.fields = FromContext(ctx).entry.Data
 		}
 		return handler(ctx, req)
 	}
@@ -203,7 +203,7 @@ func StreamLogDataCatcherServerInterceptor() grpc.StreamServerInterceptor {
 		ctx := ss.Context()
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp != nil {
-			mpp.fields = FromContext(ctx).Entry.Data
+			mpp.fields = FromContext(ctx).entry.Data
 		}
 		return handler(srv, ss)
 	}

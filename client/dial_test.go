@@ -805,5 +805,5 @@ func startFakeGitalyServer(t *testing.T) string {
 }
 
 func newLogger(tb testing.TB) *logrus.Entry {
-	return testhelper.SharedLogger(tb).Entry
+	return testhelper.SharedLogger(tb).LogrusEntry() //nolint:staticcheck
 }
