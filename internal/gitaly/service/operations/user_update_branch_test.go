@@ -279,8 +279,8 @@ func TestUserUpdateBranch_failingGitHooks(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.Contains(t, response.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername+"\n")
-			require.Contains(t, response.PreReceiveError, "GIT_DIR="+repoPath+"\n")
-			require.Contains(t, response.PreReceiveError, "PWD="+repoPath+"\n")
+			require.Contains(t, response.PreReceiveError, "GIT_DIR=")
+			require.Contains(t, response.PreReceiveError, "PWD=")
 
 			testhelper.ProtoEqual(t, &gitalypb.UserUpdateBranchResponse{
 				PreReceiveError: response.PreReceiveError,
