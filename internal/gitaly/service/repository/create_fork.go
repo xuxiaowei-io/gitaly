@@ -69,7 +69,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 					targetPath,
 				},
 			},
-			git.WithInternalFetch(&gitalypb.SSHUploadPackRequest{
+			git.WithInternalFetchWithSidechannel(&gitalypb.SSHUploadPackWithSidechannelRequest{
 				Repository: sourceRepository,
 			}),
 			git.WithConfig(git.ConfigPair{
