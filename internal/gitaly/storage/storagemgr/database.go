@@ -2,17 +2,26 @@ package storagemgr
 
 import (
 	"github.com/dgraph-io/badger/v4"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // OpenDatabase opens a new database handle to a database at the given path.
-func OpenDatabase(logger badger.Logger, databasePath string) (*badger.DB, error) {
+func OpenDatabase(logger log.Logger, databasePath string) (*badger.DB, error) {
 	dbOptions := badger.DefaultOptions(databasePath)
 	// Enable SyncWrites to ensure all writes are persisted to disk before considering
 	// them committed.
 	dbOptions.SyncWrites = true
-	dbOptions.Logger = logger
+	dbOptions.Logger = badgerLogger{logger}
 
 	return badger.Open(dbOptions)
+}
+
+type badgerLogger struct {
+	log.Logger
+}
+
+func (l badgerLogger) Warningf(msg string, args ...any) {
+	l.Warnf(msg, args...)
 }
 
 // databaseAdapter adapts a *badger.DB to the internal database interface used by the hooks in tests.
