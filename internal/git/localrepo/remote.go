@@ -50,6 +50,8 @@ type FetchOpts struct {
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---tags
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---no-tags
 	Tags FetchOptsTags
+	// Stdout if set it would be used to redirect stdout stream into it.
+	Stdout io.Writer
 	// Stderr if set it would be used to redirect stderr stream into it.
 	Stderr io.Writer
 	// DisableTransactions will disable the reference-transaction hook and atomic transactions.
@@ -80,6 +82,7 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 
 	commandOptions := []git.CmdOpt{
 		git.WithEnv(opts.Env...),
+		git.WithStdout(opts.Stdout),
 		git.WithStderr(opts.Stderr),
 		git.WithConfig(git.ConfigPair{
 			// Git is so kind to point out that we asked it to not show forced updates
