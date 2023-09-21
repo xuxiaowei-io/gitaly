@@ -317,6 +317,9 @@ func TestTransactionManager(t *testing.T) {
 		TransactionID int
 		// RelativePath is the relative path of the repository this transaction is operating on.
 		RelativePath string
+		// SnapshottedRelativePaths are the relative paths of the repositories to include in the snapshot
+		// in addition to the target repository.
+		SnapshottedRelativePaths []string
 		// ReadOnly indicates whether this is a read-only transaction.
 		ReadOnly bool
 		// Context is the context to use for the Begin call.
@@ -5735,6 +5738,469 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "multiple repositories can be included in transaction's snapshot",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "repository-1",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs:       [][]byte{setup.Commits.First.Pack},
+					CustomHooks: validCustomHooks(t),
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "repository-2",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/branch": setup.Commits.Third.OID,
+					},
+					DefaultBranch: "refs/heads/branch",
+					Packs: [][]byte{
+						setup.Commits.First.Pack,
+						setup.Commits.Second.Pack,
+						setup.Commits.Third.Pack,
+					},
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "repository-3",
+					ExpectedSnapshotLSN: 2,
+				},
+				CreateRepository{
+					TransactionID: 3,
+					// Set repository-2 as repository-3's alternate to assert the
+					// snasphotted repositories' alternates are also included.
+					Alternate: "../../repository-2/objects",
+				},
+				Commit{
+					TransactionID: 3,
+				},
+				Begin{
+					TransactionID: 4,
+					// Create a repository that is not snapshotted to assert it's not included
+					// in the snapshot.
+					RelativePath:        "repository-4",
+					ExpectedSnapshotLSN: 3,
+				},
+				CreateRepository{
+					TransactionID: 4,
+				},
+				Commit{
+					TransactionID: 4,
+				},
+				Begin{
+					TransactionID:            5,
+					RelativePath:             "repository-1",
+					SnapshottedRelativePaths: []string{"repository-3"},
+					ExpectedSnapshotLSN:      4,
+				},
+				RepositoryAssertion{
+					TransactionID: 5,
+					Repositories: RepositoryStates{
+						"repository-1": {
+							DefaultBranch: "refs/heads/main",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+							CustomHooks: testhelper.DirectoryState{
+								"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/pre-receive": {
+									Mode:    umask.Mask(fs.ModePerm),
+									Content: []byte("hook content"),
+								},
+								"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							},
+						},
+						"repository-2": {
+							DefaultBranch: "refs/heads/branch",
+							References: []git.Reference{
+								{Name: "refs/heads/branch", Target: setup.Commits.Third.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+								setup.Commits.Third.OID,
+							},
+						},
+						"repository-3": {
+							DefaultBranch: "refs/heads/main",
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+								setup.Commits.Third.OID,
+							},
+							Alternate: "../../repository-2/objects",
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 5,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(4).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"repository-1": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+					},
+					"repository-2": {
+						DefaultBranch: "refs/heads/branch",
+						References: []git.Reference{
+							{Name: "refs/heads/branch", Target: setup.Commits.Third.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+						},
+					},
+					"repository-3": {
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+						},
+						Alternate: "../../repository-2/objects",
+					},
+					"repository-4": {
+						Objects: []git.ObjectID{},
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/2":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/2/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/2/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+						},
+					),
+					"/wal/2/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc: "additional repository is included in the snapshot explicitly and implicitly",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/branch": setup.Commits.Second.OID,
+					},
+					DefaultBranch: "refs/heads/branch",
+					Packs: [][]byte{
+						setup.Commits.First.Pack,
+						setup.Commits.Second.Pack,
+					},
+					Alternate: "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID: 3,
+					RelativePath:  "member",
+					// The pool is included explicitly here, and also implicitly through
+					// the alternate link of member.
+					SnapshottedRelativePaths: []string{"pool"},
+					ExpectedSnapshotLSN:      2,
+				},
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						"pool": {
+							DefaultBranch: "refs/heads/main",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+						},
+						"member": {
+							DefaultBranch: "refs/heads/branch",
+							References: []git.Reference{
+								{Name: "refs/heads/branch", Target: setup.Commits.Second.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+							},
+							Alternate: "../../pool/objects",
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 3,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					},
+					"member": {
+						DefaultBranch: "refs/heads/branch",
+						References: []git.Reference{
+							{Name: "refs/heads/branch", Target: setup.Commits.Second.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+						Alternate: "../../pool/objects",
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/2":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/2/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/2/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					),
+					"/wal/2/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc: "target repository is included in the snapshot explicitly and implicitly",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/branch": setup.Commits.Second.OID,
+					},
+					DefaultBranch: "refs/heads/branch",
+					Packs: [][]byte{
+						setup.Commits.First.Pack,
+						setup.Commits.Second.Pack,
+					},
+					Alternate: "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID: 3,
+					// The pool is targeted, and also implicitly included through
+					// the alternate link of member.
+					RelativePath:             "pool",
+					SnapshottedRelativePaths: []string{"member"},
+					ExpectedSnapshotLSN:      2,
+				},
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						"pool": {
+							DefaultBranch: "refs/heads/main",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+						},
+						"member": {
+							DefaultBranch: "refs/heads/branch",
+							References: []git.Reference{
+								{Name: "refs/heads/branch", Target: setup.Commits.Second.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+								setup.Commits.Second.OID,
+							},
+							Alternate: "../../pool/objects",
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 3,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					},
+					"member": {
+						DefaultBranch: "refs/heads/branch",
+						References: []git.Reference{
+							{Name: "refs/heads/branch", Target: setup.Commits.Second.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+						Alternate: "../../pool/objects",
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/2":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/2/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/2/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					),
+					"/wal/2/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -5939,7 +6405,7 @@ func TestTransactionManager(t *testing.T) {
 						beginCtx = step.Context
 					}
 
-					transaction, err := transactionManager.Begin(beginCtx, step.RelativePath, step.ReadOnly)
+					transaction, err := transactionManager.Begin(beginCtx, step.RelativePath, step.SnapshottedRelativePaths, step.ReadOnly)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
 						require.Equal(t, step.ExpectedSnapshotLSN, transaction.SnapshotLSN())
@@ -6204,7 +6670,7 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 			// Begin a transaction to wait until the manager has applied all log entries currently
 			// committed. This ensures the disk state assertions run with all log entries fully applied
 			// to the repository.
-			tx, err := mgr.Begin(ctx, "non-existent", false)
+			tx, err := mgr.Begin(ctx, "non-existent", nil, false)
 			require.NoError(t, err)
 			require.NoError(t, tx.Rollback())
 
@@ -6352,7 +6818,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				require.NoError(b, err)
 
 				for j := 0; j < tc.concurrentUpdaters; j++ {
-					transaction, err := manager.Begin(ctx, repo.RelativePath, false)
+					transaction, err := manager.Begin(ctx, repo.RelativePath, nil, false)
 					require.NoError(b, err)
 					transaction.UpdateReferences(getReferenceUpdates(j, objectHash.ZeroOID, commit1))
 					require.NoError(b, transaction.Commit(ctx))
@@ -6372,7 +6838,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 					currentReferences := getReferenceUpdates(i, commit1, commit2)
 					nextReferences := getReferenceUpdates(i, commit2, commit1)
 
-					transaction, err := manager.Begin(ctx, relativePath, false)
+					transaction, err := manager.Begin(ctx, relativePath, nil, false)
 					require.NoError(b, err)
 					transaction.UpdateReferences(currentReferences)
 
@@ -6384,7 +6850,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 						defer transactionWG.Done()
 
 						for range transactionChan {
-							transaction, err := manager.Begin(ctx, relativePath, false)
+							transaction, err := manager.Begin(ctx, relativePath, nil, false)
 							require.NoError(b, err)
 							transaction.UpdateReferences(nextReferences)
 							assert.NoError(b, transaction.Commit(ctx))
