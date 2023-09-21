@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"golang.org/x/sync/errgroup"
 )
 
 // buildDir is the directory path where our build target places the built binaries.
@@ -35,8 +36,10 @@ func UnpackAuxiliaryBinaries(destinationDir string) error {
 		return fmt.Errorf("list packed binaries: %w", err)
 	}
 
+	g := &errgroup.Group{}
 	for _, entry := range entries {
-		if err := func() error {
+		entry := entry
+		g.Go(func() error {
 			packedPath := filepath.Join(buildDir, entry.Name())
 			packedFile, err := packedBinariesFS.Open(packedPath)
 			if err != nil {
@@ -70,10 +73,7 @@ func UnpackAuxiliaryBinaries(destinationDir string) error {
 			}
 
 			return nil
-		}(); err != nil {
-			return err
-		}
+		})
 	}
-
-	return nil
+	return g.Wait()
 }
