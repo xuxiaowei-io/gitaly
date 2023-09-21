@@ -41,7 +41,7 @@ func Lock(ctx context.Context, locator storage.Locator, repository storage.Repos
 
 	unlock := func() {
 		if err := locker.Close(); err != nil {
-			log.FromContext(ctx).Error("closing repository locker: %w", err)
+			log.FromContext(ctx).WithError(err).Error("closing repository locker failed")
 		}
 	}
 

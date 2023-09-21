@@ -42,7 +42,7 @@ type yamuxLogWrapper struct {
 }
 
 func (l yamuxLogWrapper) Print(args ...any) {
-	l.logger.Info(args...)
+	l.logger.Info(fmt.Sprint(args...))
 }
 
 func (l yamuxLogWrapper) Printf(format string, args ...any) {

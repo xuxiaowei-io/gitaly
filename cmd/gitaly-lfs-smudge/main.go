@@ -47,7 +47,7 @@ func main() {
 	defer closer.Close()
 
 	if err := run(ctx, os.Environ(), os.Stdout, os.Stdin, logger); err != nil {
-		logger.WithError(err).Error(err)
+		logger.WithError(err).Error("gitaly-lfs-smudge failed")
 		os.Exit(1)
 	}
 }

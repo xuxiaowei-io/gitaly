@@ -23,10 +23,10 @@ type Logger interface {
 	Warnf(format string, args ...any)
 	Errorf(format string, args ...any)
 
-	Debug(args ...any)
-	Info(args ...any)
-	Warn(args ...any)
-	Error(args ...any)
+	Debug(msg string)
+	Info(msg string)
+	Warn(msg string)
+	Error(msg string)
 
 	StreamServerInterceptor(...grpcmwlogrus.Option) grpc.StreamServerInterceptor
 	UnaryServerInterceptor(...grpcmwlogrus.Option) grpc.UnaryServerInterceptor
@@ -55,6 +55,26 @@ func (l LogrusLogger) WithFields(fields Fields) Logger {
 // WithError creates a new logger with an appended error field.
 func (l LogrusLogger) WithError(err error) Logger {
 	return LogrusLogger{Entry: l.Entry.WithError(err)}
+}
+
+// Debug writes a log message at debug level.
+func (l LogrusLogger) Debug(msg string) {
+	l.Entry.Debug(msg)
+}
+
+// Info writes a log message at info level.
+func (l LogrusLogger) Info(msg string) {
+	l.Entry.Info(msg)
+}
+
+// Warn writes a log message at warn level.
+func (l LogrusLogger) Warn(msg string) {
+	l.Entry.Warn(msg)
+}
+
+// Error writes a log message at error level.
+func (l LogrusLogger) Error(msg string) {
+	l.Entry.Error(msg)
 }
 
 // ToContext injects the logger into the given context so that it can be retrieved via `FromContext()`.

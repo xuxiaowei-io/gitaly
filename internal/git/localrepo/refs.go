@@ -164,7 +164,7 @@ func (repo *Repo) setDefaultBranchWithTransaction(ctx context.Context, txManager
 	}
 	defer func() {
 		if err := lockingFileWriter.Close(); err != nil {
-			log.FromContext(ctx).WithError(err).Error("closing locked HEAD: %w", err)
+			log.FromContext(ctx).WithError(err).Error("closing locked HEAD failed")
 		}
 	}()
 
