@@ -28,11 +28,6 @@ type Logger interface {
 	Warn(args ...any)
 	Error(args ...any)
 
-	Debugln(args ...any)
-	Infoln(args ...any)
-	Warnln(args ...any)
-	Errorln(args ...any)
-
 	StreamServerInterceptor(...grpcmwlogrus.Option) grpc.StreamServerInterceptor
 	UnaryServerInterceptor(...grpcmwlogrus.Option) grpc.UnaryServerInterceptor
 }

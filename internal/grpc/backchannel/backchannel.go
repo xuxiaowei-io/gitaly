@@ -29,6 +29,7 @@
 package backchannel
 
 import (
+	"fmt"
 	"net"
 	"sync"
 
@@ -49,7 +50,8 @@ func (l yamuxLogWrapper) Printf(format string, args ...any) {
 }
 
 func (l yamuxLogWrapper) Println(args ...any) {
-	l.logger.Infoln(args...)
+	msg := fmt.Sprintln(args...)
+	l.logger.Info(msg[:len(msg)-1])
 }
 
 // magicBytes are sent by the client to server to identify as a multiplexing aware client.
