@@ -98,11 +98,9 @@ func WriteTree(tb testing.TB, cfg config.Cfg, repoPath string, entries []TreeEnt
 
 		require.False(tb, len(entry.OID) > 0 && len(entry.Content) > 0,
 			"entry cannot have both OID and content")
-		require.False(tb, len(entry.OID) == 0 && len(entry.Content) == 0,
-			"entry must have either an OID or content")
 
 		oid := entry.OID
-		if len(entry.Content) > 0 {
+		if oid == "" {
 			oid = WriteBlob(tb, cfg, repoPath, []byte(entry.Content))
 		}
 

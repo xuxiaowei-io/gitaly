@@ -63,7 +63,7 @@ func (inst *Instance) Stats(ctx context.Context, commitID git.ObjectID) (ByteCou
 	}
 	defer cancel()
 
-	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, inst.repo, linguistAttrs)
+	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, inst.repo, commitID.Revision(), linguistAttrs)
 	if err != nil {
 		return nil, fmt.Errorf("linguist create check attr: %w", err)
 	}

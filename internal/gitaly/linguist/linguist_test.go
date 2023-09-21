@@ -523,15 +523,6 @@ func TestInstance_Stats(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			repoProto, repoPath, objectID := tc.setup(t)
 
-			// Apply the gitattributes
-			// We should get rid of this with https://gitlab.com/groups/gitlab-org/-/epics/9006
-			infoPath := filepath.Join(repoPath, "info")
-			require.NoError(t, os.MkdirAll(infoPath, perm.SharedDir))
-			attrData, err := gittest.NewCommand(t, cfg, "-C", repoPath, "cat-file", "blob", objectID.String()+":.gitattributes").Output()
-			if err == nil {
-				require.NoError(t, os.WriteFile(filepath.Join(infoPath, "attributes"), attrData, perm.SharedFile))
-			}
-
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			linguist := New(cfg, catfileCache, repo)
 			stats, err := linguist.Stats(ctx, objectID)
