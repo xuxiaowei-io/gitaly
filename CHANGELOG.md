@@ -1,5 +1,47 @@
 # Gitaly changelog
 
+## 16.4.0 (2023-09-21)
+
+### Added (4 changes)
+
+- [git: Wire up Git v2.42 execution environment](gitlab-org/gitaly@a93a5b0de721d45b49fe35f65356fc870b9e01fc) ([merge request](gitlab-org/gitaly!6298))
+- [storagemgr: Remove packed-refs lockfile on start](gitlab-org/gitaly@15b16e79f56fc8f0cdafaba43285954fbfed8386) ([merge request](gitlab-org/gitaly!6238))
+- [git: Wire up Git v2.42 execution environment](gitlab-org/gitaly@269fac4efa91adeca1ecd297e89b3cdd6678a038) ([merge request](gitlab-org/gitaly!6274))
+- [operations: Implement SHA256 support for UserRebaseConfirmable](gitlab-org/gitaly@03cbe192d8ad98425afc023cebd082ce34da9032) ([merge request](gitlab-org/gitaly!6244))
+
+### Fixed (12 changes)
+
+- [ssh: Unify logic to handle git-upload-pack(1) and git-upload-archive(1)](gitlab-org/gitaly@8744378b62f7add4c2017628e5d0e5a4635876cc) ([merge request](gitlab-org/gitaly!6379))
+- [trace2: Don't round offset event times](gitlab-org/gitaly@cab4232585e4b60cfc0472cc3ad8f128579cc120) ([merge request](gitlab-org/gitaly!6375))
+- [ref: Handle SIGPIPE when truncating output from git-for-each-ref(1)](gitlab-org/gitaly@899b60ac6345e425512ad863a4924abd743bf9c7) ([merge request](gitlab-org/gitaly!6365))
+- [command: Reliably propagate read errors on context cancellation](gitlab-org/gitaly@065ad266cc5732a7214d97ba85568d7d74465140) ([merge request](gitlab-org/gitaly!6315))
+- [command: Improve error handling for stdout](gitlab-org/gitaly@12016efaf99cd593d3dc6b11536cb0e5dc2fe02c) ([merge request](gitlab-org/gitaly!6315))
+- [commit: Gracefully handle paths escaping repo in LastCommitForPath](gitlab-org/gitaly@7ea1ef40f2c6f64e2cdce6e9a88f0e79efe9b084) ([merge request](gitlab-org/gitaly!6345))
+- [cli/praefect: Fix logging setup for client-side subcommands](gitlab-org/gitaly@fea96d943f4948e7fe1777904668a6acc02ed375) ([merge request](gitlab-org/gitaly!6303))
+- [operations: Respect timezone info in signatures](gitlab-org/gitaly@78b7ee4f1c0de6b586129fd143df500fa63eb0cc) by @blanet ([merge request](gitlab-org/gitaly!6323))
+- [info: Convert DatalossCheck to be a streaming RPC](gitlab-org/gitaly@6784d292c8d4f643d0e227214c332505ee3a39e1) ([merge request](gitlab-org/gitaly!6286))
+- [git/localrepo: Fix interpretation of monotonic clock as timezone](gitlab-org/gitaly@925ffc2c5a6ffebe80c8ad0a303209d837121764) ([merge request](gitlab-org/gitaly!6297))
+- [catfile: Fix ObjectReader not being dirty with in-use queue](gitlab-org/gitaly@bc8484d4d29615be37af4a729a6f18eb8d6821b5) ([merge request](gitlab-org/gitaly!6282))
+- [praefect: Use replica paths in track-repositories](gitlab-org/gitaly@bfbb8f66559d27f5e3f1a0e5f36384d51bbf412d) ([merge request](gitlab-org/gitaly!6251))
+
+### Changed (2 changes)
+
+- [commit: Gracefully handle invalid arguments in RawBlame](gitlab-org/gitaly@929950811c6ad3d631784ea3c570051f1140c902) ([merge request](gitlab-org/gitaly!6361))
+- [operations: Implement UserRebaseToRef via plain Git](gitlab-org/gitaly@a7c90997007b25d4a7dedc340fe57bd787529541) ([merge request](gitlab-org/gitaly!6242))
+
+### Deprecated (1 change)
+
+- [gitaly/config: Deprecate `[gitlab-shell]` section](gitlab-org/gitaly@96a3d3025429f79c3a0ed65054cedd3c2a0608a5) ([merge request](gitlab-org/gitaly!6279))
+
+### Removed (1 change)
+
+- [operations: Always use Git-based implementation of UserCherryPick](gitlab-org/gitaly@1c4e452083e7a88ba199a53b724ccae2e71c60ce) ([merge request](gitlab-org/gitaly!6267))
+
+### Performance (2 changes)
+
+- [backup: Improve time taken to create a full backup bundle](gitlab-org/gitaly@c43b91c07de39a4e32b3bb855787ab43e9c6a6c7) ([merge request](gitlab-org/gitaly!6305))
+- [backup: Improve performance of writing ref lists](gitlab-org/gitaly@897aadac824654041b9c383b17ec8a5f217eac6b) ([merge request](gitlab-org/gitaly!6305))
+
 ## 16.3.4 (2023-09-18)
 
 No changes.
