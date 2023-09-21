@@ -52,7 +52,7 @@ func TestResizableSemaphore_ContextCanceled(t *testing.T) {
 
 		semaphore := NewResizableSemaphore(5)
 
-		require.Equal(t, context.DeadlineExceeded, semaphore.Acquire(ctx))
+		require.Equal(t, ErrMaxQueueTime, semaphore.Acquire(ctx))
 		require.Equal(t, 0, semaphore.Count())
 	})
 
@@ -60,14 +60,14 @@ func TestResizableSemaphore_ContextCanceled(t *testing.T) {
 		ctx, cancel, simulateTimeout := testhelper.ContextWithSimulatedTimeout(testhelper.Context(t))
 		defer cancel()
 
-		testResizableSemaphoreCanceledWhenNotFull(t, ctx, simulateTimeout, context.DeadlineExceeded)
+		testResizableSemaphoreCanceledWhenNotFull(t, ctx, simulateTimeout, ErrMaxQueueTime)
 	})
 
 	t.Run("context's deadline exceeded when the semaphore is full", func(t *testing.T) {
 		ctx, cancel, simulateTimeout := testhelper.ContextWithSimulatedTimeout(testhelper.Context(t))
 		defer cancel()
 
-		testResizableSemaphoreCanceledWhenFull(t, ctx, simulateTimeout, context.DeadlineExceeded)
+		testResizableSemaphoreCanceledWhenFull(t, ctx, simulateTimeout, ErrMaxQueueTime)
 	})
 }
 

@@ -206,7 +206,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 		limit := limit
 
 		result[limit.RPC] = limiter.NewConcurrencyLimiter(
-			limit.MaxPerRepo,
+			limiter.NewAdaptiveLimit("staticLimit", limiter.AdaptiveSetting{Initial: limit.MaxPerRepo}),
 			limit.MaxQueueSize,
 			limit.MaxQueueWait.Duration(),
 			limiter.NewPerRPCPromMonitor(
@@ -220,7 +220,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 	replicateRepositoryFullMethod := "/gitaly.RepositoryService/ReplicateRepository"
 	if _, ok := result[replicateRepositoryFullMethod]; !ok {
 		result[replicateRepositoryFullMethod] = limiter.NewConcurrencyLimiter(
-			1,
+			limiter.NewAdaptiveLimit("staticLimit", limiter.AdaptiveSetting{Initial: 1}),
 			0,
 			0,
 			limiter.NewPerRPCPromMonitor(

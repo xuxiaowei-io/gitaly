@@ -3,6 +3,7 @@ package limiter
 import (
 	"container/list"
 	"context"
+	"errors"
 	"sync"
 )
 
@@ -50,7 +51,8 @@ func NewResizableSemaphore(size uint) *resizableSemaphore {
 }
 
 // Acquire allows the caller to acquire the semaphore. If the semaphore is full, the caller is blocked until there
-// is an available slot or the context is canceled. If the context is canceled, context's error is returned. Otherwise,
+// is an available slot or the context is canceled or the context exceeds the deadline. If the context exceeds the
+// deadline, ErrMaxQueueTime is returned. If the context is canceled, context's error is returned. Otherwise,
 // this function returns nil after acquired.
 func (s *resizableSemaphore) Acquire(ctx context.Context) error {
 	s.Lock()
@@ -58,7 +60,7 @@ func (s *resizableSemaphore) Acquire(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			s.Unlock()
-			return ctx.Err()
+			return s.contextError(ctx)
 		default:
 			s.current++
 			s.Unlock()
@@ -72,7 +74,7 @@ func (s *resizableSemaphore) Acquire(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		return s.stopWaiter(element, w, ctx.Err())
+		return s.stopWaiter(element, w, s.contextError(ctx))
 	case <-w.ready:
 		return nil
 	}
@@ -101,6 +103,14 @@ func (s *resizableSemaphore) stopWaiter(element *list.Element, w *waiter, err er
 		if isFront {
 			s.notifyWaiters()
 		}
+	}
+	return err
+}
+
+func (s *resizableSemaphore) contextError(ctx context.Context) error {
+	err := ctx.Err()
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ErrMaxQueueTime
 	}
 	return err
 }

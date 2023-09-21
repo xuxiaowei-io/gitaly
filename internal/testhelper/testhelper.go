@@ -257,6 +257,8 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.MailmapOptions, rand.Int()%2 == 0)
 	// This feature flag sits in `command.Wait()` and is thus getting executed in a ton of tests.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CommandCloseStdout, rand.Int()%2 == 0)
+	// Randomly enable limiter.resizableSemaphore
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseResizableSemaphoreInConcurrencyLimiter, rand.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)
