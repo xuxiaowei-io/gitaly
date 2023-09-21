@@ -20,7 +20,6 @@ type Logger interface {
 
 	Debugf(format string, args ...any)
 	Infof(format string, args ...any)
-	Printf(format string, args ...any)
 	Warnf(format string, args ...any)
 	Warningf(format string, args ...any)
 	Errorf(format string, args ...any)
@@ -29,7 +28,6 @@ type Logger interface {
 
 	Debug(args ...any)
 	Info(args ...any)
-	Print(args ...any)
 	Warn(args ...any)
 	Warning(args ...any)
 	Error(args ...any)
@@ -38,7 +36,6 @@ type Logger interface {
 
 	Debugln(args ...any)
 	Infoln(args ...any)
-	Println(args ...any)
 	Warnln(args ...any)
 	Warningln(args ...any)
 	Errorln(args ...any)

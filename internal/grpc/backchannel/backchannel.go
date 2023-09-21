@@ -36,13 +36,29 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
+type yamuxLogWrapper struct {
+	logger log.Logger
+}
+
+func (l yamuxLogWrapper) Print(args ...any) {
+	l.logger.Info(args...)
+}
+
+func (l yamuxLogWrapper) Printf(format string, args ...any) {
+	l.logger.Infof(format, args...)
+}
+
+func (l yamuxLogWrapper) Println(args ...any) {
+	l.logger.Infoln(args...)
+}
+
 // magicBytes are sent by the client to server to identify as a multiplexing aware client.
 var magicBytes = []byte("backchannel")
 
 // muxConfig returns a new config to use with the multiplexing session.
 func muxConfig(logger log.Logger, cfg Configuration) *yamux.Config {
 	yamuxCfg := yamux.DefaultConfig()
-	yamuxCfg.Logger = logger
+	yamuxCfg.Logger = yamuxLogWrapper{logger}
 	yamuxCfg.LogOutput = nil
 	// gRPC is already configured to send keep alives so we don't need yamux to do this for us.
 	// gRPC is a better choice as it sends the keep alives also to non-multiplexed connections.

@@ -80,7 +80,7 @@ func main() {
 
 	code, err := cmd.run(logger)
 	if err != nil {
-		logger.Printf("%s: %v", command, err)
+		logger.Infof("%s: %v", command, err)
 	}
 
 	os.Exit(code)
