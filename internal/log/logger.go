@@ -22,21 +22,18 @@ type Logger interface {
 	Infof(format string, args ...any)
 	Warnf(format string, args ...any)
 	Errorf(format string, args ...any)
-	Fatalf(format string, args ...any)
 	Panicf(format string, args ...any)
 
 	Debug(args ...any)
 	Info(args ...any)
 	Warn(args ...any)
 	Error(args ...any)
-	Fatal(args ...any)
 	Panic(args ...any)
 
 	Debugln(args ...any)
 	Infoln(args ...any)
 	Warnln(args ...any)
 	Errorln(args ...any)
-	Fatalln(args ...any)
 	Panicln(args ...any)
 
 	StreamServerInterceptor(...grpcmwlogrus.Option) grpc.StreamServerInterceptor
