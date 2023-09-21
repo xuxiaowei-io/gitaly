@@ -48,7 +48,7 @@ func Color(language string) string {
 }
 
 // Stats returns the repository's language statistics.
-func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
+func (inst *Instance) Stats(ctx context.Context, commitID git.ObjectID) (ByteCountPerLanguage, error) {
 	stats, err := initLanguageStats(inst.repo)
 	if err != nil {
 		log.FromContext(ctx).WithError(err).Info("linguist load from cache")
@@ -92,7 +92,7 @@ func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerL
 		// Full recalculation is needed, so get all the files for the
 		// commit using git-ls-tree(1).
 		revlistIt = gitpipe.LsTree(ctx, inst.repo,
-			commitID,
+			commitID.String(),
 			gitpipe.LsTreeWithRecursive(),
 			gitpipe.LsTreeWithBlobFilter(),
 			gitpipe.LsTreeWithSkip(skipFunc),
@@ -132,7 +132,7 @@ func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerL
 		}
 
 		revlistIt = gitpipe.DiffTree(ctx, inst.repo,
-			stats.CommitID, commitID,
+			stats.CommitID.String(), commitID.String(),
 			gitpipe.DiffTreeWithRecursive(),
 			gitpipe.DiffTreeWithIgnoreSubmodules(),
 			gitpipe.DiffTreeWithSkip(skipFunc),
@@ -183,7 +183,7 @@ func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerL
 	return stats.Totals, nil
 }
 
-func (inst *Instance) needsFullRecalculation(ctx context.Context, cachedID, commitID string) (bool, error) {
+func (inst *Instance) needsFullRecalculation(ctx context.Context, cachedID, commitID git.ObjectID) (bool, error) {
 	if cachedID == "" {
 		return true, nil
 	}

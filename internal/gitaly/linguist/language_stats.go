@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 )
 
@@ -25,7 +26,7 @@ type languageStats struct {
 	// Version holds the file format version
 	Version string `json:"version"`
 	// CommitID holds the commit ID for the cached Totals
-	CommitID string `json:"commit_id"`
+	CommitID git.ObjectID `json:"commit_id"`
 
 	// m will protect concurrent writes to Totals & ByFile maps
 	m *sync.Mutex
@@ -115,7 +116,7 @@ func (c *languageStats) drop(filenames ...string) {
 }
 
 // save the language stats to file in the repository
-func (c *languageStats) save(repo *localrepo.Repo, commitID string) error {
+func (c *languageStats) save(repo *localrepo.Repo, commitID git.ObjectID) error {
 	c.CommitID = commitID
 	c.Version = languageStatsVersion
 

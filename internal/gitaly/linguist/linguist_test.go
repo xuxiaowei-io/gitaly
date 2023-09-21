@@ -366,7 +366,7 @@ func TestInstance_Stats(t *testing.T) {
 
 				// We simply run the linguist once before so that it can already
 				// write the cache.
-				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID.String())
+				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID)
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
@@ -397,7 +397,7 @@ func TestInstance_Stats(t *testing.T) {
 				))
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID.String())
+				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID)
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
@@ -485,7 +485,7 @@ func TestInstance_Stats(t *testing.T) {
 
 				// Precreate the cache with the old commit. This ensures that
 				// linguist knows to update the cache.
-				stats, err := New(cfg, catfileCache, repo).Stats(ctx, oldCommitID.String())
+				stats, err := New(cfg, catfileCache, repo).Stats(ctx, oldCommitID)
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 				require.Equal(t, ByteCountPerLanguage{
@@ -534,7 +534,7 @@ func TestInstance_Stats(t *testing.T) {
 
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			linguist := New(cfg, catfileCache, repo)
-			stats, err := linguist.Stats(ctx, objectID.String())
+			stats, err := linguist.Stats(ctx, objectID)
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedStats, stats)
@@ -577,7 +577,7 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 	repo := localrepo.New(locator, gitCmdFactory, catfileCache, repoProto)
 
 	linguist := New(cfg, catfileCache, repo)
-	_, err := linguist.Stats(ctx, commitID.String())
+	_, err := linguist.Stats(ctx, commitID)
 
 	expectedErr := `linguist object iterator: ls-tree skip: new file instance: checking attribute:`
 	require.ErrorContains(t, err, expectedErr)
