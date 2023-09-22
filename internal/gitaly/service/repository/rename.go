@@ -62,7 +62,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	}
 	defer func() {
 		if err := sourceLocker.Close(); err != nil {
-			log.FromContext(ctx).Error("closing source repo locker: %w", err)
+			log.FromContext(ctx).WithError(err).Error("closing source repo locker failed")
 		}
 	}()
 
@@ -72,7 +72,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	}
 	defer func() {
 		if err := targetLocker.Close(); err != nil {
-			log.FromContext(ctx).Error("closing target repo locker: %w", err)
+			log.FromContext(ctx).WithError(err).Error("closing target repo locker failed")
 		}
 	}()
 

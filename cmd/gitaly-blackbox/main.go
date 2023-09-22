@@ -50,7 +50,8 @@ func main() {
 	prometheus.MustRegister(bb)
 
 	if err := bb.Run(); err != nil {
-		logger.WithError(err).Fatal()
+		logger.WithError(err).Error("blackbox probe failed")
+		os.Exit(1)
 	}
 }
 

@@ -16,7 +16,7 @@ import (
 func methodErrLogger(logger log.Logger, method string) func(error) {
 	return func(err error) {
 		countMethodErr(method)
-		logger.WithField("full_method_name", method).Error(err)
+		logger.WithField("full_method_name", method).Error(err.Error())
 	}
 }
 

@@ -494,7 +494,7 @@ func TestCommand_logMessage(t *testing.T) {
 	t.Parallel()
 
 	logger := testhelper.NewLogger(t)
-	logger.Logger.SetLevel(logrus.DebugLevel)
+	logger.LogrusEntry().Logger.SetLevel(logrus.DebugLevel) //nolint:staticcheck
 	hook := testhelper.AddLoggerHook(logger)
 
 	ctx := logger.ToContext(testhelper.Context(t))

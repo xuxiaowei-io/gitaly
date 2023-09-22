@@ -67,7 +67,7 @@ func clean(logger log.Logger, locator storage.Locator, storage config.Storage) e
 	// If we start "cleaning up" the wrong directory we may delete user data
 	// which is Really Bad.
 	if !strings.HasSuffix(dir, tmpRootPrefix) {
-		logger.Print(dir)
+		logger.Info(dir)
 		panic(invalidCleanRoot("invalid tempdir clean root: panicking to prevent data loss"))
 	}
 

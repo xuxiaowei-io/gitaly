@@ -117,7 +117,7 @@ func (c *DiskCache) walkLoop(walkPath string) {
 		}
 
 		if err := c.cleanWalk(walkPath); err != nil {
-			logger.Error(err)
+			logger.WithError(err).Error("disk cache cleanup failed")
 		}
 
 		select {

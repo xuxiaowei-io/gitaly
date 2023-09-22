@@ -20,30 +20,13 @@ type Logger interface {
 
 	Debugf(format string, args ...any)
 	Infof(format string, args ...any)
-	Printf(format string, args ...any)
 	Warnf(format string, args ...any)
-	Warningf(format string, args ...any)
 	Errorf(format string, args ...any)
-	Fatalf(format string, args ...any)
-	Panicf(format string, args ...any)
 
-	Debug(args ...any)
-	Info(args ...any)
-	Print(args ...any)
-	Warn(args ...any)
-	Warning(args ...any)
-	Error(args ...any)
-	Fatal(args ...any)
-	Panic(args ...any)
-
-	Debugln(args ...any)
-	Infoln(args ...any)
-	Println(args ...any)
-	Warnln(args ...any)
-	Warningln(args ...any)
-	Errorln(args ...any)
-	Fatalln(args ...any)
-	Panicln(args ...any)
+	Debug(msg string)
+	Info(msg string)
+	Warn(msg string)
+	Error(msg string)
 
 	StreamServerInterceptor(...grpcmwlogrus.Option) grpc.StreamServerInterceptor
 	UnaryServerInterceptor(...grpcmwlogrus.Option) grpc.UnaryServerInterceptor
@@ -51,49 +34,98 @@ type Logger interface {
 
 // LogrusLogger is an implementation of the Logger interface that is implemented via a `logrus.FieldLogger`.
 type LogrusLogger struct {
-	*logrus.Entry
+	entry *logrus.Entry
 }
 
 // FromLogrusEntry constructs a new Gitaly-specific logger from a `logrus.Logger`.
 func FromLogrusEntry(entry *logrus.Entry) LogrusLogger {
-	return LogrusLogger{Entry: entry}
+	return LogrusLogger{entry: entry}
+}
+
+// LogrusEntry returns the `logrus.Entry` that backs this logger. Note that this interface only exists during the
+// transition period and will be eventually removed. It is thus heavily discouraged to use it.
+//
+// Deprecated: This will be removed once all callsites have been converted to do something that is independent of the
+// logrus logger.
+func (l LogrusLogger) LogrusEntry() *logrus.Entry {
+	return l.entry
 }
 
 // WithField creates a new logger with the given field appended.
 func (l LogrusLogger) WithField(key string, value any) Logger {
-	return LogrusLogger{Entry: l.Entry.WithField(key, value)}
+	return LogrusLogger{entry: l.entry.WithField(key, value)}
 }
 
 // WithFields creates a new logger with the given fields appended.
 func (l LogrusLogger) WithFields(fields Fields) Logger {
-	return LogrusLogger{Entry: l.Entry.WithFields(fields)}
+	return LogrusLogger{entry: l.entry.WithFields(fields)}
 }
 
 // WithError creates a new logger with an appended error field.
 func (l LogrusLogger) WithError(err error) Logger {
-	return LogrusLogger{Entry: l.Entry.WithError(err)}
+	return LogrusLogger{entry: l.entry.WithError(err)}
+}
+
+// Debugf writes a formatted log message at debug level.
+func (l LogrusLogger) Debugf(format string, args ...any) {
+	l.entry.Debugf(format, args...)
+}
+
+// Infof writes a formatted log message at info level.
+func (l LogrusLogger) Infof(format string, args ...any) {
+	l.entry.Infof(format, args...)
+}
+
+// Warnf writes a formatted log message at warn level.
+func (l LogrusLogger) Warnf(format string, args ...any) {
+	l.entry.Warnf(format, args...)
+}
+
+// Errorf writes a formatted log message at error level.
+func (l LogrusLogger) Errorf(format string, args ...any) {
+	l.entry.Errorf(format, args...)
+}
+
+// Debug writes a log message at debug level.
+func (l LogrusLogger) Debug(msg string) {
+	l.entry.Debug(msg)
+}
+
+// Info writes a log message at info level.
+func (l LogrusLogger) Info(msg string) {
+	l.entry.Info(msg)
+}
+
+// Warn writes a log message at warn level.
+func (l LogrusLogger) Warn(msg string) {
+	l.entry.Warn(msg)
+}
+
+// Error writes a log message at error level.
+func (l LogrusLogger) Error(msg string) {
+	l.entry.Error(msg)
 }
 
 // ToContext injects the logger into the given context so that it can be retrieved via `FromContext()`.
 func (l LogrusLogger) ToContext(ctx context.Context) context.Context {
-	return ctxlogrus.ToContext(ctx, l.Entry)
+	return ctxlogrus.ToContext(ctx, l.entry)
 }
 
 // StreamServerInterceptor creates a gRPC interceptor that generates log messages for streaming RPC calls.
 func (l LogrusLogger) StreamServerInterceptor(opts ...grpcmwlogrus.Option) grpc.StreamServerInterceptor {
-	return grpcmwlogrus.StreamServerInterceptor(l.Entry, opts...)
+	return grpcmwlogrus.StreamServerInterceptor(l.entry, opts...)
 }
 
 // UnaryServerInterceptor creates a gRPC interceptor that generates log messages for unary RPC calls.
 func (l LogrusLogger) UnaryServerInterceptor(opts ...grpcmwlogrus.Option) grpc.UnaryServerInterceptor {
-	return grpcmwlogrus.UnaryServerInterceptor(l.Entry, opts...)
+	return grpcmwlogrus.UnaryServerInterceptor(l.entry, opts...)
 }
 
 // FromContext extracts the logger from the context. If no logger has been injected then this will return a discarding
 // logger.
 func FromContext(ctx context.Context) LogrusLogger {
 	return LogrusLogger{
-		Entry: ctxlogrus.Extract(ctx),
+		entry: ctxlogrus.Extract(ctx),
 	}
 }
 

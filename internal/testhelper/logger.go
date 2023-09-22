@@ -103,7 +103,7 @@ type LoggerHook struct {
 
 // AddLoggerHook installs a hook on the logger.
 func AddLoggerHook(logger log.LogrusLogger) LoggerHook {
-	return LoggerHook{hook: test.NewLocal(logger.Logger)}
+	return LoggerHook{hook: test.NewLocal(logger.LogrusEntry().Logger)} //nolint:staticcheck
 }
 
 // AllEntries returns all log entries that have been intercepted by the hook.

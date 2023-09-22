@@ -311,7 +311,7 @@ func smudgeOneObject(ctx context.Context, cfg smudge.Config, gitlabClient *gitla
 	}
 
 	if err := response.Body.Close(); err != nil {
-		logger.WithError(err).Error("closing LFS pointer body: %w", err)
+		logger.WithError(err).Error("closing LFS pointer body failed")
 	}
 
 	return io.NopCloser(contents), nil

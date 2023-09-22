@@ -32,13 +32,15 @@ func main() {
 	_ = flags.Parse(os.Args)
 
 	if flags.NArg() < 2 {
-		logger.Fatal("missing subcommand")
+		logger.Error("missing subcommand")
+		os.Exit(1)
 	}
 
 	subcmdName := flags.Arg(1)
 	subcmd, ok := subcommands[subcmdName]
 	if !ok {
-		logger.Fatalf("unknown subcommand: %q", flags.Arg(1))
+		logger.Errorf("unknown subcommand: %q", flags.Arg(1))
+		os.Exit(1)
 	}
 
 	subcmdFlags := flag.NewFlagSet(subcmdName, flag.ExitOnError)
@@ -47,10 +49,12 @@ func main() {
 
 	ctx, err := storage.InjectGitalyServersEnv(context.Background())
 	if err != nil {
-		logger.Fatalf("%s", err)
+		logger.Errorf("%s", err)
+		os.Exit(1)
 	}
 
 	if err := subcmd.Run(ctx, logger, os.Stdin, os.Stdout); err != nil {
-		logger.Fatalf("%s", err)
+		logger.Errorf("%s", err)
+		os.Exit(1)
 	}
 }
