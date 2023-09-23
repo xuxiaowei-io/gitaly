@@ -24,9 +24,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -337,6 +339,8 @@ func TestTransactionManager(t *testing.T) {
 		Packs [][]byte
 		// CustomHooks are the custom hooks to write into the repository.
 		CustomHooks []byte
+		// Alternate links the given relative path as the repository's alternate.
+		Alternate string
 	}
 
 	// Commit calls Commit on a transaction.
@@ -366,6 +370,8 @@ func TestTransactionManager(t *testing.T) {
 		DeleteRepository bool
 		// IncludeObjects includes objects in the transaction's logged pack.
 		IncludeObjects []git.ObjectID
+		// UpdateAlternate updates the repository's alternate when set.
+		UpdateAlternate *alternateUpdate
 	}
 
 	// RecordInitialReferenceValues calls RecordInitialReferenceValues on a transaction.
@@ -4731,6 +4737,900 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "repository is linked to alternate on creation",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					},
+					"member": {
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						Alternate: "../../pool/objects",
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc: "repository is linked to an alternate after creation",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Commit{
+					TransactionID:   3,
+					UpdateAlternate: &alternateUpdate{relativePath: "pool"},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					},
+					"member": {
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						Alternate: "../../pool/objects",
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc: "repository is disconnected from alternate",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				CloseManager{},
+				StartManager{
+					ModifyStorage: func(tb testing.TB, cfg config.Cfg, storagePath string) {
+						// Transactions write objects always as packs into the repository. To test
+						// scenarios where repositories may have existing loose objects, manually
+						// unpack the objects to the repository.
+						gittest.ExecOpts(tb, cfg,
+							gittest.ExecConfig{Stdin: bytes.NewReader(setup.Commits.Second.Pack)},
+							"-C", filepath.Join(storagePath, "pool"), "unpack-objects",
+						)
+					},
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Commit{
+					TransactionID:   3,
+					UpdateAlternate: &alternateUpdate{},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					},
+					"member": {
+						// The objects should have been copied over to the repository when it was
+						// disconnected from the alternate.
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc: "repository's alternate must be pointed to a git repository",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "repository",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					Alternate:     "../..",
+				},
+				Commit{
+					TransactionID: 1,
+					ExpectedError: storage.InvalidGitDirectoryError{MissingEntry: "objects"},
+				},
+			},
+			expectedState: StateAssertion{
+				Repositories: RepositoryStates{},
+			},
+		},
+		{
+			desc: "repository's alternate must not point to repository itself",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "repository",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					Alternate:     "../objects",
+				},
+				Commit{
+					TransactionID: 1,
+					ExpectedError: errAlternatePointsToSelf,
+				},
+			},
+			expectedState: StateAssertion{
+				Repositories: RepositoryStates{},
+			},
+		},
+		{
+			desc: "repository's alternate can't have an alternate itself",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "recursive-member",
+					ExpectedSnapshotLSN: 2,
+				},
+				CreateRepository{
+					TransactionID: 3,
+					Alternate:     "../../member/objects",
+				},
+				Commit{
+					TransactionID: 3,
+					ExpectedError: errAlternateHasAlternate,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						Objects: []git.ObjectID{},
+					},
+					"member": {
+						Objects:   []git.ObjectID{},
+						Alternate: "../../pool/objects",
+					},
+				},
+			},
+		},
+		{
+			desc: "repository can't be linked multiple times",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Commit{
+					TransactionID:   3,
+					UpdateAlternate: &alternateUpdate{relativePath: "pool"},
+				},
+				Begin{
+					TransactionID:       4,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 3,
+				},
+				Commit{
+					TransactionID:   4,
+					UpdateAlternate: &alternateUpdate{relativePath: "pool"},
+					ExpectedError:   errAlternateAlreadyLinked,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						Objects: []git.ObjectID{},
+					},
+					"member": {
+						Objects:   []git.ObjectID{},
+						Alternate: "../../pool/objects",
+					},
+				},
+			},
+		},
+		{
+			desc: "repository can't be linked concurrently multiple times",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Begin{
+					TransactionID:       4,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Commit{
+					TransactionID:   3,
+					UpdateAlternate: &alternateUpdate{relativePath: "pool"},
+				},
+				Commit{
+					TransactionID:   4,
+					UpdateAlternate: &alternateUpdate{relativePath: "pool"},
+					ExpectedError:   errAlternateAlreadyLinked,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						Objects: []git.ObjectID{},
+					},
+					"member": {
+						Objects:   []git.ObjectID{},
+						Alternate: "../../pool/objects",
+					},
+				},
+			},
+		},
+		{
+			desc: "repository without an alternate can't be disconnected",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "repository",
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "repository",
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID:   2,
+					UpdateAlternate: &alternateUpdate{},
+					ExpectedError:   errNoAlternate,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"repository": {
+						Objects: []git.ObjectID{},
+					},
+				},
+			},
+		},
+		{
+			desc: "repository can't be disconnected concurrently multiple times",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Begin{
+					TransactionID:       4,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Commit{
+					TransactionID:   3,
+					UpdateAlternate: &alternateUpdate{},
+				},
+				Commit{
+					TransactionID:   4,
+					UpdateAlternate: &alternateUpdate{},
+					ExpectedError:   errNoAlternate,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						Objects: []git.ObjectID{},
+					},
+					"member": {
+						Objects: []git.ObjectID{},
+					},
+				},
+			},
+		},
+		{
+			desc: "reapplying alternate linking works",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				CloseManager{},
+				StartManager{
+					Hooks: testHooks{
+						BeforeStoreAppliedLSN: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						"member": {
+							DefaultBranch: "refs/heads/main",
+						},
+					},
+				},
+				Commit{
+					TransactionID:   3,
+					UpdateAlternate: &alternateUpdate{relativePath: "pool"},
+					ExpectedError:   ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						Objects: []git.ObjectID{},
+					},
+					"member": {
+						Objects:   []git.ObjectID{},
+						Alternate: "../../pool/objects",
+					},
+				},
+			},
+		},
+		{
+			desc: "reapplying alternate disconnection works",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				CloseManager{},
+				StartManager{
+					Hooks: testHooks{
+						BeforeStoreAppliedLSN: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						"member": {
+							DefaultBranch: "refs/heads/main",
+							Alternate:     "../../pool/objects",
+						},
+					},
+				},
+				Commit{
+					TransactionID:   3,
+					UpdateAlternate: &alternateUpdate{},
+					ExpectedError:   ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						Objects: []git.ObjectID{},
+					},
+					"member": {
+						Objects: []git.ObjectID{},
+					},
+				},
+			},
+		},
+		{
+			desc: "point reference to an object in an alternate",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Commit{
+					TransactionID: 3,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					},
+					"member": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						Alternate: "../../pool/objects",
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc: "point reference to new object with dependencies in an alternate",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Commit{
+					TransactionID: 3,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+					},
+					QuarantinedPacks: [][]byte{setup.Commits.Second.Pack},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					},
+					"member": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+						Alternate: "../../pool/objects",
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/3":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/3/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/3/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							// The pack should only contain the new object 'second' as the
+							// rest of the objects exist in the alternate. We're still including
+							// all unreachable objects in the logged pack until we can compute
+							// the pack files dependencies.
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					),
+					"/wal/3/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -4957,6 +5857,10 @@ func TestTransactionManager(t *testing.T) {
 						transaction.SkipVerificationFailures()
 					}
 
+					if step.UpdateAlternate != nil {
+						transaction.UpdateAlternate(step.UpdateAlternate.relativePath)
+					}
+
 					if step.ReferenceUpdates != nil {
 						transaction.UpdateReferences(step.ReferenceUpdates)
 					}
@@ -5075,6 +5979,13 @@ func TestTransactionManager(t *testing.T) {
 								require.NoError(t,
 									repoutil.SetCustomHooks(ctx, logger, config.NewLocator(setup.Config), nil, bytes.NewReader(step.CustomHooks), repo),
 								)
+							}
+
+							if step.Alternate != "" {
+								repoPath, err := repo.Path()
+								require.NoError(t, err)
+
+								require.NoError(t, os.WriteFile(stats.AlternatesFilePath(repoPath), []byte(step.Alternate), fs.ModePerm))
 							}
 
 							return nil

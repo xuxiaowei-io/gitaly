@@ -19,8 +19,7 @@ var (
 	// errPartitionAssignmentNotFound is returned when attempting to access a
 	// partition assignment in the database that doesn't yet exist.
 	errPartitionAssignmentNotFound = errors.New("partition assignment not found")
-	// errNoAlternate is used internally by partitionAssigner to signal a repository
-	// has no alternates.
+	// errNoAlternate is returned when a repository has no alternate.
 	errNoAlternate = errors.New("repository has no alternate")
 	// errMultipleAlternates is returned when a repository has multiple alternates
 	// configured.
