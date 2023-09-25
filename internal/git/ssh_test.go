@@ -38,7 +38,7 @@ func TestBuildSSHInvocation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			sshCommand, clean, err := BuildSSHInvocation(ctx, tc.sshKey, tc.knownHosts)
+			sshCommand, clean, err := BuildSSHInvocation(ctx, testhelper.NewLogger(t), tc.sshKey, tc.knownHosts)
 			require.NoError(t, err)
 			defer clean()
 
