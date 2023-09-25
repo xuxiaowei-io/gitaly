@@ -69,6 +69,7 @@ func TestRemove(t *testing.T) {
 				require.NoError(t,
 					remove(
 						ctx,
+						testhelper.SharedLogger(t),
 						config.NewLocator(cfg),
 						transaction.NewTrackingManager(),
 						repo,
@@ -92,6 +93,7 @@ func TestRemove(t *testing.T) {
 
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
+			logger := testhelper.SharedLogger(t)
 			locator := config.NewLocator(cfg)
 			txManager := transaction.NewTrackingManager()
 			repoCounter := counter.NewRepositoryCounter(cfg.Storages)
@@ -102,7 +104,7 @@ func TestRemove(t *testing.T) {
 				require.DirExists(t, repoPath)
 			}
 
-			err := Remove(ctx, locator, txManager, repoCounter, repo)
+			err := Remove(ctx, logger, locator, txManager, repoCounter, repo)
 
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)

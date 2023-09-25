@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
@@ -64,6 +65,7 @@ func WithSkipInit() CreateOption {
 // The repository can optionally be seeded with contents
 func Create(
 	ctx context.Context,
+	logger log.Logger,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	txManager transaction.Manager,
@@ -203,7 +205,7 @@ func Create(
 	// This sequence guarantees that the change is atomic and can trivially be rolled
 	// back in case we fail to either lock the repository or reach quorum in the initial
 	// vote.
-	unlock, err := Lock(ctx, locator, repository)
+	unlock, err := Lock(ctx, logger, locator, repository)
 	if err != nil {
 		return fmt.Errorf("locking repository: %w", err)
 	}

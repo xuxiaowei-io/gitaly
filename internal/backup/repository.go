@@ -363,7 +363,7 @@ func (r *localRepository) CreateBundle(ctx context.Context, out io.Writer, patte
 // Remove removes the repository. Does not return an error if the repository
 // cannot be found.
 func (r *localRepository) Remove(ctx context.Context) error {
-	err := repoutil.Remove(ctx, r.locator, r.txManager, r.repoCounter, r.repo)
+	err := repoutil.Remove(ctx, r.logger, r.locator, r.txManager, r.repoCounter, r.repo)
 	switch {
 	case status.Code(err) == codes.NotFound:
 		return nil
@@ -377,6 +377,7 @@ func (r *localRepository) Remove(ctx context.Context) error {
 func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash) error {
 	if err := repoutil.Create(
 		ctx,
+		r.logger,
 		r.locator,
 		r.gitCmdFactory,
 		r.txManager,

@@ -23,6 +23,7 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 
 	if err := repoutil.Create(
 		ctx,
+		s.logger,
 		s.locator,
 		s.gitCmdFactory,
 		s.txManager,
