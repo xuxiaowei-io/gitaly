@@ -328,10 +328,12 @@ func (c *treeEntriesSender) SetPaginationCursor(cursor string) {
 }
 
 func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gitalypb.CommitService_GetTreeEntriesServer) error {
-	log.FromContext(stream.Context()).WithFields(log.Fields{
+	ctx := stream.Context()
+
+	s.logger.WithFields(log.Fields{
 		"Revision": in.Revision,
 		"Path":     in.Path,
-	}).Debug("GetTreeEntries")
+	}).DebugContext(ctx, "GetTreeEntries")
 
 	if err := validateGetTreeEntriesRequest(s.locator, in); err != nil {
 		return err

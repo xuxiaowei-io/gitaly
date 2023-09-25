@@ -10,7 +10,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -53,11 +52,11 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 	var count int64
 	countStr, readAllErr := io.ReadAll(cmd)
 	if readAllErr != nil {
-		log.FromContext(ctx).WithError(err).Info("ignoring git rev-list error")
+		s.logger.WithError(err).InfoContext(ctx, "ignoring git rev-list error")
 	}
 
 	if err := cmd.Wait(); err != nil {
-		log.FromContext(ctx).WithError(err).Info("ignoring git rev-list error")
+		s.logger.WithError(err).InfoContext(ctx, "ignoring git rev-list error")
 		count = 0
 	} else if readAllErr == nil {
 		var err error

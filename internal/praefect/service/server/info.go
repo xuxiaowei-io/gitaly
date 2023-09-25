@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -52,7 +51,7 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 			client := gitalypb.NewServerServiceClient(conn)
 			resp, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
 			if err != nil {
-				log.FromContext(ctx).WithField("storage", storage).WithError(err).Error("error getting server info")
+				s.logger.WithField("storage", storage).WithError(err).ErrorContext(ctx, "error getting server info")
 				return
 			}
 

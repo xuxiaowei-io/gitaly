@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
@@ -55,7 +54,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 		}
 		defer func() {
 			if err := locker.Close(); err != nil {
-				log.FromContext(ctx).WithError(err).Error("unlocking gitattributes")
+				s.logger.WithError(err).ErrorContext(ctx, "unlocking gitattributes")
 			}
 		}()
 

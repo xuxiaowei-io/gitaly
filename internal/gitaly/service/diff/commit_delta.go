@@ -13,11 +13,11 @@ import (
 func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.DiffService_CommitDeltaServer) error {
 	ctx := stream.Context()
 
-	log.FromContext(ctx).WithFields(log.Fields{
+	s.logger.WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,
 		"RightCommitId": in.RightCommitId,
 		"Paths":         logPaths(in.Paths),
-	}).Debug("CommitDelta")
+	}).DebugContext(ctx, "CommitDelta")
 
 	if err := validateRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)

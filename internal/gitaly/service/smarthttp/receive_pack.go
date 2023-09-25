@@ -20,12 +20,12 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		return err
 	}
 
-	log.FromContext(ctx).WithFields(log.Fields{
+	s.logger.WithFields(log.Fields{
 		"GlID":             req.GlId,
 		"GlRepository":     req.GlRepository,
 		"GlUsername":       req.GlUsername,
 		"GitConfigOptions": req.GitConfigOptions,
-	}).Debug("PostReceivePack")
+	}).DebugContext(ctx, "PostReceivePack")
 
 	if err := validateReceivePackRequest(s.locator, req); err != nil {
 		return err

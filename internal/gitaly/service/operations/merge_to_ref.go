@@ -102,13 +102,13 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		false,
 	)
 	if err != nil {
-		log.FromContext(ctx).WithError(err).WithFields(
+		s.logger.WithError(err).WithFields(
 			log.Fields{
 				"source_sha": sourceOID,
 				"target_sha": oid,
 				"target_ref": string(request.TargetRef),
 			},
-		).Error("unable to create merge commit")
+		).ErrorContext(ctx, "unable to create merge commit")
 
 		return nil, structerr.NewFailedPrecondition("Failed to create merge commit for source_sha %s and target_sha %s at %s",
 			sourceOID, oid, string(request.TargetRef))

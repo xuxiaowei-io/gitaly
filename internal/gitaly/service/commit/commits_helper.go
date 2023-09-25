@@ -6,7 +6,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	gitlog "gitlab.com/gitlab-org/gitaly/v16/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -53,7 +52,7 @@ func (s *server) sendCommits(
 	if err := cmd.Wait(); err != nil {
 		// We expect this error to be caused by non-existing references. In that
 		// case, we just log the error and send no commits to the `sender`.
-		log.FromContext(ctx).WithError(err).Info("ignoring git-log error")
+		s.logger.WithError(err).InfoContext(ctx, "ignoring git-log error")
 	}
 
 	return nil

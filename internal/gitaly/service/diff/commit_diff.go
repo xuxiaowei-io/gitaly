@@ -13,11 +13,11 @@ import (
 func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.DiffService_CommitDiffServer) error {
 	ctx := stream.Context()
 
-	log.FromContext(ctx).WithFields(log.Fields{
+	s.logger.WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,
 		"RightCommitId": in.RightCommitId,
 		"Paths":         logPaths(in.Paths),
-	}).Debug("CommitDiff")
+	}).DebugContext(ctx, "CommitDiff")
 
 	if err := validateRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)

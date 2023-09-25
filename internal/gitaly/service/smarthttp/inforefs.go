@@ -53,9 +53,9 @@ func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitaly
 }
 
 func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, req *gitalypb.InfoRefsRequest, w io.Writer) error {
-	log.FromContext(ctx).WithFields(log.Fields{
+	s.logger.WithFields(log.Fields{
 		"service": service,
-	}).Debug("handleInfoRefs")
+	}).DebugContext(ctx, "handleInfoRefs")
 
 	cmdOpts := []git.CmdOpt{git.WithGitProtocol(req), git.WithStdout(w)}
 	if service == "receive-pack" {
