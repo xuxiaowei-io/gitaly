@@ -201,7 +201,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	diskCache := cache.New(cfg, locator, logger)
 	_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
 	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, setupPerRPCConcurrencyLimiters)
-	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
+	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, logger, locator, hookManager, gitCmdFactory, catfileCache)
 
 	srv, err := NewGitalyServerFactory(cfg, logger, registry, diskCache, []*limithandler.LimiterMiddleware{limitHandler}).New(false)
 	require.NoError(t, err)

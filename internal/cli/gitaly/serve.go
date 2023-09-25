@@ -375,7 +375,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 	)
 	defer gitalyServerFactory.Stop()
 
-	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
+	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, logger, locator, hookManager, gitCmdFactory, catfileCache)
 
 	streamCache := streamcache.New(cfg.PackObjectsCache, logger)
 
