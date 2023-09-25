@@ -5,8 +5,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -105,7 +107,7 @@ func TestPartitionManager(t *testing.T) {
 				// The closePartition step closes the transaction manager directly without calling close
 				// on the partition, so we check the manager directly here as well.
 				if ptn.isClosing() || ptn.transactionManager.isClosing() {
-					waitFor = append(waitFor, ptn.closed)
+					waitFor = append(waitFor, ptn.transactionManagerClosed)
 				}
 			}
 			sp.mu.Unlock()
@@ -777,4 +779,62 @@ func TestPartitionManager(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPartitionManager_concurrentClose(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg := testcfg.Build(t)
+
+	cmdFactory := gittest.NewCommandFactory(t, cfg)
+	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
+
+	localRepoFactory := localrepo.NewFactory(config.NewLocator(cfg), cmdFactory, catfileCache)
+
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
+
+	partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.SharedLogger(t))
+	require.NoError(t, err)
+	defer partitionManager.Close()
+
+	tx, err := partitionManager.Begin(ctx, &gitalypb.Repository{
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: "relative-path",
+	}, TransactionOptions{})
+	require.NoError(t, err)
+
+	start := make(chan struct{})
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	// The last active transaction finishing will close partition.
+	go func() {
+		defer wg.Done()
+		<-start
+		assert.NoError(t, tx.Rollback())
+	}()
+
+	// PartitionManager may be closed if the server is shutting down.
+	go func() {
+		defer wg.Done()
+		<-start
+		partitionManager.Close()
+	}()
+
+	// The TransactionManager may return if it errors out.
+	txMgr := partitionManager.storages[cfg.Storages[0].Name].partitions[1].transactionManager
+	go func() {
+		defer wg.Done()
+		<-start
+		txMgr.Close()
+	}()
+
+	close(start)
+
+	wg.Wait()
 }

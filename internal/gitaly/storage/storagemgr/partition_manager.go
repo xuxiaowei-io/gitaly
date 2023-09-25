@@ -148,10 +148,10 @@ func (sm *storageManager) newFinalizableTransaction(ptn *partition, tx *Transact
 type partition struct {
 	// closing is closed when the partition has no longer any active transactions.
 	closing chan struct{}
-	// closed is closed to signal when the partition is finished closing. Clients stumbling on the
-	// partition when it is closing wait on this channel to know when the partition has closed and they
-	// should retry.
-	closed chan struct{}
+	// transactionManagerClosed is closed to signal when the partition's TranscationManager.Run has returned.
+	// Clients stumbling on the partition when it is closing wait on this channel to know when the previous
+	// TransactionManager has closed and it is safe to start another one.
+	transactionManagerClosed chan struct{}
 	// transactionManager manages all transactions for the partition.
 	transactionManager *TransactionManager
 	// pendingTransactionCount holds the current number of in flight transactions being processed by the manager.
@@ -160,6 +160,14 @@ type partition struct {
 
 // close closes the partition's transaction manager.
 func (ptn *partition) close() {
+	// The partition may be closed either due to PartitionManager itself being closed,
+	// or due it having no more active transactions. Both of these can happen, in which
+	// case both of them would attempt to close the channel. Check first whether the
+	// channel has already been closed.
+	if ptn.isClosing() {
+		return
+	}
+
 	close(ptn.closing)
 	ptn.transactionManager.Close()
 }
@@ -304,8 +312,8 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 		ptn, ok := storageMgr.partitions[partitionID]
 		if !ok {
 			ptn = &partition{
-				closing: make(chan struct{}),
-				closed:  make(chan struct{}),
+				closing:                  make(chan struct{}),
+				transactionManagerClosed: make(chan struct{}),
 			}
 
 			stagingDir, err := os.MkdirTemp(storageMgr.stagingDirectory, "")
@@ -336,7 +344,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 				delete(storageMgr.partitions, partitionID)
 				storageMgr.mu.Unlock()
 
-				close(ptn.closed)
+				close(ptn.transactionManagerClosed)
 
 				// If the TransactionManager returned due to an error, it could be that there are still
 				// in-flight transactions operating on their staged state. Removing the staging directory
@@ -363,7 +371,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
-			case <-ptn.closed:
+			case <-ptn.transactionManagerClosed:
 			}
 
 			continue
