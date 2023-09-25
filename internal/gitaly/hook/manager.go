@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -79,6 +80,7 @@ func NewTransactionRegistry(txRegistry *storagemgr.TransactionRegistry) Transact
 type GitLabHookManager struct {
 	cfg           config.Cfg
 	locator       storage.Locator
+	logger        log.Logger
 	gitCmdFactory git.CommandFactory
 	txManager     transaction.Manager
 	gitlabClient  gitlab.Client
@@ -89,6 +91,7 @@ type GitLabHookManager struct {
 func NewManager(
 	cfg config.Cfg,
 	locator storage.Locator,
+	logger log.Logger,
 	gitCmdFactory git.CommandFactory,
 	txManager transaction.Manager,
 	gitlabClient gitlab.Client,
@@ -97,6 +100,7 @@ func NewManager(
 	return &GitLabHookManager{
 		cfg:           cfg,
 		locator:       locator,
+		logger:        logger,
 		gitCmdFactory: gitCmdFactory,
 		txManager:     txManager,
 		gitlabClient:  gitlabClient,
