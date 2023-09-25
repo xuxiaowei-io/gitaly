@@ -1478,7 +1478,7 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 		// We ask housekeeping to cleanup stale reference locks. We don't add a grace period, because
 		// transaction manager is the only process which writes into the repository, so it is safe
 		// to delete these locks.
-		if err := mgr.housekeepingManager.CleanStaleData(ctx, mgr.logger, repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
+		if err := mgr.housekeepingManager.CleanStaleData(ctx, repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
 			return nil, fmt.Errorf("running reflock cleanup: %w", err)
 		}
 

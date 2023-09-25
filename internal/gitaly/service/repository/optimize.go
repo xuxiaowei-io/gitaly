@@ -6,7 +6,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -37,7 +36,7 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 		return nil, structerr.NewInvalidArgument("unsupported optimization strategy %d", in.GetStrategy())
 	}
 
-	if err := s.housekeepingManager.OptimizeRepository(ctx, log.FromContext(ctx), repo,
+	if err := s.housekeepingManager.OptimizeRepository(ctx, repo,
 		housekeeping.WithOptimizationStrategyConstructor(strategyConstructor),
 	); err != nil {
 		return nil, structerr.NewInternal("%w", err)

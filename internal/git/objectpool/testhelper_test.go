@@ -65,7 +65,7 @@ func setupObjectPool(t *testing.T, ctx context.Context, opts ...setupObjectPoolO
 		gitCommandFactory,
 		catfileCache,
 		txManager,
-		housekeeping.NewManager(cfg.Prometheus, txManager),
+		housekeeping.NewManager(cfg.Prometheus, setupCfg.logger, txManager),
 		&gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  repo.GetStorageName(),

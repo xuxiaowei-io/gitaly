@@ -404,6 +404,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
+			logger := testhelper.NewLogger(t)
 
 			gitCmdFactory := blockingCommandFactory{
 				CommandFactory: gittest.NewCommandFactory(t, cfg),
@@ -413,7 +414,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
-			repo := localrepo.New(testhelper.NewLogger(t), config.NewLocator(cfg), &gitCmdFactory, nil, repoProto)
+			repo := localrepo.New(logger, config.NewLocator(cfg), &gitCmdFactory, nil, repoProto)
 
 			// Write an empty commit such that we can create valid refs.
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -421,7 +422,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 			packedRefsPath := filepath.Join(repoPath, "packed-refs")
 			looseRefPath := filepath.Join(repoPath, "refs", "heads", "main")
 
-			manager := NewManager(gitalycfgprom.Config{}, nil)
+			manager := NewManager(gitalycfgprom.Config{}, logger, nil)
 			data := tc.setup(t, ctx, manager, repoPath, &gitCmdFactory)
 
 			didRepack, err := manager.packRefsIfNeeded(ctx, repo, mockOptimizationStrategy{
@@ -1026,9 +1027,9 @@ func TestOptimizeRepository(t *testing.T) {
 
 			setup := tc.setup(t, relativePath)
 
-			manager := NewManager(cfg.Prometheus, txManager)
+			manager := NewManager(cfg.Prometheus, testhelper.SharedLogger(t), txManager)
 
-			err := manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), setup.repo, setup.options...)
+			err := manager.OptimizeRepository(ctx, setup.repo, setup.options...)
 			require.Equal(t, setup.expectedErr, err)
 
 			expectedMetrics := setup.expectedMetrics
@@ -1075,7 +1076,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		manager := NewManager(gitalycfgprom.Config{}, nil)
+		manager := NewManager(gitalycfgprom.Config{}, testhelper.NewLogger(t), nil)
 		manager.optimizeFunc = func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error {
 			reqReceivedCh <- struct{}{}
 			ch <- struct{}{}
@@ -1084,14 +1085,14 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		}
 
 		go func() {
-			require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+			require.NoError(t, manager.OptimizeRepository(ctx, repo))
 		}()
 
 		<-reqReceivedCh
 		// When repository optimizations are performed for a specific repository already,
 		// then any subsequent calls to the same repository should just return immediately
 		// without doing any optimizations at all.
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, repo))
 
 		<-ch
 	})
@@ -1107,7 +1108,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		manager := NewManager(gitalycfgprom.Config{}, nil)
+		manager := NewManager(gitalycfgprom.Config{}, testhelper.SharedLogger(t), nil)
 		manager.optimizeFunc = func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error {
 			// This should only happen if housekeeping is running successfully.
 			// So by sending data on this channel we can notify the test that this
@@ -1127,7 +1128,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		}
 
 		go func() {
-			require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+			require.NoError(t, manager.OptimizeRepository(ctx, repo))
 		}()
 
 		// Only if optimizeFunc is run, we shall receive data here, this acts as test that
@@ -1141,7 +1142,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		manager := NewManager(gitalycfgprom.Config{}, nil)
+		manager := NewManager(gitalycfgprom.Config{}, testhelper.SharedLogger(t), nil)
 		manager.optimizeFunc = func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error {
 			require.FailNow(t, "housekeeping run should have been skipped")
 			return nil
@@ -1153,7 +1154,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		// check that the state actually exists.
 		require.Contains(t, manager.repositoryStates.values, repoPath)
 
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, repo))
 
 		// After running the cleanup, the state should be removed.
 		cleanup()
@@ -1174,7 +1175,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 
 		reposOptimized := make(map[string]struct{})
 
-		manager := NewManager(gitalycfgprom.Config{}, nil)
+		manager := NewManager(gitalycfgprom.Config{}, testhelper.SharedLogger(t), nil)
 		manager.optimizeFunc = func(_ context.Context, _ *RepositoryManager, _ log.Logger, repo *localrepo.Repo, _ OptimizationStrategy) error {
 			reposOptimized[repo.GetRelativePath()] = struct{}{}
 
@@ -1189,13 +1190,13 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		// We block in the first call so that we can assert that a second call
 		// to a different repository performs the optimization regardless without blocking.
 		go func() {
-			require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repoFirst))
+			require.NoError(t, manager.OptimizeRepository(ctx, repoFirst))
 		}()
 
 		<-reqReceivedCh
 
 		// Because this optimizes a different repository this call shouldn't block.
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repoSecond))
+		require.NoError(t, manager.OptimizeRepository(ctx, repoSecond))
 
 		<-ch
 
@@ -1211,7 +1212,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 		var optimizations int
 
-		manager := NewManager(gitalycfgprom.Config{}, nil)
+		manager := NewManager(gitalycfgprom.Config{}, testhelper.SharedLogger(t), nil)
 		manager.optimizeFunc = func(context.Context, *RepositoryManager, log.Logger, *localrepo.Repo, OptimizationStrategy) error {
 			optimizations++
 
@@ -1227,7 +1228,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+			require.NoError(t, manager.OptimizeRepository(ctx, repo))
 		}()
 
 		<-reqReceivedCh
@@ -1236,9 +1237,9 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		// that all subsequent calls which try to optimize the same repository return immediately.
 		// Furthermore, we expect to see only a single call to the optimizing function because we
 		// don't want to optimize the same repository concurrently.
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, repo))
 		assert.Equal(t, 1, optimizations)
 
 		<-ch
@@ -1247,9 +1248,9 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		// When performing optimizations sequentially though the repository
 		// should be unlocked after every call, and consequentially we should
 		// also see multiple calls to the optimizing function.
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
-		require.NoError(t, manager.OptimizeRepository(ctx, testhelper.SharedLogger(t), repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, repo))
+		require.NoError(t, manager.OptimizeRepository(ctx, repo))
 		assert.Equal(t, 4, optimizations)
 	})
 }

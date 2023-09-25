@@ -4159,7 +4159,7 @@ func TestTransactionManager(t *testing.T) {
 			defer testhelper.MustClose(t, database)
 
 			txManager := transaction.NewManager(setup.Config, logger, backchannel.NewRegistry())
-			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, txManager)
+			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, logger, txManager)
 
 			storagePath := setup.Config.Storages[0].Path
 			stateDir := filepath.Join(storagePath, "state")
@@ -4559,7 +4559,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			defer testhelper.MustClose(b, database)
 
 			txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
-			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
+			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, logger, txManager)
 
 			var (
 				// managerWG records the running TransactionManager.Run goroutines.

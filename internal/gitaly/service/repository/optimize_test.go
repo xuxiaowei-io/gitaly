@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -258,7 +257,7 @@ type mockHousekeepingManager struct {
 	strategyCh chan housekeeping.OptimizationStrategy
 }
 
-func (m mockHousekeepingManager) OptimizeRepository(_ context.Context, _ log.Logger, _ *localrepo.Repo, opts ...housekeeping.OptimizeRepositoryOption) error {
+func (m mockHousekeepingManager) OptimizeRepository(_ context.Context, _ *localrepo.Repo, opts ...housekeeping.OptimizeRepositoryOption) error {
 	var cfg housekeeping.OptimizeRepositoryConfig
 	for _, opt := range opts {
 		opt(&cfg)

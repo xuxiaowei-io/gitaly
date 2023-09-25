@@ -172,7 +172,7 @@ func TestPruneIfNeeded(t *testing.T) {
 			logger := testhelper.NewLogger(t)
 			hook := testhelper.AddLoggerHook(logger)
 
-			require.NoError(t, housekeeping.NewManager(cfg.Prometheus, nil).OptimizeRepository(ctx, logger, repo))
+			require.NoError(t, housekeeping.NewManager(cfg.Prometheus, logger, nil).OptimizeRepository(ctx, repo))
 			require.Equal(t, tc.expectedLogEntries, hook.LastEntry().Data["optimizations"])
 		})
 	}

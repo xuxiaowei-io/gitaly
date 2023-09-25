@@ -32,7 +32,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("computing origin repo's path: %w", err)
 	}
 
-	if err := o.housekeepingManager.CleanStaleData(ctx, o.logger, o.Repo, housekeeping.DefaultStaleDataCleanup()); err != nil {
+	if err := o.housekeepingManager.CleanStaleData(ctx, o.Repo, housekeeping.DefaultStaleDataCleanup()); err != nil {
 		return fmt.Errorf("cleaning stale data: %w", err)
 	}
 
@@ -102,7 +102,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("computing stats after fetch: %w", err)
 	}
 
-	if err := o.housekeepingManager.OptimizeRepository(ctx, o.logger, o.Repo); err != nil {
+	if err := o.housekeepingManager.OptimizeRepository(ctx, o.Repo); err != nil {
 		return fmt.Errorf("optimizing pool repo: %w", err)
 	}
 
