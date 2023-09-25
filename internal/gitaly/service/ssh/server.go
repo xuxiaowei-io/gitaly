@@ -12,11 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-var (
-	defaultUploadPackRequestTimeout    = 10 * time.Minute
-	defaultUploadArchiveRequestTimeout = time.Minute
-)
-
 type server struct {
 	gitalypb.UnimplementedSSHServiceServer
 	locator                                  storage.Locator
@@ -34,10 +29,10 @@ func NewServer(deps *service.Dependencies, serverOpts ...ServerOpt) gitalypb.SSH
 		gitCmdFactory: deps.GetGitCmdFactory(),
 		txManager:     deps.GetTxManager(),
 		uploadPackRequestTimeoutTickerFactory: func() helper.Ticker {
-			return helper.NewTimerTicker(defaultUploadPackRequestTimeout)
+			return helper.NewTimerTicker(time.Duration(deps.Cfg.Timeout.UploadPack) * time.Minute)
 		},
 		uploadArchiveRequestTimeoutTickerFactory: func() helper.Ticker {
-			return helper.NewTimerTicker(defaultUploadArchiveRequestTimeout)
+			return helper.NewTimerTicker(time.Duration(deps.Cfg.Timeout.UploadArchive) * time.Minute)
 		},
 		packfileNegotiationMetrics: prometheus.NewCounterVec(
 			prometheus.CounterOpts{},
