@@ -79,7 +79,7 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 		return nil, 0, err
 	}
 
-	git.WarnIfTooManyBitmaps(ctx, s.locator, repo.StorageName, repoPath)
+	git.WarnIfTooManyBitmaps(ctx, s.logger, s.locator, repo.StorageName, repoPath)
 
 	config, err := git.ConvertConfigOptions(req.GetGitConfigOptions())
 	if err != nil {

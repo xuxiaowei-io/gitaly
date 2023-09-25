@@ -84,7 +84,7 @@ func (s *server) validateUploadPackRequest(ctx context.Context, req *gitalypb.Po
 		return "", nil, err
 	}
 
-	git.WarnIfTooManyBitmaps(ctx, s.locator, repository.GetStorageName(), repoPath)
+	git.WarnIfTooManyBitmaps(ctx, s.logger, s.locator, repository.GetStorageName(), repoPath)
 
 	config, err := git.ConvertConfigOptions(req.GetGitConfigOptions())
 	if err != nil {

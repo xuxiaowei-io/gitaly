@@ -25,18 +25,16 @@ var badBitmapRequestCount = promauto.NewCounterVec(
 // WarnIfTooManyBitmaps checks for too many (more than one) bitmaps in
 // repoPath, and if it finds any, it logs a warning. This is to help us
 // investigate https://gitlab.com/gitlab-org/gitaly/issues/1728.
-func WarnIfTooManyBitmaps(ctx context.Context, locator storage.Locator, storageName, repoPath string) {
-	logEntry := log.FromContext(ctx)
-
+func WarnIfTooManyBitmaps(ctx context.Context, logger log.Logger, locator storage.Locator, storageName, repoPath string) {
 	storageRoot, err := locator.GetStorageByName(storageName)
 	if err != nil {
-		logEntry.WithError(err).Info("bitmap check failed")
+		logger.WithError(err).InfoContext(ctx, "bitmap check failed")
 		return
 	}
 
-	objdirs, err := ObjectDirectories(ctx, storageRoot, repoPath)
+	objdirs, err := ObjectDirectories(ctx, logger, storageRoot, repoPath)
 	if err != nil {
-		logEntry.WithError(err).Info("bitmap check failed")
+		logger.WithError(err).InfoContext(ctx, "bitmap check failed")
 		return
 	}
 
@@ -50,7 +48,7 @@ func WarnIfTooManyBitmaps(ctx context.Context, locator storage.Locator, storageN
 
 		packs, err := packfile.List(dir)
 		if err != nil {
-			logEntry.WithError(err).Info("bitmap check failed")
+			logger.WithError(err).InfoContext(ctx, "bitmap check failed")
 			return
 		}
 		packCount += len(packs)
@@ -75,7 +73,7 @@ func WarnIfTooManyBitmaps(ctx context.Context, locator storage.Locator, storageN
 	}
 
 	if bitmapCount > 1 {
-		logEntry.WithField("bitmaps", bitmapCount).Warn("found more than one packfile bitmap in repository")
+		logger.WithField("bitmaps", bitmapCount).WarnContext(ctx, "found more than one packfile bitmap in repository")
 	}
 
 	// The case where bitmapCount == 0 is likely to occur early in the life of a
