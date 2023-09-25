@@ -25,9 +25,8 @@ import (
 //   - It installs a timeout such that we can address time-of-check-to-time-of-use-style races. Otherwise it would be
 //     possible to open the connection early, keep it open for an extended amount of time, and only do the negotiation of
 //     what is to be sent at a later point when permissions of the user might have changed.
-func runUploadCommand(
+func (s *server) runUploadCommand(
 	rpcContext context.Context,
-	gitCmdFactory git.CommandFactory,
 	repo *gitalypb.Repository,
 	stdin io.Reader,
 	stdout, stderr io.Writer,
@@ -51,7 +50,7 @@ func runUploadCommand(
 		return fmt.Errorf("create monitor: %w", err)
 	}
 
-	cmd, err := gitCmdFactory.New(ctx, repo, sc, append([]git.CmdOpt{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, sc, append([]git.CmdOpt{
 		git.WithStdin(stdinPipe),
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
@@ -100,7 +99,7 @@ func runUploadCommand(
 		return fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())
 	}
 
-	log.FromContext(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
+	s.logger.WithField("response_bytes", stdoutCounter.N).InfoContext(ctx, "request details")
 
 	return err
 }
