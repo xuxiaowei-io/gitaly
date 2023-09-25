@@ -30,35 +30,38 @@ service CommitService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CommitIsAncestor checks whether a provided commit is the ancestor of
+  // another commit.
   rpc CommitIsAncestor(CommitIsAncestorRequest) returns (CommitIsAncestorResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // TreeEntry provides the tree entry for the provided path and revision. The data
+  // is broken into chunks and streamed.
   rpc TreeEntry(TreeEntryRequest) returns (stream TreeEntryResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CountCommits provides the number of commits which adhere to the given filters.
   rpc CountCommits(CountCommitsRequest) returns (CountCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CountDivergingCommits provides the number of diverging commits between two revisions.
   rpc CountDivergingCommits(CountDivergingCommitsRequest) returns (CountDivergingCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetTreeEntries provides the tree entries for the provided path and revision. This includes
+  // subtrees present under the tree with the option of recursive fetching.
   rpc GetTreeEntries(GetTreeEntriesRequest) returns (stream GetTreeEntriesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -299,19 +302,19 @@ message CommitStatsResponse {
   int32 deletions = 3;
 }
 
-// This comment is left unintentionally blank.
+// CommitIsAncestorRequest is the request for the CommitIsAncestor RPC.
 message CommitIsAncestorRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository for which we need to check the ancestory.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // AncestorId is the object ID of the commit which needs to be checked as ancestor.
   string ancestor_id = 2;
-  // This comment is left unintentionally blank.
+  // ChildId is the object ID of the commit whose ancestor needs to be confirmed.
   string child_id = 3;
 }
 
-// This comment is left unintentionally blank.
+// CommitIsAncestorResponse is the response for the CommitIsAncestor RPC.
 message CommitIsAncestorResponse {
-  // This comment is left unintentionally blank.
+  // Value denotes whether the provided commit is the ancestor or not.
   bool value = 1;
 }
 
@@ -319,8 +322,7 @@ message CommitIsAncestorResponse {
 message TreeEntryRequest {
   // Repository is the repository for which to read the tree entry.
   Repository repository = 1 [(target_repository)=true];
-  // Revision is the revision that identifies the commit at which the tree entry is to be read. It can be either a
-  // commit ID or a reference name.
+  // Revision is the commitish at which the tree entry is to be read.
   bytes revision = 2;
   // Path is the path of the entry that shall be read, relative to the tree of the specified revision.
   bytes path = 3;
@@ -362,80 +364,83 @@ message TreeEntryResponse {
   bytes data = 5;
 }
 
-// This comment is left unintentionally blank.
+// CountCommitsRequest is the request for the CountCommits RPC.
 message CountCommitsRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository in which we want to count the number of commits.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // Revision is a commitish which is the start point for the traversal of commits.
   bytes revision = 2;
-  // This comment is left unintentionally blank.
+  // After is used to filter commits more recent than a specific date.
   google.protobuf.Timestamp after = 3;
-  // This comment is left unintentionally blank.
+  // Before is used to filter commits older than a specific date.
   google.protobuf.Timestamp before = 4;
-  // This comment is left unintentionally blank.
+  // Path is used to filter commits which modify the provided path.
   bytes path = 5;
-  // This comment is left unintentionally blank.
+  // MaxCount is used to cap the number of commits.
   int32 max_count = 6;
-  // all and revision are mutually exclusive
+  // All is used to consider all refs (including HEAD) as the start point for the traversal.
+  // All and Revision options are mutually exclusive.
   bool all = 7;
-  // This comment is left unintentionally blank.
+  // FirstParent ensures that only the first parent commit is followed in the traversal.
   bool first_parent = 8;
-  // This comment is left unintentionally blank.
+  // GlobalOptions contains the global options used to modify the behaviour of Git.
   GlobalOptions global_options = 9;
 }
 
-// This comment is left unintentionally blank.
+// CountCommitsResponse is the response for the CountCommits RPC.
 message CountCommitsResponse {
-  // This comment is left unintentionally blank.
+  // Count denotes the number of commits found as per the given filters.
   int32 count = 1;
 }
 
-// This comment is left unintentionally blank.
+// CountDivergingCommitsRequest is the request for the CountDivergingCommits RPC.
 message CountDivergingCommitsRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository in which we want to find the number of diverging commits.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // From is the object ID of one of the commits against which we want to check the
+  // number of diverging commits. The From and To fields are interchangeable.
   bytes from = 2;
-  // This comment is left unintentionally blank.
+  // To is the object ID of one of the commits against which we want to check the
+  // number of diverging commits. The To and From fields are interchangeable.
   bytes to = 3;
   reserved 4;
   reserved 5;
   reserved 6;
-  // This comment is left unintentionally blank.
+  // MaxCount denotes the cap for the number of diverging commits to be reported.
   int32 max_count = 7;
 }
 
-// This comment is left unintentionally blank.
+// CountDivergingCommitsResponse is the response for the CountDivergingCommits RPC.
 message CountDivergingCommitsResponse {
-  // This comment is left unintentionally blank.
+  // LeftCount denotes the number of diverging commits present in the 'From' commit provided.
   int32 left_count = 1;
-  // This comment is left unintentionally blank.
+  // RightCount denotes the number of diverging commits present in the 'To' commit provided.
   int32 right_count = 2;
 }
 
-// This comment is left unintentionally blank.
+// TreeEntry denotes a single tree entry.
 message TreeEntry {
-  // TODO: Replace this enum with ObjectType in shared.proto
+  // EntryType denotes the different types of tree entry.
   enum EntryType {
-    // This comment is left unintentionally blank.
+    // BLOB indicates that the tree entry is a blob.
     BLOB = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // TREE indicates that the tree entry is a tree, which may be the case for subdirectories.
     TREE = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // COMMIT indicates that the tree entry is a commit, which may be the case for submodules.
     COMMIT = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // OID of the object this tree entry points to
+  // OID of the object this tree entry points to.
   string oid = 1;
-  // Path relative to repository root
+  // Path is the path of the entry relative to the tree of the specified revision.
   bytes path = 3;
-  // This comment is left unintentionally blank.
+  // Type denotes the type of the tree entry.
   EntryType type = 4;
-  // File mode e.g. 0644
+  // Mode is the mode of the tree entry.
   int32 mode = 5;
-  // The commit object via which this entry was retrieved
+  // CommitOid is the commit object via which this entry was retrieved.
   string commit_oid = 6;
-  // Relative path of the first subdir that doesn't have only one directory descendant
+  // Relative path of the first subdir that doesn't have only one directory descendant.
   bytes flat_path = 7;
 
   // RootOid used to refer to the resolved object ID of the root tree. This field has been removed
@@ -444,25 +449,25 @@ message TreeEntry {
   reserved 2;
 }
 
-// This comment is left unintentionally blank.
+// GetTreeEntriesRequest is the request for the GetTreeEntries RPC.
 message GetTreeEntriesRequest {
-  // This comment is left unintentionally blank.
+  // SortBy provides the sorting parameters.
   enum SortBy {
-    // Preserve order of git ls-tree.
+    // DEFAULT preserves the order of git ls-tree.
     DEFAULT = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // Trees, blobs, submodules.
+    // TREES_FIRST sorts the entries by trees, blobs and submodules.
     TREES_FIRST = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // Repository is the repository to get the tree entries from.
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // Revision is the commitish at which the tree entries is to be read.
   bytes revision = 2;
-  // This comment is left unintentionally blank.
+  // Path is the path of the entry that shall be read, relative to the tree of the specified revision.
   bytes path = 3;
-  // This comment is left unintentionally blank.
+  // Recursive denotes wether to recursively fetch sub-trees.
   bool recursive = 4;
-  // This comment is left unintentionally blank.
+  // Sort defines the sorting parameter.
   SortBy sort = 5;
   // The page token is the last commit OID that was sent. It's expected to be the
   // full object ID to guard against ambigious OIDs.
