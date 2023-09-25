@@ -90,7 +90,7 @@ func (c *RepositoryCounter) countRepositories(
 	totalStart := time.Now()
 
 	for storPath, name := range uniquePaths {
-		logger.Infof("starting to count repositories in path %q", storPath)
+		logger.WithField("storage_path", storPath).Info("starting to count repositories")
 		storageStart := time.Now()
 
 		paths := make(map[string]float64)
@@ -115,10 +115,13 @@ func (c *RepositoryCounter) countRepositories(
 			c.reposTotal.WithLabelValues(storPath, prefix).Add(ct)
 		}
 
-		logger.Infof("completed counting repositories in path %q after %s", storPath, time.Since(storageStart))
+		logger.WithFields(log.Fields{
+			"storage_path":      storPath,
+			"counting_duration": time.Since(storageStart),
+		}).Info("completed counting repositories")
 	}
 
-	logger.Infof("completed counting all repositories after %s", time.Since(totalStart))
+	logger.WithField("counting_duration", time.Since(totalStart)).Info("completed counting all repositories")
 }
 
 // Increment increases the repository count by one.

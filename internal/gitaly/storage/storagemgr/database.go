@@ -26,6 +26,10 @@ func (l badgerLogger) Debugf(msg string, args ...any) {
 	l.Debug(fmt.Sprintf(msg, args...))
 }
 
+func (l badgerLogger) Infof(msg string, args ...any) {
+	l.Info(fmt.Sprintf(msg, args...))
+}
+
 func (l badgerLogger) Warningf(msg string, args ...any) {
 	l.Warnf(msg, args...)
 }

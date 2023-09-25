@@ -99,7 +99,7 @@ func (f *Forever) Go(fn func()) {
 				continue
 			}
 
-			f.logger.Infof("dontpanic: backing off %s before retrying", f.backoff)
+			f.logger.WithField("backoff", f.backoff).Info("dontpanic: backing off before retrying")
 
 			select {
 			case <-f.cancelCh:

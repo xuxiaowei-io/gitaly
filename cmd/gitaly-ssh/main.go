@@ -82,7 +82,7 @@ func main() {
 
 	code, err := cmd.run(logger)
 	if err != nil {
-		logger.Infof("%s: %v", command, err)
+		logger.WithField("command", command).WithError(err).Info("command returned error")
 		os.Exit(1)
 	}
 

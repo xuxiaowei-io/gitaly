@@ -104,7 +104,7 @@ const cleanWalkFrequency = 10 * time.Minute
 
 func (c *DiskCache) walkLoop(walkPath string) {
 	logger := c.logger.WithField("path", walkPath)
-	logger.Infof("Starting file walker for %s", walkPath)
+	logger.WithField("disk_cache_path", walkPath).Info("Starting file walker")
 
 	walkTick := time.NewTicker(cleanWalkFrequency)
 
@@ -163,6 +163,8 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 		return err
 	}
 
+	logger = logger.WithField("cache_directory", tmpDir)
+
 	defer func() {
 		dontpanic.Go(logger, func() {
 			start := time.Now()
@@ -171,11 +173,11 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 				return
 			}
 
-			logger.Infof("cleared all cache object files in %s after %s", tmpDir, time.Since(start))
+			logger.WithField("clear_duration", time.Since(start)).Info("cleared all cache object files")
 		})
 	}()
 
-	logger.Infof("moving disk cache object folder to %s", tmpDir)
+	logger.Info("moving disk cache object folder")
 
 	cachePath, err := c.locator.CacheDir(storage.Name)
 	if err != nil {

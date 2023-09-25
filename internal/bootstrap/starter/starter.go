@@ -128,7 +128,10 @@ func New(cfg Config, server Server, logger log.Logger) bootstrap.Starter {
 			return err
 		}
 
-		logger.WithField("address", cfg.Addr).Infof("listening at %s address", cfg.Name)
+		logger.WithFields(log.Fields{
+			"address": cfg.Addr,
+			"schema":  cfg.Name,
+		}).Info("listening at address")
 		l = wrap(cfg.Name, l, connTotal)
 
 		go func() {

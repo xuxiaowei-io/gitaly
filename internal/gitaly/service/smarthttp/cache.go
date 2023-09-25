@@ -103,7 +103,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 
 	default:
 		countErr()
-		logger.Infof("unable to fetch cached response: %q", err)
+		logger.WithError(err).Info("unable to fetch cached response")
 
 		return missFn(w)
 	}

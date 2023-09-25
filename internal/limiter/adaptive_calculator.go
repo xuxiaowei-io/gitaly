@@ -271,7 +271,7 @@ func (c *AdaptiveCalculator) calibrateLimits(ctx context.Context) {
 				"new_limit":      newLimit,
 				"watcher":        c.lastBackoffEvent.WatcherName,
 				"reason":         c.lastBackoffEvent.Reason,
-			}).Infof("Multiplicative decrease")
+			}).Info("Multiplicative decrease")
 		}
 		c.updateLimit(limit, newLimit)
 	}

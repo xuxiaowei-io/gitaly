@@ -46,7 +46,7 @@ func (l yamuxLogWrapper) Print(args ...any) {
 }
 
 func (l yamuxLogWrapper) Printf(format string, args ...any) {
-	l.logger.Infof(format, args...)
+	l.Print(fmt.Sprintf(format, args...))
 }
 
 func (l yamuxLogWrapper) Println(args ...any) {
