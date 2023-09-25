@@ -130,3 +130,8 @@ self_signed_cert = false
 # go_cloud_url = "gs://gitaly-backups"
 # # Optional: defaults to pointer
 # # layout = "pointer"
+
+# # Negotiation timeouts for remote Git operations
+# [timeout]
+# upload_pack_negotiation = "10m"
+# upload_archive_negotiation = "1m"

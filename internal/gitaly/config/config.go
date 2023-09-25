@@ -121,6 +121,17 @@ type Cfg struct {
 	PackObjectsCache       StreamCacheConfig   `toml:"pack_objects_cache,omitempty" json:"pack_objects_cache"`
 	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting,omitempty" json:"pack_objects_limiting"`
 	Backup                 BackupConfig        `toml:"backup,omitempty" json:"backup"`
+	Timeout                TimeoutConfig       `toml:"timeout,omitempty" json:"timeout"`
+}
+
+// TimeoutConfig represents negotiation timeouts for remote Git operations
+type TimeoutConfig struct {
+	// UploadPackNegotiation configures the timeout for git-upload-pack(1) when negotiating the packfile. This does not
+	// influence any potential timeouts when the packfile is being sent to the client.
+	UploadPackNegotiation duration.Duration `toml:"upload_pack_negotiation,omitempty" json:"upload_pack_negotiation,omitempty"`
+	// UploadArchiveNegotiation configures the timeout for git-upload-archive(1) when negotiating the archive. This does not
+	// influence any potential timeouts when the archive is being sent to the client.
+	UploadArchiveNegotiation duration.Duration `toml:"upload_archive_negotiation,omitempty" json:"upload_archive_negotiation,omitempty"`
 }
 
 // TLS configuration
@@ -704,6 +715,14 @@ func (cfg *Cfg) setDefaults() error {
 
 	if cfg.Backup.Layout == "" {
 		cfg.Backup.Layout = "pointer"
+	}
+
+	if cfg.Timeout.UploadPackNegotiation == 0 {
+		cfg.Timeout.UploadPackNegotiation = duration.Duration(10 * time.Minute)
+	}
+
+	if cfg.Timeout.UploadArchiveNegotiation == 0 {
+		cfg.Timeout.UploadArchiveNegotiation = duration.Duration(time.Minute)
 	}
 
 	return nil

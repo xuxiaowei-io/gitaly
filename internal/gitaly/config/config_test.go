@@ -59,6 +59,46 @@ func TestLoadEmptyConfig(t *testing.T) {
 	require.Equal(t, expectedCfg, cfg)
 }
 
+func TestTimeout(t *testing.T) {
+	t.Parallel()
+
+	tcs := []struct {
+		Name           string
+		InputTOML      string
+		ExpectedConfig Cfg
+	}{
+		{
+			Name:      "when no custom timeouts are provided",
+			InputTOML: "",
+			ExpectedConfig: Cfg{Timeout: TimeoutConfig{
+				UploadPackNegotiation:    duration.Duration(10 * time.Minute),
+				UploadArchiveNegotiation: duration.Duration(time.Minute),
+			}},
+		},
+		{
+			Name: "when custom timeouts are provided",
+			InputTOML: `
+[timeout]
+upload_pack_negotiation = "20m"
+upload_archive_negotiation = "5m"`,
+			ExpectedConfig: Cfg{Timeout: TimeoutConfig{
+				UploadPackNegotiation:    duration.Duration(20 * time.Minute),
+				UploadArchiveNegotiation: duration.Duration(5 * time.Minute),
+			}},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			cfg, err := Load(strings.NewReader(tc.InputTOML))
+			require.NoError(t, err)
+
+			require.NoError(t, tc.ExpectedConfig.setDefaults())
+			require.Equal(t, tc.ExpectedConfig.Timeout, cfg.Timeout)
+		})
+	}
+}
+
 func TestLoadURLs(t *testing.T) {
 	tmpFile := strings.NewReader(`
 [gitlab]
