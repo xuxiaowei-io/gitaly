@@ -27,6 +27,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 	locator := config.NewLocator(cfg)
+	logger := testhelper.NewLogger(t)
 
 	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -49,11 +50,11 @@ func TestRepo_FetchRemote(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		return New(locator, gitCmdFactory, catfileCache, clientRepo), clientRepoPath
+		return New(logger, locator, gitCmdFactory, catfileCache, clientRepo), clientRepoPath
 	}
 
 	t.Run("invalid name", func(t *testing.T) {
-		repo := New(locator, gitCmdFactory, catfileCache, nil)
+		repo := New(logger, locator, gitCmdFactory, catfileCache, nil)
 
 		err := repo.FetchRemote(ctx, " ", FetchOpts{})
 		require.True(t, errors.Is(err, git.ErrInvalidArg))
@@ -65,7 +66,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 			SkipCreationViaService: true,
 		})
 
-		repo := New(locator, gitCmdFactory, catfileCache, repoProto)
+		repo := New(logger, locator, gitCmdFactory, catfileCache, repoProto)
 		var stderr bytes.Buffer
 		err := repo.FetchRemote(ctx, "stub", FetchOpts{Stderr: &stderr})
 		require.Error(t, err)
@@ -97,7 +98,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 			SkipCreationViaService: true,
 		})
 
-		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
+		repo := New(logger, locator, gitCmdFactory, catfileCache, testRepo)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
 
 		var stderr bytes.Buffer
@@ -110,7 +111,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 			SkipCreationViaService: true,
 		})
 
-		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
+		repo := New(logger, locator, gitCmdFactory, catfileCache, testRepo)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
 
 		var stderr bytes.Buffer
@@ -127,7 +128,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 			SkipCreationViaService: true,
 		})
 
-		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
+		repo := New(logger, locator, gitCmdFactory, catfileCache, testRepo)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -156,7 +157,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 			SkipCreationViaService: true,
 		})
 
-		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
+		repo := New(logger, locator, gitCmdFactory, catfileCache, testRepo)
 
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -260,11 +261,12 @@ func TestRepo_Push(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 	locator := config.NewLocator(cfg)
+	logger := testhelper.NewLogger(t)
 
 	sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	sourceRepo := New(locator, gitCmdFactory, catfileCache, sourceRepoProto)
+	sourceRepo := New(logger, locator, gitCmdFactory, catfileCache, sourceRepoProto)
 	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
 	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("feature"))
 
@@ -272,14 +274,14 @@ func TestRepo_Push(t *testing.T) {
 		repoProto, repopath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		return New(locator, gitCmdFactory, catfileCache, repoProto), repopath, nil
+		return New(logger, locator, gitCmdFactory, catfileCache, repoProto), repopath, nil
 	}
 
 	setupDivergedRepo := func(tb testing.TB) (*Repo, string, []git.ConfigPair) {
 		repoProto, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		repo := New(locator, gitCmdFactory, catfileCache, repoProto)
+		repo := New(logger, locator, gitCmdFactory, catfileCache, repoProto)
 
 		// set up master as a diverging ref in push repo
 		sourceMaster, err := sourceRepo.GetReference(ctx, "refs/heads/master")
@@ -355,7 +357,7 @@ func TestRepo_Push(t *testing.T) {
 				repoProto, _ := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				return New(locator, gitCmdFactory, catfileCache, repoProto), "", nil
+				return New(logger, locator, gitCmdFactory, catfileCache, repoProto), "", nil
 			},
 			refspecs:     []string{"refs/heads/master"},
 			errorMessage: `git push: exit status 128, stderr: "fatal: no path specified; see 'git help pull' for valid url syntax\n"`,
@@ -366,7 +368,7 @@ func TestRepo_Push(t *testing.T) {
 				repoProto, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				return New(locator, gitCmdFactory, catfileCache, repoProto), "inmemory", []git.ConfigPair{
+				return New(logger, locator, gitCmdFactory, catfileCache, repoProto), "inmemory", []git.ConfigPair{
 					{Key: "remote.inmemory.url", Value: repoPath},
 				}
 			},

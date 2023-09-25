@@ -356,7 +356,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 			cfg.Storages,
 			gsd.gitCmdFactory,
 			gsd.housekeepingManager,
-			localrepo.NewFactory(gsd.locator, gsd.gitCmdFactory, gsd.catfileCache),
+			localrepo.NewFactory(gsd.logger, gsd.locator, gsd.gitCmdFactory, gsd.catfileCache),
 			gsd.logger,
 		)
 		require.NoError(tb, err)

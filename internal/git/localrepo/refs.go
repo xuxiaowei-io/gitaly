@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 )
 
@@ -164,7 +163,7 @@ func (repo *Repo) setDefaultBranchWithTransaction(ctx context.Context, txManager
 	}
 	defer func() {
 		if err := lockingFileWriter.Close(); err != nil {
-			log.FromContext(ctx).WithError(err).Error("closing locked HEAD failed")
+			repo.logger.WithError(err).ErrorContext(ctx, "closing locked HEAD failed")
 		}
 	}()
 

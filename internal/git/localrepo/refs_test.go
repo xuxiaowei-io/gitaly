@@ -255,6 +255,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	defer catfileCache.Stop()
 
 	repo := New(
+		testhelper.NewLogger(t),
 		config.NewLocator(cfg),
 		gitCmdFactory,
 		catfileCache,
@@ -478,7 +479,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
-			repo := New(repo.locator, repo.gitCmdFactory, repo.catfileCache, repoProto)
+			repo := New(repo.logger, repo.locator, repo.gitCmdFactory, repo.catfileCache, repoProto)
 			seedRepo(t, repoPath)
 
 			err := repo.UpdateRef(ctx, git.ReferenceName(tc.ref), tc.newValue, tc.oldValue)

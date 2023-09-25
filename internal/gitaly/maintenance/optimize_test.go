@@ -36,7 +36,7 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, logger log.Logg
 	txManager := transaction.NewManager(mo.cfg, logger, backchannel.NewRegistry())
 	housekeepingManager := housekeeping.NewManager(mo.cfg.Prometheus, txManager)
 
-	return housekeepingManager.OptimizeRepository(ctx, logger, localrepo.New(l, gitCmdFactory, catfileCache, repository))
+	return housekeepingManager.OptimizeRepository(ctx, logger, localrepo.New(logger, l, gitCmdFactory, catfileCache, repository))
 }
 
 func TestOptimizeReposRandomly(t *testing.T) {

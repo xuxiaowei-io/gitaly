@@ -6,11 +6,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // Factory builds Repo instances.
 type Factory struct {
+	logger       log.Logger
 	locator      storage.Locator
 	cmdFactory   git.CommandFactory
 	catfileCache catfile.Cache
@@ -25,8 +27,9 @@ type StorageScopedFactory struct {
 
 // NewFactory returns a factory type that builds Repo instances. It helps avoid having to drill down Repo
 // dependencies to all call sites that need to build a Repo.
-func NewFactory(locator storage.Locator, cmdFactory git.CommandFactory, catfileCache catfile.Cache) Factory {
+func NewFactory(logger log.Logger, locator storage.Locator, cmdFactory git.CommandFactory, catfileCache catfile.Cache) Factory {
 	return Factory{
+		logger:       logger,
 		locator:      locator,
 		cmdFactory:   cmdFactory,
 		catfileCache: catfileCache,
@@ -35,7 +38,7 @@ func NewFactory(locator storage.Locator, cmdFactory git.CommandFactory, catfileC
 
 // Build returns a Repo for the given repository.
 func (f Factory) Build(repo *gitalypb.Repository) *Repo {
-	return New(f.locator, f.cmdFactory, f.catfileCache, repo)
+	return New(f.logger, f.locator, f.cmdFactory, f.catfileCache, repo)
 }
 
 // ScopeByStorage returns a StorageScopedFactory that builds Repo instances for a given storage

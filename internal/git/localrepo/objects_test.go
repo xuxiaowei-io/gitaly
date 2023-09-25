@@ -108,7 +108,7 @@ func TestRepo_ReadObject_catfileCount(t *testing.T) {
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
+	repo := New(testhelper.NewLogger(t), config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
 

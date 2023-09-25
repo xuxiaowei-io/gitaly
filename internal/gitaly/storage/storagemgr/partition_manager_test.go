@@ -653,12 +653,13 @@ func TestPartitionManager(t *testing.T) {
 			t.Parallel()
 
 			cfg := testcfg.Build(t, testcfg.WithStorages("default", "other-storage"))
+			logger := testhelper.SharedLogger(t)
 
 			cmdFactory := gittest.NewCommandFactory(t, cfg)
 			catfileCache := catfile.NewCache(cfg)
 			t.Cleanup(catfileCache.Stop)
 
-			localRepoFactory := localrepo.NewFactory(config.NewLocator(cfg), cmdFactory, catfileCache)
+			localRepoFactory := localrepo.NewFactory(logger, config.NewLocator(cfg), cmdFactory, catfileCache)
 
 			setup := tc.setup(t, cfg)
 
@@ -673,10 +674,10 @@ func TestPartitionManager(t *testing.T) {
 				)
 			}
 
-			txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
+			txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
-			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.SharedLogger(t))
+			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, logger)
 			require.NoError(t, err)
 
 			if setup.transactionManagerFactory != nil {
@@ -794,17 +795,18 @@ func TestPartitionManager_concurrentClose(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
+	logger := testhelper.SharedLogger(t)
 
 	cmdFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
-	localRepoFactory := localrepo.NewFactory(config.NewLocator(cfg), cmdFactory, catfileCache)
+	localRepoFactory := localrepo.NewFactory(logger, config.NewLocator(cfg), cmdFactory, catfileCache)
 
-	txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
+	txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
 	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
-	partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.SharedLogger(t))
+	partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, logger)
 	require.NoError(t, err)
 	defer partitionManager.Close()
 

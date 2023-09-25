@@ -77,7 +77,7 @@ func FromProto(
 	}
 
 	pool := &ObjectPool{
-		Repo:                localrepo.New(locator, gitCmdFactory, catfileCache, proto.GetRepository()),
+		Repo:                localrepo.New(logger, locator, gitCmdFactory, catfileCache, proto.GetRepository()),
 		logger:              logger,
 		locator:             locator,
 		gitCmdFactory:       gitCmdFactory,

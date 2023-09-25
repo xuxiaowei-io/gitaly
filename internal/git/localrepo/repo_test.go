@@ -31,7 +31,7 @@ func TestRepo(t *testing.T) {
 		gitCmdFactory := gittest.NewCommandFactory(tb, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		tb.Cleanup(catfileCache.Stop)
-		return New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto), repoPath
+		return New(testhelper.NewLogger(t), config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto), repoPath
 	})
 }
 
@@ -48,6 +48,7 @@ func TestRepo_Quarantine(t *testing.T) {
 	})
 
 	unquarantinedRepo := New(
+		testhelper.NewLogger(t),
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		catfileCache,
@@ -151,6 +152,7 @@ func TestRepo_Quarantine_nonExistentRepository(t *testing.T) {
 			defer catfileCache.Stop()
 
 			repo := New(
+				testhelper.NewLogger(t),
 				config.NewLocator(cfg),
 				gittest.NewCommandFactory(t, cfg),
 				catfileCache,
@@ -181,7 +183,7 @@ func TestRepo_StorageTempDir(t *testing.T) {
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	repo := New(locator, gitCmdFactory, catfileCache, repoProto)
+	repo := New(testhelper.NewLogger(t), locator, gitCmdFactory, catfileCache, repoProto)
 
 	expected, err := locator.TempDir(cfg.Storages[0].Name)
 	require.NoError(t, err)
@@ -217,7 +219,7 @@ func TestRepo_ObjectHash(t *testing.T) {
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	repo := New(locator, gitCmdFactory, catfileCache, repoProto)
+	repo := New(testhelper.NewLogger(t), locator, gitCmdFactory, catfileCache, repoProto)
 
 	objectHash, err := repo.ObjectHash(ctx)
 	require.NoError(t, err)

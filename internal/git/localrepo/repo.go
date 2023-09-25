@@ -27,6 +27,7 @@ import (
 // Repo represents a local Git repository.
 type Repo struct {
 	storage.Repository
+	logger        log.Logger
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
@@ -37,9 +38,10 @@ type Repo struct {
 }
 
 // New creates a new Repo from its protobuf representation.
-func New(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo storage.Repository) *Repo {
+func New(logger log.Logger, locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo storage.Repository) *Repo {
 	return &Repo{
 		Repository:    repo,
+		logger:        logger,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
@@ -65,6 +67,7 @@ func (repo *Repo) Quarantine(quarantineDirectory string) (*Repo, error) {
 	}
 
 	return New(
+		repo.logger,
 		repo.locator,
 		repo.gitCmdFactory,
 		repo.catfileCache,
@@ -88,10 +91,11 @@ func NewTestRepo(tb testing.TB, cfg config.Cfg, repo storage.Repository, factory
 
 	//nolint:forbidigo // We can't use the testhelper package here given that this is production code, so we can't
 	//use `teshelper.NewDiscardingLogEntry()`.
-	logger := logrus.New()
-	logger.Out = io.Discard
+	logrusLogger := logrus.New()
+	logrusLogger.Out = io.Discard
+	logger := log.FromLogrusEntry(logrus.NewEntry(logrusLogger))
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, log.FromLogrusEntry(logrus.NewEntry(logger)), factoryOpts...)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, logger, factoryOpts...)
 	tb.Cleanup(cleanup)
 	require.NoError(tb, err)
 
@@ -100,7 +104,7 @@ func NewTestRepo(tb testing.TB, cfg config.Cfg, repo storage.Repository, factory
 
 	locator := config.NewLocator(cfg)
 
-	return New(locator, gitCmdFactory, catfileCache, repo)
+	return New(logger, locator, gitCmdFactory, catfileCache, repo)
 }
 
 // Exec creates a git command with the given args and Repo, executed in the

@@ -195,8 +195,10 @@ func TestTransactionManager(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 
+		logger := testhelper.NewLogger(t)
 		locator := config.NewLocator(cfg)
 		localRepo := localrepo.New(
+			logger,
 			locator,
 			cmdFactory,
 			catfileCache,
@@ -227,7 +229,7 @@ func TestTransactionManager(t *testing.T) {
 			Config:            cfg,
 			ObjectHash:        objectHash,
 			CommandFactory:    cmdFactory,
-			RepositoryFactory: localrepo.NewFactory(locator, cmdFactory, catfileCache),
+			RepositoryFactory: localrepo.NewFactory(logger, locator, cmdFactory, catfileCache),
 			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
 				First: testCommit{
@@ -4583,7 +4585,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			}
 
 			repositoryFactory, err := localrepo.NewFactory(
-				config.NewLocator(cfg), cmdFactory, cache,
+				logger, config.NewLocator(cfg), cmdFactory, cache,
 			).ScopeByStorage(cfg.Storages[0].Name)
 			require.NoError(b, err)
 

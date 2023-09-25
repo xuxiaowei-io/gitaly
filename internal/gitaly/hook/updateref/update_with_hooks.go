@@ -316,5 +316,5 @@ func (u *UpdaterWithHooks) UpdateReference(
 }
 
 func (u *UpdaterWithHooks) localrepo(repo storage.Repository) *localrepo.Repo {
-	return localrepo.New(u.locator, u.gitCmdFactory, u.catfileCache, repo)
+	return localrepo.New(u.logger, u.locator, u.gitCmdFactory, u.catfileCache, repo)
 }

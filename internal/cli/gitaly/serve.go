@@ -483,7 +483,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		ctx,
 		logger,
 		maintenance.DailyOptimizationWorker(cfg, maintenance.OptimizerFunc(func(ctx context.Context, logger log.Logger, repo storage.Repository) error {
-			return housekeepingManager.OptimizeRepository(ctx, logger, localrepo.New(locator, gitCmdFactory, catfileCache, repo))
+			return housekeepingManager.OptimizeRepository(ctx, logger, localrepo.New(logger, locator, gitCmdFactory, catfileCache, repo))
 		})),
 	)
 	if err != nil {

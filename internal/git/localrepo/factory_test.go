@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -22,7 +23,7 @@ func TestFactory(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
-	factory := NewFactory(locator, cmdFactory, catfileCache)
+	factory := NewFactory(testhelper.NewLogger(t), locator, cmdFactory, catfileCache)
 
 	t.Run("Build", func(t *testing.T) {
 		t.Run("parameters are passthrough", func(t *testing.T) {

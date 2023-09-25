@@ -234,7 +234,7 @@ func TestRepackIfNeeded(t *testing.T) {
 			},
 		}
 
-		repo := localrepo.New(config.NewLocator(cfg), gitCmdFactory, nil, repoProto)
+		repo := localrepo.New(testhelper.NewLogger(t), config.NewLocator(cfg), gitCmdFactory, nil, repoProto)
 
 		expectedCfg := RepackObjectsConfig{
 			Strategy:          RepackObjectsStrategyFullWithCruft,
@@ -413,7 +413,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
-			repo := localrepo.New(config.NewLocator(cfg), &gitCmdFactory, nil, repoProto)
+			repo := localrepo.New(testhelper.NewLogger(t), config.NewLocator(cfg), &gitCmdFactory, nil, repoProto)
 
 			// Write an empty commit such that we can create valid refs.
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -1007,7 +1007,7 @@ func TestOptimizeRepository(t *testing.T) {
 				}
 
 				return setupData{
-					repo: localrepo.New(config.NewLocator(cfg), gitCmdFactory, nil, repo),
+					repo: localrepo.New(testhelper.NewLogger(t), config.NewLocator(cfg), gitCmdFactory, nil, repo),
 					expectedMetrics: []metric{
 						{name: "packed_objects_geometric", status: "failure", count: 1},
 						{name: "written_bitmap", status: "failure", count: 1},

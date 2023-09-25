@@ -42,7 +42,7 @@ func NewServer(deps *service.Dependencies) gitalypb.ConflictsServiceServer {
 }
 
 func (s *server) localrepo(repo storage.Repository) *localrepo.Repo {
-	return localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repo)
+	return localrepo.New(s.logger, s.locator, s.gitCmdFactory, s.catfileCache, repo)
 }
 
 func (s *server) quarantinedRepo(

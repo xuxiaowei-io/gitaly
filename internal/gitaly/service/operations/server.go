@@ -48,7 +48,7 @@ func NewServer(deps *service.Dependencies) *Server {
 }
 
 func (s *Server) localrepo(repo storage.Repository) *localrepo.Repo {
-	return localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repo)
+	return localrepo.New(s.logger, s.locator, s.gitCmdFactory, s.catfileCache, repo)
 }
 
 func (s *Server) quarantinedRepo(
