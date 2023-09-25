@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/objectpool"
 	objectpoolsvc "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -16,8 +17,8 @@ import (
 
 // DeleteObjectPoolHandler intercepts DeleteObjectPool calls, deletes the database records and
 // deletes the object pool from every backing Gitaly node.
-func DeleteObjectPoolHandler(rs datastore.RepositoryStore, conns Connections) grpc.StreamHandler {
-	return removeRepositoryHandler(rs, conns,
+func DeleteObjectPoolHandler(rs datastore.RepositoryStore, logger log.Logger, conns Connections) grpc.StreamHandler {
+	return removeRepositoryHandler(rs, logger, conns,
 		func(stream grpc.ServerStream) (*gitalypb.Repository, error) {
 			var req gitalypb.DeleteObjectPoolRequest
 			if err := stream.RecvMsg(&req); err != nil {

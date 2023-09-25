@@ -18,8 +18,8 @@ import (
 
 // RemoveRepositoryHandler intercepts RemoveRepository calls, deletes the database records and
 // deletes the repository from every backing Gitaly node.
-func RemoveRepositoryHandler(rs datastore.RepositoryStore, conns Connections) grpc.StreamHandler {
-	return removeRepositoryHandler(rs, conns,
+func RemoveRepositoryHandler(rs datastore.RepositoryStore, logger log.Logger, conns Connections) grpc.StreamHandler {
+	return removeRepositoryHandler(rs, logger, conns,
 		func(stream grpc.ServerStream) (*gitalypb.Repository, error) {
 			var req gitalypb.RemoveRepositoryRequest
 			if err := stream.RecvMsg(&req); err != nil {
@@ -50,7 +50,7 @@ type requestProxier func(context.Context, *grpc.ClientConn, *gitalypb.Repository
 
 type responseFactory func() proto.Message
 
-func removeRepositoryHandler(rs datastore.RepositoryStore, conns Connections, parseRequest requestParser, proxyRequest requestProxier, buildResponse responseFactory, errorOnNotFound bool) grpc.StreamHandler {
+func removeRepositoryHandler(rs datastore.RepositoryStore, logger log.Logger, conns Connections, parseRequest requestParser, proxyRequest requestProxier, buildResponse responseFactory, errorOnNotFound bool) grpc.StreamHandler {
 	return func(_ interface{}, stream grpc.ServerStream) error {
 		repo, err := parseRequest(stream)
 		if err != nil {
@@ -98,11 +98,11 @@ func removeRepositoryHandler(rs datastore.RepositoryStore, conns Connections, pa
 				rewritten.RelativePath = replicaPath
 
 				if err := proxyRequest(ctx, conn, rewritten); err != nil {
-					log.FromContext(ctx).WithFields(log.Fields{
+					logger.WithFields(log.Fields{
 						"virtual_storage": virtualStorage,
 						"relative_path":   repo.RelativePath,
 						"storage":         rewrittenStorage,
-					}).WithError(err).Error("failed deleting repository")
+					}).WithError(err).ErrorContext(ctx, "failed deleting repository")
 				}
 			}(storage, conn)
 		}
