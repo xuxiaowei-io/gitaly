@@ -26,7 +26,7 @@ func ConfigureSentry(logger log.Logger, version string, sentryConf Config) {
 		Release:     "v" + version,
 	})
 	if err != nil {
-		logger.Warnf("Unable to initialize sentry client: %v", err)
+		logger.WithError(err).Warn("unable to initialize sentry client")
 		return
 	}
 

@@ -18,7 +18,6 @@ type Logger interface {
 	WithFields(fields Fields) Logger
 	WithError(err error) Logger
 
-	Warnf(format string, args ...any)
 	Errorf(format string, args ...any)
 
 	Debug(msg string)
@@ -62,11 +61,6 @@ func (l LogrusLogger) WithFields(fields Fields) Logger {
 // WithError creates a new logger with an appended error field.
 func (l LogrusLogger) WithError(err error) Logger {
 	return LogrusLogger{entry: l.entry.WithError(err)}
-}
-
-// Warnf writes a formatted log message at warn level.
-func (l LogrusLogger) Warnf(format string, args ...any) {
-	l.entry.Warnf(format, args...)
 }
 
 // Errorf writes a formatted log message at error level.

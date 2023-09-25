@@ -175,7 +175,7 @@ func (p *LoggingPipeline) Handle(ctx context.Context, cmd Command) {
 
 	if err := cmd.Execute(ctx); err != nil {
 		if errors.Is(err, ErrSkipped) {
-			log.WithError(err).Warnf("skipped %s", cmd.Name())
+			log.WithError(err).Warn(fmt.Sprintf("skipped %s", cmd.Name()))
 		} else {
 			log.WithError(err).Errorf("%s failed", cmd.Name())
 			p.addError(cmd.Repository(), err)

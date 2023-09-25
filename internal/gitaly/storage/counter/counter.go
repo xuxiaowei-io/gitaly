@@ -99,7 +99,7 @@ func (c *RepositoryCounter) countRepositories(
 			if err != nil {
 				// Encountering a malformed path should not block us from continuing
 				// to count.
-				logger.WithError(err).Warnf("counting repositories: walking path %q", storPath)
+				logger.WithError(err).WithField("storage_path", storPath).Warn("counting repositories failed due to malformed path")
 				return nil
 			}
 

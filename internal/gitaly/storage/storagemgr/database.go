@@ -31,7 +31,7 @@ func (l badgerLogger) Infof(msg string, args ...any) {
 }
 
 func (l badgerLogger) Warningf(msg string, args ...any) {
-	l.Warnf(msg, args...)
+	l.Warn(fmt.Sprintf(msg, args...))
 }
 
 // databaseAdapter adapts a *badger.DB to the internal database interface used by the hooks in tests.
