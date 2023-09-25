@@ -108,7 +108,7 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 	commandOpts := []git.CmdOpt{
 		git.WithStdin(stdin),
 		git.WithSetupStdout(),
-		git.WithGitProtocol(req),
+		git.WithGitProtocol(s.logger, req),
 		git.WithConfig(gitConfig...),
 		git.WithPackObjectsHookEnv(req.GetRepository(), "http"),
 	}

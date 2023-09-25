@@ -32,14 +32,14 @@ type RequestWithGitProtocol interface {
 
 // WithGitProtocol checks whether the request has Git protocol v2
 // and sets this in the environment.
-func WithGitProtocol(req RequestWithGitProtocol) CmdOpt {
+func WithGitProtocol(logger log.Logger, req RequestWithGitProtocol) CmdOpt {
 	return func(ctx context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
-		cc.env = append(cc.env, gitProtocolEnv(ctx, req)...)
+		cc.env = append(cc.env, gitProtocolEnv(ctx, logger, req)...)
 		return nil
 	}
 }
 
-func gitProtocolEnv(ctx context.Context, req RequestWithGitProtocol) []string {
+func gitProtocolEnv(ctx context.Context, logger log.Logger, req RequestWithGitProtocol) []string {
 	var protocol string
 	var env []string
 
@@ -50,7 +50,7 @@ func gitProtocolEnv(ctx context.Context, req RequestWithGitProtocol) []string {
 	case "":
 		protocol = "v0"
 	default:
-		log.FromContext(ctx).WithField("git_protocol", gp).Warn("invalid git protocol requested")
+		logger.WithField("git_protocol", gp).WarnContext(ctx, "invalid git protocol requested")
 		protocol = "invalid"
 	}
 
