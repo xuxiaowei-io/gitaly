@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -38,6 +39,7 @@ var (
 type ObjectPool struct {
 	*localrepo.Repo
 
+	logger              log.Logger
 	locator             storage.Locator
 	gitCmdFactory       git.CommandFactory
 	txManager           transaction.Manager
@@ -47,6 +49,7 @@ type ObjectPool struct {
 // FromProto returns an object pool object from its Protobuf representation. This function verifies
 // that the object pool exists and is a valid pool repository.
 func FromProto(
+	logger log.Logger,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
@@ -75,6 +78,7 @@ func FromProto(
 
 	pool := &ObjectPool{
 		Repo:                localrepo.New(locator, gitCmdFactory, catfileCache, proto.GetRepository()),
+		logger:              logger,
 		locator:             locator,
 		gitCmdFactory:       gitCmdFactory,
 		txManager:           txManager,
@@ -141,6 +145,7 @@ func (o *ObjectPool) Remove(ctx context.Context) (err error) {
 
 // FromRepo returns an instance of ObjectPool that the repository points to
 func FromRepo(
+	logger log.Logger,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
@@ -183,7 +188,7 @@ func FromRepo(
 		return nil, ErrInvalidPoolRepository
 	}
 
-	return FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, objectPoolProto)
+	return FromProto(logger, locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, objectPoolProto)
 }
 
 // getAlternateObjectDir returns the entry in the objects/info/attributes file if it exists

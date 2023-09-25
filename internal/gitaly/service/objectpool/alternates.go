@@ -22,7 +22,7 @@ func (s *server) DisconnectGitAlternates(ctx context.Context, req *gitalypb.Disc
 
 	repo := s.localrepo(repository)
 
-	if err := objectpool.Disconnect(ctx, repo, s.txManager); err != nil {
+	if err := objectpool.Disconnect(ctx, repo, s.logger, s.txManager); err != nil {
 		return nil, structerr.NewInternal("%w", err)
 	}
 

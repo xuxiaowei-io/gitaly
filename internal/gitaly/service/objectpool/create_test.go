@@ -52,6 +52,7 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	pool, err := objectpool.FromProto(
+		logger,
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		catfileCache,

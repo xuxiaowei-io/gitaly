@@ -32,6 +32,7 @@ func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObject
 	if err := repoutil.Create(ctx, s.logger, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, poolRepo, func(poolRepo *gitalypb.Repository) error {
 		if _, err := objectpool.Create(
 			ctx,
+			s.logger,
 			s.locator,
 			s.gitCmdFactory,
 			s.catfileCache,

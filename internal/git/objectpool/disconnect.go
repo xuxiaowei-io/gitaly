@@ -32,7 +32,7 @@ import (
 // until after the connectivity check completes. If Gitaly crashes before the backup is restored,
 // the repository may be in a broken state until an administrator intervenes and restores the backed
 // up copy of objects/info/alternates.
-func Disconnect(ctx context.Context, repo *localrepo.Repo, txManager transaction.Manager) error {
+func Disconnect(ctx context.Context, repo *localrepo.Repo, logger log.Logger, txManager transaction.Manager) error {
 	repoPath, err := repo.Path()
 	if err != nil {
 		return err
@@ -116,7 +116,7 @@ func Disconnect(ctx context.Context, repo *localrepo.Repo, txManager transaction
 		return err
 	}
 
-	return removeAlternatesIfOk(ctx, repo, altFile, backupFile, txManager)
+	return removeAlternatesIfOk(ctx, repo, altFile, backupFile, logger, txManager)
 }
 
 func findObjectFiles(altDir string) ([]string, error) {
@@ -195,7 +195,7 @@ func newBackupFile(altFile string) (string, error) {
 // middle of this function, the repo is left in a broken state. We do
 // take care to leave a copy of the alternates file, so that it can be
 // manually restored by an administrator if needed.
-func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, backupFile string, txManager transaction.Manager) error {
+func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, backupFile string, logger log.Logger, txManager transaction.Manager) error {
 	if err := transaction.VoteOnContext(ctx, txManager, voting.VoteFromData([]byte("disconnect alternate")), voting.Prepared); err != nil {
 		return fmt.Errorf("preparatory vote for disconnecting alternate: %w", err)
 	}
@@ -210,8 +210,6 @@ func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, ba
 			return
 		}
 
-		logger := log.FromContext(ctx)
-
 		// If we would do a os.Rename, and then someone else comes and clobbers
 		// our file, it's gone forever. This trick with os.Link and os.Rename
 		// is equivalent to "cp $backupFile $altFile", meaning backupFile is
@@ -219,12 +217,12 @@ func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, ba
 		tmp := backupFile + ".2"
 
 		if err := os.Link(backupFile, tmp); err != nil {
-			logger.WithError(err).Error("copy backup alternates file")
+			logger.WithError(err).ErrorContext(ctx, "copy backup alternates file")
 			return
 		}
 
 		if err := os.Rename(tmp, altFile); err != nil {
-			logger.WithError(err).Error("restore backup alternates file")
+			logger.WithError(err).ErrorContext(ctx, "restore backup alternates file")
 		}
 	}()
 

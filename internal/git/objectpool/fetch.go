@@ -23,8 +23,6 @@ var objectPoolRefspec = fmt.Sprintf("+refs/*:%s/*", git.ObjectPoolRefNamespace)
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
 func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo) error {
-	logger := log.FromContext(ctx)
-
 	if !o.Exists() {
 		return structerr.NewInvalidArgument("object pool does not exist")
 	}
@@ -34,11 +32,11 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("computing origin repo's path: %w", err)
 	}
 
-	if err := o.housekeepingManager.CleanStaleData(ctx, logger, o.Repo, housekeeping.DefaultStaleDataCleanup()); err != nil {
+	if err := o.housekeepingManager.CleanStaleData(ctx, o.logger, o.Repo, housekeeping.DefaultStaleDataCleanup()); err != nil {
 		return fmt.Errorf("cleaning stale data: %w", err)
 	}
 
-	if err := o.logStats(ctx, logger.WithField("when", "before fetch")); err != nil {
+	if err := o.logStats(ctx, "before fetch"); err != nil {
 		return fmt.Errorf("computing stats before fetch: %w", err)
 	}
 
@@ -100,11 +98,11 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("rescuing dangling objects: %w", err)
 	}
 
-	if err := o.logStats(ctx, logger.WithField("when", "after fetch")); err != nil {
+	if err := o.logStats(ctx, "after fetch"); err != nil {
 		return fmt.Errorf("computing stats after fetch: %w", err)
 	}
 
-	if err := o.housekeepingManager.OptimizeRepository(ctx, logger, o.Repo); err != nil {
+	if err := o.housekeepingManager.OptimizeRepository(ctx, o.logger, o.Repo); err != nil {
 		return fmt.Errorf("optimizing pool repo: %w", err)
 	}
 
@@ -319,8 +317,10 @@ type referencedObjectTypes struct {
 	Trees   uint64 `json:"trees"`
 }
 
-func (o *ObjectPool) logStats(ctx context.Context, logger log.Logger) error {
-	fields := log.Fields{}
+func (o *ObjectPool) logStats(ctx context.Context, when string) error {
+	fields := log.Fields{
+		"when": when,
+	}
 
 	repoInfo, err := stats.RepositoryInfoForRepository(o.Repo)
 	if err != nil {
@@ -372,7 +372,7 @@ func (o *ObjectPool) logStats(ctx context.Context, logger log.Logger) error {
 	fields["references.dangling"] = danglingTypes
 	fields["references.normal"] = normalTypes
 
-	logger.WithFields(fields).Info("pool dangling ref stats")
+	o.logger.WithFields(fields).InfoContext(ctx, "pool dangling ref stats")
 
 	return nil
 }
