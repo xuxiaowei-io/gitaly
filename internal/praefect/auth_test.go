@@ -155,7 +155,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 	require.NoError(t, err)
 	defer nodeMgr.Stop()
 
-	txMgr := transactions.NewManager(conf)
+	txMgr := transactions.NewManager(conf, logger)
 
 	coordinator := NewCoordinator(logger, queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, protoregistry.GitalyProtoPreregistered)
 

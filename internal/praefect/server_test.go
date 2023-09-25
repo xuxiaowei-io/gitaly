@@ -53,9 +53,8 @@ import (
 )
 
 func TestNewBackchannelServerFactory(t *testing.T) {
-	mgr := transactions.NewManager(config.Config{})
-
 	logger := testhelper.SharedLogger(t)
+	mgr := transactions.NewManager(config.Config{}, logger)
 	registry := backchannel.NewRegistry()
 
 	lm := listenmux.New(insecure.NewCredentials())
@@ -533,7 +532,7 @@ func TestRemoveRepository(t *testing.T) {
 	logger := testhelper.SharedLogger(t)
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	repoStore := defaultRepoStore(praefectCfg)
-	txMgr := defaultTxMgr(praefectCfg)
+	txMgr := defaultTxMgr(praefectCfg, logger)
 	nodeMgr, err := nodes.NewManager(testhelper.SharedLogger(t), praefectCfg, nil,
 		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
 		nil, backchannel.NewClientHandshaker(
@@ -604,8 +603,8 @@ func TestRenameRepository(t *testing.T) {
 
 	rs := datastore.NewPostgresRepositoryStore(db, nil)
 
-	txManager := transactions.NewManager(praefectCfg)
 	logger := testhelper.SharedLogger(t)
+	txManager := transactions.NewManager(praefectCfg, logger)
 	clientHandshaker := backchannel.NewClientHandshaker(
 		logger,
 		NewBackchannelServerFactory(
@@ -777,7 +776,9 @@ func newSmartHTTPGrpcServer(t *testing.T, cfg gconfig.Cfg, smartHTTPService gita
 
 func TestProxyWrites(t *testing.T) {
 	t.Parallel()
-	txMgr := transactions.NewManager(config.Config{})
+
+	logger := testhelper.SharedLogger(t)
+	txMgr := transactions.NewManager(config.Config{}, logger)
 
 	smartHTTP0, smartHTTP1, smartHTTP2 := &mockSmartHTTP{txMgr: txMgr}, &mockSmartHTTP{txMgr: txMgr}, &mockSmartHTTP{txMgr: txMgr}
 
@@ -813,7 +814,6 @@ func TestProxyWrites(t *testing.T) {
 	}
 
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
-	logger := testhelper.SharedLogger(t)
 
 	nodeMgr, err := nodes.NewManager(logger, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -994,7 +994,7 @@ func TestErrorThreshold(t *testing.T) {
 				queue,
 				rs,
 				NewNodeManagerRouter(nodeMgr, rs),
-				transactions.NewManager(conf),
+				transactions.NewManager(conf, logger),
 				conf,
 				protoregistry.GitalyProtoPreregistered,
 			)

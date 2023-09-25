@@ -87,8 +87,8 @@ func defaultQueue(tb testing.TB) datastore.ReplicationEventQueue {
 	return datastore.NewPostgresReplicationEventQueue(testdb.New(tb))
 }
 
-func defaultTxMgr(conf config.Config) *transactions.Manager {
-	return transactions.NewManager(conf)
+func defaultTxMgr(conf config.Config, logger log.Logger) *transactions.Manager {
+	return transactions.NewManager(conf, logger)
 }
 
 func defaultNodeMgr(tb testing.TB, conf config.Config, rs datastore.RepositoryStore) nodes.Manager {
@@ -190,6 +190,9 @@ func RunPraefectServer(
 ) (*grpc.ClientConn, *grpc.Server, testhelper.Cleanup) {
 	var cleanups []testhelper.Cleanup
 
+	if opt.WithLogger == nil {
+		opt.WithLogger = testhelper.SharedLogger(tb)
+	}
 	if opt.WithQueue == nil {
 		opt.WithQueue = defaultQueue(tb)
 	}
@@ -197,16 +200,13 @@ func RunPraefectServer(
 		opt.WithRepoStore = defaultRepoStore(conf)
 	}
 	if opt.WithTxMgr == nil {
-		opt.WithTxMgr = defaultTxMgr(conf)
+		opt.WithTxMgr = defaultTxMgr(conf, opt.WithLogger)
 	}
 	if opt.WithBackends != nil {
 		cleanups = append(cleanups, opt.WithBackends(conf.VirtualStorages)...)
 	}
 	if opt.WithAnnotations == nil {
 		opt.WithAnnotations = protoregistry.GitalyProtoPreregistered
-	}
-	if opt.WithLogger == nil {
-		opt.WithLogger = testhelper.SharedLogger(tb)
 	}
 	if opt.WithNodeMgr == nil {
 		opt.WithNodeMgr = defaultNodeMgr(tb, conf, opt.WithRepoStore)
