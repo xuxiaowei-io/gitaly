@@ -121,6 +121,15 @@ type Cfg struct {
 	PackObjectsCache       StreamCacheConfig   `toml:"pack_objects_cache,omitempty" json:"pack_objects_cache"`
 	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting,omitempty" json:"pack_objects_limiting"`
 	Backup                 BackupConfig        `toml:"backup,omitempty" json:"backup"`
+	Timeout                TimeoutConfig       `toml:"timeout,omitempty" json:"timeout"`
+}
+
+// TimeoutConfig represents negotiation timeouts for remote Git operations
+type TimeoutConfig struct {
+	// Controls the negotiation timeout for git-upload-pack, in minutes.
+	UploadPack int `toml:"upload_pack,omitempty" json:"upload_pack,omitempty"`
+	// Controls the negotiation timeout for git-upload-archive, in minutes.
+	UploadArchive int `toml:"upload_archive,omitempty" json:"upload_archive,omitempty"`
 }
 
 // TLS configuration
@@ -704,6 +713,14 @@ func (cfg *Cfg) setDefaults() error {
 
 	if cfg.Backup.Layout == "" {
 		cfg.Backup.Layout = "pointer"
+	}
+
+	if cfg.Timeout.UploadPack == 0 {
+		cfg.Timeout.UploadPack = 10
+	}
+
+	if cfg.Timeout.UploadArchive == 0 {
+		cfg.Timeout.UploadArchive = 1
 	}
 
 	return nil
