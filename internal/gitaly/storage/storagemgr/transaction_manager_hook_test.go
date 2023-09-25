@@ -35,6 +35,8 @@ type hooks struct {
 	beforeDeferredClose hookFunc
 	// beforeDeleteLogEntry is invoked before a log entry is deleted from the database.
 	beforeDeleteLogEntry hookFunc
+	// beforeReadAppliedLogIndex is invoked before the applied log index is read from the database.
+	beforeReadAppliedLogIndex hookFunc
 	// beforeStoreAppliedLogIndex is invoked before a the applied log index is stored.
 	beforeStoreAppliedLogIndex hookFunc
 }
@@ -115,6 +117,10 @@ func (hook databaseTransactionHook) Get(key []byte) (*badger.Item, error) {
 	if regexLogEntry.Match(key) {
 		if hook.hooks.beforeReadLogEntry != nil {
 			hook.hooks.beforeReadLogEntry(hook.hookContext)
+		}
+	} else if regexLogIndex.Match(key) {
+		if hook.hooks.beforeReadAppliedLogIndex != nil {
+			hook.hooks.beforeReadAppliedLogIndex(hook.hookContext)
 		}
 	}
 
