@@ -39,7 +39,7 @@ func main() {
 	subcmdName := flags.Arg(1)
 	subcmd, ok := subcommands[subcmdName]
 	if !ok {
-		logger.Errorf("unknown subcommand: %q", flags.Arg(1))
+		logger.Error(fmt.Sprintf("unknown subcommand: %q", flags.Arg(1)))
 		os.Exit(1)
 	}
 
@@ -49,12 +49,12 @@ func main() {
 
 	ctx, err := storage.InjectGitalyServersEnv(context.Background())
 	if err != nil {
-		logger.Errorf("%s", err)
+		logger.Error(err.Error())
 		os.Exit(1)
 	}
 
 	if err := subcmd.Run(ctx, logger, os.Stdin, os.Stdout); err != nil {
-		logger.Errorf("%s", err)
+		logger.Error(err.Error())
 		os.Exit(1)
 	}
 }

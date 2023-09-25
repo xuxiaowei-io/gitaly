@@ -223,7 +223,7 @@ func (c *AdaptiveCalculator) pollBackoffEvent(ctx context.Context) {
 
 			if err != context.Canceled {
 				c.watcherErrorsVec.WithLabelValues(w.Name()).Inc()
-				logger.Errorf("poll from resource watcher: %s", err)
+				logger.WithError(err).Error("poll from resource watcher failed")
 			}
 
 			continue

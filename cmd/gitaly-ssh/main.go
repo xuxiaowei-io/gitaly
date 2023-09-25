@@ -50,7 +50,7 @@ func main() {
 	// < 4 since git throws on 2x garbage here
 	if n := len(os.Args); n < 4 {
 		// TODO: Errors needs to be sent back some other way... pipes?
-		logger.Errorf("invalid number of arguments, expected at least 1, got %d", n-1)
+		logger.Error(fmt.Sprintf("invalid number of arguments, expected at least 1, got %d", n-1))
 		os.Exit(1)
 	}
 
@@ -68,7 +68,7 @@ func main() {
 	case "upload-archive":
 		packer = uploadArchive
 	default:
-		logger.Errorf("invalid pack command: %q", command)
+		logger.Error(fmt.Sprintf("invalid pack command: %q", command))
 		os.Exit(1)
 	}
 

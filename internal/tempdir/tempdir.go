@@ -98,7 +98,7 @@ func newDirectory(ctx context.Context, storageName string, prefix string, loc st
 func (d Dir) cleanupOnDone(ctx context.Context) {
 	<-ctx.Done()
 	if err := os.RemoveAll(d.Path()); err != nil {
-		log.FromContext(ctx).WithError(err).Errorf("failed to cleanup temp dir %q", d.path)
+		log.FromContext(ctx).WithError(err).WithField("temporary_directory", d.Path).Error("failed to cleanup temp dir")
 	}
 	close(d.doneCh)
 }

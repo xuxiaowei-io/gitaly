@@ -461,7 +461,7 @@ func server(
 				}
 
 				if err := monitoring.Start(opts...); err != nil {
-					logger.WithError(err).Errorf("Unable to start prometheus listener: %v", conf.PrometheusListenAddr)
+					logger.WithError(err).WithField("listen_address", conf.PrometheusListenAddr).Error("unable to start prometheus listener")
 				}
 			}()
 

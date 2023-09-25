@@ -34,6 +34,10 @@ func (l badgerLogger) Warningf(msg string, args ...any) {
 	l.Warn(fmt.Sprintf(msg, args...))
 }
 
+func (l badgerLogger) Errorf(msg string, args ...any) {
+	l.Error(fmt.Sprintf(msg, args...))
+}
+
 // databaseAdapter adapts a *badger.DB to the internal database interface used by the hooks in tests.
 type databaseAdapter struct{ *badger.DB }
 

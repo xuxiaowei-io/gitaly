@@ -308,10 +308,10 @@ func (c *HTTPClient) Check(ctx context.Context) (*CheckInfo, error) {
 
 func (c *HTTPClient) finalizeResponse(resp *http.Response) {
 	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-		c.logger.WithError(err).Errorf("discard body error for the request %q", resp.Request.RequestURI)
+		c.logger.WithError(err).WithField("request_uri", resp.Request.RequestURI).Error("discard body error for the request")
 	}
 	if err := resp.Body.Close(); err != nil {
-		c.logger.WithError(err).Errorf("close body error for the request %q", resp.Request.RequestURI)
+		c.logger.WithError(err).WithField("request_uri", resp.Request.RequestURI).Error("close body error for the request")
 	}
 }
 

@@ -172,7 +172,7 @@ func configureTestDirectory(logger log.Logger) (_ func(), returnedErr error) {
 
 	cleanup := func() {
 		if err := os.RemoveAll(testDirectory); err != nil {
-			logger.Errorf("cleaning up test directory: %v", err)
+			logger.WithError(err).Error("cleaning up test directory failed")
 		}
 	}
 	defer func() {

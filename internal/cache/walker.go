@@ -169,7 +169,7 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 		dontpanic.Go(logger, func() {
 			start := time.Now()
 			if err := os.RemoveAll(tmpDir); err != nil {
-				logger.Errorf("unable to remove disk cache objects: %q", err)
+				logger.WithError(err).Error("unable to remove disk cache objects")
 				return
 			}
 

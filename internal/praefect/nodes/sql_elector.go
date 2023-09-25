@@ -269,7 +269,7 @@ last_contact_attempt_at = NOW()`
 
 	_, err := tx.ExecContext(ctx, q, s.praefectName, s.shardName, node.GetStorage())
 	if err != nil {
-		s.log.Errorf("Error updating node: %s", err)
+		s.log.WithError(err).Error("error updating node")
 	}
 
 	return err
@@ -443,7 +443,7 @@ func (s *sqlElector) electNewPrimary(ctx context.Context, tx *sql.Tx, candidates
 	`
 	_, err := tx.ExecContext(ctx, q, s.praefectName, s.shardName, newPrimaryStorage, s.failoverTimeout.Microseconds())
 	if err != nil {
-		s.log.Errorf("error updating new primary: %s", err)
+		s.log.WithError(err).Error("error updating new primary")
 		return err
 	}
 
@@ -482,7 +482,7 @@ func (s *sqlElector) validateAndUpdatePrimary(ctx context.Context, tx *sql.Tx) e
 		if node != nil {
 			candidates = append(candidates, node)
 		} else {
-			s.log.Errorf("unknown candidate node name found: %s", name)
+			s.log.WithField("node_name", name).Error("unknown candidate node name found")
 		}
 	}
 
