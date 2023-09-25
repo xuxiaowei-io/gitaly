@@ -40,41 +40,48 @@ type Sink interface {
 
 // Backup represents all the information needed to restore a backup for a repository
 type Backup struct {
+	// ID is the identifier that uniquely identifies the backup for this repository.
+	ID string `toml:"-"`
+	// Repository is the repository being backed up.
+	Repository storage.Repository `toml:"-"`
 	// Steps are the ordered list of steps required to restore this backup
-	Steps []Step
+	Steps []Step `toml:"steps"`
 	// ObjectFormat is the name of the object hash used by the repository.
-	ObjectFormat string
+	ObjectFormat string `toml:"object_format"`
 }
 
 // Step represents an incremental step that makes up a complete backup for a repository
 type Step struct {
 	// BundlePath is the path of the bundle
-	BundlePath string
+	BundlePath string `toml:"bundle_path,omitempty"`
 	// RefPath is the path of the ref file
-	RefPath string
+	RefPath string `toml:"ref_path,omitempty"`
 	// PreviousRefPath is the path of the previous ref file
-	PreviousRefPath string
+	PreviousRefPath string `toml:"previous_ref_path,omitempty"`
 	// CustomHooksPath is the path of the custom hooks archive
-	CustomHooksPath string
+	CustomHooksPath string `toml:"custom_hooks_path,omitempty"`
 }
 
 // Locator finds sink backup paths for repositories
 type Locator interface {
-	// BeginFull returns a tentative first step needed to create a new full backup.
-	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step
+	// BeginFull returns the tentative backup paths needed to create a full backup.
+	BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup
 
-	// BeginIncremental returns a tentative step needed to create a new incremental backup.
-	BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Step, error)
+	// BeginIncremental returns the backup with the last element of Steps being
+	// the tentative step needed to create an incremental backup.
+	BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error)
 
-	// Commit persists the step so that it can be looked up by FindLatest
-	Commit(ctx context.Context, step *Step) error
+	// Commit persists the backup so that it can be looked up by FindLatest. It
+	// is expected that the last element of Steps will be the newly created
+	// backup.
+	Commit(ctx context.Context, backup *Backup) error
 
 	// FindLatest returns the latest backup that was written by Commit
-	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
+	FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error)
 
 	// Find returns the repository backup at the given backupID. If the backup does
 	// not exist then the error ErrDoesntExist is returned.
-	Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error)
+	Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error)
 }
 
 // Repository abstracts git access required to make a repository backup
@@ -100,18 +107,25 @@ type Repository interface {
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
 func ResolveLocator(layout string, sink Sink) (Locator, error) {
-	legacy := LegacyLocator{}
+	var locator Locator = LegacyLocator{}
+
 	switch layout {
 	case "legacy":
-		return legacy, nil
 	case "pointer":
-		return PointerLocator{
+		locator = PointerLocator{
 			Sink:     sink,
-			Fallback: legacy,
-		}, nil
+			Fallback: locator,
+		}
 	default:
 		return nil, fmt.Errorf("unknown layout: %q", layout)
 	}
+
+	locator = ManifestLocator{
+		Sink:     sink,
+		Fallback: locator,
+	}
+
+	return locator, nil
 }
 
 // Manager manages process of the creating/restoring backups.
@@ -197,15 +211,15 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	var step *Step
+	var backup *Backup
 	if req.Incremental {
 		var err error
-		step, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, req.BackupID)
+		backup, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, req.BackupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
 	} else {
-		step = mgr.locator.BeginFull(ctx, req.VanityRepository, req.BackupID)
+		backup = mgr.locator.BeginFull(ctx, req.VanityRepository, req.BackupID)
 	}
 
 	refs, err := repo.ListRefs(ctx)
@@ -215,6 +229,8 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	case err != nil:
 		return fmt.Errorf("manager: %w", err)
 	}
+
+	step := &backup.Steps[len(backup.Steps)-1]
 
 	if err := mgr.writeRefs(ctx, step.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -226,7 +242,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if err := mgr.locator.Commit(ctx, step); err != nil {
+	if err := mgr.locator.Commit(ctx, backup); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 

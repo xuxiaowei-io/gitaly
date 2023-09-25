@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // LegacyLocator locates backup paths for historic backups. This is the
@@ -28,42 +30,43 @@ import (
 type LegacyLocator struct{}
 
 // BeginFull returns the static paths for a legacy repository backup
-func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step {
+func (l LegacyLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
 	return l.newFull(repo)
 }
 
 // BeginIncremental is not supported for legacy backups
-func (l LegacyLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Step, error) {
+func (l LegacyLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
 	return nil, errors.New("legacy layout: begin incremental: not supported")
 }
 
 // Commit is unused as the locations are static
-func (l LegacyLocator) Commit(ctx context.Context, full *Step) error {
+func (l LegacyLocator) Commit(ctx context.Context, full *Backup) error {
 	return nil
 }
 
 // FindLatest returns the static paths for a legacy repository backup
-func (l LegacyLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
-	return &Backup{
-		Steps: []Step{
-			*l.newFull(repo),
-		},
-		ObjectFormat: git.ObjectHashSHA1.Format,
-	}, nil
+func (l LegacyLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
+	return l.newFull(repo), nil
 }
 
 // Find is not supported for legacy backups.
-func (l LegacyLocator) Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
+func (l LegacyLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
 	return nil, errors.New("legacy layout: find: not supported")
 }
 
-func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
-	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l LegacyLocator) newFull(repo storage.Repository) *Backup {
+	backupPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 
-	return &Step{
-		BundlePath:      backupPath + ".bundle",
-		RefPath:         backupPath + ".refs",
-		CustomHooksPath: filepath.Join(backupPath, "custom_hooks.tar"),
+	return &Backup{
+		Repository:   repo,
+		ObjectFormat: git.ObjectHashSHA1.Format,
+		Steps: []Step{
+			{
+				BundlePath:      backupPath + ".bundle",
+				RefPath:         backupPath + ".refs",
+				CustomHooksPath: filepath.Join(backupPath, "custom_hooks.tar"),
+			},
+		},
 	}
 }
 
@@ -84,13 +87,20 @@ type PointerLocator struct {
 }
 
 // BeginFull returns a tentative first step needed to create a new full backup.
-func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
+	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 
-	return &Step{
-		BundlePath:      filepath.Join(repoPath, backupID, "001.bundle"),
-		RefPath:         filepath.Join(repoPath, backupID, "001.refs"),
-		CustomHooksPath: filepath.Join(repoPath, backupID, "001.custom_hooks.tar"),
+	return &Backup{
+		ID:           backupID,
+		Repository:   repo,
+		ObjectFormat: git.ObjectHashSHA1.Format,
+		Steps: []Step{
+			{
+				BundlePath:      filepath.Join(repoPath, backupID, "001.bundle"),
+				RefPath:         filepath.Join(repoPath, backupID, "001.refs"),
+				CustomHooksPath: filepath.Join(repoPath, backupID, "001.custom_hooks.tar"),
+			},
+		},
 	}
 }
 
@@ -98,8 +108,8 @@ func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository
 // backup.  The incremental backup is always based off of the latest full
 // backup. If there is no latest backup, a new full backup step is returned
 // using fallbackBackupID
-func (l PointerLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Repository, fallbackBackupID string) (*Step, error) {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) BeginIncremental(ctx context.Context, repo storage.Repository, fallbackBackupID string) (*Backup, error) {
+	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 	backupID, err := l.findLatestID(ctx, repoPath)
 	if err != nil {
 		if errors.Is(err, ErrDoesntExist) {
@@ -125,16 +135,23 @@ func (l PointerLocator) BeginIncremental(ctx context.Context, repo *gitalypb.Rep
 	}
 	id++
 
-	return &Step{
+	backup.ID = fallbackBackupID
+	backup.Steps = append(backup.Steps, Step{
 		BundlePath:      filepath.Join(backupPath, fmt.Sprintf("%03d.bundle", id)),
 		RefPath:         filepath.Join(backupPath, fmt.Sprintf("%03d.refs", id)),
 		PreviousRefPath: previous.RefPath,
 		CustomHooksPath: filepath.Join(backupPath, fmt.Sprintf("%03d.custom_hooks.tar", id)),
-	}, nil
+	})
+
+	return backup, nil
 }
 
 // Commit persists the step so that it can be looked up by FindLatest
-func (l PointerLocator) Commit(ctx context.Context, step *Step) error {
+func (l PointerLocator) Commit(ctx context.Context, backup *Backup) error {
+	if len(backup.Steps) < 1 {
+		return fmt.Errorf("pointer locator: commit: no steps")
+	}
+	step := backup.Steps[len(backup.Steps)-1]
 	backupPath := filepath.Dir(step.BundlePath)
 	bundleName := filepath.Base(step.BundlePath)
 	repoPath := filepath.Dir(backupPath)
@@ -153,8 +170,8 @@ func (l PointerLocator) Commit(ctx context.Context, step *Step) error {
 // FindLatest returns the paths committed by the latest call to CommitFull.
 //
 // If there is no `LATEST` file, the result of the `Fallback` is used.
-func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
+	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 
 	backupID, err := l.findLatestID(ctx, repoPath)
 	if err != nil {
@@ -173,7 +190,7 @@ func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repositor
 
 // Find returns the repository backup at the given backupID. If the backup does
 // not exist then the error ErrDoesntExist is returned.
-func (l PointerLocator) Find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
+func (l PointerLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
 	backup, err := l.find(ctx, repo, backupID)
 	if err != nil {
 		return nil, fmt.Errorf("pointer locator: %w", err)
@@ -181,8 +198,8 @@ func (l PointerLocator) Find(ctx context.Context, repo *gitalypb.Repository, bac
 	return backup, nil
 }
 
-func (l PointerLocator) find(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Backup, error) {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 	backupPath := filepath.Join(repoPath, backupID)
 
 	latestIncrementID, err := l.findLatestID(ctx, backupPath)
@@ -196,6 +213,8 @@ func (l PointerLocator) find(ctx context.Context, repo *gitalypb.Repository, bac
 	}
 
 	backup := Backup{
+		ID:           backupID,
+		Repository:   repo,
 		ObjectFormat: git.ObjectHashSHA1.Format,
 	}
 
@@ -246,4 +265,67 @@ func (l PointerLocator) writeLatest(ctx context.Context, path, target string) (r
 	}
 
 	return nil
+}
+
+// ManifestLocator locates backup paths based on manifest files that are
+// written to a predetermined path:
+//
+//	manifests/<repo_storage_name>/<repo_relative_path>/<backup_id>.toml
+//
+// It relies on Fallback to determine paths of new backups.
+type ManifestLocator struct {
+	Sink     Sink
+	Fallback Locator
+}
+
+// BeginFull passes through to Fallback
+func (l ManifestLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
+	return l.Fallback.BeginFull(ctx, repo, backupID)
+}
+
+// BeginIncremental passes through to Fallback
+func (l ManifestLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+	return l.Fallback.BeginIncremental(ctx, repo, backupID)
+}
+
+// Commit passes through to Fallback, then writes a manifest file for the backup.
+func (l ManifestLocator) Commit(ctx context.Context, backup *Backup) (returnErr error) {
+	if err := l.Fallback.Commit(ctx, backup); err != nil {
+		return err
+	}
+
+	f, err := l.Sink.GetWriter(ctx, manifestPath(backup))
+	if err != nil {
+		return fmt.Errorf("manifest: commit: %w", err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("manifest: commit: %w", err)
+		}
+	}()
+
+	if err := toml.NewEncoder(f).Encode(backup); err != nil {
+		return fmt.Errorf("manifest: commit: %w", err)
+	}
+
+	return nil
+}
+
+// FindLatest passes through to Fallback
+func (l ManifestLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
+	return l.Fallback.FindLatest(ctx, repo)
+}
+
+// Find passes through to Fallback
+func (l ManifestLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+	return l.Fallback.Find(ctx, repo, backupID)
+}
+
+func manifestPath(backup *Backup) string {
+	storageName := backup.Repository.GetStorageName()
+	// Other locators strip the .git suffix off of relative paths. This suffix
+	// is determined by gitlab-rails not gitaly. So here we leave the relative
+	// path as-is so that new backups can be more independent.
+	relativePath := backup.Repository.GetRelativePath()
+	return path.Join("manifests", storageName, relativePath, backup.ID+".toml")
 }
