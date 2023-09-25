@@ -20,7 +20,7 @@ func TestNewRepositorySuccess(t *testing.T) {
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
 
-	repo, tempDir, err := NewRepository(ctx, cfg.Storages[0].Name, locator)
+	repo, tempDir, err := NewRepository(ctx, cfg.Storages[0].Name, testhelper.NewLogger(t), locator)
 	require.NoError(t, err)
 	require.Equal(t, cfg.Storages[0].Name, repo.StorageName)
 	require.Contains(t, repo.RelativePath, tmpRootPrefix)
@@ -44,7 +44,7 @@ func TestNewWithPrefix(t *testing.T) {
 	locator := config.NewLocator(cfg)
 	ctx := testhelper.Context(t)
 
-	dir, err := NewWithPrefix(ctx, cfg.Storages[0].Name, "foobar-", locator)
+	dir, err := NewWithPrefix(ctx, cfg.Storages[0].Name, "foobar-", testhelper.NewLogger(t), locator)
 	require.NoError(t, err)
 
 	require.Contains(t, dir.Path(), "/foobar-")
@@ -52,6 +52,6 @@ func TestNewWithPrefix(t *testing.T) {
 
 func TestNewAsRepositoryFailStorageUnknown(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, err := New(ctx, "does-not-exist", config.NewLocator(config.Cfg{}))
+	_, err := New(ctx, "does-not-exist", testhelper.NewLogger(t), config.NewLocator(config.Cfg{}))
 	require.Error(t, err)
 }

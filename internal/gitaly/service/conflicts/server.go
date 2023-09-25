@@ -48,7 +48,7 @@ func (s *server) localrepo(repo storage.Repository) *localrepo.Repo {
 func (s *server) quarantinedRepo(
 	ctx context.Context, repo *gitalypb.Repository,
 ) (*quarantine.Dir, *localrepo.Repo, error) {
-	quarantineDir, err := quarantine.New(ctx, repo, s.locator)
+	quarantineDir, err := quarantine.New(ctx, repo, s.logger, s.locator)
 	if err != nil {
 		return nil, nil, structerr.NewInternal("creating object quarantine: %w", err)
 	}

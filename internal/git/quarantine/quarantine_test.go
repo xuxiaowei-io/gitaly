@@ -47,9 +47,10 @@ func TestQuarantine_lifecycle(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	locator := config.NewLocator(cfg)
+	logger := testhelper.NewLogger(t)
 
 	t.Run("quarantine directory gets created", func(t *testing.T) {
-		quarantine, err := New(ctx, repo, locator)
+		quarantine, err := New(ctx, repo, logger, locator)
 		require.NoError(t, err)
 
 		relativeQuarantinePath, err := filepath.Rel(repoPath, quarantine.dir.Path())
@@ -74,7 +75,7 @@ func TestQuarantine_lifecycle(t *testing.T) {
 	t.Run("context cancellation cleans up quarantine directory", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(ctx)
 
-		quarantine, err := New(ctx, repo, locator)
+		quarantine, err := New(ctx, repo, logger, locator)
 		require.NoError(t, err)
 
 		require.DirExists(t, quarantine.dir.Path())
@@ -89,6 +90,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
+	logger := testhelper.NewLogger(t)
 
 	t.Run("no changes", func(t *testing.T) {
 		ctx := testhelper.Context(t)
@@ -100,7 +102,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 
 		oldContents := listEntries(t, repoPath)
 
-		quarantine, err := New(ctx, repo, locator)
+		quarantine, err := New(ctx, repo, logger, locator)
 		require.NoError(t, err)
 
 		require.NoError(t, quarantine.Migrate())
@@ -118,7 +120,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 		oldContents := listEntries(t, repoPath)
 		require.NotContains(t, oldContents, "objects/file")
 
-		quarantine, err := New(ctx, repo, locator)
+		quarantine, err := New(ctx, repo, logger, locator)
 		require.NoError(t, err)
 
 		require.NoError(t, os.WriteFile(filepath.Join(quarantine.dir.Path(), "file"), []byte("foobar"), perm.PublicFile))
@@ -141,7 +143,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 		repoContents := listEntries(t, repoPath)
 		require.NotContains(t, repoContents, "objects/file")
 
-		quarantine, err := New(ctx, repo, locator)
+		quarantine, err := New(ctx, repo, logger, locator)
 		require.NoError(t, err)
 
 		require.Empty(t, listEntries(t, quarantine.dir.Path()))
@@ -149,7 +151,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 		// Quarantine the already quarantined repository and write the object there. We expect the
 		// object to be migrated from the second level quarantine to the first level quarantine. The
 		// main repository should stay untouched.
-		recursiveQuarantine, err := New(ctx, quarantine.QuarantinedRepo(), locator)
+		recursiveQuarantine, err := New(ctx, quarantine.QuarantinedRepo(), logger, locator)
 		require.NoError(t, err)
 
 		require.NoError(t, os.WriteFile(filepath.Join(recursiveQuarantine.dir.Path(), "file"), []byte("foobar"), perm.PublicFile))

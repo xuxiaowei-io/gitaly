@@ -85,7 +85,7 @@ func Create(
 		return structerr.NewAlreadyExists("repository exists already")
 	}
 
-	newRepo, newRepoDir, err := tempdir.NewRepository(ctx, repository.GetStorageName(), locator)
+	newRepo, newRepoDir, err := tempdir.NewRepository(ctx, repository.GetStorageName(), logger, locator)
 	if err != nil {
 		return fmt.Errorf("creating temporary repository: %w", err)
 	}
