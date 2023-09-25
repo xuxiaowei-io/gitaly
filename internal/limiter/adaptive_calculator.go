@@ -259,7 +259,7 @@ func (c *AdaptiveCalculator) calibrateLimits(ctx context.Context) {
 			logger.WithFields(map[string]interface{}{
 				"previous_limit": limit.Current(),
 				"new_limit":      newLimit,
-			}).Debugf("Additive increase")
+			}).Debug("Additive increase")
 		} else {
 			// Multiplicative decrease
 			newLimit = int(math.Floor(float64(limit.Current()) * setting.BackoffFactor))

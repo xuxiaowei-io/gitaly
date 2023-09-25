@@ -77,7 +77,7 @@ func listUntrackedRepositoriesAction(appCtx *cli.Context) error {
 	ctx = metadata.AppendToOutgoingContext(ctx, "client_name", appCtx.Command.Name)
 
 	logger = logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
-	logger.Debugf("starting %s command", appCtx.App.Name)
+	logger.Debug(fmt.Sprintf("starting %s command", appCtx.App.Name))
 
 	logger.Debug("dialing to gitaly nodes...")
 	nodeSet, err := dialGitalyStorages(ctx, conf, defaultDialTimeout)
@@ -107,7 +107,11 @@ func listUntrackedRepositoriesAction(appCtx *cli.Context) error {
 	}
 	for _, vs := range conf.VirtualStorages {
 		for _, node := range vs.Nodes {
-			logger.Debugf("check %q/%q storage repositories", vs.Name, node.Storage)
+			logger.WithFields(log.Fields{
+				"virtual_storage": vs.Name,
+				"storage_node":    node.Storage,
+			}).Debug("checking storage repositories")
+
 			if err := walker.ExecOnRepositories(ctx, vs.Name, node.Storage, reporter.Report); err != nil {
 				return fmt.Errorf("exec on %q/%q: %w", vs.Name, node.Storage, err)
 			}

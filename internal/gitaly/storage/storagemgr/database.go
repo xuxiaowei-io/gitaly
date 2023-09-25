@@ -1,6 +1,8 @@
 package storagemgr
 
 import (
+	"fmt"
+
 	"github.com/dgraph-io/badger/v4"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
@@ -18,6 +20,10 @@ func OpenDatabase(logger log.Logger, databasePath string) (*badger.DB, error) {
 
 type badgerLogger struct {
 	log.Logger
+}
+
+func (l badgerLogger) Debugf(msg string, args ...any) {
+	l.Debug(fmt.Sprintf(msg, args...))
 }
 
 func (l badgerLogger) Warningf(msg string, args ...any) {
