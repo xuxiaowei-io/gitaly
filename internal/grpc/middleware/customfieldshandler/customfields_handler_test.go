@@ -6,7 +6,6 @@ import (
 	"net"
 	"testing"
 
-	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -15,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/grpcstats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
@@ -27,20 +27,20 @@ import (
 func createNewServer(t *testing.T, cfg config.Cfg, logger log.Logger) *grpc.Server {
 	t.Helper()
 
-	logrusEntry := logger.WithField("test", t.Name())
+	logger = logger.WithField("test", t.Name())
 
 	opts := []grpc.ServerOption{
+		grpc.StatsHandler(log.PerRPCLogHandler{
+			Underlying:     &grpcstats.PayloadBytes{},
+			FieldProducers: []log.FieldsProducer{grpcstats.FieldsProducer},
+		}),
 		grpc.ChainStreamInterceptor(
 			StreamInterceptor,
-			logrusEntry.StreamServerInterceptor(
-				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
-				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
+			logger.StreamServerInterceptor(FieldsProducer),
 		),
 		grpc.ChainUnaryInterceptor(
 			UnaryInterceptor,
-			logrusEntry.UnaryServerInterceptor(
-				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
-				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
+			logger.UnaryServerInterceptor(FieldsProducer),
 		),
 	}
 

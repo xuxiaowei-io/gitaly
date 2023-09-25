@@ -7,7 +7,6 @@ package praefect
 import (
 	"time"
 
-	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server/auth"
@@ -70,14 +69,7 @@ func commonUnaryServerInterceptors(logger log.Logger) []grpc.UnaryServerIntercep
 		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 		metadatahandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
-		logger.UnaryServerInterceptor(
-			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
-			grpcmwlogrus.WithMessageProducer(log.MessageProducer(
-				log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-				logFieldsProducers...,
-			)),
-			log.DeciderOption(),
-		),
+		logger.UnaryServerInterceptor(logFieldsProducers...),
 		sentryhandler.UnaryLogHandler,
 		statushandler.Unary, // Should be below LogHandler
 		grpctracing.UnaryServerTracingInterceptor(),
@@ -138,14 +130,7 @@ func NewGRPCServer(
 		middleware.MethodTypeStreamInterceptor(deps.Registry, deps.Logger),
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
-		deps.Logger.WithField("component", "praefect.StreamServerInterceptor").StreamServerInterceptor(
-			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
-			grpcmwlogrus.WithMessageProducer(log.MessageProducer(
-				log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-				logFieldsProducers...,
-			)),
-			log.DeciderOption(),
-		),
+		deps.Logger.WithField("component", "praefect.StreamServerInterceptor").StreamServerInterceptor(logFieldsProducers...),
 		sentryhandler.StreamLogHandler,
 		statushandler.Stream, // Should be below LogHandler
 		grpctracing.StreamServerTracingInterceptor(),
