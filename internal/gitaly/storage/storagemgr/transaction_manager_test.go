@@ -4156,7 +4156,7 @@ func TestTransactionManager(t *testing.T) {
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
 
-			txManager := transaction.NewManager(setup.Config, backchannel.NewRegistry())
+			txManager := transaction.NewManager(setup.Config, logger, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, txManager)
 
 			storagePath := setup.Config.Storages[0].Path
@@ -4556,7 +4556,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			require.NoError(b, err)
 			defer testhelper.MustClose(b, database)
 
-			txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+			txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
 			var (

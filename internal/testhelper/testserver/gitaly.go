@@ -296,7 +296,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	if gsd.txMgr == nil {
-		gsd.txMgr = transaction.NewManager(cfg, gsd.backchannelReg)
+		gsd.txMgr = transaction.NewManager(cfg, gsd.logger, gsd.backchannelReg)
 	}
 
 	if gsd.gitCmdFactory == nil {

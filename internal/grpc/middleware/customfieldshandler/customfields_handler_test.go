@@ -52,7 +52,7 @@ func createNewServer(t *testing.T, cfg config.Cfg, logger log.Logger) *grpc.Serv
 		Logger:             logger,
 		StorageLocator:     config.NewLocator(cfg),
 		GitCmdFactory:      gitCommandFactory,
-		TransactionManager: transaction.NewManager(cfg, backchannel.NewRegistry()),
+		TransactionManager: transaction.NewManager(cfg, logger, backchannel.NewRegistry()),
 		CatfileCache:       catfileCache,
 	}))
 

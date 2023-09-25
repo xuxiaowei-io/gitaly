@@ -47,6 +47,7 @@ func TestPoolManager_Vote(t *testing.T) {
 
 	transactionServer, transactionServerAddr := runTransactionServer(t, cfg)
 	ctx := testhelper.Context(t)
+	logger := testhelper.NewLogger(t)
 
 	registry := backchannel.NewRegistry()
 	backchannelConn, err := client.Dial(ctx, transactionServerAddr)
@@ -55,7 +56,7 @@ func TestPoolManager_Vote(t *testing.T) {
 
 	backchannelID := registry.RegisterBackchannel(backchannelConn)
 
-	manager := transaction.NewManager(cfg, registry)
+	manager := transaction.NewManager(cfg, logger, registry)
 
 	for _, tc := range []struct {
 		desc        string
@@ -196,6 +197,7 @@ func TestPoolManager_Stop(t *testing.T) {
 
 	transactionServer, transactionServerAddr := runTransactionServer(t, cfg)
 	ctx := testhelper.Context(t)
+	logger := testhelper.NewLogger(t)
 
 	registry := backchannel.NewRegistry()
 	backchannelConn, err := client.Dial(ctx, transactionServerAddr)
@@ -204,7 +206,7 @@ func TestPoolManager_Stop(t *testing.T) {
 
 	backchannelID := registry.RegisterBackchannel(backchannelConn)
 
-	manager := transaction.NewManager(cfg, registry)
+	manager := transaction.NewManager(cfg, logger, registry)
 
 	for _, tc := range []struct {
 		desc        string

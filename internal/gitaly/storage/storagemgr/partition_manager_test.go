@@ -673,7 +673,7 @@ func TestPartitionManager(t *testing.T) {
 				)
 			}
 
-			txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+			txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
 			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.SharedLogger(t))
@@ -801,7 +801,7 @@ func TestPartitionManager_concurrentClose(t *testing.T) {
 
 	localRepoFactory := localrepo.NewFactory(config.NewLocator(cfg), cmdFactory, catfileCache)
 
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
 	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
 	partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.SharedLogger(t))

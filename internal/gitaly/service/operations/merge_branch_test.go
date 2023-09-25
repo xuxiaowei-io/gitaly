@@ -1109,7 +1109,7 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 
 			cfg := testcfg.Build(t)
 			backchannelRegistry := backchannel.NewRegistry()
-			txManager := transaction.NewManager(cfg, backchannelRegistry)
+			txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannelRegistry)
 
 			hookManager := hook.NewManager(cfg, config.NewLocator(cfg), testhelper.SharedLogger(t), gittest.NewCommandFactory(t, cfg), txManager, gitlab.NewMockClient(
 				t,

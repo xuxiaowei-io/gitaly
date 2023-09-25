@@ -30,10 +30,11 @@ func TestCreate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+	logger := testhelper.NewLogger(t)
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-	txManager := transaction.NewManager(cfg, nil)
+	txManager := transaction.NewManager(cfg, logger, nil)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 

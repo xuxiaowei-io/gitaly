@@ -191,7 +191,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	conns := client.NewPool()
 	t.Cleanup(func() { testhelper.MustClose(t, conns) })
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg, registry)
+	txManager := transaction.NewManager(cfg, logger, registry)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	hookManager := hook.NewManager(cfg, locator, logger, gitCmdFactory, txManager, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
