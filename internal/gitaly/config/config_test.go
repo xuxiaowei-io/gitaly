@@ -1825,6 +1825,70 @@ func TestConcurrency_Validate(t *testing.T) {
 		Concurrency{MaxPerRepo: -1}.Validate(),
 	)
 
+	require.NoError(t, Concurrency{Adaptive: true, InitialLimit: 1, MinLimit: 1, MaxLimit: 100}.Validate())
+	require.NoError(t, Concurrency{Adaptive: true, InitialLimit: 10, MinLimit: 1, MaxLimit: 100}.Validate())
+	require.NoError(t, Concurrency{Adaptive: true, InitialLimit: 100, MinLimit: 1, MaxLimit: 100}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: 0 is not greater than 0", cfgerror.ErrNotInRange),
+				"min_limit",
+			),
+		},
+		Concurrency{Adaptive: true, InitialLimit: 0, MinLimit: 0, MaxLimit: 100}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1 is not greater than or equal to 1", cfgerror.ErrNotInRange),
+				"initial_limit",
+			),
+		},
+		Concurrency{Adaptive: true, InitialLimit: -1, MinLimit: 1, MaxLimit: 100}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: 10 is not greater than or equal to 11", cfgerror.ErrNotInRange),
+				"initial_limit",
+			),
+		},
+		Concurrency{Adaptive: true, InitialLimit: 10, MinLimit: 11, MaxLimit: 100}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: 3 is not greater than or equal to 10", cfgerror.ErrNotInRange),
+				"max_limit",
+			),
+		},
+		Concurrency{Adaptive: true, InitialLimit: 10, MinLimit: 5, MaxLimit: 3}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1 is not greater than 0", cfgerror.ErrNotInRange),
+				"min_limit",
+			),
+		},
+		Concurrency{Adaptive: true, InitialLimit: 5, MinLimit: -1, MaxLimit: 99}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1 is not greater than or equal to 10", cfgerror.ErrNotInRange),
+				"max_limit",
+			),
+		},
+		Concurrency{Adaptive: true, InitialLimit: 10, MinLimit: 5, MaxLimit: -1}.Validate(),
+	)
+
 	require.NoError(t, Concurrency{MaxQueueSize: 0}.Validate())
 	require.NoError(t, Concurrency{MaxQueueSize: 1}.Validate())
 	require.NoError(t, Concurrency{MaxQueueSize: 100}.Validate())
