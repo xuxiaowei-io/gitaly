@@ -441,6 +441,15 @@ type Concurrency struct {
 	MaxQueueWait duration.Duration `toml:"max_queue_wait" json:"max_queue_wait"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (c Concurrency) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.Comparable(c.MaxPerRepo).GreaterOrEqual(0), "max_per_repo").
+		Append(cfgerror.Comparable(c.MaxQueueSize).GreaterOrEqual(0), "max_queue_size").
+		Append(cfgerror.Comparable(c.MaxQueueWait.Duration()).GreaterOrEqual(0), "max_queue_wait").
+		AsError()
+}
+
 // RateLimiting allows endpoints to be limited to a maximum request rate per
 // second. The rate limiter uses a concept of a "token bucket". In order to serve a
 // request, a token is retrieved from the token bucket. The size of the token
@@ -673,6 +682,13 @@ func (cfg *Cfg) ValidateV2() error {
 			return cfg.DailyMaintenance.Validate(storages)
 		}},
 		{field: "cgroups", validate: cfg.Cgroups.Validate},
+		{field: "concurrency", validate: func() error {
+			var errs cfgerror.ValidationErrors
+			for i, concurrency := range cfg.Concurrency {
+				errs = errs.Append(concurrency.Validate(), fmt.Sprintf("[%d]", i))
+			}
+			return errs.AsError()
+		}},
 		{field: "pack_objects_cache", validate: cfg.PackObjectsCache.Validate},
 		{field: "pack_objects_limiting", validate: cfg.PackObjectsLimiting.Validate},
 		{field: "backup", validate: cfg.Backup.Validate},
