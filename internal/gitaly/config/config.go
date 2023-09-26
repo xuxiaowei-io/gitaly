@@ -592,7 +592,7 @@ func Load(file io.Reader) (Cfg, error) {
 		}
 	}
 
-	if err := cfg.setDefaults(); err != nil {
+	if err := cfg.SetDefaults(); err != nil {
 		return Cfg{}, err
 	}
 
@@ -685,7 +685,8 @@ func (cfg *Cfg) ValidateV2() error {
 	return errs.AsError()
 }
 
-func (cfg *Cfg) setDefaults() error {
+// SetDefaults sets the default options for Cfg.
+func (cfg *Cfg) SetDefaults() error {
 	if cfg.GracefulRestartTimeout.Duration() == 0 {
 		cfg.GracefulRestartTimeout = duration.Duration(time.Minute)
 	}
