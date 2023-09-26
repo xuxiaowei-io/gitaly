@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -4017,13 +4018,14 @@ func TestTransactionManager(t *testing.T) {
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
 
-			stateDir := filepath.Join(setup.Config.Storages[0].Path, "state")
-
-			stagingDir := t.TempDir()
-			storagePath := setup.Config.Storages[0].Path
-
 			txManager := transaction.NewManager(setup.Config, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, txManager)
+
+			storagePath := setup.Config.Storages[0].Path
+			stateDir := filepath.Join(storagePath, "state")
+
+			stagingDir := filepath.Join(storagePath, "staging")
+			require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
 			var (
 				// managerRunning tracks whether the manager is running or closed.
@@ -4478,7 +4480,15 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), b.TempDir(), cmdFactory, housekeepingManager, repositoryFactory)
+				storagePath := cfg.Storages[0].Path
+
+				stateDir := filepath.Join(storagePath, "state", strconv.Itoa(i))
+				require.NoError(b, os.MkdirAll(stateDir, perm.PrivateDir))
+
+				stagingDir := filepath.Join(storagePath, "staging", strconv.Itoa(i))
+				require.NoError(b, os.MkdirAll(stagingDir, perm.PrivateDir))
+
+				manager := NewTransactionManager(database, storagePath, repo.RelativePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 
