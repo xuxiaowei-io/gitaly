@@ -316,9 +316,28 @@ func (l ManifestLocator) FindLatest(ctx context.Context, repo storage.Repository
 	return l.Fallback.FindLatest(ctx, repo)
 }
 
-// Find passes through to Fallback
+// Find loads the manifest for the provided repo and backupID. If this manifest
+// does not exist, the fallback is used.
 func (l ManifestLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
-	return l.Fallback.Find(ctx, repo, backupID)
+	f, err := l.Sink.GetReader(ctx, manifestPath(repo, backupID))
+	switch {
+	case errors.Is(err, ErrDoesntExist):
+		return l.Fallback.Find(ctx, repo, backupID)
+	case err != nil:
+		return nil, fmt.Errorf("manifest: find: %w", err)
+	}
+	defer f.Close()
+
+	var backup Backup
+
+	if err := toml.NewDecoder(f).Decode(&backup); err != nil {
+		return nil, fmt.Errorf("manifest: find: %w", err)
+	}
+
+	backup.ID = backupID
+	backup.Repository = repo
+
+	return &backup, nil
 }
 
 func manifestPath(repo storage.Repository, backupID string) string {
