@@ -35,6 +35,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
 
+	//nolint:staticcheck
 	stream, err := client.GetInfoAttributes(ctx, request)
 	require.NoError(t, err)
 
@@ -56,6 +57,7 @@ func TestGetInfoAttributesNonExisting(t *testing.T) {
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
 
+	//nolint:staticcheck
 	response, err := client.GetInfoAttributes(ctx, request)
 	require.NoError(t, err)
 
@@ -69,6 +71,8 @@ func TestGetInfoAttributes_validate(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 	_, client := setupRepositoryService(t)
+
+	//nolint:staticcheck
 	response, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{Repository: nil})
 	require.NoError(t, err)
 	_, err = response.Recv()

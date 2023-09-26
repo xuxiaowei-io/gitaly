@@ -55,7 +55,9 @@ type RepositoryServiceClient interface {
 	ObjectsSize(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_ObjectsSizeClient, error)
 	// ObjectFormat determines the object format that is being used by the repository.
 	ObjectFormat(ctx context.Context, in *ObjectFormatRequest, opts ...grpc.CallOption) (*ObjectFormatResponse, error)
-	// ApplyGitattributes ...
+	// Deprecated: Do not use.
+	// ApplyGitattributes writes the attributes from the given revision to info/attributes.
+	// This RPC will be removed in 17.0.
 	ApplyGitattributes(ctx context.Context, in *ApplyGitattributesRequest, opts ...grpc.CallOption) (*ApplyGitattributesResponse, error)
 	// FetchRemote fetches references from a remote repository into the local
 	// repository.
@@ -104,7 +106,9 @@ type RepositoryServiceClient interface {
 	// FindLicense looks in the given repository and attempts to detect all the
 	// details about the license used in the repository.
 	FindLicense(ctx context.Context, in *FindLicenseRequest, opts ...grpc.CallOption) (*FindLicenseResponse, error)
-	// GetInfoAttributes ...
+	// Deprecated: Do not use.
+	// GetInfoAttributes reads the contents from info/attributes.
+	// This RPC will be removed in 17.0.
 	GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error)
 	// CalculateChecksum ...
 	CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error)
@@ -274,6 +278,7 @@ func (c *repositoryServiceClient) ObjectFormat(ctx context.Context, in *ObjectFo
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) ApplyGitattributes(ctx context.Context, in *ApplyGitattributesRequest, opts ...grpc.CallOption) (*ApplyGitattributesResponse, error) {
 	out := new(ApplyGitattributesResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/ApplyGitattributes", in, out, opts...)
@@ -568,6 +573,7 @@ func (c *repositoryServiceClient) FindLicense(ctx context.Context, in *FindLicen
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[7], "/gitaly.RepositoryService/GetInfoAttributes", opts...)
 	if err != nil {
@@ -1027,7 +1033,9 @@ type RepositoryServiceServer interface {
 	ObjectsSize(RepositoryService_ObjectsSizeServer) error
 	// ObjectFormat determines the object format that is being used by the repository.
 	ObjectFormat(context.Context, *ObjectFormatRequest) (*ObjectFormatResponse, error)
-	// ApplyGitattributes ...
+	// Deprecated: Do not use.
+	// ApplyGitattributes writes the attributes from the given revision to info/attributes.
+	// This RPC will be removed in 17.0.
 	ApplyGitattributes(context.Context, *ApplyGitattributesRequest) (*ApplyGitattributesResponse, error)
 	// FetchRemote fetches references from a remote repository into the local
 	// repository.
@@ -1076,7 +1084,9 @@ type RepositoryServiceServer interface {
 	// FindLicense looks in the given repository and attempts to detect all the
 	// details about the license used in the repository.
 	FindLicense(context.Context, *FindLicenseRequest) (*FindLicenseResponse, error)
-	// GetInfoAttributes ...
+	// Deprecated: Do not use.
+	// GetInfoAttributes reads the contents from info/attributes.
+	// This RPC will be removed in 17.0.
 	GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error
 	// CalculateChecksum ...
 	CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error)

@@ -372,6 +372,7 @@ func (s *server) syncInfoAttributes(ctx context.Context, source, target *gitalyp
 		return err
 	}
 
+	//nolint:staticcheck
 	stream, err := repoClient.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{
 		Repository: source,
 	})

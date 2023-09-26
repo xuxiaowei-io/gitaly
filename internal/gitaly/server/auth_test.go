@@ -290,6 +290,7 @@ func TestStreamingNoAuth(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	client := gitalypb.NewRepositoryServiceClient(conn)
+	//nolint:staticcheck
 	stream, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
