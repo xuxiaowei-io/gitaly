@@ -169,9 +169,19 @@ func (w *wrappedStream) RecvMsg(m interface{}) error {
 func WithConcurrencyLimiters(cfg config.Cfg) (map[string]*limiter.AdaptiveLimit, SetupFunc) {
 	perRPCLimits := map[string]*limiter.AdaptiveLimit{}
 	for _, concurrency := range cfg.Concurrency {
-		perRPCLimits[concurrency.RPC] = limiter.NewAdaptiveLimit(
-			fmt.Sprintf("perRPC%s", concurrency.RPC), limiter.AdaptiveSetting{Initial: concurrency.MaxPerRepo},
-		)
+		limitName := fmt.Sprintf("perRPC%s", concurrency.RPC)
+		if concurrency.Adaptive {
+			perRPCLimits[concurrency.RPC] = limiter.NewAdaptiveLimit(limitName, limiter.AdaptiveSetting{
+				Initial:       concurrency.InitialLimit,
+				Max:           concurrency.MaxLimit,
+				Min:           concurrency.MinLimit,
+				BackoffFactor: limiter.DefaultBackoffFactor,
+			})
+		} else {
+			perRPCLimits[concurrency.RPC] = limiter.NewAdaptiveLimit(limitName, limiter.AdaptiveSetting{
+				Initial: concurrency.MaxPerRepo,
+			})
+		}
 	}
 	return perRPCLimits, func(cfg config.Cfg, middleware *LimiterMiddleware) {
 		acquiringSecondsMetric := prometheus.NewHistogramVec(
