@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/grpcstats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -71,9 +71,13 @@ func TestDeleteObjectPoolHandler(t *testing.T) {
 	praefectLn, praefectAddr := testhelper.GetLocalhostListener(t)
 	logger := testhelper.NewLogger(t)
 	hook := testhelper.AddLoggerHook(logger)
-	praefectSrv := grpc.NewServer(grpc.ChainStreamInterceptor(
-		logger.StreamServerInterceptor(grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
-	))
+	praefectSrv := grpc.NewServer(
+		grpc.StatsHandler(log.PerRPCLogHandler{
+			Underlying:     &grpcstats.PayloadBytes{},
+			FieldProducers: []log.FieldsProducer{grpcstats.FieldsProducer},
+		}),
+		grpc.ChainStreamInterceptor(logger.StreamServerInterceptor()),
+	)
 	praefectSrv.RegisterService(&grpc.ServiceDesc{
 		ServiceName: "gitaly.ObjectPoolService",
 		HandlerType: (*interface{})(nil),
