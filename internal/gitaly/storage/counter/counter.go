@@ -90,7 +90,7 @@ func (c *RepositoryCounter) countRepositories(
 	totalStart := time.Now()
 
 	for storPath, name := range uniquePaths {
-		logger.Infof("starting to count repositories in path %q", storPath)
+		logger.WithField("storage_path", storPath).Info("starting to count repositories")
 		storageStart := time.Now()
 
 		paths := make(map[string]float64)
@@ -99,7 +99,7 @@ func (c *RepositoryCounter) countRepositories(
 			if err != nil {
 				// Encountering a malformed path should not block us from continuing
 				// to count.
-				logger.WithError(err).Warnf("counting repositories: walking path %q", storPath)
+				logger.WithError(err).WithField("storage_path", storPath).Warn("counting repositories failed due to malformed path")
 				return nil
 			}
 
@@ -108,17 +108,20 @@ func (c *RepositoryCounter) countRepositories(
 		}
 
 		if err := walk.FindRepositories(ctx, locator, name, incrementPrefix); err != nil {
-			logger.WithError(err).Errorf("failed to count repositories in path %q", storPath)
+			logger.WithError(err).WithField("storage_path", storPath).Error("failed to count repositories")
 		}
 
 		for prefix, ct := range paths {
 			c.reposTotal.WithLabelValues(storPath, prefix).Add(ct)
 		}
 
-		logger.Infof("completed counting repositories in path %q after %s", storPath, time.Since(storageStart))
+		logger.WithFields(log.Fields{
+			"storage_path":      storPath,
+			"counting_duration": time.Since(storageStart),
+		}).Info("completed counting repositories")
 	}
 
-	logger.Infof("completed counting all repositories after %s", time.Since(totalStart))
+	logger.WithField("counting_duration", time.Since(totalStart)).Info("completed counting all repositories")
 }
 
 // Increment increases the repository count by one.

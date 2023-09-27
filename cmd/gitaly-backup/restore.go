@@ -80,7 +80,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, logger log.Logger, stdin 
 		if err != nil {
 			// Treat RemoveAll failures as soft failures until we can determine
 			// how often it fails.
-			logger.WithError(err).Warnf("failed to remove all repositories from %s", storageName)
+			logger.WithError(err).WithField("storage_name", storageName).Warn("failed to remove all repositories")
 		}
 	}
 

@@ -27,7 +27,7 @@ func NewUnaryProxy(registry *Registry, log log.Logger) grpc.UnaryClientIntercept
 					// If upstream returns non-successful error and the waiter fails to close, we should
 					// prioritize the returned error because that error is propagated back to downstream.
 					// The waiter error (most likely unexpected close) is logged instead.
-					log.Warnf("sidechannel: proxy callback: %w", waiterErr)
+					log.WithError(waiterErr).Warn("failed proxying callback on sidechannel")
 				}
 			}
 		}()

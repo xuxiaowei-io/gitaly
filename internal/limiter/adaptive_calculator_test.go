@@ -304,8 +304,8 @@ gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
 				"testLimit2": {15, 16, 17, 18, 19, 20},
 			},
 			expectedLogs: []string{
-				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher3`,
-				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher failed" error=unexpected watcher=testWatcher3`,
+				`level=error msg="poll from resource watcher failed" error=unexpected watcher=testWatcher2`,
 			},
 			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
 # TYPE gitaly_concurrency_limiting_current_limit gauge
@@ -335,8 +335,8 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher3"} 1
 				"testLimit2": {15, 16, 17, 18, 10, 11},
 			},
 			expectedLogs: []string{
-				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher3`,
-				`level=error msg="poll from resource watcher: unexpected" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher failed" error=unexpected watcher=testWatcher3`,
+				`level=error msg="poll from resource watcher failed" error=unexpected watcher=testWatcher2`,
 				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=28 reason="backoff please" watcher=testWatcher1`,
 				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=18 reason="backoff please" watcher=testWatcher1`,
 			},
@@ -394,8 +394,8 @@ gitaly_concurrency_limiting_current_limit{limit="testLimit2"} {testLimit2}
 			},
 			expectedLogs: []string{
 				// Not enough timeout to trigger a backoff event
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
 			},
 			expectedMetrics: `# HELP gitaly_concurrency_limiting_current_limit The current limit value of an adaptive concurrency limit
 # TYPE gitaly_concurrency_limiting_current_limit gauge
@@ -427,11 +427,11 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher"} 2
 			},
 			expectedLogs: []string{
 				// The last timeout triggers a backoff event, then increases again
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
 				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=29 reason="5 consecutive polling timeout errors" watcher=testWatcher`,
 				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=19 reason="5 consecutive polling timeout errors" watcher=testWatcher`,
 			},
@@ -468,14 +468,14 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher"} 5
 				"testLimit2": {15, 16, 17, 18, 19, 10, 11, 12},
 			},
 			expectedLogs: []string{
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
 				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=29 reason="5 consecutive polling timeout errors" watcher=testWatcher`,
 				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=19 reason="5 consecutive polling timeout errors" watcher=testWatcher`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher`,
 			},
 			expectedMetrics: `# HELP gitaly_concurrency_limiting_backoff_events_total Counter of the total number of backoff events
 # TYPE gitaly_concurrency_limiting_backoff_events_total counter
@@ -514,16 +514,16 @@ gitaly_concurrency_limiting_watcher_errors_total{watcher="testWatcher"} 6
 				"testLimit2": {15, 16, 17, 18, 19, 10, 11},
 			},
 			expectedLogs: []string{
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher1`,
-				`level=error msg="poll from resource watcher: context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher2`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher1`,
+				`level=error msg="poll from resource watcher failed" error="context deadline exceeded" watcher=testWatcher2`,
 				`level=info msg="Multiplicative decrease" limit=testLimit1 new_limit=14 previous_limit=29 reason="5 consecutive polling timeout errors" watcher=testWatcher2`,
 				`level=info msg="Multiplicative decrease" limit=testLimit2 new_limit=10 previous_limit=19 reason="5 consecutive polling timeout errors" watcher=testWatcher2`,
 			},

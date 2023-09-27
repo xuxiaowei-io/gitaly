@@ -276,11 +276,11 @@ func NewReplMgr(log log.Logger, storageNames map[string][]string, queue datastor
 
 	for virtual, sn := range storageNames {
 		if len(sn) < int(r.parallelStorageProcessingWorkers) {
-			r.log.Infof("parallel processing workers decreased from %d "+
+			r.log.Info(fmt.Sprintf("parallel processing workers decreased from %d "+
 				"configured with config to %d according to minumal amount of "+
 				"storages in the virtual storage %q",
 				r.parallelStorageProcessingWorkers, len(storageNames), virtual,
-			)
+			))
 			r.parallelStorageProcessingWorkers = uint(len(storageNames))
 		}
 	}

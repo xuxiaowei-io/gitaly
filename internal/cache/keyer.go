@@ -94,7 +94,7 @@ func (keyer leaseKeyer) updateLatest(ctx context.Context, repo *gitalypb.Reposit
 
 	log.FromContext(ctx).
 		WithField("diskcache", nextGenID).
-		Infof("diskcache state change")
+		Info("diskcache state change")
 
 	return nextGenID, nil
 }

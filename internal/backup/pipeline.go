@@ -171,19 +171,19 @@ func NewLoggingPipeline(log log.Logger) *LoggingPipeline {
 // Handle takes a command to process. Commands are logged and executed immediately.
 func (p *LoggingPipeline) Handle(ctx context.Context, cmd Command) {
 	log := p.cmdLogger(cmd)
-	log.Infof("started %s", cmd.Name())
+	log.Info(fmt.Sprintf("started %s", cmd.Name()))
 
 	if err := cmd.Execute(ctx); err != nil {
 		if errors.Is(err, ErrSkipped) {
-			log.WithError(err).Warnf("skipped %s", cmd.Name())
+			log.WithError(err).Warn(fmt.Sprintf("skipped %s", cmd.Name()))
 		} else {
-			log.WithError(err).Errorf("%s failed", cmd.Name())
+			log.WithError(err).Error(fmt.Sprintf("%s failed", cmd.Name()))
 			p.addError(cmd.Repository(), err)
 		}
 		return
 	}
 
-	log.Infof("completed %s", cmd.Name())
+	log.Info(fmt.Sprintf("completed %s", cmd.Name()))
 }
 
 func (p *LoggingPipeline) addError(repo *gitalypb.Repository, err error) {

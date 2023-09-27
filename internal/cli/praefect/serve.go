@@ -77,7 +77,7 @@ func serveAction(ctx *cli.Context) error {
 		return fmt.Errorf("configuring logger: %w", err)
 	}
 
-	logger.Infof("Starting %s", version.GetVersionString("Praefect"))
+	logger.WithField("version", version.GetVersion()).Info("Starting Praefect")
 
 	if !conf.Failover.Enabled && conf.Failover.ElectionStrategy != "" {
 		logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
@@ -181,7 +181,7 @@ func server(
 
 	var db *sql.DB
 	if conf.NeedsSQL() {
-		logger.Infof("establishing database connection to %s:%d ...", conf.DB.Host, conf.DB.Port)
+		logger.WithField("database_address", fmt.Sprintf("%s:%d", conf.DB.Host, conf.DB.Port)).Info("establishing database connection")
 		dbConn, closedb, err := initDatabase(ctx, logger, conf)
 		if err != nil {
 			return err
@@ -362,7 +362,7 @@ func server(
 		defer nodeMgr.Stop()
 	}
 
-	logger.Infof("election strategy: %q", conf.Failover.ElectionStrategy)
+	logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Info("election strategy")
 	logger.Info("background started: gitaly nodes health monitoring")
 
 	var (
@@ -461,7 +461,7 @@ func server(
 				}
 
 				if err := monitoring.Start(opts...); err != nil {
-					logger.WithError(err).Errorf("Unable to start prometheus listener: %v", conf.PrometheusListenAddr)
+					logger.WithError(err).WithField("listen_address", conf.PrometheusListenAddr).Error("unable to start prometheus listener")
 				}
 			}()
 

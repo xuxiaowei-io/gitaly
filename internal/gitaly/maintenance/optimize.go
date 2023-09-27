@@ -113,7 +113,7 @@ func optimizeRepo(
 	logEntry = logEntry.WithField("time_ms", time.Since(start).Milliseconds())
 
 	if err != nil {
-		logEntry.WithError(err).Errorf("maintenance: repo optimization failure")
+		logEntry.WithError(err).Error("maintenance: repo optimization failure")
 		return err
 	}
 
@@ -217,7 +217,7 @@ func OptimizeReposRandomly(cfg config.Cfg, optimizer Optimizer, ticker helper.Ti
 			if err := walkReposShuffled(ctx, locator, walker, l, storage, optimizer, ticker); err != nil {
 				l.WithError(err).
 					WithField("storage_path", storage.Path).
-					Errorf("maintenance: unable to completely walk storage")
+					Error("maintenance: unable to completely walk storage")
 			}
 		}
 		return nil

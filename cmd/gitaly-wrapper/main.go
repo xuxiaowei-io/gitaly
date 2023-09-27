@@ -36,7 +36,7 @@ func main() {
 	logger = logger.WithField("wrapper", os.Getpid())
 
 	if len(os.Args) < 2 {
-		logger.Errorf("usage: %s forking_binary [args]", os.Args[0])
+		logger.Error(fmt.Sprintf("usage: %s forking_binary [args]", os.Args[0]))
 		os.Exit(1)
 	}
 
@@ -46,14 +46,14 @@ func main() {
 
 	pidFilePath := os.Getenv(bootstrap.EnvPidFile)
 	if pidFilePath == "" {
-		logger.Errorf("missing pid file ENV variable %q", bootstrap.EnvPidFile)
+		logger.Error(fmt.Sprintf("missing pid file ENV variable %q", bootstrap.EnvPidFile))
 		os.Exit(1)
 	}
 	logger.WithField("pid_file", pidFilePath).Info("finding process")
 
 	process, err := findProcess(pidFilePath)
 	if err != nil && !isRecoverable(err) {
-		logger.WithError(err).Errorf("find process")
+		logger.WithError(err).Error("find process")
 		os.Exit(1)
 	} else if err != nil {
 		logger.WithError(err).Error("find process")
@@ -66,7 +66,7 @@ func main() {
 
 		proc, err := spawnProcess(logger, binary, arguments)
 		if err != nil {
-			logger.WithError(err).Errorf("spawn gitaly")
+			logger.WithError(err).Error("spawn gitaly")
 			os.Exit(1)
 		}
 

@@ -223,7 +223,7 @@ func (c *AdaptiveCalculator) pollBackoffEvent(ctx context.Context) {
 
 			if err != context.Canceled {
 				c.watcherErrorsVec.WithLabelValues(w.Name()).Inc()
-				logger.Errorf("poll from resource watcher: %s", err)
+				logger.WithError(err).Error("poll from resource watcher failed")
 			}
 
 			continue
@@ -259,7 +259,7 @@ func (c *AdaptiveCalculator) calibrateLimits(ctx context.Context) {
 			logger.WithFields(map[string]interface{}{
 				"previous_limit": limit.Current(),
 				"new_limit":      newLimit,
-			}).Debugf("Additive increase")
+			}).Debug("Additive increase")
 		} else {
 			// Multiplicative decrease
 			newLimit = int(math.Floor(float64(limit.Current()) * setting.BackoffFactor))
@@ -271,7 +271,7 @@ func (c *AdaptiveCalculator) calibrateLimits(ctx context.Context) {
 				"new_limit":      newLimit,
 				"watcher":        c.lastBackoffEvent.WatcherName,
 				"reason":         c.lastBackoffEvent.Reason,
-			}).Infof("Multiplicative decrease")
+			}).Info("Multiplicative decrease")
 		}
 		c.updateLimit(limit, newLimit)
 	}

@@ -49,9 +49,10 @@ func catchAndLog(logger log.Logger, fn func()) bool {
 		return normal
 	}
 
-	logger.WithField("sentry_id", id).Errorf(
-		"dontpanic: recovered value sent to Sentry: %+v", recovered,
-	)
+	logger.WithFields(log.Fields{
+		"sentry_id": id,
+		"recovered": recovered,
+	}).Error("dontpanic: recovered value sent to Sentry")
 	return normal
 }
 
@@ -99,7 +100,7 @@ func (f *Forever) Go(fn func()) {
 				continue
 			}
 
-			f.logger.Infof("dontpanic: backing off %s before retrying", f.backoff)
+			f.logger.WithField("backoff", f.backoff).Info("dontpanic: backing off before retrying")
 
 			select {
 			case <-f.cancelCh:

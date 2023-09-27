@@ -86,7 +86,7 @@ func datalossAction(ctx *cli.Context) error {
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			logger.Infof("error closing connection: %v\n", err)
+			logger.WithError(err).Info("error closing connection")
 		}
 	}()
 

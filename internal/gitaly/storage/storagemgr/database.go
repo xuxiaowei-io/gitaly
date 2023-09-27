@@ -1,6 +1,8 @@
 package storagemgr
 
 import (
+	"fmt"
+
 	"github.com/dgraph-io/badger/v4"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
@@ -20,8 +22,20 @@ type badgerLogger struct {
 	log.Logger
 }
 
+func (l badgerLogger) Debugf(msg string, args ...any) {
+	l.Debug(fmt.Sprintf(msg, args...))
+}
+
+func (l badgerLogger) Infof(msg string, args ...any) {
+	l.Info(fmt.Sprintf(msg, args...))
+}
+
 func (l badgerLogger) Warningf(msg string, args ...any) {
-	l.Warnf(msg, args...)
+	l.Warn(fmt.Sprintf(msg, args...))
+}
+
+func (l badgerLogger) Errorf(msg string, args ...any) {
+	l.Error(fmt.Sprintf(msg, args...))
 }
 
 // databaseAdapter adapts a *badger.DB to the internal database interface used by the hooks in tests.

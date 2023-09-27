@@ -85,7 +85,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 
 			tr := io.TeeReader(pr, w)
 			if err := c.streamer.PutStream(ctx, in.Repository, in, tr); err != nil {
-				logger.Errorf("unable to store InfoRefsUploadPack response in cache: %q", err)
+				logger.WithError(err).Error("unable to store InfoRefsUploadPack response in cache")
 
 				// discard remaining bytes if caching stream
 				// failed so that tee reader is not blocked
@@ -103,7 +103,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 
 	default:
 		countErr()
-		logger.Infof("unable to fetch cached response: %q", err)
+		logger.WithError(err).Info("unable to fetch cached response")
 
 		return missFn(w)
 	}

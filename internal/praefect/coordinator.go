@@ -665,7 +665,7 @@ func streamParametersContext(ctx context.Context) context.Context {
 func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
-	log.FromContext(ctx).Debugf("Stream director received method %s", fullMethodName)
+	log.FromContext(ctx).WithField("method", fullMethodName).Debug("Stream director received method")
 
 	mi, err := c.registry.LookupMethod(fullMethodName)
 	if err != nil {

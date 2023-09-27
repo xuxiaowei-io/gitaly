@@ -243,14 +243,14 @@ func warnDupeAddrs(logger log.Logger, conf config.Config) {
 		for _, n := range virtualStorage.Nodes {
 			_, ok := addrSet[n.Address]
 			if ok {
-				logger.Warnf("more than one backend node is hosted at %s", n.Address)
+				logger.WithField("conflicting_address", n.Address).Warn("more than one backend node is hosted at same address")
 				fishy = true
 				continue
 			}
 			addrSet[n.Address] = struct{}{}
 		}
 		if fishy {
-			logger.Warnf("your Praefect configuration may not offer actual redundancy")
+			logger.Warn("your Praefect configuration may not offer actual redundancy")
 		}
 	}
 }

@@ -336,7 +336,12 @@ func (req *trackRepositoryRequest) authoritativeRepositoryExists(ctx context.Con
 
 		for _, node := range vs.Nodes {
 			if node.Storage == nodeName {
-				logger.Debugf("check if repository %q exists on gitaly %q at %q", req.ReplicaPath, node.Storage, node.Address)
+				logger.WithFields(log.Fields{
+					"replica_path": req.ReplicaPath,
+					"storage_node": node.Storage,
+					"node_address": node.Address,
+				}).Debug("check if repository exists on Gitaly node")
+
 				repo := &gitalypb.Repository{
 					StorageName:  node.Storage,
 					RelativePath: req.ReplicaPath,
