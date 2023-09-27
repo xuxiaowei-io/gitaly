@@ -148,12 +148,12 @@ type Transaction struct {
 	// result is where the outcome of the transaction is sent ot by TransactionManager once it
 	// has been determined.
 	result chan error
-	// admitted is closed when the transaction was admitted for processing in the TransactionManager.
+	// admitted is set when the transaction was admitted for processing in the TransactionManager.
 	// Transaction queues in admissionQueue to be committed, and is considered admitted once it has
 	// been dequeued by TransactionManager.Run(). Once the transaction is admitted, its ownership moves
 	// from the client goroutine to the TransactionManager.Run() goroutine, and the client goroutine must
 	// not do any modifications to the state of the transcation anymore to avoid races.
-	admitted chan struct{}
+	admitted bool
 	// finish cleans up the transaction releasing the resources associated with it. It must be called
 	// once the transaction is done with.
 	finish func() error
@@ -223,7 +223,6 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 			CustomHookIndex: mgr.customHookIndex,
 			CustomHookPath:  customHookPathForLogIndex(mgr.repositoryPath, mgr.customHookIndex),
 		},
-		admitted: make(chan struct{}),
 		finished: make(chan struct{}),
 	}
 
@@ -465,12 +464,11 @@ func (txn *Transaction) Rollback() error {
 // the Transaction is being processed by TransactionManager. The clean up responsibility moves there as well
 // to avoid races.
 func (txn *Transaction) finishUnadmitted() error {
-	select {
-	case <-txn.admitted:
+	if txn.admitted {
 		return nil
-	default:
-		return txn.finish()
 	}
+
+	return txn.finish()
 }
 
 // Snapshot returns the details of the Transaction's read snapshot.
@@ -772,7 +770,7 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 
 	select {
 	case mgr.admissionQueue <- transaction:
-		close(transaction.admitted)
+		transaction.admitted = true
 
 		select {
 		case err := <-transaction.result:
