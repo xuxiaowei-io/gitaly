@@ -16,7 +16,7 @@ import (
 
 var (
 	validBlameRange           = regexp.MustCompile(`\A\d+,\d+\z`)
-	blameLineCountErrorRegexp = regexp.MustCompile("^fatal: file .* has only (\\d) lines?\n$")
+	blameLineCountErrorRegexp = regexp.MustCompile("^fatal: file .* has only (\\d+) lines?\n$")
 )
 
 func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitService_RawBlameServer) error {

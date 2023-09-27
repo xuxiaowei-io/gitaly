@@ -3,6 +3,7 @@ package commit
 import (
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -119,9 +120,9 @@ func TestRawBlame(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-				// We write a file with three lines, only, but the request asks us to blame line 10.
+				// We write a file with 10 lines, only, but the request asks us to blame line 11.
 				commit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "path", Mode: "100644", Content: "a\nb\nc\n"},
+					gittest.TreeEntry{Path: "path", Mode: "100644", Content: strings.Repeat("a\n", 10)},
 				))
 
 				return setupData{
@@ -129,17 +130,17 @@ func TestRawBlame(t *testing.T) {
 						Repository: repo,
 						Revision:   []byte(commit),
 						Path:       []byte("path"),
-						Range:      []byte("10,10"),
+						Range:      []byte("11,11"),
 					},
 					expectedErr: testhelper.ToInterceptedMetadata(
 						structerr.NewInvalidArgument("range is outside of the file length").
 							WithMetadata("revision", commit.String()).
 							WithMetadata("path", "path").
-							WithMetadata("lines", 3).
+							WithMetadata("lines", 10).
 							WithDetail(&gitalypb.RawBlameError{
 								Error: &gitalypb.RawBlameError_OutOfRange{
 									OutOfRange: &gitalypb.RawBlameError_OutOfRangeError{
-										ActualLines: 3,
+										ActualLines: 10,
 									},
 								},
 							}),
