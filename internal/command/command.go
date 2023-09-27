@@ -313,9 +313,7 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 				// we don't, it may happen that the signal gets delivered and that the process exits
 				// before we close the streams in `command.Wait()`. This would cause downstream readers
 				// to potentially miss those errors when reading stdout.
-				if featureflag.CommandCloseStdout.IsEnabled(ctx) {
-					command.teardownStandardStreams()
-				}
+				command.teardownStandardStreams()
 
 				// If the context has been cancelled and we didn't explicitly reap
 				// the child process then we need to manually kill it and release
@@ -425,15 +423,10 @@ func (c *Command) teardownStandardStreams() {
 		}
 
 		if c.reader != nil {
-			if featureflag.CommandCloseStdout.IsEnabled(c.context) {
-				// Close stdout of the command. This causes us to receive an error when trying to consume the
-				// output and will also cause an error when stdout hasn't been fully consumed at the time of
-				// calling `Wait()`.
-				c.reader.Close()
-			} else {
-				// Prevent the command from blocking on writing to its stdout.
-				_, _ = io.Copy(io.Discard, c.reader)
-			}
+			// Close stdout of the command. This causes us to receive an error when trying to consume the
+			// output and will also cause an error when stdout hasn't been fully consumed at the time of
+			// calling `Wait()`.
+			c.reader.Close()
 		}
 	})
 }
