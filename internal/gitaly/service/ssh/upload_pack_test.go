@@ -35,14 +35,16 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, opts ...testcfg.Option), opts ...testcfg.Option) {
-	t.Run("no config options", func(t *testing.T) { tf(t) })
+func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, ctx context.Context, opts ...testcfg.Option), opts ...testcfg.Option) {
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, func(t *testing.T, ctx context.Context) {
+		t.Run("no config options", func(t *testing.T) { tf(t, ctx) })
 
-	if len(opts) > 0 {
-		t.Run("with config options", func(t *testing.T) {
-			tf(t, opts...)
-		})
-	}
+		if len(opts) > 0 {
+			t.Run("with config options", func(t *testing.T) {
+				tf(t, ctx, opts...)
+			})
+		}
+	})
 }
 
 // runClone runs the given Git command with gitaly-ssh set up as its SSH command. It will thus
@@ -98,10 +100,9 @@ func TestUploadPack_timeout(t *testing.T) {
 	runTestWithAndWithoutConfigOptions(t, testUploadPackTimeout, testcfg.WithPackObjectsCacheEnabled())
 }
 
-func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
+func testUploadPackTimeout(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, opts...)
 
 	// Use a ticker channel so that we can observe that the ticker is being created. The channel
@@ -159,10 +160,16 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 func TestUploadPackWithSidechannel_client(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testUploadPackWithSidechannelClient)
+}
+
+func testUploadPackWithSidechannelClient(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	registry := sidechannel.NewRegistry()
@@ -413,7 +420,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(testhelper.Context(t))
+			ctx, cancel := context.WithCancel(ctx)
 
 			ctx, waiter := sidechannel.RegisterSidechannel(ctx, registry, func(clientConn *sidechannel.ClientConn) (returnedErr error) {
 				errCh := make(chan error, 1)
@@ -468,7 +475,12 @@ func requireFailedSSHStream(t *testing.T, expectedErr error, recv func() (int32,
 func TestUploadPack_validation(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testUploadPackValidation)
+}
+
+func testUploadPackValidation(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 	client := newSSHClient(t, cfg.SocketPath)
@@ -523,16 +535,14 @@ func TestUploadPack_successful(t *testing.T) {
 
 	for _, withSidechannel := range []bool{true, false} {
 		t.Run(fmt.Sprintf("sidechannel=%v", withSidechannel), func(t *testing.T) {
-			runTestWithAndWithoutConfigOptions(t, func(t *testing.T, opts ...testcfg.Option) {
-				testUploadPackSuccessful(t, withSidechannel, opts...)
+			runTestWithAndWithoutConfigOptions(t, func(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
+				testUploadPackSuccessful(t, ctx, withSidechannel, opts...)
 			})
 		})
 	}
 }
 
-func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Option) {
-	ctx := testhelper.Context(t)
-
+func testUploadPackSuccessful(t *testing.T, ctx context.Context, sidechannel bool, opts ...testcfg.Option) {
 	cfg := testcfg.Build(t, opts...)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -719,7 +729,7 @@ func TestUploadPack_withoutSideband(t *testing.T) {
 	runTestWithAndWithoutConfigOptions(t, testUploadPackWithoutSideband, testcfg.WithPackObjectsCacheEnabled())
 }
 
-func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
+func testUploadPackWithoutSideband(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
 	cfg := testcfg.Build(t, opts...)
 
 	testcfg.BuildGitalySSH(t, cfg)
@@ -727,7 +737,7 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	// While Git knows the side-band-64 capability, some other clients don't. There is no way
@@ -767,7 +777,12 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 func TestUploadPack_invalidStorage(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testUploadPackInvalidStorage)
+}
+
+func testUploadPackInvalidStorage(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
@@ -791,11 +806,16 @@ func TestUploadPack_invalidStorage(t *testing.T) {
 func TestUploadPack_gitFailure(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testUploadPackGitFailure)
+}
+
+func testUploadPackGitFailure(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	client := newSSHClient(t, cfg.SocketPath)
 
