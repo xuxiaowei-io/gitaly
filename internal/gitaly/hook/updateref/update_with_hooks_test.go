@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -118,7 +119,11 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 				UserID:   gittest.TestUser.GlId,
 				Username: gittest.TestUser.GlUsername,
 				Protocol: "web",
-			}, git.ReceivePackHooks, featureflag.FromContext(ctx))
+			},
+			git.ReceivePackHooks,
+			featureflag.FromContext(ctx),
+			storage.ExtractTransactionID(ctx),
+		)
 
 		actualPayload, err := git.HooksPayloadFromEnv(env)
 		require.NoError(t, err)

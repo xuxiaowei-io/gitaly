@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -86,6 +87,10 @@ type HooksPayload struct {
 	// UserDetails contains information required when executing
 	// git-receive-pack or git-upload-pack
 	UserDetails *UserDetails `json:"user_details"`
+
+	// TransactionID identifies the storage transaction this hooks call runs in. It's
+	// used to access the transaction in the hook manager.
+	TransactionID storage.TransactionID `json:"transaction_id,omitempty"`
 }
 
 // UserDetails contains all information which is required for hooks
@@ -121,6 +126,7 @@ func NewHooksPayload(
 	userDetails *UserDetails,
 	requestedHooks Hook,
 	featureFlagsWithValue map[featureflag.FeatureFlag]bool,
+	transactionID storage.TransactionID,
 ) HooksPayload {
 	flags := make([]FeatureFlagWithValue, 0, len(featureFlagsWithValue))
 	for flag, enabled := range featureFlagsWithValue {
@@ -140,6 +146,7 @@ func NewHooksPayload(
 		UserDetails:           userDetails,
 		RequestedHooks:        requestedHooks,
 		FeatureFlagsWithValue: flags,
+		TransactionID:         transactionID,
 	}
 }
 

@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -263,7 +264,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		}
 		prometheus.MustRegister(gitlabClient)
 
-		hm := hook.NewManager(cfg, locator, gitCmdFactory, transactionManager, gitlabClient)
+		hm := hook.NewManager(cfg, locator, gitCmdFactory, transactionManager, gitlabClient, hook.NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
 
 		hookManager = hm
 	}

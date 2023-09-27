@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
@@ -73,5 +74,5 @@ func checkAPI(cfg config.Cfg, logger log.Logger) (*gitlab.CheckInfo, error) {
 	}
 	defer cleanup()
 
-	return hook.NewManager(cfg, config.NewLocator(cfg), gitCmdFactory, nil, gitlabAPI).Check(context.Background())
+	return hook.NewManager(cfg, config.NewLocator(cfg), gitCmdFactory, nil, gitlabAPI, hook.NewTransactionRegistry(storagemgr.NewTransactionRegistry())).Check(context.Background())
 }

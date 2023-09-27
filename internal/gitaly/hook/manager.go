@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -47,6 +48,32 @@ type Manager interface {
 	ReferenceTransactionHook(ctx context.Context, state ReferenceTransactionState, env []string, stdin io.Reader) error
 }
 
+// Transaction is the interface of storagemgr.Transaction. It's used for mocking in the tests.
+type Transaction interface {
+	RecordInitialReferenceValues(context.Context, map[git.ReferenceName]git.ObjectID) error
+	UpdateReferences(storagemgr.ReferenceUpdates)
+}
+
+// TransactionRegistry is the interface of storagemgr.TransactionRegistry. It's used for mocking
+// in the tests.
+type TransactionRegistry interface {
+	Get(storage.TransactionID) (Transaction, error)
+}
+
+type transactionRegistry struct {
+	registry *storagemgr.TransactionRegistry
+}
+
+func (r *transactionRegistry) Get(id storage.TransactionID) (Transaction, error) {
+	return r.registry.Get(id)
+}
+
+// NewTransactionRegistry wraps a storagemgr.TransactionRegistry to adapt it to the interface
+// used by the manager.
+func NewTransactionRegistry(txRegistry *storagemgr.TransactionRegistry) TransactionRegistry {
+	return &transactionRegistry{registry: txRegistry}
+}
+
 // GitLabHookManager is a hook manager containing Git hook business logic. It
 // uses the GitLab API to authenticate and track ongoing hook calls.
 type GitLabHookManager struct {
@@ -55,6 +82,7 @@ type GitLabHookManager struct {
 	gitCmdFactory git.CommandFactory
 	txManager     transaction.Manager
 	gitlabClient  gitlab.Client
+	txRegistry    TransactionRegistry
 }
 
 // NewManager returns a new hook manager
@@ -64,6 +92,7 @@ func NewManager(
 	gitCmdFactory git.CommandFactory,
 	txManager transaction.Manager,
 	gitlabClient gitlab.Client,
+	txRegistry TransactionRegistry,
 ) *GitLabHookManager {
 	return &GitLabHookManager{
 		cfg:           cfg,
@@ -71,5 +100,6 @@ func NewManager(
 		gitCmdFactory: gitCmdFactory,
 		txManager:     txManager,
 		gitlabClient:  gitlabClient,
+		txRegistry:    txRegistry,
 	}
 }

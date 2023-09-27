@@ -90,9 +90,6 @@ func (index LogIndex) String() string {
 
 // ReferenceUpdate describes the state of a reference's old and new tip in an update.
 type ReferenceUpdate struct {
-	// Force indicates this is a forced reference update. If set, the reference is pointed
-	// to the new value regardless of the old value.
-	Force bool
 	// OldOID is the old OID the reference is expected to point to prior to updating it.
 	// If the reference does not point to the old value, the reference verification fails.
 	OldOID git.ObjectID
@@ -182,6 +179,7 @@ type Transaction struct {
 	snapshot Snapshot
 
 	skipVerificationFailures bool
+	initialReferenceValues   map[git.ReferenceName]git.ObjectID
 	referenceUpdates         ReferenceUpdates
 	defaultBranchUpdate      *DefaultBranchUpdate
 	customHooksUpdate        *CustomHooksUpdate
@@ -403,10 +401,75 @@ func (txn *Transaction) SkipVerificationFailures() {
 	txn.skipVerificationFailures = true
 }
 
-// UpdateReferences updates the given references as part of the transaction. If UpdateReferences is called
-// multiple times, only the changes from the latest invocation take place.
+// RecordInitialReferenceValues records the initial values of the reference if they haven't yet been recorded. If oid is
+// not a zero OID, it's used as the initial value. If oid is a zero value, the reference's actual value is resolved.
+//
+// The reference's first recorded value is used as its old OID in the final committed update. RecordInitialReferenceValues
+// can be used to record the value without staging an update in the transaction. This is useful for example generally recording
+// the initial value in the 'prepare' phase of the reference transaction hook before any changes are made without staging
+// any updates before the 'committed' phase is reached.
+func (txn *Transaction) RecordInitialReferenceValues(ctx context.Context, initialValues map[git.ReferenceName]git.ObjectID) error {
+	if txn.initialReferenceValues == nil {
+		txn.initialReferenceValues = make(map[git.ReferenceName]git.ObjectID, len(initialValues))
+	}
+
+	for reference, oid := range initialValues {
+		if _, ok := txn.initialReferenceValues[reference]; ok {
+			// If the reference's starting value has already been recorded, we don't have to record it again.
+			continue
+		}
+
+		objectHash, err := txn.stagingRepository.ObjectHash(ctx)
+		if err != nil {
+			return fmt.Errorf("object hash: %w", err)
+		}
+
+		if objectHash.IsZeroOID(oid) {
+			// If this is a zero OID, resolve the value to see if this is a force update or the
+			// reference doesn't exist.
+			if current, err := txn.stagingRepository.ResolveRevision(ctx, reference.Revision()); err != nil {
+				if !errors.Is(err, git.ErrReferenceNotFound) {
+					return fmt.Errorf("resolve revision: %w", err)
+				}
+
+				// The reference doesn't exist, leave the value as zero oid.
+			} else {
+				oid = current
+			}
+		}
+
+		txn.initialReferenceValues[reference] = oid
+	}
+
+	return nil
+}
+
+// UpdateReferences updates the given references as part of the transaction.
+//
+// If a reference is updated multiple times during a transaction, its first recorded old OID is kept
+// and the new OID is updated. This means updates like 'oid-1 -> oid-2 -> oid-3' will ultimately be
+// committed as 'oid-1 -> oid-3'. The intermediate states are not relevant when committing the write
+// to the actual repository.
 func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
-	txn.referenceUpdates = updates
+	if txn.referenceUpdates == nil {
+		txn.referenceUpdates = ReferenceUpdates{}
+	}
+
+	for reference, update := range updates {
+		oldOID := update.OldOID
+		if initialValue, ok := txn.initialReferenceValues[reference]; ok {
+			oldOID = initialValue
+		}
+
+		if previousUpdate, ok := txn.referenceUpdates[reference]; ok {
+			oldOID = previousUpdate.OldOID
+		}
+
+		txn.referenceUpdates[reference] = ReferenceUpdate{
+			OldOID: oldOID,
+			NewOID: update.NewOID,
+		}
+	}
 }
 
 // DeleteRepository deletes the repository when the transaction is committed.
@@ -455,9 +518,6 @@ func (txn *Transaction) walFilesPath() string {
 //     - The reference verification failures can be ignored instead of aborting the entire transaction.
 //     If done, the references that failed verification are dropped from the transaction but the updates
 //     that passed verification are still performed.
-//     - The reference verification may also be skipped if the write is force updating references. If
-//     done, the current state of the references is ignored and they are directly updated to point
-//     to the new tips.
 //  2. The transaction is appended to the write-ahead log. Once the write has been logged, it is effectively
 //     committed and will be applied to the repository even after restarting.
 //  3. The transaction is applied from the write-ahead log to the repository by actually performing the reference
@@ -1222,29 +1282,27 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 			return nil, InvalidReferenceFormatError{ReferenceName: referenceName}
 		}
 
-		if !update.Force {
-			actualOldTip, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision())
-			if errors.Is(err, git.ErrReferenceNotFound) {
-				objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
-				if err != nil {
-					return nil, fmt.Errorf("object hash: %w", err)
-				}
-
-				actualOldTip = objectHash.ZeroOID
-			} else if err != nil {
-				return nil, fmt.Errorf("resolve revision: %w", err)
+		actualOldTip, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision())
+		if errors.Is(err, git.ErrReferenceNotFound) {
+			objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("object hash: %w", err)
 			}
 
-			if update.OldOID != actualOldTip {
-				if transaction.skipVerificationFailures {
-					continue
-				}
+			actualOldTip = objectHash.ZeroOID
+		} else if err != nil {
+			return nil, fmt.Errorf("resolve revision: %w", err)
+		}
 
-				return nil, ReferenceVerificationError{
-					ReferenceName: referenceName,
-					ExpectedOID:   update.OldOID,
-					ActualOID:     actualOldTip,
-				}
+		if update.OldOID != actualOldTip {
+			if transaction.skipVerificationFailures {
+				continue
+			}
+
+			return nil, ReferenceVerificationError{
+				ReferenceName: referenceName,
+				ExpectedOID:   update.OldOID,
+				ActualOID:     actualOldTip,
 			}
 		}
 

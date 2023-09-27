@@ -157,6 +157,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		},
 		git.PreReceiveHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -278,6 +279,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				},
 				git.PreReceiveHook,
 				featureflag.FromContext(ctx),
+				storage.ExtractTransactionID(ctx),
 			).Env()
 			require.NoError(t, err)
 
@@ -352,6 +354,7 @@ exit %d
 		},
 		git.PreReceiveHook,
 		featureflag.FromContext(ctx),
+		storage.ExtractTransactionID(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -505,6 +508,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 				},
 				git.PreReceiveHook,
 				featureflag.FromContext(ctx),
+				storage.ExtractTransactionID(ctx),
 			).Env()
 			require.NoError(t, err)
 

@@ -352,6 +352,22 @@ func TestTransactionManager(t *testing.T) {
 		ExpectedError error
 	}
 
+	// RecordInitialReferenceValues calls RecordInitialReferenceValues on a transaction.
+	type RecordInitialReferenceValues struct {
+		// TransactionID identifies the transaction to prepare the reference updates on.
+		TransactionID int
+		// InitialValues are the initial values to record.
+		InitialValues map[git.ReferenceName]git.ObjectID
+	}
+
+	// UpdateReferences calls UpdateReferences on a transaction.
+	type UpdateReferences struct {
+		// TransactionID identifies the transaction to update references on.
+		TransactionID int
+		// ReferenceUpdates are the reference updates to make.
+		ReferenceUpdates ReferenceUpdates
+	}
+
 	// Rollback calls Rollback on a transaction.
 	type Rollback struct {
 		// TransactionID identifies the transaction to rollback.
@@ -1375,6 +1391,318 @@ func TestTransactionManager(t *testing.T) {
 			expectedState: StateAssertion{
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "update reference multiple times successfully in a transaction",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+				Commit{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "update reference multiple times fails due to wrong initial value",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						// The old oid should be ignored since there's already a recorded initial value for the
+						// reference.
+						"refs/heads/main": {NewOID: setup.Commits.Third.OID},
+					},
+				},
+				Commit{
+					ExpectedError: ReferenceVerificationError{
+						ReferenceName: "refs/heads/main",
+						ExpectedOID:   setup.Commits.First.OID,
+						ActualOID:     setup.ObjectHash.ZeroOID,
+					},
+				},
+			},
+		},
+		{
+			desc: "recording initial value of a reference stages no updates",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				RecordInitialReferenceValues{
+					InitialValues: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+				},
+				Commit{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+			},
+		},
+		{
+			desc: "update reference with non-existent initial value",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				RecordInitialReferenceValues{
+					InitialValues: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.ObjectHash.ZeroOID,
+					},
+				},
+				UpdateReferences{
+					// The old oid is ignored as the references old value was already recorded.
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {NewOID: setup.Commits.First.OID},
+					},
+				},
+				Commit{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "update reference with the zero oid initial value",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				RecordInitialReferenceValues{
+					TransactionID: 2,
+					InitialValues: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.ObjectHash.ZeroOID,
+					},
+				},
+				UpdateReferences{
+					TransactionID: 2,
+					// The old oid is ignored as the references old value was already recorded.
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {NewOID: setup.Commits.Second.OID},
+					},
+				},
+				Commit{
+					TransactionID: 2,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "update reference with the correct initial value",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				RecordInitialReferenceValues{
+					TransactionID: 2,
+					InitialValues: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+				},
+				UpdateReferences{
+					TransactionID: 2,
+					// The old oid is ignored as the references old value was already recorded.
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {NewOID: setup.Commits.Second.OID},
+					},
+				},
+				Commit{
+					TransactionID: 2,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "update reference with the incorrect initial value",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				RecordInitialReferenceValues{
+					TransactionID: 2,
+					InitialValues: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.Third.OID,
+					},
+				},
+				UpdateReferences{
+					TransactionID: 2,
+					// The old oid is ignored as the references old value was already recorded.
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {NewOID: setup.Commits.Second.OID},
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ExpectedError: ReferenceVerificationError{
+						ReferenceName: "refs/heads/main",
+						ExpectedOID:   setup.Commits.Third.OID,
+						ActualOID:     setup.Commits.First.OID,
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "initial value is only recorded on the first time",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				RecordInitialReferenceValues{
+					InitialValues: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.ObjectHash.ZeroOID,
+					},
+				},
+				RecordInitialReferenceValues{
+					InitialValues: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main":     setup.Commits.Third.OID,
+						"refs/heads/branch-2": setup.ObjectHash.ZeroOID,
+					},
+				},
+				Commit{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":     {NewOID: setup.Commits.First.OID},
+						"refs/heads/branch-2": {NewOID: setup.Commits.First.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{
+							{Name: "refs/heads/branch-2", Target: setup.Commits.First.OID.String()},
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "initial value is set on the first update",
+			steps: steps{
+				StartManager{},
+				Begin{},
+				UpdateReferences{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				RecordInitialReferenceValues{
+					InitialValues: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.Third.OID,
+					},
+				},
+				Commit{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+					},
 				},
 			},
 		},
@@ -3445,99 +3773,6 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "forced reference creation succeeds",
-			steps: steps{
-				StartManager{},
-				Begin{},
-				Commit{
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {Force: true, NewOID: setup.Commits.First.OID},
-					},
-				},
-			},
-			expectedState: StateAssertion{
-				Database: DatabaseState{
-					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
-				},
-				Repositories: RepositoryStates{
-					relativePath: {
-						DefaultBranch: "refs/heads/main",
-						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
-					},
-				},
-			},
-		},
-		{
-			desc: "forced reference update succeeds",
-			steps: steps{
-				StartManager{},
-				Begin{
-					TransactionID: 1,
-				},
-				Commit{
-					TransactionID: 1,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
-					},
-				},
-				Begin{
-					TransactionID: 2,
-					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-					},
-				},
-				Commit{
-					TransactionID: 2,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {Force: true, NewOID: setup.Commits.Second.OID},
-					},
-				},
-			},
-			expectedState: StateAssertion{
-				Database: DatabaseState{
-					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
-				},
-				Repositories: RepositoryStates{
-					relativePath: {
-						DefaultBranch: "refs/heads/main",
-						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
-					},
-				},
-			},
-		},
-		{
-			desc: "forced reference deletion succeeds",
-			steps: steps{
-				StartManager{},
-				Begin{
-					TransactionID: 1,
-				},
-				Commit{
-					TransactionID: 1,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
-					},
-				},
-				Begin{
-					TransactionID: 2,
-					ExpectedSnapshot: Snapshot{
-						ReadIndex: 1,
-					},
-				},
-				Commit{
-					TransactionID: 2,
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main": {Force: true, NewOID: setup.ObjectHash.ZeroOID},
-					},
-				},
-			},
-			expectedState: StateAssertion{
-				Database: DatabaseState{
-					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
-				},
-			},
-		},
-		{
 			desc: "transaction rollbacked after already being rollbacked",
 			steps: steps{
 				StartManager{},
@@ -3699,7 +3934,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
-						tc.referenceName: {Force: true, NewOID: setup.Commits.First.OID},
+						tc.referenceName: {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
 					},
 					ExpectedError: InvalidReferenceFormatError{ReferenceName: tc.referenceName},
 				},
@@ -3989,6 +4224,16 @@ func TestTransactionManager(t *testing.T) {
 					// determine that the deletion has actually been admitted, and is waiting for application to ensure the commit order is always
 					// as expected by the test.
 					<-transaction.admitted
+				case RecordInitialReferenceValues:
+					require.Contains(t, openTransactions, step.TransactionID, "test error: record initial reference value on transaction before beginning it")
+
+					transaction := openTransactions[step.TransactionID]
+					require.NoError(t, transaction.RecordInitialReferenceValues(ctx, step.InitialValues))
+				case UpdateReferences:
+					require.Contains(t, openTransactions, step.TransactionID, "test error: reference updates aborted on committed before beginning it")
+
+					transaction := openTransactions[step.TransactionID]
+					transaction.UpdateReferences(step.ReferenceUpdates)
 				case Rollback:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction rollbacked before beginning it")
 					require.Equal(t, step.ExpectedError, openTransactions[step.TransactionID].Rollback())

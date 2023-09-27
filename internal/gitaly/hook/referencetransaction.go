@@ -7,8 +7,10 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 )
 
@@ -29,18 +31,53 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 		return fmt.Errorf("reading stdin from request: %w", err)
 	}
 
+	var tx Transaction
+	if payload.TransactionID > 0 {
+		tx, err = m.txRegistry.Get(payload.TransactionID)
+		if err != nil {
+			return fmt.Errorf("get transaction: %w", err)
+		}
+	}
+
 	var phase voting.Phase
 	switch state {
 	// We're voting in prepared state as this is the only stage in Git's reference transaction
 	// which allows us to abort the transaction.
 	case ReferenceTransactionPrepared:
 		phase = voting.Prepared
+
+		if tx != nil {
+			updates, err := parseChanges(ctx, objectHash, bytes.NewReader(changes))
+			if err != nil {
+				return fmt.Errorf("parse changes: %w", err)
+			}
+
+			initialValues := map[git.ReferenceName]git.ObjectID{}
+			for reference, update := range updates {
+				initialValues[reference] = update.OldOID
+			}
+
+			// Only record the initial values of the reference in the prepare step as this
+			// change hasn't yet been committed.
+			if err := tx.RecordInitialReferenceValues(ctx, initialValues); err != nil {
+				return fmt.Errorf("record initial reference value: %w", err)
+			}
+		}
 	// We're also voting in committed state to tell Praefect we've actually persisted the
 	// changes. This is necessary as some RPCs fail return errors in the response body rather
 	// than as an error code. Praefect can't tell if these RPCs have failed. Voting on committed
 	// ensure Praefect sees either a missing vote or that the RPC did commit the changes.
 	case ReferenceTransactionCommitted:
 		phase = voting.Committed
+
+		if tx != nil {
+			updates, err := parseChanges(ctx, objectHash, bytes.NewReader(changes))
+			if err != nil {
+				return fmt.Errorf("parse changes: %w", err)
+			}
+
+			tx.UpdateReferences(updates)
+		}
 	default:
 		return nil
 	}
@@ -74,6 +111,44 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 	}
 
 	return nil
+}
+
+// parseChanges parses the changes from the reader. All updates to references lacking a 'refs/' prefix are ignored. These
+// are the various pseudo reference like ORIG_HEAD but also HEAD. See the documentation of the reference-transaction hook
+// for details on the format: https://git-scm.com/docs/githooks#_reference_transaction
+func parseChanges(ctx context.Context, objectHash git.ObjectHash, changes io.Reader) (storagemgr.ReferenceUpdates, error) {
+	scanner := bufio.NewScanner(changes)
+
+	updates := storagemgr.ReferenceUpdates{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		components := strings.Split(line, " ")
+		if len(components) != 3 {
+			return nil, fmt.Errorf("unexpected change line: %q", line)
+		}
+
+		reference := git.ReferenceName(components[2])
+		if !strings.HasPrefix(reference.String(), "refs/") {
+			continue
+		}
+
+		update := storagemgr.ReferenceUpdate{}
+
+		var err error
+		update.OldOID, err = objectHash.FromHex(components[0])
+		if err != nil {
+			return nil, fmt.Errorf("parse old: %w", err)
+		}
+
+		update.NewOID, err = objectHash.FromHex(components[1])
+		if err != nil {
+			return nil, fmt.Errorf("parse new: %w", err)
+		}
+
+		updates[reference] = update
+	}
+
+	return updates, nil
 }
 
 // isForceDeletionsOnly determines whether the given changes only consist of force-deletions.
