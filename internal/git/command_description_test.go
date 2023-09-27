@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 func TestCommandDescriptions_revListPositionalArgs(t *testing.T) {
@@ -104,6 +105,8 @@ func TestThreadsConfigValue(t *testing.T) {
 func TestFsckConfiguration_prefix(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
+
 	for _, tc := range []struct {
 		prefix   string
 		expected []ConfigPair
@@ -137,7 +140,7 @@ func TestFsckConfiguration_prefix(t *testing.T) {
 		},
 	} {
 		t.Run(tc.prefix, func(t *testing.T) {
-			opts := templateFsckConfiguration(tc.prefix)
+			opts := templateFsckConfiguration(ctx, tc.prefix)
 
 			for _, config := range tc.expected {
 				require.Containsf(t, opts, config, fmt.Sprintf("missing %s", config.Key))
