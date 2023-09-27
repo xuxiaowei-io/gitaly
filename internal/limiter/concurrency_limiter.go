@@ -247,7 +247,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, limitingKey string, f Li
 	)
 	defer span.Finish()
 
-	if c.currentLimit() <= 0 {
+	if c.currentLimit(ctx) <= 0 {
 		return f()
 	}
 
@@ -306,14 +306,14 @@ func (c *ConcurrencyLimiter) getConcurrencyLimit(ctx context.Context, limitingKe
 		// function we add the concurrency tokens to the number of available token.
 		var queueTokens semaphorer
 		if c.maxQueueLength > 0 {
-			queueTokens = c.createSemaphore(ctx, uint(c.currentLimit()+c.maxQueueLength))
+			queueTokens = c.createSemaphore(ctx, uint(c.currentLimit(ctx)+c.maxQueueLength))
 		}
 
 		c.limitsByKey[limitingKey] = &keyedConcurrencyLimiter{
 			monitor:               c.monitor,
 			maxQueueWait:          c.maxQueueWait,
 			setWaitTimeoutContext: c.SetWaitTimeoutContext,
-			concurrencyTokens:     c.createSemaphore(ctx, uint(c.currentLimit())),
+			concurrencyTokens:     c.createSemaphore(ctx, uint(c.currentLimit(ctx))),
 			queueTokens:           queueTokens,
 		}
 	}
@@ -352,8 +352,19 @@ func (c *ConcurrencyLimiter) countSemaphores() int {
 	return len(c.limitsByKey)
 }
 
-func (c *ConcurrencyLimiter) currentLimit() int {
-	return c.limit.Current()
+func (c *ConcurrencyLimiter) currentLimit(ctx context.Context) int {
+	// When `gitaly_use_resizable_semaphore_in_concurrency_limiter` flag is enabled, the resizable semaphore should
+	// use the current value of the adaptive limit. This limit is constantly calibrated by the adaptive calculator
+	// if the adaptiveness is enabled. In contrast, when the flag is disabled, the static semaphore should use the
+	// initial limit instead of the floating current limit.
+	// This situation is temporary during the rollout phase where the adaptive limiting is experimental. The
+	// aforementioned feature flag is used as an escape hatch to fallback to use static limiting if something goes
+	// wrong. When the feature enters a mature state, this feature flag and the static semaphore will be removed.
+	// The resizable semaphore can handle both static and adaptive limiting.
+	if featureflag.UseResizableSemaphoreInConcurrencyLimiter.IsEnabled(ctx) {
+		return c.limit.Current()
+	}
+	return c.limit.Initial()
 }
 
 func (c *ConcurrencyLimiter) createSemaphore(ctx context.Context, size uint) semaphorer {

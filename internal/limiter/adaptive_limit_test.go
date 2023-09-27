@@ -19,6 +19,13 @@ func TestAdaptiveLimit_New(t *testing.T) {
 	limit := NewAdaptiveLimit("testLimit", setting)
 	require.Equal(t, limit.Name(), "testLimit")
 	require.Equal(t, limit.Current(), 5)
+	require.Equal(t, limit.Initial(), 5)
+	require.Equal(t, limit.Setting(), setting)
+
+	limit.Update(10)
+	require.Equal(t, limit.Name(), "testLimit")
+	require.Equal(t, limit.Current(), 10)
+	require.Equal(t, limit.Initial(), 5)
 	require.Equal(t, limit.Setting(), setting)
 }
 
