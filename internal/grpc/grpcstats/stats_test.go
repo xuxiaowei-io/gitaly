@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -61,11 +62,25 @@ func TestPayloadBytes(t *testing.T) {
 			FieldProducers: []log.FieldsProducer{FieldsProducer},
 		}),
 		grpc.ChainUnaryInterceptor(
-			logger.UnaryServerInterceptor(FieldsProducer),
+			logger.UnaryServerInterceptor(
+				grpcmwlogrus.WithMessageProducer(
+					log.MessageProducer(
+						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+						FieldsProducer,
+					),
+				),
+			),
 			log.UnaryLogDataCatcherServerInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
-			logger.StreamServerInterceptor(FieldsProducer),
+			logger.StreamServerInterceptor(
+				grpcmwlogrus.WithMessageProducer(
+					log.MessageProducer(
+						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+						FieldsProducer,
+					),
+				),
+			),
 			log.StreamLogDataCatcherServerInterceptor(),
 		),
 	}
