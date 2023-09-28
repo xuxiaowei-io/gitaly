@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	sentry "github.com/getsentry/sentry-go"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"google.golang.org/grpc/codes"
@@ -18,71 +18,101 @@ func TestGenerateSentryEvent(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		desc        string
-		ctx         context.Context
-		method      string
-		duration    time.Duration
-		wantNil     bool
-		err         error
-		wantCode    codes.Code
-		wantMessage string
-		wantCulprit string
+		desc          string
+		ctx           context.Context
+		method        string
+		duration      time.Duration
+		err           error
+		expectedEvent *sentry.Event
 	}{
 		{
-			desc:        "internal error",
-			method:      "/gitaly.SSHService/SSHUploadPack",
-			duration:    500 * time.Millisecond,
-			err:         fmt.Errorf("Internal"),
-			wantCode:    codes.Unknown,
-			wantMessage: "Internal",
-			wantCulprit: "SSHService::SSHUploadPack",
-		},
-		{
-			desc:        "GRPC error",
-			method:      "/gitaly.RepoService/RepoExists",
-			duration:    500 * time.Millisecond,
-			err:         status.Errorf(codes.NotFound, "Something failed"),
-			wantCode:    codes.NotFound,
-			wantMessage: "rpc error: code = NotFound desc = Something failed",
-			wantCulprit: "RepoService::RepoExists",
+			desc:     "internal error",
+			method:   "/gitaly.SSHService/SSHUploadPack",
+			duration: 500 * time.Millisecond,
+			err:      fmt.Errorf("Internal"),
+			expectedEvent: &sentry.Event{
+				Message:     "Internal",
+				Transaction: "SSHService::SSHUploadPack",
+				Tags: map[string]string{
+					"grpc.code":    "Unknown",
+					"grpc.method":  "/gitaly.SSHService/SSHUploadPack",
+					"grpc.time_ms": "500",
+					"system":       "grpc",
+				},
+				Fingerprint: []string{
+					"grpc", "SSHService::SSHUploadPack", "Unknown",
+				},
+				Exception: []sentry.Exception{
+					{
+						Type:  "*errors.errorString",
+						Value: "Internal",
+					},
+				},
+				Extra:    map[string]any{},
+				Contexts: map[string]map[string]any{},
+				Modules:  map[string]string{},
+			},
 		},
 		{
 			desc:     "GRPC error",
-			method:   "/gitaly.CommitService/TreeEntry",
-			duration: 500 * time.Millisecond,
-			err:      status.Errorf(codes.NotFound, "Path not found"),
-			wantNil:  true,
-		},
-		{
-			desc:     "nil",
 			method:   "/gitaly.RepoService/RepoExists",
 			duration: 500 * time.Millisecond,
-			err:      nil,
-			wantNil:  true,
+			err:      status.Errorf(codes.NotFound, "Something failed"),
+			expectedEvent: &sentry.Event{
+				Message:     "rpc error: code = NotFound desc = Something failed",
+				Transaction: "RepoService::RepoExists",
+				Tags: map[string]string{
+					"grpc.code":    "NotFound",
+					"grpc.method":  "/gitaly.RepoService/RepoExists",
+					"grpc.time_ms": "500",
+					"system":       "grpc",
+				},
+				Fingerprint: []string{
+					"grpc", "RepoService::RepoExists", "NotFound",
+				},
+				Exception: []sentry.Exception{
+					{
+						Type:  "*status.Error",
+						Value: "rpc error: code = NotFound desc = Something failed",
+					},
+				},
+				Extra:    map[string]any{},
+				Contexts: map[string]map[string]any{},
+				Modules:  map[string]string{},
+			},
 		},
 		{
-			desc:     "Canceled",
-			method:   "/gitaly.RepoService/RepoExists",
-			duration: 500 * time.Millisecond,
-			err:      status.Errorf(codes.Canceled, "Something failed"),
-			wantNil:  true,
+			desc:          "successful call is ignored",
+			method:        "/gitaly.RepoService/RepoExists",
+			err:           nil,
+			expectedEvent: nil,
 		},
 		{
-			desc:     "DeadlineExceeded",
-			method:   "/gitaly.RepoService/RepoExists",
-			duration: 500 * time.Millisecond,
-			err:      status.Errorf(codes.DeadlineExceeded, "Something failed"),
-			wantNil:  true,
+			desc:          "TreeEntry with NotFound error is ignored",
+			method:        "/gitaly.CommitService/TreeEntry",
+			err:           status.Errorf(codes.NotFound, "Path not found"),
+			expectedEvent: nil,
 		},
 		{
-			desc:     "FailedPrecondition",
-			method:   "/gitaly.RepoService/RepoExists",
-			duration: 500 * time.Millisecond,
-			err:      status.Errorf(codes.FailedPrecondition, "Something failed"),
-			wantNil:  true,
+			desc:          "Canceled error is ignored",
+			method:        "/gitaly.RepoService/RepoExists",
+			err:           status.Errorf(codes.Canceled, "Something failed"),
+			expectedEvent: nil,
 		},
 		{
-			desc: "marked to skip",
+			desc:          "DeadlineExceeded erorr is ignored",
+			method:        "/gitaly.RepoService/RepoExists",
+			err:           status.Errorf(codes.DeadlineExceeded, "Something failed"),
+			expectedEvent: nil,
+		},
+		{
+			desc:          "FailedPrecondition error is ignored",
+			method:        "/gitaly.RepoService/RepoExists",
+			err:           status.Errorf(codes.FailedPrecondition, "Something failed"),
+			expectedEvent: nil,
+		},
+		{
+			desc: "error that is marked to be skipped is ignored",
 			ctx: func() context.Context {
 				var result context.Context
 
@@ -97,7 +127,7 @@ func TestGenerateSentryEvent(t *testing.T) {
 				MarkToSkip(result)
 				return result
 			}(),
-			wantNil: true,
+			expectedEvent: nil,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -107,20 +137,7 @@ func TestGenerateSentryEvent(t *testing.T) {
 			}
 
 			event := generateSentryEvent(ctx, tc.method, tc.duration, tc.err)
-
-			if tc.wantNil {
-				assert.Nil(t, event)
-				return
-			}
-
-			require.NotNil(t, event)
-			assert.Equal(t, tc.wantCulprit, event.Transaction)
-			assert.Equal(t, tc.wantMessage, event.Message)
-			assert.Equal(t, event.Tags["system"], "grpc")
-			assert.NotEmpty(t, event.Tags["grpc.time_ms"])
-			assert.Equal(t, tc.method, event.Tags["grpc.method"])
-			assert.Equal(t, tc.wantCode.String(), event.Tags["grpc.code"])
-			assert.Equal(t, []string{"grpc", tc.wantCulprit, tc.wantCode.String()}, event.Fingerprint)
+			require.Equal(t, tc.expectedEvent, event)
 		})
 	}
 }
