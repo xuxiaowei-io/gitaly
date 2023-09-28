@@ -40,6 +40,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter/watchers"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
@@ -295,22 +296,36 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
 
-	//  The pack-objects limit below is static at this stage. It's always equal to the initial limit, which uses
-	//  MaxConcurrency config.
-	packObjectLimit := limiter.NewAdaptiveLimit("packObjects", limiter.AdaptiveSetting{
-		Initial: cfg.PackObjectsLimiting.MaxConcurrency,
-	})
+	adaptiveLimits := []limiter.AdaptiveLimiter{}
+
 	concurrencyLimitHandler := limithandler.New(
 		cfg,
 		limithandler.LimitConcurrencyByRepo,
 		limithandler.WithConcurrencyLimiters,
 	)
+	prometheus.MustRegister(concurrencyLimitHandler)
 
 	rateLimitHandler := limithandler.New(
 		cfg,
 		limithandler.LimitConcurrencyByRepo,
 		limithandler.WithRateLimiters(ctx),
 	)
+	prometheus.MustRegister(rateLimitHandler)
+
+	var packObjectLimit *limiter.AdaptiveLimit
+	if cfg.PackObjectsLimiting.Adaptive {
+		packObjectLimit = limiter.NewAdaptiveLimit("packObjects", limiter.AdaptiveSetting{
+			Initial:       cfg.PackObjectsLimiting.InitialLimit,
+			Max:           cfg.PackObjectsLimiting.MaxLimit,
+			Min:           cfg.PackObjectsLimiting.MinLimit,
+			BackoffFactor: limiter.DefaultBackoffFactor,
+		})
+		adaptiveLimits = append(adaptiveLimits, packObjectLimit)
+	} else {
+		packObjectLimit = limiter.NewAdaptiveLimit("packObjects", limiter.AdaptiveSetting{
+			Initial: cfg.PackObjectsLimiting.MaxConcurrency,
+		})
+	}
 
 	packObjectsMonitor := limiter.NewPackObjectsConcurrencyMonitor(
 		cfg.Prometheus.GRPCLatencyBuckets,
@@ -321,9 +336,27 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		cfg.PackObjectsLimiting.MaxQueueWait.Duration(),
 		packObjectsMonitor,
 	)
-
-	prometheus.MustRegister(concurrencyLimitHandler, rateLimitHandler)
 	prometheus.MustRegister(packObjectsMonitor)
+
+	// Enable the adaptive calculator only if there is any limit needed to be adaptive.
+	if len(adaptiveLimits) > 0 {
+		adaptiveCalculator := limiter.NewAdaptiveCalculator(
+			limiter.DefaultCalibrateFrequency,
+			logger,
+			adaptiveLimits,
+			[]limiter.ResourceWatcher{
+				watchers.NewCgroupCPUWatcher(cgroupMgr),
+				watchers.NewCgroupMemoryWatcher(cgroupMgr),
+			},
+		)
+		prometheus.MustRegister(adaptiveCalculator)
+
+		stop, err := adaptiveCalculator.Start(ctx)
+		if err != nil {
+			logger.WithError(err).Warn("error starting adaptive limiter calculator")
+		}
+		defer stop()
+	}
 
 	gitalyServerFactory := server.NewGitalyServerFactory(
 		cfg,

@@ -58,6 +58,11 @@ func (l *AdaptiveLimit) Current() int {
 	return l.current
 }
 
+// Initial returns the initial limit.
+func (l *AdaptiveLimit) Initial() int {
+	return l.setting.Initial
+}
+
 // Update adjusts the current limit value and executes all registered update hooks.
 func (l *AdaptiveLimit) Update(val int) {
 	l.Lock()

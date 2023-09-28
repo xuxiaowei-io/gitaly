@@ -1727,6 +1727,60 @@ func TestPackObjectsLimiting_Validate(t *testing.T) {
 		PackObjectsLimiting{MaxConcurrency: -1}.Validate(),
 	)
 
+	require.NoError(t, PackObjectsLimiting{Adaptive: true, InitialLimit: 0, MinLimit: 0, MaxLimit: 100}.Validate())
+	require.NoError(t, PackObjectsLimiting{Adaptive: true, InitialLimit: 10, MinLimit: 0, MaxLimit: 100}.Validate())
+	require.NoError(t, PackObjectsLimiting{Adaptive: true, InitialLimit: 100, MinLimit: 0, MaxLimit: 100}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1 is not greater than or equal to 0", cfgerror.ErrNotInRange),
+				"initial_limit",
+			),
+		},
+		PackObjectsLimiting{Adaptive: true, InitialLimit: -1, MinLimit: 0, MaxLimit: 100}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: 10 is not greater than or equal to 11", cfgerror.ErrNotInRange),
+				"initial_limit",
+			),
+		},
+		PackObjectsLimiting{Adaptive: true, InitialLimit: 10, MinLimit: 11, MaxLimit: 100}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: 3 is not greater than or equal to 10", cfgerror.ErrNotInRange),
+				"max_limit",
+			),
+		},
+		PackObjectsLimiting{Adaptive: true, InitialLimit: 10, MinLimit: 5, MaxLimit: 3}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1 is not greater than or equal to 0", cfgerror.ErrNotInRange),
+				"min_limit",
+			),
+		},
+		PackObjectsLimiting{Adaptive: true, InitialLimit: 5, MinLimit: -1, MaxLimit: 99}.Validate(),
+	)
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1 is not greater than or equal to 10", cfgerror.ErrNotInRange),
+				"max_limit",
+			),
+		},
+		PackObjectsLimiting{Adaptive: true, InitialLimit: 10, MinLimit: 5, MaxLimit: -1}.Validate(),
+	)
+
 	require.NoError(t, PackObjectsLimiting{MaxQueueLength: 0}.Validate())
 	require.NoError(t, PackObjectsLimiting{MaxQueueLength: 1}.Validate())
 	require.NoError(t, PackObjectsLimiting{MaxQueueLength: 100}.Validate())

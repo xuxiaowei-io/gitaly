@@ -17,6 +17,11 @@ const (
 	// MaximumWatcherTimeout is the number of maximum allowed timeout when polling backoff events from watchers.
 	// When this threshold is reached, a timeout polling is treated as a backoff event.
 	MaximumWatcherTimeout = 5
+	// DefaultCalibrateFrequency is the default time period between two calibrations.
+	DefaultCalibrateFrequency = 30 * time.Second
+	// DefaultBackoffFactor is the default recommended backoff factor when the concurrency decreases. By default,
+	// the factor is 0.5, meaning the limit is cut off by half when a backoff event occurs.
+	DefaultBackoffFactor = 0.5
 )
 
 // BackoffEvent is a signal that the current system is under pressure. It's returned by the watchers under the
