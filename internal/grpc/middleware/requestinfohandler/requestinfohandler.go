@@ -35,7 +35,9 @@ var requests = promauto.NewCounterVec(
 	},
 )
 
-type requestInfo struct {
+// RequestInfo contains information about the current RPC call. Its main purpose is to be used in generic code such
+// that we can obtain RPC-call specific information.
+type RequestInfo struct {
 	correlationID   string
 	fullMethod      string
 	methodType      string
@@ -54,6 +56,19 @@ type requestInfo struct {
 	storageName string
 }
 
+type requestInfoKey struct{}
+
+// Extract extracts the RequestInfo from the context. Returns `nil` if there is on RequestInfo injected into the
+// context.
+func Extract(ctx context.Context) *RequestInfo {
+	info, ok := ctx.Value(requestInfoKey{}).(*RequestInfo)
+	if !ok {
+		return nil
+	}
+
+	return info
+}
+
 // Unknown client and feature. Matches the prometheus grpc unknown value
 const unknownValue = "unknown"
 
@@ -69,8 +84,8 @@ func getFromMD(md metadata.MD, header string) string {
 // newRequestInfo extracts metadata from the connection headers and add it to the
 // ctx_tags, if it is set. Returns values appropriate for use with prometheus labels,
 // using `unknown` if a value is not set
-func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) *requestInfo {
-	info := &requestInfo{
+func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) *RequestInfo {
+	info := &RequestInfo{
 		fullMethod:      fullMethod,
 		methodType:      grpcMethodType,
 		clientName:      unknownValue,
@@ -154,7 +169,7 @@ func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) *req
 	return info
 }
 
-func (i *requestInfo) extractRequestInfo(request any) {
+func (i *RequestInfo) extractRequestInfo(request any) {
 	type repoScopedRequest interface {
 		GetRepository() *gitalypb.Repository
 	}
@@ -180,7 +195,7 @@ func (i *requestInfo) extractRequestInfo(request any) {
 	}
 }
 
-func (i *requestInfo) injectTags(tags grpcmwtags.Tags) {
+func (i *RequestInfo) injectTags(tags grpcmwtags.Tags) {
 	for key, value := range map[string]string{
 		"grpc.meta.call_site":        i.callSite,
 		"grpc.meta.client_name":      i.clientName,
@@ -229,7 +244,7 @@ func (i *requestInfo) injectTags(tags grpcmwtags.Tags) {
 	}
 }
 
-func (i *requestInfo) reportPrometheusMetrics(err error) {
+func (i *RequestInfo) reportPrometheusMetrics(err error) {
 	grpcCode := structerr.GRPCCode(err)
 	serviceName, methodName := extractServiceAndMethodName(i.fullMethod)
 
@@ -264,6 +279,8 @@ func UnaryInterceptor(ctx context.Context, req interface{}, serverInfo *grpc.Una
 	info := newRequestInfo(ctx, serverInfo.FullMethod, "unary")
 	info.extractRequestInfo(req)
 
+	ctx = context.WithValue(ctx, requestInfoKey{}, info)
+
 	info.injectTags(tags)
 	res, err := handler(ctx, req)
 	info.reportPrometheusMetrics(err)
@@ -277,6 +294,8 @@ func StreamInterceptor(srv interface{}, stream grpc.ServerStream, serverInfo *gr
 	ctx := grpcmwtags.SetInContext(stream.Context(), tags)
 
 	info := newRequestInfo(ctx, serverInfo.FullMethod, streamRPCType(serverInfo))
+
+	ctx = context.WithValue(ctx, requestInfoKey{}, info)
 
 	// Even though we don't yet have all information set up we already inject the tags here. This is done such that
 	// log messages will at least have the metadata set up correctly in case there is no first request.
@@ -308,7 +327,7 @@ type wrappedServerStream struct {
 	grpc.ServerStream
 	ctx     context.Context
 	tags    grpcmwtags.Tags
-	info    *requestInfo
+	info    *RequestInfo
 	initial bool
 }
 
