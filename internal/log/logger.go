@@ -23,8 +23,8 @@ type Logger interface {
 	Warn(msg string)
 	Error(msg string)
 
-	StreamServerInterceptor(...FieldsProducer) grpc.StreamServerInterceptor
-	UnaryServerInterceptor(...FieldsProducer) grpc.UnaryServerInterceptor
+	StreamServerInterceptor(...grpcmwlogrus.Option) grpc.StreamServerInterceptor
+	UnaryServerInterceptor(...grpcmwlogrus.Option) grpc.UnaryServerInterceptor
 }
 
 // LogrusLogger is an implementation of the Logger interface that is implemented via a `logrus.FieldLogger`.
@@ -87,27 +87,13 @@ func (l LogrusLogger) ToContext(ctx context.Context) context.Context {
 }
 
 // StreamServerInterceptor creates a gRPC interceptor that generates log messages for streaming RPC calls.
-func (l LogrusLogger) StreamServerInterceptor(fieldsProducers ...FieldsProducer) grpc.StreamServerInterceptor {
-	return grpcmwlogrus.StreamServerInterceptor(l.entry,
-		grpcmwlogrus.WithTimestampFormat(LogTimestampFormat),
-		grpcmwlogrus.WithMessageProducer(MessageProducer(
-			PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-			fieldsProducers...,
-		)),
-		DeciderOption(),
-	)
+func (l LogrusLogger) StreamServerInterceptor(opts ...grpcmwlogrus.Option) grpc.StreamServerInterceptor {
+	return grpcmwlogrus.StreamServerInterceptor(l.entry, opts...)
 }
 
 // UnaryServerInterceptor creates a gRPC interceptor that generates log messages for unary RPC calls.
-func (l LogrusLogger) UnaryServerInterceptor(fieldsProducers ...FieldsProducer) grpc.UnaryServerInterceptor {
-	return grpcmwlogrus.UnaryServerInterceptor(l.entry,
-		grpcmwlogrus.WithTimestampFormat(LogTimestampFormat),
-		grpcmwlogrus.WithMessageProducer(MessageProducer(
-			PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-			fieldsProducers...,
-		)),
-		DeciderOption(),
-	)
+func (l LogrusLogger) UnaryServerInterceptor(opts ...grpcmwlogrus.Option) grpc.UnaryServerInterceptor {
+	return grpcmwlogrus.UnaryServerInterceptor(l.entry, opts...)
 }
 
 // FromContext extracts the logger from the context. If no logger has been injected then this will return a discarding

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server/auth"
@@ -21,7 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/statushandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/fieldextractors"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -94,12 +95,15 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		[]grpc.DialOption{client.UnaryInterceptor()},
 	))
 
-	logFieldsProducers := []log.FieldsProducer{
-		customfieldshandler.FieldsProducer,
-		grpcstats.FieldsProducer,
-		featureflag.FieldsProducer,
-		structerr.FieldsProducer,
-	}
+	logMsgProducer := grpcmwlogrus.WithMessageProducer(
+		gitalylog.MessageProducer(
+			gitalylog.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+			customfieldshandler.FieldsProducer,
+			grpcstats.FieldsProducer,
+			featureflag.FieldsProducer,
+			structerr.FieldsProducer,
+		),
+	)
 
 	streamServerInterceptors := []grpc.StreamServerInterceptor{
 		grpcmwtags.StreamServerInterceptor(ctxTagOpts...),
@@ -107,8 +111,12 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		metadatahandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
 		customfieldshandler.StreamInterceptor,
-		s.logger.WithField("component", "gitaly.StreamServerInterceptor").StreamServerInterceptor(logFieldsProducers...),
-		log.StreamLogDataCatcherServerInterceptor(),
+		s.logger.WithField("component", "gitaly.StreamServerInterceptor").StreamServerInterceptor(
+			grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
+			logMsgProducer,
+			gitalylog.DeciderOption(),
+		),
+		gitalylog.StreamLogDataCatcherServerInterceptor(),
 		sentryhandler.StreamLogHandler,
 		statushandler.Stream, // Should be below LogHandler
 		auth.StreamServerInterceptor(s.cfg.Auth),
@@ -119,8 +127,12 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		metadatahandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
 		customfieldshandler.UnaryInterceptor,
-		s.logger.WithField("component", "gitaly.UnaryServerInterceptor").UnaryServerInterceptor(logFieldsProducers...),
-		log.UnaryLogDataCatcherServerInterceptor(),
+		s.logger.WithField("component", "gitaly.UnaryServerInterceptor").UnaryServerInterceptor(
+			grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
+			logMsgProducer,
+			gitalylog.DeciderOption(),
+		),
+		gitalylog.UnaryLogDataCatcherServerInterceptor(),
 		sentryhandler.UnaryLogHandler,
 		statushandler.Unary, // Should be below LogHandler
 		auth.UnaryServerInterceptor(s.cfg.Auth),
@@ -151,9 +163,9 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	unaryServerInterceptors = append(unaryServerInterceptors, cfg.unaryInterceptors...)
 
 	serverOptions := []grpc.ServerOption{
-		grpc.StatsHandler(log.PerRPCLogHandler{
+		grpc.StatsHandler(gitalylog.PerRPCLogHandler{
 			Underlying:     &grpcstats.PayloadBytes{},
-			FieldProducers: []log.FieldsProducer{grpcstats.FieldsProducer},
+			FieldProducers: []gitalylog.FieldsProducer{grpcstats.FieldsProducer},
 		}),
 		grpc.Creds(lm),
 		grpc.ChainStreamInterceptor(streamServerInterceptors...),
