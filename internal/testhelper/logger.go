@@ -82,7 +82,7 @@ func NewLogger(tb testing.TB, options ...LoggerOption) log.LogrusLogger {
 	}
 
 	tb.Cleanup(func() {
-		if !tb.Failed() {
+		if !tb.Failed() || logOutput.Len() == 0 {
 			return
 		}
 

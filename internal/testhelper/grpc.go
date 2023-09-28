@@ -45,7 +45,10 @@ func ProtoEqual(tb testing.TB, expected, actual interface{}, opts ...cmp.Option)
 	tb.Helper()
 
 	opts = append(opts, protocmp.Transform(), cmpopts.EquateErrors())
-	require.Empty(tb, cmp.Diff(expected, actual, opts...))
+	diff := cmp.Diff(expected, actual, opts...)
+	if len(diff) > 0 {
+		require.Fail(tb, fmt.Sprintf("Protobufs not equal\nDiff: %v", diff))
+	}
 }
 
 // RequireGrpcCode asserts that the error has the expected gRPC status code.
