@@ -19,7 +19,7 @@ func Test_generateSentryEvent(t *testing.T) {
 		name        string
 		ctx         context.Context
 		method      string
-		sinceStart  time.Duration
+		duration    time.Duration
 		wantNil     bool
 		err         error
 		wantCode    codes.Code
@@ -29,7 +29,7 @@ func Test_generateSentryEvent(t *testing.T) {
 		{
 			name:        "internal error",
 			method:      "/gitaly.SSHService/SSHUploadPack",
-			sinceStart:  500 * time.Millisecond,
+			duration:    500 * time.Millisecond,
 			err:         fmt.Errorf("Internal"),
 			wantCode:    codes.Unknown,
 			wantMessage: "Internal",
@@ -38,46 +38,46 @@ func Test_generateSentryEvent(t *testing.T) {
 		{
 			name:        "GRPC error",
 			method:      "/gitaly.RepoService/RepoExists",
-			sinceStart:  500 * time.Millisecond,
+			duration:    500 * time.Millisecond,
 			err:         status.Errorf(codes.NotFound, "Something failed"),
 			wantCode:    codes.NotFound,
 			wantMessage: "rpc error: code = NotFound desc = Something failed",
 			wantCulprit: "RepoService::RepoExists",
 		},
 		{
-			name:       "GRPC error",
-			method:     "/gitaly.CommitService/TreeEntry",
-			sinceStart: 500 * time.Millisecond,
-			err:        status.Errorf(codes.NotFound, "Path not found"),
-			wantNil:    true,
+			name:     "GRPC error",
+			method:   "/gitaly.CommitService/TreeEntry",
+			duration: 500 * time.Millisecond,
+			err:      status.Errorf(codes.NotFound, "Path not found"),
+			wantNil:  true,
 		},
 		{
-			name:       "nil",
-			method:     "/gitaly.RepoService/RepoExists",
-			sinceStart: 500 * time.Millisecond,
-			err:        nil,
-			wantNil:    true,
+			name:     "nil",
+			method:   "/gitaly.RepoService/RepoExists",
+			duration: 500 * time.Millisecond,
+			err:      nil,
+			wantNil:  true,
 		},
 		{
-			name:       "Canceled",
-			method:     "/gitaly.RepoService/RepoExists",
-			sinceStart: 500 * time.Millisecond,
-			err:        status.Errorf(codes.Canceled, "Something failed"),
-			wantNil:    true,
+			name:     "Canceled",
+			method:   "/gitaly.RepoService/RepoExists",
+			duration: 500 * time.Millisecond,
+			err:      status.Errorf(codes.Canceled, "Something failed"),
+			wantNil:  true,
 		},
 		{
-			name:       "DeadlineExceeded",
-			method:     "/gitaly.RepoService/RepoExists",
-			sinceStart: 500 * time.Millisecond,
-			err:        status.Errorf(codes.DeadlineExceeded, "Something failed"),
-			wantNil:    true,
+			name:     "DeadlineExceeded",
+			method:   "/gitaly.RepoService/RepoExists",
+			duration: 500 * time.Millisecond,
+			err:      status.Errorf(codes.DeadlineExceeded, "Something failed"),
+			wantNil:  true,
 		},
 		{
-			name:       "FailedPrecondition",
-			method:     "/gitaly.RepoService/RepoExists",
-			sinceStart: 500 * time.Millisecond,
-			err:        status.Errorf(codes.FailedPrecondition, "Something failed"),
-			wantNil:    true,
+			name:     "FailedPrecondition",
+			method:   "/gitaly.RepoService/RepoExists",
+			duration: 500 * time.Millisecond,
+			err:      status.Errorf(codes.FailedPrecondition, "Something failed"),
+			wantNil:  true,
 		},
 		{
 			name: "marked to skip",
@@ -105,8 +105,7 @@ func Test_generateSentryEvent(t *testing.T) {
 			if tt.ctx != nil {
 				ctx = tt.ctx
 			}
-			start := time.Now().Add(-tt.sinceStart)
-			event := generateSentryEvent(ctx, tt.method, start, tt.err)
+			event := generateSentryEvent(ctx, tt.method, tt.duration, tt.err)
 
 			if tt.wantNil {
 				assert.Nil(t, event)

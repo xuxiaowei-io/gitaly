@@ -96,7 +96,7 @@ func logErrorToSentry(ctx context.Context, method string, err error) (code codes
 	return code, false
 }
 
-func generateSentryEvent(ctx context.Context, method string, start time.Time, err error) *sentry.Event {
+func generateSentryEvent(ctx context.Context, method string, duration time.Duration, err error) *sentry.Event {
 	grpcErrorCode, bypass := logErrorToSentry(ctx, method, err)
 	if bypass {
 		return nil
@@ -112,7 +112,7 @@ func generateSentryEvent(ctx context.Context, method string, start time.Time, er
 	for k, v := range map[string]string{
 		"grpc.code":    grpcErrorCode.String(),
 		"grpc.method":  method,
-		"grpc.time_ms": fmt.Sprintf("%.0f", time.Since(start).Seconds()*1000),
+		"grpc.time_ms": fmt.Sprintf("%.0f", duration.Seconds()*1000),
 		"system":       "grpc",
 	} {
 		event.Tags[k] = v
@@ -134,7 +134,7 @@ func generateSentryEvent(ctx context.Context, method string, start time.Time, er
 }
 
 func logGrpcErrorToSentry(ctx context.Context, method string, start time.Time, err error) {
-	event := generateSentryEvent(ctx, method, start, err)
+	event := generateSentryEvent(ctx, method, time.Since(start), err)
 	if event == nil {
 		return
 	}
