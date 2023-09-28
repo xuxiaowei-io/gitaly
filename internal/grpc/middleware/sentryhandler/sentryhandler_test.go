@@ -14,9 +14,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func Test_generateSentryEvent(t *testing.T) {
-	tests := []struct {
-		name        string
+func TestGenerateSentryEvent(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc        string
 		ctx         context.Context
 		method      string
 		duration    time.Duration
@@ -27,7 +29,7 @@ func Test_generateSentryEvent(t *testing.T) {
 		wantCulprit string
 	}{
 		{
-			name:        "internal error",
+			desc:        "internal error",
 			method:      "/gitaly.SSHService/SSHUploadPack",
 			duration:    500 * time.Millisecond,
 			err:         fmt.Errorf("Internal"),
@@ -36,7 +38,7 @@ func Test_generateSentryEvent(t *testing.T) {
 			wantCulprit: "SSHService::SSHUploadPack",
 		},
 		{
-			name:        "GRPC error",
+			desc:        "GRPC error",
 			method:      "/gitaly.RepoService/RepoExists",
 			duration:    500 * time.Millisecond,
 			err:         status.Errorf(codes.NotFound, "Something failed"),
@@ -45,42 +47,42 @@ func Test_generateSentryEvent(t *testing.T) {
 			wantCulprit: "RepoService::RepoExists",
 		},
 		{
-			name:     "GRPC error",
+			desc:     "GRPC error",
 			method:   "/gitaly.CommitService/TreeEntry",
 			duration: 500 * time.Millisecond,
 			err:      status.Errorf(codes.NotFound, "Path not found"),
 			wantNil:  true,
 		},
 		{
-			name:     "nil",
+			desc:     "nil",
 			method:   "/gitaly.RepoService/RepoExists",
 			duration: 500 * time.Millisecond,
 			err:      nil,
 			wantNil:  true,
 		},
 		{
-			name:     "Canceled",
+			desc:     "Canceled",
 			method:   "/gitaly.RepoService/RepoExists",
 			duration: 500 * time.Millisecond,
 			err:      status.Errorf(codes.Canceled, "Something failed"),
 			wantNil:  true,
 		},
 		{
-			name:     "DeadlineExceeded",
+			desc:     "DeadlineExceeded",
 			method:   "/gitaly.RepoService/RepoExists",
 			duration: 500 * time.Millisecond,
 			err:      status.Errorf(codes.DeadlineExceeded, "Something failed"),
 			wantNil:  true,
 		},
 		{
-			name:     "FailedPrecondition",
+			desc:     "FailedPrecondition",
 			method:   "/gitaly.RepoService/RepoExists",
 			duration: 500 * time.Millisecond,
 			err:      status.Errorf(codes.FailedPrecondition, "Something failed"),
 			wantNil:  true,
 		},
 		{
-			name: "marked to skip",
+			desc: "marked to skip",
 			ctx: func() context.Context {
 				var result context.Context
 
@@ -97,29 +99,28 @@ func Test_generateSentryEvent(t *testing.T) {
 			}(),
 			wantNil: true,
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
-			if tt.ctx != nil {
-				ctx = tt.ctx
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := tc.ctx
+			if ctx == nil {
+				ctx = testhelper.Context(t)
 			}
-			event := generateSentryEvent(ctx, tt.method, tt.duration, tt.err)
 
-			if tt.wantNil {
+			event := generateSentryEvent(ctx, tc.method, tc.duration, tc.err)
+
+			if tc.wantNil {
 				assert.Nil(t, event)
 				return
 			}
 
 			require.NotNil(t, event)
-			assert.Equal(t, tt.wantCulprit, event.Transaction)
-			assert.Equal(t, tt.wantMessage, event.Message)
+			assert.Equal(t, tc.wantCulprit, event.Transaction)
+			assert.Equal(t, tc.wantMessage, event.Message)
 			assert.Equal(t, event.Tags["system"], "grpc")
 			assert.NotEmpty(t, event.Tags["grpc.time_ms"])
-			assert.Equal(t, tt.method, event.Tags["grpc.method"])
-			assert.Equal(t, tt.wantCode.String(), event.Tags["grpc.code"])
-			assert.Equal(t, []string{"grpc", tt.wantCulprit, tt.wantCode.String()}, event.Fingerprint)
+			assert.Equal(t, tc.method, event.Tags["grpc.method"])
+			assert.Equal(t, tc.wantCode.String(), event.Tags["grpc.code"])
+			assert.Equal(t, []string{"grpc", tc.wantCulprit, tc.wantCode.String()}, event.Fingerprint)
 		})
 	}
 }
