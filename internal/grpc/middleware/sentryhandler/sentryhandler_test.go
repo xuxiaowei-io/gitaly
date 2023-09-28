@@ -112,6 +112,47 @@ func TestGenerateSentryEvent(t *testing.T) {
 			expectedEvent: nil,
 		},
 		{
+			desc: "error that is not marked to be skipped is not ignored",
+			ctx: func() context.Context {
+				var result context.Context
+
+				ctx := testhelper.Context(t)
+
+				// this is the only way how we could populate context with `tags` assembler
+				_, err := grpcmwtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
+					result = ctx
+					return nil, nil
+				})
+				require.NoError(t, err)
+				return result
+			}(),
+			duration: 500 * time.Millisecond,
+			method:   "/gitaly.RepoService/RepoExists",
+			err:      status.Errorf(codes.NotFound, "Something failed"),
+			expectedEvent: &sentry.Event{
+				Message:     "rpc error: code = NotFound desc = Something failed",
+				Transaction: "RepoService::RepoExists",
+				Tags: map[string]string{
+					"grpc.code":    "NotFound",
+					"grpc.method":  "/gitaly.RepoService/RepoExists",
+					"grpc.time_ms": "500",
+					"system":       "grpc",
+				},
+				Fingerprint: []string{
+					"grpc", "RepoService::RepoExists", "NotFound",
+				},
+				Exception: []sentry.Exception{
+					{
+						Type:  "*status.Error",
+						Value: "rpc error: code = NotFound desc = Something failed",
+					},
+				},
+				Extra:    map[string]any{},
+				Contexts: map[string]map[string]any{},
+				Modules:  map[string]string{},
+			},
+		},
+		{
 			desc: "error that is marked to be skipped is ignored",
 			ctx: func() context.Context {
 				var result context.Context
@@ -127,6 +168,8 @@ func TestGenerateSentryEvent(t *testing.T) {
 				MarkToSkip(result)
 				return result
 			}(),
+			method:        "/gitaly.RepoService/RepoExists",
+			err:           status.Errorf(codes.NotFound, "Something failed"),
 			expectedEvent: nil,
 		},
 	} {
