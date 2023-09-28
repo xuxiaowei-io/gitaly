@@ -29,15 +29,18 @@ type CommitServiceClient interface {
 	// ListAllCommits lists all commits present in the repository, including
 	// those not reachable by any reference.
 	ListAllCommits(ctx context.Context, in *ListAllCommitsRequest, opts ...grpc.CallOption) (CommitService_ListAllCommitsClient, error)
-	// This comment is left unintentionally blank.
+	// CommitIsAncestor checks whether a provided commit is the ancestor of
+	// another commit.
 	CommitIsAncestor(ctx context.Context, in *CommitIsAncestorRequest, opts ...grpc.CallOption) (*CommitIsAncestorResponse, error)
-	// This comment is left unintentionally blank.
+	// TreeEntry provides the tree entry for the provided path and revision. The data
+	// is broken into chunks and streamed.
 	TreeEntry(ctx context.Context, in *TreeEntryRequest, opts ...grpc.CallOption) (CommitService_TreeEntryClient, error)
-	// This comment is left unintentionally blank.
+	// CountCommits provides the number of commits which adhere to the given filters.
 	CountCommits(ctx context.Context, in *CountCommitsRequest, opts ...grpc.CallOption) (*CountCommitsResponse, error)
-	// This comment is left unintentionally blank.
+	// CountDivergingCommits provides the number of diverging commits between two revisions.
 	CountDivergingCommits(ctx context.Context, in *CountDivergingCommitsRequest, opts ...grpc.CallOption) (*CountDivergingCommitsResponse, error)
-	// This comment is left unintentionally blank.
+	// GetTreeEntries provides the tree entries for the provided path and revision. This includes
+	// subtrees present under the tree with the option of recursive fetching.
 	GetTreeEntries(ctx context.Context, in *GetTreeEntriesRequest, opts ...grpc.CallOption) (CommitService_GetTreeEntriesClient, error)
 	// This comment is left unintentionally blank.
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (CommitService_ListFilesClient, error)
@@ -675,15 +678,18 @@ type CommitServiceServer interface {
 	// ListAllCommits lists all commits present in the repository, including
 	// those not reachable by any reference.
 	ListAllCommits(*ListAllCommitsRequest, CommitService_ListAllCommitsServer) error
-	// This comment is left unintentionally blank.
+	// CommitIsAncestor checks whether a provided commit is the ancestor of
+	// another commit.
 	CommitIsAncestor(context.Context, *CommitIsAncestorRequest) (*CommitIsAncestorResponse, error)
-	// This comment is left unintentionally blank.
+	// TreeEntry provides the tree entry for the provided path and revision. The data
+	// is broken into chunks and streamed.
 	TreeEntry(*TreeEntryRequest, CommitService_TreeEntryServer) error
-	// This comment is left unintentionally blank.
+	// CountCommits provides the number of commits which adhere to the given filters.
 	CountCommits(context.Context, *CountCommitsRequest) (*CountCommitsResponse, error)
-	// This comment is left unintentionally blank.
+	// CountDivergingCommits provides the number of diverging commits between two revisions.
 	CountDivergingCommits(context.Context, *CountDivergingCommitsRequest) (*CountDivergingCommitsResponse, error)
-	// This comment is left unintentionally blank.
+	// GetTreeEntries provides the tree entries for the provided path and revision. This includes
+	// subtrees present under the tree with the option of recursive fetching.
 	GetTreeEntries(*GetTreeEntriesRequest, CommitService_GetTreeEntriesServer) error
 	// This comment is left unintentionally blank.
 	ListFiles(*ListFilesRequest, CommitService_ListFilesServer) error

@@ -137,15 +137,15 @@ func (TreeEntryResponse_ObjectType) EnumDescriptor() ([]byte, []int) {
 	return file_commit_proto_rawDescGZIP(), []int{9, 0}
 }
 
-// TODO: Replace this enum with ObjectType in shared.proto
+// EntryType denotes the different types of tree entry.
 type TreeEntry_EntryType int32
 
 const (
-	// This comment is left unintentionally blank.
+	// BLOB indicates that the tree entry is a blob.
 	TreeEntry_BLOB TreeEntry_EntryType = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// TREE indicates that the tree entry is a tree, which may be the case for subdirectories.
 	TreeEntry_TREE TreeEntry_EntryType = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// COMMIT indicates that the tree entry is a commit, which may be the case for submodules.
 	TreeEntry_COMMIT TreeEntry_EntryType = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -190,13 +190,13 @@ func (TreeEntry_EntryType) EnumDescriptor() ([]byte, []int) {
 	return file_commit_proto_rawDescGZIP(), []int{14, 0}
 }
 
-// This comment is left unintentionally blank.
+// SortBy provides the sorting parameters.
 type GetTreeEntriesRequest_SortBy int32
 
 const (
-	// Preserve order of git ls-tree.
+	// DEFAULT preserves the order of git ls-tree.
 	GetTreeEntriesRequest_DEFAULT GetTreeEntriesRequest_SortBy = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// Trees, blobs, submodules.
+	// TREES_FIRST sorts the entries by trees, blobs and submodules.
 	GetTreeEntriesRequest_TREES_FIRST GetTreeEntriesRequest_SortBy = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -847,17 +847,17 @@ func (x *CommitStatsResponse) GetDeletions() int32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// CommitIsAncestorRequest is the request for the CommitIsAncestor RPC.
 type CommitIsAncestorRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository for which we need to check the ancestory.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// AncestorId is the object ID of the commit which needs to be checked as ancestor.
 	AncestorId string `protobuf:"bytes,2,opt,name=ancestor_id,json=ancestorId,proto3" json:"ancestor_id,omitempty"`
-	// This comment is left unintentionally blank.
+	// ChildId is the object ID of the commit whose ancestor needs to be confirmed.
 	ChildId string `protobuf:"bytes,3,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
 }
 
@@ -914,13 +914,13 @@ func (x *CommitIsAncestorRequest) GetChildId() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// CommitIsAncestorResponse is the response for the CommitIsAncestor RPC.
 type CommitIsAncestorResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Value denotes whether the provided commit is the ancestor or not.
 	Value bool `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -971,8 +971,7 @@ type TreeEntryRequest struct {
 
 	// Repository is the repository for which to read the tree entry.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision is the revision that identifies the commit at which the tree entry is to be read. It can be either a
-	// commit ID or a reference name.
+	// Revision is the commitish at which the tree entry is to be read.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
 	// Path is the path of the entry that shall be read, relative to the tree of the specified revision.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
@@ -1138,29 +1137,30 @@ func (x *TreeEntryResponse) GetData() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CountCommitsRequest is the request for the CountCommits RPC.
 type CountCommitsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository in which we want to count the number of commits.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// Revision is a commitish which is the start point for the traversal of commits.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// After is used to filter commits more recent than a specific date.
 	After *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=after,proto3" json:"after,omitempty"`
-	// This comment is left unintentionally blank.
+	// Before is used to filter commits older than a specific date.
 	Before *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=before,proto3" json:"before,omitempty"`
-	// This comment is left unintentionally blank.
+	// Path is used to filter commits which modify the provided path.
 	Path []byte `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	// This comment is left unintentionally blank.
+	// MaxCount is used to cap the number of commits.
 	MaxCount int32 `protobuf:"varint,6,opt,name=max_count,json=maxCount,proto3" json:"max_count,omitempty"`
-	// all and revision are mutually exclusive
+	// All is used to consider all refs (including HEAD) as the start point for the traversal.
+	// All and Revision options are mutually exclusive.
 	All bool `protobuf:"varint,7,opt,name=all,proto3" json:"all,omitempty"`
-	// This comment is left unintentionally blank.
+	// FirstParent ensures that only the first parent commit is followed in the traversal.
 	FirstParent bool `protobuf:"varint,8,opt,name=first_parent,json=firstParent,proto3" json:"first_parent,omitempty"`
-	// This comment is left unintentionally blank.
+	// GlobalOptions contains the global options used to modify the behaviour of Git.
 	GlobalOptions *GlobalOptions `protobuf:"bytes,9,opt,name=global_options,json=globalOptions,proto3" json:"global_options,omitempty"`
 }
 
@@ -1259,13 +1259,13 @@ func (x *CountCommitsRequest) GetGlobalOptions() *GlobalOptions {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CountCommitsResponse is the response for the CountCommits RPC.
 type CountCommitsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Count denotes the number of commits found as per the given filters.
 	Count int32 `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
 }
 
@@ -1308,19 +1308,21 @@ func (x *CountCommitsResponse) GetCount() int32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// CountDivergingCommitsRequest is the request for the CountDivergingCommits RPC.
 type CountDivergingCommitsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository in which we want to find the number of diverging commits.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// From is the object ID of one of the commits against which we want to check the
+	// number of diverging commits. The From and To fields are interchangeable.
 	From []byte `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
-	// This comment is left unintentionally blank.
+	// To is the object ID of one of the commits against which we want to check the
+	// number of diverging commits. The To and From fields are interchangeable.
 	To []byte `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
-	// This comment is left unintentionally blank.
+	// MaxCount denotes the cap for the number of diverging commits to be reported.
 	MaxCount int32 `protobuf:"varint,7,opt,name=max_count,json=maxCount,proto3" json:"max_count,omitempty"`
 }
 
@@ -1384,15 +1386,15 @@ func (x *CountDivergingCommitsRequest) GetMaxCount() int32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// CountDivergingCommitsResponse is the response for the CountDivergingCommits RPC.
 type CountDivergingCommitsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// LeftCount denotes the number of diverging commits present in the 'From' commit provided.
 	LeftCount int32 `protobuf:"varint,1,opt,name=left_count,json=leftCount,proto3" json:"left_count,omitempty"`
-	// This comment is left unintentionally blank.
+	// RightCount denotes the number of diverging commits present in the 'To' commit provided.
 	RightCount int32 `protobuf:"varint,2,opt,name=right_count,json=rightCount,proto3" json:"right_count,omitempty"`
 }
 
@@ -1442,23 +1444,23 @@ func (x *CountDivergingCommitsResponse) GetRightCount() int32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// TreeEntry denotes a single tree entry.
 type TreeEntry struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// OID of the object this tree entry points to
+	// OID of the object this tree entry points to.
 	Oid string `protobuf:"bytes,1,opt,name=oid,proto3" json:"oid,omitempty"`
-	// Path relative to repository root
+	// Path is the path of the entry relative to the tree of the specified revision.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// This comment is left unintentionally blank.
+	// Type denotes the type of the tree entry.
 	Type TreeEntry_EntryType `protobuf:"varint,4,opt,name=type,proto3,enum=gitaly.TreeEntry_EntryType" json:"type,omitempty"`
-	// File mode e.g. 0644
+	// Mode is the mode of the tree entry.
 	Mode int32 `protobuf:"varint,5,opt,name=mode,proto3" json:"mode,omitempty"`
-	// The commit object via which this entry was retrieved
+	// CommitOid is the commit object via which this entry was retrieved.
 	CommitOid string `protobuf:"bytes,6,opt,name=commit_oid,json=commitOid,proto3" json:"commit_oid,omitempty"`
-	// Relative path of the first subdir that doesn't have only one directory descendant
+	// Relative path of the first subdir that doesn't have only one directory descendant.
 	FlatPath []byte `protobuf:"bytes,7,opt,name=flat_path,json=flatPath,proto3" json:"flat_path,omitempty"`
 }
 
@@ -1536,21 +1538,21 @@ func (x *TreeEntry) GetFlatPath() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// GetTreeEntriesRequest is the request for the GetTreeEntries RPC.
 type GetTreeEntriesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository to get the tree entries from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// Revision is the commitish at which the tree entries is to be read.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// Path is the path of the entry that shall be read, relative to the tree of the specified revision.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// This comment is left unintentionally blank.
+	// Recursive denotes wether to recursively fetch sub-trees.
 	Recursive bool `protobuf:"varint,4,opt,name=recursive,proto3" json:"recursive,omitempty"`
-	// This comment is left unintentionally blank.
+	// Sort defines the sorting parameter.
 	Sort GetTreeEntriesRequest_SortBy `protobuf:"varint,5,opt,name=sort,proto3,enum=gitaly.GetTreeEntriesRequest_SortBy" json:"sort,omitempty"`
 	// The page token is the last commit OID that was sent. It's expected to be the
 	// full object ID to guard against ambigious OIDs.
