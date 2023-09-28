@@ -35,6 +35,7 @@ var requests = promauto.NewCounterVec(
 )
 
 type requestInfo struct {
+	fullMethod      string
 	clientName      string
 	callSite        string
 	authVersion     string
@@ -91,6 +92,7 @@ func getFromMD(md metadata.MD, header string) string {
 // using `unknown` if a value is not set
 func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) requestInfo {
 	info := requestInfo{
+		fullMethod:      fullMethod,
 		clientName:      unknownValue,
 		callSite:        unknownValue,
 		authVersion:     unknownValue,
@@ -196,6 +198,24 @@ func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) requ
 	return info
 }
 
+func (i requestInfo) reportPrometheusMetrics(err error) {
+	grpcCode := structerr.GRPCCode(err)
+	serviceName, methodName := extractServiceAndMethodName(i.fullMethod)
+
+	requests.WithLabelValues(
+		i.clientName,      // client_name
+		serviceName,       // grpc_service
+		methodName,        // grpc_method
+		i.callSite,        // call_site
+		i.authVersion,     // auth_version
+		grpcCode.String(), // grpc_code
+		i.deadlineType,    // deadline_type
+		i.methodOperation,
+		i.methodScope,
+	).Inc()
+	grpcprometheus.WithConstLabels(prometheus.Labels{"deadline_type": i.deadlineType})
+}
+
 func extractServiceAndMethodName(fullMethodName string) (string, string) {
 	fullMethodName = strings.TrimPrefix(fullMethodName, "/") // remove leading slash
 	service, method, ok := strings.Cut(fullMethodName, "/")
@@ -205,40 +225,13 @@ func extractServiceAndMethodName(fullMethodName string) (string, string) {
 	return service, method
 }
 
-func streamRPCType(info *grpc.StreamServerInfo) string {
-	if info.IsClientStream && !info.IsServerStream {
-		return "client_stream"
-	} else if !info.IsClientStream && info.IsServerStream {
-		return "server_stream"
-	}
-	return "bidi_stream"
-}
-
-func reportWithPrometheusLabels(info requestInfo, fullMethod string, err error) {
-	grpcCode := structerr.GRPCCode(err)
-	serviceName, methodName := extractServiceAndMethodName(fullMethod)
-
-	requests.WithLabelValues(
-		info.clientName,   // client_name
-		serviceName,       // grpc_service
-		methodName,        // grpc_method
-		info.callSite,     // call_site
-		info.authVersion,  // auth_version
-		grpcCode.String(), // grpc_code
-		info.deadlineType, // deadline_type
-		info.methodOperation,
-		info.methodScope,
-	).Inc()
-	grpcprometheus.WithConstLabels(prometheus.Labels{"deadline_type": info.deadlineType})
-}
-
 // UnaryInterceptor returns a Unary Interceptor
 func UnaryInterceptor(ctx context.Context, req interface{}, serverInfo *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	info := newRequestInfo(ctx, serverInfo.FullMethod, "unary")
 
 	res, err := handler(ctx, req)
 
-	reportWithPrometheusLabels(info, serverInfo.FullMethod, err)
+	info.reportPrometheusMetrics(err)
 
 	return res, err
 }
@@ -250,7 +243,16 @@ func StreamInterceptor(srv interface{}, stream grpc.ServerStream, serverInfo *gr
 
 	err := handler(srv, stream)
 
-	reportWithPrometheusLabels(info, serverInfo.FullMethod, err)
+	info.reportPrometheusMetrics(err)
 
 	return err
+}
+
+func streamRPCType(info *grpc.StreamServerInfo) string {
+	if info.IsClientStream && !info.IsServerStream {
+		return "client_stream"
+	} else if !info.IsClientStream && info.IsServerStream {
+		return "server_stream"
+	}
+	return "bidi_stream"
 }

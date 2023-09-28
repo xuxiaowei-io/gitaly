@@ -113,6 +113,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: requestInfo{
+				fullMethod:      "/gitaly.RepositoryService/UnknownMethod",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -127,6 +128,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: requestInfo{
+				fullMethod:      "/gitaly.RepositoryService/ObjectFormat",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -141,6 +143,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: requestInfo{
+				fullMethod:      "/gitaly.RepositoryService/CreateRepository",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -155,6 +158,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: requestInfo{
+				fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -169,6 +173,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: requestInfo{
+				fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -183,6 +188,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: requestInfo{
+				fullMethod:      "/gitaly.RemoteService/FindRemoteRepository",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -231,6 +237,7 @@ func TestGRPCTags(t *testing.T) {
 		info := newRequestInfo(ctx, "/gitaly.RepositoryService/OptimizeRepository", "unary")
 
 		require.Equal(t, requestInfo{
+			fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 			clientName:      clientName,
 			callSite:        "unknown",
 			authVersion:     "unknown",
