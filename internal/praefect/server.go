@@ -14,8 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/grpcstats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/requestinfohandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/statushandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
@@ -69,7 +69,7 @@ func commonUnaryServerInterceptors(logger log.Logger, messageProducer grpcmwlogr
 	return []grpc.UnaryServerInterceptor{
 		grpcmwtags.UnaryServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
-		metadatahandler.UnaryInterceptor,
+		requestinfohandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
 		logger.UnaryServerInterceptor(
 			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
@@ -139,7 +139,7 @@ func NewGRPCServer(
 		grpcmwtags.StreamServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 		middleware.MethodTypeStreamInterceptor(deps.Registry, deps.Logger),
-		metadatahandler.StreamInterceptor,
+		requestinfohandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
 		deps.Logger.WithField("component", "praefect.StreamServerInterceptor").StreamServerInterceptor(
 			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),

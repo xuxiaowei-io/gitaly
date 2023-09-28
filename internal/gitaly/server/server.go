@@ -16,8 +16,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/customfieldshandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/requestinfohandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/statushandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
@@ -108,7 +108,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	streamServerInterceptors := []grpc.StreamServerInterceptor{
 		grpcmwtags.StreamServerInterceptor(ctxTagOpts...),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
-		metadatahandler.StreamInterceptor,
+		requestinfohandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
 		customfieldshandler.StreamInterceptor,
 		s.logger.WithField("component", "gitaly.StreamServerInterceptor").StreamServerInterceptor(
@@ -124,7 +124,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	unaryServerInterceptors := []grpc.UnaryServerInterceptor{
 		grpcmwtags.UnaryServerInterceptor(ctxTagOpts...),
 		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
-		metadatahandler.UnaryInterceptor,
+		requestinfohandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
 		customfieldshandler.UnaryInterceptor,
 		s.logger.WithField("component", "gitaly.UnaryServerInterceptor").UnaryServerInterceptor(

@@ -1,4 +1,4 @@
-package metadatahandler
+package requestinfohandler
 
 import (
 	"context"
@@ -17,23 +17,23 @@ const (
 	clientName    = "CLIENT_NAME"
 )
 
-func TestAddMetadataTags(t *testing.T) {
+func TestNewRequestInfo(t *testing.T) {
 	t.Parallel()
 
 	baseContext := testhelper.Context(t)
 
 	for _, tc := range []struct {
-		desc             string
-		fullMethod       string
-		metadata         metadata.MD
-		deadline         bool
-		expectedMetatags metadataTags
+		desc         string
+		fullMethod   string
+		metadata     metadata.MD
+		deadline     bool
+		expectedInfo requestInfo
 	}{
 		{
 			desc:     "empty metadata",
 			metadata: metadata.Pairs(),
 			deadline: false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -46,7 +46,7 @@ func TestAddMetadataTags(t *testing.T) {
 			desc:     "context containing metadata",
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        "testsite",
 				authVersion:     unknownValue,
@@ -59,7 +59,7 @@ func TestAddMetadataTags(t *testing.T) {
 			desc:     "context containing metadata and a deadline",
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: true,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        "testsite",
 				authVersion:     unknownValue,
@@ -72,7 +72,7 @@ func TestAddMetadataTags(t *testing.T) {
 			desc:     "context containing metadata and a deadline type",
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: true,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -85,7 +85,7 @@ func TestAddMetadataTags(t *testing.T) {
 			desc:     "a context without deadline but with deadline type",
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -98,7 +98,7 @@ func TestAddMetadataTags(t *testing.T) {
 			desc:     "with a context containing metadata",
 			metadata: metadata.Pairs("deadline_type", "regular", "client_name", "rails"),
 			deadline: true,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      "rails",
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -112,7 +112,7 @@ func TestAddMetadataTags(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/UnknownMethod",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -126,7 +126,7 @@ func TestAddMetadataTags(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/ObjectFormat",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -140,7 +140,7 @@ func TestAddMetadataTags(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/CreateRepository",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -154,7 +154,7 @@ func TestAddMetadataTags(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/OptimizeRepository",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -168,7 +168,7 @@ func TestAddMetadataTags(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/OptimizeRepository",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -182,7 +182,7 @@ func TestAddMetadataTags(t *testing.T) {
 			fullMethod: "/gitaly.RemoteService/FindRemoteRepository",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedMetatags: metadataTags{
+			expectedInfo: requestInfo{
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -205,7 +205,7 @@ func TestAddMetadataTags(t *testing.T) {
 				defer cancel()
 			}
 
-			require.Equal(t, tc.expectedMetatags, addMetadataTags(ctx, tc.fullMethod, "unary"))
+			require.Equal(t, tc.expectedInfo, newRequestInfo(ctx, tc.fullMethod, "unary"))
 		})
 	}
 }
@@ -228,16 +228,16 @@ func TestGRPCTags(t *testing.T) {
 	interceptor := grpcmwtags.UnaryServerInterceptor()
 
 	_, err := interceptor(ctx, nil, nil, func(ctx context.Context, _ interface{}) (interface{}, error) {
-		metaTags := addMetadataTags(ctx, "/gitaly.RepositoryService/OptimizeRepository", "unary")
+		info := newRequestInfo(ctx, "/gitaly.RepositoryService/OptimizeRepository", "unary")
 
-		require.Equal(t, metadataTags{
+		require.Equal(t, requestInfo{
 			clientName:      clientName,
 			callSite:        "unknown",
 			authVersion:     "unknown",
 			deadlineType:    "none",
 			methodOperation: "maintenance",
 			methodScope:     "repository",
-		}, metaTags)
+		}, info)
 
 		require.Equal(t, map[string]interface{}{
 			"correlation_id":   correlationID,

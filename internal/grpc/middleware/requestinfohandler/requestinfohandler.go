@@ -1,4 +1,4 @@
-package metadatahandler
+package requestinfohandler
 
 import (
 	"context"
@@ -34,7 +34,7 @@ var requests = promauto.NewCounterVec(
 	},
 )
 
-type metadataTags struct {
+type requestInfo struct {
 	clientName      string
 	callSite        string
 	authVersion     string
@@ -86,11 +86,11 @@ func getFromMD(md metadata.MD, header string) string {
 	return values[0]
 }
 
-// addMetadataTags extracts metadata from the connection headers and add it to the
+// newRequestInfo extracts metadata from the connection headers and add it to the
 // ctx_tags, if it is set. Returns values appropriate for use with prometheus labels,
 // using `unknown` if a value is not set
-func addMetadataTags(ctx context.Context, fullMethod, grpcMethodType string) metadataTags {
-	metaTags := metadataTags{
+func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) requestInfo {
+	info := requestInfo{
 		clientName:      unknownValue,
 		callSite:        unknownValue,
 		authVersion:     unknownValue,
@@ -101,7 +101,7 @@ func addMetadataTags(ctx context.Context, fullMethod, grpcMethodType string) met
 
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return metaTags
+		return info
 	}
 
 	tags := grpcmwtags.Extract(ctx)
@@ -119,7 +119,7 @@ func addMetadataTags(ctx context.Context, fullMethod, grpcMethodType string) met
 			operation = unknownValue
 		}
 
-		metaTags.methodOperation = operation
+		info.methodOperation = operation
 		tags.Set(MethodOperationKey, operation)
 
 		var scope string
@@ -132,43 +132,43 @@ func addMetadataTags(ctx context.Context, fullMethod, grpcMethodType string) met
 			scope = unknownValue
 		}
 
-		metaTags.methodScope = scope
+		info.methodScope = scope
 		tags.Set(MethodScopeKey, scope)
 	}
 
 	metadata := getFromMD(md, "call_site")
 	if metadata != "" {
-		metaTags.callSite = metadata
+		info.callSite = metadata
 		tags.Set(CallSiteKey, metadata)
 	}
 
 	metadata = getFromMD(md, "deadline_type")
 	_, deadlineSet := ctx.Deadline()
 	if !deadlineSet {
-		metaTags.deadlineType = "none"
+		info.deadlineType = "none"
 	} else if metadata != "" {
-		metaTags.deadlineType = metadata
+		info.deadlineType = metadata
 	}
 
 	clientName := correlation.ExtractClientNameFromContext(ctx)
 	if clientName != "" {
-		metaTags.clientName = clientName
+		info.clientName = clientName
 		tags.Set(ClientNameKey, clientName)
 	} else {
 		metadata = getFromMD(md, "client_name")
 		if metadata != "" {
-			metaTags.clientName = metadata
+			info.clientName = metadata
 			tags.Set(ClientNameKey, metadata)
 		}
 	}
 
 	// Set the deadline and method types in the logs
-	tags.Set(DeadlineTypeKey, metaTags.deadlineType)
+	tags.Set(DeadlineTypeKey, info.deadlineType)
 	tags.Set(MethodTypeKey, grpcMethodType)
 
 	authInfo, _ := gitalyauth.ExtractAuthInfo(ctx)
 	if authInfo != nil {
-		metaTags.authVersion = authInfo.Version
+		info.authVersion = authInfo.Version
 		tags.Set(AuthVersionKey, authInfo.Version)
 	}
 
@@ -193,7 +193,7 @@ func addMetadataTags(ctx context.Context, fullMethod, grpcMethodType string) met
 		tags.Set(correlation.FieldName, correlationID)
 	}
 
-	return metaTags
+	return info
 }
 
 func extractServiceAndMethodName(fullMethodName string) (string, string) {
@@ -214,43 +214,43 @@ func streamRPCType(info *grpc.StreamServerInfo) string {
 	return "bidi_stream"
 }
 
-func reportWithPrometheusLabels(metaTags metadataTags, fullMethod string, err error) {
+func reportWithPrometheusLabels(info requestInfo, fullMethod string, err error) {
 	grpcCode := structerr.GRPCCode(err)
 	serviceName, methodName := extractServiceAndMethodName(fullMethod)
 
 	requests.WithLabelValues(
-		metaTags.clientName,   // client_name
-		serviceName,           // grpc_service
-		methodName,            // grpc_method
-		metaTags.callSite,     // call_site
-		metaTags.authVersion,  // auth_version
-		grpcCode.String(),     // grpc_code
-		metaTags.deadlineType, // deadline_type
-		metaTags.methodOperation,
-		metaTags.methodScope,
+		info.clientName,   // client_name
+		serviceName,       // grpc_service
+		methodName,        // grpc_method
+		info.callSite,     // call_site
+		info.authVersion,  // auth_version
+		grpcCode.String(), // grpc_code
+		info.deadlineType, // deadline_type
+		info.methodOperation,
+		info.methodScope,
 	).Inc()
-	grpcprometheus.WithConstLabels(prometheus.Labels{"deadline_type": metaTags.deadlineType})
+	grpcprometheus.WithConstLabels(prometheus.Labels{"deadline_type": info.deadlineType})
 }
 
 // UnaryInterceptor returns a Unary Interceptor
-func UnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	metaTags := addMetadataTags(ctx, info.FullMethod, "unary")
+func UnaryInterceptor(ctx context.Context, req interface{}, serverInfo *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	info := newRequestInfo(ctx, serverInfo.FullMethod, "unary")
 
 	res, err := handler(ctx, req)
 
-	reportWithPrometheusLabels(metaTags, info.FullMethod, err)
+	reportWithPrometheusLabels(info, serverInfo.FullMethod, err)
 
 	return res, err
 }
 
 // StreamInterceptor returns a Stream Interceptor
-func StreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func StreamInterceptor(srv interface{}, stream grpc.ServerStream, serverInfo *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	ctx := stream.Context()
-	metaTags := addMetadataTags(ctx, info.FullMethod, streamRPCType(info))
+	info := newRequestInfo(ctx, serverInfo.FullMethod, streamRPCType(serverInfo))
 
 	err := handler(srv, stream)
 
-	reportWithPrometheusLabels(metaTags, info.FullMethod, err)
+	reportWithPrometheusLabels(info, serverInfo.FullMethod, err)
 
 	return err
 }
