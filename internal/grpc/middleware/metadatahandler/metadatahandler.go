@@ -74,9 +74,6 @@ const UserIDKey = "user_id"
 // UsernameKey is the key used in ctx_tags to store the username
 const UsernameKey = "username"
 
-// CorrelationIDKey is the key used in ctx_tags to store the correlation ID
-const CorrelationIDKey = "correlation_id"
-
 // Unknown client and feature. Matches the prometheus grpc unknown value
 const unknownValue = "unknown"
 
@@ -193,7 +190,7 @@ func addMetadataTags(ctx context.Context, fullMethod, grpcMethodType string) met
 	// This is a stop-gap approach to logging correlation_ids
 	correlationID := correlation.ExtractFromContext(ctx)
 	if correlationID != "" {
-		tags.Set(CorrelationIDKey, correlationID)
+		tags.Set(correlation.FieldName, correlationID)
 	}
 
 	return metaTags

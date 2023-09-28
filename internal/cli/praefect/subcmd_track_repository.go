@@ -11,7 +11,6 @@ import (
 
 	"github.com/urfave/cli/v2"
 	glcli "gitlab.com/gitlab-org/gitaly/v16/internal/cli"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
@@ -244,7 +243,7 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 				SourceNodeStorage: primary,
 				TargetNodeStorage: secondary,
 			},
-			Meta: datastore.Params{metadatahandler.CorrelationIDKey: correlationID},
+			Meta: datastore.Params{datastore.CorrelationIDKey: correlationID},
 		}
 		if replicateImmediately {
 			conn, ok := connections[secondary]

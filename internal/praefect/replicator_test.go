@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	gitalycfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -119,7 +118,7 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 			},
 			State:   datastore.JobStateReady,
 			Attempt: 3,
-			Meta:    datastore.Params{metadatahandler.CorrelationIDKey: "correlation-id"},
+			Meta:    datastore.Params{datastore.CorrelationIDKey: "correlation-id"},
 		})
 	}
 	require.Len(t, events, 1)
@@ -174,7 +173,7 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 
 	require.Equal(t,
 		[]interface{}{"replication job processing started", "virtual", "correlation-id"},
-		[]interface{}{logEntries[2].Message, logEntries[2].Data["virtual_storage"], logEntries[2].Data[logWithCorrID]},
+		[]interface{}{logEntries[2].Message, logEntries[2].Data["virtual_storage"], logEntries[2].Data[correlation.FieldName]},
 	)
 
 	dequeuedEvent := logEntries[2].Data["event"].(datastore.ReplicationEvent)
@@ -183,7 +182,7 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 
 	require.Equal(t,
 		[]interface{}{"replication job processing finished", "virtual", datastore.JobStateCompleted, "correlation-id"},
-		[]interface{}{logEntries[3].Message, logEntries[3].Data["virtual_storage"], logEntries[3].Data["new_state"], logEntries[3].Data[logWithCorrID]},
+		[]interface{}{logEntries[3].Message, logEntries[3].Data["virtual_storage"], logEntries[3].Data["new_state"], logEntries[3].Data[correlation.FieldName]},
 	)
 
 	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepoProto.GetRelativePath())
@@ -254,7 +253,7 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 			lastEntry := entries[0]
 			require.Equal(t, logrus.InfoLevel, lastEntry.Level)
 			require.Equal(t, returnedErr, lastEntry.Data["error"])
-			require.Equal(t, "correlation-id", lastEntry.Data[logWithCorrID])
+			require.Equal(t, "correlation-id", lastEntry.Data[correlation.FieldName])
 			require.Equal(t, tc.expectedMessage, lastEntry.Message)
 		})
 	}
