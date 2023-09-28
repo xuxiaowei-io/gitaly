@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 16.4.1 (2023-09-28)
+
+No changes.
+
 ## 16.4.0 (2023-09-21)
 
 ### Added (4 changes)
@@ -41,6 +45,10 @@
 
 - [backup: Improve time taken to create a full backup bundle](gitlab-org/gitaly@c43b91c07de39a4e32b3bb855787ab43e9c6a6c7) ([merge request](gitlab-org/gitaly!6305))
 - [backup: Improve performance of writing ref lists](gitlab-org/gitaly@897aadac824654041b9c383b17ec8a5f217eac6b) ([merge request](gitlab-org/gitaly!6305))
+
+## 16.3.5 (2023-09-28)
+
+No changes.
 
 ## 16.3.4 (2023-09-18)
 
@@ -100,6 +108,10 @@ No changes.
 ### updated (1 change)
 
 - [backup: Write an empty ref list for empty repositories](gitlab-org/gitaly@7fbae125172570e5bef222908388ba0ca1c9e43a) ([merge request](gitlab-org/gitaly!6090))
+
+## 16.2.8 (2023-09-28)
+
+No changes.
 
 ## 16.2.7 (2023-09-18)
 
