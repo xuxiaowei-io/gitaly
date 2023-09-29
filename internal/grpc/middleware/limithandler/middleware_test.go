@@ -96,8 +96,6 @@ func TestUnaryLimitHandler(t *testing.T) {
 }
 
 func TestUnaryLimitHandler_queueing(t *testing.T) {
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5601")
-
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -109,7 +107,20 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 					RPC:          "/grpc.testing.TestService/UnaryCall",
 					MaxPerRepo:   1,
 					MaxQueueSize: 1,
-					MaxQueueWait: duration.Duration(time.Millisecond),
+					// This test setups two requests:
+					// - The first one is eligible. It enters the handler and blocks the queue.
+					// - The second request is blocked until timeout.
+					// Both of them shares this timeout. Internally, the limiter creates a context
+					// deadline to reject timed out requests. If it's set too low, there's a tiny
+					// possibility that the context reaches the deadline when the limiter checks the
+					// request. Thus, setting a reasonable timeout here and adding some retry
+					// attempts below make the test stable.
+					// Another approach is to implement a hooking mechanism that allows us to
+					// override context deadline setup. However, that approach exposes the internal
+					// implementation of the limiter. It also adds unnecessarily logics.
+					// Congiuring the timeout is more straight-forward and close to the expected
+					// behavior.
+					MaxQueueWait: duration.Duration(100 * time.Millisecond),
 				},
 			},
 		}, fixedLockKey, limithandler.WithConcurrencyLimiters)
@@ -133,8 +144,15 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
-			require.NoError(t, err)
+			// Retry a couple of time, just in case the test runs on a very slow machine that invalidates
+			// the test. If the limiter still cannot permit the request after 3 times, something must go
+			// wrong horribly.
+			for i := 0; i < 3; i++ {
+				if _, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{}); err == nil {
+					return
+				}
+			}
+			require.FailNow(t, "the first request is supposed to enter the test server's handler")
 		}()
 		<-s.reqArrivedCh
 
