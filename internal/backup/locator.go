@@ -294,7 +294,7 @@ func (l ManifestLocator) Commit(ctx context.Context, backup *Backup) (returnErr 
 		return err
 	}
 
-	f, err := l.Sink.GetWriter(ctx, manifestPath(backup))
+	f, err := l.Sink.GetWriter(ctx, manifestPath(backup.Repository, backup.ID))
 	if err != nil {
 		return fmt.Errorf("manifest: commit: %w", err)
 	}
@@ -316,16 +316,35 @@ func (l ManifestLocator) FindLatest(ctx context.Context, repo storage.Repository
 	return l.Fallback.FindLatest(ctx, repo)
 }
 
-// Find passes through to Fallback
+// Find loads the manifest for the provided repo and backupID. If this manifest
+// does not exist, the fallback is used.
 func (l ManifestLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
-	return l.Fallback.Find(ctx, repo, backupID)
+	f, err := l.Sink.GetReader(ctx, manifestPath(repo, backupID))
+	switch {
+	case errors.Is(err, ErrDoesntExist):
+		return l.Fallback.Find(ctx, repo, backupID)
+	case err != nil:
+		return nil, fmt.Errorf("manifest: find: %w", err)
+	}
+	defer f.Close()
+
+	var backup Backup
+
+	if err := toml.NewDecoder(f).Decode(&backup); err != nil {
+		return nil, fmt.Errorf("manifest: find: %w", err)
+	}
+
+	backup.ID = backupID
+	backup.Repository = repo
+
+	return &backup, nil
 }
 
-func manifestPath(backup *Backup) string {
-	storageName := backup.Repository.GetStorageName()
+func manifestPath(repo storage.Repository, backupID string) string {
+	storageName := repo.GetStorageName()
 	// Other locators strip the .git suffix off of relative paths. This suffix
 	// is determined by gitlab-rails not gitaly. So here we leave the relative
 	// path as-is so that new backups can be more independent.
-	relativePath := backup.Repository.GetRelativePath()
-	return path.Join("manifests", storageName, relativePath, backup.ID+".toml")
+	relativePath := repo.GetRelativePath()
+	return path.Join("manifests", storageName, relativePath, backupID+".toml")
 }

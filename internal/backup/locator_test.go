@@ -11,9 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 func TestLegacyLocator(t *testing.T) {
@@ -482,4 +484,124 @@ previous_ref_path = '%[1]s/%[2]s/001.refs'
 custom_hooks_path = '%[1]s/%[2]s/002.custom_hooks.tar'
 `, repo.RelativePath, backupID), string(manifest))
 	})
+}
+
+func TestManifestLocator_Find(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc           string
+		repo           storage.Repository
+		backupID       string
+		setup          func(t *testing.T, ctx context.Context, backupPath string)
+		expectedBackup *Backup
+	}{
+		{
+			desc: "finds manifest",
+			repo: &gitalypb.Repository{
+				StorageName:  "default",
+				RelativePath: "vanity/repo.git",
+			},
+			backupID: "abc123",
+			setup: func(t *testing.T, ctx context.Context, backupPath string) {
+				testhelper.WriteFiles(t, backupPath, map[string]any{
+					"vanity/repo/LATEST":        "abc123",
+					"vanity/repo/abc123/LATEST": "002",
+					"manifests/default/vanity/repo.git/abc123.toml": `object_format = 'sha1'
+
+[[steps]]
+bundle_path = 'path/to/001.bundle'
+ref_path = 'path/to/001.refs'
+custom_hooks_path = 'path/to/001.custom_hooks.tar'
+
+[[steps]]
+bundle_path = 'path/to/002.bundle'
+ref_path = 'path/to/002.refs'
+previous_ref_path = 'path/to/001.refs'
+custom_hooks_path = 'path/to/002.custom_hooks.tar'
+`,
+				})
+			},
+			expectedBackup: &Backup{
+				ID: "abc123",
+				Repository: &gitalypb.Repository{
+					StorageName:  "default",
+					RelativePath: "vanity/repo.git",
+				},
+				ObjectFormat: "sha1",
+				Steps: []Step{
+					{
+						BundlePath:      "path/to/001.bundle",
+						RefPath:         "path/to/001.refs",
+						CustomHooksPath: "path/to/001.custom_hooks.tar",
+					},
+					{
+						BundlePath:      "path/to/002.bundle",
+						RefPath:         "path/to/002.refs",
+						PreviousRefPath: "path/to/001.refs",
+						CustomHooksPath: "path/to/002.custom_hooks.tar",
+					},
+				},
+			},
+		},
+		{
+			desc: "fallback",
+			repo: &gitalypb.Repository{
+				StorageName:  "default",
+				RelativePath: "vanity/repo.git",
+			},
+			backupID: "abc123",
+			setup: func(t *testing.T, ctx context.Context, backupPath string) {
+				testhelper.WriteFiles(t, backupPath, map[string]any{
+					"vanity/repo/LATEST":        "abc123",
+					"vanity/repo/abc123/LATEST": "002",
+				})
+			},
+			expectedBackup: &Backup{
+				ID: "abc123",
+				Repository: &gitalypb.Repository{
+					StorageName:  "default",
+					RelativePath: "vanity/repo.git",
+				},
+				ObjectFormat: "sha1",
+				Steps: []Step{
+					{
+						BundlePath:      "vanity/repo/abc123/001.bundle",
+						RefPath:         "vanity/repo/abc123/001.refs",
+						CustomHooksPath: "vanity/repo/abc123/001.custom_hooks.tar",
+					},
+					{
+						BundlePath:      "vanity/repo/abc123/002.bundle",
+						RefPath:         "vanity/repo/abc123/002.refs",
+						PreviousRefPath: "vanity/repo/abc123/001.refs",
+						CustomHooksPath: "vanity/repo/abc123/002.custom_hooks.tar",
+					},
+				},
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testhelper.Context(t)
+			backupPath := testhelper.TempDir(t)
+
+			tc.setup(t, ctx, backupPath)
+
+			sink := NewFilesystemSink(backupPath)
+			var l Locator = PointerLocator{
+				Sink: sink,
+			}
+			l = ManifestLocator{
+				Sink:     sink,
+				Fallback: l,
+			}
+
+			backup, err := l.Find(ctx, tc.repo, tc.backupID)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.expectedBackup, backup)
+		})
+	}
 }
