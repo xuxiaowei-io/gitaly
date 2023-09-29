@@ -8,7 +8,6 @@ import (
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -120,17 +119,8 @@ func TestGenerateSentryEvent(t *testing.T) {
 		{
 			desc: "error that is not marked to be skipped is not ignored",
 			ctx: func() context.Context {
-				var result context.Context
-
-				ctx := testhelper.Context(t)
-
-				// this is the only way how we could populate context with `tags` assembler
-				_, err := grpcmwtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
-					result = ctx
-					return nil, nil
-				})
-				require.NoError(t, err)
-				return result
+				skipSubmission := false
+				return context.WithValue(testhelper.Context(t), skipSubmissionKey{}, &skipSubmission)
 			}(),
 			duration: 500 * time.Millisecond,
 			method:   "/gitaly.RepoService/RepoExists",
@@ -161,18 +151,11 @@ func TestGenerateSentryEvent(t *testing.T) {
 		{
 			desc: "error that is marked to be skipped is ignored",
 			ctx: func() context.Context {
-				var result context.Context
+				skipSubmission := false
+				ctx := context.WithValue(testhelper.Context(t), skipSubmissionKey{}, &skipSubmission)
 
-				ctx := testhelper.Context(t)
-
-				// this is the only way how we could populate context with `tags` assembler
-				_, err := grpcmwtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
-					result = ctx
-					return nil, nil
-				})
-				require.NoError(t, err)
-				MarkToSkip(result)
-				return result
+				MarkToSkip(ctx)
+				return ctx
 			}(),
 			method:        "/gitaly.RepoService/RepoExists",
 			err:           status.Errorf(codes.NotFound, "Something failed"),
@@ -217,10 +200,9 @@ func TestUnaryLogHandler(t *testing.T) {
 					Message:     "oopsie",
 					Transaction: "::grpc.testing.TestService/UnaryCall",
 					Tags: map[string]string{
-						"grpc.code":    "Unknown",
-						"grpc.method":  "/grpc.testing.TestService/UnaryCall",
-						"peer.address": "bufconn",
-						"system":       "grpc",
+						"grpc.code":   "Unknown",
+						"grpc.method": "/grpc.testing.TestService/UnaryCall",
+						"system":      "grpc",
 					},
 					Fingerprint: []string{
 						"grpc", "::grpc.testing.TestService/UnaryCall", "Unknown",
@@ -247,10 +229,9 @@ func TestUnaryLogHandler(t *testing.T) {
 					Message:     "not found",
 					Transaction: "::grpc.testing.TestService/UnaryCall",
 					Tags: map[string]string{
-						"grpc.code":    "NotFound",
-						"grpc.method":  "/grpc.testing.TestService/UnaryCall",
-						"peer.address": "bufconn",
-						"system":       "grpc",
+						"grpc.code":   "NotFound",
+						"grpc.method": "/grpc.testing.TestService/UnaryCall",
+						"system":      "grpc",
 					},
 					Fingerprint: []string{
 						"grpc", "::grpc.testing.TestService/UnaryCall", "NotFound",
@@ -323,10 +304,9 @@ func TestStreamLogHandler(t *testing.T) {
 					Message:     "oopsie",
 					Transaction: "::grpc.testing.TestService/FullDuplexCall",
 					Tags: map[string]string{
-						"grpc.code":    "Unknown",
-						"grpc.method":  "/grpc.testing.TestService/FullDuplexCall",
-						"peer.address": "bufconn",
-						"system":       "grpc",
+						"grpc.code":   "Unknown",
+						"grpc.method": "/grpc.testing.TestService/FullDuplexCall",
+						"system":      "grpc",
 					},
 					Fingerprint: []string{
 						"grpc", "::grpc.testing.TestService/FullDuplexCall", "Unknown",
@@ -353,10 +333,9 @@ func TestStreamLogHandler(t *testing.T) {
 					Message:     "not found",
 					Transaction: "::grpc.testing.TestService/FullDuplexCall",
 					Tags: map[string]string{
-						"grpc.code":    "NotFound",
-						"grpc.method":  "/grpc.testing.TestService/FullDuplexCall",
-						"peer.address": "bufconn",
-						"system":       "grpc",
+						"grpc.code":   "NotFound",
+						"grpc.method": "/grpc.testing.TestService/FullDuplexCall",
+						"system":      "grpc",
 					},
 					Fingerprint: []string{
 						"grpc", "::grpc.testing.TestService/FullDuplexCall", "NotFound",
@@ -421,14 +400,8 @@ func (s *mockServiceServer) setup(tb testing.TB, ctx context.Context) grpc_testi
 	})
 
 	server := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			grpcmwtags.UnaryServerInterceptor(),
-			UnaryLogHandler(eventReporterOption),
-		),
-		grpc.ChainStreamInterceptor(
-			grpcmwtags.StreamServerInterceptor(),
-			StreamLogHandler(eventReporterOption),
-		),
+		grpc.UnaryInterceptor(UnaryLogHandler(eventReporterOption)),
+		grpc.StreamInterceptor(StreamLogHandler(eventReporterOption)),
 	)
 	tb.Cleanup(server.Stop)
 	grpc_testing.RegisterTestServiceServer(server, s)

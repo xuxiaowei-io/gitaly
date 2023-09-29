@@ -9,14 +9,11 @@ import (
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-)
-
-const (
-	skipSubmission = "sentry.skip"
 )
 
 var (
@@ -65,6 +62,8 @@ func configFromOptions(opts ...Option) config {
 	return cfg
 }
 
+type skipSubmissionKey struct{}
+
 // UnaryLogHandler handles access times and errors for unary RPC's. Its default behaviour can be changed by passing
 // Options.
 func UnaryLogHandler(opts ...Option) grpc.UnaryServerInterceptor {
@@ -72,6 +71,9 @@ func UnaryLogHandler(opts ...Option) grpc.UnaryServerInterceptor {
 
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		start := time.Now()
+
+		ctx = context.WithValue(ctx, skipSubmissionKey{}, new(bool))
+
 		resp, err := handler(ctx, req)
 		if err != nil {
 			logGrpcErrorToSentry(ctx, info.FullMethod, start, err, cfg.eventReporter)
@@ -88,9 +90,16 @@ func StreamLogHandler(opts ...Option) grpc.StreamServerInterceptor {
 
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		start := time.Now()
-		err := handler(srv, stream)
+
+		ctx := stream.Context()
+		ctx = context.WithValue(ctx, skipSubmissionKey{}, new(bool))
+
+		wrappedStream := grpcmw.WrapServerStream(stream)
+		wrappedStream.WrappedContext = ctx
+
+		err := handler(srv, wrappedStream)
 		if err != nil {
-			logGrpcErrorToSentry(stream.Context(), info.FullMethod, start, err, cfg.eventReporter)
+			logGrpcErrorToSentry(ctx, info.FullMethod, start, err, cfg.eventReporter)
 		}
 
 		return err
@@ -126,8 +135,8 @@ func logErrorToSentry(ctx context.Context, method string, err error) (code codes
 		}
 	}
 
-	tags := grpcmwtags.Extract(ctx)
-	if tags.Has(skipSubmission) {
+	skipSubmission, ok := ctx.Value(skipSubmissionKey{}).(*bool)
+	if ok && *skipSubmission {
 		return code, true
 	}
 
@@ -198,6 +207,10 @@ func newException(err error, stacktrace *sentry.Stacktrace) sentry.Exception {
 
 // MarkToSkip propagate context with a special tag that signals to sentry handler that the error must not be reported.
 func MarkToSkip(ctx context.Context) {
-	tags := grpcmwtags.Extract(ctx)
-	tags.Set(skipSubmission, struct{}{})
+	skipSubmission, ok := ctx.Value(skipSubmissionKey{}).(*bool)
+	if !ok {
+		return
+	}
+
+	*skipSubmission = true
 }
