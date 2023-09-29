@@ -102,7 +102,6 @@ func TestLogObjectInfo(t *testing.T) {
 
 		logger := testhelper.NewLogger(t)
 		hook := testhelper.AddLoggerHook(logger)
-		ctx := logger.ToContext(ctx)
 
 		_, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
@@ -122,7 +121,7 @@ func TestLogObjectInfo(t *testing.T) {
 		alternatesStat, err := os.Stat(filepath.Join(targetRepoPath, "objects", "info", "alternates"))
 		require.NoError(t, err)
 
-		LogRepositoryInfo(ctx, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
+		LogRepositoryInfo(ctx, logger, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
 			RelativePath: targetRepoName,
 		}))
@@ -152,14 +151,13 @@ func TestLogObjectInfo(t *testing.T) {
 
 		logger := testhelper.NewLogger(t)
 		hook := testhelper.AddLoggerHook(logger)
-		ctx := logger.ToContext(ctx)
 
 		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-		LogRepositoryInfo(ctx, localrepo.NewTestRepo(t, cfg, repo))
+		LogRepositoryInfo(ctx, logger, localrepo.NewTestRepo(t, cfg, repo))
 
 		objectsInfo := requireRepositoryInfo(hook.AllEntries())
 		require.Equal(t, RepositoryInfo{
