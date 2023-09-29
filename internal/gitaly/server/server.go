@@ -6,7 +6,6 @@ import (
 	"time"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
@@ -21,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/statushandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/fieldextractors"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
@@ -59,10 +57,6 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	var cfg serverConfig
 	for _, opt := range opts {
 		opt(&cfg)
-	}
-
-	ctxTagOpts := []grpcmwtags.Option{
-		grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
 
 	transportCredentials := insecure.NewCredentials()
@@ -106,7 +100,6 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	)
 
 	streamServerInterceptors := []grpc.StreamServerInterceptor{
-		grpcmwtags.StreamServerInterceptor(ctxTagOpts...),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 		requestinfohandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
@@ -122,7 +115,6 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 		auth.StreamServerInterceptor(s.cfg.Auth),
 	}
 	unaryServerInterceptors := []grpc.UnaryServerInterceptor{
-		grpcmwtags.UnaryServerInterceptor(ctxTagOpts...),
 		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 		requestinfohandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
