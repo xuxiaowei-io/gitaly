@@ -31,6 +31,35 @@ func fixedLockKey(ctx context.Context) string {
 	return "fixed-id"
 }
 
+func TestWithConcurrencyLimiters(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.Cfg{
+		Concurrency: []config.Concurrency{
+			{
+				RPC:        "/grpc.testing.TestService/UnaryCall",
+				MaxPerRepo: 1,
+			},
+			{
+				RPC:        "/grpc.testing.TestService/FullDuplexCall",
+				MaxPerRepo: 99,
+			},
+		},
+	}
+	limits, _ := limithandler.WithConcurrencyLimiters(cfg)
+	require.Equal(t, 2, len(limits))
+
+	limit := limits["/grpc.testing.TestService/UnaryCall"]
+	require.Equal(t, "perRPC/grpc.testing.TestService/UnaryCall", limit.Name())
+	require.Equal(t, limiter.AdaptiveSetting{Initial: 1}, limit.Setting())
+	require.Equal(t, 1, limit.Current())
+
+	limit = limits["/grpc.testing.TestService/FullDuplexCall"]
+	require.Equal(t, "perRPC/grpc.testing.TestService/FullDuplexCall", limit.Name())
+	require.Equal(t, limiter.AdaptiveSetting{Initial: 99}, limit.Setting())
+	require.Equal(t, 99, limit.Current())
+}
+
 func TestUnaryLimitHandler(t *testing.T) {
 	t.Parallel()
 
@@ -47,7 +76,8 @@ func TestUnaryLimitHandler(t *testing.T) {
 		},
 	}
 
-	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
+	_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+	lh := limithandler.New(cfg, fixedLockKey, setupPerRPCConcurrencyLimiters)
 	interceptor := lh.UnaryInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 	defer srv.Stop()
@@ -101,7 +131,7 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	t.Run("simple timeout", func(t *testing.T) {
-		lh := limithandler.New(config.Cfg{
+		cfg := config.Cfg{
 			Concurrency: []config.Concurrency{
 				{
 					RPC:          "/grpc.testing.TestService/UnaryCall",
@@ -123,7 +153,9 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 					MaxQueueWait: duration.Duration(100 * time.Millisecond),
 				},
 			},
-		}, fixedLockKey, limithandler.WithConcurrencyLimiters)
+		}
+		_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+		lh := limithandler.New(cfg, fixedLockKey, setupPerRPCConcurrencyLimiters)
 
 		s := &queueTestServer{
 			server: server{
@@ -173,7 +205,7 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 	})
 
 	t.Run("unlimited queueing", func(t *testing.T) {
-		lh := limithandler.New(config.Cfg{
+		cfg := config.Cfg{
 			Concurrency: []config.Concurrency{
 				// Due to a bug queueing wait times used to leak into subsequent
 				// concurrency configuration in case they didn't explicitly set up
@@ -191,7 +223,9 @@ func TestUnaryLimitHandler_queueing(t *testing.T) {
 					MaxPerRepo: 1,
 				},
 			},
-		}, fixedLockKey, limithandler.WithConcurrencyLimiters)
+		}
+		_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+		lh := limithandler.New(cfg, fixedLockKey, setupPerRPCConcurrencyLimiters)
 
 		s := &queueTestServer{
 			server: server{
@@ -456,7 +490,8 @@ func TestStreamLimitHandler(t *testing.T) {
 				},
 			}
 
-			lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
+			_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+			lh := limithandler.New(cfg, fixedLockKey, setupPerRPCConcurrencyLimiters)
 			interceptor := lh.StreamInterceptor()
 			srv, serverSocketPath := runServer(t, s, grpc.StreamInterceptor(interceptor))
 			defer srv.Stop()
@@ -506,7 +541,8 @@ func TestStreamLimitHandler_error(t *testing.T) {
 		},
 	}
 
-	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
+	_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+	lh := limithandler.New(cfg, fixedLockKey, setupPerRPCConcurrencyLimiters)
 	interceptor := lh.StreamInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.StreamInterceptor(interceptor))
 	defer srv.Stop()
@@ -626,7 +662,8 @@ func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 		},
 	}
 
-	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
+	_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+	lh := limithandler.New(cfg, fixedLockKey, setupPerRPCConcurrencyLimiters)
 	interceptor := lh.UnaryInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 	defer srv.Stop()

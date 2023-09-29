@@ -298,12 +298,13 @@ func run(cfg config.Cfg, logger log.Logger) error {
 
 	adaptiveLimits := []limiter.AdaptiveLimiter{}
 
-	concurrencyLimitHandler := limithandler.New(
+	_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+	perRPCLimitHandler := limithandler.New(
 		cfg,
 		limithandler.LimitConcurrencyByRepo,
-		limithandler.WithConcurrencyLimiters,
+		setupPerRPCConcurrencyLimiters,
 	)
-	prometheus.MustRegister(concurrencyLimitHandler)
+	prometheus.MustRegister(perRPCLimitHandler)
 
 	rateLimitHandler := limithandler.New(
 		cfg,
@@ -363,7 +364,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		logger,
 		registry,
 		diskCache,
-		[]*limithandler.LimiterMiddleware{concurrencyLimitHandler, rateLimitHandler},
+		[]*limithandler.LimiterMiddleware{perRPCLimitHandler, rateLimitHandler},
 	)
 	defer gitalyServerFactory.Stop()
 

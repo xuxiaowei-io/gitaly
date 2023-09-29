@@ -1808,6 +1808,50 @@ func TestPackObjectsLimiting_Validate(t *testing.T) {
 	)
 }
 
+func TestConcurrency_Validate(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, Concurrency{MaxPerRepo: 0}.Validate())
+	require.NoError(t, Concurrency{MaxPerRepo: 1}.Validate())
+	require.NoError(t, Concurrency{MaxPerRepo: 100}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1 is not greater than or equal to 0", cfgerror.ErrNotInRange),
+				"max_per_repo",
+			),
+		},
+		Concurrency{MaxPerRepo: -1}.Validate(),
+	)
+
+	require.NoError(t, Concurrency{MaxQueueSize: 0}.Validate())
+	require.NoError(t, Concurrency{MaxQueueSize: 1}.Validate())
+	require.NoError(t, Concurrency{MaxQueueSize: 100}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1 is not greater than or equal to 0", cfgerror.ErrNotInRange),
+				"max_queue_size",
+			),
+		},
+		Concurrency{MaxQueueSize: -1}.Validate(),
+	)
+
+	require.NoError(t, Concurrency{MaxQueueWait: duration.Duration(1)}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1m0s is not greater than or equal to 0s", cfgerror.ErrNotInRange),
+				"max_queue_wait",
+			),
+		},
+		Concurrency{MaxQueueWait: duration.Duration(-time.Minute)}.Validate(),
+	)
+}
+
 func TestStorage_Validate(t *testing.T) {
 	t.Parallel()
 
