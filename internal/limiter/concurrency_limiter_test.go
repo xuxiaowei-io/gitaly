@@ -954,7 +954,15 @@ func TestLimitConcurrency_queueWaitTimeRealTimeout(t *testing.T) {
 	limiter := NewConcurrencyLimiter(
 		NewAdaptiveLimit("staticLimit", AdaptiveSetting{Initial: 1}),
 		0,
-		1*time.Millisecond,
+		// This test setups two requests:
+		// - The first one is eligible. It enters the handler and blocks the queue.
+		// - The second request is blocked until timeout.
+		// Both of them share this timeout. Internally, the limiter creates a context
+		// deadline to reject timed-out requests. If it's set too low, there's a tiny
+		// possibility that the context reaches the deadline when the limiter checks the
+		// request. Thus, setting a reasonable timeout here and adding some retry
+		// attempts below make the test stable.
+		100*time.Millisecond,
 		&counter{},
 	)
 
@@ -965,12 +973,19 @@ func TestLimitConcurrency_queueWaitTimeRealTimeout(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
-			close(waitAcquire)
-			<-release
-			return nil, nil
-		})
-		require.NoError(t, err)
+		// Retry a couple of time, just in case the test runs on a very slow machine that invalidates
+		// the test. If the limiter still cannot permit the request after 3 times, something must go
+		// wrong horribly.
+		for i := 0; i < 3; i++ {
+			if _, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+				close(waitAcquire)
+				<-release
+				return nil, nil
+			}); err == nil {
+				return
+			}
+		}
+		require.FailNow(t, "the first request is supposed to enter the test server's handler")
 	}()
 
 	<-waitAcquire
