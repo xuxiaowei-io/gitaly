@@ -157,7 +157,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 
 	txMgr := transactions.NewManager(conf)
 
-	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, protoregistry.GitalyProtoPreregistered)
+	coordinator := NewCoordinator(logger, queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, protoregistry.GitalyProtoPreregistered)
 
 	srv := NewGRPCServer(&Dependencies{
 		Config:      conf,

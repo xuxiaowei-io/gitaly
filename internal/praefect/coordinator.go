@@ -186,6 +186,7 @@ type grpcCall struct {
 // downstream server. The coordinator is thread safe; concurrent calls to
 // register nodes are safe.
 type Coordinator struct {
+	logger                   log.Logger
 	router                   Router
 	txMgr                    *transactions.Manager
 	queue                    datastore.ReplicationEventQueue
@@ -198,6 +199,7 @@ type Coordinator struct {
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
 func NewCoordinator(
+	logger log.Logger,
 	queue datastore.ReplicationEventQueue,
 	rs datastore.RepositoryStore,
 	router Router,
@@ -213,6 +215,7 @@ func NewCoordinator(
 	}
 
 	coordinator := &Coordinator{
+		logger:   logger,
 		queue:    queue,
 		rs:       rs,
 		registry: r,
@@ -490,15 +493,15 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 					defer nodeErrors.Unlock()
 					nodeErrors.errByNode[secondary.Storage] = err
 
-					log.FromContext(ctx).WithError(err).
-						Error("proxying to secondary failed")
+					c.logger.WithError(err).
+						ErrorContext(ctx, "proxying to secondary failed")
 
 					// Cancels failed node's voter in its current subtransaction.
 					// Also updates internal state of subtransaction to fail and
 					// release blocked voters if quorum becomes impossible.
 					if err := c.txMgr.CancelTransactionNodeVoter(transaction.ID(), secondary.Storage); err != nil {
-						log.FromContext(ctx).WithError(err).
-							Error("canceling secondary voter failed")
+						c.logger.WithError(err).
+							ErrorContext(ctx, "canceling secondary voter failed")
 					}
 
 					// The error is ignored, so we do not abort transactions
@@ -543,9 +546,9 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 				continue
 			}
 
-			log.FromContext(ctx).
+			c.logger.
 				WithError(err).
-				Error("coordinator proxy stream finalizer failure")
+				ErrorContext(ctx, "coordinator proxy stream finalizer failure")
 		}
 		return firstErr
 	}
@@ -588,7 +591,7 @@ func (c *Coordinator) maintenanceStreamParameters(ctx context.Context, call grpc
 				defer nodeErrors.Unlock()
 				nodeErrors.errByNode[node.Storage] = err
 
-				log.FromContext(ctx).WithField("gitaly_storage", node.Storage).WithError(err).Error("proxying maintenance RPC to node failed")
+				c.logger.WithField("gitaly_storage", node.Storage).WithError(err).ErrorContext(ctx, "proxying maintenance RPC to node failed")
 
 				// We ignore any errors returned by nodes such that they all have a
 				// chance to finish their maintenance RPC in a best-effort strategy.
@@ -665,7 +668,7 @@ func streamParametersContext(ctx context.Context) context.Context {
 func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
-	log.FromContext(ctx).WithField("method", fullMethodName).Debug("Stream director received method")
+	c.logger.WithField("method", fullMethodName).DebugContext(ctx, "Stream director received method")
 
 	mi, err := c.registry.LookupMethod(fullMethodName)
 	if err != nil {
@@ -887,7 +890,7 @@ func (c *Coordinator) createTransactionFinalizer(
 ) func() error {
 	return func() error {
 		primaryDirtied, updated, outdated := getUpdatedAndOutdatedSecondaries(
-			ctx, route, transaction, nodeErrors, c.txReplicationCountMetric)
+			ctx, c.logger, route, transaction, nodeErrors, c.txReplicationCountMetric)
 		if !primaryDirtied {
 			// If the primary replica was not modified then we don't need to consider the secondaries
 			// outdated. Praefect requires the primary to be always part of the quorum, so no changes
@@ -921,6 +924,7 @@ func (c *Coordinator) createTransactionFinalizer(
 // replication jobs to repair state.
 func getUpdatedAndOutdatedSecondaries(
 	ctx context.Context,
+	logger log.Logger,
 	route RepositoryMutatorRoute,
 	transaction transactions.Transaction,
 	nodeErrors *nodeErrors,
@@ -950,10 +954,10 @@ func getUpdatedAndOutdatedSecondaries(
 
 	nodesByState := make(map[string][]string)
 	defer func() {
-		log.FromContext(ctx).
+		logger.
 			WithField("transaction.primary", route.Primary.Storage).
 			WithField("transaction.secondaries", nodesByState).
-			Info("transactional node states")
+			InfoContext(ctx, "transactional node states")
 
 		for reason, nodes := range nodesByState {
 			replicationCountMetric.WithLabelValues(reason).Add(float64(len(nodes)))
@@ -1069,7 +1073,7 @@ func (c *Coordinator) newRequestFinalizer(
 		ctx, cancel := context.WithTimeout(helper.SuppressCancellation(originalCtx), 30*time.Second)
 		defer cancel()
 
-		logEntry := log.FromContext(ctx).WithFields(log.Fields{
+		logEntry := c.logger.WithFields(log.Fields{
 			"replication.cause":   cause,
 			"replication.change":  change,
 			"replication.primary": primary,
@@ -1080,7 +1084,7 @@ func (c *Coordinator) newRequestFinalizer(
 		if len(outdatedSecondaries) > 0 {
 			logEntry = logEntry.WithField("replication.outdated", outdatedSecondaries)
 		}
-		logEntry.Info("queueing replication jobs")
+		logEntry.InfoContext(ctx, "queueing replication jobs")
 
 		switch change {
 		case datastore.UpdateRepo:
@@ -1099,7 +1103,7 @@ func (c *Coordinator) newRequestFinalizer(
 					return fmt.Errorf("rename repository: %w", err)
 				}
 
-				log.FromContext(ctx).WithError(err).Info("renamed repository does not have a store entry")
+				c.logger.WithError(err).InfoContext(ctx, "renamed repository does not have a store entry")
 			}
 		case datastore.CreateRepo:
 			repositorySpecificPrimariesEnabled := c.conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository
@@ -1146,7 +1150,7 @@ func (c *Coordinator) newRequestFinalizer(
 			g.Go(func() error {
 				if _, err := c.queue.Enqueue(ctx, event); err != nil {
 					if errors.As(err, &datastore.ReplicationEventExistsError{}) {
-						log.FromContext(ctx).WithError(err).Info("replication event queue already has similar entry")
+						c.logger.WithError(err).InfoContext(ctx, "replication event queue already has similar entry")
 						return nil
 					}
 

@@ -368,6 +368,7 @@ func server(
 	var (
 		// top level server dependencies
 		coordinator = praefect.NewCoordinator(
+			logger,
 			queue,
 			rs,
 			router,

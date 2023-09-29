@@ -175,6 +175,8 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				},
 			}
 
+			logger := testhelper.NewLogger(t)
+
 			var replicationWaitGroup sync.WaitGroup
 			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
@@ -220,12 +222,13 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				testhelper.SharedLogger(t),
+				logger,
 			)
 			require.NoError(t, err)
 			defer nodeSet.Close()
 
 			coordinator := NewCoordinator(
+				logger,
 				queueInterceptor,
 				rs,
 				NewPerRepositoryRouter(

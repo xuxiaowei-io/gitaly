@@ -222,6 +222,7 @@ func RunPraefectServer(
 	}
 
 	coordinator := NewCoordinator(
+		opt.WithLogger,
 		opt.WithQueue,
 		opt.WithRepoStore,
 		opt.WithRouter,

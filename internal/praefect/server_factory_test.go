@@ -89,6 +89,7 @@ func TestServerFactory(t *testing.T) {
 	router := NewNodeManagerRouter(nodeMgr, rs)
 
 	coordinator := NewCoordinator(
+		logger,
 		queue,
 		rs,
 		router,
