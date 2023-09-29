@@ -17,11 +17,17 @@ var ErrNoPrimary = errors.New("no primary")
 // PerRepositoryElector implements an elector that selects a primary for each repository.
 // It elects a healthy node with most recent generation as the primary. If all nodes are
 // on the same generation, it picks one randomly to balance repositories in simple fashion.
-type PerRepositoryElector struct{ db glsql.Querier }
+type PerRepositoryElector struct {
+	logger log.Logger
+	db     glsql.Querier
+}
 
 // NewPerRepositoryElector returns a new per repository primary elector.
-func NewPerRepositoryElector(db glsql.Querier) *PerRepositoryElector {
-	return &PerRepositoryElector{db: db}
+func NewPerRepositoryElector(logger log.Logger, db glsql.Querier) *PerRepositoryElector {
+	return &PerRepositoryElector{
+		logger: logger,
+		db:     db,
+	}
 }
 
 // GetPrimary returns the primary storage of a repository. If the current primary is invalid, a new primary
@@ -109,11 +115,11 @@ WHERE snapshot.repository_id = $1
 	}
 
 	if current != previous {
-		log.FromContext(ctx).WithFields(log.Fields{
+		pr.logger.WithFields(log.Fields{
 			"repository_id":    repositoryID,
 			"current_primary":  current.String,
 			"previous_primary": previous.String,
-		}).Info("primary node changed")
+		}).InfoContext(ctx, "primary node changed")
 	}
 
 	if !current.Valid {

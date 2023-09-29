@@ -58,7 +58,9 @@ func TestGetObjectPoolHandler(t *testing.T) {
 			},
 		}
 
-		nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, nil, nil, nil, nil, testhelper.SharedLogger(t))
+		logger := testhelper.NewLogger(t)
+
+		nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, nil, nil, nil, nil, logger)
 		require.NoError(t, err)
 		t.Cleanup(nodeSet.Close)
 
@@ -72,14 +74,14 @@ func TestGetObjectPoolHandler(t *testing.T) {
 
 		srv := NewGRPCServer(&Dependencies{
 			Config: config.Config{Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository}},
-			Logger: testhelper.SharedLogger(t),
+			Logger: logger,
 			Director: func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 				return nil, errServedByGitaly
 			},
 			RepositoryStore: repoStore,
 			Router: NewPerRepositoryRouter(
 				nodeSet.Connections(),
-				nodes.NewPerRepositoryElector(db),
+				nodes.NewPerRepositoryElector(logger, db),
 				StaticHealthChecker(cfg.StorageNames()),
 				NewLockedRandom(rand.New(rand.NewSource(0))),
 				repoStore,

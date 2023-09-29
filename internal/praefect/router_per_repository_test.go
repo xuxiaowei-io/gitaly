@@ -224,7 +224,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 
 			router := NewPerRepositoryRouter(
 				conns,
-				nodes.NewPerRepositoryElector(tx),
+				nodes.NewPerRepositoryElector(testhelper.NewLogger(t), tx),
 				tc.healthyNodes,
 				mockRandom{
 					intnFunc: func(n int) int {
@@ -406,7 +406,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 
 			router := NewPerRepositoryRouter(
 				conns,
-				nodes.NewPerRepositoryElector(tx),
+				nodes.NewPerRepositoryElector(testhelper.NewLogger(t), tx),
 				tc.healthyNodes,
 				nil,
 				rs,

@@ -233,7 +233,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				rs,
 				NewPerRepositoryRouter(
 					nodeSet.Connections(),
-					nodes.NewPerRepositoryElector(tx),
+					nodes.NewPerRepositoryElector(logger, tx),
 					StaticHealthChecker(conf.StorageNames()),
 					NewLockedRandom(rand.New(rand.NewSource(0))),
 					rs,

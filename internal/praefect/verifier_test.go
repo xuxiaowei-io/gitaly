@@ -518,7 +518,7 @@ func TestVerifier(t *testing.T) {
 			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
 				"praefect-0": conf.StorageNames(),
 			})
-			elector := nodes.NewPerRepositoryElector(tx)
+			elector := nodes.NewPerRepositoryElector(logger, tx)
 			conns := nodeSet.Connections()
 			rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 

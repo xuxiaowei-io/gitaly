@@ -617,7 +617,7 @@ func TestRenameRepository(t *testing.T) {
 	)
 
 	ctx := testhelper.Context(t)
-	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, clientHandshaker, nil, testhelper.SharedLogger(t))
+	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, clientHandshaker, nil, logger)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -626,7 +626,7 @@ func TestRenameRepository(t *testing.T) {
 		WithRepoStore: rs,
 		WithRouter: NewPerRepositoryRouter(
 			nodeSet.Connections(),
-			nodes.NewPerRepositoryElector(db),
+			nodes.NewPerRepositoryElector(logger, db),
 			StaticHealthChecker(praefectCfg.StorageNames()),
 			NewLockedRandom(rand.New(rand.NewSource(0))),
 			rs,

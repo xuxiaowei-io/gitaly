@@ -371,6 +371,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			defer tx.Rollback(t)
 
 			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+			logger := testhelper.NewLogger(t)
 
 			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
 			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
@@ -380,12 +381,12 @@ func TestStreamDirectorMutator(t *testing.T) {
 			})
 
 			coordinator := NewCoordinator(
-				testhelper.NewLogger(t),
+				logger,
 				queueInterceptor,
 				rs,
 				NewPerRepositoryRouter(
 					nodeSet.Connections(),
-					nodes.NewPerRepositoryElector(tx),
+					nodes.NewPerRepositoryElector(logger, tx),
 					StaticHealthChecker(conf.StorageNames()),
 					NewLockedRandom(rand.New(rand.NewSource(0))),
 					rs,
@@ -764,6 +765,7 @@ func TestStreamDirector_maintenance(t *testing.T) {
 	}
 
 	db := testdb.New(t)
+	logger := testhelper.NewLogger(t)
 
 	repo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -772,7 +774,7 @@ func TestStreamDirector_maintenance(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil, testhelper.SharedLogger(t))
+	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil, logger)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -788,12 +790,12 @@ func TestStreamDirector_maintenance(t *testing.T) {
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 
 	coordinator := NewCoordinator(
-		testhelper.NewLogger(t),
+		logger,
 		queueInterceptor,
 		rs,
 		NewPerRepositoryRouter(
 			nodeSet.Connections(),
-			nodes.NewPerRepositoryElector(tx),
+			nodes.NewPerRepositoryElector(logger, tx),
 			StaticHealthChecker(cfg.StorageNames()),
 			NewLockedRandom(rand.New(rand.NewSource(0))),
 			rs,
