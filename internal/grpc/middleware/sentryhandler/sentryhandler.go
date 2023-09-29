@@ -37,26 +37,64 @@ var (
 	}
 )
 
-// UnaryLogHandler handles access times and errors for unary RPC's
-func UnaryLogHandler(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	start := time.Now()
-	resp, err := handler(ctx, req)
-	if err != nil {
-		logGrpcErrorToSentry(ctx, info.FullMethod, start, err)
-	}
+// Option is an option that can be passed to UnaryLogHandler or StreamLogHandler in order to modify their default
+// behaviour.
+type Option func(cfg *config)
 
-	return resp, err
+// WithEventReporter overrides the function that is used to report events to Sentry. The only intended purpose of this
+// function is to override this function during tests.
+func WithEventReporter(reporter func(*sentry.Event) *sentry.EventID) Option {
+	return func(cfg *config) {
+		cfg.eventReporter = reporter
+	}
 }
 
-// StreamLogHandler handles access times and errors for stream RPC's
-func StreamLogHandler(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	start := time.Now()
-	err := handler(srv, stream)
-	if err != nil {
-		logGrpcErrorToSentry(stream.Context(), info.FullMethod, start, err)
+type config struct {
+	eventReporter func(*sentry.Event) *sentry.EventID
+}
+
+func configFromOptions(opts ...Option) config {
+	cfg := config{
+		eventReporter: sentry.CaptureEvent,
 	}
 
-	return err
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	return cfg
+}
+
+// UnaryLogHandler handles access times and errors for unary RPC's. Its default behaviour can be changed by passing
+// Options.
+func UnaryLogHandler(opts ...Option) grpc.UnaryServerInterceptor {
+	cfg := configFromOptions(opts...)
+
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		start := time.Now()
+		resp, err := handler(ctx, req)
+		if err != nil {
+			logGrpcErrorToSentry(ctx, info.FullMethod, start, err, cfg.eventReporter)
+		}
+
+		return resp, err
+	}
+}
+
+// StreamLogHandler handles access times and errors for stream RPC's. Its default behaviour can be changed by passing
+// options.
+func StreamLogHandler(opts ...Option) grpc.StreamServerInterceptor {
+	cfg := configFromOptions(opts...)
+
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		start := time.Now()
+		err := handler(srv, stream)
+		if err != nil {
+			logGrpcErrorToSentry(stream.Context(), info.FullMethod, start, err, cfg.eventReporter)
+		}
+
+		return err
+	}
 }
 
 func stringMap(incoming map[string]interface{}) map[string]string {
@@ -133,13 +171,13 @@ func generateSentryEvent(ctx context.Context, method string, duration time.Durat
 	return event
 }
 
-func logGrpcErrorToSentry(ctx context.Context, method string, start time.Time, err error) {
+func logGrpcErrorToSentry(ctx context.Context, method string, start time.Time, err error, reporter func(*sentry.Event) *sentry.EventID) {
 	event := generateSentryEvent(ctx, method, time.Since(start), err)
 	if event == nil {
 		return
 	}
 
-	sentry.CaptureEvent(event)
+	reporter(event)
 }
 
 var errorMsgPattern = regexp.MustCompile(`\A(\w+): (.+)\z`)

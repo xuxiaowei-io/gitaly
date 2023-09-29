@@ -76,7 +76,7 @@ func commonUnaryServerInterceptors(logger log.Logger, messageProducer grpcmwlogr
 			grpcmwlogrus.WithMessageProducer(messageProducer),
 			log.DeciderOption(),
 		),
-		sentryhandler.UnaryLogHandler,
+		sentryhandler.UnaryLogHandler(),
 		statushandler.Unary, // Should be below LogHandler
 		grpctracing.UnaryServerTracingInterceptor(),
 		// Panic handler should remain last so that application panics will be
@@ -146,7 +146,7 @@ func NewGRPCServer(
 			grpcmwlogrus.WithMessageProducer(logMsgProducer),
 			log.DeciderOption(),
 		),
-		sentryhandler.StreamLogHandler,
+		sentryhandler.StreamLogHandler(),
 		statushandler.Stream, // Should be below LogHandler
 		grpctracing.StreamServerTracingInterceptor(),
 		auth.StreamServerInterceptor(deps.Config.Auth),

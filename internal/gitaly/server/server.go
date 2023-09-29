@@ -117,7 +117,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 			gitalylog.DeciderOption(),
 		),
 		gitalylog.StreamLogDataCatcherServerInterceptor(),
-		sentryhandler.StreamLogHandler,
+		sentryhandler.StreamLogHandler(),
 		statushandler.Stream, // Should be below LogHandler
 		auth.StreamServerInterceptor(s.cfg.Auth),
 	}
@@ -133,7 +133,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 			gitalylog.DeciderOption(),
 		),
 		gitalylog.UnaryLogDataCatcherServerInterceptor(),
-		sentryhandler.UnaryLogHandler,
+		sentryhandler.UnaryLogHandler(),
 		statushandler.Unary, // Should be below LogHandler
 		auth.UnaryServerInterceptor(s.cfg.Auth),
 	}

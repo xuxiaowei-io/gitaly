@@ -63,7 +63,7 @@ func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector,
 			// context tags usage is required by sentryhandler.StreamLogHandler
 			grpcmwtags.StreamServerInterceptor(grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)),
 			// sentry middleware to capture errors
-			sentryhandler.StreamLogHandler,
+			sentryhandler.StreamLogHandler(),
 		),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
