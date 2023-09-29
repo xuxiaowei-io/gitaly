@@ -34,6 +34,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata: metadata.Pairs(),
 			deadline: false,
 			expectedInfo: requestInfo{
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -47,6 +48,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: false,
 			expectedInfo: requestInfo{
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        "testsite",
 				authVersion:     unknownValue,
@@ -60,6 +62,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: true,
 			expectedInfo: requestInfo{
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        "testsite",
 				authVersion:     unknownValue,
@@ -73,6 +76,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: true,
 			expectedInfo: requestInfo{
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -86,6 +90,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: false,
 			expectedInfo: requestInfo{
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -99,6 +104,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata: metadata.Pairs("deadline_type", "regular", "client_name", "rails"),
 			deadline: true,
 			expectedInfo: requestInfo{
+				methodType:      "unary",
 				clientName:      "rails",
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -114,6 +120,7 @@ func TestNewRequestInfo(t *testing.T) {
 			deadline:   false,
 			expectedInfo: requestInfo{
 				fullMethod:      "/gitaly.RepositoryService/UnknownMethod",
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -129,6 +136,7 @@ func TestNewRequestInfo(t *testing.T) {
 			deadline:   false,
 			expectedInfo: requestInfo{
 				fullMethod:      "/gitaly.RepositoryService/ObjectFormat",
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -144,6 +152,7 @@ func TestNewRequestInfo(t *testing.T) {
 			deadline:   false,
 			expectedInfo: requestInfo{
 				fullMethod:      "/gitaly.RepositoryService/CreateRepository",
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -159,6 +168,7 @@ func TestNewRequestInfo(t *testing.T) {
 			deadline:   false,
 			expectedInfo: requestInfo{
 				fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -174,6 +184,7 @@ func TestNewRequestInfo(t *testing.T) {
 			deadline:   false,
 			expectedInfo: requestInfo{
 				fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -189,6 +200,7 @@ func TestNewRequestInfo(t *testing.T) {
 			deadline:   false,
 			expectedInfo: requestInfo{
 				fullMethod:      "/gitaly.RemoteService/FindRemoteRepository",
+				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
 				authVersion:     unknownValue,
@@ -235,9 +247,12 @@ func TestGRPCTags(t *testing.T) {
 
 	_, err := interceptor(ctx, nil, nil, func(ctx context.Context, _ interface{}) (interface{}, error) {
 		info := newRequestInfo(ctx, "/gitaly.RepositoryService/OptimizeRepository", "unary")
+		info.injectTags(ctx)
 
 		require.Equal(t, requestInfo{
+			correlationID:   correlationID,
 			fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+			methodType:      "unary",
 			clientName:      clientName,
 			callSite:        "unknown",
 			authVersion:     "unknown",
@@ -247,12 +262,12 @@ func TestGRPCTags(t *testing.T) {
 		}, info)
 
 		require.Equal(t, map[string]interface{}{
-			"correlation_id":   correlationID,
-			ClientNameKey:      clientName,
-			DeadlineTypeKey:    "none",
-			MethodTypeKey:      "unary",
-			MethodOperationKey: "maintenance",
-			MethodScopeKey:     "repository",
+			"correlation_id":             correlationID,
+			"grpc.meta.client_name":      clientName,
+			"grpc.meta.deadline_type":    "none",
+			"grpc.meta.method_type":      "unary",
+			"grpc.meta.method_operation": "maintenance",
+			"grpc.meta.method_scope":     "repository",
 		}, grpcmwtags.Extract(ctx).Values())
 
 		return nil, nil

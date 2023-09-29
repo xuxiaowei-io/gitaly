@@ -35,45 +35,19 @@ var requests = promauto.NewCounterVec(
 )
 
 type requestInfo struct {
+	correlationID   string
 	fullMethod      string
+	methodType      string
 	clientName      string
+	remoteIP        string
+	userID          string
+	userName        string
 	callSite        string
 	authVersion     string
 	deadlineType    string
 	methodOperation string
 	methodScope     string
 }
-
-// CallSiteKey is the key used in ctx_tags to store the client feature
-const CallSiteKey = "grpc.meta.call_site"
-
-// ClientNameKey is the key used in ctx_tags to store the client name
-const ClientNameKey = "grpc.meta.client_name"
-
-// AuthVersionKey is the key used in ctx_tags to store the auth version
-const AuthVersionKey = "grpc.meta.auth_version"
-
-// DeadlineTypeKey is the key used in ctx_tags to store the deadline type
-const DeadlineTypeKey = "grpc.meta.deadline_type"
-
-// MethodTypeKey is one of "unary", "client_stream", "server_stream", "bidi_stream"
-const MethodTypeKey = "grpc.meta.method_type"
-
-// MethodOperationKey is one of "mutator", "accessor" or "maintenance" and corresponds to the `MethodOptions`
-// extension.
-const MethodOperationKey = "grpc.meta.method_operation"
-
-// MethodScopeKey is one of "repository" or "storage" and corresponds to the `MethodOptions` extension.
-const MethodScopeKey = "grpc.meta.method_scope"
-
-// RemoteIPKey is the key used in ctx_tags to store the remote_ip
-const RemoteIPKey = "remote_ip"
-
-// UserIDKey is the key used in ctx_tags to store the user_id
-const UserIDKey = "user_id"
-
-// UsernameKey is the key used in ctx_tags to store the username
-const UsernameKey = "username"
 
 // Unknown client and feature. Matches the prometheus grpc unknown value
 const unknownValue = "unknown"
@@ -93,6 +67,7 @@ func getFromMD(md metadata.MD, header string) string {
 func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) requestInfo {
 	info := requestInfo{
 		fullMethod:      fullMethod,
+		methodType:      grpcMethodType,
 		clientName:      unknownValue,
 		callSite:        unknownValue,
 		authVersion:     unknownValue,
@@ -105,8 +80,6 @@ func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) requ
 	if !ok {
 		return info
 	}
-
-	tags := grpcmwtags.Extract(ctx)
 
 	if methodInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod(fullMethod); err == nil {
 		var operation string
@@ -122,7 +95,6 @@ func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) requ
 		}
 
 		info.methodOperation = operation
-		tags.Set(MethodOperationKey, operation)
 
 		var scope string
 		switch methodInfo.Scope {
@@ -135,67 +107,70 @@ func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) requ
 		}
 
 		info.methodScope = scope
-		tags.Set(MethodScopeKey, scope)
 	}
 
-	metadata := getFromMD(md, "call_site")
-	if metadata != "" {
-		info.callSite = metadata
-		tags.Set(CallSiteKey, metadata)
+	if callSite := getFromMD(md, "call_site"); callSite != "" {
+		info.callSite = callSite
 	}
 
-	metadata = getFromMD(md, "deadline_type")
-	_, deadlineSet := ctx.Deadline()
-	if !deadlineSet {
+	if _, deadlineSet := ctx.Deadline(); !deadlineSet {
 		info.deadlineType = "none"
-	} else if metadata != "" {
-		info.deadlineType = metadata
+	} else if deadlineType := getFromMD(md, "deadline_type"); deadlineType != "" {
+		info.deadlineType = deadlineType
 	}
 
-	clientName := correlation.ExtractClientNameFromContext(ctx)
-	if clientName != "" {
+	if clientName := correlation.ExtractClientNameFromContext(ctx); clientName != "" {
 		info.clientName = clientName
-		tags.Set(ClientNameKey, clientName)
-	} else {
-		metadata = getFromMD(md, "client_name")
-		if metadata != "" {
-			info.clientName = metadata
-			tags.Set(ClientNameKey, metadata)
-		}
+	} else if clientName := getFromMD(md, "client_name"); clientName != "" {
+		info.clientName = clientName
 	}
 
-	// Set the deadline and method types in the logs
-	tags.Set(DeadlineTypeKey, info.deadlineType)
-	tags.Set(MethodTypeKey, grpcMethodType)
-
-	authInfo, _ := gitalyauth.ExtractAuthInfo(ctx)
-	if authInfo != nil {
+	if authInfo, _ := gitalyauth.ExtractAuthInfo(ctx); authInfo != nil {
 		info.authVersion = authInfo.Version
-		tags.Set(AuthVersionKey, authInfo.Version)
 	}
 
-	metadata = getFromMD(md, "remote_ip")
-	if metadata != "" {
-		tags.Set(RemoteIPKey, metadata)
+	if remoteIP := getFromMD(md, "remote_ip"); remoteIP != "" {
+		info.remoteIP = remoteIP
 	}
 
-	metadata = getFromMD(md, "user_id")
-	if metadata != "" {
-		tags.Set(UserIDKey, metadata)
+	if userID := getFromMD(md, "user_id"); userID != "" {
+		info.userID = userID
 	}
 
-	metadata = getFromMD(md, "username")
-	if metadata != "" {
-		tags.Set(UsernameKey, metadata)
+	if userName := getFromMD(md, "username"); userName != "" {
+		info.userName = userName
 	}
 
 	// This is a stop-gap approach to logging correlation_ids
-	correlationID := correlation.ExtractFromContext(ctx)
-	if correlationID != "" {
-		tags.Set(correlation.FieldName, correlationID)
+	if correlationID := correlation.ExtractFromContext(ctx); correlationID != "" {
+		info.correlationID = correlationID
 	}
 
 	return info
+}
+
+func (i requestInfo) injectTags(ctx context.Context) {
+	tags := grpcmwtags.Extract(ctx)
+
+	for key, value := range map[string]string{
+		"grpc.meta.call_site":        i.callSite,
+		"grpc.meta.client_name":      i.clientName,
+		"grpc.meta.auth_version":     i.authVersion,
+		"grpc.meta.deadline_type":    i.deadlineType,
+		"grpc.meta.method_type":      i.methodType,
+		"grpc.meta.method_operation": i.methodOperation,
+		"grpc.meta.method_scope":     i.methodScope,
+		"remote_ip":                  i.remoteIP,
+		"user_id":                    i.userID,
+		"username":                   i.userName,
+		"correlation_id":             i.correlationID,
+	} {
+		if value == "" || value == unknownValue {
+			continue
+		}
+
+		tags.Set(key, value)
+	}
 }
 
 func (i requestInfo) reportPrometheusMetrics(err error) {
@@ -229,8 +204,8 @@ func extractServiceAndMethodName(fullMethodName string) (string, string) {
 func UnaryInterceptor(ctx context.Context, req interface{}, serverInfo *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	info := newRequestInfo(ctx, serverInfo.FullMethod, "unary")
 
+	info.injectTags(ctx)
 	res, err := handler(ctx, req)
-
 	info.reportPrometheusMetrics(err)
 
 	return res, err
@@ -241,8 +216,8 @@ func StreamInterceptor(srv interface{}, stream grpc.ServerStream, serverInfo *gr
 	ctx := stream.Context()
 	info := newRequestInfo(ctx, serverInfo.FullMethod, streamRPCType(serverInfo))
 
+	info.injectTags(ctx)
 	err := handler(srv, stream)
-
 	info.reportPrometheusMetrics(err)
 
 	return err
