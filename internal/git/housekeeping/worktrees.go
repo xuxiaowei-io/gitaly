@@ -18,7 +18,10 @@ import (
 )
 
 const (
-	worktreePrefix = "gitlab-worktree"
+	// WorktreesPrefix is a subdirectory in the repository where Gitaly creates worktrees.
+	WorktreesPrefix = "worktrees"
+	// GitlabWorktreePrefix is a subdirectory in the repository where Gitaly creates worktrees.
+	GitlabWorktreePrefix = "gitlab-worktree"
 )
 
 // CleanupWorktrees cleans up stale and disconnected worktrees for the given repository.
@@ -45,7 +48,7 @@ func cleanStaleWorktrees(ctx context.Context, repo *localrepo.Repo, threshold ti
 		return err
 	}
 
-	worktreePath := filepath.Join(repoPath, worktreePrefix)
+	worktreePath := filepath.Join(repoPath, GitlabWorktreePrefix)
 
 	dirInfo, err := os.Stat(worktreePath)
 	if err != nil {
@@ -135,7 +138,7 @@ func cleanDisconnectedWorktrees(ctx context.Context, repo *localrepo.Repo) error
 	// determining if there could possibly be any work to be done by git-worktree(1). We do so
 	// by reading the directory in which worktrees are stored, and if it's empty then we know
 	// that there aren't any worktrees in the first place.
-	worktreeEntries, err := os.ReadDir(filepath.Join(repoPath, "worktrees"))
+	worktreeEntries, err := os.ReadDir(filepath.Join(repoPath, WorktreesPrefix))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -30,9 +31,9 @@ func TestCreateBundle_successful(t *testing.T) {
 	// Create a work tree with a HEAD pointing to a commit that is missing. CreateBundle should
 	// clean this up before creating the bundle.
 	worktreeCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("worktree"), gittest.WithBranch("branch"))
-	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "gitlab-worktree"), perm.SharedDir))
-	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", worktreeCommit.String())
-	require.NoError(t, os.Chtimes(filepath.Join(repoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, housekeeping.GitlabWorktreePrefix), perm.SharedDir))
+	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", filepath.Join(housekeeping.GitlabWorktreePrefix, "worktree1"), worktreeCommit.String())
+	require.NoError(t, os.Chtimes(filepath.Join(repoPath, housekeeping.GitlabWorktreePrefix, "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "branch")
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "objects", worktreeCommit.String()[0:2], worktreeCommit.String()[2:])))
 

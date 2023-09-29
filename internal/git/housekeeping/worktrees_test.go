@@ -63,14 +63,14 @@ func TestRemoveWorktree(t *testing.T) {
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	existingWorktreePath := filepath.Join(repoPath, worktreePrefix, "existing")
+	existingWorktreePath := filepath.Join(repoPath, GitlabWorktreePrefix, "existing")
 	gittest.AddWorktree(t, cfg, repoPath, existingWorktreePath)
 
-	disconnectedWorktreePath := filepath.Join(repoPath, worktreePrefix, "disconnected")
+	disconnectedWorktreePath := filepath.Join(repoPath, GitlabWorktreePrefix, "disconnected")
 	gittest.AddWorktree(t, cfg, repoPath, disconnectedWorktreePath)
 	require.NoError(t, os.RemoveAll(disconnectedWorktreePath))
 
-	orphanedWorktreePath := filepath.Join(repoPath, worktreePrefix, "orphaned")
+	orphanedWorktreePath := filepath.Join(repoPath, GitlabWorktreePrefix, "orphaned")
 	require.NoError(t, os.MkdirAll(orphanedWorktreePath, perm.PublicDir))
 
 	for _, tc := range []struct {
@@ -100,7 +100,7 @@ func TestRemoveWorktree(t *testing.T) {
 		t.Run(tc.worktree, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 
-			worktreePath := filepath.Join(repoPath, worktreePrefix, tc.worktree)
+			worktreePath := filepath.Join(repoPath, GitlabWorktreePrefix, tc.worktree)
 
 			err := removeWorktree(ctx, repo, tc.worktree)
 			if tc.errorIs == nil {
