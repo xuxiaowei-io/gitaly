@@ -293,8 +293,6 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, s
 			return nil, fmt.Errorf("mkdir temp: %w", err)
 		}
 
-		mgr.stateLock.RLock()
-		defer mgr.stateLock.RUnlock()
 		if txn.snapshot, err = newSnapshot(ctx,
 			mgr.storagePath,
 			filepath.Join(txn.stagingDirectory, "snapshot"),
@@ -658,9 +656,6 @@ type TransactionManager struct {
 	// Run and Begin which are ran in different goroutines.
 	mutex sync.Mutex
 
-	// stateLock is used to synchronize snapshotting with reference verification as the verification
-	// process targets the main repository and creates locks in it.
-	stateLock sync.RWMutex
 	// snapshotLocks contains state used for synchronizing snapshotters with the log application.
 	snapshotLocks map[LSN]*snapshotLock
 
@@ -1521,7 +1516,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		) == -1
 	})
 
-	if err := mgr.verifyReferencesWithGit(ctx, referenceUpdates, transaction.stagingRepository); err != nil {
+	if err := mgr.verifyReferencesWithGit(ctx, referenceUpdates, transaction); err != nil {
 		return nil, fmt.Errorf("verify references with git: %w", err)
 	}
 
@@ -1532,17 +1527,23 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 // the updates will go through when they are being applied in the log. This also catches any invalid reference names
 // and file/directory conflicts with Git's loose reference storage which can occur with references like
 // 'refs/heads/parent' and 'refs/heads/parent/child'.
-func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, quarantinedRepo *localrepo.Repo) error {
-	// Prevent snapshots from being taken concurrently as the reference verification
-	// currently creates locks in the repository. We don't need to synchronnize snapshotting
-	// and reference verification once we are no longer verifying the references against
-	// the repository.
-	//
-	// Alternatively this could be removed by ignoring the lock files during snapshot creation.
-	mgr.stateLock.Lock()
-	defer mgr.stateLock.Unlock()
+func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, tx *Transaction) error {
+	relativePath := tx.stagingRepository.GetRelativePath()
+	snapshot, err := newSnapshot(ctx,
+		mgr.storagePath,
+		filepath.Join(tx.stagingDirectory, "staging"),
+		[]string{relativePath},
+	)
+	if err != nil {
+		return fmt.Errorf("new snapshot: %w", err)
+	}
 
-	updater, err := mgr.prepareReferenceTransaction(ctx, referenceUpdates, quarantinedRepo)
+	repo, err := mgr.repositoryFactory.Build(snapshot.relativePath(relativePath)).Quarantine(tx.quarantineDirectory)
+	if err != nil {
+		return fmt.Errorf("quarantine: %w", err)
+	}
+
+	updater, err := mgr.prepareReferenceTransaction(ctx, referenceUpdates, repo)
 	if err != nil {
 		return fmt.Errorf("prepare reference transaction: %w", err)
 	}
