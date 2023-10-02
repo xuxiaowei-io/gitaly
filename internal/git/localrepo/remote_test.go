@@ -172,6 +172,22 @@ func TestRepo_FetchRemote(t *testing.T) {
 		require.False(t, contains, "remote tracking branch should be pruned as it no longer exists on the remote")
 	})
 
+	t.Run("with dry-run", func(t *testing.T) {
+		repo, _ := initBareWithRemote(t, "origin")
+
+		var stderr bytes.Buffer
+		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{Stderr: &stderr, DryRun: true}))
+
+		require.Empty(t, stderr.String(), "it should not produce output as it is called with --quiet flag by default")
+
+		// Prior to the fetch, the repository did not contain any references. Consequently, we do
+		// not expect the repository to contain any references because the fetch performed was a
+		// dry-run.
+		refs, err := repo.GetReferences(ctx)
+		require.NoError(t, err)
+		require.Len(t, refs, 0)
+	})
+
 	t.Run("with no tags", func(t *testing.T) {
 		repo, testRepoPath := initBareWithRemote(t, "origin")
 

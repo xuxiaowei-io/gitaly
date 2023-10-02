@@ -50,6 +50,8 @@ type FetchOpts struct {
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---tags
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---no-tags
 	Tags FetchOptsTags
+	// DryRun, if enabled, performs the `git-fetch(1)` command without updating any references.
+	DryRun bool
 	// Stdout if set it would be used to redirect stdout stream into it.
 	Stdout io.Writer
 	// Stderr if set it would be used to redirect stderr stream into it.
@@ -199,6 +201,10 @@ func (opts FetchOpts) buildFlags() []git.Option {
 
 	if !opts.DisableTransactions {
 		flags = append(flags, git.Flag{Name: "--atomic"})
+	}
+
+	if opts.DryRun {
+		flags = append(flags, git.Flag{Name: "--dry-run"})
 	}
 
 	// Even if we ask Git to not print any output and to force-update branches it will still
