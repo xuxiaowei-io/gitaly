@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
@@ -49,8 +51,11 @@ manually using update-ref with the fetch being just a dry-run.
 Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicFetchRemote).Run(t, testFetchRemote)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchRemote(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	// Some of the tests require multiple calls to the clients each run struct
 	// encompasses the expected data for a single run
@@ -258,7 +263,14 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 							expectedRefs: map[string]git.ObjectID{
 								"refs/heads/branch/conflict": commitID,
 							},
-							expectedErr: structerr.NewInternal(`fetch remote: "error: cannot lock ref 'refs/heads/branch': 'refs/heads/branch/conflict' exists; cannot create 'refs/heads/branch'\nerror: some local refs could not be updated; try running\n 'git remote prune inmemory' to remove any old, conflicting branches\n": exit status 1`),
+							expectedErr: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								testhelper.WithInterceptedMetadataItems(
+									structerr.NewInternal("preparing reference update: file directory conflict"),
+									structerr.MetadataItem{Key: "conflicting_reference", Value: "refs/heads/branch"},
+									structerr.MetadataItem{Key: "existing_reference", Value: "refs/heads/branch/conflict"},
+								),
+								structerr.NewInternal(`fetch remote: "error: cannot lock ref 'refs/heads/branch': 'refs/heads/branch/conflict' exists; cannot create 'refs/heads/branch'\nerror: some local refs could not be updated; try running\n 'git remote prune inmemory' to remove any old, conflicting branches\n": exit status 1`),
+							),
 						},
 					},
 				}
@@ -316,7 +328,14 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 							expectedRefs: map[string]git.ObjectID{
 								"refs/heads/branch": commitID,
 							},
-							expectedErr: structerr.NewInternal(`fetch remote: "error: cannot lock ref 'refs/heads/branch/conflict': 'refs/heads/branch' exists; cannot create 'refs/heads/branch/conflict'\nerror: some local refs could not be updated; try running\n 'git remote prune inmemory' to remove any old, conflicting branches\n": exit status 1`),
+							expectedErr: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								testhelper.WithInterceptedMetadataItems(
+									structerr.NewInternal("preparing reference update: file directory conflict"),
+									structerr.MetadataItem{Key: "conflicting_reference", Value: "refs/heads/branch/conflict"},
+									structerr.MetadataItem{Key: "existing_reference", Value: "refs/heads/branch"},
+								),
+								structerr.NewInternal(`fetch remote: "error: cannot lock ref 'refs/heads/branch/conflict': 'refs/heads/branch' exists; cannot create 'refs/heads/branch/conflict'\nerror: some local refs could not be updated; try running\n 'git remote prune inmemory' to remove any old, conflicting branches\n": exit status 1`),
+							),
 						},
 					},
 				}
@@ -448,7 +467,7 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 			},
 		},
 		{
-			desc: "without force fails with diverging refs",
+			desc: "without force diverging refs not updated",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -469,7 +488,14 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 					runs: []run{
 						{
 							expectedRefs: map[string]git.ObjectID{"refs/heads/master": commitID},
-							expectedErr:  structerr.NewInternal("fetch remote: exit status 1"),
+							expectedResponse: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								&gitalypb.FetchRemoteResponse{TagsChanged: true},
+								nil,
+							),
+							expectedErr: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								nil,
+								error(structerr.NewInternal("fetch remote: exit status 1")),
+							),
 						},
 					},
 				}
@@ -532,7 +558,14 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 								"refs/heads/master": remoteCommitID,
 								"refs/tags/v1":      commitID,
 							},
-							expectedErr: structerr.NewInternal("fetch remote: exit status 1"),
+							expectedResponse: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								&gitalypb.FetchRemoteResponse{TagsChanged: true},
+								nil,
+							),
+							expectedErr: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								nil,
+								error(structerr.NewInternal("fetch remote: exit status 1")),
+							),
 						},
 					},
 				}
@@ -644,7 +677,14 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 								"refs/heads/main":   localDivergingID,
 								"refs/heads/branch": remoteUpdatedID,
 							},
-							expectedErr: structerr.NewInternal("fetch remote: exit status 1"),
+							expectedResponse: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								&gitalypb.FetchRemoteResponse{TagsChanged: true},
+								nil,
+							),
+							expectedErr: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								nil,
+								error(structerr.NewInternal("fetch remote: exit status 1")),
+							),
 						},
 					},
 				}
@@ -681,7 +721,14 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 								"refs/heads/main":  localDivergingID,
 								"refs/tags/v1.0.0": remoteTagID,
 							},
-							expectedErr: structerr.NewInternal("fetch remote: exit status 1"),
+							expectedResponse: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								&gitalypb.FetchRemoteResponse{TagsChanged: true},
+								nil,
+							),
+							expectedErr: testhelper.EnabledOrDisabledFlag(ctx, featureflag.AtomicFetchRemote,
+								nil,
+								error(structerr.NewInternal("fetch remote: exit status 1")),
+							),
 						},
 					},
 				}
@@ -939,8 +986,12 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3780`)
 
 func TestFetchRemote_sshCommand(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicFetchRemote).Run(t, testFetchRemoteSSHCommand)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchRemoteSSHCommand(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
@@ -1019,17 +1070,23 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 
 func TestFetchRemote_transaction(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicFetchRemote).Run(t, testFetchRemoteTransaction)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchRemoteTransaction(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	remoteCfg := testcfg.Build(t)
 	_, remoteRepoPath := gittest.CreateRepository(t, ctx, remoteCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
+	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("foobar"))
+
 	targetGitCmdFactory := gittest.NewCommandFactory(t, remoteCfg)
 	port := gittest.HTTPServer(t, ctx, targetGitCmdFactory, remoteRepoPath, nil)
 
 	cfg := testcfg.Build(t)
+	testcfg.BuildGitalyHooks(t, cfg)
 	txManager := transaction.NewTrackingManager()
 	client, addr := runRepositoryService(t, cfg, testserver.WithTransactionManager(txManager))
 	cfg.SocketPath = addr
@@ -1050,7 +1107,11 @@ func TestFetchRemote_transaction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, testhelper.GitalyOrPraefect(1, 3), len(txManager.Votes()))
+	if featureflag.AtomicFetchRemote.IsEnabled(ctx) {
+		require.Equal(t, testhelper.GitalyOrPraefect(2, 4), len(txManager.Votes()))
+	} else {
+		require.Equal(t, testhelper.GitalyOrPraefect(1, 3), len(txManager.Votes()))
+	}
 }
 
 func TestFetchRemote_pooledRepository(t *testing.T) {
@@ -1058,8 +1119,11 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 Object pools are not yet supported with transaction management.`)
 
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicFetchRemote).Run(t, testFetchRemotePooledRepository)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchRemotePooledRepository(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	// By default git-fetch(1) will always run with `core.alternateRefsCommand=exit 0 #`, which
 	// effectively disables use of alternate refs. We can't just unset this value, so instead we
