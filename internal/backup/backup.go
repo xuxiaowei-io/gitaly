@@ -268,14 +268,14 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 	var backup *Backup
 	if req.BackupID == "" {
 		backup, err = mgr.locator.FindLatest(ctx, req.VanityRepository)
-		if err != nil {
-			return fmt.Errorf("manager: %w", err)
-		}
 	} else {
 		backup, err = mgr.locator.Find(ctx, req.VanityRepository, req.BackupID)
-		if err != nil {
-			return fmt.Errorf("manager: %w", err)
-		}
+	}
+	switch {
+	case errors.Is(err, ErrDoesntExist):
+		return fmt.Errorf("manager: %w: %s", ErrSkipped, err.Error())
+	case err != nil:
+		return fmt.Errorf("manager: %w", err)
 	}
 
 	hash, err := git.ObjectHashByFormat(backup.ObjectFormat)
