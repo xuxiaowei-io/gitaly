@@ -206,7 +206,7 @@ type Transaction struct {
 
 	skipVerificationFailures bool
 	initialReferenceValues   map[git.ReferenceName]git.ObjectID
-	referenceUpdates         ReferenceUpdates
+	referenceUpdates         []ReferenceUpdates
 	defaultBranchUpdate      *DefaultBranchUpdate
 	customHooksUpdate        *CustomHooksUpdate
 	repositoryCreation       *repositoryCreation
@@ -445,29 +445,22 @@ func (txn *Transaction) SkipVerificationFailures() {
 	txn.skipVerificationFailures = true
 }
 
-// RecordInitialReferenceValues records the initial values of the reference if they haven't yet been recorded. If oid is
+// RecordInitialReferenceValues records the initial values of the references for the next UpdateReferences call. If oid is
 // not a zero OID, it's used as the initial value. If oid is a zero value, the reference's actual value is resolved.
 //
-// The reference's first recorded value is used as its old OID in the final committed update. RecordInitialReferenceValues
-// can be used to record the value without staging an update in the transaction. This is useful for example generally recording
-// the initial value in the 'prepare' phase of the reference transaction hook before any changes are made without staging
-// any updates before the 'committed' phase is reached.
+// The reference's first recorded value is used as its old OID in the update. RecordInitialReferenceValues can be used to
+// record the value without staging an update in the transaction. This is useful for example generally recording the initial
+// value in the 'prepare' phase of the reference transaction hook before any changes are made without staging any updates
+// before the 'committed' phase is reached. The recorded initial values are only used for the next UpdateReferences call.
 func (txn *Transaction) RecordInitialReferenceValues(ctx context.Context, initialValues map[git.ReferenceName]git.ObjectID) error {
-	if txn.initialReferenceValues == nil {
-		txn.initialReferenceValues = make(map[git.ReferenceName]git.ObjectID, len(initialValues))
+	txn.initialReferenceValues = make(map[git.ReferenceName]git.ObjectID, len(initialValues))
+
+	objectHash, err := txn.snapshotRepository.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("object hash: %w", err)
 	}
 
 	for reference, oid := range initialValues {
-		if _, ok := txn.initialReferenceValues[reference]; ok {
-			// If the reference's starting value has already been recorded, we don't have to record it again.
-			continue
-		}
-
-		objectHash, err := txn.snapshotRepository.ObjectHash(ctx)
-		if err != nil {
-			return fmt.Errorf("object hash: %w", err)
-		}
-
 		if objectHash.IsZeroOID(oid) {
 			// If this is a zero OID, resolve the value to see if this is a force update or the
 			// reference doesn't exist.
@@ -488,16 +481,21 @@ func (txn *Transaction) RecordInitialReferenceValues(ctx context.Context, initia
 	return nil
 }
 
-// UpdateReferences updates the given references as part of the transaction.
+// UpdateReferences updates the given references as part of the transaction. Each call is treated as
+// a different reference transaction. This is allows for performing directory-file conflict inducing
+// changes in a transaction. For example:
 //
-// If a reference is updated multiple times during a transaction, its first recorded old OID is kept
-// and the new OID is updated. This means updates like 'oid-1 -> oid-2 -> oid-3' will ultimately be
-// committed as 'oid-1 -> oid-3'. The intermediate states are not relevant when committing the write
-// to the actual repository.
+// - First call  - delete 'refs/heads/parent'
+// - Second call - create 'refs/heads/parent/child'
+//
+// If a reference is updated multiple times during a transaction, its first recorded old OID used as
+// the old OID when verifying the reference update, and the last recorded new OID is used as the new
+// OID in the final commit. This means updates like 'oid-1 -> oid-2 -> oid-3' will ultimately be
+// committed as 'oid-1 -> oid-3'. The old OIDs of the intermediate states are not verified when
+// committing the write to the actual repository and are discarded from the final committed log
+// entry.
 func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
-	if txn.referenceUpdates == nil {
-		txn.referenceUpdates = ReferenceUpdates{}
-	}
+	u := ReferenceUpdates{}
 
 	for reference, update := range updates {
 		oldOID := update.OldOID
@@ -505,15 +503,44 @@ func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
 			oldOID = initialValue
 		}
 
-		if previousUpdate, ok := txn.referenceUpdates[reference]; ok {
-			oldOID = previousUpdate.OldOID
+		for _, updates := range txn.referenceUpdates {
+			if update, ok := updates[reference]; ok {
+				oldOID = update.NewOID
+			}
 		}
 
-		txn.referenceUpdates[reference] = ReferenceUpdate{
+		u[reference] = ReferenceUpdate{
 			OldOID: oldOID,
 			NewOID: update.NewOID,
 		}
 	}
+
+	txn.initialReferenceValues = nil
+	txn.referenceUpdates = append(txn.referenceUpdates, u)
+}
+
+// flattenReferenceTransactions flattens the recorded reference transactions by dropping
+// all intermediate states. The returned ReferenceUpdates contains the reference changes
+// with the OldOID set to the reference's value at the beginning of the transaction, and the
+// NewOID set to the reference's final value after all of the changes.
+func (txn *Transaction) flattenReferenceTransactions() ReferenceUpdates {
+	flattenedUpdates := ReferenceUpdates{}
+	for _, updates := range txn.referenceUpdates {
+		for reference, update := range updates {
+			u := ReferenceUpdate{
+				OldOID: update.OldOID,
+				NewOID: update.NewOID,
+			}
+
+			if previousUpdate, ok := flattenedUpdates[reference]; ok {
+				u.OldOID = previousUpdate.OldOID
+			}
+
+			flattenedUpdates[reference] = u
+		}
+	}
+
+	return flattenedUpdates
 }
 
 // DeleteRepository deletes the repository when the transaction is committed.
@@ -790,7 +817,7 @@ func (mgr *TransactionManager) stageRepositoryCreation(ctx context.Context, tran
 		}
 	}
 
-	transaction.referenceUpdates = referenceUpdates
+	transaction.referenceUpdates = []ReferenceUpdates{referenceUpdates}
 
 	var customHooks bytes.Buffer
 	if err := repoutil.GetCustomHooks(ctx, mgr.logger,
@@ -938,8 +965,8 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		return fmt.Errorf("object hash: %w", err)
 	}
 
-	heads := make([]string, 0, len(transaction.referenceUpdates)+len(transaction.includedObjects))
-	for _, update := range transaction.referenceUpdates {
+	heads := make([]string, 0)
+	for _, update := range transaction.flattenReferenceTransactions() {
 		if update.NewOID == objectHash.ZeroOID {
 			// Reference deletions can't introduce new objects so ignore them.
 			continue
@@ -1132,7 +1159,7 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			return fmt.Errorf("verify alternate update: %w", err)
 		}
 
-		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
+		logEntry.ReferenceTransactions, err = mgr.verifyReferences(mgr.ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("verify references: %w", err)
 		}
@@ -1466,14 +1493,14 @@ func (mgr *TransactionManager) verifyAlternateUpdate(transaction *Transaction) (
 
 // verifyReferences verifies that the references in the transaction apply on top of the already accepted
 // reference changes. The old tips in the transaction are verified against the current actual tips.
-// It returns the write-ahead log entry for the transaction if it was successfully verified.
-func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) ([]*gitalypb.LogEntry_ReferenceUpdate, error) {
+// It returns the write-ahead log entry for the reference transactions successfully verified.
+func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) ([]*gitalypb.LogEntry_ReferenceTransaction, error) {
 	if len(transaction.referenceUpdates) == 0 {
 		return nil, nil
 	}
 
-	var referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate
-	for referenceName, update := range transaction.referenceUpdates {
+	conflictingReferenceUpdates := map[git.ReferenceName]struct{}{}
+	for referenceName, update := range transaction.flattenReferenceTransactions() {
 		if err := git.ValidateReference(string(referenceName)); err != nil {
 			return nil, InvalidReferenceFormatError{ReferenceName: referenceName}
 		}
@@ -1492,6 +1519,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 
 		if update.OldOID != actualOldTip {
 			if transaction.skipVerificationFailures {
+				conflictingReferenceUpdates[referenceName] = struct{}{}
 				continue
 			}
 
@@ -1501,33 +1529,47 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 				ActualOID:     actualOldTip,
 			}
 		}
+	}
 
-		referenceUpdates = append(referenceUpdates, &gitalypb.LogEntry_ReferenceUpdate{
-			ReferenceName: []byte(referenceName),
-			NewOid:        []byte(update.NewOID),
+	var referenceTransactions []*gitalypb.LogEntry_ReferenceTransaction
+	for _, updates := range transaction.referenceUpdates {
+		changes := make([]*gitalypb.LogEntry_ReferenceTransaction_Change, 0, len(updates))
+		for reference, update := range updates {
+			if _, ok := conflictingReferenceUpdates[reference]; ok {
+				continue
+			}
+
+			changes = append(changes, &gitalypb.LogEntry_ReferenceTransaction_Change{
+				ReferenceName: []byte(reference),
+				NewOid:        []byte(update.NewOID),
+			})
+		}
+
+		// Sort the reference updates so the reference changes are always logged in a deterministic order.
+		sort.Slice(changes, func(i, j int) bool {
+			return bytes.Compare(
+				changes[i].ReferenceName,
+				changes[j].ReferenceName,
+			) == -1
+		})
+
+		referenceTransactions = append(referenceTransactions, &gitalypb.LogEntry_ReferenceTransaction{
+			Changes: changes,
 		})
 	}
 
-	// Sort the reference updates so the reference changes are always logged in a deterministic order.
-	sort.Slice(referenceUpdates, func(i, j int) bool {
-		return bytes.Compare(
-			referenceUpdates[i].ReferenceName,
-			referenceUpdates[j].ReferenceName,
-		) == -1
-	})
-
-	if err := mgr.verifyReferencesWithGit(ctx, referenceUpdates, transaction); err != nil {
+	if err := mgr.verifyReferencesWithGit(ctx, referenceTransactions, transaction); err != nil {
 		return nil, fmt.Errorf("verify references with git: %w", err)
 	}
 
-	return referenceUpdates, nil
+	return referenceTransactions, nil
 }
 
-// vefifyReferencesWithGit verifies the reference updates with git by preparing reference transaction. This ensures
-// the updates will go through when they are being applied in the log. This also catches any invalid reference names
-// and file/directory conflicts with Git's loose reference storage which can occur with references like
-// 'refs/heads/parent' and 'refs/heads/parent/child'.
-func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, tx *Transaction) error {
+// vefifyReferencesWithGit verifies the reference updates with git by committing them against a snapshot of the target
+// repository. This ensures the updates will go through when they are being applied from the log. This also catches any
+// invalid reference names and file/directory conflicts with Git's loose reference storage which can occur with references
+// like 'refs/heads/parent' and 'refs/heads/parent/child'.
+func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, referenceTransactions []*gitalypb.LogEntry_ReferenceTransaction, tx *Transaction) error {
 	relativePath := tx.stagingRepository.GetRelativePath()
 	snapshot, err := newSnapshot(ctx,
 		mgr.storagePath,
@@ -1543,12 +1585,18 @@ func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, refe
 		return fmt.Errorf("quarantine: %w", err)
 	}
 
-	updater, err := mgr.prepareReferenceTransaction(ctx, referenceUpdates, repo)
-	if err != nil {
-		return fmt.Errorf("prepare reference transaction: %w", err)
+	for _, referenceTransaction := range referenceTransactions {
+		updater, err := mgr.prepareReferenceTransaction(ctx, referenceTransaction.Changes, repo)
+		if err != nil {
+			return fmt.Errorf("prepare reference transaction: %w", err)
+		}
+
+		if err := updater.Commit(); err != nil {
+			return fmt.Errorf("commit: %w", err)
+		}
 	}
 
-	return updater.Close()
+	return nil
 }
 
 // verifyDefaultBranchUpdate verifies the default branch referance update. This is done by first checking if it is one of
@@ -1585,7 +1633,7 @@ func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, log
 // prepareReferenceTransaction prepares a reference transaction with `git update-ref`. It leaves committing
 // or aborting up to the caller. Either should be called to clean up the process. The process is cleaned up
 // if an error is returned.
-func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate, repository *localrepo.Repo) (*updateref.Updater, error) {
+func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, changes []*gitalypb.LogEntry_ReferenceTransaction_Change, repository *localrepo.Repo) (*updateref.Updater, error) {
 	// This section runs git-update-ref(1), but could fail due to existing
 	// reference locks. So we create a function which can be called again
 	// post cleanup of stale reference locks.
@@ -1599,9 +1647,9 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 			return nil, fmt.Errorf("start: %w", err)
 		}
 
-		for _, referenceUpdate := range referenceUpdates {
-			if err := updater.Update(git.ReferenceName(referenceUpdate.ReferenceName), git.ObjectID(referenceUpdate.NewOid), ""); err != nil {
-				return nil, fmt.Errorf("update %q: %w", referenceUpdate.ReferenceName, err)
+		for _, change := range changes {
+			if err := updater.Update(git.ReferenceName(change.ReferenceName), git.ObjectID(change.NewOid), ""); err != nil {
+				return nil, fmt.Errorf("update %q: %w", change.ReferenceName, err)
 			}
 		}
 
@@ -1708,8 +1756,8 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, lsn LSN) error
 			}
 		}
 
-		if err := mgr.applyReferenceUpdates(ctx, logEntry); err != nil {
-			return fmt.Errorf("apply reference updates: %w", err)
+		if err := mgr.applyReferenceTransactions(ctx, logEntry); err != nil {
+			return fmt.Errorf("apply reference transactions: %w", err)
 		}
 
 		if err := mgr.applyDefaultBranchUpdate(ctx, logEntry); err != nil {
@@ -1878,22 +1926,24 @@ func (mgr *TransactionManager) applyAlternateLink(entry *gitalypb.LogEntry) erro
 	return nil
 }
 
-// applyReferenceUpdates applies the applies the given reference updates to the repository.
-func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, logEntry *gitalypb.LogEntry) error {
-	if len(logEntry.ReferenceUpdates) == 0 {
+// applyReferenceTransactions applies the applies the reference transactions to the repository.
+func (mgr *TransactionManager) applyReferenceTransactions(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	if len(logEntry.ReferenceTransactions) == 0 {
 		return nil
 	}
 
-	updater, err := mgr.prepareReferenceTransaction(ctx,
-		logEntry.ReferenceUpdates,
-		mgr.repositoryFactory.Build(logEntry.RelativePath),
-	)
-	if err != nil {
-		return fmt.Errorf("prepare reference transaction: %w", err)
-	}
+	for _, referenceTransaction := range logEntry.ReferenceTransactions {
+		updater, err := mgr.prepareReferenceTransaction(ctx,
+			referenceTransaction.Changes,
+			mgr.repositoryFactory.Build(logEntry.RelativePath),
+		)
+		if err != nil {
+			return fmt.Errorf("prepare reference transaction: %w", err)
+		}
 
-	if err := updater.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+		if err := updater.Commit(); err != nil {
+			return fmt.Errorf("commit transaction: %w", err)
+		}
 	}
 
 	return nil
