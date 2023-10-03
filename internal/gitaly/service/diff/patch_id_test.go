@@ -30,7 +30,7 @@ func TestGetPatchID(t *testing.T) {
 		setup func(t *testing.T) setupData
 	}{
 		{
-			desc: "retruns patch-id successfully",
+			desc: "returns patch-id successfully",
 			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
