@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
@@ -17,10 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
-)
-
-const (
-	gitlabWorktreesSubDir = "gitlab-worktree"
 )
 
 var errNoDefaultBranch = errors.New("no default branch")
@@ -277,5 +274,5 @@ func (s *Server) removeWorktree(ctx context.Context, repo *gitalypb.Repository, 
 func newWorktreePath(repoPath, prefix string) string {
 	chars := []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	rand.Shuffle(len(chars), func(i, j int) { chars[i], chars[j] = chars[j], chars[i] })
-	return filepath.Join(repoPath, gitlabWorktreesSubDir, prefix+string(chars[:32]))
+	return filepath.Join(repoPath, housekeeping.GitlabWorktreePrefix, prefix+string(chars[:32]))
 }

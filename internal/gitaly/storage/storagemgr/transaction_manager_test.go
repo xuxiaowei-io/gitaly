@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -25,7 +26,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -341,15 +341,6 @@ func TestTransactionManager(t *testing.T) {
 		DeleteRepository bool
 		// IncludeObjects includes objects in the transaction's logged pack.
 		IncludeObjects []git.ObjectID
-	}
-
-	// AsyncDeletion can be used to commit a repository deletion asynchronously. This is necessary in tests
-	// which test concurrent transactions with repository deletions as deletions are blocking.
-	type AsyncDeletion struct {
-		// TransactionID identifies the transaction to async commit a deletion.
-		TransactionID int
-		// ExpectedError is the error that is expected to be returned when committing the transaction.
-		ExpectedError error
 	}
 
 	// RecordInitialReferenceValues calls RecordInitialReferenceValues on a transaction.
@@ -1722,8 +1713,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex:       1,
-						CustomHookIndex: 1,
+						ReadIndex: 1,
 					},
 				},
 				Commit{
@@ -1736,17 +1726,8 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: fs.ModeDir | perm.PrivateDir},
-					"/wal":     {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":   {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks/1/pre-receive": {
-						Mode:    umask.Mask(fs.ModePerm),
-						Content: []byte("hook content"),
-					},
-					"/hooks/1/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
-					"/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1806,16 +1787,8 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: fs.ModeDir | perm.PrivateDir},
-					"/wal":     {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":   {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks/1/pre-receive": {
-						Mode:    umask.Mask(fs.ModePerm),
-						Content: []byte("hook content"),
-					},
-					"/hooks/1/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1860,8 +1833,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex:       1,
-						CustomHookIndex: 1,
+						ReadIndex: 1,
 					},
 				},
 				Commit{
@@ -1871,8 +1843,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 3,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex:       2,
-						CustomHookIndex: 2,
+						ReadIndex: 2,
 					},
 				},
 				CloseManager{},
@@ -1880,8 +1851,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 4,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex:       2,
-						CustomHookIndex: 2,
+						ReadIndex: 2,
 					},
 				},
 				Rollback{
@@ -1893,17 +1863,8 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":   {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks/1/pre-receive": {
-						Mode:    umask.Mask(fs.ModePerm),
-						Content: []byte("hook content"),
-					},
-					"/hooks/1/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
-					"/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/wal":                              {Mode: fs.ModeDir | perm.PrivateDir},
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2638,16 +2599,13 @@ func TestTransactionManager(t *testing.T) {
 						CustomHooksTAR: validCustomHooks(t),
 					},
 				},
-				// Transaction 2 is not isolated from the changes made by transaction 1. It sees the committed
-				// changes immediately.
+				// Transaction 2 is isolated from the changes made by transaction 1. It does not see the
+				// committed changes.
 				RepositoryAssertion{
 					TransactionID: 2,
 					Repositories: RepositoryStates{
 						relativePath: {
 							DefaultBranch: "refs/heads/main",
-							References: []git.Reference{
-								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-							},
 							Objects: []git.ObjectID{
 								setup.ObjectHash.EmptyTreeOID,
 								setup.Commits.First.OID,
@@ -2655,23 +2613,13 @@ func TestTransactionManager(t *testing.T) {
 								setup.Commits.Third.OID,
 								setup.Commits.Diverging.OID,
 							},
-							CustomHooks: testhelper.DirectoryState{
-								"/": {Mode: fs.ModeDir | perm.PrivateDir},
-								"/pre-receive": {
-									Mode:    umask.Mask(fs.ModePerm),
-									Content: []byte("hook content"),
-								},
-								"/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
-							},
 						},
 					},
 				},
 				Begin{
 					TransactionID: 3,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex:       1,
-						CustomHookIndex: 1,
+						ReadIndex: 1,
 					},
 				},
 				// Transaction 3 is should see the new changes as it began after transaction 1 was committed.
@@ -2711,8 +2659,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 4,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex:       2,
-						CustomHookIndex: 1,
+						ReadIndex: 2,
 					},
 				},
 				Rollback{
@@ -2721,8 +2668,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 5,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex:       2,
-						CustomHookIndex: 1,
+						ReadIndex: 2,
 					},
 				},
 				Commit{
@@ -2735,8 +2681,7 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 6,
 					ExpectedSnapshot: Snapshot{
-						ReadIndex:       3,
-						CustomHookIndex: 3,
+						ReadIndex: 3,
 					},
 				},
 				Rollback{
@@ -2751,17 +2696,8 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: fs.ModeDir | perm.PrivateDir},
-					"/wal":     {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":   {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks/1/pre-receive": {
-						Mode:    umask.Mask(fs.ModePerm),
-						Content: []byte("hook content"),
-					},
-					"/hooks/1/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
-					"/hooks/3":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2811,7 +2747,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
@@ -2914,7 +2849,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
@@ -2988,7 +2922,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
@@ -3076,7 +3009,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
@@ -3122,9 +3054,8 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":      {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks": {Mode: fs.ModeDir | perm.PrivateDir},
-					"/wal":   {Mode: fs.ModeDir | perm.PrivateDir},
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -3154,7 +3085,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
@@ -3200,7 +3130,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
@@ -3286,7 +3215,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
@@ -3366,7 +3294,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
@@ -3449,8 +3376,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				Commit{
 					TransactionID:    2,
@@ -3475,8 +3403,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				Commit{
 					TransactionID:     2,
@@ -3501,8 +3430,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				Commit{
 					TransactionID: 2,
@@ -3529,8 +3459,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				Commit{
 					TransactionID: 2,
@@ -3690,16 +3621,8 @@ func TestTransactionManager(t *testing.T) {
 					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
-					"/":        {Mode: fs.ModeDir | perm.PrivateDir},
-					"/wal":     {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks":   {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
-					"/hooks/1/pre-receive": {
-						Mode:    umask.Mask(fs.ModePerm),
-						Content: []byte("hook content"),
-					},
-					"/hooks/1/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3714,8 +3637,9 @@ func TestTransactionManager(t *testing.T) {
 				Begin{
 					TransactionID: 2,
 				},
-				AsyncDeletion{
-					TransactionID: 1,
+				Commit{
+					TransactionID:    1,
+					DeleteRepository: true,
 				},
 				// The concurrent transaction should be able to read the
 				// repository despite the committed deletion.
@@ -3919,6 +3843,217 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "transactions are snapshot isolated from concurrent updates",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/new-head",
+					},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					QuarantinedPacks: [][]byte{setup.Commits.First.Pack},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				// This transaction was started before the commit, so it should see the original state.
+				RepositoryAssertion{
+					TransactionID: 1,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/main",
+						},
+					},
+				},
+				// This transaction was started after the commit, so it should see the new state.
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/new-head",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+							CustomHooks: testhelper.DirectoryState{
+								"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/pre-receive": {
+									Mode:    umask.Mask(fs.ModePerm),
+									Content: []byte("hook content"),
+								},
+								"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							},
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 1,
+				},
+				Rollback{
+					TransactionID: 3,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/new-head",
+						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "transactions are snapshot isolated from concurrent deletions",
+			steps: steps{
+				Prune{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/new-head",
+					},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					QuarantinedPacks: [][]byte{setup.Commits.First.Pack},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Begin{
+					TransactionID: 3,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 1,
+					},
+				},
+				Commit{
+					TransactionID:    2,
+					DeleteRepository: true,
+				},
+				// This transaction was started before the deletion, so it should see the old state regardless
+				// of the repository being deleted.
+				RepositoryAssertion{
+					TransactionID: 3,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/new-head",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+							CustomHooks: testhelper.DirectoryState{
+								"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/pre-receive": {
+									Mode:    umask.Mask(fs.ModePerm),
+									Content: []byte("hook content"),
+								},
+								"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							},
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 3,
+				},
+				Begin{
+					TransactionID: 4,
+					ExpectedSnapshot: Snapshot{
+						ReadIndex: 2,
+					},
+				},
+				RepositoryAssertion{
+					TransactionID: 4,
+					Repositories:  RepositoryStates{},
+				},
+				Rollback{
+					TransactionID: 4,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLogIndex(relativePath)): LogIndex(2).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+				},
+				Repositories: RepositoryStates{},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -4017,13 +4152,14 @@ func TestTransactionManager(t *testing.T) {
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
 
-			stateDir := filepath.Join(setup.Config.Storages[0].Path, "state")
-
-			stagingDir := t.TempDir()
-			storagePath := setup.Config.Storages[0].Path
-
 			txManager := transaction.NewManager(setup.Config, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, txManager)
+
+			storagePath := setup.Config.Storages[0].Path
+			stateDir := filepath.Join(storagePath, "state")
+
+			stagingDir := filepath.Join(storagePath, "staging")
+			require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
 			var (
 				// managerRunning tracks whether the manager is running or closed.
@@ -4122,13 +4258,7 @@ func TestTransactionManager(t *testing.T) {
 					transaction, err := transactionManager.Begin(beginCtx, step.TransactionOptions)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
-						expectedSnapshot := step.ExpectedSnapshot
-						expectedSnapshot.CustomHookPath = filepath.Join(repoPath, repoutil.CustomHooksDir)
-						if expectedSnapshot.CustomHookIndex > 0 {
-							expectedSnapshot.CustomHookPath = customHookPathForLogIndex(repoPath, expectedSnapshot.CustomHookIndex)
-						}
-
-						require.Equal(t, expectedSnapshot, transaction.Snapshot())
+						require.Equal(t, step.ExpectedSnapshot, transaction.Snapshot())
 					}
 
 					if step.TransactionOptions.ReadOnly {
@@ -4175,6 +4305,7 @@ func TestTransactionManager(t *testing.T) {
 						rewrittenRepo := setup.RepositoryFactory.Build(
 							transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
 						)
+
 						for _, pack := range step.QuarantinedPacks {
 							require.NoError(t, rewrittenRepo.UnpackObjects(ctx, bytes.NewReader(pack)))
 						}
@@ -4204,26 +4335,6 @@ func TestTransactionManager(t *testing.T) {
 					default:
 						t.Fatalf("unexpected error type: %T", expectedErr)
 					}
-				case AsyncDeletion:
-					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction committed before beginning it")
-
-					transaction := openTransactions[step.TransactionID]
-					transaction.DeleteRepository()
-
-					commitErr := make(chan error)
-					go func() {
-						commitErr <- transaction.Commit(ctx)
-					}()
-					defer func() {
-						require.NoError(t, <-commitErr, "committing async deletion failed")
-					}()
-
-					// The transactions generally don't block each other due to MVCC. Repository deletions are not yet managed via MVCC
-					// and thus block until all other transactions with an older snapshot are finished. In order to test transactions with
-					// concurrent repository deletions, we have to commit the deletions asynchronously. We peek here at the internals to
-					// determine that the deletion has actually been admitted, and is waiting for application to ensure the commit order is always
-					// as expected by the test.
-					<-transaction.admitted
 				case RecordInitialReferenceValues:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: record initial reference value on transaction before beginning it")
 
@@ -4252,11 +4363,15 @@ func TestTransactionManager(t *testing.T) {
 					transaction := openTransactions[step.TransactionID]
 
 					RequireRepositories(t, ctx, setup.Config,
-						storagePath,
+						// Assert the contents of the transaction's snapshot.
+						filepath.Join(setup.Config.Storages[0].Path, transaction.snapshotBaseRelativePath),
 						// Rewrite all of the repositories to point to their snapshots.
 						func(relativePath string) *localrepo.Repo {
 							return setup.RepositoryFactory.Build(
-								transaction.RewriteRepository(repo.Repository.(*gitalypb.Repository)),
+								transaction.RewriteRepository(&gitalypb.Repository{
+									StorageName:  setup.Config.Storages[0].Name,
+									RelativePath: relativePath,
+								}),
 							)
 						}, step.Repositories)
 				default:
@@ -4303,9 +4418,8 @@ func TestTransactionManager(t *testing.T) {
 				// Set the base state as the default so we don't have to repeat it in every test case but it
 				// gets asserted.
 				expectedDirectory = testhelper.DirectoryState{
-					"/":      {Mode: fs.ModeDir | perm.PrivateDir},
-					"/wal":   {Mode: fs.ModeDir | perm.PrivateDir},
-					"/hooks": {Mode: fs.ModeDir | perm.PrivateDir},
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				}
 			}
 
@@ -4478,7 +4592,15 @@ func BenchmarkTransactionManager(b *testing.B) {
 				commit1 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents())
 				commit2 = gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commit1))
 
-				manager := NewTransactionManager(database, cfg.Storages[0].Path, repo.RelativePath, b.TempDir(), b.TempDir(), cmdFactory, housekeepingManager, repositoryFactory)
+				storagePath := cfg.Storages[0].Path
+
+				stateDir := filepath.Join(storagePath, "state", strconv.Itoa(i))
+				require.NoError(b, os.MkdirAll(stateDir, perm.PrivateDir))
+
+				stagingDir := filepath.Join(storagePath, "staging", strconv.Itoa(i))
+				require.NoError(b, os.MkdirAll(stagingDir, perm.PrivateDir))
+
+				manager := NewTransactionManager(database, storagePath, repo.RelativePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 

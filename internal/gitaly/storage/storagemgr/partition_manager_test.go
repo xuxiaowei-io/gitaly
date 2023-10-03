@@ -386,7 +386,7 @@ func TestPartitionManager(t *testing.T) {
 						// Fake a preexisting apply notification. This ensures that we would
 						// block indefinitely waiting for the notifcation and thus allows us to
 						// assert that we can indeed cancel this via the context.
-						txMgr.applyNotifications[0] = make(chan struct{})
+						txMgr.snapshotLocks[0] = &snapshotLock{}
 
 						return txMgr
 					},
