@@ -6568,7 +6568,7 @@ func TestTransactionManager(t *testing.T) {
 
 					RequireRepositories(t, ctx, setup.Config,
 						// Assert the contents of the transaction's snapshot.
-						filepath.Join(setup.Config.Storages[0].Path, transaction.snapshotBaseRelativePath),
+						filepath.Join(setup.Config.Storages[0].Path, transaction.snapshot.prefix),
 						// Rewrite all of the repositories to point to their snapshots.
 						func(relativePath string) *localrepo.Repo {
 							return setup.RepositoryFactory.Build(
