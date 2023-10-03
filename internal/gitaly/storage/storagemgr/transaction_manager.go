@@ -114,12 +114,6 @@ type CustomHooksUpdate struct {
 // is the expected old tip and the desired new tip.
 type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
 
-// Snapshot contains the read snapshot details of a Transaction.
-type Snapshot struct {
-	// ReadIndex is the index of the log entry this Transaction is reading the data at.
-	ReadIndex LogIndex
-}
-
 type transactionState int
 
 const (
@@ -174,8 +168,9 @@ type Transaction struct {
 	// if this is a read-write transaction.
 	snapshotRepository *localrepo.Repo
 
-	// Snapshot contains the details of the Transaction's read snapshot.
-	snapshot Snapshot
+	// snapshotLSN is the log sequence number which this transaction is reading the repository's
+	// state at.
+	snapshotLSN LogIndex
 
 	skipVerificationFailures bool
 	initialReferenceValues   map[git.ReferenceName]git.ObjectID
@@ -215,14 +210,14 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 	txn := &Transaction{
 		readOnly:     opts.ReadOnly,
 		commit:       mgr.commit,
-		snapshot:     Snapshot{ReadIndex: mgr.appendedLogIndex},
+		snapshotLSN:  mgr.appendedLogIndex,
 		finished:     make(chan struct{}),
 		relativePath: mgr.relativePath,
 	}
 
-	mgr.snapshotLocks[txn.snapshot.ReadIndex].activeSnapshotters.Add(1)
-	defer mgr.snapshotLocks[txn.snapshot.ReadIndex].activeSnapshotters.Done()
-	readReady := mgr.snapshotLocks[txn.snapshot.ReadIndex].applied
+	mgr.snapshotLocks[txn.snapshotLSN].activeSnapshotters.Add(1)
+	defer mgr.snapshotLocks[txn.snapshotLSN].activeSnapshotters.Done()
+	readReady := mgr.snapshotLocks[txn.snapshotLSN].applied
 	mgr.mutex.Unlock()
 
 	txn.finish = func() error {
@@ -460,9 +455,9 @@ func (txn *Transaction) finishUnadmitted() error {
 	return txn.finish()
 }
 
-// Snapshot returns the details of the Transaction's read snapshot.
-func (txn *Transaction) Snapshot() Snapshot {
-	return txn.snapshot
+// SnapshotLSN returns the LSN of the Transaction's read snapshot.
+func (txn *Transaction) SnapshotLSN() LogIndex {
+	return txn.snapshotLSN
 }
 
 // SkipVerificationFailures configures the transaction to skip reference updates that fail verification.
