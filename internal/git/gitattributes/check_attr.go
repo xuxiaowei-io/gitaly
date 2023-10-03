@@ -29,12 +29,13 @@ type CheckAttrCmd struct {
 }
 
 // CheckAttr creates a CheckAttrCmd that checks the given list of attribute names.
-func CheckAttr(ctx context.Context, repo git.RepositoryExecutor, names []string) (*CheckAttrCmd, func(), error) {
+func CheckAttr(ctx context.Context, repo git.RepositoryExecutor, revision git.Revision, names []string) (*CheckAttrCmd, func(), error) {
 	cmd, err := repo.Exec(ctx, git.Command{
 		Name: "check-attr",
 		Flags: []git.Option{
 			git.Flag{Name: "--stdin"},
 			git.Flag{Name: "-z"},
+			git.ValueFlag{Name: "--source", Value: revision.String()},
 		},
 		Args: append(names, endOfAttributes),
 	},

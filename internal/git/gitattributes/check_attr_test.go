@@ -1,21 +1,17 @@
 package gitattributes
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
 
 func TestCheckAttrCmd_Check(t *testing.T) {
-	t.Parallel()
-
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -24,20 +20,21 @@ func TestCheckAttrCmd_Check(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	// Until https://gitlab.com/groups/gitlab-org/-/epics/9006 is completed
-	// we rely on info/attributes.
-	infoPath := filepath.Join(repoPath, "info")
-	require.NoError(t, os.MkdirAll(infoPath, perm.SharedDir))
-	attrPath := filepath.Join(infoPath, "attributes")
-
 	for _, tc := range []struct {
 		desc         string
+		treeOID      git.ObjectID
 		attrContent  string
 		path         string
 		expectedAttr Attributes
 	}{
 		{
 			desc:         "no attributes",
+			path:         "README.md",
+			treeOID:      gittest.DefaultObjectHash.EmptyTreeOID,
+			expectedAttr: Attributes{},
+		},
+		{
+			desc:         "empty attributes",
 			path:         "README.md",
 			expectedAttr: Attributes{},
 		},
@@ -138,10 +135,25 @@ func TestCheckAttrCmd_Check(t *testing.T) {
 			expectedAttr: Attributes{Attribute{Name: "foo", State: "bar"}},
 		},
 	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			require.NoError(t, os.WriteFile(attrPath, []byte(tc.attrContent), perm.SharedFile))
+		tc := tc
 
-			checkCmd, finish, err := CheckAttr(ctx, repo, []string{"foo", "bar"})
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			treeOID := tc.treeOID
+			if treeOID == "" {
+				treeOID = gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: ".gitattributes", Mode: "100644", Content: tc.attrContent},
+				})
+			} else {
+				require.Empty(t, tc.attrContent, "cannot specify both attrContent & treeOID")
+			}
+
+			commitID := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithMessage(tc.desc),
+				gittest.WithTree(treeOID))
+
+			checkCmd, finish, err := CheckAttr(ctx, repo, commitID.Revision(), []string{"foo", "bar"})
 			require.NoError(t, err)
 			t.Cleanup(finish)
 

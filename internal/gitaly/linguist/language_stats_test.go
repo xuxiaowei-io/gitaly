@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -246,7 +247,7 @@ func TestLanguageStats_save(t *testing.T) {
 	loaded, err := initLanguageStats(repo)
 	require.NoError(t, err)
 
-	require.Equal(t, "buzz", loaded.CommitID)
+	require.Equal(t, git.ObjectID("buzz"), loaded.CommitID)
 	require.Equal(t, languageStatsVersion, loaded.Version)
 	require.Equal(t, s.Totals, loaded.Totals)
 	require.Equal(t, s.ByFile, loaded.ByFile)

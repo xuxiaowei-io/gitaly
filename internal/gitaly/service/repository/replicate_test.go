@@ -111,6 +111,7 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 
 				// Write an info attributes file to the source repository to verify it is getting
 				// created in the target repository as expected.
+				// We should get rid of this with https://gitlab.com/groups/gitlab-org/-/epics/9006
 				attrFilePath := filepath.Join(sourcePath, "info", "attributes")
 				require.NoError(t, os.MkdirAll(filepath.Dir(attrFilePath), perm.SharedDir))
 				attributesData := []byte("*.pbxproj binary\n")
