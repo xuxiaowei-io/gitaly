@@ -25,13 +25,14 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 	db := testdb.New(t)
 	rs := NewPostgresRepositoryStore(db, nil)
+	logger := testhelper.SharedLogger(t)
 
 	t.Run("unknown virtual storage", func(t *testing.T) {
 		ctx := testhelper.Context(t)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "unknown", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(logger, rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -55,7 +56,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(logger, rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -180,7 +181,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "replica-path-1", "g1", []string{"g2", "g3"}, nil, true, false))
 		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "replica-path-2", "g1", []string{"g2"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(logger, rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -230,7 +231,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(logger, rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -266,7 +267,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "replica-path-1", "g1", nil, nil, true, false))
 		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "replica-path-2", "g1", nil, nil, true, false))
 
-		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(logger, rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -331,7 +332,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			},
 		}
 
-		cache, err := NewCachingConsistentStoragesGetter(log.FromContext(ctx), mockRepositoryStore, []string{"storage-1", "storage-2"})
+		cache, err := NewCachingConsistentStoragesGetter(logger, mockRepositoryStore, []string{"storage-1", "storage-2"})
 		require.NoError(t, err)
 		cache.Connected()
 

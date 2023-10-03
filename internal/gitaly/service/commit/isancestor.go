@@ -35,10 +35,10 @@ func (s *server) CommitIsAncestor(ctx context.Context, in *gitalypb.CommitIsAnce
 
 // Assumes that `path`, `ancestorID` and `childID` are populated :trollface:
 func (s *server) commitIsAncestorName(ctx context.Context, repo *gitalypb.Repository, ancestorID, childID string) (bool, error) {
-	log.FromContext(ctx).WithFields(log.Fields{
+	s.logger.WithFields(log.Fields{
 		"ancestorSha": ancestorID,
 		"childSha":    childID,
-	}).Debug("commitIsAncestor")
+	}).DebugContext(ctx, "commitIsAncestor")
 
 	cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{
 		Name:  "merge-base",

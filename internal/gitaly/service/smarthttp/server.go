@@ -6,11 +6,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 type server struct {
 	gitalypb.UnimplementedSmartHTTPServiceServer
+	logger                     log.Logger
 	locator                    storage.Locator
 	gitCmdFactory              git.CommandFactory
 	packfileNegotiationMetrics *prometheus.CounterVec
@@ -21,6 +23,7 @@ type server struct {
 // NewServer creates a new instance of a grpc SmartHTTPServer
 func NewServer(deps *service.Dependencies, serverOpts ...ServerOpt) gitalypb.SmartHTTPServiceServer {
 	s := &server{
+		logger:        deps.GetLogger(),
 		locator:       deps.GetLocator(),
 		gitCmdFactory: deps.GetGitCmdFactory(),
 		txManager:     deps.GetTxManager(),

@@ -23,6 +23,11 @@ type Logger interface {
 	Warn(msg string)
 	Error(msg string)
 
+	DebugContext(ctx context.Context, msg string)
+	InfoContext(ctx context.Context, msg string)
+	WarnContext(ctx context.Context, msg string)
+	ErrorContext(ctx context.Context, msg string)
+
 	StreamServerInterceptor(...grpcmwlogrus.Option) grpc.StreamServerInterceptor
 	UnaryServerInterceptor(...grpcmwlogrus.Option) grpc.UnaryServerInterceptor
 }
@@ -94,6 +99,30 @@ func (l LogrusLogger) StreamServerInterceptor(opts ...grpcmwlogrus.Option) grpc.
 // UnaryServerInterceptor creates a gRPC interceptor that generates log messages for unary RPC calls.
 func (l LogrusLogger) UnaryServerInterceptor(opts ...grpcmwlogrus.Option) grpc.UnaryServerInterceptor {
 	return grpcmwlogrus.UnaryServerInterceptor(l.entry, opts...)
+}
+
+func (l LogrusLogger) log(ctx context.Context, level logrus.Level, msg string) {
+	l.entry.WithFields(ctxlogrus.Extract(ctx).Data).Log(level, msg)
+}
+
+// DebugContext logs a new log message at Debug level. Fields added to the context via AddFields will be appended.
+func (l LogrusLogger) DebugContext(ctx context.Context, msg string) {
+	l.log(ctx, logrus.DebugLevel, msg)
+}
+
+// InfoContext logs a new log message at Info level. Fields added to the context via AddFields will be appended.
+func (l LogrusLogger) InfoContext(ctx context.Context, msg string) {
+	l.log(ctx, logrus.InfoLevel, msg)
+}
+
+// WarnContext logs a new log message at Warn level. Fields added to the context via AddFields will be appended.
+func (l LogrusLogger) WarnContext(ctx context.Context, msg string) {
+	l.log(ctx, logrus.WarnLevel, msg)
+}
+
+// ErrorContext level. Fields added to the context via AddFields will be appended.
+func (l LogrusLogger) ErrorContext(ctx context.Context, msg string) {
+	l.log(ctx, logrus.ErrorLevel, msg)
 }
 
 // FromContext extracts the logger from the context. If no logger has been injected then this will return a discarding

@@ -18,11 +18,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/streamcache"
 )
 
 // Dependencies assembles set of components required by different kinds of services.
 type Dependencies struct {
+	Logger              log.Logger
 	Cfg                 config.Cfg
 	GitalyHookManager   gitalyhook.Manager
 	TransactionManager  transaction.Manager
@@ -43,6 +45,11 @@ type Dependencies struct {
 	PartitionManager    *storagemgr.PartitionManager
 	BackupSink          backup.Sink
 	BackupLocator       backup.Locator
+}
+
+// GetLogger returns the logger.
+func (dc *Dependencies) GetLogger() log.Logger {
+	return dc.Logger
 }
 
 // GetCfg returns service configuration.

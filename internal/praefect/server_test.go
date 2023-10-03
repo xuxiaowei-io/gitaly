@@ -617,7 +617,7 @@ func TestRenameRepository(t *testing.T) {
 	)
 
 	ctx := testhelper.Context(t)
-	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, clientHandshaker, nil, testhelper.SharedLogger(t))
+	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, clientHandshaker, nil, logger)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -626,7 +626,7 @@ func TestRenameRepository(t *testing.T) {
 		WithRepoStore: rs,
 		WithRouter: NewPerRepositoryRouter(
 			nodeSet.Connections(),
-			nodes.NewPerRepositoryElector(db),
+			nodes.NewPerRepositoryElector(logger, db),
 			StaticHealthChecker(praefectCfg.StorageNames()),
 			NewLockedRandom(rand.New(rand.NewSource(0))),
 			rs,
@@ -813,9 +813,9 @@ func TestProxyWrites(t *testing.T) {
 	}
 
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
-	entry := testhelper.SharedLogger(t)
+	logger := testhelper.SharedLogger(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(logger, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
@@ -834,6 +834,7 @@ func TestProxyWrites(t *testing.T) {
 	}
 
 	coordinator := NewCoordinator(
+		logger,
 		queue,
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
@@ -953,7 +954,7 @@ func TestErrorThreshold(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
-	entry := testhelper.SharedLogger(t)
+	logger := testhelper.SharedLogger(t)
 
 	testCases := []struct {
 		desc     string
@@ -984,11 +985,12 @@ func TestErrorThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			rs := datastore.MockRepositoryStore{}
-			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, errorTracker, nil, nil)
+			nodeMgr, err := nodes.NewManager(logger, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, errorTracker, nil, nil)
 			require.NoError(t, err)
 			defer nodeMgr.Stop()
 
 			coordinator := NewCoordinator(
+				logger,
 				queue,
 				rs,
 				NewNodeManagerRouter(nodeMgr, rs),

@@ -27,18 +27,16 @@ import (
 func createNewServer(t *testing.T, cfg config.Cfg, logger log.Logger) *grpc.Server {
 	t.Helper()
 
-	logrusEntry := logger.WithField("test", t.Name())
-
 	opts := []grpc.ServerOption{
 		grpc.ChainStreamInterceptor(
 			StreamInterceptor,
-			logrusEntry.StreamServerInterceptor(
+			logger.StreamServerInterceptor(
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
 		),
 		grpc.ChainUnaryInterceptor(
 			UnaryInterceptor,
-			logrusEntry.UnaryServerInterceptor(
+			logger.UnaryServerInterceptor(
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
 				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
 		),
@@ -51,6 +49,7 @@ func createNewServer(t *testing.T, cfg config.Cfg, logger log.Logger) *grpc.Serv
 	t.Cleanup(catfileCache.Stop)
 
 	gitalypb.RegisterRefServiceServer(server, ref.NewServer(&service.Dependencies{
+		Logger:             logger,
 		StorageLocator:     config.NewLocator(cfg),
 		GitCmdFactory:      gitCommandFactory,
 		TransactionManager: transaction.NewManager(cfg, backchannel.NewRegistry()),

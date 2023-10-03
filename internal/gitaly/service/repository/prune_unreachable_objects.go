@@ -70,7 +70,7 @@ func (s *server) PruneUnreachableObjects(
 		return nil, structerr.NewInternal("rewriting commit-graph: %w", err)
 	}
 
-	stats.LogRepositoryInfo(ctx, repo)
+	stats.LogRepositoryInfo(ctx, s.logger, repo)
 
 	return &gitalypb.PruneUnreachableObjectsResponse{}, nil
 }

@@ -15,9 +15,11 @@ import (
 )
 
 func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.CommitService_ListFilesServer) error {
-	log.FromContext(stream.Context()).WithFields(log.Fields{
+	ctx := stream.Context()
+
+	s.logger.WithFields(log.Fields{
 		"Revision": in.GetRevision(),
-	}).Debug("ListFiles")
+	}).DebugContext(ctx, "ListFiles")
 
 	if err := validateListFilesRequest(s.locator, in); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
@@ -30,7 +32,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 
 	revision := string(in.GetRevision())
 	if len(revision) == 0 {
-		defaultBranch, err := repo.GetDefaultBranch(stream.Context())
+		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return structerr.NewNotFound("revision not found %q", revision)
 		}
@@ -42,7 +44,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		revision = defaultBranch.String()
 	}
 
-	contained, err := s.localrepo(repo).HasRevision(stream.Context(), git.Revision(revision))
+	contained, err := s.localrepo(repo).HasRevision(ctx, git.Revision(revision))
 	if err != nil {
 		return structerr.NewInternal("%w", err)
 	}

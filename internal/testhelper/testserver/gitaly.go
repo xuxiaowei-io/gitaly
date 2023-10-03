@@ -368,6 +368,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	return &service.Dependencies{
+		Logger:              gsd.logger,
 		Cfg:                 cfg,
 		ClientPool:          gsd.conns,
 		StorageLocator:      gsd.locator,

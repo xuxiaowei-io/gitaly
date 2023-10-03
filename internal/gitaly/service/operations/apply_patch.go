@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -113,7 +112,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 
 		worktreeName := filepath.Base(worktreePath)
 		if err := s.removeWorktree(ctx, header.Repository, worktreeName); err != nil {
-			log.FromContext(ctx).WithField("worktree_name", worktreeName).WithError(err).Error("failed to remove worktree")
+			s.logger.WithField("worktree_name", worktreeName).WithError(err).ErrorContext(ctx, "failed to remove worktree")
 		}
 	}()
 

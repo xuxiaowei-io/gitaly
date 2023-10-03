@@ -75,7 +75,7 @@ func (m *RepositoryManager) OptimizeRepository(
 	if err != nil {
 		return fmt.Errorf("deriving repository info: %w", err)
 	}
-	m.reportRepositoryInfo(ctx, repositoryInfo)
+	m.reportRepositoryInfo(ctx, logger, repositoryInfo)
 
 	var strategy OptimizationStrategy
 	if cfg.StrategyConstructor == nil {
@@ -87,8 +87,8 @@ func (m *RepositoryManager) OptimizeRepository(
 	return m.optimizeFunc(ctx, m, logger, repo, strategy)
 }
 
-func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats.RepositoryInfo) {
-	info.Log(ctx)
+func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, logger log.Logger, info stats.RepositoryInfo) {
+	info.Log(ctx, logger)
 
 	m.reportDataStructureExistence("commit_graph", info.CommitGraph.Exists)
 	m.reportDataStructureExistence("commit_graph_bloom_filters", info.CommitGraph.HasBloomFilters)

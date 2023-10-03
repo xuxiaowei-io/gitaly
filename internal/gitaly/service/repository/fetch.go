@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -91,9 +90,9 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		); err != nil {
 			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
 			if errors.As(err, &localrepo.FetchFailedError{}) {
-				log.FromContext(ctx).
+				s.logger.
 					WithField("oid", sourceOid.String()).
-					WithError(err).Warn("git fetch failed")
+					WithError(err).WarnContext(ctx, "git fetch failed")
 				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
 			}
 

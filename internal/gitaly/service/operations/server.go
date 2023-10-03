@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -20,6 +21,7 @@ import (
 //nolint:revive // This is unintentionally missing documentation.
 type Server struct {
 	gitalypb.UnimplementedOperationServiceServer
+	logger        log.Logger
 	hookManager   hook.Manager
 	txManager     transaction.Manager
 	locator       storage.Locator
@@ -33,6 +35,7 @@ type Server struct {
 // NewServer creates a new instance of a grpc OperationServiceServer
 func NewServer(deps *service.Dependencies) *Server {
 	return &Server{
+		logger:        deps.GetLogger(),
 		hookManager:   deps.GetHookManager(),
 		txManager:     deps.GetTxManager(),
 		locator:       deps.GetLocator(),

@@ -28,11 +28,11 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		return structerr.NewInternal("%w", err)
 	}
 
-	log.FromContext(ctx).WithFields(log.Fields{
+	s.logger.WithFields(log.Fields{
 		"GlRepository":     req.GetRepository().GetGlRepository(),
 		"GitConfigOptions": req.GitConfigOptions,
 		"GitProtocol":      req.GitProtocol,
-	}).Debug("SSHUploadPack")
+	}).DebugContext(ctx, "SSHUploadPack")
 
 	if err = validateFirstUploadPackRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
@@ -57,7 +57,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		if errSend := stream.Send(&gitalypb.SSHUploadPackResponse{
 			ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
 		}); errSend != nil {
-			log.FromContext(ctx).WithError(errSend).Error("send final status code")
+			s.logger.WithError(errSend).ErrorContext(ctx, "send final status code")
 		}
 
 		return structerr.NewInternal("%w", err)
@@ -105,7 +105,7 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 		stats, errIgnore := stats.ParsePackfileNegotiation(pr)
 		negotiation = &stats
 		if errIgnore != nil {
-			log.FromContext(ctx).WithError(errIgnore).Debug("failed parsing packfile negotiation")
+			s.logger.WithError(errIgnore).DebugContext(ctx, "failed parsing packfile negotiation")
 			return
 		}
 		stats.UpdateMetrics(s.packfileNegotiationMetrics)

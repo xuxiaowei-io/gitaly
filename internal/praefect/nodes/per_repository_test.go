@@ -531,9 +531,9 @@ func TestPerRepositoryElector(t *testing.T) {
 				runElection := func(tx *testdb.TxWrapper) (string, *logrus.Entry) {
 					logger := testhelper.NewLogger(t)
 					hook := testhelper.AddLoggerHook(logger)
-					elector := NewPerRepositoryElector(tx)
+					elector := NewPerRepositoryElector(logger, tx)
 
-					primary, err := elector.GetPrimary(logger.ToContext(ctx), "", repositoryID)
+					primary, err := elector.GetPrimary(ctx, "", repositoryID)
 					assert.Equal(t, step.error, err)
 					assert.Less(t, len(hook.AllEntries()), 2)
 

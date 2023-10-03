@@ -26,7 +26,7 @@ func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchInt
 		return nil, structerr.NewInternal("%w", err)
 	}
 
-	stats.LogRepositoryInfo(ctx, objectPool.Repo)
+	stats.LogRepositoryInfo(ctx, s.logger, objectPool.Repo)
 
 	return &gitalypb.FetchIntoObjectPoolResponse{}, nil
 }

@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -62,7 +61,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	}
 	defer func() {
 		if err := sourceLocker.Close(); err != nil {
-			log.FromContext(ctx).WithError(err).Error("closing source repo locker failed")
+			s.logger.WithError(err).ErrorContext(ctx, "closing source repo locker failed")
 		}
 	}()
 
@@ -72,7 +71,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	}
 	defer func() {
 		if err := targetLocker.Close(); err != nil {
-			log.FromContext(ctx).WithError(err).Error("closing target repo locker failed")
+			s.logger.WithError(err).ErrorContext(ctx, "closing target repo locker failed")
 		}
 	}()
 

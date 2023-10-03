@@ -299,7 +299,7 @@ func server(
 		// before the router is ready with the health status of the nodes.
 		<-healthManager.Updated()
 
-		elector := nodes.NewPerRepositoryElector(db)
+		elector := nodes.NewPerRepositoryElector(logger, db)
 
 		primaryGetter = elector
 		assignmentStore = datastore.NewAssignmentStore(db, conf.StorageNames())
@@ -368,6 +368,7 @@ func server(
 	var (
 		// top level server dependencies
 		coordinator = praefect.NewCoordinator(
+			logger,
 			queue,
 			rs,
 			router,

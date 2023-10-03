@@ -25,13 +25,13 @@ func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer)
 		return structerr.NewInternal("%w", err)
 	}
 
-	log.FromContext(stream.Context()).WithFields(log.Fields{
+	s.logger.WithFields(log.Fields{
 		"GlID":             req.GlId,
 		"GlRepository":     req.GlRepository,
 		"GlUsername":       req.GlUsername,
 		"GitConfigOptions": req.GitConfigOptions,
 		"GitProtocol":      req.GitProtocol,
-	}).Debug("SSHReceivePack")
+	}).DebugContext(stream.Context(), "SSHReceivePack")
 
 	if err = validateFirstReceivePackRequest(s.locator, req); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
@@ -127,7 +127,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		if errSend := stream.Send(&gitalypb.SSHReceivePackResponse{
 			ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
 		}); errSend != nil {
-			log.FromContext(ctx).WithError(errSend).Error("send final status code")
+			s.logger.WithError(errSend).ErrorContext(ctx, "send final status code")
 		}
 
 		// Detect the case where the user has cancelled the push and log it with a proper

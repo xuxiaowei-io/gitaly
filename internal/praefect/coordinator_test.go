@@ -94,6 +94,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			}
 
 			coordinator := NewCoordinator(
+				testhelper.NewLogger(t),
 				datastore.NewPostgresReplicationEventQueue(db),
 				rs,
 				NewNodeManagerRouter(&nodes.MockManager{GetShardFunc: func(vs string) (nodes.Shard, error) {
@@ -370,6 +371,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			defer tx.Rollback(t)
 
 			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+			logger := testhelper.NewLogger(t)
 
 			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
 			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
@@ -379,11 +381,12 @@ func TestStreamDirectorMutator(t *testing.T) {
 			})
 
 			coordinator := NewCoordinator(
+				logger,
 				queueInterceptor,
 				rs,
 				NewPerRepositoryRouter(
 					nodeSet.Connections(),
-					nodes.NewPerRepositoryElector(tx),
+					nodes.NewPerRepositoryElector(logger, tx),
 					StaticHealthChecker(conf.StorageNames()),
 					NewLockedRandom(rand.New(rand.NewSource(0))),
 					rs,
@@ -486,6 +489,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	txMgr := transactions.NewManager(conf)
 
 	coordinator := NewCoordinator(
+		testhelper.NewLogger(t),
 		datastore.NewPostgresReplicationEventQueue(testdb.New(t)),
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
@@ -598,6 +602,7 @@ func TestStreamDirectorMutator_SecondaryErrorHandling(t *testing.T) {
 	txMgr := transactions.NewManager(conf)
 
 	coordinator := NewCoordinator(
+		testhelper.NewLogger(t),
 		datastore.NewPostgresReplicationEventQueue(testdb.New(t)),
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
@@ -701,6 +706,7 @@ func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
 	}
 
 	coordinator := NewCoordinator(
+		testhelper.NewLogger(t),
 		&datastore.MockReplicationEventQueue{},
 		rs,
 		router,
@@ -759,6 +765,7 @@ func TestStreamDirector_maintenance(t *testing.T) {
 	}
 
 	db := testdb.New(t)
+	logger := testhelper.NewLogger(t)
 
 	repo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -767,7 +774,7 @@ func TestStreamDirector_maintenance(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil, testhelper.SharedLogger(t))
+	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil, logger)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -783,11 +790,12 @@ func TestStreamDirector_maintenance(t *testing.T) {
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 
 	coordinator := NewCoordinator(
+		logger,
 		queueInterceptor,
 		rs,
 		NewPerRepositoryRouter(
 			nodeSet.Connections(),
-			nodes.NewPerRepositoryElector(tx),
+			nodes.NewPerRepositoryElector(logger, tx),
 			StaticHealthChecker(cfg.StorageNames()),
 			NewLockedRandom(rand.New(rand.NewSource(0))),
 			rs,
@@ -1090,6 +1098,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			coordinator := NewCoordinator(
+				testhelper.NewLogger(t),
 				queue,
 				rs,
 				tc.router,
@@ -1180,6 +1189,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	txMgr := transactions.NewManager(conf)
 
 	coordinator := NewCoordinator(
+		testhelper.NewLogger(t),
 		queue,
 		repoStore,
 		NewNodeManagerRouter(nodeMgr, repoStore),
@@ -1560,6 +1570,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 
 			coordinator := NewCoordinator(
+				testhelper.NewLogger(t),
 				queueInterceptor,
 				repositoryStore,
 				router,
@@ -1721,6 +1732,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 	rs := datastore.MockRepositoryStore{}
 
 	coordinator := NewCoordinator(
+		testhelper.NewLogger(t),
 		queueInterceptor,
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
@@ -1850,6 +1862,7 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 	nodeMgr.Start(0, time.Second)
 	defer nodeMgr.Stop()
 	coordinator := NewCoordinator(
+		testhelper.NewLogger(t),
 		nil,
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
@@ -1913,6 +1926,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 
 		rs := datastore.MockRepositoryStore{}
 		coordinator := NewCoordinator(
+			testhelper.NewLogger(t),
 			nil,
 			rs,
 			NewNodeManagerRouter(mgr, rs),
@@ -1942,6 +1956,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 
 		rs := datastore.MockRepositoryStore{}
 		coordinator := NewCoordinator(
+			testhelper.NewLogger(t),
 			nil,
 			rs,
 			NewNodeManagerRouter(mgr, rs),
@@ -1972,6 +1987,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 
 			rs := datastore.MockRepositoryStore{}
 			coordinator := NewCoordinator(
+				testhelper.NewLogger(t),
 				nil,
 				rs,
 				NewNodeManagerRouter(mgr, rs),
@@ -2003,6 +2019,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 			}
 			rs := datastore.MockRepositoryStore{}
 			coordinator := NewCoordinator(
+				testhelper.NewLogger(t),
 				nil,
 				rs,
 				NewNodeManagerRouter(mgr, rs),
@@ -2820,7 +2837,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				Name: "stub", Help: "help",
 			}, []string{"reason"})
 
-			primaryDirtied, updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction, nodeErrors, metric)
+			primaryDirtied, updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, testhelper.NewLogger(t), route, transaction, nodeErrors, metric)
 			require.Equal(t, tc.expectedPrimaryDirtied, primaryDirtied)
 			require.ElementsMatch(t, tc.expectedUpdated, updated)
 			require.ElementsMatch(t, tc.expectedOutdated, outdated)
@@ -2889,6 +2906,7 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.EqualError(t,
 				NewCoordinator(
+					testhelper.NewLogger(t),
 					&datastore.MockReplicationEventQueue{
 						EnqueueFunc: func(ctx context.Context, _ datastore.ReplicationEvent) (datastore.ReplicationEvent, error) {
 							requireSuppressedCancellation(t, ctx)
@@ -2958,6 +2976,7 @@ func TestNewRequestFinalizer_enqueueErrorPropagation(t *testing.T) {
 			t.Parallel()
 
 			err := NewCoordinator(
+				testhelper.NewLogger(t),
 				&datastore.MockReplicationEventQueue{
 					EnqueueFunc: func(ctx context.Context, _ datastore.ReplicationEvent) (datastore.ReplicationEvent, error) {
 						return datastore.ReplicationEvent{}, tc.enqueueErr

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -19,11 +18,11 @@ func (s *server) GetObjectPool(ctx context.Context, in *gitalypb.GetObjectPoolRe
 
 	objectPool, err := objectpool.FromRepo(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, repo)
 	if err != nil {
-		log.FromContext(ctx).
+		s.logger.
 			WithError(err).
 			WithField("storage", repository.GetStorageName()).
 			WithField("relative_path", repository.GetRelativePath()).
-			Warn("alternates file does not point to valid git repository")
+			WarnContext(ctx, "alternates file does not point to valid git repository")
 	}
 
 	if objectPool == nil {

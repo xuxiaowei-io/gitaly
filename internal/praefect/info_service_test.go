@@ -85,7 +85,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
 		"praefect-0": {virtualStorage: storages[0:1]},
 	})
-	elector := nodes.NewPerRepositoryElector(tx)
+	elector := nodes.NewPerRepositoryElector(logger, tx)
 
 	conns := nodeSet.Connections()
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())

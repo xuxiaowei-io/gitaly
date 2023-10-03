@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
@@ -19,6 +20,7 @@ var (
 
 type server struct {
 	gitalypb.UnimplementedSSHServiceServer
+	logger                                   log.Logger
 	locator                                  storage.Locator
 	gitCmdFactory                            git.CommandFactory
 	txManager                                transaction.Manager
@@ -30,6 +32,7 @@ type server struct {
 // NewServer creates a new instance of a grpc SSHServer
 func NewServer(deps *service.Dependencies, serverOpts ...ServerOpt) gitalypb.SSHServiceServer {
 	s := &server{
+		logger:        deps.GetLogger(),
 		locator:       deps.GetLocator(),
 		gitCmdFactory: deps.GetGitCmdFactory(),
 		txManager:     deps.GetTxManager(),

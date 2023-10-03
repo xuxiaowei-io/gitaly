@@ -168,7 +168,7 @@ func TestVerifySubcommand(t *testing.T) {
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 
 			ln, clean := listenAndServe(t, []svcRegistrar{
-				registerPraefectInfoServer(info.NewServer(config.Config{}, rs, nil, nil, nil)),
+				registerPraefectInfoServer(info.NewServer(config.Config{}, testhelper.NewLogger(t), rs, nil, nil, nil)),
 			})
 			defer clean()
 

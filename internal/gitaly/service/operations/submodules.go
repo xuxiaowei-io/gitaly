@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -88,9 +87,9 @@ func (s *Server) UserUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 			resp = &gitalypb.UserUpdateSubmoduleResponse{
 				CommitError: legacyErrPrefixInvalidSubmodulePath,
 			}
-			log.FromContext(ctx).
+			s.logger.
 				WithError(err).
-				Error("UserUpdateSubmodule: git2go subcommand failure")
+				ErrorContext(ctx, "UserUpdateSubmodule: git2go subcommand failure")
 		}
 		if strings.Contains(errStr, "is already at") {
 			resp = &gitalypb.UserUpdateSubmoduleResponse{

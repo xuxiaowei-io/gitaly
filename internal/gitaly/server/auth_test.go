@@ -207,6 +207,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	require.NoError(t, err)
 
 	setup.RegisterAll(srv, &service.Dependencies{
+		Logger:             logger,
 		Cfg:                cfg,
 		GitalyHookManager:  hookManager,
 		TransactionManager: txManager,

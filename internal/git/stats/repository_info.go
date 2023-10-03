@@ -117,12 +117,12 @@ func LooseObjects(repo *localrepo.Repo) (uint64, error) {
 
 // LogRepositoryInfo derives RepositoryInfo and calls its `Log()` function, if successful. Otherwise
 // it logs an error.
-func LogRepositoryInfo(ctx context.Context, repo *localrepo.Repo) {
+func LogRepositoryInfo(ctx context.Context, logger log.Logger, repo *localrepo.Repo) {
 	repoInfo, err := RepositoryInfoForRepository(repo)
 	if err != nil {
-		log.FromContext(ctx).WithError(err).Warn("failed reading repository info")
+		logger.WithError(err).WarnContext(ctx, "failed reading repository info")
 	} else {
-		repoInfo.Log(ctx)
+		repoInfo.Log(ctx, logger)
 	}
 }
 
@@ -183,8 +183,8 @@ func RepositoryInfoForRepository(repo *localrepo.Repo) (RepositoryInfo, error) {
 }
 
 // Log logs the repository information as a structured entry under the `repository_info` field.
-func (i RepositoryInfo) Log(ctx context.Context) {
-	log.FromContext(ctx).WithField("repository_info", i).Info("repository info")
+func (i RepositoryInfo) Log(ctx context.Context, logger log.Logger) {
+	logger.WithField("repository_info", i).InfoContext(ctx, "repository info")
 }
 
 // ReferencesInfo contains information about references.

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/unarycache"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -22,6 +23,7 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedRepositoryServiceServer
+	logger              log.Logger
 	conns               *client.Pool
 	locator             storage.Locator
 	txManager           transaction.Manager
@@ -40,6 +42,7 @@ type server struct {
 // NewServer creates a new instance of a gRPC repo server
 func NewServer(deps *service.Dependencies) gitalypb.RepositoryServiceServer {
 	return &server{
+		logger:              deps.GetLogger(),
 		locator:             deps.GetLocator(),
 		txManager:           deps.GetTxManager(),
 		gitCmdFactory:       deps.GetGitCmdFactory(),

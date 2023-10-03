@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -37,10 +36,10 @@ func (s *server) ResolveConflicts(stream gitalypb.ConflictsService_ResolveConfli
 	}
 
 	err = s.resolveConflicts(header, stream)
-	return handleResolveConflictsErr(err, stream)
+	return s.handleResolveConflictsErr(err, stream)
 }
 
-func handleResolveConflictsErr(err error, stream gitalypb.ConflictsService_ResolveConflictsServer) error {
+func (s *server) handleResolveConflictsErr(err error, stream gitalypb.ConflictsService_ResolveConflictsServer) error {
 	var errStr string // normalized error message
 	if err != nil {
 		errStr = strings.TrimPrefix(err.Error(), "resolve: ") // remove subcommand artifact
@@ -56,9 +55,9 @@ func handleResolveConflictsErr(err error, stream gitalypb.ConflictsService_Resol
 				// log the error since the interceptor won't catch this
 				// error due to the unique way the RPC is defined to
 				// handle resolution errors
-				log.FromContext(stream.Context()).
+				s.logger.
 					WithError(err).
-					Error("ResolveConflicts: unable to resolve conflict")
+					ErrorContext(stream.Context(), "ResolveConflicts: unable to resolve conflict")
 				return stream.SendAndClose(&gitalypb.ResolveConflictsResponse{
 					ResolutionError: errStr,
 				})

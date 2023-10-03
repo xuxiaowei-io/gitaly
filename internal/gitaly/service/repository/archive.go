@@ -82,7 +82,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		return stream.Send(&gitalypb.GetArchiveResponse{Data: p})
 	})
 
-	log.FromContext(ctx).WithField("request_hash", requestHash(in)).Info("request details")
+	s.logger.WithField("request_hash", requestHash(in)).InfoContext(ctx, "request details")
 
 	return s.handleArchive(ctx, archiveParams{
 		writer:       writer,

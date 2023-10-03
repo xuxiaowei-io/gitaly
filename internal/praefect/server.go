@@ -189,7 +189,7 @@ func NewGRPCServer(
 	warnDupeAddrs(deps.Logger, deps.Config)
 
 	srv := grpc.NewServer(grpcOpts...)
-	registerServices(srv, deps.TxMgr, deps.Config, deps.RepositoryStore, deps.AssignmentStore, service.Connections(deps.Conns), deps.PrimaryGetter, deps.Checks)
+	registerServices(srv, deps.Logger, deps.TxMgr, deps.Config, deps.RepositoryStore, deps.AssignmentStore, service.Connections(deps.Conns), deps.PrimaryGetter, deps.Checks)
 
 	if deps.Config.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
@@ -218,6 +218,7 @@ func proxyRequiredOpts(director proxy.StreamDirector) []grpc.ServerOption {
 // registerServices registers services praefect needs to handle RPCs on its own.
 func registerServices(
 	srv *grpc.Server,
+	logger log.Logger,
 	tm *transactions.Manager,
 	conf config.Config,
 	rs datastore.RepositoryStore,
@@ -227,8 +228,8 @@ func registerServices(
 	checks []service.CheckFunc,
 ) {
 	// ServerServiceServer is necessary for the ServerInfo RPC
-	gitalypb.RegisterServerServiceServer(srv, server.NewServer(conf, conns, checks))
-	gitalypb.RegisterPraefectInfoServiceServer(srv, info.NewServer(conf, rs, assignmentStore, conns, primaryGetter))
+	gitalypb.RegisterServerServiceServer(srv, server.NewServer(conf, logger, conns, checks))
+	gitalypb.RegisterPraefectInfoServiceServer(srv, info.NewServer(conf, logger, rs, assignmentStore, conns, primaryGetter))
 	gitalypb.RegisterRefTransactionServer(srv, transaction.NewServer(tm))
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 

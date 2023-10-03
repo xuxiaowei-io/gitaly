@@ -104,7 +104,7 @@ func TestMetadataSubcommand(t *testing.T) {
 			})
 
 			ln, clean := listenAndServe(t, []svcRegistrar{
-				registerPraefectInfoServer(info.NewServer(config.Config{}, rs, nil, nil, nil)),
+				registerPraefectInfoServer(info.NewServer(config.Config{}, testhelper.NewLogger(t), rs, nil, nil, nil)),
 			})
 			t.Cleanup(clean)
 

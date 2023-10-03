@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/fstype"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -27,7 +26,7 @@ func (s *server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 
 		gitalyMetadata, err := storage.ReadMetadataFile(shard.Path)
 		if err != nil {
-			log.FromContext(ctx).WithField("storage", shard).WithError(err).Error("reading gitaly metadata file")
+			s.logger.WithField("storage", shard).WithError(err).ErrorContext(ctx, "reading gitaly metadata file")
 		}
 
 		storageStatuses = append(storageStatuses, &gitalypb.ServerInfoResponse_StorageStatus{
