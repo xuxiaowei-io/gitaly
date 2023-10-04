@@ -414,9 +414,8 @@ type ListCommitsRequest struct {
 	// the pseudo-revisions `--not` and `--all` as documented in git-rev-list(1).
 	// Must not be empty.
 	Revisions []string `protobuf:"bytes,2,rep,name=revisions,proto3" json:"revisions,omitempty"`
-	// pagination_params allows implementation of pagination. The page token is
-	// the last commit OID that was sent. It's expected to be the full object ID
-	// to guard against ambigious OIDs.
+	// pagination_params controls paging. Refer to PaginationParameter documentation for
+	// further info.
 	PaginationParams *PaginationParameter `protobuf:"bytes,3,opt,name=pagination_params,json=paginationParams,proto3" json:"pagination_params,omitempty"`
 	// order is the order in which commits should be traversed. Please refer to
 	// the enum's documentation for further information.
@@ -629,9 +628,8 @@ type ListAllCommitsRequest struct {
 
 	// repository is the repository in which commits should be searched for.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// pagination_params allows implementation of pagination. The page token is
-	// the last commit OID that was sent. It's expected to be the full object ID
-	// to guard against ambigious OIDs.
+	// pagination_params controls paging. Refer to PaginationParameter documentation for
+	// further info.
 	PaginationParams *PaginationParameter `protobuf:"bytes,2,opt,name=pagination_params,json=paginationParams,proto3" json:"pagination_params,omitempty"`
 }
 
@@ -1563,8 +1561,8 @@ type GetTreeEntriesRequest struct {
 	Recursive bool `protobuf:"varint,4,opt,name=recursive,proto3" json:"recursive,omitempty"`
 	// sort defines the sorting parameter.
 	Sort GetTreeEntriesRequest_SortBy `protobuf:"varint,5,opt,name=sort,proto3,enum=gitaly.GetTreeEntriesRequest_SortBy" json:"sort,omitempty"`
-	// pagination_params allows implementation of pagination. The page token is
-	// the path of the last tree object that was sent.
+	// pagination_params controls paging. Refer to PaginationParameter documentation for
+	// further info.
 	PaginationParams *PaginationParameter `protobuf:"bytes,6,opt,name=pagination_params,json=paginationParams,proto3" json:"pagination_params,omitempty"`
 	// skip_flat_paths is an option to skip the expensive operation of populating flat paths.
 	SkipFlatPaths bool `protobuf:"varint,7,opt,name=skip_flat_paths,json=skipFlatPaths,proto3" json:"skip_flat_paths,omitempty"`
@@ -1660,7 +1658,8 @@ type GetTreeEntriesResponse struct {
 
 	// entries denotes a list of tree entries.
 	Entries []*TreeEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
-	// pagination_cursor is a cursor to implement paginated requests.
+	// pagination_cursor defines the offset for subsequent requests. Refer to PaginationCursor
+	// documentation for further info.
 	PaginationCursor *PaginationCursor `protobuf:"bytes,2,opt,name=pagination_cursor,json=paginationCursor,proto3" json:"pagination_cursor,omitempty"`
 }
 

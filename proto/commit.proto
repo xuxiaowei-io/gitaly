@@ -220,9 +220,8 @@ message ListCommitsRequest {
   // Must not be empty.
   repeated string revisions = 2;
 
-  // pagination_params allows implementation of pagination. The page token is
-  // the last commit OID that was sent. It's expected to be the full object ID
-  // to guard against ambigious OIDs.
+  // pagination_params controls paging. Refer to PaginationParameter documentation for
+  // further info.
   PaginationParameter pagination_params = 3;
 
   // order is the order in which commits should be traversed. Please refer to
@@ -276,9 +275,8 @@ message ListAllCommitsRequest {
   // repository is the repository in which commits should be searched for.
   Repository repository = 1 [(target_repository)=true];
 
-  // pagination_params allows implementation of pagination. The page token is
-  // the last commit OID that was sent. It's expected to be the full object ID
-  // to guard against ambigious OIDs.
+  // pagination_params controls paging. Refer to PaginationParameter documentation for
+  // further info.
   PaginationParameter pagination_params = 2;
 }
 
@@ -475,8 +473,8 @@ message GetTreeEntriesRequest {
   bool recursive = 4;
   // sort defines the sorting parameter.
   SortBy sort = 5;
-  // pagination_params allows implementation of pagination. The page token is
-  // the path of the last tree object that was sent.
+  // pagination_params controls paging. Refer to PaginationParameter documentation for
+  // further info.
   PaginationParameter pagination_params = 6;
   // skip_flat_paths is an option to skip the expensive operation of populating flat paths.
   bool skip_flat_paths = 7;
@@ -487,7 +485,8 @@ message GetTreeEntriesRequest {
 message GetTreeEntriesResponse {
   // entries denotes a list of tree entries.
   repeated TreeEntry entries = 1;
-  // pagination_cursor is a cursor to implement paginated requests.
+  // pagination_cursor defines the offset for subsequent requests. Refer to PaginationCursor
+  // documentation for further info.
   PaginationCursor pagination_cursor = 2;
 }
 

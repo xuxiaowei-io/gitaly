@@ -1063,7 +1063,7 @@ func (x *ObjectPool) GetRepository() *Repository {
 	return nil
 }
 
-// PaginationParameter ...
+// PaginationParameter controls pagination within RPCs.
 type PaginationParameter struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1130,7 +1130,7 @@ func (x *PaginationParameter) GetLimit() int32 {
 	return 0
 }
 
-// PaginationCursor ...
+// PaginationCursor defines the page token clients should use to fetch the next page.
 type PaginationCursor struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
