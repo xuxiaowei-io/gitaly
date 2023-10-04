@@ -536,11 +536,16 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, sc Command, cc cm
 		return nil, fmt.Errorf("getting global Git configuration: %w", err)
 	}
 
-	combinedGlobals := make([]GlobalOption, 0, len(globalConfig)+len(commandDescription.opts)+len(cc.globals)+len(cf.cfg.Git.Config))
+	var commandOpts []GlobalOption
+	if commandDescription.opts != nil {
+		commandOpts = commandDescription.opts(ctx)
+	}
+
+	combinedGlobals := make([]GlobalOption, 0, len(globalConfig)+len(commandOpts)+len(cc.globals)+len(cf.cfg.Git.Config))
 	for _, configPair := range globalConfig {
 		combinedGlobals = append(combinedGlobals, configPair)
 	}
-	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
+	combinedGlobals = append(combinedGlobals, commandOpts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 	for _, configPair := range cf.cfg.Git.Config {
 		combinedGlobals = append(combinedGlobals, ConfigPair{

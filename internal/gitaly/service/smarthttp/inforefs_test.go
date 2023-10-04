@@ -33,9 +33,14 @@ import (
 func TestInfoRefsUploadPack_successful(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackSuccessful)
+}
+
+func testInfoRefsUploadPackSuccessful(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
-	ctx := testhelper.Context(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -58,9 +63,14 @@ func TestInfoRefsUploadPack_successful(t *testing.T) {
 func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackInternalRefs)
+}
+
+func testInfoRefsUploadPackInternalRefs(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
-	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		ref                    string
@@ -127,7 +137,13 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 
 func TestInfoRefsUploadPack_validate(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackValidate)
+}
+
+func testInfoRefsUploadPackValidate(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
@@ -160,9 +176,14 @@ func TestInfoRefsUploadPack_validate(t *testing.T) {
 func TestInfoRefsUploadPack_partialClone(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackPartialClone)
+}
+
+func testInfoRefsUploadPackPartialClone(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
-	ctx := testhelper.Context(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -183,10 +204,15 @@ func TestInfoRefsUploadPack_partialClone(t *testing.T) {
 func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackGitConfigOptions)
+}
+
+func testInfoRefsUploadPackGitConfigOptions(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	ctx := testhelper.Context(t)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
@@ -207,8 +233,13 @@ func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackGitProtocol)
+}
+
+func testInfoRefsUploadPackGitProtocol(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
-	ctx := testhelper.Context(t)
 
 	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 
@@ -259,9 +290,14 @@ func makeInfoRefsUploadPackRequest(t *testing.T, ctx context.Context, serverSock
 func TestInfoRefsReceivePack_successful(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsReceivePackSuccessful)
+}
+
+func testInfoRefsReceivePackSuccessful(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
-	ctx := testhelper.Context(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -283,7 +319,10 @@ func TestInfoRefsReceivePack_successful(t *testing.T) {
 
 func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testInfoRefsReceivePackHiddenRefs)
+	testhelper.NewFeatureSets(
+		featureflag.TransactionalLinkRepository,
+		featureflag.UploadPackBoundaryBitmapTraversal,
+	).Run(t, testInfoRefsReceivePackHiddenRefs)
 }
 
 func testInfoRefsReceivePackHiddenRefs(t *testing.T, ctx context.Context) {
@@ -312,7 +351,13 @@ func testInfoRefsReceivePackHiddenRefs(t *testing.T, ctx context.Context) {
 
 func TestInfoRefsReceivePack_validate(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsReceivePackValidate)
+}
+
+func testInfoRefsReceivePackValidate(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
@@ -399,6 +444,12 @@ func (ms *mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository
 func TestInfoRefsUploadPack_cache(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackCache)
+}
+
+func testInfoRefsUploadPackCache(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	locator := config.NewLocator(cfg)
@@ -411,8 +462,6 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 
 	gitalyServer := startSmartHTTPServer(t, cfg, withInfoRefCache(mockInfoRefCache))
 	cfg.SocketPath = gitalyServer.Address()
-
-	ctx := testhelper.Context(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 

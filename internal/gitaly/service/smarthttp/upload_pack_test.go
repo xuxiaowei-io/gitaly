@@ -15,6 +15,7 @@ import (
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
@@ -39,12 +40,11 @@ type (
 
 func runTestWithAndWithoutConfigOptions(
 	t *testing.T,
+	ctx context.Context,
 	tf func(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option),
 	makeRequest requestMaker,
 	opts ...testcfg.Option,
 ) {
-	ctx := testhelper.Context(t)
-
 	t.Run("no config options", func(t *testing.T) { tf(t, ctx, makeRequest) })
 
 	if len(opts) > 0 {
@@ -57,7 +57,13 @@ func runTestWithAndWithoutConfigOptions(
 func TestServer_PostUploadWithChannel(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUpload, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadWithChannel)
+}
+
+func testServerPostUploadWithChannel(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(t, ctx, testServerPostUpload, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
@@ -102,7 +108,13 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 func TestServer_PostUploadPackSidechannel_gitConfigOptions(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitConfigOptions, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackSidechannelGitConfigOptions)
+}
+
+func testServerPostUploadPackSidechannelGitConfigOptions(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(t, ctx, testServerPostUploadPackGitConfigOptions, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
@@ -165,7 +177,13 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 func TestServer_PostUploadPackWithSidechannel_gitProtocol(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitProtocol, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelGitProtocol)
+}
+
+func testServerPostUploadPackWithSidechannelGitProtocol(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(t, ctx, testServerPostUploadPackGitProtocol, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
@@ -202,7 +220,13 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 func TestServer_PostUploadPackWithSidechannel_suppressDeepenExitError(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackSuppressDeepenExitError, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelSuppressDeepenExitError)
+}
+
+func testServerPostUploadPackWithSidechannelSuppressDeepenExitError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(t, ctx, testServerPostUploadPackSuppressDeepenExitError, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
@@ -225,7 +249,12 @@ func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.C
 
 func TestServer_PostUploadPackWithSidechannel_usesPackObjectsHook(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelUsesPackObjectsHook)
+}
+
+func testServerPostUploadPackWithSidechannelUsesPackObjectsHook(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	testServerPostUploadPackUsesPackObjectsHook(t, ctx, makePostUploadPackWithSidechannelRequest)
 }
@@ -271,10 +300,16 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 func TestServer_PostUploadPack_validation(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackValidation, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackValidation)
 }
 
-func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+func testServerPostUploadPackValidation(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(t, ctx, testServerPostUploadPackValidationRequest, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+}
+
+func testServerPostUploadPackValidationRequest(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t, opts...)
@@ -311,7 +346,13 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 func TestServer_PostUploadPackSidechannel_validation(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackWithSideChannelValidation, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackSidechannelValidation)
+}
+
+func testServerPostUploadPackSidechannelValidation(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(t, ctx, testServerPostUploadPackWithSideChannelValidation, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
@@ -385,7 +426,13 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 func TestServer_PostUploadPackWithSidechannel_partialClone(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackPartialClone, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelPartialClone)
+}
+
+func testServerPostUploadPackWithSidechannelPartialClone(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(t, ctx, testServerPostUploadPackPartialClone, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
@@ -436,7 +483,12 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 
 func TestServer_PostUploadPackWithSidechannel_allowAnySHA1InWant(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelAllowAnySHA1InWant)
+}
+
+func testServerPostUploadPackWithSidechannelAllowAnySHA1InWant(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	testServerPostUploadPackAllowAnySHA1InWant(t, ctx, makePostUploadPackWithSidechannelRequest)
 }

@@ -1,11 +1,13 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"runtime"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
@@ -18,7 +20,7 @@ const (
 
 type commandDescription struct {
 	flags                  uint
-	opts                   []GlobalOption
+	opts                   func(context.Context) []GlobalOption
 	validatePositionalArgs func([]string) error
 }
 
@@ -39,7 +41,7 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"bundle": {
 		flags: scNoRefUpdates,
-		opts:  packConfiguration(),
+		opts:  packConfiguration,
 	},
 	"cat-file": {
 		flags: scNoRefUpdates,
@@ -58,12 +60,14 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoEndOfOptions,
 	},
 	"clone": {
-		opts: append(append([]GlobalOption{
-			// See "init" for why we set the template directory to the empty string.
-			ConfigPair{Key: "init.templateDir", Value: ""},
-			// See "fetch" for why we disable following redirects.
-			ConfigPair{Key: "http.followRedirects", Value: "false"},
-		}, packConfiguration()...), fetchFsckConfiguration()...),
+		opts: func(ctx context.Context) []GlobalOption {
+			return append(append([]GlobalOption{
+				// See "init" for why we set the template directory to the empty string.
+				ConfigPair{Key: "init.templateDir", Value: ""},
+				// See "fetch" for why we disable following redirects.
+				ConfigPair{Key: "http.followRedirects", Value: "false"},
+			}, packConfiguration(ctx)...), fetchFsckConfiguration(ctx)...)
+		},
 	},
 	"commit": {
 		flags: 0,
@@ -89,41 +93,43 @@ var commandDescriptions = map[string]commandDescription{
 	"fetch": {
 		flags: 0,
 
-		opts: append(append([]GlobalOption{
-			// We've observed performance issues when fetching into big repositories
-			// part of an object pool. The root cause of this seems to be the
-			// connectivity check, which by default will also include references of any
-			// alternates. Given that object pools often have hundreds of thousands of
-			// references, this is quite expensive to compute. Below config entry will
-			// disable listing of alternate refs: they shouldn't even be included in the
-			// negotiation phase, so they aren't going to matter in the connectivity
-			// check either.
-			ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
+		opts: func(ctx context.Context) []GlobalOption {
+			return append(append([]GlobalOption{
+				// We've observed performance issues when fetching into big repositories
+				// part of an object pool. The root cause of this seems to be the
+				// connectivity check, which by default will also include references of any
+				// alternates. Given that object pools often have hundreds of thousands of
+				// references, this is quite expensive to compute. Below config entry will
+				// disable listing of alternate refs: they shouldn't even be included in the
+				// negotiation phase, so they aren't going to matter in the connectivity
+				// check either.
+				ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
 
-			// While git-fetch(1) by default won't write commit graphs, both CNG and
-			// Omnibus set this value to true. This has caused performance issues when
-			// doing internal fetches, and furthermore it's not encouraged to run such
-			// maintenance tasks on "normal" Git operations. Instead, writing commit
-			// graphs should be done in our housekeeping RPCs, which already know to do
-			// so. So let's disable writing commit graphs on fetches -- if it really is
-			// required, we can enable it on a case-by-case basis.
-			ConfigPair{Key: "fetch.writeCommitGraph", Value: "false"},
+				// While git-fetch(1) by default won't write commit graphs, both CNG and
+				// Omnibus set this value to true. This has caused performance issues when
+				// doing internal fetches, and furthermore it's not encouraged to run such
+				// maintenance tasks on "normal" Git operations. Instead, writing commit
+				// graphs should be done in our housekeeping RPCs, which already know to do
+				// so. So let's disable writing commit graphs on fetches -- if it really is
+				// required, we can enable it on a case-by-case basis.
+				ConfigPair{Key: "fetch.writeCommitGraph", Value: "false"},
 
-			// By default, Git follows HTTP redirects. Because it's easy for a malicious
-			// user to set up a DNS redirect that points to a server that's internal for
-			// us and unreachable from the outside, this is dangerous. We thus have to
-			// disable redirects in all cases.
-			ConfigPair{Key: "http.followRedirects", Value: "false"},
+				// By default, Git follows HTTP redirects. Because it's easy for a malicious
+				// user to set up a DNS redirect that points to a server that's internal for
+				// us and unreachable from the outside, this is dangerous. We thus have to
+				// disable redirects in all cases.
+				ConfigPair{Key: "http.followRedirects", Value: "false"},
 
-			// By default, Git will try to recurse into submodules on demand: if a fetch
-			// retrieves a commit that updates a populated submodule, then it recurses
-			// into that submodule and also updates it. Computing this condition takes
-			// some resources though given that we need to check all fetched commits to
-			// find out if any submodule was in fact updated. This is a complete waste
-			// of time though because we never populate submodules at all. We thus
-			// disable recursion into submodules.
-			ConfigPair{Key: "fetch.recurseSubmodules", Value: "no"},
-		}, fetchFsckConfiguration()...), packConfiguration()...),
+				// By default, Git will try to recurse into submodules on demand: if a fetch
+				// retrieves a commit that updates a populated submodule, then it recurses
+				// into that submodule and also updates it. Computing this condition takes
+				// some resources though given that we need to check all fetched commits to
+				// find out if any submodule was in fact updated. This is a complete waste
+				// of time though because we never populate submodules at all. We thus
+				// disable recursion into submodules.
+				ConfigPair{Key: "fetch.recurseSubmodules", Value: "no"},
+			}, fetchFsckConfiguration(ctx)...), packConfiguration(ctx)...)
+		},
 	},
 	"for-each-ref": {
 		flags: scNoRefUpdates,
@@ -133,21 +139,23 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"fsck": {
 		flags: scNoRefUpdates,
-		opts:  fsckConfiguration(),
+		opts:  fsckConfiguration,
 	},
 	"gc": {
 		flags: scNoRefUpdates,
-		opts:  packConfiguration(),
+		opts:  packConfiguration,
 	},
 	"grep": {
 		// git-grep(1) does not support disambiguating options from paths from
 		// revisions.
 		flags: scNoRefUpdates | scNoEndOfOptions,
-		opts: []GlobalOption{
-			// This command by default spawns as many threads as there are CPUs. This
-			// easily impacts concurrently running commands by exhausting cores and
-			// generating excessive I/O load.
-			ConfigPair{Key: "grep.threads", Value: threadsConfigValue(runtime.NumCPU())},
+		opts: func(context.Context) []GlobalOption {
+			return []GlobalOption{
+				// This command by default spawns as many threads as there are CPUs. This
+				// easily impacts concurrently running commands by exhausting cores and
+				// generating excessive I/O load.
+				ConfigPair{Key: "grep.threads", Value: threadsConfigValue(runtime.NumCPU())},
+			}
 		},
 	},
 	"hash-object": {
@@ -158,21 +166,23 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"init": {
 		flags: scNoRefUpdates,
-		opts: []GlobalOption{
-			// We're not prepared for a world where the user has configured the default
-			// branch to be something different from "master" in Gitaly's git
-			// configuration. There explicitly override it on git-init.
-			ConfigPair{Key: "init.defaultBranch", Value: DefaultBranch},
+		opts: func(context.Context) []GlobalOption {
+			return []GlobalOption{
+				// We're not prepared for a world where the user has configured the default
+				// branch to be something different from "master" in Gitaly's git
+				// configuration. There explicitly override it on git-init.
+				ConfigPair{Key: "init.defaultBranch", Value: DefaultBranch},
 
-			// When creating a new repository, then Git will by default copy over all
-			// files from the template directory into the repository. These templates
-			// are non-mandatory files which help the user to configure parts of Git
-			// correctly, like hook templates or an exclude file. Given that repos
-			// should not be touched by admins anyway as they are completely owned by
-			// Gitaly, those templates don't serve much of a purpose except that they
-			// take up disk space. By setting below config entry to the empty value we
-			// can thus make sure that we do not use the template directory at all.
-			ConfigPair{Key: "init.templateDir", Value: ""},
+				// When creating a new repository, then Git will by default copy over all
+				// files from the template directory into the repository. These templates
+				// are non-mandatory files which help the user to configure parts of Git
+				// correctly, like hook templates or an exclude file. Given that repos
+				// should not be touched by admins anyway as they are completely owned by
+				// Gitaly, those templates don't serve much of a purpose except that they
+				// take up disk space. By setting below config entry to the empty value we
+				// can thus make sure that we do not use the template directory at all.
+				ConfigPair{Key: "init.templateDir", Value: ""},
+			}
 		},
 	},
 	"log": {
@@ -180,9 +190,11 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"ls-remote": {
 		flags: scNoRefUpdates,
-		opts: []GlobalOption{
-			// See "fetch" for why we disable following redirects.
-			ConfigPair{Key: "http.followRedirects", Value: "false"},
+		opts: func(context.Context) []GlobalOption {
+			return []GlobalOption{
+				// See "fetch" for why we disable following redirects.
+				ConfigPair{Key: "http.followRedirects", Value: "false"},
+			}
 		},
 	},
 	"ls-tree": {
@@ -211,7 +223,7 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"pack-objects": {
 		flags: scNoRefUpdates,
-		opts:  packConfiguration(),
+		opts:  packConfiguration,
 	},
 	"patch-id": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
@@ -224,46 +236,54 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"push": {
 		flags: scNoRefUpdates,
-		opts: []GlobalOption{
-			// See "fetch" for why we disable following redirects.
-			ConfigPair{Key: "http.followRedirects", Value: "false"},
+		opts: func(context.Context) []GlobalOption {
+			return []GlobalOption{
+				// See "fetch" for why we disable following redirects.
+				ConfigPair{Key: "http.followRedirects", Value: "false"},
+			}
 		},
 	},
 	"receive-pack": {
 		flags: 0,
-		opts: append(append(append([]GlobalOption{
-			// In case the repository belongs to an object pool, we want to prevent
-			// Git from including the pool's refs in the ref advertisement. We do
-			// this by rigging core.alternateRefsCommand to produce no output.
-			// Because Git itself will append the pool repository directory, the
-			// command ends with a "#". The end result is that Git runs `/bin/sh -c 'exit 0 # /path/to/pool.git`.
-			ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
+		opts: func(ctx context.Context) []GlobalOption {
+			return append(append(append([]GlobalOption{
+				// In case the repository belongs to an object pool, we want to prevent
+				// Git from including the pool's refs in the ref advertisement. We do
+				// this by rigging core.alternateRefsCommand to produce no output.
+				// Because Git itself will append the pool repository directory, the
+				// command ends with a "#". The end result is that Git runs `/bin/sh -c 'exit 0 # /path/to/pool.git`.
+				ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
 
-			// Make git-receive-pack(1) advertise the push options
-			// capability to clients.
-			ConfigPair{Key: "receive.advertisePushOptions", Value: "true"},
-		}, hiddenReceivePackRefPrefixes()...), receiveFsckConfiguration()...), packConfiguration()...),
+				// Make git-receive-pack(1) advertise the push options
+				// capability to clients.
+				ConfigPair{Key: "receive.advertisePushOptions", Value: "true"},
+			}, hiddenReceivePackRefPrefixes(ctx)...), receiveFsckConfiguration(ctx)...), packConfiguration(ctx)...)
+		},
 	},
 	"remote": {
 		// While git-remote(1)'s `add` subcommand does support `--end-of-options`,
 		// `remove` doesn't.
 		flags: scNoEndOfOptions,
-		opts: []GlobalOption{
-			// See "fetch" for why we disable following redirects.
-			ConfigPair{Key: "http.followRedirects", Value: "false"},
+		opts: func(context.Context) []GlobalOption {
+			return []GlobalOption{
+				// See "fetch" for why we disable following redirects.
+				ConfigPair{Key: "http.followRedirects", Value: "false"},
+			}
 		},
 	},
 	"repack": {
 		flags: scNoRefUpdates,
-		opts: append([]GlobalOption{
-			// Write bitmap indices when packing objects, which
-			// speeds up packfile creation for fetches.
-			ConfigPair{Key: "repack.writeBitmaps", Value: "true"},
-			// Do not run git-update-server-info(1), which generates data structures
-			// required to server repositories via the dumb HTTP protocol. We don't
-			// serve this protocol though, so it's fine to skip it.
-			ConfigPair{Key: "repack.updateServerInfo", Value: "false"},
-		}, packConfiguration()...),
+		opts: func(ctx context.Context) []GlobalOption {
+			return append([]GlobalOption{
+				// Write bitmap indices when packing objects, which
+				// speeds up packfile creation for fetches.
+				ConfigPair{Key: "repack.writeBitmaps", Value: "true"},
+				// Do not run git-update-server-info(1), which generates data structures
+				// required to server repositories via the dumb HTTP protocol. We don't
+				// serve this protocol though, so it's fine to skip it.
+				ConfigPair{Key: "repack.updateServerInfo", Value: "false"},
+			}, packConfiguration(ctx)...)
+		},
 	},
 	"rev-list": {
 		// We cannot use --end-of-options here because pseudo revisions like `--all`
@@ -320,12 +340,20 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"upload-pack": {
 		flags: scNoRefUpdates,
-		opts: append(append([]GlobalOption{
-			ConfigPair{Key: "uploadpack.allowFilter", Value: "true"},
-			// Enables the capability to request individual SHA1's from the
-			// remote repo.
-			ConfigPair{Key: "uploadpack.allowAnySHA1InWant", Value: "true"},
-		}, hiddenUploadPackRefPrefixes()...), packConfiguration()...),
+		opts: func(ctx context.Context) []GlobalOption {
+			opts := append(append([]GlobalOption{
+				ConfigPair{Key: "uploadpack.allowFilter", Value: "true"},
+				// Enables the capability to request individual SHA1's from the
+				// remote repo.
+				ConfigPair{Key: "uploadpack.allowAnySHA1InWant", Value: "true"},
+			}, hiddenUploadPackRefPrefixes(ctx)...), packConfiguration(ctx)...)
+
+			if featureflag.UploadPackBoundaryBitmapTraversal.IsEnabled(ctx) {
+				opts = append(opts, ConfigPair{Key: "pack.useBitmapBoundaryTraversal", Value: "true"})
+			}
+
+			return opts
+		},
 	},
 	"version": {
 		flags: scNoRefUpdates,
@@ -396,7 +424,7 @@ func validatePositionalArg(arg string) error {
 	return nil
 }
 
-func hiddenReceivePackRefPrefixes() []GlobalOption {
+func hiddenReceivePackRefPrefixes(ctx context.Context) []GlobalOption {
 	config := make([]GlobalOption, 0, len(InternalRefPrefixes))
 
 	for refPrefix, refType := range InternalRefPrefixes {
@@ -413,7 +441,7 @@ func hiddenReceivePackRefPrefixes() []GlobalOption {
 	return config
 }
 
-func hiddenUploadPackRefPrefixes() []GlobalOption {
+func hiddenUploadPackRefPrefixes(context.Context) []GlobalOption {
 	config := make([]GlobalOption, 0, len(InternalRefPrefixes))
 
 	for refPrefix, refType := range InternalRefPrefixes {
@@ -432,24 +460,24 @@ func hiddenUploadPackRefPrefixes() []GlobalOption {
 }
 
 // fsckConfiguration generates default fsck options used by git-fsck(1).
-func fsckConfiguration() []GlobalOption {
-	return templateFsckConfiguration("fsck")
+func fsckConfiguration(ctx context.Context) []GlobalOption {
+	return templateFsckConfiguration(ctx, "fsck")
 }
 
 // fetchFsckConfiguration generates default fsck options used by git-fetch-pack(1).
-func fetchFsckConfiguration() []GlobalOption {
-	return templateFsckConfiguration("fetch.fsck")
+func fetchFsckConfiguration(ctx context.Context) []GlobalOption {
+	return templateFsckConfiguration(ctx, "fetch.fsck")
 }
 
 // receiveFsckConfiguration generates default fsck options used by git-receive-pack(1).
-func receiveFsckConfiguration() []GlobalOption {
-	return templateFsckConfiguration("receive.fsck")
+func receiveFsckConfiguration(ctx context.Context) []GlobalOption {
+	return templateFsckConfiguration(ctx, "receive.fsck")
 }
 
 // templateFsckConfiguration generates our fsck configuration, including ignored checks.
 // The prefix must either be "fsck", "receive.fsck" or "fetch.fsck" and indicates whether
 // it should apply to git-fsck(1), git-receive-pack(1) or to git-fetch-pack(1).
-func templateFsckConfiguration(prefix string) []GlobalOption {
+func templateFsckConfiguration(_ context.Context, prefix string) []GlobalOption {
 	configPairs := []GlobalOption{
 		// When receiving objects from an untrusted source, we want to always assert that
 		// all objects are valid. When fetch.fsckObjects or receive.fsckObjects are not set,
@@ -492,7 +520,7 @@ func templateFsckConfiguration(prefix string) []GlobalOption {
 	return configPairs
 }
 
-func packConfiguration() []GlobalOption {
+func packConfiguration(context.Context) []GlobalOption {
 	return []GlobalOption{
 		ConfigPair{Key: "pack.windowMemory", Value: "100m"},
 		ConfigPair{Key: "pack.writeReverseIndex", Value: "true"},
