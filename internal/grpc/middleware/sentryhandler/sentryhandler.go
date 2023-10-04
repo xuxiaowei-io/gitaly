@@ -9,14 +9,11 @@ import (
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-)
-
-const (
-	skipSubmission = "sentry.skip"
 )
 
 var (
@@ -37,26 +34,76 @@ var (
 	}
 )
 
-// UnaryLogHandler handles access times and errors for unary RPC's
-func UnaryLogHandler(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	start := time.Now()
-	resp, err := handler(ctx, req)
-	if err != nil {
-		logGrpcErrorToSentry(ctx, info.FullMethod, start, err)
-	}
+// Option is an option that can be passed to UnaryLogHandler or StreamLogHandler in order to modify their default
+// behaviour.
+type Option func(cfg *config)
 
-	return resp, err
+// WithEventReporter overrides the function that is used to report events to Sentry. The only intended purpose of this
+// function is to override this function during tests.
+func WithEventReporter(reporter func(*sentry.Event) *sentry.EventID) Option {
+	return func(cfg *config) {
+		cfg.eventReporter = reporter
+	}
 }
 
-// StreamLogHandler handles access times and errors for stream RPC's
-func StreamLogHandler(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	start := time.Now()
-	err := handler(srv, stream)
-	if err != nil {
-		logGrpcErrorToSentry(stream.Context(), info.FullMethod, start, err)
+type config struct {
+	eventReporter func(*sentry.Event) *sentry.EventID
+}
+
+func configFromOptions(opts ...Option) config {
+	cfg := config{
+		eventReporter: sentry.CaptureEvent,
 	}
 
-	return err
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	return cfg
+}
+
+type skipSubmissionKey struct{}
+
+// UnaryLogHandler handles access times and errors for unary RPC's. Its default behaviour can be changed by passing
+// Options.
+func UnaryLogHandler(opts ...Option) grpc.UnaryServerInterceptor {
+	cfg := configFromOptions(opts...)
+
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		start := time.Now()
+
+		ctx = context.WithValue(ctx, skipSubmissionKey{}, new(bool))
+
+		resp, err := handler(ctx, req)
+		if err != nil {
+			logGrpcErrorToSentry(ctx, info.FullMethod, start, err, cfg.eventReporter)
+		}
+
+		return resp, err
+	}
+}
+
+// StreamLogHandler handles access times and errors for stream RPC's. Its default behaviour can be changed by passing
+// options.
+func StreamLogHandler(opts ...Option) grpc.StreamServerInterceptor {
+	cfg := configFromOptions(opts...)
+
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		start := time.Now()
+
+		ctx := stream.Context()
+		ctx = context.WithValue(ctx, skipSubmissionKey{}, new(bool))
+
+		wrappedStream := grpcmw.WrapServerStream(stream)
+		wrappedStream.WrappedContext = ctx
+
+		err := handler(srv, wrappedStream)
+		if err != nil {
+			logGrpcErrorToSentry(ctx, info.FullMethod, start, err, cfg.eventReporter)
+		}
+
+		return err
+	}
 }
 
 func stringMap(incoming map[string]interface{}) map[string]string {
@@ -88,15 +135,15 @@ func logErrorToSentry(ctx context.Context, method string, err error) (code codes
 		}
 	}
 
-	tags := grpcmwtags.Extract(ctx)
-	if tags.Has(skipSubmission) {
+	skipSubmission, ok := ctx.Value(skipSubmissionKey{}).(*bool)
+	if ok && *skipSubmission {
 		return code, true
 	}
 
 	return code, false
 }
 
-func generateSentryEvent(ctx context.Context, method string, start time.Time, err error) *sentry.Event {
+func generateSentryEvent(ctx context.Context, method string, duration time.Duration, err error) *sentry.Event {
 	grpcErrorCode, bypass := logErrorToSentry(ctx, method, err)
 	if bypass {
 		return nil
@@ -112,7 +159,7 @@ func generateSentryEvent(ctx context.Context, method string, start time.Time, er
 	for k, v := range map[string]string{
 		"grpc.code":    grpcErrorCode.String(),
 		"grpc.method":  method,
-		"grpc.time_ms": fmt.Sprintf("%.0f", time.Since(start).Seconds()*1000),
+		"grpc.time_ms": fmt.Sprintf("%.0f", duration.Seconds()*1000),
 		"system":       "grpc",
 	} {
 		event.Tags[k] = v
@@ -133,13 +180,13 @@ func generateSentryEvent(ctx context.Context, method string, start time.Time, er
 	return event
 }
 
-func logGrpcErrorToSentry(ctx context.Context, method string, start time.Time, err error) {
-	event := generateSentryEvent(ctx, method, start, err)
+func logGrpcErrorToSentry(ctx context.Context, method string, start time.Time, err error, reporter func(*sentry.Event) *sentry.EventID) {
+	event := generateSentryEvent(ctx, method, time.Since(start), err)
 	if event == nil {
 		return
 	}
 
-	sentry.CaptureEvent(event)
+	reporter(event)
 }
 
 var errorMsgPattern = regexp.MustCompile(`\A(\w+): (.+)\z`)
@@ -160,6 +207,10 @@ func newException(err error, stacktrace *sentry.Stacktrace) sentry.Exception {
 
 // MarkToSkip propagate context with a special tag that signals to sentry handler that the error must not be reported.
 func MarkToSkip(ctx context.Context) {
-	tags := grpcmwtags.Extract(ctx)
-	tags.Set(skipSubmission, struct{}{})
+	skipSubmission, ok := ctx.Value(skipSubmissionKey{}).(*bool)
+	if !ok {
+		return
+	}
+
+	*skipSubmission = true
 }
