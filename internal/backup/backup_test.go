@@ -804,6 +804,15 @@ func TestManager_Restore_specific(t *testing.T) {
 				expectedErrAs error
 			}{
 				{
+					desc: "missing backup",
+					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+						return repo, nil
+					},
+					expectedErrAs: backup.ErrSkipped,
+				},
+				{
 					desc: "single incremental",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 						repo, _ := gittest.CreateRepository(t, ctx, cfg)
