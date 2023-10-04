@@ -44,10 +44,17 @@ func TestWithConcurrencyLimiters(t *testing.T) {
 				RPC:        "/grpc.testing.TestService/FullDuplexCall",
 				MaxPerRepo: 99,
 			},
+			{
+				RPC:          "/grpc.testing.TestService/AnotherUnaryCall",
+				Adaptive:     true,
+				MinLimit:     5,
+				InitialLimit: 10,
+				MaxLimit:     15,
+			},
 		},
 	}
 	limits, _ := limithandler.WithConcurrencyLimiters(cfg)
-	require.Equal(t, 2, len(limits))
+	require.Equal(t, 3, len(limits))
 
 	limit := limits["/grpc.testing.TestService/UnaryCall"]
 	require.Equal(t, "perRPC/grpc.testing.TestService/UnaryCall", limit.Name())
@@ -58,6 +65,11 @@ func TestWithConcurrencyLimiters(t *testing.T) {
 	require.Equal(t, "perRPC/grpc.testing.TestService/FullDuplexCall", limit.Name())
 	require.Equal(t, limiter.AdaptiveSetting{Initial: 99}, limit.Setting())
 	require.Equal(t, 99, limit.Current())
+
+	limit = limits["/grpc.testing.TestService/AnotherUnaryCall"]
+	require.Equal(t, "perRPC/grpc.testing.TestService/AnotherUnaryCall", limit.Name())
+	require.Equal(t, limiter.AdaptiveSetting{Initial: 10, Min: 5, Max: 15, BackoffFactor: limiter.DefaultBackoffFactor}, limit.Setting())
+	require.Equal(t, 10, limit.Current())
 }
 
 func TestUnaryLimitHandler(t *testing.T) {

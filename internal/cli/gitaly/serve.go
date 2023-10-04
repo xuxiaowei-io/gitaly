@@ -296,9 +296,16 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
 
+	// List of tracking adaptive limits. They will be calibrated by the adaptive calculator
 	adaptiveLimits := []limiter.AdaptiveLimiter{}
 
-	_, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+	perRPCLimits, setupPerRPCConcurrencyLimiters := limithandler.WithConcurrencyLimiters(cfg)
+	for _, concurrency := range cfg.Concurrency {
+		// Connect adaptive limits to the adaptive calculator
+		if concurrency.Adaptive {
+			adaptiveLimits = append(adaptiveLimits, perRPCLimits[concurrency.RPC])
+		}
+	}
 	perRPCLimitHandler := limithandler.New(
 		cfg,
 		limithandler.LimitConcurrencyByRepo,
