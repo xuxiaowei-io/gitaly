@@ -15,14 +15,14 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // '/allowed' endpoint.
 service OperationService {
 
-  // This comment is left unintentionally blank.
+  // UserCreateBranch ...
   rpc UserCreateBranch(UserCreateBranchRequest) returns (UserCreateBranchResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // UserUpdateBranch ...
   rpc UserUpdateBranch(UserUpdateBranchRequest) returns (UserUpdateBranchResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -57,7 +57,7 @@ service OperationService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // UserDeleteTag ...
   rpc UserDeleteTag(UserDeleteTagRequest) returns (UserDeleteTagResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -175,21 +175,21 @@ service OperationService {
 
 }
 
-// This comment is left unintentionally blank.
+// UserCreateBranchRequest ...
 message UserCreateBranchRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // branch_name ...
   bytes branch_name = 2;
-  // This comment is left unintentionally blank.
+  // user ...
   User user = 3;
-  // This comment is left unintentionally blank.
+  // start_point ...
   bytes start_point = 4;
 }
 
-// This comment is left unintentionally blank.
+// UserCreateBranchResponse ...
 message UserCreateBranchResponse {
-  // This comment is left unintentionally blank.
+  // branch ...
   Branch branch = 1;
 
   // PreReceiveError had previously been set when creation of the branch was refused by hooks.
@@ -208,23 +208,23 @@ message UserCreateBranchError {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateBranchRequest ...
 message UserUpdateBranchRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // branch_name ...
   bytes branch_name = 2;
-  // This comment is left unintentionally blank.
+  // user ...
   User user = 3;
-  // This comment is left unintentionally blank.
+  // newrev ...
   bytes newrev = 4;
-  // This comment is left unintentionally blank.
+  // oldrev ...
   bytes oldrev = 5;
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateBranchResponse ...
 message UserUpdateBranchResponse {
-  // This comment is left unintentionally blank.
+  // pre_receive_error ...
   string pre_receive_error = 1;
 }
 
@@ -274,13 +274,13 @@ message UserDeleteBranchError {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserDeleteTagRequest ...
 message UserDeleteTagRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // tag_name ...
   bytes tag_name = 2;
-  // This comment is left unintentionally blank.
+  // user ...
   User user = 3;
   // expected_old_oid is the object ID which tag is expected to point to.
   // This is used as a safety guard to avoid races when tag has been
@@ -292,9 +292,9 @@ message UserDeleteTagRequest {
   string expected_old_oid = 4;
 }
 
-// This comment is left unintentionally blank.
+// UserDeleteTagResponse ...
 message UserDeleteTagResponse {
-  // This comment is left unintentionally blank.
+  // pre_receive_error ...
   string pre_receive_error = 1;
 }
 
@@ -354,7 +354,7 @@ message UserCreateTagError {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserMergeBranchRequest ...
 message UserMergeBranchRequest {
   // The following parameters must only be set in the first message to declare
   // parameters for the merge.
@@ -391,7 +391,7 @@ message UserMergeBranchRequest {
   bool apply = 6;
 }
 
-// This comment is left unintentionally blank.
+// UserMergeBranchResponse ...
 message UserMergeBranchResponse {
   // First message
   // The merge commit the branch will be updated to. The caller can still abort the merge.
@@ -426,7 +426,7 @@ message UserMergeBranchError {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserMergeToRefRequest ...
 message UserMergeToRefRequest {
   // repository is the repository in which the merge shall be computed.
   Repository repository = 1 [(target_repository)=true];
@@ -471,7 +471,7 @@ message UserMergeToRefRequest {
   string expected_old_oid = 10;
 }
 
-// This comment is left unintentionally blank.
+// UserMergeToRefResponse ...
 message UserMergeToRefResponse {
   // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
@@ -553,15 +553,15 @@ message UserFFBranchRequest {
   string expected_old_oid = 5;
 }
 
-// This comment is left unintentionally blank.
+// UserFFBranchResponse ...
 message UserFFBranchResponse {
-  // This comment is left unintentionally blank.
+  // branch_update ...
   OperationBranchUpdate branch_update = 1;
-  // This comment is left unintentionally blank.
+  // pre_receive_error ...
   string pre_receive_error = 2;
 }
 
-// This comment is left unintentionally blank.
+// UserCherryPickRequest ...
 message UserCherryPickRequest {
   // repository is the repository into which the cherry-pick shall be
   // performed.
@@ -600,7 +600,7 @@ message UserCherryPickRequest {
   string expected_old_oid = 10;
 }
 
-// This comment is left unintentionally blank.
+// UserCherryPickResponse ...
 message UserCherryPickResponse {
   // branch_update represents details about the updated branch.
   OperationBranchUpdate branch_update = 1;
@@ -644,7 +644,7 @@ message UserCherryPickError {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserRevertRequest ...
 message UserRevertRequest {
   // repository is the repository in which the revert shall be applied.
   Repository repository = 1 [(target_repository)=true];
@@ -682,7 +682,7 @@ message UserRevertRequest {
   string expected_old_oid = 10;
 }
 
-// This comment is left unintentionally blank.
+// UserRevertResponse ...
 message UserRevertResponse {
   // CreateTreeError represents an error which happened when computing the
   // revert.
@@ -713,7 +713,7 @@ message UserRevertResponse {
 
 // UserCommitFilesActionHeader contains the details of the action to be performed.
 message UserCommitFilesActionHeader {
-  // This comment is left unintentionally blank.
+  // ActionType ...
   enum ActionType {
     // CREATE creates a new file.
     CREATE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -850,7 +850,7 @@ message UserCommitFilesError {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableRequest ...
 message UserRebaseConfirmableRequest {
   // Header contains information to compute the rebase and must be sent as
   // first message.
@@ -893,7 +893,7 @@ message UserRebaseConfirmableRequest {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableResponse ...
 message UserRebaseConfirmableResponse {
   oneof user_rebase_confirmable_response_payload {
     // The first response will contain the rebase commit the branch will
@@ -910,7 +910,7 @@ message UserRebaseConfirmableResponse {
   string git_error = 4;
 }
 
-// This comment is left unintentionally blank.
+// UserSquashRequest ...
 message UserSquashRequest {
   // repository is the repository into which the squashed commit shall be
   // written.
@@ -935,7 +935,7 @@ message UserSquashRequest {
   reserved "squash_id";
 }
 
-// This comment is left unintentionally blank.
+// UserSquashResponse ...
 message UserSquashResponse {
   // squash_sha is the object ID of the squashed commit.
   string squash_sha = 1;
@@ -951,7 +951,7 @@ message UserSquashResponse {
   reserved "git_error";
 }
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableError ...
 message UserRebaseConfirmableError {
   oneof error {
     // RebaseConflict is returned in case rebasing commits on top of the start
@@ -977,7 +977,7 @@ message UserSquashError {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserApplyPatchRequest ...
 message UserApplyPatchRequest {
   // Header contains information about how to apply the patches.
   message Header {
@@ -1010,13 +1010,13 @@ message UserApplyPatchRequest {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserApplyPatchResponse ...
 message UserApplyPatchResponse {
   // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateSubmoduleRequest ...
 message UserUpdateSubmoduleRequest {
   // repository is the repository in which the submodule shall be updated.
   Repository repository = 1 [(target_repository)=true];
@@ -1047,7 +1047,7 @@ message UserUpdateSubmoduleRequest {
   string expected_old_oid = 8;
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateSubmoduleResponse ...
 message UserUpdateSubmoduleResponse {
   // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;

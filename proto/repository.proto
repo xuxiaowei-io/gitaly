@@ -10,7 +10,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // RepositoryService is a service providing RPCs accessing repositories as a whole.
 service RepositoryService {
 
-  // This comment is left unintentionally blank.
+  // RepositoryExists ...
   rpc RepositoryExists(RepositoryExistsRequest) returns (RepositoryExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -68,7 +68,7 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ApplyGitattributes ...
   rpc ApplyGitattributes(ApplyGitattributesRequest) returns (ApplyGitattributesResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -83,21 +83,21 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CreateRepository ...
   rpc CreateRepository(CreateRepositoryRequest) returns (CreateRepositoryResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetArchive ...
   rpc GetArchive(GetArchiveRequest) returns (stream GetArchiveResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // HasLocalBranches ...
   rpc HasLocalBranches(HasLocalBranchesRequest) returns (HasLocalBranchesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -120,14 +120,14 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // WriteRef ...
   rpc WriteRef(WriteRefRequest) returns (WriteRefResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // FindMergeBase ...
   rpc FindMergeBase(FindMergeBaseRequest) returns (FindMergeBaseResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -147,7 +147,7 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CreateRepositoryFromURL ...
   rpc CreateRepositoryFromURL(CreateRepositoryFromURLRequest) returns (CreateRepositoryFromURLResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -202,49 +202,49 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetInfoAttributes ...
   rpc GetInfoAttributes(GetInfoAttributesRequest) returns (stream GetInfoAttributesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CalculateChecksum ...
   rpc CalculateChecksum(CalculateChecksumRequest) returns (CalculateChecksumResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetSnapshot ...
   rpc GetSnapshot(GetSnapshotRequest) returns (stream GetSnapshotResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CreateRepositoryFromSnapshot ...
   rpc CreateRepositoryFromSnapshot(CreateRepositoryFromSnapshotRequest) returns (CreateRepositoryFromSnapshotResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetRawChanges ...
   rpc GetRawChanges(GetRawChangesRequest) returns (stream GetRawChangesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // SearchFilesByContent ...
   rpc SearchFilesByContent(SearchFilesByContentRequest) returns (stream SearchFilesByContentResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // SearchFilesByName ...
   rpc SearchFilesByName(SearchFilesByNameRequest) returns (stream SearchFilesByNameResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -289,7 +289,7 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetObjectDirectorySize ...
   rpc GetObjectDirectorySize(GetObjectDirectorySizeRequest) returns (GetObjectDirectorySizeResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -305,7 +305,7 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // RenameRepository ...
   rpc RenameRepository(RenameRepositoryRequest) returns (RenameRepositoryResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -402,15 +402,15 @@ service RepositoryService {
   }
 }
 
-// This comment is left unintentionally blank.
+// RepositoryExistsRequest ...
 message RepositoryExistsRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// RepositoryExistsResponse ...
 message RepositoryExistsResponse {
-  // This comment is left unintentionally blank.
+  // exists ...
   bool exists = 1;
 }
 
@@ -525,19 +525,19 @@ message ObjectFormatResponse {
   ObjectFormat format = 1;
 }
 
-// This comment is left unintentionally blank.
+// ApplyGitattributesRequest ...
 message ApplyGitattributesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // revision ...
   bytes revision = 2;
 }
 
-// This comment is left unintentionally blank.
+// ApplyGitattributesResponse ...
 message ApplyGitattributesResponse {
 }
 
-// This comment is left unintentionally blank.
+// FetchBundleRequest ...
 message FetchBundleRequest {
   // Repository into which the reference shall be fetched.
   Repository repository = 1 [(target_repository)=true];
@@ -549,13 +549,13 @@ message FetchBundleRequest {
   bool update_head = 3;
 }
 
-// This comment is left unintentionally blank.
+// FetchBundleResponse ...
 message FetchBundleResponse {
 }
 
-// This comment is left unintentionally blank.
+// FetchRemoteRequest ...
 message FetchRemoteRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // force determines if references should be force-updated in case they have
   // diverged.
@@ -564,9 +564,9 @@ message FetchRemoteRequest {
   bool no_tags = 4;
   // timeout specifies a timeout for the fetch.
   int32 timeout = 5;
-  // This comment is left unintentionally blank.
+  // ssh_key ...
   string ssh_key = 6;
-  // This comment is left unintentionally blank.
+  // known_hosts ...
   string known_hosts = 7;
   reserved 8;
   // no_prune will the fetch to not prune remote references which do not exist
@@ -584,7 +584,7 @@ message FetchRemoteRequest {
   reserved "remote";
 }
 
-// This comment is left unintentionally blank.
+// FetchRemoteResponse ...
 message FetchRemoteResponse {
   // If check_tags_changed was set in the FetchRemoteRequest, the FetchRemote
   // RPC will return false when no tags were changed, and true if tags were
@@ -592,9 +592,9 @@ message FetchRemoteResponse {
   bool tags_changed = 1;
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryRequest ...
 message CreateRepositoryRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // Provide a branch name to set as the default branch of a newly created
   // repository. Note, this will be treated as the branch name and not a
@@ -606,35 +606,35 @@ message CreateRepositoryRequest {
   ObjectFormat object_format = 3;
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryResponse ...
 message CreateRepositoryResponse {
 }
 
-// This comment is left unintentionally blank.
+// GetArchiveRequest ...
 message GetArchiveRequest {
-  // This comment is left unintentionally blank.
+  // Format ...
   enum Format {
-    // This comment is left unintentionally blank.
+    // ZIP ...
     ZIP = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // TAR ...
     TAR = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // TAR_GZ ...
     TAR_GZ = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // TAR_BZ2 ...
     TAR_BZ2 = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // commit_id ...
   string commit_id = 2;
-  // This comment is left unintentionally blank.
+  // prefix ...
   string prefix = 3;
-  // This comment is left unintentionally blank.
+  // format ...
   Format format = 4;
-  // This comment is left unintentionally blank.
+  // path ...
   bytes path = 5;
-  // This comment is left unintentionally blank.
+  // exclude ...
   repeated bytes exclude = 6; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
   // If `elide_path` is true and `path` refers to a subdirectory, that
   // subdirectory will be elided from archive entries. For example, if `dir`
@@ -643,29 +643,29 @@ message GetArchiveRequest {
   // `README.md`. `elide_path` has no effect if `path` refers to the repository
   // root. `elide_path = true` is not supported if `path` refers to a file.
   bool elide_path = 7;
-  // This comment is left unintentionally blank.
+  // include_lfs_blobs ...
   bool include_lfs_blobs = 8;
 }
 
-// This comment is left unintentionally blank.
+// GetArchiveResponse ...
 message GetArchiveResponse {
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
+// HasLocalBranchesRequest ...
 message HasLocalBranchesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// HasLocalBranchesResponse ...
 message HasLocalBranchesResponse {
-  // This comment is left unintentionally blank.
+  // value ...
   bool value = 1;
 }
 
-// This comment is left unintentionally blank.
+// FetchSourceBranchRequest ...
 message FetchSourceBranchRequest {
   // Repository into which the reference shall be fetched. After a successful
   // call, it should contain the target reference which points to the same
@@ -680,7 +680,7 @@ message FetchSourceBranchRequest {
   bytes target_ref = 4;
 }
 
-// This comment is left unintentionally blank.
+// FetchSourceBranchResponse ...
 message FetchSourceBranchResponse {
   // True if the source branch was successfully fetched into the target
   // repository, false if resolving the remote reference or fetching it failed.
@@ -699,33 +699,33 @@ message FsckResponse {
   bytes error = 1;
 }
 
-// This comment is left unintentionally blank.
+// WriteRefRequest ...
 message WriteRefRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // ref ...
   bytes ref = 2;
-  // This comment is left unintentionally blank.
+  // revision ...
   bytes revision = 3;
-  // This comment is left unintentionally blank.
+  // old_revision ...
   bytes old_revision = 4;
-  // This comment is left unintentionally blank.
+  // force ...
   bool force = 5;
   // This used to be a boolean indicating whether or not to shell out or use
   // the rugged implementation
   reserved 6;
 }
 
-// This comment is left unintentionally blank.
+// WriteRefResponse ...
 message WriteRefResponse {
   // This used to contain an error message. Since we're shelling out
   // all exceptions are wrapped in GRPC errors.
   reserved 1;
 }
 
-// This comment is left unintentionally blank.
+// FindMergeBaseRequest ...
 message FindMergeBaseRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // We use a repeated field because rugged supports finding a base
   // for more than 2 revisions, so if we needed that in the future we don't
@@ -733,9 +733,9 @@ message FindMergeBaseRequest {
   repeated bytes revisions = 2;
 }
 
-// This comment is left unintentionally blank.
+// FindMergeBaseResponse ...
 message FindMergeBaseResponse {
-  // This comment is left unintentionally blank.
+  // base ...
   string base = 1;
 }
 
@@ -759,11 +759,11 @@ message CreateForkRequest {
 message CreateForkResponse {
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryFromURLRequest ...
 message CreateRepositoryFromURLRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // url ...
   string url = 2;
   // http_authorization_header is the HTTP header which can be added to
   // the request in order to authenticate against the repository.
@@ -787,23 +787,23 @@ message CreateRepositoryFromURLRequest {
   reserved "http_host";
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryFromURLResponse ...
 message CreateRepositoryFromURLResponse {
 }
 
-// This comment is left unintentionally blank.
+// CreateBundleRequest ...
 message CreateBundleRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// CreateBundleResponse ...
 message CreateBundleResponse {
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
+// CreateBundleFromRefListRequest ...
 message CreateBundleFromRefListRequest {
   // Repository is the repository that the bundle is created from.
   Repository repository = 1 [(target_repository)=true];
@@ -814,9 +814,9 @@ message CreateBundleFromRefListRequest {
   repeated bytes patterns = 2;
 }
 
-// This comment is left unintentionally blank.
+// CreateBundleFromRefListResponse ...
 message CreateBundleFromRefListResponse {
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 1;
 }
 
@@ -833,51 +833,51 @@ message GetConfigResponse {
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
-message  RestoreCustomHooksRequest {
-  // This comment is left unintentionally blank.
+// RestoreCustomHooksRequest ...
+message RestoreCustomHooksRequest {
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 2;
 }
 
-// This comment is left unintentionally blank.
-message  SetCustomHooksRequest {
-  // This comment is left unintentionally blank.
+// SetCustomHooksRequest ...
+message SetCustomHooksRequest {
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 2;
 }
 
-// This comment is left unintentionally blank.
+// RestoreCustomHooksResponse ...
 message RestoreCustomHooksResponse {
 }
 
-// This comment is left unintentionally blank.
+// SetCustomHooksResponse ...
 message SetCustomHooksResponse {
 }
 
-// This comment is left unintentionally blank.
+// BackupCustomHooksRequest ...
 message BackupCustomHooksRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// GetCustomHooksRequest ...
 message GetCustomHooksRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// BackupCustomHooksResponse ...
 message BackupCustomHooksResponse {
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
+// GetCustomHooksResponse ...
 message GetCustomHooksResponse {
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 1;
 }
 
@@ -921,49 +921,49 @@ message FindLicenseResponse {
   string license_nickname = 5;
 }
 
-// This comment is left unintentionally blank.
+// GetInfoAttributesRequest ...
 message GetInfoAttributesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// GetInfoAttributesResponse ...
 message GetInfoAttributesResponse {
-  // This comment is left unintentionally blank.
+  // attributes ...
   bytes attributes = 1;
 }
 
-// This comment is left unintentionally blank.
+// CalculateChecksumRequest ...
 message CalculateChecksumRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// CalculateChecksumResponse ...
 message CalculateChecksumResponse {
-  // This comment is left unintentionally blank.
+  // checksum ...
   string checksum = 1;
 }
 
-// This comment is left unintentionally blank.
+// GetSnapshotRequest ...
 message GetSnapshotRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// GetSnapshotResponse ...
 message GetSnapshotResponse {
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryFromSnapshotRequest ...
 message CreateRepositoryFromSnapshotRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // http_url ...
   string http_url = 2;
-  // This comment is left unintentionally blank.
+  // http_auth ...
   string http_auth = 3;
   // ResolvedAddress holds the resolved IP address of the remote_url. This is
   // used to avoid DNS rebinding by mapping the url to the resolved address.
@@ -978,46 +978,46 @@ message CreateRepositoryFromSnapshotRequest {
   reserved "http_host";
 }
 
-// This comment is left unintentionally blank.
+// CreateRepositoryFromSnapshotResponse ...
 message CreateRepositoryFromSnapshotResponse {
 }
 
-// This comment is left unintentionally blank.
+// GetRawChangesRequest ...
 message GetRawChangesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // from_revision ...
   string from_revision = 2;
-  // This comment is left unintentionally blank.
+  // to_revision ...
   string to_revision = 3;
 }
 
-// This comment is left unintentionally blank.
+// GetRawChangesResponse ...
 message GetRawChangesResponse {
-  // This comment is left unintentionally blank.
+  // RawChange ...
   message RawChange {
-    // This comment is left unintentionally blank.
+    // Operation ...
     enum Operation {
-      // This comment is left unintentionally blank.
+      // UNKNOWN ...
       UNKNOWN = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-      // This comment is left unintentionally blank.
+      // ADDED ...
       ADDED = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // This comment is left unintentionally blank.
+      // COPIED ...
       COPIED = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // This comment is left unintentionally blank.
+      // DELETED ...
       DELETED = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // This comment is left unintentionally blank.
+      // MODIFIED ...
       MODIFIED = 4; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // This comment is left unintentionally blank.
+      // RENAMED ...
       RENAMED = 5; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // This comment is left unintentionally blank.
+      // TYPE_CHANGED ...
       TYPE_CHANGED = 6; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
     }
 
-    // This comment is left unintentionally blank.
+    // blob_id ...
     string blob_id = 1;
-    // This comment is left unintentionally blank.
-    int64 size= 2;
+    // size ...
+    int64 size = 2;
 
     // This used to be a string that is now represented by the field 9 as byte array.
     reserved 3;
@@ -1026,32 +1026,32 @@ message GetRawChangesResponse {
     reserved 4;
     reserved "old_path";
 
-    // This comment is left unintentionally blank.
-    Operation operation= 5;
-    // This comment is left unintentionally blank.
+    // operation ...
+    Operation operation = 5;
+    // raw_operation ...
     string raw_operation = 6;
-    // This comment is left unintentionally blank.
+    // old_mode ...
     int32 old_mode = 7;
-    // This comment is left unintentionally blank.
+    // new_mode ...
     int32 new_mode = 8;
 
     // the following fields, 9 and 10, will eventually replace 3 and 4
     bytes new_path_bytes = 9;
-    // This comment is left unintentionally blank.
+    // old_path_bytes ...
     bytes old_path_bytes = 10;
   }
 
-  // This comment is left unintentionally blank.
+  // raw_changes ...
   repeated RawChange raw_changes = 1;
 }
 
-// This comment is left unintentionally blank.
+// SearchFilesByNameRequest ...
 message SearchFilesByNameRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // query ...
   string query = 2;
-  // This comment is left unintentionally blank.
+  // ref ...
   bytes ref = 3;
   // If `filter` is specified and non-empty, it will be parsed as a regular
   // expression and used to filter the result set before it is transmitted. It is
@@ -1067,31 +1067,31 @@ message SearchFilesByNameRequest {
   uint32 offset = 6;
 }
 
-// This comment is left unintentionally blank.
+// SearchFilesByNameResponse ...
 message SearchFilesByNameResponse {
   // Files contains the paths of files that have been found to match the query.
   repeated bytes files = 1;
 }
 
-// This comment is left unintentionally blank.
+// SearchFilesByContentRequest ...
 message SearchFilesByContentRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // query ...
   string query = 2;
-  // This comment is left unintentionally blank.
+  // ref ...
   bytes ref = 3;
-  // This comment is left unintentionally blank.
+  // chunked_response ...
   bool chunked_response = 4;
 }
 
-// This comment is left unintentionally blank.
+// SearchFilesByContentResponse ...
 message SearchFilesByContentResponse {
-  // This comment is left unintentionally blank.
+  // matches ...
   repeated bytes matches = 1;
-  // This comment is left unintentionally blank.
+  // match_data ...
   bytes match_data = 2;
-  // This comment is left unintentionally blank.
+  // end_of_match ...
   bool end_of_match = 3;
 }
 
@@ -1135,37 +1135,37 @@ message Remote {
   reserved "http_host";
 }
 
-// This comment is left unintentionally blank.
+// GetObjectDirectorySizeRequest ...
 message GetObjectDirectorySizeRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// GetObjectDirectorySizeResponse ...
 message GetObjectDirectorySizeResponse {
   // Object directory size in kilobytes
   int64 size = 1;
 }
 
-// This comment is left unintentionally blank.
+// RemoveRepositoryRequest ...
 message RemoveRepositoryRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// RemoveRepositoryResponse ...
 message RemoveRepositoryResponse {
 }
 
-// This comment is left unintentionally blank.
+// RenameRepositoryRequest ...
 message RenameRepositoryRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // relative_path ...
   string relative_path = 2;
 }
 
-// This comment is left unintentionally blank.
+// RenameRepositoryResponse ...
 message RenameRepositoryResponse{
 }
 
@@ -1219,7 +1219,7 @@ message OptimizeRepositoryResponse {
 // PruneUnreachableObjectsRequest is a request for the PruneUnreachableObjects
 // RPC call.
 message PruneUnreachableObjectsRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 

@@ -68,21 +68,21 @@ service CommitService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ListFiles ...
   rpc ListFiles(ListFilesRequest) returns (stream ListFilesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // FindCommit ...
   rpc FindCommit(FindCommitRequest) returns (FindCommitResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CommitStats ...
   rpc CommitStats(CommitStatsRequest) returns (CommitStatsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -96,7 +96,7 @@ service CommitService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // FindCommits ...
   rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -131,49 +131,49 @@ service CommitService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ListLastCommitsForTree ...
   rpc ListLastCommitsForTree(ListLastCommitsForTreeRequest) returns (stream ListLastCommitsForTreeResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // CommitsByMessage ...
   rpc CommitsByMessage(CommitsByMessageRequest) returns (stream CommitsByMessageResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ListCommitsByOid ...
   rpc ListCommitsByOid(ListCommitsByOidRequest) returns (stream ListCommitsByOidResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ListCommitsByRefName ...
   rpc ListCommitsByRefName(ListCommitsByRefNameRequest) returns (stream ListCommitsByRefNameResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // FilterShasWithSignatures ...
   rpc FilterShasWithSignatures(stream FilterShasWithSignaturesRequest) returns (stream FilterShasWithSignaturesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetCommitSignatures ...
   rpc GetCommitSignatures(GetCommitSignaturesRequest) returns (stream GetCommitSignaturesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetCommitMessages ...
   rpc GetCommitMessages(GetCommitMessagesRequest) returns (stream GetCommitMessagesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -284,21 +284,21 @@ message ListAllCommitsResponse {
   repeated GitCommit commits = 1;
 }
 
-// This comment is left unintentionally blank.
+// CommitStatsRequest ...
 message CommitStatsRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // revision ...
   bytes revision = 2;
 }
 
-// This comment is left unintentionally blank.
+// CommitStatsResponse ...
 message CommitStatsResponse {
   // OID is the commit. Empty means not found
   string oid = 1;
-  // This comment is left unintentionally blank.
+  // additions ...
   int32 additions = 2;
-  // This comment is left unintentionally blank.
+  // deletions ...
   int32 deletions = 3;
 }
 
@@ -476,11 +476,11 @@ message GetTreeEntriesRequest {
   bool skip_flat_paths = 7;
 }
 
-// This comment is left unintentionally blank.
+// GetTreeEntriesResponse ...
 message GetTreeEntriesResponse {
-  // This comment is left unintentionally blank.
+  // entries ...
   repeated TreeEntry entries = 1;
-  // This comment is left unintentionally blank.
+  // pagination_cursor ...
   PaginationCursor pagination_cursor = 2;
 }
 
@@ -495,11 +495,11 @@ message GetTreeEntriesError {
   }
 }
 
-// This comment is left unintentionally blank.
+// ListFilesRequest ...
 message ListFilesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // revision ...
   bytes revision = 2;
 }
 
@@ -509,131 +509,131 @@ message ListFilesResponse {
   repeated bytes paths = 1;
 }
 
-// This comment is left unintentionally blank.
+// FindCommitRequest ...
 message FindCommitRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // revision ...
   bytes revision = 2;
-  // This comment is left unintentionally blank.
+  // trailers ...
   bool trailers = 3;
 }
 
-// This comment is left unintentionally blank.
+// FindCommitResponse ...
 message FindCommitResponse {
   // commit is nil when the commit was not found
   GitCommit commit = 1;
 }
 
-// This comment is left unintentionally blank.
+// ListCommitsByOidRequest ...
 message ListCommitsByOidRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // oid ...
   repeated string oid = 2; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 
-// This comment is left unintentionally blank.
+// ListCommitsByOidResponse ...
 message ListCommitsByOidResponse {
-  // This comment is left unintentionally blank.
+  // commits ...
   repeated GitCommit commits = 1;
 }
 
-// This comment is left unintentionally blank.
+// ListCommitsByRefNameRequest ...
 message ListCommitsByRefNameRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // ref_names ...
   repeated bytes ref_names = 2;
 }
 
-// This comment is left unintentionally blank.
+// ListCommitsByRefNameResponse ...
 message ListCommitsByRefNameResponse {
   reserved 1;
 
-  // This comment is left unintentionally blank.
+  // CommitForRef ...
   message CommitForRef {
-    // This comment is left unintentionally blank.
+    // commit ...
     GitCommit commit = 1;
-    // This comment is left unintentionally blank.
+    // ref_name ...
     bytes ref_name = 2;
   }
 
-  // This comment is left unintentionally blank.
+  // commit_refs ...
   repeated CommitForRef commit_refs = 2;
 }
 
-// This comment is left unintentionally blank.
+// FindAllCommitsRequest ...
 message FindAllCommitsRequest {
-  // This comment is left unintentionally blank.
+  // Order ...
   enum Order {
-    // This comment is left unintentionally blank.
+    // NONE ...
     NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // TOPO ...
     TOPO = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // DATE ...
     DATE = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // When nil, return all commits reachable by any branch in the repo
   bytes revision = 2;
-  // This comment is left unintentionally blank.
+  // max_count ...
   int32 max_count = 3;
-  // This comment is left unintentionally blank.
+  // skip ...
   int32 skip = 4;
-  // This comment is left unintentionally blank.
+  // order ...
   Order order = 5;
 }
 
 // A single 'page' of the result set
 message FindAllCommitsResponse {
-  // This comment is left unintentionally blank.
+  // commits ...
   repeated GitCommit commits = 1;
 }
 
-// This comment is left unintentionally blank.
+// FindCommitsRequest ...
 message FindCommitsRequest {
-  // This comment is left unintentionally blank.
+  // Order ...
   enum Order {
-    // This comment is left unintentionally blank.
+    // NONE ...
     NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // TOPO ...
     TOPO = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // revision ...
   bytes revision = 2;
-  // This comment is left unintentionally blank.
+  // limit ...
   int32 limit = 3;
-  // This comment is left unintentionally blank.
+  // offset ...
   int32 offset = 4;
-  // This comment is left unintentionally blank.
+  // paths ...
   repeated bytes paths = 5;
-  // This comment is left unintentionally blank.
+  // follow ...
   bool follow = 6;
-  // This comment is left unintentionally blank.
+  // skip_merges ...
   bool skip_merges = 7;
-  // This comment is left unintentionally blank.
+  // disable_walk ...
   bool disable_walk = 8;
-  // This comment is left unintentionally blank.
+  // after ...
   google.protobuf.Timestamp after = 9;
-  // This comment is left unintentionally blank.
+  // before ...
   google.protobuf.Timestamp before = 10;
   // all and revision are mutually exclusive
   bool all = 11;
-  // This comment is left unintentionally blank.
+  // first_parent ...
   bool first_parent = 12;
-  // This comment is left unintentionally blank.
+  // author ...
   bytes author = 13;
-  // This comment is left unintentionally blank.
+  // order ...
   Order order = 14;
-  // This comment is left unintentionally blank.
+  // global_options ...
   GlobalOptions global_options = 15;
-  // This comment is left unintentionally blank.
+  // trailers ...
   bool trailers = 16;
   // include_shortstat determines whether to include the number of lines and files
   // changed in the commits. Populates the `short_stats` field.
@@ -649,7 +649,7 @@ message FindCommitsRequest {
 
 // A single 'page' of the result set
 message FindCommitsResponse {
-  // This comment is left unintentionally blank.
+  // commits ...
   repeated GitCommit commits = 1;
 }
 
@@ -748,105 +748,105 @@ message LastCommitForPathResponse {
   GitCommit commit = 1;
 }
 
-// This comment is left unintentionally blank.
+// ListLastCommitsForTreeRequest ...
 message ListLastCommitsForTreeRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // revision ...
   string revision = 2;
-  // This comment is left unintentionally blank.
+  // path ...
   bytes path = 3;
-  // This comment is left unintentionally blank.
+  // limit ...
   int32 limit = 4;
-  // This comment is left unintentionally blank.
+  // offset ...
   int32 offset = 5;
-  // This comment is left unintentionally blank.
+  // literal_pathspec ...
   bool literal_pathspec = 6 [deprecated = true];
-  // This comment is left unintentionally blank.
+  // global_options ...
   GlobalOptions global_options = 7;
 }
 
-// This comment is left unintentionally blank.
+// ListLastCommitsForTreeResponse ...
 message ListLastCommitsForTreeResponse {
-  // This comment is left unintentionally blank.
+  // CommitForTree ...
   message CommitForTree {
     reserved 1;
 
-    // This comment is left unintentionally blank.
+    // commit ...
     GitCommit commit = 2;
     reserved 3;
-    // This comment is left unintentionally blank.
+    // path_bytes ...
     bytes path_bytes = 4;
   }
 
-  // This comment is left unintentionally blank.
+  // commits ...
   repeated CommitForTree commits = 1;
 }
 
-// This comment is left unintentionally blank.
+// CommitsByMessageRequest ...
 message CommitsByMessageRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // revision ...
   bytes revision = 2;
-  // This comment is left unintentionally blank.
+  // offset ...
   int32 offset = 3;
-  // This comment is left unintentionally blank.
+  // limit ...
   int32 limit = 4;
-  // This comment is left unintentionally blank.
+  // path ...
   bytes path = 5;
-  // This comment is left unintentionally blank.
+  // query ...
   string query = 6;
-  // This comment is left unintentionally blank.
+  // global_options ...
   GlobalOptions global_options = 7;
 }
 
 // One 'page' of the paginated response of CommitsByMessage
 message CommitsByMessageResponse {
-  // This comment is left unintentionally blank.
+  // commits ...
   repeated GitCommit commits = 1;
 }
 
-// This comment is left unintentionally blank.
+// FilterShasWithSignaturesRequest ...
 message FilterShasWithSignaturesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // shas ...
   repeated bytes shas = 2;
 }
 
-// This comment is left unintentionally blank.
+// FilterShasWithSignaturesResponse ...
 message FilterShasWithSignaturesResponse {
-  // This comment is left unintentionally blank.
+  // shas ...
   repeated bytes shas = 1;
 }
 
-// This comment is left unintentionally blank.
+// ExtractCommitSignatureRequest ...
 message ExtractCommitSignatureRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // commit_id ...
   string commit_id = 2;
 }
 
 // Either of the 'signature' and 'signed_text' fields may be present. It
 // is up to the caller to stitch them together.
 message ExtractCommitSignatureResponse {
-  // This comment is left unintentionally blank.
+  // signature ...
   bytes signature = 1;
-  // This comment is left unintentionally blank.
+  // signed_text ...
   bytes signed_text = 2;
 }
 
-// This comment is left unintentionally blank.
+// GetCommitSignaturesRequest ...
 message GetCommitSignaturesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // commit_ids ...
   repeated string commit_ids = 2;
 }
 
-// This comment is left unintentionally blank.
+// GetCommitSignaturesResponse ...
 message GetCommitSignaturesResponse {
   // Signer of the commit. A commit can be signed either by a user or by Gitaly itself.
   enum Signer {
@@ -868,19 +868,19 @@ message GetCommitSignaturesResponse {
   Signer signer = 4;
 }
 
-// This comment is left unintentionally blank.
+// GetCommitMessagesRequest ...
 message GetCommitMessagesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // commit_ids ...
   repeated string commit_ids = 2;
 }
 
-// This comment is left unintentionally blank.
+// GetCommitMessagesResponse ...
 message GetCommitMessagesResponse {
   // Only present for a new commit message
   string commit_id = 1;
-  // This comment is left unintentionally blank.
+  // message ...
   bytes message = 2;
 }
 
@@ -896,16 +896,16 @@ message CheckObjectsExistRequest {
   repeated bytes revisions = 2;
 }
 
-// This comment is left unintentionally blank.
+// CheckObjectsExistResponse ...
 message CheckObjectsExistResponse {
-  // This comment is left unintentionally blank.
+  // RevisionExistence ...
   message RevisionExistence {
-    // This comment is left unintentionally blank.
+    // name ...
     bytes name = 1;
-    // This comment is left unintentionally blank.
+    // exists ...
     bool exists = 2;
   };
 
-  // This comment is left unintentionally blank.
+  // revisions ...
   repeated RevisionExistence revisions = 1;
 }

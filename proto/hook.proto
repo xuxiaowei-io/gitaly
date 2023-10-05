@@ -12,28 +12,28 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // ensure that the actual hook logic is executed in the context of the server.
 service HookService {
 
-  // This comment is left unintentionally blank.
+  // PreReceiveHook ...
   rpc PreReceiveHook(stream PreReceiveHookRequest) returns (stream PreReceiveHookResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // PostReceiveHook ...
   rpc PostReceiveHook(stream PostReceiveHookRequest) returns  (stream PostReceiveHookResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // UpdateHook ...
   rpc UpdateHook(UpdateHookRequest) returns (stream UpdateHookResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ReferenceTransactionHook ...
   rpc ReferenceTransactionHook(stream ReferenceTransactionHookRequest) returns (stream ReferenceTransactionHookResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -50,109 +50,109 @@ service HookService {
 
 }
 
-// This comment is left unintentionally blank.
+// PreReceiveHookRequest ...
 message PreReceiveHookRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // environment_variables ...
   repeated string environment_variables = 2;
-  // This comment is left unintentionally blank.
+  // stdin ...
   bytes stdin = 4;
-  // This comment is left unintentionally blank.
+  // git_push_options ...
   repeated string git_push_options = 5;
 }
 
-// This comment is left unintentionally blank.
+// PreReceiveHookResponse ...
 message PreReceiveHookResponse{
-  // This comment is left unintentionally blank.
+  // stdout ...
   bytes stdout = 1;
-  // This comment is left unintentionally blank.
+  // stderr ...
   bytes stderr = 2;
-  // This comment is left unintentionally blank.
+  // exit_status ...
   ExitStatus exit_status = 3;
 }
 
-// This comment is left unintentionally blank.
+// PostReceiveHookRequest ...
 message PostReceiveHookRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // environment_variables ...
   repeated string environment_variables = 2;
-  // This comment is left unintentionally blank.
+  // stdin ...
   bytes stdin = 3;
-  // This comment is left unintentionally blank.
+  // git_push_options ...
   repeated string git_push_options = 4;
 }
 
-// This comment is left unintentionally blank.
+// PostReceiveHookResponse ...
 message PostReceiveHookResponse{
-  // This comment is left unintentionally blank.
+  // stdout ...
   bytes stdout = 1;
-  // This comment is left unintentionally blank.
+  // stderr ...
   bytes stderr = 2;
-  // This comment is left unintentionally blank.
+  // exit_status ...
   ExitStatus exit_status = 3;
 }
 
-// This comment is left unintentionally blank.
+// UpdateHookRequest ...
 message UpdateHookRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // environment_variables ...
   repeated string environment_variables = 2;
-  // This comment is left unintentionally blank.
+  // ref ...
   bytes ref = 3;
-  // This comment is left unintentionally blank.
+  // old_value ...
   string old_value = 4;
-  // This comment is left unintentionally blank.
+  // new_value ...
   string new_value = 5;
 }
 
-// This comment is left unintentionally blank.
+// UpdateHookResponse ...
 message UpdateHookResponse{
-  // This comment is left unintentionally blank.
+  // stdout ...
   bytes stdout = 1;
-  // This comment is left unintentionally blank.
+  // stderr ...
   bytes stderr = 2;
-  // This comment is left unintentionally blank.
+  // exit_status ...
   ExitStatus exit_status = 3;
 }
 
-// This comment is left unintentionally blank.
+// ReferenceTransactionHookRequest ...
 message ReferenceTransactionHookRequest {
-  // This comment is left unintentionally blank.
+  // State ...
   enum State {
-    // This comment is left unintentionally blank.
+    // PREPARED ...
     PREPARED = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // COMMITTED ...
     COMMITTED = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // ABORTED ...
     ABORTED = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // environment_variables ...
   repeated string environment_variables = 2;
-  // This comment is left unintentionally blank.
+  // stdin ...
   bytes stdin = 3;
-  // This comment is left unintentionally blank.
+  // state ...
   State state = 4;
 }
 
-// This comment is left unintentionally blank.
+// ReferenceTransactionHookResponse ...
 message ReferenceTransactionHookResponse {
-  // This comment is left unintentionally blank.
+  // stdout ...
   bytes stdout = 1;
-  // This comment is left unintentionally blank.
+  // stderr ...
   bytes stderr = 2;
-  // This comment is left unintentionally blank.
+  // exit_status ...
   ExitStatus exit_status = 3;
 }
 
-// This comment is left unintentionally blank.
+// PackObjectsHookWithSidechannelRequest ...
 message PackObjectsHookWithSidechannelRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // args contains the arguments passed to the pack-objects hook, without the leading "git"
   repeated string args = 2;
@@ -167,6 +167,6 @@ message PackObjectsHookWithSidechannelRequest {
   string remote_ip = 7;
 }
 
-// This comment is left unintentionally blank.
+// PackObjectsHookWithSidechannelResponse ...
 message PackObjectsHookWithSidechannelResponse {
 }

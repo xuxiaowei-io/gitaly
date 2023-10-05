@@ -13,7 +13,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 service PraefectInfoService {
   option (intercepted) = true;
 
-  // This comment is left unintentionally blank.
+  // RepositoryReplicas ...
   rpc RepositoryReplicas(RepositoryReplicasRequest) returns (RepositoryReplicasResponse);
 
   // DatalossCheck provides information on repositories in Praefect that are in a degraded state and
@@ -82,7 +82,7 @@ message MarkUnverifiedResponse {
 
 // GetRepositoryMetadataRequest specifies the repository to retrieve metadata for.
 message GetRepositoryMetadataRequest {
-  // This comment is left unintentionally blank.
+  // Path ...
   message Path {
     // virtual_storage is the virtual storage where the repository is.
     string virtual_storage = 1;
@@ -100,7 +100,7 @@ message GetRepositoryMetadataRequest {
 
 // GeRepositoryMetadataResponse contains the repository's cluster metadata.
 message GetRepositoryMetadataResponse {
-  // This comment is left unintentionally blank.
+  // Replica ...
   message Replica {
     // storage is the name of the replica's storage.
     string storage = 1;
@@ -149,17 +149,17 @@ message SetReplicationFactorResponse {
   repeated string storages = 1;
 }
 
-// This comment is left unintentionally blank.
+// SetAuthoritativeStorageRequest ...
 message SetAuthoritativeStorageRequest {
-  // This comment is left unintentionally blank.
+  // virtual_storage ...
   string virtual_storage = 1;
-  // This comment is left unintentionally blank.
+  // relative_path ...
   string relative_path = 2;
-  // This comment is left unintentionally blank.
+  // authoritative_storage ...
   string authoritative_storage = 3;
 }
 
-// This comment is left unintentionally blank.
+// SetAuthoritativeStorageResponse ...
 message SetAuthoritativeStorageResponse {
 }
 
@@ -177,7 +177,7 @@ message DatalossRequest {
 message DatalossResponse {
   // status of a repository
   message Repository {
-    // This comment is left unintentionally blank.
+    // Storage ...
     message Storage {
       // name of the storage
       string name = 1;
@@ -206,22 +206,22 @@ message DatalossResponse {
   repeated Repository repositories = 2;
 }
 
-// This comment is left unintentionally blank.
+// DatalossCheckRequest ...
 message DatalossCheckRequest {
   option deprecated = true;
-  // This comment is left unintentionally blank.
+  // virtual_storage ...
   string virtual_storage = 1;
   // include_partially_unavailable indicates whether to include repositories which are available but
   // are unavailable on some assigned storages.
   bool include_partially_replicated = 2;
 }
 
-// This comment is left unintentionally blank.
+// DatalossCheckResponse ...
 message DatalossCheckResponse {
   option deprecated = true;
-  // This comment is left unintentionally blank.
+  // Repository ...
   message Repository {
-    // This comment is left unintentionally blank.
+    // Storage ...
     message Storage {
       // name of the storage
       string name = 1;
@@ -250,24 +250,24 @@ message DatalossCheckResponse {
   repeated Repository repositories = 2;
 }
 
-// This comment is left unintentionally blank.
+// RepositoryReplicasRequest ...
 message RepositoryReplicasRequest{
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1;
 }
 
-// This comment is left unintentionally blank.
+// RepositoryReplicasResponse ...
 message RepositoryReplicasResponse{
-  // This comment is left unintentionally blank.
+  // RepositoryDetails ...
   message RepositoryDetails {
-    // This comment is left unintentionally blank.
+    // repository ...
     Repository repository = 1;
-    // This comment is left unintentionally blank.
+    // checksum ...
     string checksum = 2;
   };
 
-  // This comment is left unintentionally blank.
+  // primary ...
   RepositoryDetails primary = 1;
-  // This comment is left unintentionally blank.
+  // replicas ...
   repeated RepositoryDetails replicas = 2;
 }

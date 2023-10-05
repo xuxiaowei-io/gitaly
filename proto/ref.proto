@@ -33,7 +33,7 @@ service RefService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // FindAllBranches ...
   rpc FindAllBranches(FindAllBranchesRequest) returns (stream FindAllBranchesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -56,14 +56,14 @@ service RefService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // FindAllRemoteBranches ...
   rpc FindAllRemoteBranches(FindAllRemoteBranchesRequest) returns (stream FindAllRemoteBranchesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // RefExists ...
   rpc RefExists(RefExistsRequest) returns (RefExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -88,21 +88,21 @@ service RefService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // DeleteRefs ...
   rpc DeleteRefs(DeleteRefsRequest) returns (DeleteRefsResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ListBranchNamesContainingCommit ...
   rpc ListBranchNamesContainingCommit(ListBranchNamesContainingCommitRequest) returns (stream ListBranchNamesContainingCommitResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // ListTagNamesContainingCommit ...
   rpc ListTagNamesContainingCommit(ListTagNamesContainingCommitRequest) returns (stream ListTagNamesContainingCommitResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -119,7 +119,7 @@ service RefService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // GetTagMessages ...
   rpc GetTagMessages(GetTagMessagesRequest) returns (stream GetTagMessagesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -161,21 +161,21 @@ message FindDefaultBranchNameResponse {
   bytes name = 1;
 }
 
-// This comment is left unintentionally blank.
+// FindLocalBranchesRequest ...
 message FindLocalBranchesRequest {
-  // This comment is left unintentionally blank.
+  // SortBy ...
   enum SortBy {
-    // This comment is left unintentionally blank.
+    // NAME ...
     NAME = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // UPDATED_ASC ...
     UPDATED_ASC = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // UPDATED_DESC ...
     UPDATED_DESC = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // sort_by ...
   SortBy sort_by = 2;
   // The page token is the branch name, with the `refs/heads/` prefix, for
   // example "refs/heads/master". After the first branch name is encountered
@@ -184,19 +184,19 @@ message FindLocalBranchesRequest {
   PaginationParameter pagination_params = 3;
 }
 
-// This comment is left unintentionally blank.
+// FindLocalBranchesResponse ...
 message FindLocalBranchesResponse {
   // The field Branches has been removed in favor of LocalBranches.
   // Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/1294
   reserved "branches";
   reserved 1;
-  // This comment is left unintentionally blank.
+  // local_branches ...
   repeated Branch local_branches = 2;
 }
 
-// This comment is left unintentionally blank.
+// FindAllBranchesRequest ...
 message FindAllBranchesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // Only return branches that are merged into root ref
   bool merged_only = 2;
@@ -205,17 +205,17 @@ message FindAllBranchesRequest {
   repeated bytes merged_branches = 3;
 }
 
-// This comment is left unintentionally blank.
+// FindAllBranchesResponse ...
 message FindAllBranchesResponse {
-  // This comment is left unintentionally blank.
+  // Branch ...
   message Branch {
-    // This comment is left unintentionally blank.
+    // name ...
     bytes name = 1;
-    // This comment is left unintentionally blank.
+    // target ...
     GitCommit target = 2;
   }
 
-  // This comment is left unintentionally blank.
+  // branches ...
   repeated Branch branches = 1;
 }
 
@@ -244,15 +244,15 @@ message FindTagError {
   }
 }
 
-// This comment is left unintentionally blank.
+// FindAllTagsRequest ...
 message FindAllTagsRequest {
   // SortBy allows to specify desired order of the elements.
   message SortBy {
     // Key is a key used for sorting.
     enum Key {
-      // This comment is left unintentionally blank.
+      //  ...
       REFNAME     = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-      // This comment is left unintentionally blank.
+      // CREATORDATE ...
       CREATORDATE = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
       // VERSION_REFNAME sorts tags by their semantic versions (https://semver.org/).
       // Tag names that are not semantic versions are sorted lexicographically. They come before
@@ -261,13 +261,13 @@ message FindAllTagsRequest {
       VERSION_REFNAME = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
     }
 
-    // This comment is left unintentionally blank.
+    //  ...
     Key           key       = 1;
-    // This comment is left unintentionally blank.
+    // direction ...
     SortDirection direction = 2;
   }
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // SortBy allows to request tags in particular order.
   SortBy sort_by = 2;
@@ -277,61 +277,61 @@ message FindAllTagsRequest {
   PaginationParameter pagination_params = 3;
 }
 
-// This comment is left unintentionally blank.
+// FindAllTagsResponse ...
 message FindAllTagsResponse {
-  // This comment is left unintentionally blank.
+  // tags ...
   repeated Tag tags = 1;
 }
 
-// This comment is left unintentionally blank.
+// RefExistsRequest ...
 message RefExistsRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // Any ref, e.g. 'refs/heads/master' or 'refs/tags/v1.0.1'. Must start with 'refs/'.
   bytes ref = 2;
 }
 
-// This comment is left unintentionally blank.
+// RefExistsResponse ...
 message RefExistsResponse {
-  // This comment is left unintentionally blank.
+  // value ...
   bool value = 1;
 }
 
-// This comment is left unintentionally blank.
+// CreateBranchRequest ...
 message CreateBranchRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // name ...
   bytes name = 2;
-  // This comment is left unintentionally blank.
+  // start_point ...
   bytes start_point = 3;
 }
 
-// This comment is left unintentionally blank.
+// CreateBranchResponse ...
 message CreateBranchResponse {
-  // This comment is left unintentionally blank.
+  // Status ...
   enum Status {
-    // This comment is left unintentionally blank.
+    // OK ...
     OK = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // ERR_EXISTS ...
     ERR_EXISTS = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // ERR_INVALID ...
     ERR_INVALID = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // ERR_INVALID_START_POINT ...
     ERR_INVALID_START_POINT = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // status ...
   Status status = 1;
-  // This comment is left unintentionally blank.
+  // branch ...
   Branch branch = 2;
 }
 
-// This comment is left unintentionally blank.
+// DeleteBranchRequest ...
 message DeleteBranchRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // name ...
   bytes name = 2;
 }
 
@@ -339,7 +339,7 @@ message DeleteBranchRequest {
 message DeleteBranchResponse {
 }
 
-// This comment is left unintentionally blank.
+// FindBranchRequest ...
 message FindBranchRequest {
   // repository is the repository in which the branch should be looked up.
   Repository repository = 1 [(target_repository)=true];
@@ -348,9 +348,9 @@ message FindBranchRequest {
   bytes name = 2;
 }
 
-// This comment is left unintentionally blank.
+// FindBranchResponse ...
 message FindBranchResponse {
-  // This comment is left unintentionally blank.
+  // branch ...
   Branch branch = 1;
 }
 
@@ -401,19 +401,19 @@ message UpdateReferencesError {
   }
 }
 
-// This comment is left unintentionally blank.
+// DeleteRefsRequest ...
 message DeleteRefsRequest{
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // The following two fields are mutually exclusive
   repeated bytes except_with_prefix = 2; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
-  // This comment is left unintentionally blank.
+  // refs ...
   repeated bytes refs = 3;
 }
 
-// This comment is left unintentionally blank.
+// DeleteRefsResponse ...
 message DeleteRefsResponse {
-  // This comment is left unintentionally blank.
+  // git_error ...
   string git_error = 1;
 }
 
@@ -429,39 +429,39 @@ message DeleteRefsError {
   }
 }
 
-// This comment is left unintentionally blank.
+// ListBranchNamesContainingCommitRequest ...
 message ListBranchNamesContainingCommitRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // commit_id ...
   string commit_id = 2;
   // Limit the number of tag names to be returned
   // If the limit is set to zero, all items will be returned
   uint32 limit = 3;
 }
 
-// This comment is left unintentionally blank.
+// ListBranchNamesContainingCommitResponse ...
 message ListBranchNamesContainingCommitResponse {
   reserved 1;
-  // This comment is left unintentionally blank.
+  // branch_names ...
   repeated bytes branch_names = 2;
 }
 
-// This comment is left unintentionally blank.
+// ListTagNamesContainingCommitRequest ...
 message ListTagNamesContainingCommitRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // commit_id ...
   string commit_id = 2;
   // Limit the number of tag names to be returned
   // If the limit is set to zero, all items will be returned
   uint32 limit = 3;
 }
 
-// This comment is left unintentionally blank.
+// ListTagNamesContainingCommitResponse ...
 message ListTagNamesContainingCommitResponse {
   reserved 1;
-  // This comment is left unintentionally blank.
+  // tag_names ...
   repeated bytes tag_names = 2;
 }
 
@@ -496,61 +496,61 @@ message GetTagSignaturesResponse {
   repeated TagSignature signatures = 1;
 }
 
-// This comment is left unintentionally blank.
+// GetTagMessagesRequest ...
 message GetTagMessagesRequest {
   reserved 2;
   reserved "tag_names";
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // tag_ids ...
   repeated string tag_ids = 3;
 }
 
-// This comment is left unintentionally blank.
+// GetTagMessagesResponse ...
 message GetTagMessagesResponse {
   reserved 1;
   reserved "tag_name";
 
-  // This comment is left unintentionally blank.
+  // message ...
   bytes message = 2;
   // Only present for a new tag message
   string tag_id = 3;
 }
 
-// This comment is left unintentionally blank.
+// FindAllRemoteBranchesRequest ...
 message FindAllRemoteBranchesRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // remote_name ...
   string remote_name = 2;
 }
 
-// This comment is left unintentionally blank.
+// FindAllRemoteBranchesResponse ...
 message FindAllRemoteBranchesResponse {
-  // This comment is left unintentionally blank.
+  // branches ...
   repeated Branch branches = 1;
 }
 
 // ListRefsRequest is a request for the ListRefs RPC.
 message ListRefsRequest {
-  // This comment is left unintentionally blank.
+  // SortBy ...
   message SortBy {
-    // This comment is left unintentionally blank.
+    // Key ...
     enum Key {
-      // This comment is left unintentionally blank.
+      //  ...
       REFNAME       = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-      // This comment is left unintentionally blank.
+      //  ...
       CREATORDATE   = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // This comment is left unintentionally blank.
+      //  ...
       AUTHORDATE    = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // This comment is left unintentionally blank.
+      // COMMITTERDATE ...
       COMMITTERDATE = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
     }
 
     // Key is a key used for sorting.
     Key           key       = 1;
-    // This comment is left unintentionally blank.
+    // direction ...
     SortDirection direction = 2;
   }
 
@@ -592,7 +592,7 @@ message ListRefsResponse{
   repeated Reference references = 1;
 }
 
-// This comment is left unintentionally blank.
+// FindRefsByOIDRequest ...
 message FindRefsByOIDRequest {
   // repository is the repository in which references will be looked for.
   Repository repository = 1 [(target_repository)=true];
@@ -609,7 +609,7 @@ message FindRefsByOIDRequest {
   uint32 limit = 5;
 }
 
-// This comment is left unintentionally blank.
+// FindRefsByOIDResponse ...
 message FindRefsByOIDResponse {
   // refs is the set of fully-qualified references which have been found.
   repeated string refs = 1;

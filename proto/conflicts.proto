@@ -49,34 +49,34 @@ message ListConflictFilesRequest {
   bool skip_content = 5;
 }
 
-// This comment is left unintentionally blank.
+// ConflictFileHeader ...
 message ConflictFileHeader {
   reserved 1;
-  // This comment is left unintentionally blank.
+  // commit_oid ...
   string commit_oid = 2;
-  // This comment is left unintentionally blank.
+  // their_path ...
   bytes their_path = 3;
-  // This comment is left unintentionally blank.
+  // our_path ...
   bytes our_path = 4;
-  // This comment is left unintentionally blank.
+  // our_mode ...
   int32 our_mode = 5;
-  // This comment is left unintentionally blank.
+  // ancestor_path ...
   bytes ancestor_path = 6;
 }
 
-// This comment is left unintentionally blank.
+// ConflictFile ...
 message ConflictFile {
   oneof conflict_file_payload {
-    // This comment is left unintentionally blank.
+    // header ...
     ConflictFileHeader header = 1;
-    // This comment is left unintentionally blank.
+    // content ...
     bytes content = 2;
   }
 }
 
-// This comment is left unintentionally blank.
+// ListConflictFilesResponse ...
 message ListConflictFilesResponse {
-  // This comment is left unintentionally blank.
+  // files ...
   repeated ConflictFile files = 1;
 }
 

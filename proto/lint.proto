@@ -6,32 +6,32 @@ import "google/protobuf/descriptor.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// This comment is left unintentionally blank.
+// OperationMsg ...
 message OperationMsg {
-  // This comment is left unintentionally blank.
+  // Operation ...
   enum Operation {
-    // This comment is left unintentionally blank.
+    // UNKNOWN ...
     UNKNOWN = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // MUTATOR ...
     MUTATOR = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // ACCESSOR ...
     ACCESSOR = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // MAINTENANCE ...
     MAINTENANCE = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // Scope ...
   enum Scope {
-    // This comment is left unintentionally blank.
+    // REPOSITORY ...
     REPOSITORY = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // STORAGE ...
     STORAGE = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 
     reserved 1;
     reserved "SERVER";
   }
 
-  // This comment is left unintentionally blank.
+  // op ...
   Operation op = 1;
 
   // Scope level indicates what level an RPC interacts with a server:

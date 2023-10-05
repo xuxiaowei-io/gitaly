@@ -39,7 +39,7 @@ service SSHService {
   }
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadPackRequest ...
 message SSHUploadPackRequest {
   // 'repository' must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
@@ -55,7 +55,7 @@ message SSHUploadPackRequest {
   string git_protocol = 5;
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadPackResponse ...
 message SSHUploadPackResponse {
   // A chunk of raw data from 'git upload-pack' standard output
   bytes stdout = 1;
@@ -66,7 +66,7 @@ message SSHUploadPackResponse {
   ExitStatus exit_status = 3;
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadPackWithSidechannelRequest ...
 message SSHUploadPackWithSidechannelRequest {
   // 'repository' must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
@@ -77,13 +77,13 @@ message SSHUploadPackWithSidechannelRequest {
   string git_protocol = 3;
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadPackWithSidechannelResponse ...
 message SSHUploadPackWithSidechannelResponse {
   // Packfile negotiation statistics.
   PackfileNegotiationStatistics packfile_negotiation_statistics = 1;
 }
 
-// This comment is left unintentionally blank.
+// SSHReceivePackRequest ...
 message SSHReceivePackRequest {
   // 'repository' must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
@@ -92,9 +92,9 @@ message SSHReceivePackRequest {
   // Contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
   // for 'git receive-pack'
   string gl_id = 3;
-  // This comment is left unintentionally blank.
+  // gl_repository ...
   string gl_repository = 4;
-  // This comment is left unintentionally blank.
+  // gl_username ...
   string gl_username = 5;
   // Git protocol version
   string git_protocol = 6;
@@ -102,7 +102,7 @@ message SSHReceivePackRequest {
   repeated string git_config_options = 7;
 }
 
-// This comment is left unintentionally blank.
+// SSHReceivePackResponse ...
 message SSHReceivePackResponse {
   // A chunk of raw data from 'git receive-pack' standard output
   bytes stdout = 1;
@@ -113,7 +113,7 @@ message SSHReceivePackResponse {
   ExitStatus exit_status = 3;
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadArchiveRequest ...
 message SSHUploadArchiveRequest {
   // 'repository' must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
@@ -121,7 +121,7 @@ message SSHUploadArchiveRequest {
   bytes stdin = 2;
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadArchiveResponse ...
 message SSHUploadArchiveResponse {
   // A chunk of raw data from 'git upload-archive' standard output
   bytes stdout = 1;

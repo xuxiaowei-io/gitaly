@@ -25,21 +25,21 @@ service DiffService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // RawDiff ...
   rpc RawDiff(RawDiffRequest) returns (stream RawDiffResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // RawPatch ...
   rpc RawPatch(RawPatchRequest) returns (stream RawPatchResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // DiffStats ...
   rpc DiffStats(DiffStatsRequest) returns (stream DiffStatsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -64,9 +64,9 @@ service DiffService {
   }
 }
 
-// This comment is left unintentionally blank.
+// CommitDiffRequest ...
 message CommitDiffRequest {
-  // This comment is left unintentionally blank.
+  // DiffMode ...
   enum DiffMode {
     // DEFAULT is the standard diff mode and results in a linewise diff for textfiles.
     DEFAULT = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -87,27 +87,27 @@ message CommitDiffRequest {
     WHITESPACE_CHANGES_IGNORE_ALL = 2;
   }
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // left_commit_id ...
   string left_commit_id = 2;
-  // This comment is left unintentionally blank.
+  // right_commit_id ...
   string right_commit_id = 3;
   // This field is deprecated, use the `whitespace_changes` field instead.
   reserved "ignore_whitespace_change";
   reserved 4;
-  // This comment is left unintentionally blank.
+  // paths ...
   repeated bytes paths = 5;
-  // This comment is left unintentionally blank.
+  // collapse_diffs ...
   bool collapse_diffs = 6;
-  // This comment is left unintentionally blank.
+  // enforce_limits ...
   bool enforce_limits = 7;
 
   // These limits are only enforced when enforce_limits == true.
   int32 max_files = 8;
-  // This comment is left unintentionally blank.
+  // max_lines ...
   int32 max_lines = 9;
-  // This comment is left unintentionally blank.
+  // max_bytes ...
   int32 max_bytes = 10;
   // Limitation of a single diff patch,
   // patches surpassing this limit are pruned by default.
@@ -116,9 +116,9 @@ message CommitDiffRequest {
 
   // These limits are only enforced if collapse_diffs == true.
   int32 safe_max_files = 11;
-  // This comment is left unintentionally blank.
+  // safe_max_lines ...
   int32 safe_max_lines = 12;
-  // This comment is left unintentionally blank.
+  // safe_max_bytes ...
   int32 safe_max_bytes = 13;
 
   // DiffMode is the mode used for generating the diff. Please refer to the enum declaration for supported modes.
@@ -144,23 +144,23 @@ message CommitDiffRequest {
 message CommitDiffResponse {
   reserved 8;
 
-  // This comment is left unintentionally blank.
+  // from_path ...
   bytes from_path = 1;
-  // This comment is left unintentionally blank.
+  // to_path ...
   bytes to_path = 2;
   // Blob ID as returned via `git diff --full-index`
   string from_id = 3;
-  // This comment is left unintentionally blank.
+  // to_id ...
   string to_id = 4;
-  // This comment is left unintentionally blank.
+  // old_mode ...
   int32 old_mode = 5;
-  // This comment is left unintentionally blank.
+  // new_mode ...
   int32 new_mode = 6;
-  // This comment is left unintentionally blank.
+  // binary ...
   bool binary = 7;
-  // This comment is left unintentionally blank.
+  // raw_patch_data ...
   bytes raw_patch_data = 9;
-  // This comment is left unintentionally blank.
+  // end_of_patch ...
   bool end_of_patch = 10;
   // OverflowMarker Indicates if the diff file exceeded limitations, in which case
   // there will be no patch data sent, only information about the patch.
@@ -173,97 +173,97 @@ message CommitDiffResponse {
   bool too_large = 13;
 }
 
-// This comment is left unintentionally blank.
+// CommitDeltaRequest ...
 message CommitDeltaRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // left_commit_id ...
   string left_commit_id = 2;
-  // This comment is left unintentionally blank.
+  // right_commit_id ...
   string right_commit_id = 3;
-  // This comment is left unintentionally blank.
+  // paths ...
   repeated bytes paths = 4;
 }
 
-// This comment is left unintentionally blank.
+// CommitDelta ...
 message CommitDelta {
-  // This comment is left unintentionally blank.
+  // from_path ...
   bytes from_path = 1;
-  // This comment is left unintentionally blank.
+  // to_path ...
   bytes to_path = 2;
   // Blob ID as returned via `git diff --full-index`
   string from_id = 3;
-  // This comment is left unintentionally blank.
+  // to_id ...
   string to_id = 4;
-  // This comment is left unintentionally blank.
+  // old_mode ...
   int32 old_mode = 5;
-  // This comment is left unintentionally blank.
+  // new_mode ...
   int32 new_mode = 6;
 }
 
-// This comment is left unintentionally blank.
+// CommitDeltaResponse ...
 message CommitDeltaResponse {
-  // This comment is left unintentionally blank.
+  // deltas ...
   repeated CommitDelta deltas = 1;
 }
 
-// This comment is left unintentionally blank.
+// RawDiffRequest ...
 message RawDiffRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // left_commit_id ...
   string left_commit_id = 2;
-  // This comment is left unintentionally blank.
+  // right_commit_id ...
   string right_commit_id = 3;
 }
 
-// This comment is left unintentionally blank.
+// RawDiffResponse ...
 message RawDiffResponse {
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
+// RawPatchRequest ...
 message RawPatchRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // left_commit_id ...
   string left_commit_id = 2;
-  // This comment is left unintentionally blank.
+  // right_commit_id ...
   string right_commit_id = 3;
 }
 
-// This comment is left unintentionally blank.
+// RawPatchResponse ...
 message RawPatchResponse {
-  // This comment is left unintentionally blank.
+  // data ...
   bytes data = 1;
 }
 
-// This comment is left unintentionally blank.
+// DiffStatsRequest ...
 message DiffStatsRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // left_commit_id ...
   string left_commit_id = 2;
-  // This comment is left unintentionally blank.
+  // right_commit_id ...
   string right_commit_id = 3;
 }
 
-// This comment is left unintentionally blank.
+// DiffStats ...
 message DiffStats {
-  // This comment is left unintentionally blank.
+  // path ...
   bytes path = 1;
-  // This comment is left unintentionally blank.
+  // additions ...
   int32 additions = 2;
-  // This comment is left unintentionally blank.
+  // deletions ...
   int32 deletions = 3;
-  // This comment is left unintentionally blank.
+  // old_path ...
   bytes old_path = 4;
 }
 
-// This comment is left unintentionally blank.
+// DiffStatsResponse ...
 message DiffStatsResponse {
-  // This comment is left unintentionally blank.
+  // stats ...
   repeated DiffStats stats = 1;
 }
 
@@ -317,7 +317,7 @@ message FindChangedPathsRequest {
     }
   }
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
   // commits is the list of commits to compare to their parents. This field is deprecated. To adapt to the new calling
   // convention you can create one `CommitRequest` per commit, where each `CommitRequest` has only the `commit_revision`
@@ -340,23 +340,23 @@ message FindChangedPathsResponse {
 
 // Includes the path of the file, and the status of the change
 message ChangedPaths {
-  // This comment is left unintentionally blank.
+  // Status ...
   enum Status {
-    // This comment is left unintentionally blank.
+    // ADDED ...
     ADDED = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // MODIFIED ...
     MODIFIED = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // DELETED ...
     DELETED = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // TYPE_CHANGE ...
     TYPE_CHANGE = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // COPIED ...
     COPIED = 4; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // path ...
   bytes path = 1;
-  // This comment is left unintentionally blank.
+  // status ...
   Status status = 2;
   // old_mode is the mode of the changed path previous to the change. May be one of the following values:
   //
