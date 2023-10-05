@@ -125,7 +125,7 @@ func SetCustomHooks(
 		// future modifications to the repository's hooks will be prevented. If
 		// this occurs, the `.lock` file will have to be manually removed.
 		if err := hooksLock.Unlock(); err != nil {
-			log.FromContext(ctx).WithError(err).Error("failed to unlock hooks")
+			logger.WithError(err).ErrorContext(ctx, "failed to unlock hooks")
 		}
 	}()
 
@@ -140,7 +140,7 @@ func SetCustomHooks(
 
 	defer func() {
 		if err := os.RemoveAll(tmpDir.Path()); err != nil {
-			log.FromContext(ctx).WithError(err).Warn("failed to remove temporary directory")
+			logger.WithError(err).WarnContext(ctx, "failed to remove temporary directory")
 		}
 	}()
 
