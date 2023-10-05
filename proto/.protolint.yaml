@@ -1,5 +1,8 @@
 ---
 lint:
+  directories:
+    exclude:
+      - testproto
   rules:
     all_default: true
     remove:
