@@ -10,28 +10,28 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
 // SSHService is a service that provides RPCs required for SSH-based Git clones.
 service SSHService {
-  // to forward 'git upload-pack' to Gitaly for SSH sessions
+  // SSHUploadPack is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions.
   rpc SSHUploadPack(stream SSHUploadPackRequest) returns (stream SSHUploadPackResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // to forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
+  // SSHUploadPackWithSidechannel is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels.
   rpc SSHUploadPackWithSidechannel(SSHUploadPackWithSidechannelRequest) returns (SSHUploadPackWithSidechannelResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // to forward 'git receive-pack' to Gitaly for SSH sessions
+  // SSHReceivePack is an RPC to forward 'git receive-pack' to Gitaly for SSH sessions.
   rpc SSHReceivePack(stream SSHReceivePackRequest) returns (stream SSHReceivePackResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // to forward 'git upload-archive' to Gitaly for SSH sessions
+  // SSHUploadArchive is an RPC to forward 'git upload-archive' to Gitaly for SSH sessions.
   rpc SSHUploadArchive(stream SSHUploadArchiveRequest) returns (stream SSHUploadArchiveResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -41,92 +41,93 @@ service SSHService {
 
 // SSHUploadPackRequest ...
 message SSHUploadPackRequest {
-  // 'repository' must be present in the first message.
+  // repository must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
-  // A chunk of raw data to be copied to 'git upload-pack' standard input
+  // stdin is a chunk of raw data to be copied to 'git upload-pack' standard input.
   bytes stdin = 2;
-  // Prevent re-use of field id 3 and/or the "git_config_parameters" name
+  // Prevent re-use of field id 3 and/or the "git_config_parameters" name.
   reserved 3;
   reserved "git_config_parameters";
-  // Parameters to use with git -c (key=value pairs)
+  // git_config_options are parameters to use with git -c (key=value pairs).
   repeated string git_config_options = 4;
 
-  // Git protocol version
+  // git_protocol is the git protocol version.
   string git_protocol = 5;
 }
 
 // SSHUploadPackResponse ...
 message SSHUploadPackResponse {
-  // A chunk of raw data from 'git upload-pack' standard output
+  // stdout is a chunk of raw data from 'git upload-pack' standard output.
   bytes stdout = 1;
-  // A chunk of raw data from 'git upload-pack' standard error
+  // stderr is a chunk of raw data from 'git upload-pack' standard error.
   bytes stderr = 2;
-  // This field may be nil. This is intentional: only when the remote
-  // command has finished can we return its exit status.
+  // exit_status is the exit status when the command has finished. This field
+  // may be nil. This is intentional.
   ExitStatus exit_status = 3;
 }
 
 // SSHUploadPackWithSidechannelRequest ...
 message SSHUploadPackWithSidechannelRequest {
-  // 'repository' must be present in the first message.
+  // repository must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
-  // Parameters to use with git -c (key=value pairs)
+  // git_config_options are parameters to use with git -c (key=value pairs).
   repeated string git_config_options = 2;
 
-  // Git protocol version
+  // git_protocol is the git protocol version.
   string git_protocol = 3;
 }
 
 // SSHUploadPackWithSidechannelResponse ...
 message SSHUploadPackWithSidechannelResponse {
-  // Packfile negotiation statistics.
+  // packfile_negotiation_statistics is the packfile negotiation statistics.
   PackfileNegotiationStatistics packfile_negotiation_statistics = 1;
 }
 
 // SSHReceivePackRequest ...
 message SSHReceivePackRequest {
-  // 'repository' must be present in the first message.
+  // repository must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
-  // A chunk of raw data to be copied to 'git upload-pack' standard input
+  // stdin is a chunk of raw data to be copied to 'git upload-pack' standard input
   bytes stdin = 2;
-  // contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
-  // for 'git receive-pack'
+  // gl_id is the contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
+  // for 'git receive-pack'.
   string gl_id = 3;
   // gl_repository ...
   string gl_repository = 4;
   // gl_username ...
   string gl_username = 5;
-  // Git protocol version
+  // git_protocol is the git protocol version.
   string git_protocol = 6;
-  // Parameters to use with git -c (key=value pairs)
+  // git_config_options are parameters to use with git -c (key=value pairs).
   repeated string git_config_options = 7;
 }
 
 // SSHReceivePackResponse ...
 message SSHReceivePackResponse {
-  // A chunk of raw data from 'git receive-pack' standard output
+  // stdout is a chunk of raw data from 'git receive-pack' standard output.
   bytes stdout = 1;
-  // A chunk of raw data from 'git receive-pack' standard error
+  // stderr is a chunk of raw data from 'git receive-pack' standard error.
   bytes stderr = 2;
-  // This field may be nil. This is intentional: only when the remote
-  // command has finished can we return its exit status.
+  // exit_status is the exit status when the command has finished. This field
+  // may be nil. This is intentional.
   ExitStatus exit_status = 3;
 }
 
 // SSHUploadArchiveRequest ...
 message SSHUploadArchiveRequest {
-  // 'repository' must be present in the first message.
+  // repository must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
-  // A chunk of raw data to be copied to 'git upload-archive' standard input
+  // stdin is a chunk of raw data to be copied to 'git upload-archive' standard input.
   bytes stdin = 2;
 }
 
 // SSHUploadArchiveResponse ...
 message SSHUploadArchiveResponse {
-  // A chunk of raw data from 'git upload-archive' standard output
+  // stdout is a chunk of raw data from 'git upload-archive' standard output.
   bytes stdout = 1;
-  // A chunk of raw data from 'git upload-archive' standard error
+  // stderr is a chunk of raw data from 'git upload-archive' standard error.
   bytes stderr = 2;
-  // This value will only be set on the last message
+  // exit_status is the exit status when the command has finished. This field
+  // may be nil. This is intentional.
   ExitStatus exit_status = 3;
 }

@@ -7,7 +7,7 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// refTransaction is a service which provides RPCs to interact with reference
+// RefTransaction is a service which provides RPCs to interact with reference
 // transactions. Reference transactions are used in the context of Gitaly
 // Cluster to ensure that all nodes part of a single transaction perform the
 // same change: given a set of changes, the changes are hashed and the hash is
@@ -44,7 +44,7 @@ service RefTransaction {
 
 // VoteTransactionRequest ...
 message VoteTransactionRequest {
-  // phase ...
+  // Phase ...
   enum Phase {
     // UNKNOWN_PHASE is the unknown voting phase. This value has been the
     // default because phases have been introduced. Eventually, using this
@@ -64,11 +64,11 @@ message VoteTransactionRequest {
 
   // repository ...
   Repository repository = 1[(target_repository)=true];
-  // ID of the transaction we're processing
+  // transaction_id is the ID of the transaction we're processing.
   uint64 transaction_id = 2;
-  // name of the Gitaly node that's voting on a transaction.
+  // node is the name of the Gitaly node that's voting on a transaction.
   string node = 3;
-  // SHA1 of the references that are to be updated
+  // reference_updates_hash is the SHA1 of the references that are to be updated.
   bytes reference_updates_hash = 4;
   // phase is the voting phase.
   Phase phase = 5;
@@ -76,7 +76,7 @@ message VoteTransactionRequest {
 
 // VoteTransactionResponse ...
 message VoteTransactionResponse {
-  // The outcome of the given transaction telling the client whether the
+  // TransactionState is the outcome of the given transaction telling the client whether the
   // transaction should be committed or rolled back.
   enum TransactionState {
     // COMMIT ...
@@ -95,7 +95,7 @@ message VoteTransactionResponse {
 message StopTransactionRequest {
   // repository ...
   Repository repository = 1[(target_repository)=true];
-  // ID of the transaction we're processing
+  // transaction_id is the ID of the transaction we're processing.
   uint64 transaction_id = 2;
 }
 

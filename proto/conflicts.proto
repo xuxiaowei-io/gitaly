@@ -39,7 +39,7 @@ message ListConflictFilesRequest {
   string our_commit_oid = 2;
   // their_commit_oid is the tree-ish OID to merge from.
   string their_commit_oid = 3;
-  // allowTreeConflicts will not cause the request to fail in case there are
+  // allow_tree_conflicts will not cause the request to fail in case there are
   // tree conflicts. If set to true, then responses may contain conflict files
   // where some of the paths are unset.
   bool allow_tree_conflicts = 4;
@@ -99,7 +99,7 @@ message ResolveConflictsRequestHeader {
   // target_branch identifies the branch which will be fetched from
   // target_repository in case TheirCommitOid does not exist in Repository.
   bytes target_branch = 6;
-  // commitMessage is the message of the newly created merge commit.
+  // commit_message is the message of the newly created merge commit.
   bytes commit_message = 7;
   // user is the user used as author and committer of the newly created merge
   // commit.

@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ErrorMetadata is a key-value metadata item that may be attached to errors. We only use this
+// errorMetadata is a key-value metadata item that may be attached to errors. We only use this
 // infrastructure for testing purposes to assert that we add error metadata as expected that would
 // otherwise only get logged.
 type ErrorMetadata struct {
@@ -28,9 +28,9 @@ type ErrorMetadata struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Key is the key of the item.
+	// key is the key of the item.
 	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// Value is the value of the item.
+	// value is the value of the item.
 	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 

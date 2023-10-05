@@ -6,14 +6,14 @@ import "google/protobuf/duration.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// access_checkError is an error returned by GitLab's `/internal/allowed`
+// AccessCheckError is an error returned by GitLab's `/internal/allowed`
 // endpoint.
 message AccessCheckError {
   // error_message is the error message as returned by the endpoint.
   string error_message = 1;
   // protocol is the protocol used.
   string protocol = 2;
-  // userId is the user ID as which changes had been pushed.
+  // user_id is the user ID as which changes had been pushed.
   string user_id = 3;
   // changes is the set of changes which have failed the access check.
   bytes changes = 4;
@@ -22,7 +22,7 @@ message AccessCheckError {
 // IndexError is an error returned when an operation fails to due a conflict with
 // the repository index.
 message IndexError {
-  // error_type is the type of error encountered on the index operation.
+  // ErrorType is the type of error encountered on the index operation.
   enum ErrorType {
     // ERROR_TYPE_UNSPECIFIED is the default error type and should never be set.
     ERROR_TYPE_UNSPECIFIED = 0;
@@ -65,12 +65,12 @@ message NotAncestorError {
   bytes child_revision = 2;
 }
 
-// changesAlreadyAppliedError is an error returned when the operation would
+// ChangesAlreadyAppliedError is an error returned when the operation would
 // have resulted in no changes because these changes have already been applied.
 message ChangesAlreadyAppliedError {
 }
 
-// merge_conflictError is an error returned in the case when merging two commits
+// MergeConflictError is an error returned in the case when merging two commits
 // fails due to a merge conflict.
 message MergeConflictError {
   // conflicting_files is the set of files which have been conflicting. If this
@@ -82,14 +82,14 @@ message MergeConflictError {
   repeated string conflicting_commit_ids = 2;
 }
 
-// referencesLockedError is an error returned when an ref update fails because
+// ReferencesLockedError is an error returned when an ref update fails because
 // the references have already been locked by another process.
 message ReferencesLockedError {
   // refs are the references that could not be locked.
   repeated bytes refs = 1;
 }
 
-// reference_existsError is an error returned when a reference that ought not to exist does exist
+// ReferenceExistsError is an error returned when a reference that ought not to exist does exist
 // already.
 message ReferenceExistsError {
   // reference_name is the name of the reference that exists already.
@@ -98,13 +98,13 @@ message ReferenceExistsError {
   string oid = 2;
 }
 
-// referenceNotFoundError is an error retruned when a reference that ought to exist does not exist.
+// ReferenceNotFoundError is an error retruned when a reference that ought to exist does not exist.
 message ReferenceNotFoundError {
   // reference_name is the name of the reference that does not exist.
   bytes reference_name = 1;
 }
 
-// referenceStateMismatchError is an error returned when updating a reference fails because its pointing to a different
+// ReferenceStateMismatchError is an error returned when updating a reference fails because its pointing to a different
 // object ID than expected.
 message ReferenceStateMismatchError {
   // reference_name is the name of the reference that was failed to update.
@@ -116,7 +116,7 @@ message ReferenceStateMismatchError {
   bytes actual_object_id = 3;
 }
 
-// reference_updateError is an error returned when updating a reference has
+// ReferenceUpdateError is an error returned when updating a reference has
 // failed.
 message ReferenceUpdateError {
   // reference_name is the name of the reference that failed to be updated.
@@ -127,14 +127,14 @@ message ReferenceUpdateError {
   string new_oid = 3;
 }
 
-// resolve_revisionError is an error returned when resolving a specific revision
+// ResolveRevisionError is an error returned when resolving a specific revision
 // has failed.
 message ResolveRevisionError {
   // revision is the name of the revision that was tried to be resolved.
   bytes revision = 1;
 }
 
-// limitError is an error returned when Gitaly enforces request limits.
+// LimitError is an error returned when Gitaly enforces request limits.
 message LimitError {
   // error_message provides context into why a limit was enforced.
   string error_message = 1;
@@ -143,10 +143,10 @@ message LimitError {
   google.protobuf.Duration retry_after = 2;
 }
 
-// custom_hookError is an error returned when Gitaly executes a custom hook and the hook returns
+// CustomHookError is an error returned when Gitaly executes a custom hook and the hook returns
 // a non-zero return code.
 message CustomHookError {
-  // hook_type is the type of the hook that has been running. Please consult githooks(5) for more
+  // HookType is the type of the hook that has been running. Please consult githooks(5) for more
   // information about the specific types.
   enum HookType {
     // HOOK_TYPE_UNSPECIFIED is the default hook type and should never be set.
@@ -174,22 +174,22 @@ message CustomHookError {
   HookType hook_type = 3;
 }
 
-// pathError is an error returned when there is an issue with the path provided.
+// PathError is an error returned when there is an issue with the path provided.
 message PathError {
-  // error_type is the type of error encountered.
+  // ErrorType is the type of error encountered.
   enum ErrorType {
-    // pathError_ERROR_TYPE_UNSPECIFIED is the default error type and should never be set.
+    // ERROR_TYPE_UNSPECIFIED is the default error type and should never be set.
     ERROR_TYPE_UNSPECIFIED = 0;
-    // pathError_ERROR_TYPE_EMPTY_PATH is the error type when the provided path is empty.
+    // ERROR_TYPE_EMPTY_PATH is the error type when the provided path is empty.
     ERROR_TYPE_EMPTY_PATH = 1;
-    // pathError_ERROR_TYPE_RELATIVE_PATH_ESCAPES_REPOSITORY is the error type when there are
+    // ERROR_TYPE_RELATIVE_PATH_ESCAPES_REPOSITORY is the error type when there are
     // traversing components found in the path and it either escapes the repository or is not
     // supported by the RPC.
     ERROR_TYPE_RELATIVE_PATH_ESCAPES_REPOSITORY = 2;
-    // pathError_ERROR_TYPE_ABSOLUTE_PATH is the error type when an absolute path is provided
+    // ERROR_TYPE_ABSOLUTE_PATH is the error type when an absolute path is provided
     // while a relative path was expected.
     ERROR_TYPE_ABSOLUTE_PATH = 3;
-    // pathError_ERROR_TYPE_LONG_PATH is the error type when the path is too long.
+    // ERROR_TYPE_LONG_PATH is the error type when the path is too long.
     ERROR_TYPE_LONG_PATH = 4;
   };
 
@@ -200,7 +200,7 @@ message PathError {
   ErrorType error_type = 2;
 }
 
-// pathNotFoundError is an error returned when a given path cannot be found.
+// PathNotFoundError is an error returned when a given path cannot be found.
 message PathNotFoundError {
   // path is the path that could not be found.
   bytes path = 1;

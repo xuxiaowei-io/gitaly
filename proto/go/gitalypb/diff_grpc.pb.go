@@ -22,17 +22,17 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DiffServiceClient interface {
-	// Returns stream of CommitDiffResponse with patches chunked over messages
+	// CommitDiff returns stream of CommitDiffResponse with patches chunked over messages.
 	CommitDiff(ctx context.Context, in *CommitDiffRequest, opts ...grpc.CallOption) (DiffService_CommitDiffClient, error)
-	// Return a stream so we can divide the response in chunks of deltas
+	// CommitDelta returns a stream so we can divide the response in chunks of deltas.
 	CommitDelta(ctx context.Context, in *CommitDeltaRequest, opts ...grpc.CallOption) (DiffService_CommitDeltaClient, error)
-	// This comment is left unintentionally blank.
+	// RawDiff ...
 	RawDiff(ctx context.Context, in *RawDiffRequest, opts ...grpc.CallOption) (DiffService_RawDiffClient, error)
-	// This comment is left unintentionally blank.
+	// RawPatch ...
 	RawPatch(ctx context.Context, in *RawPatchRequest, opts ...grpc.CallOption) (DiffService_RawPatchClient, error)
-	// This comment is left unintentionally blank.
+	// DiffStats ...
 	DiffStats(ctx context.Context, in *DiffStatsRequest, opts ...grpc.CallOption) (DiffService_DiffStatsClient, error)
-	// Return a list of files changed along with the status of each file
+	// FindChangedPaths returns a list of files changed along with the status of each file
 	FindChangedPaths(ctx context.Context, in *FindChangedPathsRequest, opts ...grpc.CallOption) (DiffService_FindChangedPathsClient, error)
 	// GetPatchID computes a patch ID for a patch. Patch IDs are a unique ID computed by hashing
 	// a patch with some parameters like line numbers ignored. The patch ID can thus be used to compare
@@ -254,17 +254,17 @@ func (c *diffServiceClient) GetPatchID(ctx context.Context, in *GetPatchIDReques
 // All implementations must embed UnimplementedDiffServiceServer
 // for forward compatibility
 type DiffServiceServer interface {
-	// Returns stream of CommitDiffResponse with patches chunked over messages
+	// CommitDiff returns stream of CommitDiffResponse with patches chunked over messages.
 	CommitDiff(*CommitDiffRequest, DiffService_CommitDiffServer) error
-	// Return a stream so we can divide the response in chunks of deltas
+	// CommitDelta returns a stream so we can divide the response in chunks of deltas.
 	CommitDelta(*CommitDeltaRequest, DiffService_CommitDeltaServer) error
-	// This comment is left unintentionally blank.
+	// RawDiff ...
 	RawDiff(*RawDiffRequest, DiffService_RawDiffServer) error
-	// This comment is left unintentionally blank.
+	// RawPatch ...
 	RawPatch(*RawPatchRequest, DiffService_RawPatchServer) error
-	// This comment is left unintentionally blank.
+	// DiffStats ...
 	DiffStats(*DiffStatsRequest, DiffService_DiffStatsServer) error
-	// Return a list of files changed along with the status of each file
+	// FindChangedPaths returns a list of files changed along with the status of each file
 	FindChangedPaths(*FindChangedPathsRequest, DiffService_FindChangedPathsServer) error
 	// GetPatchID computes a patch ID for a patch. Patch IDs are a unique ID computed by hashing
 	// a patch with some parameters like line numbers ignored. The patch ID can thus be used to compare

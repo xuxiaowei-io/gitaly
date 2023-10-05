@@ -7,17 +7,17 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// repositoryService is a service providing RPCs accessing repositories as a whole.
+// RepositoryService is a service providing RPCs accessing repositories as a whole.
 service RepositoryService {
 
-  // repositoryExists ...
+  // RepositoryExists ...
   rpc RepositoryExists(RepositoryExistsRequest) returns (RepositoryExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // repositorySize returns information on the complete on-disk repository size. If you need more
+  // RepositorySize returns information on the complete on-disk repository size. If you need more
   // detailed information about the size of various sub-structures you should instead use the
   // repositoryInfo RPC.
   rpc RepositorySize(RepositorySizeRequest) returns (RepositorySizeResponse) {
@@ -26,14 +26,14 @@ service RepositoryService {
     };
   }
 
-  // repositoryInfo returns detailed information about a repository and its data structures.
+  // RepositoryInfo returns detailed information about a repository and its data structures.
   rpc RepositoryInfo(RepositoryInfoRequest) returns (RepositoryInfoResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // objectsSize calculates the total on-disk object size of reachable objects in bytes. In contrast
+  // ObjectsSize calculates the total on-disk object size of reachable objects in bytes. In contrast
   // to RepositorySize and RepositoryInfo, this RPC performs a graph walk of the specified revisions
   // and will thus return an accurate view of how large the accumulated on-disk size of reachable
   // objects is.
@@ -61,14 +61,14 @@ service RepositoryService {
     };
   }
 
-  // object_format determines the object format that is being used by the repository.
+  // ObjectFormat determines the object format that is being used by the repository.
   rpc ObjectFormat(ObjectFormatRequest) returns (ObjectFormatResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // applyGitattributes ...
+  // ApplyGitattributes ...
   rpc ApplyGitattributes(ApplyGitattributesRequest) returns (ApplyGitattributesResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -402,40 +402,40 @@ service RepositoryService {
   }
 }
 
-// repositoryExistsRequest ...
+// RepositoryExistsRequest ...
 message RepositoryExistsRequest {
   // repository ...
   Repository repository = 1 [(target_repository)=true];
 }
 
-// repositoryExistsResponse ...
+// RepositoryExistsResponse ...
 message RepositoryExistsResponse {
   // exists ...
   bool exists = 1;
 }
 
-// repositorySizeRequest is a request for the RepositorySize RPC.
+// RepositorySizeRequest is a request for the RepositorySize RPC.
 message RepositorySizeRequest {
   // repository is the repository for which to determine the repository size.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// repositorySizeResponse is a response for the RepositorySize RPC.
+// RepositorySizeResponse is a response for the RepositorySize RPC.
 message RepositorySizeResponse {
   // size is the complete size of the on-disk repository in kilobytes. This will include all data
   // structures and is similar to `du --summarize --bytes $REPO_PATH`.
   int64 size = 1;
 }
 
-// repositoryInfoRequest is a request for the RepositoryInfo RPC.
+// RepositoryInfoRequest is a request for the RepositoryInfo RPC.
 message RepositoryInfoRequest {
   // repository is the repository to query for information.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// repositoryInfoResponse is a response for the RepositoryInfo RPC.
+// RepositoryInfoResponse is a response for the RepositoryInfo RPC.
 message RepositoryInfoResponse {
-  // referencesInfo hosts information about references.
+  // ReferencesInfo hosts information about references.
   message ReferencesInfo {
     // loose_count is the number of loose references that exist in the repository. These references
     // are written whenever any reference either gets updated or created. Loose references have not
@@ -452,7 +452,7 @@ message RepositoryInfoResponse {
     uint64 packed_size = 2;
   }
 
-  // objectsInfo hosts info about objects contained in a repository. It tries to bridge the gap
+  // ObjectsInfo hosts info about objects contained in a repository. It tries to bridge the gap
   // between the actual on-disk state that is changing over time as Git introduces new ways to
   // perform repository housekeeping and specific classifications of objects.
   //
@@ -486,11 +486,11 @@ message RepositoryInfoResponse {
   uint64 size = 1;
   // references contains information about references.
   ReferencesInfo references = 2;
-  // objectsInfo contains information about objects.
+  // objects contains information about objects.
   ObjectsInfo objects = 3;
 }
 
-// objectsSizeRequest is a request for the ObjectsSize RPC. The RPC is defined as a streaming RPC given that a client
+// ObjectsSizeRequest is a request for the ObjectsSize RPC. The RPC is defined as a streaming RPC given that a client
 // may theoretically specify an unbounded number of revisions. Only the first request may have fields other than the
 // revisions set.
 message ObjectsSizeRequest {
@@ -506,26 +506,26 @@ message ObjectsSizeRequest {
   repeated bytes revisions = 2;
 }
 
-// objectsSizeResponse is a response for the ObjectsSize RPC.
+// ObjectsSizeResponse is a response for the ObjectsSize RPC.
 message ObjectsSizeResponse {
   // size is the total size of all objects reachable via the given set of revisions. The size is
   // specified in bytes.
   uint64 size = 1;
 }
 
-// object_formatRequest is a request for the ObjectFormat RPC.
+// ObjectFormatRequest is a request for the ObjectFormat RPC.
 message ObjectFormatRequest {
   // repository is the repository for which to determine the object format.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// object_formatResponse is a response for the ObjectFormat RPC.
+// ObjectFormatResponse is a response for the ObjectFormat RPC.
 message ObjectFormatResponse {
   // format is the object format that the repository uses.
   ObjectFormat format = 1;
 }
 
-// applyGitattributesRequest ...
+// ApplyGitattributesRequest ...
 message ApplyGitattributesRequest {
   // repository ...
   Repository repository = 1 [(target_repository)=true];
@@ -533,7 +533,7 @@ message ApplyGitattributesRequest {
   bytes revision = 2;
 }
 
-// applyGitattributesResponse ...
+// ApplyGitattributesResponse ...
 message ApplyGitattributesResponse {
 }
 
@@ -575,9 +575,8 @@ message FetchRemoteRequest {
   // remote_params specifies the remote repository which should be fetched
   // from.
   Remote remote_params = 10;
-  // If check_tags_changed is true, the FetchRemote RPC will check whether any
-  // tags were modified, returning the result in the tags_changed field of
-  // FetchRemoteResponse
+  // check_tags_changed defined whether to check if any tags were modified,
+  // returning the result in the tags_changed field of FetchRemoteResponse.
   bool check_tags_changed = 11;
 
   reserved 2;
@@ -586,9 +585,9 @@ message FetchRemoteRequest {
 
 // FetchRemoteResponse ...
 message FetchRemoteResponse {
-  // If check_tags_changed was set in the FetchRemoteRequest, the FetchRemote
-  // RPC will return false when no tags were changed, and true if tags were
-  // changed or answer cannot be determined.
+  // tags_changed is set based to true if tags were changed or cannot be determined
+  // and false when no tags were change. It is only calculated when check_tags_changed
+  // was set in the FetchRemoteRequest.
   bool tags_changed = 1;
 }
 
@@ -596,7 +595,7 @@ message FetchRemoteResponse {
 message CreateRepositoryRequest {
   // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // Provide a branch name to set as the default branch of a newly created
+  // default_branch is the branch name to set as the default branch of the newly created
   // repository. Note, this will be treated as the branch name and not a
   // fully qualified reference.
   bytes default_branch = 2;
@@ -612,7 +611,7 @@ message CreateRepositoryResponse {
 
 // GetArchiveRequest ...
 message GetArchiveRequest {
-  // format ...
+  // Format ...
   enum Format {
     // ZIP ...
     ZIP = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -636,12 +635,12 @@ message GetArchiveRequest {
   bytes path = 5;
   // exclude ...
   repeated bytes exclude = 6; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
-  // If `elide_path` is true and `path` refers to a subdirectory, that
-  // subdirectory will be elided from archive entries. For example, if `dir`
-  // contains `README.md`, with `elide_path = false` the corresponding entry
-  // will be `dir/README.md`; with `elide_path = true`, the entry will be
-  // `README.md`. `elide_path` has no effect if `path` refers to the repository
-  // root. `elide_path = true` is not supported if `path` refers to a file.
+  // elide_path whether to elide subdirectories. If it is true and `path` refers
+  // to a subdirectory, that subdirectory will be elided from archive entries.
+  // For example, if `dir` contains `README.md`, with `elide_path = false` the
+  // corresponding entry will be `dir/README.md`; with `elide_path = true`, the
+  // entry will be `README.md`. `elide_path` has no effect if `path` refers to the
+  // repository root. `elide_path = true` is not supported if `path` refers to a file.
   bool elide_path = 7;
   // include_lfs_blobs ...
   bool include_lfs_blobs = 8;
@@ -671,19 +670,19 @@ message FetchSourceBranchRequest {
   // call, it should contain the target reference which points to the same
   // commit as the source repository's source branch.
   Repository repository = 1 [(target_repository)=true];
-  // repository from which to fetch the source branch from.
+  // source_repository is the repository from which to fetch the source branch from.
   Repository source_repository = 2;
-  // name of the branch in the source repository which should be fetched.
+  // source_branch is the name of the branch in the source repository which should be fetched.
   bytes source_branch = 3;
-  // name of the reference which shall be newly created in the target
+  // target_ref is the name of the reference which shall be newly created in the target
   // repository.
   bytes target_ref = 4;
 }
 
 // FetchSourceBranchResponse ...
 message FetchSourceBranchResponse {
-  // True if the source branch was successfully fetched into the target
-  // repository, false if resolving the remote reference or fetching it failed.
+  // result denotes if the source branch was successfully fetched into the target
+  // repository. It is false if resolving the remote reference or fetching it failed.
   bool result = 1;
 }
 
@@ -727,6 +726,7 @@ message WriteRefResponse {
 message FindMergeBaseRequest {
   // repository ...
   Repository repository = 1 [(target_repository)=true];
+  // revisions is the revisions to find the merge base for.
   // We use a repeated field because rugged supports finding a base
   // for more than 2 revisions, so if we needed that in the future we don't
   // need to change the protocol.
@@ -1035,6 +1035,7 @@ message GetRawChangesResponse {
     // new_mode ...
     int32 new_mode = 8;
 
+    // new_path_bytes ...
     // the following fields, 9 and 10, will eventually replace 3 and 4
     bytes new_path_bytes = 9;
     // old_path_bytes ...
@@ -1053,16 +1054,15 @@ message SearchFilesByNameRequest {
   string query = 2;
   // ref ...
   bytes ref = 3;
-  // If `filter` is specified and non-empty, it will be parsed as a regular
-  // expression and used to filter the result set before it is transmitted. It is
-  // parsed using Go's `regexp` package, which is closely related to PCRE,
-  // excluding backreferences, atomic/possesive operators, and some other
+  // filter is a regular expression used to filter the result set before it is
+  // transmitted. It is parsed using Go's `regexp` package, which is closely related
+  // to PCRE, excluding backreferences, atomic/possesive operators, and some other
   // features. It has a maximum length of 1000 bytes.
   string filter = 4;
   // limit the number of returned files. Gitaly does not enforce a limit by default.
   // Clients should always set a value for this field. limit = 0 means unlimited files.
   uint32 limit = 5;
-  // `offset` says to skip that many files before beginning to return files.
+  // offset says to skip that many files before beginning to return files.
   // offset = 0 means starting to return files from beginning.
   uint32 offset = 6;
 }
@@ -1095,7 +1095,7 @@ message SearchFilesByContentResponse {
   bool end_of_match = 3;
 }
 
-// remote represents a git remote repository.
+// Remote represents a git remote repository.
 message Remote {
   // url is the URL of the remote repository.
   string url = 1;
@@ -1143,7 +1143,7 @@ message GetObjectDirectorySizeRequest {
 
 // GetObjectDirectorySizeResponse ...
 message GetObjectDirectorySizeResponse {
-  // Object directory size in kilobytes
+  // size is the object directory size in kilobytes.
   int64 size = 1;
 }
 
@@ -1192,7 +1192,7 @@ message ReplicateRepositoryResponse{
 
 // OptimizeRepositoryRequest is a request for the OptimizeRepository RPC.
 message OptimizeRepositoryRequest {
-  // strategy determines how the repository shall be optimized.
+  // Strategy determines how the repository shall be optimized.
   enum Strategy {
     // STRATEGY_UNSPECIFIED indicates that the strategy has not been explicitly set by the
     // caller. The default will be STRATEGY_HEURISTICAL in that case.
@@ -1246,15 +1246,15 @@ message FullPathRequest {
   Repository repository = 1 [(target_repository)=true];
 }
 
-// SetFullPathResponse is a response for the SetFullPath RPC.
+// FullPathResponse is a response for the SetFullPath RPC.
 message FullPathResponse {
   // path read from the "gitlab.fullpath" config key.
   string path = 1;
 }
 
-// RemoveAll is a request for the RemoveAll RPC.
+// RemoveAllRequest is a request for the RemoveAll RPC.
 message RemoveAllRequest {
-  // storageName of the storage to have all repositories removed from.
+  // storage_name of the storage to have all repositories removed from.
   string storage_name = 1 [(storage)=true];;
 }
 
@@ -1262,7 +1262,7 @@ message RemoveAllRequest {
 message RemoveAllResponse {
 }
 
-// BackupRepository is a request for the BackupRepository RPC.
+// BackupRepositoryRequest is a request for the BackupRepository RPC.
 message BackupRepositoryRequest {
   // repository is the repository to be backed up.
   Repository repository = 1 [(target_repository)=true];
@@ -1279,7 +1279,7 @@ message BackupRepositoryResponse {
   }
 }
 
-// RestoreRepository is a request for the RestoreRepository RPC.
+// RestoreRepositoryRequest is a request for the RestoreRepository RPC.
 message RestoreRepositoryRequest {
   // repository is the repository to be restored.
   Repository repository = 1 [(target_repository)=true];

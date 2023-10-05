@@ -20,15 +20,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// State ...
 type ReferenceTransactionHookRequest_State int32
 
 const (
-	// This comment is left unintentionally blank.
+	// PREPARED ...
 	ReferenceTransactionHookRequest_PREPARED ReferenceTransactionHookRequest_State = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// COMMITTED ...
 	ReferenceTransactionHookRequest_COMMITTED ReferenceTransactionHookRequest_State = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// ABORTED ...
 	ReferenceTransactionHookRequest_ABORTED ReferenceTransactionHookRequest_State = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -73,19 +73,19 @@ func (ReferenceTransactionHookRequest_State) EnumDescriptor() ([]byte, []int) {
 	return file_hook_proto_rawDescGZIP(), []int{6, 0}
 }
 
-// This comment is left unintentionally blank.
+// PreReceiveHookRequest ...
 type PreReceiveHookRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// environment_variables ...
 	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
-	// This comment is left unintentionally blank.
+	// stdin ...
 	Stdin []byte `protobuf:"bytes,4,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	// This comment is left unintentionally blank.
+	// git_push_options ...
 	GitPushOptions []string `protobuf:"bytes,5,rep,name=git_push_options,json=gitPushOptions,proto3" json:"git_push_options,omitempty"`
 }
 
@@ -149,17 +149,17 @@ func (x *PreReceiveHookRequest) GetGitPushOptions() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// PreReceiveHookResponse ...
 type PreReceiveHookResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// stdout ...
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// This comment is left unintentionally blank.
+	// stderr ...
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	// This comment is left unintentionally blank.
+	// exit_status ...
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -216,19 +216,19 @@ func (x *PreReceiveHookResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// PostReceiveHookRequest ...
 type PostReceiveHookRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// environment_variables ...
 	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
-	// This comment is left unintentionally blank.
+	// stdin ...
 	Stdin []byte `protobuf:"bytes,3,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	// This comment is left unintentionally blank.
+	// git_push_options ...
 	GitPushOptions []string `protobuf:"bytes,4,rep,name=git_push_options,json=gitPushOptions,proto3" json:"git_push_options,omitempty"`
 }
 
@@ -292,17 +292,17 @@ func (x *PostReceiveHookRequest) GetGitPushOptions() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// PostReceiveHookResponse ...
 type PostReceiveHookResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// stdout ...
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// This comment is left unintentionally blank.
+	// stderr ...
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	// This comment is left unintentionally blank.
+	// exit_status ...
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -359,21 +359,21 @@ func (x *PostReceiveHookResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// UpdateHookRequest ...
 type UpdateHookRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// environment_variables ...
 	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
-	// This comment is left unintentionally blank.
+	// ref ...
 	Ref []byte `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
-	// This comment is left unintentionally blank.
+	// old_value ...
 	OldValue string `protobuf:"bytes,4,opt,name=old_value,json=oldValue,proto3" json:"old_value,omitempty"`
-	// This comment is left unintentionally blank.
+	// new_value ...
 	NewValue string `protobuf:"bytes,5,opt,name=new_value,json=newValue,proto3" json:"new_value,omitempty"`
 }
 
@@ -444,17 +444,17 @@ func (x *UpdateHookRequest) GetNewValue() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UpdateHookResponse ...
 type UpdateHookResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// stdout ...
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// This comment is left unintentionally blank.
+	// stderr ...
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	// This comment is left unintentionally blank.
+	// exit_status ...
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -511,19 +511,19 @@ func (x *UpdateHookResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ReferenceTransactionHookRequest ...
 type ReferenceTransactionHookRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// environment_variables ...
 	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
-	// This comment is left unintentionally blank.
+	// stdin ...
 	Stdin []byte `protobuf:"bytes,3,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	// This comment is left unintentionally blank.
+	// state ...
 	State ReferenceTransactionHookRequest_State `protobuf:"varint,4,opt,name=state,proto3,enum=gitaly.ReferenceTransactionHookRequest_State" json:"state,omitempty"`
 }
 
@@ -587,17 +587,17 @@ func (x *ReferenceTransactionHookRequest) GetState() ReferenceTransactionHookReq
 	return ReferenceTransactionHookRequest_PREPARED
 }
 
-// This comment is left unintentionally blank.
+// ReferenceTransactionHookResponse ...
 type ReferenceTransactionHookResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// stdout ...
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// This comment is left unintentionally blank.
+	// stderr ...
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	// This comment is left unintentionally blank.
+	// exit_status ...
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -654,23 +654,23 @@ func (x *ReferenceTransactionHookResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// PackObjectsHookWithSidechannelRequest ...
 type PackObjectsHookWithSidechannelRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// args contains the arguments passed to the pack-objects hook, without the leading "git"
 	Args []string `protobuf:"bytes,2,rep,name=args,proto3" json:"args,omitempty"`
-	// GlId is the user id of the initator of the fetch
+	// gl_id is the user id of the initator of the fetch
 	GlId string `protobuf:"bytes,3,opt,name=gl_id,json=glId,proto3" json:"gl_id,omitempty"`
-	// GlUsername is the username of the initator of the fetch
+	// gl_username is the username of the initator of the fetch
 	GlUsername string `protobuf:"bytes,5,opt,name=gl_username,json=glUsername,proto3" json:"gl_username,omitempty"`
-	// GitProtocol is the protocol used for the fetch
+	// git_protocol is the protocol used for the fetch
 	GitProtocol string `protobuf:"bytes,6,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
-	// RemoteIP is the original IP of the initator of the fetch. This field is used as the key for
+	// remote_ip is the original IP of the initator of the fetch. This field is used as the key for
 	// concurrency limiting before we trigger git-pack-objects command
 	RemoteIp string `protobuf:"bytes,7,opt,name=remote_ip,json=remoteIp,proto3" json:"remote_ip,omitempty"`
 }
@@ -749,7 +749,7 @@ func (x *PackObjectsHookWithSidechannelRequest) GetRemoteIp() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// PackObjectsHookWithSidechannelResponse ...
 type PackObjectsHookWithSidechannelResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

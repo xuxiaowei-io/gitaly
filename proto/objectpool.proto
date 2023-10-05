@@ -7,7 +7,7 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// object_poolService is a service that manages the lifetime of object pools.
+// ObjectPoolService is a service that manages the lifetime of object pools.
 //
 // An object pool is a separate repository that can be linked to from multiple object pool members
 // in order to deduplicate common objects between them. This is mostly used in the context of
@@ -97,7 +97,7 @@ service ObjectPoolService {
 
 }
 
-// CreatesObjectPoolRequest is a request for the CreateObjectPool RPC.
+// CreateObjectPoolRequest is a request for the CreateObjectPool RPC.
 message CreateObjectPoolRequest {
   // object_pool is the object pool to create. This field controls where exactly the object pool will
   // be created.
@@ -165,7 +165,7 @@ message GetObjectPoolRequest {
   Repository repository = 1 [(target_repository)=true];
 }
 
-// GetObjectDirectorySizeResponse is a response for the GetObjectPool RPC.
+// GetObjectPoolResponse is a response for the GetObjectPool RPC.
 message GetObjectPoolResponse {
   // object_pool is the object pool the repository is connected to. If the repository is not
   // connected to any object pool, then this field will be empty.

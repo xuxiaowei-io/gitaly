@@ -21,19 +21,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// ObjectType ...
 type ObjectType int32
 
 const (
-	// This comment is left unintentionally blank.
+	// UNKNOWN ...
 	ObjectType_UNKNOWN ObjectType = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// COMMIT ...
 	ObjectType_COMMIT ObjectType = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// BLOB ...
 	ObjectType_BLOB ObjectType = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// TREE ...
 	ObjectType_TREE ObjectType = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// TAG ...
 	ObjectType_TAG ObjectType = 4 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -136,17 +136,17 @@ func (ObjectFormat) EnumDescriptor() ([]byte, []int) {
 	return file_shared_proto_rawDescGZIP(), []int{1}
 }
 
-// This comment is left unintentionally blank.
+// SignatureType ...
 type SignatureType int32
 
 const (
-	// This comment is left unintentionally blank.
+	// NONE ...
 	SignatureType_NONE SignatureType = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// PGP ...
 	SignatureType_PGP SignatureType = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// X509 ...
 	SignatureType_X509 SignatureType = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// SSH ...
 	SignatureType_SSH SignatureType = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -242,27 +242,28 @@ func (SortDirection) EnumDescriptor() ([]byte, []int) {
 	return file_shared_proto_rawDescGZIP(), []int{3}
 }
 
-// This comment is left unintentionally blank.
+// Repository ...
 type Repository struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// storage_name ...
 	StorageName string `protobuf:"bytes,2,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// relative_path ...
 	RelativePath string `protobuf:"bytes,3,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
-	// Sets the GIT_OBJECT_DIRECTORY envvar on git commands to the value of this field.
+	// git_object_directory sets the GIT_OBJECT_DIRECTORY envvar on git commands to the value of this field.
 	// It influences the object storage directory the SHA1 directories are created underneath.
 	GitObjectDirectory string `protobuf:"bytes,4,opt,name=git_object_directory,json=gitObjectDirectory,proto3" json:"git_object_directory,omitempty"`
-	// Sets the GIT_ALTERNATE_OBJECT_DIRECTORIES envvar on git commands to the values of this field.
-	// It influences the list of Git object directories which can be used to search for Git objects.
+	// git_alternate_object_directories sets the GIT_ALTERNATE_OBJECT_DIRECTORIES envvar on git commands to
+	// the values of this field. It influences the list of Git object directories which can be used to search
+	// for Git objects.
 	GitAlternateObjectDirectories []string `protobuf:"bytes,5,rep,name=git_alternate_object_directories,json=gitAlternateObjectDirectories,proto3" json:"git_alternate_object_directories,omitempty"`
-	// Used in callbacks to GitLab so that it knows what repository the event is
+	// gl_repository is used in callbacks to GitLab so that it knows what repository the event is
 	// associated with. May be left empty on RPC's that do not perform callbacks.
 	// During project creation, `gl_repository` may not be known.
 	GlRepository string `protobuf:"bytes,6,opt,name=gl_repository,json=glRepository,proto3" json:"gl_repository,omitempty"`
-	// The human-readable GitLab project path (e.g. gitlab-org/gitlab-ce).
+	// gl_project_path is the human-readable GitLab project path (e.g. gitlab-org/gitlab-ce).
 	// When hashed storage is use, this associates a project path with its
 	// path on disk. The name can change over time (e.g. when a project is
 	// renamed). This is primarily used for logging/debugging at the
@@ -344,16 +345,16 @@ func (x *Repository) GetGlProjectPath() string {
 	return ""
 }
 
-// A single Git trailer (https://git-scm.com/docs/git-interpret-trailers)
+// CommitTrailer is a single Git trailer (https://git-scm.com/docs/git-interpret-trailers)
 // key-value pair.
 type CommitTrailer struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The key of the trailer, such as `Signed-off-by`.
+	// key is the key of the trailer, such as `Signed-off-by`.
 	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// The value of the trailer, such as `Alice <alice@gmail.com>`.
+	// value is the value of the trailer, such as `Alice <alice@gmail.com>`.
 	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -470,46 +471,46 @@ func (x *CommitStatInfo) GetChangedFiles() int32 {
 	return 0
 }
 
-// Corresponds to Gitlab::Git::Commit
+// GitCommit corresponds to Gitlab::Git::Commit
 type GitCommit struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// id ...
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// This comment is left unintentionally blank.
+	// subject ...
 	Subject []byte `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
-	// This comment is left unintentionally blank.
+	// body ...
 	Body []byte `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
-	// This comment is left unintentionally blank.
+	// author ...
 	Author *CommitAuthor `protobuf:"bytes,4,opt,name=author,proto3" json:"author,omitempty"`
-	// This comment is left unintentionally blank.
+	// committer ...
 	Committer *CommitAuthor `protobuf:"bytes,5,opt,name=committer,proto3" json:"committer,omitempty"`
-	// This comment is left unintentionally blank.
+	// parent_ids ...
 	ParentIds []string `protobuf:"bytes,6,rep,name=parent_ids,json=parentIds,proto3" json:"parent_ids,omitempty"`
-	// If body exceeds a certain threshold, it will be nullified,
-	// but its size will be set in body_size so we can know if
+	// body_size is the size of the commit body. If body exceeds a certain threshold,
+	// it will be nullified, but its size will be set in body_size so we can know if
 	// a commit had a body in the first place.
 	BodySize int64 `protobuf:"varint,7,opt,name=body_size,json=bodySize,proto3" json:"body_size,omitempty"`
-	// This comment is left unintentionally blank.
+	// signature_type ...
 	SignatureType SignatureType `protobuf:"varint,8,opt,name=signature_type,json=signatureType,proto3,enum=gitaly.SignatureType" json:"signature_type,omitempty"`
-	// The tree ID will always be filled, even if the tree is empty. In that case
-	// the value will be `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
-	// That value is equivalent to `git hash-object -t tree /dev/null`
+	// tree_id is the object ID of the tree. The tree ID will always be filled, even
+	// if the tree is empty. In that case the value will be `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
+	// That value is equivalent to `git hash-object -t tree /dev/null`.
 	TreeId string `protobuf:"bytes,9,opt,name=tree_id,json=treeId,proto3" json:"tree_id,omitempty"`
-	// The list of Git trailers (https://git-scm.com/docs/git-interpret-trailers)
+	// trailers is the list of Git trailers (https://git-scm.com/docs/git-interpret-trailers)
 	// found in this commit's message. The number of trailers and their key/value
 	// sizes are limited. If a trailer exceeds these size limits, it and any
 	// trailers that follow it are not included.
 	Trailers []*CommitTrailer `protobuf:"bytes,10,rep,name=trailers,proto3" json:"trailers,omitempty"`
-	// The stats include additions, deletions and changed_files,
+	// short_stats are the git stats including additions, deletions and changed_files,
 	// they are only set when `include_shortstat == true`.
 	ShortStats *CommitStatInfo `protobuf:"bytes,11,opt,name=short_stats,json=shortStats,proto3" json:"short_stats,omitempty"`
 	// referenced_by contains fully-qualified reference names (e.g refs/heads/main)
 	// that point to the commit.
 	ReferencedBy [][]byte `protobuf:"bytes,12,rep,name=referenced_by,json=referencedBy,proto3" json:"referenced_by,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
-	// The encoding of the commit message. This field will only be present if
+	// encoding is the encoding of the commit message. This field will only be present if
 	// `i18n.commitEncoding` was set to a value other than "UTF-8" at the time
 	// this commit was made.
 	// See: https://git-scm.com/docs/git-commit#_discussion
@@ -639,19 +640,19 @@ func (x *GitCommit) GetEncoding() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// CommitAuthor ...
 type CommitAuthor struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// name ...
 	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// This comment is left unintentionally blank.
+	// email ...
 	Email []byte `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
-	// This comment is left unintentionally blank.
+	// date ...
 	Date *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=date,proto3" json:"date,omitempty"`
-	// This comment is left unintentionally blank.
+	// timezone ...
 	Timezone []byte `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
 }
 
@@ -715,13 +716,13 @@ func (x *CommitAuthor) GetTimezone() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ExitStatus ...
 type ExitStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// value ...
 	Value int32 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -764,15 +765,15 @@ func (x *ExitStatus) GetValue() int32 {
 	return 0
 }
 
-// Corresponds to Gitlab::Git::Branch
+// Branch corresponds to Gitlab::Git::Branch
 type Branch struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// name ...
 	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// This comment is left unintentionally blank.
+	// target_commit ...
 	TargetCommit *GitCommit `protobuf:"bytes,2,opt,name=target_commit,json=targetCommit,proto3" json:"target_commit,omitempty"`
 }
 
@@ -822,27 +823,27 @@ func (x *Branch) GetTargetCommit() *GitCommit {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// Tag ...
 type Tag struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// name ...
 	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// This comment is left unintentionally blank.
+	// id ...
 	Id string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
-	// This comment is left unintentionally blank.
+	// target_commit ...
 	TargetCommit *GitCommit `protobuf:"bytes,3,opt,name=target_commit,json=targetCommit,proto3" json:"target_commit,omitempty"`
-	// If message exceeds a certain threshold, it will be nullified,
-	// but its size will be set in message_size so we can know if
-	// a tag had a message in the first place.
+	// message is the message of the tag. If message exceeds a certain
+	// threshold, it will be nullified, but its size will be set in
+	// message_size so we can know if a tag had a message in the first place.
 	Message []byte `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// This comment is left unintentionally blank.
+	// message_size ...
 	MessageSize int64 `protobuf:"varint,5,opt,name=message_size,json=messageSize,proto3" json:"message_size,omitempty"`
-	// This comment is left unintentionally blank.
+	// tagger ...
 	Tagger *CommitAuthor `protobuf:"bytes,6,opt,name=tagger,proto3" json:"tagger,omitempty"`
-	// This comment is left unintentionally blank.
+	// signature_type ...
 	SignatureType SignatureType `protobuf:"varint,7,opt,name=signature_type,json=signatureType,proto3,enum=gitaly.SignatureType" json:"signature_type,omitempty"`
 }
 
@@ -927,21 +928,21 @@ func (x *Tag) GetSignatureType() SignatureType {
 	return SignatureType_NONE
 }
 
-// This comment is left unintentionally blank.
+// User ...
 type User struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// gl_id ...
 	GlId string `protobuf:"bytes,1,opt,name=gl_id,json=glId,proto3" json:"gl_id,omitempty"`
-	// This comment is left unintentionally blank.
+	// name ...
 	Name []byte `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// This comment is left unintentionally blank.
+	// email ...
 	Email []byte `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
-	// This comment is left unintentionally blank.
+	// gl_username ...
 	GlUsername string `protobuf:"bytes,4,opt,name=gl_username,json=glUsername,proto3" json:"gl_username,omitempty"`
-	// Timezone is the timezone as configured by the user in the web interface. This
+	// timezone is the timezone as configured by the user in the web interface. This
 	// timezone may be used when new commits are created via RPC calls.
 	Timezone string `protobuf:"bytes,5,opt,name=timezone,proto3" json:"timezone,omitempty"`
 }
@@ -1013,13 +1014,13 @@ func (x *User) GetTimezone() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// ObjectPool ...
 type ObjectPool struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -1062,21 +1063,21 @@ func (x *ObjectPool) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// PaginationParameter ...
 type PaginationParameter struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Instructs pagination to start sending results after the provided page
+	// page_token instructs pagination to start sending results after the provided page
 	// token appears. A page token allows for a generic pattern to uniquely
 	// identify a result or 'page'. Each paginated RPC may interpret a page
 	// token differently.
 	PageToken string `protobuf:"bytes,1,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	// When fully consuming the response the client will receive _at most_
-	// `limit` number of resulting objects. Note that the number of response
-	// messages might be much lower, as some response messages already send
-	// multiple objects per message.
+	// limit is the maximum number of objects the client will receive. When fully consuming
+	// the response the client will receive _at most_ `limit` number of resulting objects.
+	// Note that the number of response messages might be much lower, as some response
+	// messages already send multiple objects per message.
 	// When the limit is smaller than 0, it will be normalized to 2147483647
 	// on the server side. When limit is not set, it defaults to 0, and no
 	// results are send in the response.
@@ -1129,13 +1130,13 @@ func (x *PaginationParameter) GetLimit() int32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// PaginationCursor ...
 type PaginationCursor struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// To the caller, this is an opaque token to indicate what the caller
+	// next_cursor is an opaque token provided to the caller to indicate what the caller
 	// should present as a page_token to get subsequent results.
 	NextCursor string `protobuf:"bytes,1,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
 }
@@ -1179,13 +1180,13 @@ func (x *PaginationCursor) GetNextCursor() string {
 	return ""
 }
 
-// https://git-scm.com/docs/git/#_options
+// GlobalOptions are additional git options as defined at https://git-scm.com/docs/git/#_options.
 type GlobalOptions struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Treat pathspecs literally (i.e. no globbing, no pathspec magic)
+	// literal_pathspecs should be set to treat pathspecs literally (i.e. no globbing, no pathspec magic).
 	LiteralPathspecs bool `protobuf:"varint,1,opt,name=literal_pathspecs,json=literalPathspecs,proto3" json:"literal_pathspecs,omitempty"`
 }
 

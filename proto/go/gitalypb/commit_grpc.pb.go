@@ -42,15 +42,16 @@ type CommitServiceClient interface {
 	// GetTreeEntries provides the tree entries for the provided path and revision. This includes
 	// subtrees present under the tree with the option of recursive fetching.
 	GetTreeEntries(ctx context.Context, in *GetTreeEntriesRequest, opts ...grpc.CallOption) (CommitService_GetTreeEntriesClient, error)
-	// This comment is left unintentionally blank.
+	// ListFiles ...
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (CommitService_ListFilesClient, error)
-	// This comment is left unintentionally blank.
+	// FindCommit ...
 	FindCommit(ctx context.Context, in *FindCommitRequest, opts ...grpc.CallOption) (*FindCommitResponse, error)
-	// This comment is left unintentionally blank.
+	// CommitStats ...
 	CommitStats(ctx context.Context, in *CommitStatsRequest, opts ...grpc.CallOption) (*CommitStatsResponse, error)
+	// FindAllCommits ...
 	// Use a stream to paginate the result set
 	FindAllCommits(ctx context.Context, in *FindAllCommitsRequest, opts ...grpc.CallOption) (CommitService_FindAllCommitsClient, error)
-	// This comment is left unintentionally blank.
+	// FindCommits ...
 	FindCommits(ctx context.Context, in *FindCommitsRequest, opts ...grpc.CallOption) (CommitService_FindCommitsClient, error)
 	// CommitLanguages detects the source code languages of the whole tree for a
 	// given commit. Returns an error in case no languages could be detected.
@@ -65,19 +66,19 @@ type CommitServiceClient interface {
 	// - Absolute paths that or relative paths that escape the repository root will cause an error.
 	// - A nonexistent path inside the repostiory leads to a successful but empty response.
 	LastCommitForPath(ctx context.Context, in *LastCommitForPathRequest, opts ...grpc.CallOption) (*LastCommitForPathResponse, error)
-	// This comment is left unintentionally blank.
+	// ListLastCommitsForTree ...
 	ListLastCommitsForTree(ctx context.Context, in *ListLastCommitsForTreeRequest, opts ...grpc.CallOption) (CommitService_ListLastCommitsForTreeClient, error)
-	// This comment is left unintentionally blank.
+	// CommitsByMessage ...
 	CommitsByMessage(ctx context.Context, in *CommitsByMessageRequest, opts ...grpc.CallOption) (CommitService_CommitsByMessageClient, error)
-	// This comment is left unintentionally blank.
+	// ListCommitsByOid ...
 	ListCommitsByOid(ctx context.Context, in *ListCommitsByOidRequest, opts ...grpc.CallOption) (CommitService_ListCommitsByOidClient, error)
-	// This comment is left unintentionally blank.
+	// ListCommitsByRefName ...
 	ListCommitsByRefName(ctx context.Context, in *ListCommitsByRefNameRequest, opts ...grpc.CallOption) (CommitService_ListCommitsByRefNameClient, error)
-	// This comment is left unintentionally blank.
+	// FilterShasWithSignatures ...
 	FilterShasWithSignatures(ctx context.Context, opts ...grpc.CallOption) (CommitService_FilterShasWithSignaturesClient, error)
-	// This comment is left unintentionally blank.
+	// GetCommitSignatures ...
 	GetCommitSignatures(ctx context.Context, in *GetCommitSignaturesRequest, opts ...grpc.CallOption) (CommitService_GetCommitSignaturesClient, error)
-	// This comment is left unintentionally blank.
+	// GetCommitMessages ...
 	GetCommitMessages(ctx context.Context, in *GetCommitMessagesRequest, opts ...grpc.CallOption) (CommitService_GetCommitMessagesClient, error)
 	// CheckObjectsExist will check for the existence of revisions against a
 	// repository. It returns two sets of data. An array containing the revisions
@@ -691,15 +692,16 @@ type CommitServiceServer interface {
 	// GetTreeEntries provides the tree entries for the provided path and revision. This includes
 	// subtrees present under the tree with the option of recursive fetching.
 	GetTreeEntries(*GetTreeEntriesRequest, CommitService_GetTreeEntriesServer) error
-	// This comment is left unintentionally blank.
+	// ListFiles ...
 	ListFiles(*ListFilesRequest, CommitService_ListFilesServer) error
-	// This comment is left unintentionally blank.
+	// FindCommit ...
 	FindCommit(context.Context, *FindCommitRequest) (*FindCommitResponse, error)
-	// This comment is left unintentionally blank.
+	// CommitStats ...
 	CommitStats(context.Context, *CommitStatsRequest) (*CommitStatsResponse, error)
+	// FindAllCommits ...
 	// Use a stream to paginate the result set
 	FindAllCommits(*FindAllCommitsRequest, CommitService_FindAllCommitsServer) error
-	// This comment is left unintentionally blank.
+	// FindCommits ...
 	FindCommits(*FindCommitsRequest, CommitService_FindCommitsServer) error
 	// CommitLanguages detects the source code languages of the whole tree for a
 	// given commit. Returns an error in case no languages could be detected.
@@ -714,19 +716,19 @@ type CommitServiceServer interface {
 	// - Absolute paths that or relative paths that escape the repository root will cause an error.
 	// - A nonexistent path inside the repostiory leads to a successful but empty response.
 	LastCommitForPath(context.Context, *LastCommitForPathRequest) (*LastCommitForPathResponse, error)
-	// This comment is left unintentionally blank.
+	// ListLastCommitsForTree ...
 	ListLastCommitsForTree(*ListLastCommitsForTreeRequest, CommitService_ListLastCommitsForTreeServer) error
-	// This comment is left unintentionally blank.
+	// CommitsByMessage ...
 	CommitsByMessage(*CommitsByMessageRequest, CommitService_CommitsByMessageServer) error
-	// This comment is left unintentionally blank.
+	// ListCommitsByOid ...
 	ListCommitsByOid(*ListCommitsByOidRequest, CommitService_ListCommitsByOidServer) error
-	// This comment is left unintentionally blank.
+	// ListCommitsByRefName ...
 	ListCommitsByRefName(*ListCommitsByRefNameRequest, CommitService_ListCommitsByRefNameServer) error
-	// This comment is left unintentionally blank.
+	// FilterShasWithSignatures ...
 	FilterShasWithSignatures(CommitService_FilterShasWithSignaturesServer) error
-	// This comment is left unintentionally blank.
+	// GetCommitSignatures ...
 	GetCommitSignatures(*GetCommitSignaturesRequest, CommitService_GetCommitSignaturesServer) error
-	// This comment is left unintentionally blank.
+	// GetCommitMessages ...
 	GetCommitMessages(*GetCommitMessagesRequest, CommitService_GetCommitMessagesServer) error
 	// CheckObjectsExist will check for the existence of revisions against a
 	// repository. It returns two sets of data. An array containing the revisions

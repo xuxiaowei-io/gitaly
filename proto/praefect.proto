@@ -13,17 +13,17 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 service PraefectInfoService {
   option (intercepted) = true;
 
-  // repositoryReplicas ...
+  // RepositoryReplicas ...
   rpc RepositoryReplicas(RepositoryReplicasRequest) returns (RepositoryReplicasResponse);
 
-  // datalossCheck provides information on repositories in Praefect that are in a degraded state and
+  // DatalossCheck provides information on repositories in Praefect that are in a degraded state and
   // thus susceptible to dataloss. A repository is considered degraded when its replicas are
   // outdated and/or unavailable.
   rpc DatalossCheck(DatalossCheckRequest) returns (DatalossCheckResponse) {
     option deprecated = true;
   };
 
-  // dataloss provides information on repositories in Praefect that are in a degraded state and 
+  // Dataloss provides information on repositories in Praefect that are in a degraded state and
   // thus susceptible to dataloss. A repository is considered degraded when its replicas are 
   // outdated and/or unavailable.
   rpc Dataloss(DatalossRequest) returns (stream DatalossResponse);
@@ -54,7 +54,7 @@ service PraefectInfoService {
 
 // MarkUnverifiedRequest specifies the replicas which to mark unverified.
 message MarkUnverifiedRequest {
-  // storage identifies a single storage in a virtual storage.
+  // Storage identifies a single storage in a virtual storage.
   message Storage {
     // virtual_storage is the virtual storage the storage is part of.
     string virtual_storage = 1;
@@ -82,7 +82,7 @@ message MarkUnverifiedResponse {
 
 // GetRepositoryMetadataRequest specifies the repository to retrieve metadata for.
 message GetRepositoryMetadataRequest {
-  // path ...
+  // Path ...
   message Path {
     // virtual_storage is the virtual storage where the repository is.
     string virtual_storage = 1;
@@ -98,7 +98,7 @@ message GetRepositoryMetadataRequest {
   };
 }
 
-// GeRepositoryMetadataResponse contains the repository's cluster metadata.
+// GetRepositoryMetadataResponse contains the repository's cluster metadata.
 message GetRepositoryMetadataResponse {
   // Replica ...
   message Replica {
@@ -163,21 +163,21 @@ message SetAuthoritativeStorageRequest {
 message SetAuthoritativeStorageResponse {
 }
 
-// A request for data loss information
+// DatalossRequest is the request for data loss information
 message DatalossRequest {
-  // The virtual storage to get dataloss information for
+  // virtual_storage is the virtual storage to get dataloss information for.
   string virtual_storage = 1;
-  // include_partially_unavailable indicates whether to include repositories which are available but
+  // include_partially_replicated indicates whether to include repositories which are available but
   // are unavailable on some assigned storages.
   bool include_partially_replicated = 2;
 }
 
-// Contains information about a repository that may be behind
+// DatalossResponse contains information about a repository that may be behind
 // the primary.
 message DatalossResponse {
-  // status of a repository
+  // Repository is the status of a repository
   message Repository {
-    // storage ...
+    // Storage ...
     message Storage {
       // name of the storage
       string name = 1;
@@ -191,14 +191,14 @@ message DatalossResponse {
       bool valid_primary = 5;
     }
 
-    // relative path of the repository with outdated replicas
+    // relative_path of the repository with outdated replicas
     string relative_path = 1;
     // storages on which the repository is outdated
     repeated Storage storages = 2;
     // unavailable indicates whether the repository is in unavailable.
     bool unavailable = 3;
 
-    // current primary storage of the repository
+    // primary is the current primary storage of the repository.
     string primary = 4;
   }
 
@@ -206,22 +206,22 @@ message DatalossResponse {
   repeated Repository repositories = 2;
 }
 
-// datalossCheckRequest ...
+// DatalossCheckRequest ...
 message DatalossCheckRequest {
   option deprecated = true;
   // virtual_storage ...
   string virtual_storage = 1;
-  // include_partially_unavailable indicates whether to include repositories which are available but
+  // include_partially_replicated indicates whether to include repositories which are available but
   // are unavailable on some assigned storages.
   bool include_partially_replicated = 2;
 }
 
-// datalossCheckResponse ...
+// DatalossCheckResponse ...
 message DatalossCheckResponse {
   option deprecated = true;
-  // repository ...
+  // Repository ...
   message Repository {
-    // storage ...
+    // Storage ...
     message Storage {
       // name of the storage
       string name = 1;
@@ -235,14 +235,14 @@ message DatalossCheckResponse {
       bool valid_primary = 5;
     }
 
-    // relative path of the repository with outdated replicas
+    // relative_path of the repository with outdated replicas
     string relative_path = 1;
     // storages on which the repository is outdated
     repeated Storage storages = 2;
     // unavailable indicates whether the repository is in unavailable.
     bool unavailable = 3;
 
-    // current primary storage of the repository
+    // primary is the current primary storage of the repository.
     string primary = 4;
   }
 
@@ -250,15 +250,15 @@ message DatalossCheckResponse {
   repeated Repository repositories = 2;
 }
 
-// repositoryReplicasRequest ...
+// RepositoryReplicasRequest ...
 message RepositoryReplicasRequest{
   // repository ...
   Repository repository = 1;
 }
 
-// repositoryReplicasResponse ...
+// RepositoryReplicasResponse ...
 message RepositoryReplicasResponse{
-  // repositoryDetails ...
+  // RepositoryDetails ...
   message RepositoryDetails {
     // repository ...
     Repository repository = 1;

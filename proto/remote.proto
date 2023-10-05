@@ -7,7 +7,7 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// remoteService is a service providing RPCs to interact with a remote
+// RemoteService is a service providing RPCs to interact with a remote
 // repository that is hosted on another Git server.
 service RemoteService {
 
@@ -44,11 +44,11 @@ service RemoteService {
 
 // UpdateRemoteMirrorRequest ...
 message UpdateRemoteMirrorRequest {
-  // remote ...
+  // Remote ...
   message Remote {
-    // URL is the URL of the remote repository.
+    // url is the URL of the remote repository.
     string url = 1;
-    // HTTPAuthorizationHeader is an optional HTTP header used for
+    // http_authorization_header is an optional HTTP header used for
     // authenticating against the remote repository.
     string http_authorization_header = 2;
     // resolved_address holds the resolved IP address of the remote_url. This is
@@ -102,12 +102,13 @@ message UpdateRemoteMirrorResponse {
 message FindRemoteRepositoryRequest {
   // remote ...
   string remote = 1;
-  // This field is used to redirect request to proper storage where it can be handled.
+  // storage_name is used to redirect request to proper storage where it can be handled.
   // As of now it doesn't matter what storage will be used, but it still must be a valid.
   // For more details: https://gitlab.com/gitlab-org/gitaly/-/issues/2442
   string storage_name = 2 [(storage)=true];
 }
 
+// FindRemoteRepositoryResponse ...
 // This migth throw a GRPC Unavailable code, to signal the request failure
 // is transient.
 message FindRemoteRepositoryResponse {
@@ -121,7 +122,7 @@ message FindRemoteRootRefRequest {
   // a remote name is given, then this is the repository in which the remote
   // will be looked up.
   Repository repository = 1 [(target_repository)=true];
-  // remoteUrl specifies the remote repository URL which should be fetched from.
+  // remote_url specifies the remote repository URL which should be fetched from.
   string remote_url = 3;
   // http_authorization_header is the HTTP header which should be added to the
   // request in order to authenticate against the repository.

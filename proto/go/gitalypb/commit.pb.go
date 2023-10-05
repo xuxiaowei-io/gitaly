@@ -239,15 +239,15 @@ func (GetTreeEntriesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 	return file_commit_proto_rawDescGZIP(), []int{15, 0}
 }
 
-// This comment is left unintentionally blank.
+// Order ...
 type FindAllCommitsRequest_Order int32
 
 const (
-	// This comment is left unintentionally blank.
+	// NONE ...
 	FindAllCommitsRequest_NONE FindAllCommitsRequest_Order = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// TOPO ...
 	FindAllCommitsRequest_TOPO FindAllCommitsRequest_Order = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// DATE ...
 	FindAllCommitsRequest_DATE FindAllCommitsRequest_Order = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -292,13 +292,13 @@ func (FindAllCommitsRequest_Order) EnumDescriptor() ([]byte, []int) {
 	return file_commit_proto_rawDescGZIP(), []int{26, 0}
 }
 
-// This comment is left unintentionally blank.
+// Order ...
 type FindCommitsRequest_Order int32
 
 const (
-	// This comment is left unintentionally blank.
+	// NONE ...
 	FindCommitsRequest_NONE FindCommitsRequest_Order = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// TOPO ...
 	FindCommitsRequest_TOPO FindCommitsRequest_Order = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -400,43 +400,43 @@ type ListCommitsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which commits should be searched for.
+	// repository is the repository in which commits should be searched for.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revisions is the set of revisions which should be walked to enumerate
+	// revisions is the set of revisions which should be walked to enumerate
 	// commits. Accepts all notation as documented in gitrevisions(7) as well as
 	// the pseudo-revisions `--not` and `--all` as documented in git-rev-list(1).
 	// Must not be empty.
 	Revisions []string `protobuf:"bytes,2,rep,name=revisions,proto3" json:"revisions,omitempty"`
-	// PaginationParams allows implementation of pagination. The page token is
+	// pagination_params allows implementation of pagination. The page token is
 	// the last commit OID that was sent. It's expected to be the full object ID
 	// to guard against ambigious OIDs.
 	PaginationParams *PaginationParameter `protobuf:"bytes,3,opt,name=pagination_params,json=paginationParams,proto3" json:"pagination_params,omitempty"`
-	// Order is the order in which commits should be traversed. Please refer to
+	// order is the order in which commits should be traversed. Please refer to
 	// the enum's documentation for further information.
 	Order ListCommitsRequest_Order `protobuf:"varint,4,opt,name=order,proto3,enum=gitaly.ListCommitsRequest_Order" json:"order,omitempty"`
-	// Reverse will cause all commits to be listed in reverse.
+	// reverse will cause all commits to be listed in reverse.
 	Reverse bool `protobuf:"varint,11,opt,name=reverse,proto3" json:"reverse,omitempty"`
-	// MaxParents will skip all commits which have more than the specified number
+	// max_parents will skip all commits which have more than the specified number
 	// of parents. If set to `0`, no filtering by parents will happen. If set to
 	// `1`, all merge commits will be omitted.
 	MaxParents uint32 `protobuf:"varint,5,opt,name=max_parents,json=maxParents,proto3" json:"max_parents,omitempty"`
-	// DisableWalk will disable walking the graph. As a result, only commits
+	// disable_walk will disable walking the graph. As a result, only commits
 	// which are immediately referenced by Revisions will be returned.
 	DisableWalk bool `protobuf:"varint,6,opt,name=disable_walk,json=disableWalk,proto3" json:"disable_walk,omitempty"`
-	// FirstParent will cause the graph walk to only go down the first-parent
+	// first_parent will cause the graph walk to only go down the first-parent
 	// chain of commits. Merge commits will thus only cause the mainline to be
 	// enumerated.
 	FirstParent bool `protobuf:"varint,7,opt,name=first_parent,json=firstParent,proto3" json:"first_parent,omitempty"`
-	// After will only list commits which are more recent than the specified date.
+	// after will only list commits which are more recent than the specified date.
 	After *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=after,proto3" json:"after,omitempty"`
-	// After will only list commits which are older than the specified date.
+	// before will only list commits which are older than the specified date.
 	Before *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=before,proto3" json:"before,omitempty"`
-	// Author will only list commits whose author matches the given pattern,
+	// author will only list commits whose author matches the given pattern,
 	// which is a regular expression.
 	Author []byte `protobuf:"bytes,10,opt,name=author,proto3" json:"author,omitempty"`
-	// IgnoreCase will apply case-sensitive behaviour while regex matching.
+	// ignore_case will apply case-sensitive behaviour while regex matching.
 	IgnoreCase bool `protobuf:"varint,12,opt,name=ignore_case,json=ignoreCase,proto3" json:"ignore_case,omitempty"`
-	// CommitMessagePatterns will only list commits whose commit message matches
+	// commit_message_patterns will only list commits whose commit message matches
 	// any of the given patterns.
 	CommitMessagePatterns [][]byte `protobuf:"bytes,13,rep,name=commit_message_patterns,json=commitMessagePatterns,proto3" json:"commit_message_patterns,omitempty"`
 }
@@ -570,7 +570,7 @@ type ListCommitsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Commits is the list of commits found.
+	// commits is the list of commits found.
 	Commits []*GitCommit `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
 }
 
@@ -619,9 +619,9 @@ type ListAllCommitsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which commits should be searched for.
+	// repository is the repository in which commits should be searched for.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// PaginationParams allows implementation of pagination. The page token is
+	// pagination_params allows implementation of pagination. The page token is
 	// the last commit OID that was sent. It's expected to be the full object ID
 	// to guard against ambigious OIDs.
 	PaginationParams *PaginationParameter `protobuf:"bytes,2,opt,name=pagination_params,json=paginationParams,proto3" json:"pagination_params,omitempty"`
@@ -679,7 +679,7 @@ type ListAllCommitsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Commits is the list of commits found.
+	// commits is the list of commits found.
 	Commits []*GitCommit `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
 }
 
@@ -722,15 +722,15 @@ func (x *ListAllCommitsResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CommitStatsRequest ...
 type CommitStatsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// revision ...
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
 }
 
@@ -780,17 +780,17 @@ func (x *CommitStatsRequest) GetRevision() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CommitStatsResponse ...
 type CommitStatsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// OID is the commit. Empty means not found
+	// oid is the commit. Empty means not found
 	Oid string `protobuf:"bytes,1,opt,name=oid,proto3" json:"oid,omitempty"`
-	// This comment is left unintentionally blank.
+	// additions ...
 	Additions int32 `protobuf:"varint,2,opt,name=additions,proto3" json:"additions,omitempty"`
-	// This comment is left unintentionally blank.
+	// deletions ...
 	Deletions int32 `protobuf:"varint,3,opt,name=deletions,proto3" json:"deletions,omitempty"`
 }
 
@@ -853,11 +853,11 @@ type CommitIsAncestorRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository for which we need to check the ancestory.
+	// repository is the repository for which we need to check the ancestory.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// AncestorId is the object ID of the commit which needs to be checked as ancestor.
+	// ancestor_id is the object ID of the commit which needs to be checked as ancestor.
 	AncestorId string `protobuf:"bytes,2,opt,name=ancestor_id,json=ancestorId,proto3" json:"ancestor_id,omitempty"`
-	// ChildId is the object ID of the commit whose ancestor needs to be confirmed.
+	// child_id is the object ID of the commit whose ancestor needs to be confirmed.
 	ChildId string `protobuf:"bytes,3,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
 }
 
@@ -920,7 +920,7 @@ type CommitIsAncestorResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Value denotes whether the provided commit is the ancestor or not.
+	// value denotes whether the provided commit is the ancestor or not.
 	Value bool `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -969,16 +969,16 @@ type TreeEntryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository for which to read the tree entry.
+	// repository is the repository for which to read the tree entry.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision is the commitish at which the tree entry is to be read.
+	// revision is the commitish at which the tree entry is to be read.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// Path is the path of the entry that shall be read, relative to the tree of the specified revision.
+	// path is the path of the entry that shall be read, relative to the tree of the specified revision.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// Limit is the maximum number of bytes to fetch. If object is bigger, remaining bytes are not sent
+	// limit is the maximum number of bytes to fetch. If object is bigger, remaining bytes are not sent
 	// 0 means there is no limit.
 	Limit int64 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	// MaxSize is the maximum allowed object size. If bigger, a FailedPrecondition error is returned
+	// max_size is the maximum allowed object size. If bigger, a FailedPrecondition error is returned
 	// 0 means there is no maximum size.
 	MaxSize int64 `protobuf:"varint,5,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
 }
@@ -1057,16 +1057,16 @@ type TreeEntryResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Type is the object type of the tree entry.
+	// type is the object type of the tree entry.
 	Type TreeEntryResponse_ObjectType `protobuf:"varint,1,opt,name=type,proto3,enum=gitaly.TreeEntryResponse_ObjectType" json:"type,omitempty"`
-	// Oid is the object ID of the tree entry. In case of submodules, it contains the commit ID that the submodule
+	// oid is the object ID of the tree entry. In case of submodules, it contains the commit ID that the submodule
 	// currently refers to.
 	Oid string `protobuf:"bytes,2,opt,name=oid,proto3" json:"oid,omitempty"`
-	// Size is the size of the tree entry.
+	// size is the size of the tree entry.
 	Size int64 `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
-	// Mode is the mode of the tree entry.
+	// mode is the mode of the tree entry.
 	Mode int32 `protobuf:"varint,4,opt,name=mode,proto3" json:"mode,omitempty"`
-	// Data contains the raw object contents. This data may be split up across multiple messages.
+	// data contains the raw object contents. This data may be split up across multiple messages.
 	Data []byte `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -1143,24 +1143,24 @@ type CountCommitsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which we want to count the number of commits.
+	// repository is the repository in which we want to count the number of commits.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision is a commitish which is the start point for the traversal of commits.
+	// revision is a commitish which is the start point for the traversal of commits.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// After is used to filter commits more recent than a specific date.
+	// after is used to filter commits more recent than a specific date.
 	After *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=after,proto3" json:"after,omitempty"`
-	// Before is used to filter commits older than a specific date.
+	// before is used to filter commits older than a specific date.
 	Before *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=before,proto3" json:"before,omitempty"`
-	// Path is used to filter commits which modify the provided path.
+	// path is used to filter commits which modify the provided path.
 	Path []byte `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	// MaxCount is used to cap the number of commits.
+	// max_count is used to cap the number of commits.
 	MaxCount int32 `protobuf:"varint,6,opt,name=max_count,json=maxCount,proto3" json:"max_count,omitempty"`
-	// All is used to consider all refs (including HEAD) as the start point for the traversal.
-	// All and Revision options are mutually exclusive.
+	// all is used to consider all refs (including HEAD) as the start point for the traversal.
+	// all and Revision options are mutually exclusive.
 	All bool `protobuf:"varint,7,opt,name=all,proto3" json:"all,omitempty"`
-	// FirstParent ensures that only the first parent commit is followed in the traversal.
+	// first_parent ensures that only the first parent commit is followed in the traversal.
 	FirstParent bool `protobuf:"varint,8,opt,name=first_parent,json=firstParent,proto3" json:"first_parent,omitempty"`
-	// GlobalOptions contains the global options used to modify the behaviour of Git.
+	// global_options contains the global options used to modify the behaviour of Git.
 	GlobalOptions *GlobalOptions `protobuf:"bytes,9,opt,name=global_options,json=globalOptions,proto3" json:"global_options,omitempty"`
 }
 
@@ -1265,7 +1265,7 @@ type CountCommitsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Count denotes the number of commits found as per the given filters.
+	// count denotes the number of commits found as per the given filters.
 	Count int32 `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
 }
 
@@ -1314,15 +1314,15 @@ type CountDivergingCommitsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which we want to find the number of diverging commits.
+	// repository is the repository in which we want to find the number of diverging commits.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// From is the object ID of one of the commits against which we want to check the
+	// from is the object ID of one of the commits against which we want to check the
 	// number of diverging commits. The From and To fields are interchangeable.
 	From []byte `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
-	// To is the object ID of one of the commits against which we want to check the
+	// to is the object ID of one of the commits against which we want to check the
 	// number of diverging commits. The To and From fields are interchangeable.
 	To []byte `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
-	// MaxCount denotes the cap for the number of diverging commits to be reported.
+	// max_count denotes the cap for the number of diverging commits to be reported.
 	MaxCount int32 `protobuf:"varint,7,opt,name=max_count,json=maxCount,proto3" json:"max_count,omitempty"`
 }
 
@@ -1392,9 +1392,9 @@ type CountDivergingCommitsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// LeftCount denotes the number of diverging commits present in the 'From' commit provided.
+	// left_count denotes the number of diverging commits present in the 'From' commit provided.
 	LeftCount int32 `protobuf:"varint,1,opt,name=left_count,json=leftCount,proto3" json:"left_count,omitempty"`
-	// RightCount denotes the number of diverging commits present in the 'To' commit provided.
+	// right_count denotes the number of diverging commits present in the 'To' commit provided.
 	RightCount int32 `protobuf:"varint,2,opt,name=right_count,json=rightCount,proto3" json:"right_count,omitempty"`
 }
 
@@ -1450,17 +1450,17 @@ type TreeEntry struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// OID of the object this tree entry points to.
+	// oid of the object this tree entry points to.
 	Oid string `protobuf:"bytes,1,opt,name=oid,proto3" json:"oid,omitempty"`
-	// Path is the path of the entry relative to the tree of the specified revision.
+	// path is the path of the entry relative to the tree of the specified revision.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// Type denotes the type of the tree entry.
+	// type denotes the type of the tree entry.
 	Type TreeEntry_EntryType `protobuf:"varint,4,opt,name=type,proto3,enum=gitaly.TreeEntry_EntryType" json:"type,omitempty"`
-	// Mode is the mode of the tree entry.
+	// mode is the mode of the tree entry.
 	Mode int32 `protobuf:"varint,5,opt,name=mode,proto3" json:"mode,omitempty"`
-	// CommitOid is the commit object via which this entry was retrieved.
+	// commit_oid is the commit object via which this entry was retrieved.
 	CommitOid string `protobuf:"bytes,6,opt,name=commit_oid,json=commitOid,proto3" json:"commit_oid,omitempty"`
-	// Relative path of the first subdir that doesn't have only one directory descendant.
+	// flat_path is the relative path of the first subdir that doesn't have only one directory descendant.
 	FlatPath []byte `protobuf:"bytes,7,opt,name=flat_path,json=flatPath,proto3" json:"flat_path,omitempty"`
 }
 
@@ -1544,20 +1544,21 @@ type GetTreeEntriesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository to get the tree entries from.
+	// repository is the repository to get the tree entries from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision is the commitish at which the tree entries is to be read.
+	// revision is the commitish at which the tree entries is to be read.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// Path is the path of the entry that shall be read, relative to the tree of the specified revision.
+	// path is the path of the entry that shall be read, relative to the tree of the specified revision.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// Recursive denotes wether to recursively fetch sub-trees.
+	// recursive denotes wether to recursively fetch sub-trees.
 	Recursive bool `protobuf:"varint,4,opt,name=recursive,proto3" json:"recursive,omitempty"`
-	// Sort defines the sorting parameter.
+	// sort defines the sorting parameter.
 	Sort GetTreeEntriesRequest_SortBy `protobuf:"varint,5,opt,name=sort,proto3,enum=gitaly.GetTreeEntriesRequest_SortBy" json:"sort,omitempty"`
+	// pagination_params contains params for pagination.
 	// The page token is the last commit OID that was sent. It's expected to be the
 	// full object ID to guard against ambigious OIDs.
 	PaginationParams *PaginationParameter `protobuf:"bytes,6,opt,name=pagination_params,json=paginationParams,proto3" json:"pagination_params,omitempty"`
-	// SkipFlatPath is an option to skip the expensive operation of populating flat paths.
+	// skip_flat_paths is an option to skip the expensive operation of populating flat paths.
 	SkipFlatPaths bool `protobuf:"varint,7,opt,name=skip_flat_paths,json=skipFlatPaths,proto3" json:"skip_flat_paths,omitempty"`
 }
 
@@ -1642,15 +1643,15 @@ func (x *GetTreeEntriesRequest) GetSkipFlatPaths() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// GetTreeEntriesResponse ...
 type GetTreeEntriesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// entries ...
 	Entries []*TreeEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
-	// This comment is left unintentionally blank.
+	// pagination_cursor ...
 	PaginationCursor *PaginationCursor `protobuf:"bytes,2,opt,name=pagination_cursor,json=paginationCursor,proto3" json:"pagination_cursor,omitempty"`
 }
 
@@ -1772,12 +1773,12 @@ type isGetTreeEntriesError_Error interface {
 }
 
 type GetTreeEntriesError_ResolveTree struct {
-	// ResolveTree is set when the provided revision ID could not be resolved.
+	// resolve_tree is set when the provided revision ID could not be resolved.
 	ResolveTree *ResolveRevisionError `protobuf:"bytes,1,opt,name=resolve_tree,json=resolveTree,proto3,oneof"`
 }
 
 type GetTreeEntriesError_Path struct {
-	// Path is set when the provided path is not valid.
+	// path is set when the provided path is not valid.
 	Path *PathError `protobuf:"bytes,2,opt,name=path,proto3,oneof"`
 }
 
@@ -1785,15 +1786,15 @@ func (*GetTreeEntriesError_ResolveTree) isGetTreeEntriesError_Error() {}
 
 func (*GetTreeEntriesError_Path) isGetTreeEntriesError_Error() {}
 
-// This comment is left unintentionally blank.
+// ListFilesRequest ...
 type ListFilesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// revision ...
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
 }
 
@@ -1843,12 +1844,13 @@ func (x *ListFilesRequest) GetRevision() []byte {
 	return nil
 }
 
-// A single 'page' of the paginated response
+// ListFilesResponse is a single 'page' of the paginated response.
 type ListFilesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// paths ...
 	// Remember to force encoding utf-8 on the client side
 	Paths [][]byte `protobuf:"bytes,1,rep,name=paths,proto3" json:"paths,omitempty"`
 }
@@ -1892,17 +1894,17 @@ func (x *ListFilesResponse) GetPaths() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindCommitRequest ...
 type FindCommitRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// revision ...
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// trailers ...
 	Trailers bool `protobuf:"varint,3,opt,name=trailers,proto3" json:"trailers,omitempty"`
 }
 
@@ -1959,7 +1961,7 @@ func (x *FindCommitRequest) GetTrailers() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// FindCommitResponse ...
 type FindCommitResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2008,15 +2010,15 @@ func (x *FindCommitResponse) GetCommit() *GitCommit {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ListCommitsByOidRequest ...
 type ListCommitsByOidRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// oid ...
 	Oid []string `protobuf:"bytes,2,rep,name=oid,proto3" json:"oid,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 
@@ -2066,13 +2068,13 @@ func (x *ListCommitsByOidRequest) GetOid() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ListCommitsByOidResponse ...
 type ListCommitsByOidResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commits ...
 	Commits []*GitCommit `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
 }
 
@@ -2115,15 +2117,15 @@ func (x *ListCommitsByOidResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ListCommitsByRefNameRequest ...
 type ListCommitsByRefNameRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// ref_names ...
 	RefNames [][]byte `protobuf:"bytes,2,rep,name=ref_names,json=refNames,proto3" json:"ref_names,omitempty"`
 }
 
@@ -2173,13 +2175,13 @@ func (x *ListCommitsByRefNameRequest) GetRefNames() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ListCommitsByRefNameResponse ...
 type ListCommitsByRefNameResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commit_refs ...
 	CommitRefs []*ListCommitsByRefNameResponse_CommitForRef `protobuf:"bytes,2,rep,name=commit_refs,json=commitRefs,proto3" json:"commit_refs,omitempty"`
 }
 
@@ -2222,21 +2224,22 @@ func (x *ListCommitsByRefNameResponse) GetCommitRefs() []*ListCommitsByRefNameRe
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindAllCommitsRequest ...
 type FindAllCommitsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// revision ...
 	// When nil, return all commits reachable by any branch in the repo
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// max_count ...
 	MaxCount int32 `protobuf:"varint,3,opt,name=max_count,json=maxCount,proto3" json:"max_count,omitempty"`
-	// This comment is left unintentionally blank.
+	// skip ...
 	Skip int32 `protobuf:"varint,4,opt,name=skip,proto3" json:"skip,omitempty"`
-	// This comment is left unintentionally blank.
+	// order ...
 	Order FindAllCommitsRequest_Order `protobuf:"varint,5,opt,name=order,proto3,enum=gitaly.FindAllCommitsRequest_Order" json:"order,omitempty"`
 }
 
@@ -2307,13 +2310,13 @@ func (x *FindAllCommitsRequest) GetOrder() FindAllCommitsRequest_Order {
 	return FindAllCommitsRequest_NONE
 }
 
-// A single 'page' of the result set
+// FindAllCommitsResponse is a single 'page' of the result set.
 type FindAllCommitsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commits ...
 	Commits []*GitCommit `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
 }
 
@@ -2356,43 +2359,43 @@ func (x *FindAllCommitsResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindCommitsRequest ...
 type FindCommitsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// revision ...
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// limit ...
 	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	// This comment is left unintentionally blank.
+	// offset ...
 	Offset int32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
-	// This comment is left unintentionally blank.
+	// paths ...
 	Paths [][]byte `protobuf:"bytes,5,rep,name=paths,proto3" json:"paths,omitempty"`
-	// This comment is left unintentionally blank.
+	// follow ...
 	Follow bool `protobuf:"varint,6,opt,name=follow,proto3" json:"follow,omitempty"`
-	// This comment is left unintentionally blank.
+	// skip_merges ...
 	SkipMerges bool `protobuf:"varint,7,opt,name=skip_merges,json=skipMerges,proto3" json:"skip_merges,omitempty"`
-	// This comment is left unintentionally blank.
+	// disable_walk ...
 	DisableWalk bool `protobuf:"varint,8,opt,name=disable_walk,json=disableWalk,proto3" json:"disable_walk,omitempty"`
-	// This comment is left unintentionally blank.
+	// after ...
 	After *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=after,proto3" json:"after,omitempty"`
-	// This comment is left unintentionally blank.
+	// before ...
 	Before *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=before,proto3" json:"before,omitempty"`
 	// all and revision are mutually exclusive
 	All bool `protobuf:"varint,11,opt,name=all,proto3" json:"all,omitempty"`
-	// This comment is left unintentionally blank.
+	// first_parent ...
 	FirstParent bool `protobuf:"varint,12,opt,name=first_parent,json=firstParent,proto3" json:"first_parent,omitempty"`
-	// This comment is left unintentionally blank.
+	// author ...
 	Author []byte `protobuf:"bytes,13,opt,name=author,proto3" json:"author,omitempty"`
-	// This comment is left unintentionally blank.
+	// order ...
 	Order FindCommitsRequest_Order `protobuf:"varint,14,opt,name=order,proto3,enum=gitaly.FindCommitsRequest_Order" json:"order,omitempty"`
-	// This comment is left unintentionally blank.
+	// global_options ...
 	GlobalOptions *GlobalOptions `protobuf:"bytes,15,opt,name=global_options,json=globalOptions,proto3" json:"global_options,omitempty"`
-	// This comment is left unintentionally blank.
+	// trailers ...
 	Trailers bool `protobuf:"varint,16,opt,name=trailers,proto3" json:"trailers,omitempty"`
 	// include_shortstat determines whether to include the number of lines and files
 	// changed in the commits. Populates the `short_stats` field.
@@ -2564,13 +2567,13 @@ func (x *FindCommitsRequest) GetIncludeReferencedBy() [][]byte {
 	return nil
 }
 
-// A single 'page' of the result set
+// FindCommitsResponse is a single 'page' of the result set.
 type FindCommitsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commits ...
 	Commits []*GitCommit `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
 }
 
@@ -2619,9 +2622,9 @@ type CommitLanguagesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository where to detect the languages in.
+	// repository is the repository where to detect the languages in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision tells for which commit the languages should be detected. If it's
+	// revision tells for which commit the languages should be detected. If it's
 	// omitted, the HEAD commit of the default branch is used.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
 }
@@ -2678,7 +2681,7 @@ type CommitLanguagesResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Languages is a set of all the detected languages and their statistics.
+	// languages is a set of all the detected languages and their statistics.
 	Languages []*CommitLanguagesResponse_Language `protobuf:"bytes,1,rep,name=languages,proto3" json:"languages,omitempty"`
 }
 
@@ -2727,13 +2730,13 @@ type RawBlameRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repositroy where to perform the blame.
+	// repository is the repositroy where to perform the blame.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision is the committish at which to start the blame.
+	// revision is the committish at which to start the blame.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// Path is the path of the blob that should be blamed.
+	// path is the path of the blob that should be blamed.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// Range is the comma-separated range of line numbers to perform the blame on, e.g. "1,1000". Optional - if no range
+	// range is the comma-separated range of line numbers to perform the blame on, e.g. "1,1000". Optional - if no range
 	// is provided, the whole file will be blamed.
 	Range []byte `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
 }
@@ -2805,7 +2808,7 @@ type RawBlameResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Data is the raw data as generated by git-blame(1).
+	// data is the raw data as generated by git-blame(1).
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -2854,6 +2857,8 @@ type RawBlameError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// error ...
+	//
 	// Types that are assignable to Error:
 	//
 	//	*RawBlameError_PathNotFound
@@ -2919,12 +2924,12 @@ type isRawBlameError_Error interface {
 }
 
 type RawBlameError_PathNotFound struct {
-	// PathNotFound is returned when the blamed path cannot be found in the revision.
+	// path_not_found is returned when the blamed path cannot be found in the revision.
 	PathNotFound *PathNotFoundError `protobuf:"bytes,1,opt,name=path_not_found,json=pathNotFound,proto3,oneof"`
 }
 
 type RawBlameError_OutOfRange struct {
-	// OutOfRangeError is returned when the specified blamed range exceeds the file length.
+	// out_of_range is returned when the specified blamed range exceeds the file length.
 	OutOfRange *RawBlameError_OutOfRangeError `protobuf:"bytes,2,opt,name=out_of_range,json=outOfRange,proto3,oneof"`
 }
 
@@ -2938,18 +2943,18 @@ type LastCommitForPathRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository to run the query in.
+	// repository is the repository to run the query in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision is the committish that is used as the start commit to perform the search.
+	// revision is the committish that is used as the start commit to perform the search.
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// Path is the path for which the last commit should be searched. This path can either point to a blob or to a
+	// path is the path for which the last commit should be searched. This path can either point to a blob or to a
 	// tree. The path must be relative and must not escape the repository root. If the path is empty or "/", then the
 	// repository root will be searched instead.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// LiteralPathspec will treat the path literally. No globbing or pathspec magic is performed. This option is
+	// literal_pathspec will treat the path literally. No globbing or pathspec magic is performed. This option is
 	// deprecated in favor of GlobalOptions.
 	LiteralPathspec bool `protobuf:"varint,4,opt,name=literal_pathspec,json=literalPathspec,proto3" json:"literal_pathspec,omitempty"`
-	// GlobalOptions contains the global options used to modify the behaviour of Git.
+	// global_options contains the global options used to modify the behaviour of Git.
 	GlobalOptions *GlobalOptions `protobuf:"bytes,5,opt,name=global_options,json=globalOptions,proto3" json:"global_options,omitempty"`
 }
 
@@ -3026,7 +3031,7 @@ type LastCommitForPathResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Commit is the commit that has last modified the given path. Unset in case the path could not be found.
+	// commit is the commit that has last modified the given path. Unset in case the path could not be found.
 	Commit *GitCommit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
 }
 
@@ -3069,27 +3074,27 @@ func (x *LastCommitForPathResponse) GetCommit() *GitCommit {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ListLastCommitsForTreeRequest ...
 type ListLastCommitsForTreeRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// revision ...
 	Revision string `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// path ...
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// This comment is left unintentionally blank.
+	// limit ...
 	Limit int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	// This comment is left unintentionally blank.
+	// offset ...
 	Offset int32 `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
-	// This comment is left unintentionally blank.
+	// literal_pathspec ...
 	//
 	// Deprecated: Marked as deprecated in commit.proto.
 	LiteralPathspec bool `protobuf:"varint,6,opt,name=literal_pathspec,json=literalPathspec,proto3" json:"literal_pathspec,omitempty"`
-	// This comment is left unintentionally blank.
+	// global_options ...
 	GlobalOptions *GlobalOptions `protobuf:"bytes,7,opt,name=global_options,json=globalOptions,proto3" json:"global_options,omitempty"`
 }
 
@@ -3175,13 +3180,13 @@ func (x *ListLastCommitsForTreeRequest) GetGlobalOptions() *GlobalOptions {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ListLastCommitsForTreeResponse ...
 type ListLastCommitsForTreeResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commits ...
 	Commits []*ListLastCommitsForTreeResponse_CommitForTree `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
 }
 
@@ -3224,25 +3229,25 @@ func (x *ListLastCommitsForTreeResponse) GetCommits() []*ListLastCommitsForTreeR
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CommitsByMessageRequest ...
 type CommitsByMessageRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// revision ...
 	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// This comment is left unintentionally blank.
+	// offset ...
 	Offset int32 `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	// This comment is left unintentionally blank.
+	// limit ...
 	Limit int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	// This comment is left unintentionally blank.
+	// path ...
 	Path []byte `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	// This comment is left unintentionally blank.
+	// query ...
 	Query string `protobuf:"bytes,6,opt,name=query,proto3" json:"query,omitempty"`
-	// This comment is left unintentionally blank.
+	// global_options ...
 	GlobalOptions *GlobalOptions `protobuf:"bytes,7,opt,name=global_options,json=globalOptions,proto3" json:"global_options,omitempty"`
 }
 
@@ -3327,13 +3332,14 @@ func (x *CommitsByMessageRequest) GetGlobalOptions() *GlobalOptions {
 	return nil
 }
 
+// CommitsByMessageResponse is the response for the CommitsByMessage RPC.
 // One 'page' of the paginated response of CommitsByMessage
 type CommitsByMessageResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commits ...
 	Commits []*GitCommit `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
 }
 
@@ -3376,15 +3382,15 @@ func (x *CommitsByMessageResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FilterShasWithSignaturesRequest ...
 type FilterShasWithSignaturesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// shas ...
 	Shas [][]byte `protobuf:"bytes,2,rep,name=shas,proto3" json:"shas,omitempty"`
 }
 
@@ -3434,13 +3440,13 @@ func (x *FilterShasWithSignaturesRequest) GetShas() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FilterShasWithSignaturesResponse ...
 type FilterShasWithSignaturesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// shas ...
 	Shas [][]byte `protobuf:"bytes,1,rep,name=shas,proto3" json:"shas,omitempty"`
 }
 
@@ -3483,15 +3489,15 @@ func (x *FilterShasWithSignaturesResponse) GetShas() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ExtractCommitSignatureRequest ...
 type ExtractCommitSignatureRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// commit_id ...
 	CommitId string `protobuf:"bytes,2,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
 }
 
@@ -3541,6 +3547,7 @@ func (x *ExtractCommitSignatureRequest) GetCommitId() string {
 	return ""
 }
 
+// ExtractCommitSignatureResponse is the response for the ExtractCommitSignature RPC.
 // Either of the 'signature' and 'signed_text' fields may be present. It
 // is up to the caller to stitch them together.
 type ExtractCommitSignatureResponse struct {
@@ -3548,9 +3555,9 @@ type ExtractCommitSignatureResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// signature ...
 	Signature []byte `protobuf:"bytes,1,opt,name=signature,proto3" json:"signature,omitempty"`
-	// This comment is left unintentionally blank.
+	// signed_text ...
 	SignedText []byte `protobuf:"bytes,2,opt,name=signed_text,json=signedText,proto3" json:"signed_text,omitempty"`
 }
 
@@ -3600,15 +3607,15 @@ func (x *ExtractCommitSignatureResponse) GetSignedText() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// GetCommitSignaturesRequest ...
 type GetCommitSignaturesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// commit_ids ...
 	CommitIds []string `protobuf:"bytes,2,rep,name=commit_ids,json=commitIds,proto3" json:"commit_ids,omitempty"`
 }
 
@@ -3658,19 +3665,19 @@ func (x *GetCommitSignaturesRequest) GetCommitIds() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// GetCommitSignaturesResponse ...
 type GetCommitSignaturesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Commit id of the signature.
+	// commit_id of the signature.
 	CommitId string `protobuf:"bytes,1,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	// Signature of the commit (GPG or SSH).
+	// signature of the commit (GPG or SSH).
 	Signature []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
-	// Signed text that is used to verify the signature.
+	// signed_text is text that is used to verify the signature.
 	SignedText []byte `protobuf:"bytes,3,opt,name=signed_text,json=signedText,proto3" json:"signed_text,omitempty"`
-	// Signer of the commit
+	// signer of the commit
 	Signer GetCommitSignaturesResponse_Signer `protobuf:"varint,4,opt,name=signer,proto3,enum=gitaly.GetCommitSignaturesResponse_Signer" json:"signer,omitempty"`
 }
 
@@ -3734,15 +3741,15 @@ func (x *GetCommitSignaturesResponse) GetSigner() GetCommitSignaturesResponse_Si
 	return GetCommitSignaturesResponse_SIGNER_UNSPECIFIED
 }
 
-// This comment is left unintentionally blank.
+// GetCommitMessagesRequest ...
 type GetCommitMessagesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// commit_ids ...
 	CommitIds []string `protobuf:"bytes,2,rep,name=commit_ids,json=commitIds,proto3" json:"commit_ids,omitempty"`
 }
 
@@ -3792,15 +3799,16 @@ func (x *GetCommitMessagesRequest) GetCommitIds() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// GetCommitMessagesResponse ...
 type GetCommitMessagesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// commit_id ...
 	// Only present for a new commit message
 	CommitId string `protobuf:"bytes,1,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	// This comment is left unintentionally blank.
+	// message ...
 	Message []byte `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 }
 
@@ -3858,10 +3866,10 @@ type CheckObjectsExistRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which existence of objects and refs
+	// repository is the repository in which existence of objects and refs
 	// are checked.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revisions contains the revisions that shall be checked for existence. This accepts all revisions
+	// revisions contains the revisions that shall be checked for existence. This accepts all revisions
 	// as documented in gitrevisions(7)
 	Revisions [][]byte `protobuf:"bytes,2,rep,name=revisions,proto3" json:"revisions,omitempty"`
 }
@@ -3912,13 +3920,13 @@ func (x *CheckObjectsExistRequest) GetRevisions() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CheckObjectsExistResponse ...
 type CheckObjectsExistResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// revisions ...
 	Revisions []*CheckObjectsExistResponse_RevisionExistence `protobuf:"bytes,1,rep,name=revisions,proto3" json:"revisions,omitempty"`
 }
 
@@ -3961,15 +3969,15 @@ func (x *CheckObjectsExistResponse) GetRevisions() []*CheckObjectsExistResponse_
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CommitForRef ...
 type ListCommitsByRefNameResponse_CommitForRef struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commit ...
 	Commit *GitCommit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
-	// This comment is left unintentionally blank.
+	// ref_name ...
 	RefName []byte `protobuf:"bytes,2,opt,name=ref_name,json=refName,proto3" json:"ref_name,omitempty"`
 }
 
@@ -4025,16 +4033,16 @@ type CommitLanguagesResponse_Language struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name is the name of the detected language, for example: Ruby, Go, HTML
+	// name is the name of the detected language, for example: Ruby, Go, HTML
 	// A full list of language names can be found at:
 	// https://github.com/github/linguist/blob/master/lib/linguist/languages.yml
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Share is the percentual share (value between 0 and 100) of this language
+	// share is the percentual share (value between 0 and 100) of this language
 	// in relation to other languages that exist in the given revision.
 	Share float32 `protobuf:"fixed32,2,opt,name=share,proto3" json:"share,omitempty"`
-	// Color specifies the associated color for this language, for example #3fd5e0.
+	// color specifies the associated color for this language, for example #3fd5e0.
 	Color string `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
-	// Bytes is the total amount of bytes written in this language
+	// bytes is the total amount of bytes written in this language
 	Bytes uint64 `protobuf:"varint,5,opt,name=bytes,proto3" json:"bytes,omitempty"`
 }
 
@@ -4105,7 +4113,7 @@ type RawBlameError_OutOfRangeError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ActualLines contains the actual number of lines that can be blamed in the file.
+	// actual_lines contains the actual number of lines that can be blamed in the file.
 	ActualLines uint64 `protobuf:"varint,1,opt,name=actual_lines,json=actualLines,proto3" json:"actual_lines,omitempty"`
 }
 
@@ -4148,15 +4156,15 @@ func (x *RawBlameError_OutOfRangeError) GetActualLines() uint64 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// CommitForTree ...
 type ListLastCommitsForTreeResponse_CommitForTree struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commit ...
 	Commit *GitCommit `protobuf:"bytes,2,opt,name=commit,proto3" json:"commit,omitempty"`
-	// This comment is left unintentionally blank.
+	// path_bytes ...
 	PathBytes []byte `protobuf:"bytes,4,opt,name=path_bytes,json=pathBytes,proto3" json:"path_bytes,omitempty"`
 }
 
@@ -4206,15 +4214,15 @@ func (x *ListLastCommitsForTreeResponse_CommitForTree) GetPathBytes() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// RevisionExistence ...
 type CheckObjectsExistResponse_RevisionExistence struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// name ...
 	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// This comment is left unintentionally blank.
+	// exists ...
 	Exists bool `protobuf:"varint,2,opt,name=exists,proto3" json:"exists,omitempty"`
 }
 

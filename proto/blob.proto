@@ -102,7 +102,7 @@ message GetBlobResponse {
 
 // GetBlobsRequest is a request for the GetBlobs RPC.
 message GetBlobsRequest {
-  // revisionPath is a combination of revision and path. All objects reachable in the subdirectory of the treeish
+  // RevisionPath is a combination of revision and path. All objects reachable in the subdirectory of the treeish
   // will be returned.
   message RevisionPath {
     // revision is the revision that identifies the tree-ish. Must not be empty.
@@ -114,7 +114,7 @@ message GetBlobsRequest {
 
   // repository is the repository that shall be searched.
   Repository repository = 1[(target_repository)=true];
-  // revisionPaths identifies the set of revision/path pairs that shall be searched for blobs.
+  // revision_paths identifies the set of revision/path pairs that shall be searched for blobs.
   repeated RevisionPath revision_paths = 2;
   // limit is the maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
   int64 limit = 3;

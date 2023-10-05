@@ -26,11 +26,11 @@ type GetBlobRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository that shall be searched.
+	// repository is the repository that shall be searched.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Oid is the object ID of the blob we want to get.
+	// oid is the object ID of the blob we want to get.
 	Oid string `protobuf:"bytes,2,opt,name=oid,proto3" json:"oid,omitempty"`
-	// Limit is the maximum number of bytes we want to receive. Use '-1' to get the full blob no matter how big. Setting
+	// limit is the maximum number of bytes we want to receive. Use '-1' to get the full blob no matter how big. Setting
 	// this to `0` will return no data.
 	Limit int64 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 }
@@ -95,11 +95,11 @@ type GetBlobResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Size is the size of the blob. Present only in first response message.
+	// size is the size of the blob. Present only in first response message.
 	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	// Data is a chunk of data.
+	// data is a chunk of data.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// Oid of the actual blob returned. Empty if no blob was found.
+	// oid of the actual blob returned. Empty if no blob was found.
 	Oid string `protobuf:"bytes,3,opt,name=oid,proto3" json:"oid,omitempty"`
 }
 
@@ -162,11 +162,11 @@ type GetBlobsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository that shall be searched.
+	// repository is the repository that shall be searched.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// RevisionPaths identifies the set of revision/path pairs that shall be searched for blobs.
+	// revision_paths identifies the set of revision/path pairs that shall be searched for blobs.
 	RevisionPaths []*GetBlobsRequest_RevisionPath `protobuf:"bytes,2,rep,name=revision_paths,json=revisionPaths,proto3" json:"revision_paths,omitempty"`
-	// Limit is the maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
+	// limit is the maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
 	Limit int64 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 }
 
@@ -232,27 +232,27 @@ type GetBlobsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Size is the size of the blob. Present only on the first message per blob
+	// size is the size of the blob. Present only on the first message per blob
 	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	// Data is a chunk of blob data, which could span over multiple messages.
+	// data is a chunk of blob data, which could span over multiple messages.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// Oid is the object ID of the current blob. Only present on the first message per blob. Empty if no blob was
+	// oid is the object ID of the current blob. Only present on the first message per blob. Empty if no blob was
 	// found.
 	Oid string `protobuf:"bytes,3,opt,name=oid,proto3" json:"oid,omitempty"`
-	// IsSubmodule indicates whether the blob is a submodule.
+	// is_submodule indicates whether the blob is a submodule.
 	IsSubmodule bool `protobuf:"varint,4,opt,name=is_submodule,json=isSubmodule,proto3" json:"is_submodule,omitempty"`
-	// Mode is the file mode of blob as present in the tree. It is typically one of:
+	// mode is the file mode of blob as present in the tree. It is typically one of:
 	//
 	// - 0o100644 for non-executable files.
 	// - 0o100755 for executable files.
 	// - 0o160000 for submodules.
 	// - 0o040000 for subtrees.
 	Mode int32 `protobuf:"varint,5,opt,name=mode,proto3" json:"mode,omitempty"`
-	// Revision is the revision that this blob has been traversed from.
+	// revision is the revision that this blob has been traversed from.
 	Revision string `protobuf:"bytes,6,opt,name=revision,proto3" json:"revision,omitempty"`
-	// Path is the path of the blob inside of the tree.
+	// path is the path of the blob inside of the tree.
 	Path []byte `protobuf:"bytes,7,opt,name=path,proto3" json:"path,omitempty"`
-	// Type is the type of the "blob".
+	// type is the type of the "blob".
 	Type ObjectType `protobuf:"varint,8,opt,name=type,proto3,enum=gitaly.ObjectType" json:"type,omitempty"`
 }
 
@@ -350,21 +350,21 @@ type ListBlobsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which blobs should be enumerated.
+	// repository is the repository in which blobs should be enumerated.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revisions is the list of revisions to retrieve blobs from. These revisions
+	// revisions is the list of revisions to retrieve blobs from. These revisions
 	// will be walked. Supports pseudo-revisions `--all` and `--not` as well as
 	// negated revisions via `^revision`. Revisions cannot start with a leading
 	// dash. Please consult gitrevisions(7) for more info. Must not be empty.
 	Revisions []string `protobuf:"bytes,2,rep,name=revisions,proto3" json:"revisions,omitempty"`
-	// Limit is the maximum number of blobs to return. If set to its default
+	// limit is the maximum number of blobs to return. If set to its default
 	// (`0`), then all found blobs wll be returned.
 	Limit uint32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	// BytesLimit is the maximum number of bytes to receive for each blob. If set
+	// bytes_limit is the maximum number of bytes to receive for each blob. If set
 	// to `0`, then no blob data will be sent. If `-1`, then all blob data will
 	// be sent without any limits.
 	BytesLimit int64 `protobuf:"varint,4,opt,name=bytes_limit,json=bytesLimit,proto3" json:"bytes_limit,omitempty"`
-	// WithPaths determines whether paths of blobs should be returned. When
+	// with_paths determines whether paths of blobs should be returned. When
 	// set to `true`, paths are returned on a best-effort basis: a path will only
 	// exist if the blob was traversed via a tree.
 	WithPaths bool `protobuf:"varint,5,opt,name=with_paths,json=withPaths,proto3" json:"with_paths,omitempty"`
@@ -443,7 +443,7 @@ type ListBlobsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Blobs is the blobs which have been found. In case blob contents were
+	// blobs is the blobs which have been found. In case blob contents were
 	// requested and contents of a blob exceed the maximum gRPC message size,
 	// then this blob will be split up into multiple blob messages which span
 	// across multiple responses. In that case, metadata of the blob will only be
@@ -496,12 +496,12 @@ type ListAllBlobsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which blobs should be enumerated.
+	// repository is the repository in which blobs should be enumerated.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Limit is the maximum number of blobs to return. If set to its default
+	// limit is the maximum number of blobs to return. If set to its default
 	// (`0`), then all found blobs wll be returned.
 	Limit uint32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	// BytesLimit is the maximum number of bytes to receive for each blob. If set
+	// bytes_limit is the maximum number of bytes to receive for each blob. If set
 	// to `0`, then no blob data will be sent. If `-1`, then all blob data will
 	// be sent without any limits.
 	BytesLimit int64 `protobuf:"varint,3,opt,name=bytes_limit,json=bytesLimit,proto3" json:"bytes_limit,omitempty"`
@@ -566,7 +566,7 @@ type ListAllBlobsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Blobs is the blobs which have been found. In case blob contents were
+	// blobs is the blobs which have been found. In case blob contents were
 	// requested and contents of a blob exceed the maximum gRPC message size,
 	// then this blob will be split up into multiple blob messages which span
 	// across multiple responses. In that case, metadata of the blob will only be
@@ -619,13 +619,13 @@ type LFSPointer struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Size is the size of the blob. This is not the size of the LFS object
+	// size is the size of the blob. This is not the size of the LFS object
 	// pointed to.
 	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	// Data is the bare data of the LFS pointer blob. It contains the pointer to
+	// data is the bare data of the LFS pointer blob. It contains the pointer to
 	// the LFS data in the format specified by the LFS project.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// Oid is the object ID of the blob.
+	// oid is the object ID of the blob.
 	Oid string `protobuf:"bytes,3,opt,name=oid,proto3" json:"oid,omitempty"`
 }
 
@@ -688,10 +688,10 @@ type GetLFSPointersRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository for which LFS pointers should be retrieved
+	// repository is the repository for which LFS pointers should be retrieved
 	// from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// BlobIds is the list of blobs to retrieve LFS pointers from. Must be a
+	// blob_ids is the list of blobs to retrieve LFS pointers from. Must be a
 	// non-empty list of blobs IDs to fetch.
 	BlobIds []string `protobuf:"bytes,2,rep,name=blob_ids,json=blobIds,proto3" json:"blob_ids,omitempty"`
 }
@@ -748,7 +748,7 @@ type GetLFSPointersResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// LfsPointers is the list of LFS pointers which were requested.
+	// lfs_pointers is the list of LFS pointers which were requested.
 	LfsPointers []*LFSPointer `protobuf:"bytes,1,rep,name=lfs_pointers,json=lfsPointers,proto3" json:"lfs_pointers,omitempty"`
 }
 
@@ -797,13 +797,13 @@ type ListLFSPointersRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository for which LFS pointers should be retrieved
+	// repository is the repository for which LFS pointers should be retrieved
 	// from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revisions is the list of revisions to retrieve LFS pointers from. Must be
+	// revisions is the list of revisions to retrieve LFS pointers from. Must be
 	// a non-empty list.
 	Revisions []string `protobuf:"bytes,2,rep,name=revisions,proto3" json:"revisions,omitempty"`
-	// Limit limits the number of LFS pointers returned.
+	// limit limits the number of LFS pointers returned.
 	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 }
 
@@ -866,7 +866,7 @@ type ListLFSPointersResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// LfsPointers is the list of LFS pointers which were requested.
+	// lfs_pointers is the list of LFS pointers which were requested.
 	LfsPointers []*LFSPointer `protobuf:"bytes,1,rep,name=lfs_pointers,json=lfsPointers,proto3" json:"lfs_pointers,omitempty"`
 }
 
@@ -915,10 +915,10 @@ type ListAllLFSPointersRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository for which LFS pointers should be retrieved
+	// repository is the repository for which LFS pointers should be retrieved
 	// from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Limit limits the number of LFS pointers returned.
+	// limit limits the number of LFS pointers returned.
 	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 }
 
@@ -974,7 +974,7 @@ type ListAllLFSPointersResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// LfsPointers is the list of LFS pointers which were requested.
+	// lfs_pointers is the list of LFS pointers which were requested.
 	LfsPointers []*LFSPointer `protobuf:"bytes,1,rep,name=lfs_pointers,json=lfsPointers,proto3" json:"lfs_pointers,omitempty"`
 }
 
@@ -1024,9 +1024,9 @@ type GetBlobsRequest_RevisionPath struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Revision is the revision that identifies the tree-ish. Must not be empty.
+	// revision is the revision that identifies the tree-ish. Must not be empty.
 	Revision string `protobuf:"bytes,1,opt,name=revision,proto3" json:"revision,omitempty"`
-	// Path is the path relative to the treeish revision that shall be searched for a blob. If the path is empty the
+	// path is the path relative to the treeish revision that shall be searched for a blob. If the path is empty the
 	// root directory of the tree-ish will be searched.
 	Path []byte `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 }
@@ -1083,16 +1083,16 @@ type ListBlobsResponse_Blob struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Oid is the object ID of the blob. Will only be set for the first
+	// oid is the object ID of the blob. Will only be set for the first
 	// message of each specific blob.
 	Oid string `protobuf:"bytes,1,opt,name=oid,proto3" json:"oid,omitempty"`
-	// Size is the size of the blob. Will only be set for the first message
+	// size is the size of the blob. Will only be set for the first message
 	// of each specific blob.
 	Size int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	// Data is the contents of the blob. This field is optional and depends on
+	// data is the contents of the blob. This field is optional and depends on
 	// the BytesLimit in the original request.
 	Data []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	// Path is the path of the blob. May be unset depending on how the blob had
+	// path is the path of the blob. May be unset depending on how the blob had
 	// been traversed.
 	Path []byte `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
 }
@@ -1163,13 +1163,13 @@ type ListAllBlobsResponse_Blob struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Oid is the object ID of the blob. Will only be set for the first
+	// oid is the object ID of the blob. Will only be set for the first
 	// message of each specific blob.
 	Oid string `protobuf:"bytes,1,opt,name=oid,proto3" json:"oid,omitempty"`
-	// Size is the size of the blob. Will only be set for the first message
+	// size is the size of the blob. Will only be set for the first message
 	// of each specific blob.
 	Size int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	// Data is the contents of the blob. This field is optional and depends on
+	// data is the contents of the blob. This field is optional and depends on
 	// the BytesLimit in the original request.
 	Data []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 }

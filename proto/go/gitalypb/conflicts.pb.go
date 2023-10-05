@@ -27,17 +27,17 @@ type ListConflictFilesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository for which we want to list the conflicted files.
+	// repository is the repository for which we want to list the conflicted files.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// OurCommitOid is the tree-ish OID to merge into.
+	// our_commit_oid is the tree-ish OID to merge into.
 	OurCommitOid string `protobuf:"bytes,2,opt,name=our_commit_oid,json=ourCommitOid,proto3" json:"our_commit_oid,omitempty"`
-	// TheirCommitOid is the tree-ish OID to merge from.
+	// their_commit_oid is the tree-ish OID to merge from.
 	TheirCommitOid string `protobuf:"bytes,3,opt,name=their_commit_oid,json=theirCommitOid,proto3" json:"their_commit_oid,omitempty"`
-	// AllowTreeConflicts will not cause the request to fail in case there are
+	// allow_tree_conflicts will not cause the request to fail in case there are
 	// tree conflicts. If set to true, then responses may contain conflict files
 	// where some of the paths are unset.
 	AllowTreeConflicts bool `protobuf:"varint,4,opt,name=allow_tree_conflicts,json=allowTreeConflicts,proto3" json:"allow_tree_conflicts,omitempty"`
-	// SkipContent will skip the parsing and streaming of conflicted file's content.
+	// skip_content will skip the parsing and streaming of conflicted file's content.
 	// This can be useful when we only want to know if there is a conflict and which files
 	// are conflicted but don't care about the contents of the conflicted files.
 	SkipContent bool `protobuf:"varint,5,opt,name=skip_content,json=skipContent,proto3" json:"skip_content,omitempty"`
@@ -110,21 +110,21 @@ func (x *ListConflictFilesRequest) GetSkipContent() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// ConflictFileHeader ...
 type ConflictFileHeader struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// commit_oid ...
 	CommitOid string `protobuf:"bytes,2,opt,name=commit_oid,json=commitOid,proto3" json:"commit_oid,omitempty"`
-	// This comment is left unintentionally blank.
+	// their_path ...
 	TheirPath []byte `protobuf:"bytes,3,opt,name=their_path,json=theirPath,proto3" json:"their_path,omitempty"`
-	// This comment is left unintentionally blank.
+	// our_path ...
 	OurPath []byte `protobuf:"bytes,4,opt,name=our_path,json=ourPath,proto3" json:"our_path,omitempty"`
-	// This comment is left unintentionally blank.
+	// our_mode ...
 	OurMode int32 `protobuf:"varint,5,opt,name=our_mode,json=ourMode,proto3" json:"our_mode,omitempty"`
-	// This comment is left unintentionally blank.
+	// ancestor_path ...
 	AncestorPath []byte `protobuf:"bytes,6,opt,name=ancestor_path,json=ancestorPath,proto3" json:"ancestor_path,omitempty"`
 }
 
@@ -195,7 +195,7 @@ func (x *ConflictFileHeader) GetAncestorPath() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ConflictFile ...
 type ConflictFile struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -266,12 +266,12 @@ type isConflictFile_ConflictFilePayload interface {
 }
 
 type ConflictFile_Header struct {
-	// This comment is left unintentionally blank.
+	// header ...
 	Header *ConflictFileHeader `protobuf:"bytes,1,opt,name=header,proto3,oneof"`
 }
 
 type ConflictFile_Content struct {
-	// This comment is left unintentionally blank.
+	// content ...
 	Content []byte `protobuf:"bytes,2,opt,name=content,proto3,oneof"`
 }
 
@@ -279,13 +279,13 @@ func (*ConflictFile_Header) isConflictFile_ConflictFilePayload() {}
 
 func (*ConflictFile_Content) isConflictFile_ConflictFilePayload() {}
 
-// This comment is left unintentionally blank.
+// ListConflictFilesResponse ...
 type ListConflictFilesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// files ...
 	Files []*ConflictFile `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
 }
 
@@ -335,25 +335,25 @@ type ResolveConflictsRequestHeader struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which conflicts shall be resolved and
+	// repository is the repository in which conflicts shall be resolved and
 	// where SourceBranch shall be updated with the resolved conflict.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// OurCommitOid is the OID of the commit representing the local commit.
+	// our_commit_oid is the OID of the commit representing the local commit.
 	OurCommitOid string `protobuf:"bytes,2,opt,name=our_commit_oid,json=ourCommitOid,proto3" json:"our_commit_oid,omitempty"`
-	// TargetRepository is the repository from which TheirCommitOid shall be
+	// target_repository is the repository from which TheirCommitOid shall be
 	// retrieved.
 	TargetRepository *Repository `protobuf:"bytes,3,opt,name=target_repository,json=targetRepository,proto3" json:"target_repository,omitempty"`
-	// TheirCommitOid is the OID of the commit representing the remote commit
+	// their_commit_oid is the OID of the commit representing the remote commit
 	// which is to be merged into the local commit.
 	TheirCommitOid string `protobuf:"bytes,4,opt,name=their_commit_oid,json=theirCommitOid,proto3" json:"their_commit_oid,omitempty"`
-	// SourceBranch is the branch on which the new commit shall be created.
+	// source_branch is the branch on which the new commit shall be created.
 	SourceBranch []byte `protobuf:"bytes,5,opt,name=source_branch,json=sourceBranch,proto3" json:"source_branch,omitempty"`
-	// TargetBranch identifies the branch which will be fetched from
-	// TargetRepository in case TheirCommitOid does not exist in Repository.
+	// target_branch identifies the branch which will be fetched from
+	// target_repository in case TheirCommitOid does not exist in Repository.
 	TargetBranch []byte `protobuf:"bytes,6,opt,name=target_branch,json=targetBranch,proto3" json:"target_branch,omitempty"`
-	// CommitMessage is the message of the newly created merge commit.
+	// commit_message is the message of the newly created merge commit.
 	CommitMessage []byte `protobuf:"bytes,7,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
-	// User is the user used as author and committer of the newly created merge
+	// user is the user used as author and committer of the newly created merge
 	// commit.
 	User *User `protobuf:"bytes,8,opt,name=user,proto3" json:"user,omitempty"`
 	// timestamp is the optional timestamp to use for the commit as committer
@@ -531,12 +531,12 @@ type isResolveConflictsRequest_ResolveConflictsRequestPayload interface {
 }
 
 type ResolveConflictsRequest_Header struct {
-	// Header is the initial message specifying parameters of the RPC call.
+	// header is the initial message specifying parameters of the RPC call.
 	Header *ResolveConflictsRequestHeader `protobuf:"bytes,1,opt,name=header,proto3,oneof"`
 }
 
 type ResolveConflictsRequest_FilesJson struct {
-	// FilesJson is a JSON-encoded list of conflicts resolutions.
+	// files_json is a JSON-encoded list of conflicts resolutions.
 	FilesJson []byte `protobuf:"bytes,2,opt,name=files_json,json=filesJson,proto3,oneof"`
 }
 
@@ -554,7 +554,7 @@ type ResolveConflictsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ResolutionError contains a description of why conflict resolution has
+	// resolution_error contains a description of why conflict resolution has
 	// failed.
 	ResolutionError string `protobuf:"bytes,1,opt,name=resolution_error,json=resolutionError,proto3" json:"resolution_error,omitempty"`
 }

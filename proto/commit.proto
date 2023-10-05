@@ -9,7 +9,7 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// commitService is a service which provides RPCs that interact with Git
+// CommitService is a service which provides RPCs that interact with Git
 // commits.
 service CommitService {
 
@@ -30,7 +30,7 @@ service CommitService {
     };
   }
 
-  // commitIsAncestor checks whether a provided commit is the ancestor of
+  // CommitIsAncestor checks whether a provided commit is the ancestor of
   // another commit.
   rpc CommitIsAncestor(CommitIsAncestorRequest) returns (CommitIsAncestorResponse) {
     option (op_type) = {
@@ -46,14 +46,14 @@ service CommitService {
     };
   }
 
-  // countCommits provides the number of commits which adhere to the given filters.
+  // CountCommits provides the number of commits which adhere to the given filters.
   rpc CountCommits(CountCommitsRequest) returns (CountCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // countDivergingCommits provides the number of diverging commits between two revisions.
+  // CountDivergingCommits provides the number of diverging commits between two revisions.
   rpc CountDivergingCommits(CountDivergingCommitsRequest) returns (CountDivergingCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -82,13 +82,14 @@ service CommitService {
     };
   }
 
-  // commitStats ...
+  // CommitStats ...
   rpc CommitStats(CommitStatsRequest) returns (CommitStatsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
+  // FindAllCommits ...
   // Use a stream to paginate the result set
   rpc FindAllCommits(FindAllCommitsRequest) returns (stream FindAllCommitsResponse) {
     option (op_type) = {
@@ -103,7 +104,7 @@ service CommitService {
     };
   }
 
-  // commitLanguages detects the source code languages of the whole tree for a
+  // CommitLanguages detects the source code languages of the whole tree for a
   // given commit. Returns an error in case no languages could be detected.
   rpc CommitLanguages(CommitLanguagesRequest) returns (CommitLanguagesResponse) {
     option (op_type) = {
@@ -138,7 +139,7 @@ service CommitService {
     };
   }
 
-  // commitsByMessage ...
+  // CommitsByMessage ...
   rpc CommitsByMessage(CommitsByMessageRequest) returns (stream CommitsByMessageResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -159,7 +160,7 @@ service CommitService {
     };
   }
 
-  // filterShasWithSignatures ...
+  // FilterShasWithSignatures ...
   rpc FilterShasWithSignatures(stream FilterShasWithSignaturesRequest) returns (stream FilterShasWithSignaturesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -194,7 +195,7 @@ service CommitService {
 
 // ListCommitsRequest is a request for the ListCommits RPC.
 message ListCommitsRequest {
-  // order is the order in which commits shoud be traversed.
+  // Order is the order in which commits shoud be traversed.
   enum Order {
     // NONE defaults to reverse chronological order.
     NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -246,7 +247,7 @@ message ListCommitsRequest {
   // after will only list commits which are more recent than the specified date.
   google.protobuf.Timestamp after = 8;
 
-  // after will only list commits which are older than the specified date.
+  // before will only list commits which are older than the specified date.
   google.protobuf.Timestamp before = 9;
 
   // author will only list commits whose author matches the given pattern,
@@ -284,7 +285,7 @@ message ListAllCommitsResponse {
   repeated GitCommit commits = 1;
 }
 
-// commitStatsRequest ...
+// CommitStatsRequest ...
 message CommitStatsRequest {
   // repository ...
   Repository repository = 1 [(target_repository)=true];
@@ -292,9 +293,9 @@ message CommitStatsRequest {
   bytes revision = 2;
 }
 
-// commitStatsResponse ...
+// CommitStatsResponse ...
 message CommitStatsResponse {
-  // OID is the commit. Empty means not found
+  // oid is the commit. Empty means not found
   string oid = 1;
   // additions ...
   int32 additions = 2;
@@ -302,7 +303,7 @@ message CommitStatsResponse {
   int32 deletions = 3;
 }
 
-// commitIsAncestorRequest is the request for the CommitIsAncestor RPC.
+// CommitIsAncestorRequest is the request for the CommitIsAncestor RPC.
 message CommitIsAncestorRequest {
   // repository is the repository for which we need to check the ancestory.
   Repository repository = 1 [(target_repository)=true];
@@ -312,7 +313,7 @@ message CommitIsAncestorRequest {
   string child_id = 3;
 }
 
-// commitIsAncestorResponse is the response for the CommitIsAncestor RPC.
+// CommitIsAncestorResponse is the response for the CommitIsAncestor RPC.
 message CommitIsAncestorResponse {
   // value denotes whether the provided commit is the ancestor or not.
   bool value = 1;
@@ -364,7 +365,7 @@ message TreeEntryResponse {
   bytes data = 5;
 }
 
-// countCommitsRequest is the request for the CountCommits RPC.
+// CountCommitsRequest is the request for the CountCommits RPC.
 message CountCommitsRequest {
   // repository is the repository in which we want to count the number of commits.
   Repository repository = 1 [(target_repository)=true];
@@ -387,13 +388,13 @@ message CountCommitsRequest {
   GlobalOptions global_options = 9;
 }
 
-// countCommitsResponse is the response for the CountCommits RPC.
+// CountCommitsResponse is the response for the CountCommits RPC.
 message CountCommitsResponse {
   // count denotes the number of commits found as per the given filters.
   int32 count = 1;
 }
 
-// countDivergingCommitsRequest is the request for the CountDivergingCommits RPC.
+// CountDivergingCommitsRequest is the request for the CountDivergingCommits RPC.
 message CountDivergingCommitsRequest {
   // repository is the repository in which we want to find the number of diverging commits.
   Repository repository = 1 [(target_repository)=true];
@@ -410,7 +411,7 @@ message CountDivergingCommitsRequest {
   int32 max_count = 7;
 }
 
-// countDivergingCommitsResponse is the response for the CountDivergingCommits RPC.
+// CountDivergingCommitsResponse is the response for the CountDivergingCommits RPC.
 message CountDivergingCommitsResponse {
   // left_count denotes the number of diverging commits present in the 'From' commit provided.
   int32 left_count = 1;
@@ -430,7 +431,7 @@ message TreeEntry {
     COMMIT = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // OID of the object this tree entry points to.
+  // oid of the object this tree entry points to.
   string oid = 1;
   // path is the path of the entry relative to the tree of the specified revision.
   bytes path = 3;
@@ -440,7 +441,7 @@ message TreeEntry {
   int32 mode = 5;
   // commit_oid is the commit object via which this entry was retrieved.
   string commit_oid = 6;
-  // Relative path of the first subdir that doesn't have only one directory descendant.
+  // flat_path is the relative path of the first subdir that doesn't have only one directory descendant.
   bytes flat_path = 7;
 
   // RootOid used to refer to the resolved object ID of the root tree. This field has been removed
@@ -451,7 +452,7 @@ message TreeEntry {
 
 // GetTreeEntriesRequest is the request for the GetTreeEntries RPC.
 message GetTreeEntriesRequest {
-  // sortBy provides the sorting parameters.
+  // SortBy provides the sorting parameters.
   enum SortBy {
     // DEFAULT preserves the order of git ls-tree.
     DEFAULT = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -469,10 +470,11 @@ message GetTreeEntriesRequest {
   bool recursive = 4;
   // sort defines the sorting parameter.
   SortBy sort = 5;
+  // pagination_params contains params for pagination.
   // The page token is the last commit OID that was sent. It's expected to be the
   // full object ID to guard against ambigious OIDs.
   PaginationParameter pagination_params = 6;
-  // SkipFlatPath is an option to skip the expensive operation of populating flat paths.
+  // skip_flat_paths is an option to skip the expensive operation of populating flat paths.
   bool skip_flat_paths = 7;
 }
 
@@ -503,8 +505,9 @@ message ListFilesRequest {
   bytes revision = 2;
 }
 
-// A single 'page' of the paginated response
+// ListFilesResponse is a single 'page' of the paginated response.
 message ListFilesResponse {
+  // paths ...
   // Remember to force encoding utf-8 on the client side
   repeated bytes paths = 1;
 }
@@ -551,7 +554,7 @@ message ListCommitsByRefNameRequest {
 message ListCommitsByRefNameResponse {
   reserved 1;
 
-  // commitForRef ...
+  // CommitForRef ...
   message CommitForRef {
     // commit ...
     GitCommit commit = 1;
@@ -565,7 +568,7 @@ message ListCommitsByRefNameResponse {
 
 // FindAllCommitsRequest ...
 message FindAllCommitsRequest {
-  // order ...
+  // Order ...
   enum Order {
     // NONE ...
     NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -577,6 +580,7 @@ message FindAllCommitsRequest {
 
   // repository ...
   Repository repository = 1 [(target_repository)=true];
+  // revision ...
   // When nil, return all commits reachable by any branch in the repo
   bytes revision = 2;
   // max_count ...
@@ -587,7 +591,7 @@ message FindAllCommitsRequest {
   Order order = 5;
 }
 
-// A single 'page' of the result set
+// FindAllCommitsResponse is a single 'page' of the result set.
 message FindAllCommitsResponse {
   // commits ...
   repeated GitCommit commits = 1;
@@ -595,7 +599,7 @@ message FindAllCommitsResponse {
 
 // FindCommitsRequest ...
 message FindCommitsRequest {
-  // order ...
+  // Order ...
   enum Order {
     // NONE ...
     NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -647,13 +651,13 @@ message FindCommitsRequest {
   repeated bytes include_referenced_by = 18; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 
-// A single 'page' of the result set
+// FindCommitsResponse is a single 'page' of the result set.
 message FindCommitsResponse {
   // commits ...
   repeated GitCommit commits = 1;
 }
 
-// commitLanguagesRequest requests to detect the source code languages.
+// CommitLanguagesRequest requests to detect the source code languages.
 message CommitLanguagesRequest {
   // repository is the repository where to detect the languages in.
   Repository repository = 1 [(target_repository)=true];
@@ -662,7 +666,7 @@ message CommitLanguagesRequest {
   bytes revision = 2;
 }
 
-// commitLanguagesResponse returns the language statistics.
+// CommitLanguagesResponse returns the language statistics.
 message CommitLanguagesResponse {
   // Language specifies the statistics for one language.
   message Language {
@@ -710,17 +714,18 @@ message RawBlameResponse {
 
 // RawBlameError is used as error detail when the RawBlame RPC fails in a specific way.
 message RawBlameError {
-  // out_of_rangeError indicates that the specified file range that is to be blamed exceeds the length of the blamed
+  // OutOfRangeError indicates that the specified file range that is to be blamed exceeds the length of the blamed
   // file.
   message OutOfRangeError {
     // actual_lines contains the actual number of lines that can be blamed in the file.
     uint64 actual_lines = 1;
   }
 
+  // error ...
   oneof error {
-    // pathNotFound is returned when the blamed path cannot be found in the revision.
+    // path_not_found is returned when the blamed path cannot be found in the revision.
     PathNotFoundError path_not_found = 1;
-    // out_of_rangeError is returned when the specified blamed range exceeds the file length.
+    // out_of_range is returned when the specified blamed range exceeds the file length.
     OutOfRangeError out_of_range = 2;
   }
 }
@@ -768,7 +773,7 @@ message ListLastCommitsForTreeRequest {
 
 // ListLastCommitsForTreeResponse ...
 message ListLastCommitsForTreeResponse {
-  // commitForTree ...
+  // CommitForTree ...
   message CommitForTree {
     reserved 1;
 
@@ -783,7 +788,7 @@ message ListLastCommitsForTreeResponse {
   repeated CommitForTree commits = 1;
 }
 
-// commitsByMessageRequest ...
+// CommitsByMessageRequest ...
 message CommitsByMessageRequest {
   // repository ...
   Repository repository = 1 [(target_repository)=true];
@@ -801,13 +806,14 @@ message CommitsByMessageRequest {
   GlobalOptions global_options = 7;
 }
 
+// CommitsByMessageResponse is the response for the CommitsByMessage RPC.
 // One 'page' of the paginated response of CommitsByMessage
 message CommitsByMessageResponse {
   // commits ...
   repeated GitCommit commits = 1;
 }
 
-// filterShasWithSignaturesRequest ...
+// FilterShasWithSignaturesRequest ...
 message FilterShasWithSignaturesRequest {
   // repository ...
   Repository repository = 1 [(target_repository)=true];
@@ -815,7 +821,7 @@ message FilterShasWithSignaturesRequest {
   repeated bytes shas = 2;
 }
 
-// filterShasWithSignaturesResponse ...
+// FilterShasWithSignaturesResponse ...
 message FilterShasWithSignaturesResponse {
   // shas ...
   repeated bytes shas = 1;
@@ -829,6 +835,7 @@ message ExtractCommitSignatureRequest {
   string commit_id = 2;
 }
 
+// ExtractCommitSignatureResponse is the response for the ExtractCommitSignature RPC.
 // Either of the 'signature' and 'signed_text' fields may be present. It
 // is up to the caller to stitch them together.
 message ExtractCommitSignatureResponse {
@@ -848,7 +855,7 @@ message GetCommitSignaturesRequest {
 
 // GetCommitSignaturesResponse ...
 message GetCommitSignaturesResponse {
-  // signer of the commit. A commit can be signed either by a user or by Gitaly itself.
+  // Signer of the commit. A commit can be signed either by a user or by Gitaly itself.
   enum Signer {
     // SIGNER_UNSPECIFIED indicates that the signer has not been specified.
     SIGNER_UNSPECIFIED = 0;
@@ -858,11 +865,11 @@ message GetCommitSignaturesResponse {
     SIGNER_SYSTEM = 2;
   }
 
-  // commit id of the signature.
+  // commit_id of the signature.
   string commit_id = 1;
   // signature of the commit (GPG or SSH).
   bytes signature = 2;
-  // Signed text that is used to verify the signature.
+  // signed_text is text that is used to verify the signature.
   bytes signed_text = 3;
   // signer of the commit
   Signer signer = 4;
@@ -878,6 +885,7 @@ message GetCommitMessagesRequest {
 
 // GetCommitMessagesResponse ...
 message GetCommitMessagesResponse {
+  // commit_id ...
   // Only present for a new commit message
   string commit_id = 1;
   // message ...
@@ -898,7 +906,7 @@ message CheckObjectsExistRequest {
 
 // CheckObjectsExistResponse ...
 message CheckObjectsExistResponse {
-  // revisionExistence ...
+  // RevisionExistence ...
   message RevisionExistence {
     // name ...
     bytes name = 1;

@@ -32,19 +32,20 @@ type RefServiceClient interface {
 	// 5. If a branch exists named refs/heads/master, return refs/heads/master.
 	// 6. Return the first branch (as per default ordering by git).
 	FindDefaultBranchName(ctx context.Context, in *FindDefaultBranchNameRequest, opts ...grpc.CallOption) (*FindDefaultBranchNameResponse, error)
+	// FindLocalBranches ...
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(ctx context.Context, in *FindLocalBranchesRequest, opts ...grpc.CallOption) (RefService_FindLocalBranchesClient, error)
-	// This comment is left unintentionally blank.
+	// FindAllBranches ...
 	FindAllBranches(ctx context.Context, in *FindAllBranchesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchesClient, error)
-	// Returns a stream of tags repository has.
+	// FindAllTags returns a stream of tags repository has.
 	FindAllTags(ctx context.Context, in *FindAllTagsRequest, opts ...grpc.CallOption) (RefService_FindAllTagsClient, error)
 	// FindTag looks up a tag by its name and returns it to the caller if it exists. This RPC supports
 	// both lightweight and annotated tags. Note: this RPC returns an `Internal` error if the tag was
 	// not found.
 	FindTag(ctx context.Context, in *FindTagRequest, opts ...grpc.CallOption) (*FindTagResponse, error)
-	// This comment is left unintentionally blank.
+	// FindAllRemoteBranches ...
 	FindAllRemoteBranches(ctx context.Context, in *FindAllRemoteBranchesRequest, opts ...grpc.CallOption) (RefService_FindAllRemoteBranchesClient, error)
-	// This comment is left unintentionally blank.
+	// RefExists ...
 	RefExists(ctx context.Context, in *RefExistsRequest, opts ...grpc.CallOption) (*RefExistsResponse, error)
 	// FindBranch finds a branch by its unqualified name (like "master") and
 	// returns the commit it currently points to.
@@ -54,18 +55,18 @@ type RefServiceClient interface {
 	//
 	// Updating symbolic references with this RPC is not allowed.
 	UpdateReferences(ctx context.Context, opts ...grpc.CallOption) (RefService_UpdateReferencesClient, error)
-	// This comment is left unintentionally blank.
+	// DeleteRefs ...
 	DeleteRefs(ctx context.Context, in *DeleteRefsRequest, opts ...grpc.CallOption) (*DeleteRefsResponse, error)
-	// This comment is left unintentionally blank.
+	// ListBranchNamesContainingCommit ...
 	ListBranchNamesContainingCommit(ctx context.Context, in *ListBranchNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListBranchNamesContainingCommitClient, error)
-	// This comment is left unintentionally blank.
+	// ListTagNamesContainingCommit ...
 	ListTagNamesContainingCommit(ctx context.Context, in *ListTagNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListTagNamesContainingCommitClient, error)
 	// GetTagSignatures returns signatures for annotated tags resolved from a set of revisions. Revisions
 	// which don't resolve to an annotated tag are silently discarded. Revisions which cannot be resolved
 	// result in an error. Tags which are annotated but not signed will return a TagSignature response
 	// which has no signature, but its unsigned contents will still be returned.
 	GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error)
-	// This comment is left unintentionally blank.
+	// GetTagMessages ...
 	GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
@@ -475,19 +476,20 @@ type RefServiceServer interface {
 	// 5. If a branch exists named refs/heads/master, return refs/heads/master.
 	// 6. Return the first branch (as per default ordering by git).
 	FindDefaultBranchName(context.Context, *FindDefaultBranchNameRequest) (*FindDefaultBranchNameResponse, error)
+	// FindLocalBranches ...
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(*FindLocalBranchesRequest, RefService_FindLocalBranchesServer) error
-	// This comment is left unintentionally blank.
+	// FindAllBranches ...
 	FindAllBranches(*FindAllBranchesRequest, RefService_FindAllBranchesServer) error
-	// Returns a stream of tags repository has.
+	// FindAllTags returns a stream of tags repository has.
 	FindAllTags(*FindAllTagsRequest, RefService_FindAllTagsServer) error
 	// FindTag looks up a tag by its name and returns it to the caller if it exists. This RPC supports
 	// both lightweight and annotated tags. Note: this RPC returns an `Internal` error if the tag was
 	// not found.
 	FindTag(context.Context, *FindTagRequest) (*FindTagResponse, error)
-	// This comment is left unintentionally blank.
+	// FindAllRemoteBranches ...
 	FindAllRemoteBranches(*FindAllRemoteBranchesRequest, RefService_FindAllRemoteBranchesServer) error
-	// This comment is left unintentionally blank.
+	// RefExists ...
 	RefExists(context.Context, *RefExistsRequest) (*RefExistsResponse, error)
 	// FindBranch finds a branch by its unqualified name (like "master") and
 	// returns the commit it currently points to.
@@ -497,18 +499,18 @@ type RefServiceServer interface {
 	//
 	// Updating symbolic references with this RPC is not allowed.
 	UpdateReferences(RefService_UpdateReferencesServer) error
-	// This comment is left unintentionally blank.
+	// DeleteRefs ...
 	DeleteRefs(context.Context, *DeleteRefsRequest) (*DeleteRefsResponse, error)
-	// This comment is left unintentionally blank.
+	// ListBranchNamesContainingCommit ...
 	ListBranchNamesContainingCommit(*ListBranchNamesContainingCommitRequest, RefService_ListBranchNamesContainingCommitServer) error
-	// This comment is left unintentionally blank.
+	// ListTagNamesContainingCommit ...
 	ListTagNamesContainingCommit(*ListTagNamesContainingCommitRequest, RefService_ListTagNamesContainingCommitServer) error
 	// GetTagSignatures returns signatures for annotated tags resolved from a set of revisions. Revisions
 	// which don't resolve to an annotated tag are silently discarded. Revisions which cannot be resolved
 	// result in an error. Tags which are annotated but not signed will return a TagSignature response
 	// which has no signature, but its unsigned contents will still be returned.
 	GetTagSignatures(*GetTagSignaturesRequest, RefService_GetTagSignaturesServer) error
-	// This comment is left unintentionally blank.
+	// GetTagMessages ...
 	GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is

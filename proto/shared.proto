@@ -21,7 +21,7 @@ enum ObjectType {
   TAG = 4; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 }
 
-// object_format is the object format that a Git repository can use.
+// ObjectFormat is the object format that a Git repository can use.
 enum ObjectFormat {
   // OBJECT_FORMAT_UNSPECIFIED is the default object type when it has not been explicitly requested
   // by the client. Defaults to OBJECT_FORMAT_SHA1.
@@ -32,7 +32,7 @@ enum ObjectFormat {
   OBJECT_FORMAT_SHA256 = 2;
 }
 
-// signatureType ...
+// SignatureType ...
 enum SignatureType {
   // NONE ...
   NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -45,7 +45,7 @@ enum SignatureType {
   // maybe add X509+TSA or other combinations at a later step
 }
 
-// repository ...
+// Repository ...
 message Repository {
   // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/issues/151
   reserved 1;
@@ -55,18 +55,19 @@ message Repository {
   string storage_name = 2;
   // relative_path ...
   string relative_path = 3;
-  // Sets the GIT_OBJECT_DIRECTORY envvar on git commands to the value of this field.
+  // git_object_directory sets the GIT_OBJECT_DIRECTORY envvar on git commands to the value of this field.
   // It influences the object storage directory the SHA1 directories are created underneath.
   string git_object_directory = 4;
-  // Sets the GIT_ALTERNATE_OBJECT_DIRECTORIES envvar on git commands to the values of this field.
-  // It influences the list of Git object directories which can be used to search for Git objects.
+  // git_alternate_object_directories sets the GIT_ALTERNATE_OBJECT_DIRECTORIES envvar on git commands to
+  // the values of this field. It influences the list of Git object directories which can be used to search
+  // for Git objects.
   repeated string git_alternate_object_directories = 5;
-  // Used in callbacks to GitLab so that it knows what repository the event is
+  // gl_repository is used in callbacks to GitLab so that it knows what repository the event is
   // associated with. May be left empty on RPC's that do not perform callbacks.
   // During project creation, `gl_repository` may not be known.
   string gl_repository = 6;
   reserved 7;
-  // The human-readable GitLab project path (e.g. gitlab-org/gitlab-ce).
+  // gl_project_path is the human-readable GitLab project path (e.g. gitlab-org/gitlab-ce).
   // When hashed storage is use, this associates a project path with its
   // path on disk. The name can change over time (e.g. when a project is
   // renamed). This is primarily used for logging/debugging at the
@@ -74,16 +75,16 @@ message Repository {
   string gl_project_path = 8;
 }
 
-// A single Git trailer (https://git-scm.com/docs/git-interpret-trailers)
+// CommitTrailer is a single Git trailer (https://git-scm.com/docs/git-interpret-trailers)
 // key-value pair.
 message CommitTrailer {
-  // The key of the trailer, such as `Signed-off-by`.
+  // key is the key of the trailer, such as `Signed-off-by`.
   bytes key = 1;
-  // The value of the trailer, such as `Alice <alice@gmail.com>`.
+  // value is the value of the trailer, such as `Alice <alice@gmail.com>`.
   bytes value = 2;
 }
 
-// commitStatInfo includes the number of changed lines and files in the commit.
+// CommitStatInfo includes the number of changed lines and files in the commit.
 message CommitStatInfo {
   // additions is the number of line additions in the commit.
   int32 additions = 1;
@@ -93,7 +94,7 @@ message CommitStatInfo {
   int32 changed_files = 3;
 }
 
-// Corresponds to Gitlab::Git::Commit
+// GitCommit corresponds to Gitlab::Git::Commit
 message GitCommit {
   // id ...
   string id = 1;
@@ -107,35 +108,35 @@ message GitCommit {
   CommitAuthor committer = 5;
   // parent_ids ...
   repeated string parent_ids = 6;
-  // If body exceeds a certain threshold, it will be nullified,
-  // but its size will be set in body_size so we can know if
+  // body_size is the size of the commit body. If body exceeds a certain threshold,
+  // it will be nullified, but its size will be set in body_size so we can know if
   // a commit had a body in the first place.
   int64 body_size = 7;
   // signature_type ...
   SignatureType signature_type = 8;
-  // The tree ID will always be filled, even if the tree is empty. In that case
-  // the value will be `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
-  // That value is equivalent to `git hash-object -t tree /dev/null`
+  // tree_id is the object ID of the tree. The tree ID will always be filled, even
+  // if the tree is empty. In that case the value will be `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
+  // That value is equivalent to `git hash-object -t tree /dev/null`.
   string tree_id = 9;
-  // The list of Git trailers (https://git-scm.com/docs/git-interpret-trailers)
+  // trailers is the list of Git trailers (https://git-scm.com/docs/git-interpret-trailers)
   // found in this commit's message. The number of trailers and their key/value
   // sizes are limited. If a trailer exceeds these size limits, it and any
   // trailers that follow it are not included.
   repeated CommitTrailer trailers = 10;
-  // The stats include additions, deletions and changed_files,
+  // short_stats are the git stats including additions, deletions and changed_files,
   // they are only set when `include_shortstat == true`.
   CommitStatInfo  short_stats = 11;
   // referenced_by contains fully-qualified reference names (e.g refs/heads/main)
   // that point to the commit.
   repeated bytes referenced_by = 12; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
-  // The encoding of the commit message. This field will only be present if
+  // encoding is the encoding of the commit message. This field will only be present if
   // `i18n.commitEncoding` was set to a value other than "UTF-8" at the time
   // this commit was made.
   // See: https://git-scm.com/docs/git-commit#_discussion
   string encoding = 13;
 }
 
-// commitAuthor ...
+// CommitAuthor ...
 message CommitAuthor {
   // name ...
   bytes name = 1;
@@ -147,13 +148,13 @@ message CommitAuthor {
   bytes timezone = 4;
 }
 
-// exit_status ...
+// ExitStatus ...
 message ExitStatus {
   // value ...
   int32 value = 1;
 }
 
-// Corresponds to Gitlab::Git::Branch
+// Branch corresponds to Gitlab::Git::Branch
 message Branch {
   // name ...
   bytes name = 1;
@@ -161,7 +162,7 @@ message Branch {
   GitCommit target_commit = 2;
 }
 
-// tag ...
+// Tag ...
 message Tag {
   // name ...
   bytes name = 1;
@@ -169,9 +170,9 @@ message Tag {
   string id = 2;
   // target_commit ...
   GitCommit target_commit = 3;
-  // If message exceeds a certain threshold, it will be nullified,
-  // but its size will be set in message_size so we can know if
-  // a tag had a message in the first place.
+  // message is the message of the tag. If message exceeds a certain
+  // threshold, it will be nullified, but its size will be set in
+  // message_size so we can know if a tag had a message in the first place.
   bytes message = 4;
   // message_size ...
   int64 message_size = 5;
@@ -181,7 +182,7 @@ message Tag {
   SignatureType signature_type = 7;
 }
 
-// user ...
+// User ...
 message User {
   // gl_id ...
   string gl_id = 1;
@@ -196,7 +197,7 @@ message User {
   string timezone = 5;
 }
 
-// object_pool ...
+// ObjectPool ...
 message ObjectPool {
   // repository ...
   Repository repository = 1 [(gitaly.repository)=true];
@@ -204,15 +205,15 @@ message ObjectPool {
 
 // PaginationParameter ...
 message PaginationParameter {
-  // Instructs pagination to start sending results after the provided page
+  // page_token instructs pagination to start sending results after the provided page
   // token appears. A page token allows for a generic pattern to uniquely
   // identify a result or 'page'. Each paginated RPC may interpret a page
   // token differently.
   string page_token = 1;
-  // When fully consuming the response the client will receive _at most_
-  // `limit` number of resulting objects. Note that the number of response
-  // messages might be much lower, as some response messages already send
-  // multiple objects per message.
+  // limit is the maximum number of objects the client will receive. When fully consuming
+  // the response the client will receive _at most_ `limit` number of resulting objects.
+  // Note that the number of response messages might be much lower, as some response
+  // messages already send multiple objects per message.
   // When the limit is smaller than 0, it will be normalized to 2147483647
   // on the server side. When limit is not set, it defaults to 0, and no
   // results are send in the response.
@@ -221,18 +222,18 @@ message PaginationParameter {
 
 // PaginationCursor ...
 message PaginationCursor {
-  // to the caller, this is an opaque token to indicate what the caller
+  // next_cursor is an opaque token provided to the caller to indicate what the caller
   // should present as a page_token to get subsequent results.
   string next_cursor = 1;
 }
 
-// https://git-scm.com/docs/git/#_options
+// GlobalOptions are additional git options as defined at https://git-scm.com/docs/git/#_options.
 message GlobalOptions {
-  // Treat pathspecs literally (i.e. no globbing, no pathspec magic)
+  // literal_pathspecs should be set to treat pathspecs literally (i.e. no globbing, no pathspec magic).
   bool literal_pathspecs = 1;
 }
 
-// sortDirection defines the sort direction.
+// SortDirection defines the sort direction.
 enum SortDirection {
   // ASCENDING sorts by the sort key in ascending order.
   ASCENDING = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH

@@ -20,16 +20,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// CreatesObjectPoolRequest is a request for the CreateObjectPool RPC.
+// CreateObjectPoolRequest is a request for the CreateObjectPool RPC.
 type CreateObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ObjectPool is the object pool to create. This field controls where exactly the object pool will
+	// object_pool is the object pool to create. This field controls where exactly the object pool will
 	// be created.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
-	// Origin is the repository from which the object pool shall be created.
+	// origin is the repository from which the object pool shall be created.
 	Origin *Repository `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
 }
 
@@ -124,7 +124,7 @@ type DeleteObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ObjectPool is the object pool that shall be deleted.
+	// object_pool is the object pool that shall be deleted.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
 }
 
@@ -212,9 +212,9 @@ type LinkRepositoryToObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ObjectPool is the object pool to which the repository shall be linked to.
+	// object_pool is the object pool to which the repository shall be linked to.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
-	// Repository is the repository that shall be linked to the object pool.
+	// repository is the repository that shall be linked to the object pool.
 	Repository *Repository `protobuf:"bytes,2,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -309,7 +309,7 @@ type DisconnectGitAlternatesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is th repository that shall be disconnected from its object pool.
+	// repository is th repository that shall be disconnected from its object pool.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -397,9 +397,9 @@ type FetchIntoObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Origin is the repository to fetch changes from.
+	// origin is the repository to fetch changes from.
 	Origin *Repository `protobuf:"bytes,1,opt,name=origin,proto3" json:"origin,omitempty"`
-	// ObjectPool is the repository to fetch changes into.
+	// object_pool is the repository to fetch changes into.
 	ObjectPool *ObjectPool `protobuf:"bytes,2,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
 }
 
@@ -494,7 +494,7 @@ type GetObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository for which the object pool shall be retrieved.
+	// repository is the repository for which the object pool shall be retrieved.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -537,13 +537,13 @@ func (x *GetObjectPoolRequest) GetRepository() *Repository {
 	return nil
 }
 
-// GetObjectDirectorySizeResponse is a response for the GetObjectPool RPC.
+// GetObjectPoolResponse is a response for the GetObjectPool RPC.
 type GetObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ObjectPool is the object pool the repository is connected to. If the repository is not
+	// object_pool is the object pool the repository is connected to. If the repository is not
 	// connected to any object pool, then this field will be empty.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
 }

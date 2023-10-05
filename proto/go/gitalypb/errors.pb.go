@@ -161,18 +161,18 @@ func (CustomHookError_HookType) EnumDescriptor() ([]byte, []int) {
 type PathError_ErrorType int32
 
 const (
-	// PathError_ERROR_TYPE_UNSPECIFIED is the default error type and should never be set.
+	// ERROR_TYPE_UNSPECIFIED is the default error type and should never be set.
 	PathError_ERROR_TYPE_UNSPECIFIED PathError_ErrorType = 0
-	// PathError_ERROR_TYPE_EMPTY_PATH is the error type when the provided path is empty.
+	// ERROR_TYPE_EMPTY_PATH is the error type when the provided path is empty.
 	PathError_ERROR_TYPE_EMPTY_PATH PathError_ErrorType = 1
-	// PathError_ERROR_TYPE_RELATIVE_PATH_ESCAPES_REPOSITORY is the error type when there are
+	// ERROR_TYPE_RELATIVE_PATH_ESCAPES_REPOSITORY is the error type when there are
 	// traversing components found in the path and it either escapes the repository or is not
 	// supported by the RPC.
 	PathError_ERROR_TYPE_RELATIVE_PATH_ESCAPES_REPOSITORY PathError_ErrorType = 2
-	// PathError_ERROR_TYPE_ABSOLUTE_PATH is the error type when an absolute path is provided
+	// ERROR_TYPE_ABSOLUTE_PATH is the error type when an absolute path is provided
 	// while a relative path was expected.
 	PathError_ERROR_TYPE_ABSOLUTE_PATH PathError_ErrorType = 3
-	// PathError_ERROR_TYPE_LONG_PATH is the error type when the path is too long.
+	// ERROR_TYPE_LONG_PATH is the error type when the path is too long.
 	PathError_ERROR_TYPE_LONG_PATH PathError_ErrorType = 4
 )
 
@@ -228,13 +228,13 @@ type AccessCheckError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ErrorMessage is the error message as returned by the endpoint.
+	// error_message is the error message as returned by the endpoint.
 	ErrorMessage string `protobuf:"bytes,1,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	// Protocol is the protocol used.
+	// protocol is the protocol used.
 	Protocol string `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
-	// UserId is the user ID as which changes had been pushed.
+	// user_id is the user ID as which changes had been pushed.
 	UserId string `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	// Changes is the set of changes which have failed the access check.
+	// changes is the set of changes which have failed the access check.
 	Changes []byte `protobuf:"bytes,4,opt,name=changes,proto3" json:"changes,omitempty"`
 }
 
@@ -305,9 +305,9 @@ type IndexError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Path is the file or directory path that triggered the error.
+	// path is the file or directory path that triggered the error.
 	Path []byte `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// ErrorType is the type of index error that occurred.
+	// error_type is the type of index error that occurred.
 	ErrorType IndexError_ErrorType `protobuf:"varint,2,opt,name=error_type,json=errorType,proto3,enum=gitaly.IndexError_ErrorType" json:"error_type,omitempty"`
 }
 
@@ -363,7 +363,7 @@ type InvalidRefFormatError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Refs are the offending refs with invalid formats.
+	// refs are the offending refs with invalid formats.
 	Refs [][]byte `protobuf:"bytes,2,rep,name=refs,proto3" json:"refs,omitempty"`
 }
 
@@ -413,10 +413,10 @@ type NotAncestorError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ParentRevision is the revision checked against ChildRevision for whether it
+	// parent_revision is the revision checked against ChildRevision for whether it
 	// is an ancestor of ChildRevision
 	ParentRevision []byte `protobuf:"bytes,1,opt,name=parent_revision,json=parentRevision,proto3" json:"parent_revision,omitempty"`
-	// ChildRevision is the revision checked against ParentRevision for whether
+	// child_revision is the revision checked against ParentRevision for whether
 	// it is a descendent of ChildRevision.
 	ChildRevision []byte `protobuf:"bytes,2,opt,name=child_revision,json=childRevision,proto3" json:"child_revision,omitempty"`
 }
@@ -514,11 +514,11 @@ type MergeConflictError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ConflictingFiles is the set of files which have been conflicting. If this
+	// conflicting_files is the set of files which have been conflicting. If this
 	// field is empty, then there has still been a merge conflict, but it wasn't
 	// able to determine which files have been conflicting.
 	ConflictingFiles [][]byte `protobuf:"bytes,1,rep,name=conflicting_files,json=conflictingFiles,proto3" json:"conflicting_files,omitempty"`
-	// ConflictingCommitIds is the set of commit IDs that caused the conflict. In the general case,
+	// conflicting_commit_ids is the set of commit IDs that caused the conflict. In the general case,
 	// this should be set to two commit IDs.
 	ConflictingCommitIds []string `protobuf:"bytes,2,rep,name=conflicting_commit_ids,json=conflictingCommitIds,proto3" json:"conflicting_commit_ids,omitempty"`
 }
@@ -576,7 +576,7 @@ type ReferencesLockedError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Refs are the references that could not be locked.
+	// refs are the references that could not be locked.
 	Refs [][]byte `protobuf:"bytes,1,rep,name=refs,proto3" json:"refs,omitempty"`
 }
 
@@ -626,9 +626,9 @@ type ReferenceExistsError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ReferenceName is the name of the reference that exists already.
+	// reference_name is the name of the reference that exists already.
 	ReferenceName []byte `protobuf:"bytes,1,opt,name=reference_name,json=referenceName,proto3" json:"reference_name,omitempty"`
-	// Oid is the object ID of the reference that preexists already.
+	// oid is the object ID of the reference that preexists already.
 	Oid string `protobuf:"bytes,2,opt,name=oid,proto3" json:"oid,omitempty"`
 }
 
@@ -684,7 +684,7 @@ type ReferenceNotFoundError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ReferenceName is the name of the reference that does not exist.
+	// reference_name is the name of the reference that does not exist.
 	ReferenceName []byte `protobuf:"bytes,1,opt,name=reference_name,json=referenceName,proto3" json:"reference_name,omitempty"`
 }
 
@@ -734,11 +734,11 @@ type ReferenceStateMismatchError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ReferenceName is the name of the reference that was failed to update.
+	// reference_name is the name of the reference that was failed to update.
 	ReferenceName []byte `protobuf:"bytes,1,opt,name=reference_name,json=referenceName,proto3" json:"reference_name,omitempty"`
-	// ExpectedObjectId is the object ID that the reference was expected to point to but didn't.
+	// expected_object_id is the object ID that the reference was expected to point to but didn't.
 	ExpectedObjectId []byte `protobuf:"bytes,2,opt,name=expected_object_id,json=expectedObjectId,proto3" json:"expected_object_id,omitempty"`
-	// ActualObjectId is the object ID that the reference actually pointed to at the time when it was tried to be
+	// actual_object_id is the object ID that the reference actually pointed to at the time when it was tried to be
 	// updated.
 	ActualObjectId []byte `protobuf:"bytes,3,opt,name=actual_object_id,json=actualObjectId,proto3" json:"actual_object_id,omitempty"`
 }
@@ -803,11 +803,11 @@ type ReferenceUpdateError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ReferenceName is the name of the reference that failed to be updated.
+	// reference_name is the name of the reference that failed to be updated.
 	ReferenceName []byte `protobuf:"bytes,1,opt,name=reference_name,json=referenceName,proto3" json:"reference_name,omitempty"`
-	// OldOid is the object ID the reference should have pointed to before the update.
+	// old_oid is the object ID the reference should have pointed to before the update.
 	OldOid string `protobuf:"bytes,2,opt,name=old_oid,json=oldOid,proto3" json:"old_oid,omitempty"`
-	// NewOid is the object ID the reference should have pointed to after the update.
+	// new_oid is the object ID the reference should have pointed to after the update.
 	NewOid string `protobuf:"bytes,3,opt,name=new_oid,json=newOid,proto3" json:"new_oid,omitempty"`
 }
 
@@ -871,7 +871,7 @@ type ResolveRevisionError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Revision is the name of the revision that was tried to be resolved.
+	// revision is the name of the revision that was tried to be resolved.
 	Revision []byte `protobuf:"bytes,1,opt,name=revision,proto3" json:"revision,omitempty"`
 }
 
@@ -920,9 +920,9 @@ type LimitError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ErrorMessage provides context into why a limit was enforced.
+	// error_message provides context into why a limit was enforced.
 	ErrorMessage string `protobuf:"bytes,1,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	// RetryAfter provides the duration after which a retry is safe.
+	// retry_after provides the duration after which a retry is safe.
 	// 0 indicates non-retryable.
 	RetryAfter *durationpb.Duration `protobuf:"bytes,2,opt,name=retry_after,json=retryAfter,proto3" json:"retry_after,omitempty"`
 }
@@ -980,11 +980,11 @@ type CustomHookError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Stdout is the standard output of the hook that has failed, if any. Data may be truncated.
+	// stdout is the standard output of the hook that has failed, if any. Data may be truncated.
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// Stderr is the standard error of the hook that has failed, if any. Data may be truncated.
+	// stderr is the standard error of the hook that has failed, if any. Data may be truncated.
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	// HookType is the type of the hook.
+	// hook_type is the type of the hook.
 	HookType CustomHookError_HookType `protobuf:"varint,3,opt,name=hook_type,json=hookType,proto3,enum=gitaly.CustomHookError_HookType" json:"hook_type,omitempty"`
 }
 
@@ -1047,10 +1047,10 @@ type PathError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Path is the file or directory path that triggered the error. The path may be
+	// path is the file or directory path that triggered the error. The path may be
 	// truncated due to size limits.
 	Path []byte `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// ErrorType is the type of path error that occurred.
+	// error_type is the type of path error that occurred.
 	ErrorType PathError_ErrorType `protobuf:"varint,2,opt,name=error_type,json=errorType,proto3,enum=gitaly.PathError_ErrorType" json:"error_type,omitempty"`
 }
 
@@ -1106,7 +1106,7 @@ type PathNotFoundError struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Path is the path that could not be found.
+	// path is the path that could not be found.
 	Path []byte `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 }
 

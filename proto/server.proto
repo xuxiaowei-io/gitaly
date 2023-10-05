@@ -31,7 +31,7 @@ message ServerInfoRequest {
 
 // ServerInfoResponse ...
 message ServerInfoResponse {
-  // storageStatus ...
+  // StorageStatus ...
   message StorageStatus {
     // storage_name ...
     string storage_name = 1;
@@ -61,10 +61,11 @@ message DiskStatisticsRequest {
 
 // DiskStatisticsResponse ...
 message DiskStatisticsResponse {
-  // storageStatus ...
+  // StorageStatus ...
+  // When both available and used fields are equal 0 that means that
+  // Gitaly was unable to determine storage stats.
   message StorageStatus {
-    // When both available and used fields are equal 0 that means that
-    // Gitaly was unable to determine storage stats.
+    // storage_name ...
     string storage_name = 1;
     // available ...
     int64 available = 2;
@@ -87,7 +88,7 @@ message ClockSyncedRequest {
   google.protobuf.Duration drift_threshold = 3;
 }
 
-// ClockSyncedRequest represents result of the system clock synchronisation check.
+// ClockSyncedResponse represents result of the system clock synchronisation check.
 message ClockSyncedResponse {
   // synced is set to true if system clock has an affordable drift compared to NTP service.
   bool synced = 1;

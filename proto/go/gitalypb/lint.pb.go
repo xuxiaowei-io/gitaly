@@ -21,17 +21,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// Operation ...
 type OperationMsg_Operation int32
 
 const (
-	// This comment is left unintentionally blank.
+	// UNKNOWN ...
 	OperationMsg_UNKNOWN OperationMsg_Operation = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// MUTATOR ...
 	OperationMsg_MUTATOR OperationMsg_Operation = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// ACCESSOR ...
 	OperationMsg_ACCESSOR OperationMsg_Operation = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// MAINTENANCE ...
 	OperationMsg_MAINTENANCE OperationMsg_Operation = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -78,13 +78,13 @@ func (OperationMsg_Operation) EnumDescriptor() ([]byte, []int) {
 	return file_lint_proto_rawDescGZIP(), []int{0, 0}
 }
 
-// This comment is left unintentionally blank.
+// Scope ...
 type OperationMsg_Scope int32
 
 const (
-	// This comment is left unintentionally blank.
+	// REPOSITORY ...
 	OperationMsg_REPOSITORY OperationMsg_Scope = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// STORAGE ...
 	OperationMsg_STORAGE OperationMsg_Scope = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -127,15 +127,15 @@ func (OperationMsg_Scope) EnumDescriptor() ([]byte, []int) {
 	return file_lint_proto_rawDescGZIP(), []int{0, 1}
 }
 
-// This comment is left unintentionally blank.
+// OperationMsg ...
 type OperationMsg struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// op ...
 	Op OperationMsg_Operation `protobuf:"varint,1,opt,name=op,proto3,enum=gitaly.OperationMsg_Operation" json:"op,omitempty"`
-	// Scope level indicates what level an RPC interacts with a server:
+	// scope_level indicates what level an RPC interacts with a server:
 	//   - REPOSITORY: scoped to only a single repo
 	//   - SERVER: affects the entire server and potentially all repos
 	//   - STORAGE: scoped to a specific storage location and all repos within
@@ -251,32 +251,31 @@ var (
 
 // Extension fields to descriptorpb.MethodOptions.
 var (
-	// Random high number..
+	// op_type ...
 	//
 	// optional gitaly.OperationMsg op_type = 82303;
-	E_OpType = &file_lint_proto_extTypes[1]
+	E_OpType = &file_lint_proto_extTypes[1] // Random high number..
 )
 
 // Extension fields to descriptorpb.FieldOptions.
 var (
-	// Used to mark field containing name of affected storage.
+	// storage is used to mark field containing name of affected storage.
 	//
 	// optional bool storage = 91233;
 	E_Storage = &file_lint_proto_extTypes[2] // Random high number..
+	// repository annotation is used mark field used as repository
+	// when parent message is marked as target or additional repository
 	// If this operation modifies a repository, this annotations
 	// will specify the location of the Repository field within
 	// the request message.
 	//
-	// Repository annotation is used mark field used as repository
-	// when parent message is marked as target or additional repository
-	//
 	// optional bool repository = 91234;
 	E_Repository = &file_lint_proto_extTypes[3]
-	// Used to mark target repository
+	// target_repository is used to mark target repository.
 	//
 	// optional bool target_repository = 91235;
 	E_TargetRepository = &file_lint_proto_extTypes[4]
-	// Used to mark additional repository
+	// additional_repository is used to mark additional repository.
 	//
 	// optional bool additional_repository = 91236;
 	E_AdditionalRepository = &file_lint_proto_extTypes[5]

@@ -9,7 +9,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // Schema for :
 // - `repository/<repository_id>/log/entry/<log_index>`.
 message LogEntry {
-  // reference_update models a single reference update.
+  // ReferenceUpdate models a single reference update.
   message ReferenceUpdate {
     // reference_name is the fully qualified name of the reference
     // to update.
@@ -20,14 +20,14 @@ message LogEntry {
     bytes new_oid = 2;
   }
 
-  // default_branchUpdate models a default branch update.
+  // DefaultBranchUpdate models a default branch update.
   message DefaultBranchUpdate {
     // reference_name is the fully qualified name of the reference
     // to update the default branch to.
     bytes reference_name = 1;
   }
 
-  // custom_hooks_update models an update to the custom hooks.
+  // CustomHooksUpdate models an update to the custom hooks.
   message CustomHooksUpdate {
     // custom_hooks_tar is a TAR that contains the custom hooks in
     // `custom_hooks` directory. The contents of the directory are
@@ -35,7 +35,7 @@ message LogEntry {
     bytes custom_hooks_tar = 1;
   }
 
-  // repositoryDeletion models a repository deletion.
+  // RepositoryDeletion models a repository deletion.
   message RepositoryDeletion {
   }
 
@@ -51,7 +51,7 @@ message LogEntry {
   // pack_prefix contains the prefix (`pack-<digest>`) of the pack and its index.
   // If pack_prefix is empty, the log entry has no associated pack.
   string pack_prefix = 4;
-  // repositoryDeletion, when set, indicates this log entry deletes the repository.
+  // repository_deletion, when set, indicates this log entry deletes the repository.
   RepositoryDeletion repository_deletion = 5;
 }
 

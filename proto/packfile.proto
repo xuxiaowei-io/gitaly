@@ -4,7 +4,7 @@ package gitaly;
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// packfile_negotiation_statistics represents the git packfile negotiation.
+// PackfileNegotiationStatistics represents the git packfile negotiation.
 message PackfileNegotiationStatistics {
   // payload_size is the total size of all pktlines' payload in bytes. This excludes the pktline prefix.
   int64 payload_size = 1;

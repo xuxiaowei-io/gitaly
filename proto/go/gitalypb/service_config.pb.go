@@ -31,8 +31,10 @@ type ServiceConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// load_balancing_config ...
 	// protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
 	LoadBalancingConfig []*LoadBalancingConfig `protobuf:"bytes,1,rep,name=load_balancing_config,json=loadBalancingConfig,proto3" json:"load_balancing_config,omitempty"`
+	// method_config ...
 	// protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
 	MethodConfig []*MethodConfig `protobuf:"bytes,2,rep,name=method_config,json=methodConfig,proto3" json:"method_config,omitempty"`
 }
@@ -89,6 +91,8 @@ type LoadBalancingConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// policy ...
+	//
 	// Types that are assignable to Policy:
 	//
 	//	*LoadBalancingConfig_PickFirst
@@ -154,12 +158,12 @@ type isLoadBalancingConfig_Policy interface {
 }
 
 type LoadBalancingConfig_PickFirst struct {
-	// PickFirst strategy
+	// pick_first strategy
 	PickFirst *PickFirstConfig `protobuf:"bytes,1,opt,name=pick_first,proto3,oneof"`
 }
 
 type LoadBalancingConfig_RoundRobin struct {
-	// RoundRobin strategy
+	// round_robin strategy
 	RoundRobin *RoundRobinConfig `protobuf:"bytes,2,opt,name=round_robin,proto3,oneof"`
 }
 
@@ -248,7 +252,7 @@ func (*RoundRobinConfig) Descriptor() ([]byte, []int) {
 	return file_service_config_proto_rawDescGZIP(), []int{3}
 }
 
-// Configuration for a method.
+// MethodConfig is the configuration for a method.
 type MethodConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -265,8 +269,8 @@ type MethodConfig struct {
 	Timeout                 *durationpb.Duration    `protobuf:"bytes,3,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	MaxRequestMessageBytes  *wrapperspb.UInt32Value `protobuf:"bytes,4,opt,name=max_request_message_bytes,json=maxRequestMessageBytes,proto3" json:"max_request_message_bytes,omitempty"`
 	MaxResponseMessageBytes *wrapperspb.UInt32Value `protobuf:"bytes,5,opt,name=max_response_message_bytes,json=maxResponseMessageBytes,proto3" json:"max_response_message_bytes,omitempty"`
-	// protolint:enable FIELDS_HAVE_COMMENT
 	// retry_policy defines the exponential backoff configuration for the affected services/methods
+	// protolint:enable FIELDS_HAVE_COMMENT
 	RetryPolicy *MethodConfig_RetryPolicy `protobuf:"bytes,6,opt,name=retry_policy,json=retryPolicy,proto3" json:"retry_policy,omitempty"`
 }
 

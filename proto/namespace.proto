@@ -6,7 +6,7 @@ import "lint.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// namespaceService is a service which provides RPCs to manage namespaces of a
+// NamespaceService is a service which provides RPCs to manage namespaces of a
 // storage. Namespaces had been used before Gitaly migrated to hashed storages
 // and shouldn't be used nowadays anymore.
 service NamespaceService {
@@ -35,7 +35,7 @@ service NamespaceService {
     };
   }
 
-  // namespaceExists ...
+  // NamespaceExists ...
   rpc NamespaceExists(NamespaceExistsRequest) returns (NamespaceExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -71,7 +71,7 @@ message RenameNamespaceRequest {
   string to = 3;
 }
 
-// namespaceExistsRequest ...
+// NamespaceExistsRequest ...
 message NamespaceExistsRequest {
   // storage_name ...
   string storage_name = 1 [(storage)=true];
@@ -79,7 +79,7 @@ message NamespaceExistsRequest {
   string name = 2;
 }
 
-// namespaceExistsResponse ...
+// NamespaceExistsResponse ...
 message NamespaceExistsResponse {
   // exists ...
   bool exists = 1;

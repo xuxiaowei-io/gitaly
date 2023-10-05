@@ -21,7 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// ServerInfoRequest ...
 type ServerInfoRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -60,17 +60,17 @@ func (*ServerInfoRequest) Descriptor() ([]byte, []int) {
 	return file_server_proto_rawDescGZIP(), []int{0}
 }
 
-// This comment is left unintentionally blank.
+// ServerInfoResponse ...
 type ServerInfoResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// server_version ...
 	ServerVersion string `protobuf:"bytes,1,opt,name=server_version,json=serverVersion,proto3" json:"server_version,omitempty"`
-	// This comment is left unintentionally blank.
+	// git_version ...
 	GitVersion string `protobuf:"bytes,2,opt,name=git_version,json=gitVersion,proto3" json:"git_version,omitempty"`
-	// This comment is left unintentionally blank.
+	// storage_statuses ...
 	StorageStatuses []*ServerInfoResponse_StorageStatus `protobuf:"bytes,3,rep,name=storage_statuses,json=storageStatuses,proto3" json:"storage_statuses,omitempty"`
 }
 
@@ -127,7 +127,7 @@ func (x *ServerInfoResponse) GetStorageStatuses() []*ServerInfoResponse_StorageS
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// DiskStatisticsRequest ...
 type DiskStatisticsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -166,13 +166,13 @@ func (*DiskStatisticsRequest) Descriptor() ([]byte, []int) {
 	return file_server_proto_rawDescGZIP(), []int{2}
 }
 
-// This comment is left unintentionally blank.
+// DiskStatisticsResponse ...
 type DiskStatisticsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// storage_statuses ...
 	StorageStatuses []*DiskStatisticsResponse_StorageStatus `protobuf:"bytes,1,rep,name=storage_statuses,json=storageStatuses,proto3" json:"storage_statuses,omitempty"`
 }
 
@@ -221,10 +221,10 @@ type ClockSyncedRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// NtpHost is a URL to the external NTP service that should be used for clock sync check.
+	// ntp_host is a URL to the external NTP service that should be used for clock sync check.
 	// Default is "pool.ntp.org"
 	NtpHost string `protobuf:"bytes,1,opt,name=ntp_host,json=ntpHost,proto3" json:"ntp_host,omitempty"`
-	// DriftThreshold is an allowed drift from the NTP service.
+	// drift_threshold is an allowed drift from the NTP service.
 	DriftThreshold *durationpb.Duration `protobuf:"bytes,3,opt,name=drift_threshold,json=driftThreshold,proto3" json:"drift_threshold,omitempty"`
 }
 
@@ -274,13 +274,13 @@ func (x *ClockSyncedRequest) GetDriftThreshold() *durationpb.Duration {
 	return nil
 }
 
-// ClockSyncedRequest represents result of the system clock synchronisation check.
+// ClockSyncedResponse represents result of the system clock synchronisation check.
 type ClockSyncedResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Synced is set to true if system clock has an affordable drift compared to NTP service.
+	// synced is set to true if system clock has an affordable drift compared to NTP service.
 	Synced bool `protobuf:"varint,1,opt,name=synced,proto3" json:"synced,omitempty"`
 }
 
@@ -329,7 +329,7 @@ type ReadinessCheckRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Timeout is an amount of milliseconds for the check to run before give up and mark as failed.
+	// timeout is an amount of milliseconds for the check to run before give up and mark as failed.
 	Timeout *durationpb.Duration `protobuf:"bytes,1,opt,name=timeout,proto3" json:"timeout,omitempty"`
 }
 
@@ -444,12 +444,12 @@ type isReadinessCheckResponse_Result interface {
 }
 
 type ReadinessCheckResponse_OkResponse struct {
-	// OkResponse is set when all checks pass.
+	// ok_response is set when all checks pass.
 	OkResponse *ReadinessCheckResponse_Ok `protobuf:"bytes,1,opt,name=ok_response,json=okResponse,proto3,oneof"`
 }
 
 type ReadinessCheckResponse_FailureResponse struct {
-	// FailureResponse is set if at least one check failed.
+	// failure_response is set if at least one check failed.
 	FailureResponse *ReadinessCheckResponse_Failure `protobuf:"bytes,2,opt,name=failure_response,json=failureResponse,proto3,oneof"`
 }
 
@@ -457,23 +457,23 @@ func (*ReadinessCheckResponse_OkResponse) isReadinessCheckResponse_Result() {}
 
 func (*ReadinessCheckResponse_FailureResponse) isReadinessCheckResponse_Result() {}
 
-// This comment is left unintentionally blank.
+// StorageStatus ...
 type ServerInfoResponse_StorageStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// storage_name ...
 	StorageName string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// readable ...
 	Readable bool `protobuf:"varint,2,opt,name=readable,proto3" json:"readable,omitempty"`
-	// This comment is left unintentionally blank.
+	// writeable ...
 	Writeable bool `protobuf:"varint,3,opt,name=writeable,proto3" json:"writeable,omitempty"`
-	// This comment is left unintentionally blank.
+	// fs_type ...
 	FsType string `protobuf:"bytes,4,opt,name=fs_type,json=fsType,proto3" json:"fs_type,omitempty"`
-	// This comment is left unintentionally blank.
+	// filesystem_id ...
 	FilesystemId string `protobuf:"bytes,5,opt,name=filesystem_id,json=filesystemId,proto3" json:"filesystem_id,omitempty"`
-	// This comment is left unintentionally blank.
+	// replication_factor ...
 	ReplicationFactor uint32 `protobuf:"varint,6,opt,name=replication_factor,json=replicationFactor,proto3" json:"replication_factor,omitempty"`
 }
 
@@ -551,18 +551,19 @@ func (x *ServerInfoResponse_StorageStatus) GetReplicationFactor() uint32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// StorageStatus ...
+// When both available and used fields are equal 0 that means that
+// Gitaly was unable to determine storage stats.
 type DiskStatisticsResponse_StorageStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// When both available and used fields are equal 0 that means that
-	// Gitaly was unable to determine storage stats.
+	// storage_name ...
 	StorageName string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// available ...
 	Available int64 `protobuf:"varint,2,opt,name=available,proto3" json:"available,omitempty"`
-	// This comment is left unintentionally blank.
+	// used ...
 	Used int64 `protobuf:"varint,3,opt,name=used,proto3" json:"used,omitempty"`
 }
 
@@ -664,7 +665,7 @@ type ReadinessCheckResponse_Failure struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// FailedChecks is a list of failed checks.
+	// failed_checks is a list of failed checks.
 	FailedChecks []*ReadinessCheckResponse_Failure_Response `protobuf:"bytes,1,rep,name=failed_checks,json=failedChecks,proto3" json:"failed_checks,omitempty"`
 }
 
@@ -713,9 +714,9 @@ type ReadinessCheckResponse_Failure_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name is a name of the check that was performed.
+	// name is a name of the check that was performed.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// ErrorMessage is a cause of the check failure.
+	// error_message is a cause of the check failure.
 	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 }
 

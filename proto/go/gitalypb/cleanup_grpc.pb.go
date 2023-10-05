@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CleanupServiceClient interface {
-	// This comment is left unintentionally blank.
+	// ApplyBfgObjectMapStream ...
 	ApplyBfgObjectMapStream(ctx context.Context, opts ...grpc.CallOption) (CleanupService_ApplyBfgObjectMapStreamClient, error)
 }
 
@@ -69,7 +69,7 @@ func (x *cleanupServiceApplyBfgObjectMapStreamClient) Recv() (*ApplyBfgObjectMap
 // All implementations must embed UnimplementedCleanupServiceServer
 // for forward compatibility
 type CleanupServiceServer interface {
-	// This comment is left unintentionally blank.
+	// ApplyBfgObjectMapStream ...
 	ApplyBfgObjectMapStream(CleanupService_ApplyBfgObjectMapStreamServer) error
 	mustEmbedUnimplementedCleanupServiceServer()
 }

@@ -86,7 +86,7 @@ message PostUploadPackWithSidechannelRequest {
 // This is an empty response since the raw data is transferred to the client via the sidechannel
 // exclusively.
 message PostUploadPackWithSidechannelResponse {
-  // Packfile negotiation statistics.
+  // packfile_negotiation_statistics is the packfile negotiation statistics.
   PackfileNegotiationStatistics packfile_negotiation_statistics = 1;
 }
 
@@ -98,13 +98,13 @@ message PostReceivePackRequest {
   Repository repository = 1 [(target_repository)=true];
   // data is the raw data to be copied to stdin of 'git receive-pack'.
   bytes data = 2;
-  // GlID is the GitLab ID of the user. This is used by Git {pre,post}-receive hooks.
+  // gl_id is the GitLab ID of the user. This is used by Git {pre,post}-receive hooks.
   // It should only be present in the first message of the stream.
   string gl_id = 3;
   // gl_repository refers to the GitLab repository. This is used by Git {pre,post}-receive hooks.
   // It should only be present in the first message of the stream.
   string gl_repository = 4;
-  // GlID is the GitLab Username of the user. This is used by Git {pre,post}-receive hooks.
+  // gl_username is the GitLab Username of the user. This is used by Git {pre,post}-receive hooks.
   // It should only be present in the first message of the stream.
   string gl_username = 5;
   // git_protocol is the git protocol version.
