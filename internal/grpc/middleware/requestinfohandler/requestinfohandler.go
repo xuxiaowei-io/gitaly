@@ -196,6 +196,15 @@ func (i *RequestInfo) extractRequestInfo(request any) {
 }
 
 func (i *RequestInfo) injectTags(tags grpcmwtags.Tags) {
+	for key, value := range i.Tags() {
+		tags.Set(key, value)
+	}
+}
+
+// Tags returns all tags recorded by this request info.
+func (i *RequestInfo) Tags() map[string]string {
+	tags := map[string]string{}
+
 	for key, value := range map[string]string{
 		"grpc.meta.call_site":        i.callSite,
 		"grpc.meta.client_name":      i.clientName,
@@ -215,7 +224,7 @@ func (i *RequestInfo) injectTags(tags grpcmwtags.Tags) {
 			continue
 		}
 
-		tags.Set(key, value)
+		tags[key] = value
 	}
 
 	// We handle the repository-related fields separately such that all fields will be set unconditionally,
@@ -228,7 +237,7 @@ func (i *RequestInfo) injectTags(tags grpcmwtags.Tags) {
 			"grpc.request.glRepository":  repo.GetGlRepository(),
 			"grpc.request.glProjectPath": repo.GetGlProjectPath(),
 		} {
-			tags.Set(key, value)
+			tags[key] = value
 		}
 	}
 
@@ -239,9 +248,11 @@ func (i *RequestInfo) injectTags(tags grpcmwtags.Tags) {
 			"grpc.request.pool.relativePath":      pool.GetRelativePath(),
 			"grpc.request.pool.sourceProjectPath": pool.GetGlProjectPath(),
 		} {
-			tags.Set(key, value)
+			tags[key] = value
 		}
 	}
+
+	return tags
 }
 
 func (i *RequestInfo) reportPrometheusMetrics(err error) {
