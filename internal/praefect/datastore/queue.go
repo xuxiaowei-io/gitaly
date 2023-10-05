@@ -12,6 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
 )
 
+// CorrelationIDKey is the key that is used to store the correlation ID for a specific replication job as part of the
+// parameters.
+const CorrelationIDKey = "correlation_id"
+
 // ReplicationEventExistsError is returned when trying to add an already existing
 // replication event into the queue.
 type ReplicationEventExistsError struct {

@@ -25,7 +25,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -224,7 +223,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 							TargetNodeStorage: secondaryNode.Storage,
 							SourceNodeStorage: primaryNode.Storage,
 						},
-						Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+						Meta: datastore.Params{datastore.CorrelationIDKey: "my-correlation-id"},
 					},
 				}
 			},
@@ -276,7 +275,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 							TargetNodeStorage: secondaryNode.Storage,
 							SourceNodeStorage: primaryNode.Storage,
 						},
-						Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+						Meta: datastore.Params{datastore.CorrelationIDKey: "my-correlation-id"},
 					},
 				}
 			},
@@ -1646,7 +1645,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 						TargetNodeStorage: target,
 						SourceNodeStorage: primaryNode.Storage,
 					},
-					Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+					Meta: datastore.Params{datastore.CorrelationIDKey: "my-correlation-id"},
 				})
 			}
 
@@ -1763,7 +1762,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, jobs, 1)
 
-	require.NotZero(t, jobs[0].Meta[metadatahandler.CorrelationIDKey],
+	require.NotZero(t, jobs[0].Meta[datastore.CorrelationIDKey],
 		"the coordinator should have generated a random ID")
 }
 

@@ -8,19 +8,17 @@ import (
 	"time"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/grpcstats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/listenmux"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/requestinfohandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/statushandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/sidechannel"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -67,9 +65,8 @@ func NewBackchannelServerFactory(logger log.Logger, refSvc gitalypb.RefTransacti
 
 func commonUnaryServerInterceptors(logger log.Logger, messageProducer grpcmwlogrus.MessageProducer) []grpc.UnaryServerInterceptor {
 	return []grpc.UnaryServerInterceptor{
-		grpcmwtags.UnaryServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
-		metadatahandler.UnaryInterceptor,
+		requestinfohandler.UnaryInterceptor,
 		grpcprometheus.UnaryServerInterceptor,
 		logger.UnaryServerInterceptor(
 			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
@@ -83,10 +80,6 @@ func commonUnaryServerInterceptors(logger log.Logger, messageProducer grpcmwlogr
 		// converted to errors and logged
 		panichandler.UnaryPanicHandler(logger),
 	}
-}
-
-func ctxtagsInterceptorOption() grpcmwtags.Option {
-	return grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)
 }
 
 // ServerOption is an option that can be passed to `NewGRPCServer()`.
@@ -136,10 +129,9 @@ func NewGRPCServer(
 	unaryInterceptors = append(unaryInterceptors, serverCfg.unaryInterceptors...)
 
 	streamInterceptors := []grpc.StreamServerInterceptor{
-		grpcmwtags.StreamServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 		middleware.MethodTypeStreamInterceptor(deps.Registry, deps.Logger),
-		metadatahandler.StreamInterceptor,
+		requestinfohandler.StreamInterceptor,
 		grpcprometheus.StreamServerInterceptor,
 		deps.Logger.WithField("component", "praefect.StreamServerInterceptor").StreamServerInterceptor(
 			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),

@@ -1,4 +1,4 @@
-package metadatahandler
+package requestinfohandler
 
 import (
 	"testing"

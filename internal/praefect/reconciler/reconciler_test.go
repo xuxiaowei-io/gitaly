@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore"
@@ -1140,7 +1139,7 @@ func TestReconciler(t *testing.T) {
 				var job datastore.ReplicationJob
 				var meta datastore.Params
 				require.NoError(t, rows.Scan(&job, &meta))
-				require.NotEmpty(t, meta[metadatahandler.CorrelationIDKey])
+				require.NotEmpty(t, meta[datastore.CorrelationIDKey])
 				actualJobs = append(actualJobs, job)
 			}
 

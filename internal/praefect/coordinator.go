@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/proxy"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
@@ -1144,7 +1143,7 @@ func (c *Coordinator) newRequestFinalizer(
 					TargetNodeStorage: secondary,
 					Params:            params,
 				},
-				Meta: datastore.Params{metadatahandler.CorrelationIDKey: correlationID},
+				Meta: datastore.Params{datastore.CorrelationIDKey: correlationID},
 			}
 
 			g.Go(func() error {

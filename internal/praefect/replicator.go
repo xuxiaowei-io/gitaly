@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -52,7 +51,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		logWithVirtualStorage:    event.Job.VirtualStorage,
 		logWithReplTarget:        event.Job.TargetNodeStorage,
 		"replication_job_source": event.Job.SourceNodeStorage,
-		logWithCorrID:            correlation.ExtractFromContext(ctx),
+		correlation.FieldName:    correlation.ExtractFromContext(ctx),
 	})
 
 	generation, err := dr.rs.GetReplicatedGeneration(ctx, event.Job.RepositoryID, event.Job.SourceNodeStorage, event.Job.TargetNodeStorage)
@@ -148,7 +147,7 @@ func (dr defaultReplicator) Destroy(ctx context.Context, event datastore.Replica
 			return err
 		}
 
-		dr.log.WithField(logWithCorrID, correlation.ExtractFromContext(ctx)).
+		dr.log.WithField(correlation.FieldName, correlation.ExtractFromContext(ctx)).
 			WithError(err).
 			Info("deleted repository did not have a store entry")
 	}
@@ -190,7 +189,7 @@ func (dr defaultReplicator) Rename(ctx context.Context, event datastore.Replicat
 			return err
 		}
 
-		dr.log.WithField(logWithCorrID, correlation.ExtractFromContext(ctx)).
+		dr.log.WithField(correlation.FieldName, correlation.ExtractFromContext(ctx)).
 			WithError(err).
 			Info("replicated repository rename does not have a store entry")
 	}
@@ -299,7 +298,6 @@ func (r ReplMgr) Collect(ch chan<- prometheus.Metric) {
 
 const (
 	logWithReplTarget     = "replication_job_target"
-	logWithCorrID         = "correlation_id"
 	logWithVirtualStorage = "virtual_storage"
 )
 
@@ -335,7 +333,7 @@ type (
 
 func getCorrelationID(params datastore.Params) string {
 	correlationID := ""
-	if val, found := params[metadatahandler.CorrelationIDKey]; found {
+	if val, found := params[datastore.CorrelationIDKey]; found {
 		correlationID, _ = val.(string)
 	}
 	return correlationID
@@ -538,7 +536,7 @@ func (r ReplMgr) handleNodeEvent(ctx context.Context, logger log.Logger, targetC
 	ctx = correlation.ContextWithCorrelation(ctx, cid)
 
 	// we want it to be queryable by common `json.correlation_id` filter
-	logger = logger.WithField(logWithCorrID, cid)
+	logger = logger.WithField(correlation.FieldName, cid)
 	// we log all details about the event only once before start of the processing
 	logger.WithField("event", event).Info("replication job processing started")
 
