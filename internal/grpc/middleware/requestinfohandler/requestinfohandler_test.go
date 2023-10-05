@@ -324,7 +324,11 @@ func TestExtractServiceAndMethodName(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			service, method := extractServiceAndMethodName(tc.fullMethodName)
+			info := RequestInfo{
+				fullMethod: tc.fullMethodName,
+			}
+
+			service, method := info.ExtractServiceAndMethodName()
 			require.Equal(t, tc.expectedService, service)
 			require.Equal(t, tc.expectedMethod, method)
 		})

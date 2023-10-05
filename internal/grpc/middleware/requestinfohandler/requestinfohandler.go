@@ -246,7 +246,7 @@ func (i *RequestInfo) injectTags(tags grpcmwtags.Tags) {
 
 func (i *RequestInfo) reportPrometheusMetrics(err error) {
 	grpcCode := structerr.GRPCCode(err)
-	serviceName, methodName := extractServiceAndMethodName(i.fullMethod)
+	serviceName, methodName := i.ExtractServiceAndMethodName()
 
 	requests.WithLabelValues(
 		i.clientName,      // client_name
@@ -262,8 +262,10 @@ func (i *RequestInfo) reportPrometheusMetrics(err error) {
 	grpcprometheus.WithConstLabels(prometheus.Labels{"deadline_type": i.deadlineType})
 }
 
-func extractServiceAndMethodName(fullMethodName string) (string, string) {
-	fullMethodName = strings.TrimPrefix(fullMethodName, "/") // remove leading slash
+// ExtractServiceAndMethodName converts the full method name of the request into a server and method part.
+// Returns "unknown" in case they cannot be extracted.
+func (i *RequestInfo) ExtractServiceAndMethodName() (string, string) {
+	fullMethodName := strings.TrimPrefix(i.fullMethod, "/") // remove leading slash
 	service, method, ok := strings.Cut(fullMethodName, "/")
 	if !ok {
 		return unknownValue, unknownValue
