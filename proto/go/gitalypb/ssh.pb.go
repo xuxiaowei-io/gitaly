@@ -20,19 +20,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// SSHUploadPackRequest ...
 type SSHUploadPackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// 'repository' must be present in the first message.
+	// repository must be present in the first message.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// A chunk of raw data to be copied to 'git upload-pack' standard input
+	// stdin is a chunk of raw data to be copied to 'git upload-pack' standard input.
 	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	// Parameters to use with git -c (key=value pairs)
+	// git_config_options are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,4,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
-	// Git protocol version
+	// git_protocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,5,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
 }
 
@@ -96,18 +96,18 @@ func (x *SSHUploadPackRequest) GetGitProtocol() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadPackResponse ...
 type SSHUploadPackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// A chunk of raw data from 'git upload-pack' standard output
+	// stdout is a chunk of raw data from 'git upload-pack' standard output.
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// A chunk of raw data from 'git upload-pack' standard error
+	// stderr is a chunk of raw data from 'git upload-pack' standard error.
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	// This field may be nil. This is intentional: only when the remote
-	// command has finished can we return its exit status.
+	// exit_status is the exit status when the command has finished. This field
+	// may be nil. This is intentional.
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -164,17 +164,17 @@ func (x *SSHUploadPackResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadPackWithSidechannelRequest ...
 type SSHUploadPackWithSidechannelRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// 'repository' must be present in the first message.
+	// repository must be present in the first message.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Parameters to use with git -c (key=value pairs)
+	// git_config_options are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,2,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
-	// Git protocol version
+	// git_protocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,3,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
 }
 
@@ -231,13 +231,13 @@ func (x *SSHUploadPackWithSidechannelRequest) GetGitProtocol() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadPackWithSidechannelResponse ...
 type SSHUploadPackWithSidechannelResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Packfile negotiation statistics.
+	// packfile_negotiation_statistics is the packfile negotiation statistics.
 	PackfileNegotiationStatistics *PackfileNegotiationStatistics `protobuf:"bytes,1,opt,name=packfile_negotiation_statistics,json=packfileNegotiationStatistics,proto3" json:"packfile_negotiation_statistics,omitempty"`
 }
 
@@ -280,26 +280,26 @@ func (x *SSHUploadPackWithSidechannelResponse) GetPackfileNegotiationStatistics(
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// SSHReceivePackRequest ...
 type SSHReceivePackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// 'repository' must be present in the first message.
+	// repository must be present in the first message.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// A chunk of raw data to be copied to 'git upload-pack' standard input
+	// stdin is a chunk of raw data to be copied to 'git upload-pack' standard input
 	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	// Contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
-	// for 'git receive-pack'
+	// gl_id is the contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
+	// for 'git receive-pack'.
 	GlId string `protobuf:"bytes,3,opt,name=gl_id,json=glId,proto3" json:"gl_id,omitempty"`
-	// This comment is left unintentionally blank.
+	// gl_repository ...
 	GlRepository string `protobuf:"bytes,4,opt,name=gl_repository,json=glRepository,proto3" json:"gl_repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// gl_username ...
 	GlUsername string `protobuf:"bytes,5,opt,name=gl_username,json=glUsername,proto3" json:"gl_username,omitempty"`
-	// Git protocol version
+	// git_protocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,6,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
-	// Parameters to use with git -c (key=value pairs)
+	// git_config_options are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,7,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
 }
 
@@ -384,18 +384,18 @@ func (x *SSHReceivePackRequest) GetGitConfigOptions() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// SSHReceivePackResponse ...
 type SSHReceivePackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// A chunk of raw data from 'git receive-pack' standard output
+	// stdout is a chunk of raw data from 'git receive-pack' standard output.
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// A chunk of raw data from 'git receive-pack' standard error
+	// stderr is a chunk of raw data from 'git receive-pack' standard error.
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	// This field may be nil. This is intentional: only when the remote
-	// command has finished can we return its exit status.
+	// exit_status is the exit status when the command has finished. This field
+	// may be nil. This is intentional.
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -452,15 +452,15 @@ func (x *SSHReceivePackResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadArchiveRequest ...
 type SSHUploadArchiveRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// 'repository' must be present in the first message.
+	// repository must be present in the first message.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// A chunk of raw data to be copied to 'git upload-archive' standard input
+	// stdin is a chunk of raw data to be copied to 'git upload-archive' standard input.
 	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3" json:"stdin,omitempty"`
 }
 
@@ -510,17 +510,18 @@ func (x *SSHUploadArchiveRequest) GetStdin() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// SSHUploadArchiveResponse ...
 type SSHUploadArchiveResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// A chunk of raw data from 'git upload-archive' standard output
+	// stdout is a chunk of raw data from 'git upload-archive' standard output.
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// A chunk of raw data from 'git upload-archive' standard error
+	// stderr is a chunk of raw data from 'git upload-archive' standard error.
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	// This value will only be set on the last message
+	// exit_status is the exit status when the command has finished. This field
+	// may be nil. This is intentional.
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 

@@ -97,12 +97,12 @@ service ObjectPoolService {
 
 }
 
-// CreatesObjectPoolRequest is a request for the CreateObjectPool RPC.
+// CreateObjectPoolRequest is a request for the CreateObjectPool RPC.
 message CreateObjectPoolRequest {
-  // ObjectPool is the object pool to create. This field controls where exactly the object pool will
+  // object_pool is the object pool to create. This field controls where exactly the object pool will
   // be created.
   ObjectPool object_pool = 1 [(target_repository)=true];
-  // Origin is the repository from which the object pool shall be created.
+  // origin is the repository from which the object pool shall be created.
   Repository origin = 2 [(additional_repository)=true];
 }
 
@@ -112,7 +112,7 @@ message CreateObjectPoolResponse {
 
 // DeleteObjectPoolRequest is a request for the DeleteObjectPool RPC.
 message DeleteObjectPoolRequest {
-  // ObjectPool is the object pool that shall be deleted.
+  // object_pool is the object pool that shall be deleted.
   ObjectPool object_pool = 1 [(target_repository)=true];
 }
 
@@ -122,9 +122,9 @@ message DeleteObjectPoolResponse {
 
 // LinkRepositoryToObjectPoolRequest is a request for the LinkRepositoryToObjectPool RPC.
 message LinkRepositoryToObjectPoolRequest {
-  // ObjectPool is the object pool to which the repository shall be linked to.
+  // object_pool is the object pool to which the repository shall be linked to.
   ObjectPool object_pool = 1 [(additional_repository)=true];
-  // Repository is the repository that shall be linked to the object pool.
+  // repository is the repository that shall be linked to the object pool.
   Repository repository = 2 [(target_repository)=true];
 }
 
@@ -134,7 +134,7 @@ message LinkRepositoryToObjectPoolResponse {
 
 // DisconnectGitAlternatesRequest is a request for the DisconnectGitAlternates RPC.
 message DisconnectGitAlternatesRequest {
-  // Repository is th repository that shall be disconnected from its object pool.
+  // repository is th repository that shall be disconnected from its object pool.
   Repository repository = 1  [(target_repository)=true];
 }
 
@@ -144,9 +144,9 @@ message DisconnectGitAlternatesResponse {
 
 // FetchIntoObjectPoolRequest is a request for the FetchIntoObjectPool RPC.
 message FetchIntoObjectPoolRequest {
-  // Origin is the repository to fetch changes from.
+  // origin is the repository to fetch changes from.
   Repository origin = 1 [(additional_repository)=true];
-  // ObjectPool is the repository to fetch changes into.
+  // object_pool is the repository to fetch changes into.
   ObjectPool object_pool = 2 [(target_repository)=true];
 
   // Repack had the intent to control whether FetchIntoObjectPool would perform housekeeping tasks
@@ -161,13 +161,13 @@ message FetchIntoObjectPoolResponse {
 
 // GetObjectPoolRequest is a request for the GetObjectPool RPC.
 message GetObjectPoolRequest {
-  // Repository is the repository for which the object pool shall be retrieved.
+  // repository is the repository for which the object pool shall be retrieved.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// GetObjectDirectorySizeResponse is a response for the GetObjectPool RPC.
+// GetObjectPoolResponse is a response for the GetObjectPool RPC.
 message GetObjectPoolResponse {
-  // ObjectPool is the object pool the repository is connected to. If the repository is not
+  // object_pool is the object pool the repository is connected to. If the repository is not
   // connected to any object pool, then this field will be empty.
   ObjectPool object_pool = 1;
 }

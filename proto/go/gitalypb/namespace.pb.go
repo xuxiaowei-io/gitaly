@@ -20,15 +20,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// AddNamespaceRequest ...
 type AddNamespaceRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// storage_name ...
 	StorageName string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// name ...
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -78,15 +78,15 @@ func (x *AddNamespaceRequest) GetName() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// RemoveNamespaceRequest ...
 type RemoveNamespaceRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// storage_name ...
 	StorageName string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// name ...
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -136,17 +136,17 @@ func (x *RemoveNamespaceRequest) GetName() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// RenameNamespaceRequest ...
 type RenameNamespaceRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// storage_name ...
 	StorageName string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// from ...
 	From string `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
-	// This comment is left unintentionally blank.
+	// to ...
 	To string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
 }
 
@@ -203,15 +203,15 @@ func (x *RenameNamespaceRequest) GetTo() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// NamespaceExistsRequest ...
 type NamespaceExistsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// storage_name ...
 	StorageName string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// name ...
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -261,13 +261,13 @@ func (x *NamespaceExistsRequest) GetName() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// NamespaceExistsResponse ...
 type NamespaceExistsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// exists ...
 	Exists bool `protobuf:"varint,1,opt,name=exists,proto3" json:"exists,omitempty"`
 }
 
@@ -310,7 +310,7 @@ func (x *NamespaceExistsResponse) GetExists() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// AddNamespaceResponse ...
 type AddNamespaceResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -349,7 +349,7 @@ func (*AddNamespaceResponse) Descriptor() ([]byte, []int) {
 	return file_namespace_proto_rawDescGZIP(), []int{5}
 }
 
-// This comment is left unintentionally blank.
+// RemoveNamespaceResponse ...
 type RemoveNamespaceResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -388,7 +388,7 @@ func (*RemoveNamespaceResponse) Descriptor() ([]byte, []int) {
 	return file_namespace_proto_rawDescGZIP(), []int{6}
 }
 
-// This comment is left unintentionally blank.
+// RenameNamespaceResponse ...
 type RenameNamespaceResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

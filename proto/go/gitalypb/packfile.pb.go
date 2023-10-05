@@ -26,22 +26,22 @@ type PackfileNegotiationStatistics struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// PayloadSize is the total size of all pktlines' payload in bytes. This excludes the pktline prefix.
+	// payload_size is the total size of all pktlines' payload in bytes. This excludes the pktline prefix.
 	PayloadSize int64 `protobuf:"varint,1,opt,name=payload_size,json=payloadSize,proto3" json:"payload_size,omitempty"`
-	// Packets is the total number of packets.
+	// packets is the total number of packets.
 	Packets int64 `protobuf:"varint,2,opt,name=packets,proto3" json:"packets,omitempty"`
-	// Caps is the capabilities announced by the client.
+	// caps is the capabilities announced by the client.
 	Caps []string `protobuf:"bytes,3,rep,name=caps,proto3" json:"caps,omitempty"`
-	// Wants is the number of objects the client announced it wants.
+	// wants is the number of objects the client announced it wants.
 	Wants int64 `protobuf:"varint,4,opt,name=wants,proto3" json:"wants,omitempty"`
-	// Haves is the number of objects the client announced it has.
+	// haves is the number of objects the client announced it has.
 	Haves int64 `protobuf:"varint,5,opt,name=haves,proto3" json:"haves,omitempty"`
-	// Shallows is the number of shallow boundaries announced by the client.
+	// shallows is the number of shallow boundaries announced by the client.
 	Shallows int64 `protobuf:"varint,6,opt,name=shallows,proto3" json:"shallows,omitempty"`
-	// Deepen is one of "deepen <depth>", "deepen-since <timestamp>", "deepen-not <ref>".
+	// deepen is one of "deepen <depth>", "deepen-since <timestamp>", "deepen-not <ref>".
 	// [deepen <depth>|deepen-since <timestamp>|deepen-not <ref>]
 	Deepen string `protobuf:"bytes,7,opt,name=deepen,proto3" json:"deepen,omitempty"`
-	// Filter is specified by the client.
+	// filter is specified by the client.
 	Filter string `protobuf:"bytes,8,opt,name=filter,proto3" json:"filter,omitempty"`
 }
 

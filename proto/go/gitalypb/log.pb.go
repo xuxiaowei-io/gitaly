@@ -36,12 +36,12 @@ type LogEntry struct {
 	// default_branch_update contains the information pertaining to updating
 	// the default branch of the repo.
 	DefaultBranchUpdate *LogEntry_DefaultBranchUpdate `protobuf:"bytes,2,opt,name=default_branch_update,json=defaultBranchUpdate,proto3" json:"default_branch_update,omitempty"`
-	// CustomHooksUpdate contains the custom hooks to set in the repository.
+	// custom_hooks_update contains the custom hooks to set in the repository.
 	CustomHooksUpdate *LogEntry_CustomHooksUpdate `protobuf:"bytes,3,opt,name=custom_hooks_update,json=customHooksUpdate,proto3" json:"custom_hooks_update,omitempty"`
 	// pack_prefix contains the prefix (`pack-<digest>`) of the pack and its index.
 	// If pack_prefix is empty, the log entry has no associated pack.
 	PackPrefix string `protobuf:"bytes,4,opt,name=pack_prefix,json=packPrefix,proto3" json:"pack_prefix,omitempty"`
-	// RepositoryDeletion, when set, indicates this log entry deletes the repository.
+	// repository_deletion, when set, indicates this log entry deletes the repository.
 	RepositoryDeletion *LogEntry_RepositoryDeletion `protobuf:"bytes,5,opt,name=repository_deletion,json=repositoryDeletion,proto3" json:"repository_deletion,omitempty"`
 }
 

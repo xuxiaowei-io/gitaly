@@ -12,18 +12,21 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // built a minimized version to for Gitaly use. The completed version is defined at
 // https://github.com/grpc/grpc-proto/blob/master/grpc/service_config/service_config.proto
 message ServiceConfig {
+  // load_balancing_config ...
   // protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
   repeated LoadBalancingConfig load_balancing_config = 1;
+  // method_config ...
   // protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
   repeated MethodConfig method_config = 2;
 }
 
 // LoadBalancingConfig wraps around the round-robin strategies. Only one strategy can be selected.
 message LoadBalancingConfig {
+  // policy ...
   oneof policy {
-    // PickFirst strategy
+    // pick_first strategy
     PickFirstConfig pick_first = 1 [json_name = "pick_first"];
-    // RoundRobin strategy
+    // round_robin strategy
     RoundRobinConfig round_robin = 2 [json_name = "round_robin"];
   }
 }
@@ -39,7 +42,7 @@ message PickFirstConfig {
 message RoundRobinConfig {
 }
 
-// Configuration for a method.
+// MethodConfig is the configuration for a method.
 message MethodConfig {
   // Name is an object indicating which services/methods being affected by the config
   message Name {
@@ -76,7 +79,8 @@ message MethodConfig {
   google.protobuf.Duration timeout = 3;
   google.protobuf.UInt32Value max_request_message_bytes = 4;
   google.protobuf.UInt32Value max_response_message_bytes = 5;
-  // protolint:enable FIELDS_HAVE_COMMENT
+
   // retry_policy defines the exponential backoff configuration for the affected services/methods
+  // protolint:enable FIELDS_HAVE_COMMENT
   RetryPolicy retry_policy = 6;
 }

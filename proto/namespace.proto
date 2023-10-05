@@ -11,7 +11,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // and shouldn't be used nowadays anymore.
 service NamespaceService {
 
-  // This comment is left unintentionally blank.
+  // AddNamespace ...
   rpc AddNamespace(AddNamespaceRequest) returns (AddNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -19,7 +19,7 @@ service NamespaceService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // RemoveNamespace ...
   rpc RemoveNamespace(RemoveNamespaceRequest) returns (RemoveNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -27,7 +27,7 @@ service NamespaceService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // RenameNamespace ...
   rpc RenameNamespace(RenameNamespaceRequest) returns (RenameNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -35,7 +35,7 @@ service NamespaceService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // NamespaceExists ...
   rpc NamespaceExists(NamespaceExistsRequest) returns (NamespaceExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -45,54 +45,54 @@ service NamespaceService {
 
 }
 
-// This comment is left unintentionally blank.
+// AddNamespaceRequest ...
 message AddNamespaceRequest {
-  // This comment is left unintentionally blank.
+  // storage_name ...
   string storage_name = 1 [(storage)=true];
-  // This comment is left unintentionally blank.
+  // name ...
   string name = 2;
 }
 
-// This comment is left unintentionally blank.
+// RemoveNamespaceRequest ...
 message RemoveNamespaceRequest {
-  // This comment is left unintentionally blank.
+  // storage_name ...
   string storage_name = 1 [(storage)=true];
-  // This comment is left unintentionally blank.
+  // name ...
   string name = 2;
 }
 
-// This comment is left unintentionally blank.
+// RenameNamespaceRequest ...
 message RenameNamespaceRequest {
-  // This comment is left unintentionally blank.
+  // storage_name ...
   string storage_name = 1 [(storage)=true];
-  // This comment is left unintentionally blank.
+  // from ...
   string from = 2;
-  // This comment is left unintentionally blank.
+  // to ...
   string to = 3;
 }
 
-// This comment is left unintentionally blank.
+// NamespaceExistsRequest ...
 message NamespaceExistsRequest {
-  // This comment is left unintentionally blank.
+  // storage_name ...
   string storage_name = 1 [(storage)=true];
-  // This comment is left unintentionally blank.
+  // name ...
   string name = 2;
 }
 
-// This comment is left unintentionally blank.
+// NamespaceExistsResponse ...
 message NamespaceExistsResponse {
-  // This comment is left unintentionally blank.
+  // exists ...
   bool exists = 1;
 }
 
-// This comment is left unintentionally blank.
+// AddNamespaceResponse ...
 message AddNamespaceResponse {
 }
 
-// This comment is left unintentionally blank.
+// RemoveNamespaceResponse ...
 message RemoveNamespaceResponse {
 }
 
-// This comment is left unintentionally blank.
+// RenameNamespaceResponse ...
 message RenameNamespaceResponse {
 }

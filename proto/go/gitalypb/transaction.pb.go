@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// Phase ...
 type VoteTransactionRequest_Phase int32
 
 const (
@@ -83,16 +83,16 @@ func (VoteTransactionRequest_Phase) EnumDescriptor() ([]byte, []int) {
 	return file_transaction_proto_rawDescGZIP(), []int{0, 0}
 }
 
-// The outcome of the given transaction telling the client whether the
+// TransactionState is the outcome of the given transaction telling the client whether the
 // transaction should be committed or rolled back.
 type VoteTransactionResponse_TransactionState int32
 
 const (
-	// This comment is left unintentionally blank.
+	// COMMIT ...
 	VoteTransactionResponse_COMMIT VoteTransactionResponse_TransactionState = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// ABORT ...
 	VoteTransactionResponse_ABORT VoteTransactionResponse_TransactionState = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// STOP ...
 	VoteTransactionResponse_STOP VoteTransactionResponse_TransactionState = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -137,21 +137,21 @@ func (VoteTransactionResponse_TransactionState) EnumDescriptor() ([]byte, []int)
 	return file_transaction_proto_rawDescGZIP(), []int{1, 0}
 }
 
-// This comment is left unintentionally blank.
+// VoteTransactionRequest ...
 type VoteTransactionRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// ID of the transaction we're processing
+	// transaction_id is the ID of the transaction we're processing.
 	TransactionId uint64 `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
-	// Name of the Gitaly node that's voting on a transaction.
+	// node is the name of the Gitaly node that's voting on a transaction.
 	Node string `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`
-	// SHA1 of the references that are to be updated
+	// reference_updates_hash is the SHA1 of the references that are to be updated.
 	ReferenceUpdatesHash []byte `protobuf:"bytes,4,opt,name=reference_updates_hash,json=referenceUpdatesHash,proto3" json:"reference_updates_hash,omitempty"`
-	// Phase is the voting phase.
+	// phase is the voting phase.
 	Phase VoteTransactionRequest_Phase `protobuf:"varint,5,opt,name=phase,proto3,enum=gitaly.VoteTransactionRequest_Phase" json:"phase,omitempty"`
 }
 
@@ -222,13 +222,13 @@ func (x *VoteTransactionRequest) GetPhase() VoteTransactionRequest_Phase {
 	return VoteTransactionRequest_UNKNOWN_PHASE
 }
 
-// This comment is left unintentionally blank.
+// VoteTransactionResponse ...
 type VoteTransactionResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// state ...
 	State VoteTransactionResponse_TransactionState `protobuf:"varint,1,opt,name=state,proto3,enum=gitaly.VoteTransactionResponse_TransactionState" json:"state,omitempty"`
 }
 
@@ -271,15 +271,15 @@ func (x *VoteTransactionResponse) GetState() VoteTransactionResponse_Transaction
 	return VoteTransactionResponse_COMMIT
 }
 
-// This comment is left unintentionally blank.
+// StopTransactionRequest ...
 type StopTransactionRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// ID of the transaction we're processing
+	// transaction_id is the ID of the transaction we're processing.
 	TransactionId uint64 `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
 }
 
@@ -329,7 +329,7 @@ func (x *StopTransactionRequest) GetTransactionId() uint64 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// StopTransactionResponse ...
 type StopTransactionResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

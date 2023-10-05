@@ -20,15 +20,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// SortBy ...
 type FindLocalBranchesRequest_SortBy int32
 
 const (
-	// This comment is left unintentionally blank.
+	// NAME ...
 	FindLocalBranchesRequest_NAME FindLocalBranchesRequest_SortBy = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// UPDATED_ASC ...
 	FindLocalBranchesRequest_UPDATED_ASC FindLocalBranchesRequest_SortBy = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// UPDATED_DESC ...
 	FindLocalBranchesRequest_UPDATED_DESC FindLocalBranchesRequest_SortBy = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -77,12 +77,12 @@ func (FindLocalBranchesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 type FindAllTagsRequest_SortBy_Key int32
 
 const (
-	// This comment is left unintentionally blank.
+	// REFNAME ...
 	FindAllTagsRequest_SortBy_REFNAME FindAllTagsRequest_SortBy_Key = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// CREATORDATE ...
 	FindAllTagsRequest_SortBy_CREATORDATE FindAllTagsRequest_SortBy_Key = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 	// VERSION_REFNAME sorts tags by their semantic versions (https://semver.org/).
-	// Tag names that are not semantic versions are sorted lexicographically. They come before
+	// tag names that are not semantic versions are sorted lexicographically. They come before
 	// the semantic versions if the direction is ascending and after the semantic versions if
 	// the direction is descending.
 	FindAllTagsRequest_SortBy_VERSION_REFNAME FindAllTagsRequest_SortBy_Key = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
@@ -129,17 +129,17 @@ func (FindAllTagsRequest_SortBy_Key) EnumDescriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{9, 0, 0}
 }
 
-// This comment is left unintentionally blank.
+// Status ...
 type CreateBranchResponse_Status int32
 
 const (
-	// This comment is left unintentionally blank.
+	// OK ...
 	CreateBranchResponse_OK CreateBranchResponse_Status = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// ERR_EXISTS ...
 	CreateBranchResponse_ERR_EXISTS CreateBranchResponse_Status = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// ERR_INVALID ...
 	CreateBranchResponse_ERR_INVALID CreateBranchResponse_Status = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// ERR_INVALID_START_POINT ...
 	CreateBranchResponse_ERR_INVALID_START_POINT CreateBranchResponse_Status = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -186,17 +186,17 @@ func (CreateBranchResponse_Status) EnumDescriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{14, 0}
 }
 
-// This comment is left unintentionally blank.
+// Key ...
 type ListRefsRequest_SortBy_Key int32
 
 const (
-	// This comment is left unintentionally blank.
+	// REFNAME ...
 	ListRefsRequest_SortBy_REFNAME ListRefsRequest_SortBy_Key = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// This comment is left unintentionally blank.
+	// CREATORDATE ...
 	ListRefsRequest_SortBy_CREATORDATE ListRefsRequest_SortBy_Key = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// AUTHORDATE ...
 	ListRefsRequest_SortBy_AUTHORDATE ListRefsRequest_SortBy_Key = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// This comment is left unintentionally blank.
+	// COMMITTERDATE ...
 	ListRefsRequest_SortBy_COMMITTERDATE ListRefsRequest_SortBy_Key = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -249,9 +249,9 @@ type FindDefaultBranchNameRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository to find the default branch from.
+	// repository is the repository to find the default branch from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// HeadOnly when true will determine the default branch using HEAD only
+	// head_only when true will determine the default branch using HEAD only
 	// instead of using the heuristic. The returned reference may not exist.
 	HeadOnly bool `protobuf:"varint,2,opt,name=head_only,json=headOnly,proto3" json:"head_only,omitempty"`
 }
@@ -302,13 +302,13 @@ func (x *FindDefaultBranchNameRequest) GetHeadOnly() bool {
 	return false
 }
 
-// FindDefaultBranchNameRequest is the response for the FindDefaultBranchName RPC.
+// FindDefaultBranchNameResponse is the response for the FindDefaultBranchName RPC.
 type FindDefaultBranchNameResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name is the fully qualified default branch name.
+	// name is the fully qualified default branch name.
 	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -351,16 +351,17 @@ func (x *FindDefaultBranchNameResponse) GetName() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindLocalBranchesRequest ...
 type FindLocalBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// sort_by ...
 	SortBy FindLocalBranchesRequest_SortBy `protobuf:"varint,2,opt,name=sort_by,json=sortBy,proto3,enum=gitaly.FindLocalBranchesRequest_SortBy" json:"sort_by,omitempty"`
+	// pagination_params is used for pagination of the objects.
 	// The page token is the branch name, with the `refs/heads/` prefix, for
 	// example "refs/heads/master". After the first branch name is encountered
 	// which lexicographically exceeds the page token, it will be the first result
@@ -421,13 +422,13 @@ func (x *FindLocalBranchesRequest) GetPaginationParams() *PaginationParameter {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindLocalBranchesResponse ...
 type FindLocalBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// local_branches ...
 	LocalBranches []*Branch `protobuf:"bytes,2,rep,name=local_branches,json=localBranches,proto3" json:"local_branches,omitempty"`
 }
 
@@ -470,18 +471,18 @@ func (x *FindLocalBranchesResponse) GetLocalBranches() []*Branch {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindAllBranchesRequest ...
 type FindAllBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Only return branches that are merged into root ref
+	// merged_only if set, will only return branches that are merged into root ref.
 	MergedOnly bool `protobuf:"varint,2,opt,name=merged_only,json=mergedOnly,proto3" json:"merged_only,omitempty"`
-	// If merged_only is true, this is a list of branches from which we
-	// return those merged into the root ref
+	// merged_branches is the list of branches from which we return those merged into
+	// the root ref. Used only when merged_only is set to true.
 	MergedBranches [][]byte `protobuf:"bytes,3,rep,name=merged_branches,json=mergedBranches,proto3" json:"merged_branches,omitempty"`
 }
 
@@ -538,13 +539,13 @@ func (x *FindAllBranchesRequest) GetMergedBranches() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindAllBranchesResponse ...
 type FindAllBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// branches ...
 	Branches []*FindAllBranchesResponse_Branch `protobuf:"bytes,1,rep,name=branches,proto3" json:"branches,omitempty"`
 }
 
@@ -593,9 +594,9 @@ type FindTagRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository to look up the tag in.
+	// repository is the repository to look up the tag in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// TagName is the name of the tag that should be looked up. The caller is supposed to pass in the
+	// tag_name is the name of the tag that should be looked up. The caller is supposed to pass in the
 	// tag name only, so if e.g. a tag `refs/tags/v1.0.0` exists, then the caller should pass `v1.0.0`
 	// as argument.
 	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
@@ -653,7 +654,7 @@ type FindTagResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Tag is the tag that was found.
+	// tag is the tag that was found.
 	Tag *Tag `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
 }
 
@@ -760,22 +761,23 @@ type isFindTagError_Error interface {
 }
 
 type FindTagError_TagNotFound struct {
-	// TagNotFound indicates that the tag was not found.
+	// tag_not_found indicates that the tag was not found.
 	TagNotFound *ReferenceNotFoundError `protobuf:"bytes,1,opt,name=tag_not_found,json=tagNotFound,proto3,oneof"`
 }
 
 func (*FindTagError_TagNotFound) isFindTagError_Error() {}
 
-// This comment is left unintentionally blank.
+// FindAllTagsRequest ...
 type FindAllTagsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// SortBy allows to request tags in particular order.
+	// sort_by allows to request tags in particular order.
 	SortBy *FindAllTagsRequest_SortBy `protobuf:"bytes,2,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
+	// pagination_paramsi is used for pagination of the objects.
 	// The page token is the tags name, with the `refs/tags/` prefix, for
 	// example "refs/tags/v1.0.0". When the tag name matches the page token,
 	// the tag following it will be the first result send as part of the response.
@@ -835,13 +837,13 @@ func (x *FindAllTagsRequest) GetPaginationParams() *PaginationParameter {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindAllTagsResponse ...
 type FindAllTagsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// tags ...
 	Tags []*Tag `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
 }
 
@@ -884,15 +886,16 @@ func (x *FindAllTagsResponse) GetTags() []*Tag {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// RefExistsRequest ...
 type RefExistsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Any ref, e.g. 'refs/heads/master' or 'refs/tags/v1.0.1'. Must start with 'refs/'.
+	// ref denotes any ref, e.g. 'refs/heads/master' or 'refs/tags/v1.0.1'.
+	// Must start with 'refs/'.
 	Ref []byte `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
 }
 
@@ -942,13 +945,13 @@ func (x *RefExistsRequest) GetRef() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// RefExistsResponse ...
 type RefExistsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// value ...
 	Value bool `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -991,17 +994,17 @@ func (x *RefExistsResponse) GetValue() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// CreateBranchRequest ...
 type CreateBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// name ...
 	Name []byte `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// This comment is left unintentionally blank.
+	// start_point ...
 	StartPoint []byte `protobuf:"bytes,3,opt,name=start_point,json=startPoint,proto3" json:"start_point,omitempty"`
 }
 
@@ -1058,15 +1061,15 @@ func (x *CreateBranchRequest) GetStartPoint() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CreateBranchResponse ...
 type CreateBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// status ...
 	Status CreateBranchResponse_Status `protobuf:"varint,1,opt,name=status,proto3,enum=gitaly.CreateBranchResponse_Status" json:"status,omitempty"`
-	// This comment is left unintentionally blank.
+	// branch ...
 	Branch *Branch `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
 }
 
@@ -1116,15 +1119,15 @@ func (x *CreateBranchResponse) GetBranch() *Branch {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// DeleteBranchRequest ...
 type DeleteBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// name ...
 	Name []byte `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -1174,6 +1177,7 @@ func (x *DeleteBranchRequest) GetName() []byte {
 	return nil
 }
 
+// DeleteBranchResponse ...
 // Not clear if we need to do status signaling; we can add fields later.
 type DeleteBranchResponse struct {
 	state         protoimpl.MessageState
@@ -1213,7 +1217,7 @@ func (*DeleteBranchResponse) Descriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{16}
 }
 
-// This comment is left unintentionally blank.
+// FindBranchRequest ...
 type FindBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1272,13 +1276,13 @@ func (x *FindBranchRequest) GetName() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindBranchResponse ...
 type FindBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// branch ...
 	Branch *Branch `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
 }
 
@@ -1327,9 +1331,9 @@ type UpdateReferencesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository where references shall be updated in.
+	// repository is the repository where references shall be updated in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Updates is the set of reference updates that shall be performed.
+	// updates is the set of reference updates that shall be performed.
 	Updates []*UpdateReferencesRequest_Update `protobuf:"bytes,2,rep,name=updates,proto3" json:"updates,omitempty"`
 }
 
@@ -1498,19 +1502,19 @@ type isUpdateReferencesError_Error interface {
 }
 
 type UpdateReferencesError_InvalidFormat struct {
-	// InvalidFormat is returned when one or more of the refs to be deleted
+	// invalid_format is returned when one or more of the refs to be deleted
 	// have an invalid format.
 	InvalidFormat *InvalidRefFormatError `protobuf:"bytes,1,opt,name=invalid_format,json=invalidFormat,proto3,oneof"`
 }
 
 type UpdateReferencesError_ReferencesLocked struct {
-	// ReferencesLocked is returned when the references to be deleted are already
+	// references_locked is returned when the references to be deleted are already
 	// locked by another process.
 	ReferencesLocked *ReferencesLockedError `protobuf:"bytes,2,opt,name=references_locked,json=referencesLocked,proto3,oneof"`
 }
 
 type UpdateReferencesError_ReferenceStateMismatch struct {
-	// ReferenceStateMismatch is return for unforced reference updates when the expected object ID does not match
+	// reference_state_mismatch is return for unforced reference updates when the expected object ID does not match
 	// the actual object ID of the reference. This indicates either mismatching expectations or a race with another
 	// client that has updated the reference concurrently.
 	ReferenceStateMismatch *ReferenceStateMismatchError `protobuf:"bytes,3,opt,name=reference_state_mismatch,json=referenceStateMismatch,proto3,oneof"`
@@ -1522,17 +1526,18 @@ func (*UpdateReferencesError_ReferencesLocked) isUpdateReferencesError_Error() {
 
 func (*UpdateReferencesError_ReferenceStateMismatch) isUpdateReferencesError_Error() {}
 
-// This comment is left unintentionally blank.
+// DeleteRefsRequest ...
 type DeleteRefsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// except_with_prefix ...
 	// The following two fields are mutually exclusive
 	ExceptWithPrefix [][]byte `protobuf:"bytes,2,rep,name=except_with_prefix,json=exceptWithPrefix,proto3" json:"except_with_prefix,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
-	// This comment is left unintentionally blank.
+	// refs ...
 	Refs [][]byte `protobuf:"bytes,3,rep,name=refs,proto3" json:"refs,omitempty"`
 }
 
@@ -1589,13 +1594,13 @@ func (x *DeleteRefsRequest) GetRefs() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// DeleteRefsResponse ...
 type DeleteRefsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// git_error ...
 	GitError string `protobuf:"bytes,1,opt,name=git_error,json=gitError,proto3" json:"git_error,omitempty"`
 }
 
@@ -1709,13 +1714,13 @@ type isDeleteRefsError_Error interface {
 }
 
 type DeleteRefsError_InvalidFormat struct {
-	// InvalidFormat is returned when one or more of the refs to be deleted
+	// invalid_format is returned when one or more of the refs to be deleted
 	// have an invalid format.
 	InvalidFormat *InvalidRefFormatError `protobuf:"bytes,1,opt,name=invalid_format,json=invalidFormat,proto3,oneof"`
 }
 
 type DeleteRefsError_ReferencesLocked struct {
-	// ReferencesLocked is returned when the references to be deleted are already
+	// references_locked is returned when the references to be deleted are already
 	// locked by another process.
 	ReferencesLocked *ReferencesLockedError `protobuf:"bytes,2,opt,name=references_locked,json=referencesLocked,proto3,oneof"`
 }
@@ -1724,17 +1729,17 @@ func (*DeleteRefsError_InvalidFormat) isDeleteRefsError_Error() {}
 
 func (*DeleteRefsError_ReferencesLocked) isDeleteRefsError_Error() {}
 
-// This comment is left unintentionally blank.
+// ListBranchNamesContainingCommitRequest ...
 type ListBranchNamesContainingCommitRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// commit_id ...
 	CommitId string `protobuf:"bytes,2,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	// Limit the number of tag names to be returned
+	// limit the number of tag names to be returned
 	// If the limit is set to zero, all items will be returned
 	Limit uint32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 }
@@ -1792,13 +1797,13 @@ func (x *ListBranchNamesContainingCommitRequest) GetLimit() uint32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// ListBranchNamesContainingCommitResponse ...
 type ListBranchNamesContainingCommitResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// branch_names ...
 	BranchNames [][]byte `protobuf:"bytes,2,rep,name=branch_names,json=branchNames,proto3" json:"branch_names,omitempty"`
 }
 
@@ -1841,17 +1846,17 @@ func (x *ListBranchNamesContainingCommitResponse) GetBranchNames() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ListTagNamesContainingCommitRequest ...
 type ListTagNamesContainingCommitRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// commit_id ...
 	CommitId string `protobuf:"bytes,2,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	// Limit the number of tag names to be returned
+	// limit the number of tag names to be returned
 	// If the limit is set to zero, all items will be returned
 	Limit uint32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 }
@@ -1909,13 +1914,13 @@ func (x *ListTagNamesContainingCommitRequest) GetLimit() uint32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// ListTagNamesContainingCommitResponse ...
 type ListTagNamesContainingCommitResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// tag_names ...
 	TagNames [][]byte `protobuf:"bytes,2,rep,name=tag_names,json=tagNames,proto3" json:"tag_names,omitempty"`
 }
 
@@ -1964,9 +1969,9 @@ type GetTagSignaturesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which tag signatures should be looked up.
+	// repository is the repository in which tag signatures should be looked up.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// TagRevisions is the set of revisions which that should be looked up. Revisions
+	// tag_revisions is the set of revisions which that should be looked up. Revisions
 	// supports the syntax as specified by gitrevisions(7). All revisions are expected
 	// to resolve to annotated tag objects. At least one revision must be provided.
 	TagRevisions []string `protobuf:"bytes,2,rep,name=tag_revisions,json=tagRevisions,proto3" json:"tag_revisions,omitempty"`
@@ -2026,7 +2031,7 @@ type GetTagSignaturesResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Signatures is the set of signatures found.
+	// signatures is the set of signatures found.
 	Signatures []*GetTagSignaturesResponse_TagSignature `protobuf:"bytes,1,rep,name=signatures,proto3" json:"signatures,omitempty"`
 }
 
@@ -2069,15 +2074,15 @@ func (x *GetTagSignaturesResponse) GetSignatures() []*GetTagSignaturesResponse_T
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// GetTagMessagesRequest ...
 type GetTagMessagesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// tag_ids ...
 	TagIds []string `protobuf:"bytes,3,rep,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
 }
 
@@ -2127,15 +2132,16 @@ func (x *GetTagMessagesRequest) GetTagIds() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// GetTagMessagesResponse ...
 type GetTagMessagesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// message ...
 	Message []byte `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	// Only present for a new tag message
+	// tag_id ...
+	// Only present for a new tag message.
 	TagId string `protobuf:"bytes,3,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
 }
 
@@ -2185,15 +2191,15 @@ func (x *GetTagMessagesResponse) GetTagId() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// FindAllRemoteBranchesRequest ...
 type FindAllRemoteBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// remote_name ...
 	RemoteName string `protobuf:"bytes,2,opt,name=remote_name,json=remoteName,proto3" json:"remote_name,omitempty"`
 }
 
@@ -2243,13 +2249,13 @@ func (x *FindAllRemoteBranchesRequest) GetRemoteName() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// FindAllRemoteBranchesResponse ...
 type FindAllRemoteBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// branches ...
 	Branches []*Branch `protobuf:"bytes,1,rep,name=branches,proto3" json:"branches,omitempty"`
 }
 
@@ -2298,21 +2304,21 @@ type ListRefsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which references should be listed in.
+	// repository is the repository in which references should be listed in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Patterns contains all patterns which shall be listed. Patterns should be in the format
+	// patterns contains all patterns which shall be listed. Patterns should be in the format
 	// accepted by git-for-each-ref(1). At least one pattern must be given, otherwise an error
 	// is returned. Patterns which don't match any reference will be silently ignored.
 	Patterns [][]byte `protobuf:"bytes,2,rep,name=patterns,proto3" json:"patterns,omitempty"`
-	// Head determines whether the RPC should also return the HEAD reference. By default,
+	// head determines whether the RPC should also return the HEAD reference. By default,
 	// pseudo-refs are not included in the response.
 	Head bool `protobuf:"varint,3,opt,name=head,proto3" json:"head,omitempty"`
-	// SortBy allows to request SHAs in particular order.
+	// sort_by allows to request SHAs in particular order.
 	SortBy *ListRefsRequest_SortBy `protobuf:"bytes,4,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
-	// PointingAtOids is a list of OIDs that can optionally be passed to only return refs
+	// pointing_at_oids is a list of OIDs that can optionally be passed to only return refs
 	// pointing at the given OIDs. This corresponds to the --points-at option of git-for-each-ref(1).
 	PointingAtOids [][]byte `protobuf:"bytes,5,rep,name=pointing_at_oids,json=pointingAtOids,proto3" json:"pointing_at_oids,omitempty"`
-	// PeelTags controls whether annotated tags should be peeled to their target objects so that the
+	// peel_tags controls whether annotated tags should be peeled to their target objects so that the
 	// `PeeledTarget` returned for the reference is the ID of the target object. Note that this
 	// will significantly slow down the request by a factor of 3 to 4.
 	PeelTags bool `protobuf:"varint,6,opt,name=peel_tags,json=peelTags,proto3" json:"peel_tags,omitempty"`
@@ -2399,7 +2405,7 @@ type ListRefsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// References is the set of references returned by the RPC.
+	// references is the set of references returned by the RPC.
 	References []*ListRefsResponse_Reference `protobuf:"bytes,1,rep,name=references,proto3" json:"references,omitempty"`
 }
 
@@ -2442,7 +2448,7 @@ func (x *ListRefsResponse) GetReferences() []*ListRefsResponse_Reference {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindRefsByOIDRequest ...
 type FindRefsByOIDRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2530,7 +2536,7 @@ func (x *FindRefsByOIDRequest) GetLimit() uint32 {
 	return 0
 }
 
-// This comment is left unintentionally blank.
+// FindRefsByOIDResponse ...
 type FindRefsByOIDResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2579,15 +2585,15 @@ func (x *FindRefsByOIDResponse) GetRefs() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// Branch ...
 type FindAllBranchesResponse_Branch struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// name ...
 	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// This comment is left unintentionally blank.
+	// target ...
 	Target *GitCommit `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 }
 
@@ -2643,9 +2649,9 @@ type FindAllTagsRequest_SortBy struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// key ...
 	Key FindAllTagsRequest_SortBy_Key `protobuf:"varint,1,opt,name=key,proto3,enum=gitaly.FindAllTagsRequest_SortBy_Key" json:"key,omitempty"`
-	// This comment is left unintentionally blank.
+	// direction ...
 	Direction SortDirection `protobuf:"varint,2,opt,name=direction,proto3,enum=gitaly.SortDirection" json:"direction,omitempty"`
 }
 
@@ -2701,16 +2707,16 @@ type UpdateReferencesRequest_Update struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Reference is the fully-qualified reference name that should be updated.
+	// reference is the fully-qualified reference name that should be updated.
 	Reference []byte `protobuf:"bytes,1,opt,name=reference,proto3" json:"reference,omitempty"`
-	// OldObjectId is the object ID the reference should be pointing to in order to be updated.
+	// old_object_id is the object ID the reference should be pointing to in order to be updated.
 	// This has the intent to avoid time-of-check-time-of-use-style races when the object ID
 	// has changed.
 	//
 	// If empty, the reference will be force-updated without any such checks. If set to the
 	// all-zeroes object ID, this will verify that the branch did not exist previously.
 	OldObjectId []byte `protobuf:"bytes,2,opt,name=old_object_id,json=oldObjectId,proto3" json:"old_object_id,omitempty"`
-	// NewObjectId is the object ID the reference should be updated to. If set to the all-zeroes
+	// new_object_id is the object ID the reference should be updated to. If set to the all-zeroes
 	// object ID the branch will be deleted.
 	NewObjectId []byte `protobuf:"bytes,3,opt,name=new_object_id,json=newObjectId,proto3" json:"new_object_id,omitempty"`
 }
@@ -2774,12 +2780,12 @@ type GetTagSignaturesResponse_TagSignature struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// TagId is the resolved object ID of the tag.
+	// tag_id is the resolved object ID of the tag.
 	TagId string `protobuf:"bytes,1,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
-	// Signature contains the cryptographic signature of the tag. If the tag is not
+	// signature contains the cryptographic signature of the tag. If the tag is not
 	// cryptographically signed, then the signature is unset.
 	Signature []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
-	// Content contains the contents which are signed by the signature. Contents
+	// content contains the contents which are signed by the signature. Contents
 	// include both the commit message, but also the commit metadata like author and
 	// subject.
 	Content []byte `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
@@ -2838,15 +2844,15 @@ func (x *GetTagSignaturesResponse_TagSignature) GetContent() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// SortBy ...
 type ListRefsRequest_SortBy struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Key is a key used for sorting.
+	// key is a key used for sorting.
 	Key ListRefsRequest_SortBy_Key `protobuf:"varint,1,opt,name=key,proto3,enum=gitaly.ListRefsRequest_SortBy_Key" json:"key,omitempty"`
-	// This comment is left unintentionally blank.
+	// direction ...
 	Direction SortDirection `protobuf:"varint,2,opt,name=direction,proto3,enum=gitaly.SortDirection" json:"direction,omitempty"`
 }
 
@@ -2902,11 +2908,11 @@ type ListRefsResponse_Reference struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name is the fully qualified name of the reference.
+	// name is the fully qualified name of the reference.
 	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Target is the object ID the reference points to.
+	// target is the object ID the reference points to.
 	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
-	// PeeledTarget is the object ID an annotated tag points to. This field is only set when
+	// peeled_target is the object ID an annotated tag points to. This field is only set when
 	// `PeelTags=true`. This field is empty in case the object is not an annotated tag.
 	PeeledTarget string `protobuf:"bytes,3,opt,name=peeled_target,json=peeledTarget,proto3" json:"peeled_target,omitempty"`
 }

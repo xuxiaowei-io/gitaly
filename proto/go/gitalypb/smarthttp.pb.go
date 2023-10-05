@@ -26,11 +26,11 @@ type InfoRefsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository on which to operate.
+	// repository is the repository on which to operate.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// GitConfigOptions are parameters to use with git -c (key=value pairs).
+	// git_config_options are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,2,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
-	// GitProtocol is the git protocol version.
+	// git_protocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,3,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
 }
 
@@ -94,7 +94,7 @@ type InfoRefsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Data is the raw data copied from the stdout of git-upload-pack(1) or
+	// data is the raw data copied from the stdout of git-upload-pack(1) or
 	// git-receive-pack(1) when used with the `--advertise-refs` flag.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
@@ -144,11 +144,11 @@ type PostUploadPackWithSidechannelRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository on which to operate.
+	// repository is the repository on which to operate.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// GitConfigOptions are parameters to use with git -c (key=value pairs).
+	// git_config_options are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,2,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
-	// GitProtocol is the git protocol version.
+	// git_protocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,3,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
 }
 
@@ -213,7 +213,7 @@ type PostUploadPackWithSidechannelResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Packfile negotiation statistics.
+	// packfile_negotiation_statistics is the packfile negotiation statistics.
 	PackfileNegotiationStatistics *PackfileNegotiationStatistics `protobuf:"bytes,1,opt,name=packfile_negotiation_statistics,json=packfileNegotiationStatistics,proto3" json:"packfile_negotiation_statistics,omitempty"`
 }
 
@@ -263,23 +263,23 @@ type PostReceivePackRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository on which to operate.
+	// repository is the repository on which to operate.
 	// It should only be present in the first message of the stream.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Data is the raw data to be copied to stdin of 'git receive-pack'.
+	// data is the raw data to be copied to stdin of 'git receive-pack'.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// GlID is the GitLab ID of the user. This is used by Git {pre,post}-receive hooks.
+	// gl_id is the GitLab ID of the user. This is used by Git {pre,post}-receive hooks.
 	// It should only be present in the first message of the stream.
 	GlId string `protobuf:"bytes,3,opt,name=gl_id,json=glId,proto3" json:"gl_id,omitempty"`
-	// GlRepository refers to the GitLab repository. This is used by Git {pre,post}-receive hooks.
+	// gl_repository refers to the GitLab repository. This is used by Git {pre,post}-receive hooks.
 	// It should only be present in the first message of the stream.
 	GlRepository string `protobuf:"bytes,4,opt,name=gl_repository,json=glRepository,proto3" json:"gl_repository,omitempty"`
-	// GlID is the GitLab Username of the user. This is used by Git {pre,post}-receive hooks.
+	// gl_username is the GitLab Username of the user. This is used by Git {pre,post}-receive hooks.
 	// It should only be present in the first message of the stream.
 	GlUsername string `protobuf:"bytes,5,opt,name=gl_username,json=glUsername,proto3" json:"gl_username,omitempty"`
-	// GitProtocol is the git protocol version.
+	// git_protocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,6,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
-	// GitConfigOptions are parameters to use with git -c (key=value pairs).
+	// git_config_options are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,7,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
 }
 
@@ -371,7 +371,7 @@ type PostReceivePackResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Data is the raw data from the stdout of 'git receive-pack'.
+	// data is the raw data from the stdout of 'git receive-pack'.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 

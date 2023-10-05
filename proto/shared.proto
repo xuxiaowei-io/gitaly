@@ -7,17 +7,17 @@ import "lint.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// This comment is left unintentionally blank.
+// ObjectType ...
 enum ObjectType {
-  // This comment is left unintentionally blank.
+  // UNKNOWN ...
   UNKNOWN = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-  // This comment is left unintentionally blank.
+  // COMMIT ...
   COMMIT = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-  // This comment is left unintentionally blank.
+  // BLOB ...
   BLOB = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-  // This comment is left unintentionally blank.
+  // TREE ...
   TREE = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-  // This comment is left unintentionally blank.
+  // TAG ...
   TAG = 4; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 }
 
@@ -32,41 +32,42 @@ enum ObjectFormat {
   OBJECT_FORMAT_SHA256 = 2;
 }
 
-// This comment is left unintentionally blank.
+// SignatureType ...
 enum SignatureType {
-  // This comment is left unintentionally blank.
+  // NONE ...
   NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-  // This comment is left unintentionally blank.
+  // PGP ...
   PGP = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-  // This comment is left unintentionally blank.
+  // X509 ...
   X509 = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-  // This comment is left unintentionally blank.
+  // SSH ...
   SSH = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   // maybe add X509+TSA or other combinations at a later step
 }
 
-// This comment is left unintentionally blank.
+// Repository ...
 message Repository {
   // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/issues/151
   reserved 1;
   reserved "path";
 
-  // This comment is left unintentionally blank.
+  // storage_name ...
   string storage_name = 2;
-  // This comment is left unintentionally blank.
+  // relative_path ...
   string relative_path = 3;
-  // Sets the GIT_OBJECT_DIRECTORY envvar on git commands to the value of this field.
+  // git_object_directory sets the GIT_OBJECT_DIRECTORY envvar on git commands to the value of this field.
   // It influences the object storage directory the SHA1 directories are created underneath.
   string git_object_directory = 4;
-  // Sets the GIT_ALTERNATE_OBJECT_DIRECTORIES envvar on git commands to the values of this field.
-  // It influences the list of Git object directories which can be used to search for Git objects.
+  // git_alternate_object_directories sets the GIT_ALTERNATE_OBJECT_DIRECTORIES envvar on git commands to
+  // the values of this field. It influences the list of Git object directories which can be used to search
+  // for Git objects.
   repeated string git_alternate_object_directories = 5;
-  // Used in callbacks to GitLab so that it knows what repository the event is
+  // gl_repository is used in callbacks to GitLab so that it knows what repository the event is
   // associated with. May be left empty on RPC's that do not perform callbacks.
   // During project creation, `gl_repository` may not be known.
   string gl_repository = 6;
   reserved 7;
-  // The human-readable GitLab project path (e.g. gitlab-org/gitlab-ce).
+  // gl_project_path is the human-readable GitLab project path (e.g. gitlab-org/gitlab-ce).
   // When hashed storage is use, this associates a project path with its
   // path on disk. The name can change over time (e.g. when a project is
   // renamed). This is primarily used for logging/debugging at the
@@ -74,12 +75,12 @@ message Repository {
   string gl_project_path = 8;
 }
 
-// A single Git trailer (https://git-scm.com/docs/git-interpret-trailers)
+// CommitTrailer is a single Git trailer (https://git-scm.com/docs/git-interpret-trailers)
 // key-value pair.
 message CommitTrailer {
-  // The key of the trailer, such as `Signed-off-by`.
+  // key is the key of the trailer, such as `Signed-off-by`.
   bytes key = 1;
-  // The value of the trailer, such as `Alice <alice@gmail.com>`.
+  // value is the value of the trailer, such as `Alice <alice@gmail.com>`.
   bytes value = 2;
 }
 
@@ -93,142 +94,142 @@ message CommitStatInfo {
   int32 changed_files = 3;
 }
 
-// Corresponds to Gitlab::Git::Commit
+// GitCommit corresponds to Gitlab::Git::Commit
 message GitCommit {
-  // This comment is left unintentionally blank.
+  // id ...
   string id = 1;
-  // This comment is left unintentionally blank.
+  // subject ...
   bytes subject = 2;
-  // This comment is left unintentionally blank.
+  // body ...
   bytes body = 3;
-  // This comment is left unintentionally blank.
+  // author ...
   CommitAuthor author = 4;
-  // This comment is left unintentionally blank.
+  // committer ...
   CommitAuthor committer = 5;
-  // This comment is left unintentionally blank.
+  // parent_ids ...
   repeated string parent_ids = 6;
-  // If body exceeds a certain threshold, it will be nullified,
-  // but its size will be set in body_size so we can know if
+  // body_size is the size of the commit body. If body exceeds a certain threshold,
+  // it will be nullified, but its size will be set in body_size so we can know if
   // a commit had a body in the first place.
   int64 body_size = 7;
-  // This comment is left unintentionally blank.
+  // signature_type ...
   SignatureType signature_type = 8;
-  // The tree ID will always be filled, even if the tree is empty. In that case
-  // the value will be `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
-  // That value is equivalent to `git hash-object -t tree /dev/null`
+  // tree_id is the object ID of the tree. The tree ID will always be filled, even
+  // if the tree is empty. In that case the value will be `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
+  // That value is equivalent to `git hash-object -t tree /dev/null`.
   string tree_id = 9;
-  // The list of Git trailers (https://git-scm.com/docs/git-interpret-trailers)
+  // trailers is the list of Git trailers (https://git-scm.com/docs/git-interpret-trailers)
   // found in this commit's message. The number of trailers and their key/value
   // sizes are limited. If a trailer exceeds these size limits, it and any
   // trailers that follow it are not included.
   repeated CommitTrailer trailers = 10;
-  // The stats include additions, deletions and changed_files,
+  // short_stats are the git stats including additions, deletions and changed_files,
   // they are only set when `include_shortstat == true`.
   CommitStatInfo  short_stats = 11;
   // referenced_by contains fully-qualified reference names (e.g refs/heads/main)
   // that point to the commit.
   repeated bytes referenced_by = 12; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
-  // The encoding of the commit message. This field will only be present if
+  // encoding is the encoding of the commit message. This field will only be present if
   // `i18n.commitEncoding` was set to a value other than "UTF-8" at the time
   // this commit was made.
   // See: https://git-scm.com/docs/git-commit#_discussion
   string encoding = 13;
 }
 
-// This comment is left unintentionally blank.
+// CommitAuthor ...
 message CommitAuthor {
-  // This comment is left unintentionally blank.
+  // name ...
   bytes name = 1;
-  // This comment is left unintentionally blank.
+  // email ...
   bytes email = 2;
-  // This comment is left unintentionally blank.
+  // date ...
   google.protobuf.Timestamp date = 3;
-  // This comment is left unintentionally blank.
+  // timezone ...
   bytes timezone = 4;
 }
 
-// This comment is left unintentionally blank.
+// ExitStatus ...
 message ExitStatus {
-  // This comment is left unintentionally blank.
+  // value ...
   int32 value = 1;
 }
 
-// Corresponds to Gitlab::Git::Branch
+// Branch corresponds to Gitlab::Git::Branch
 message Branch {
-  // This comment is left unintentionally blank.
+  // name ...
   bytes name = 1;
-  // This comment is left unintentionally blank.
+  // target_commit ...
   GitCommit target_commit = 2;
 }
 
-// This comment is left unintentionally blank.
+// Tag ...
 message Tag {
-  // This comment is left unintentionally blank.
+  // name ...
   bytes name = 1;
-  // This comment is left unintentionally blank.
+  // id ...
   string id = 2;
-  // This comment is left unintentionally blank.
+  // target_commit ...
   GitCommit target_commit = 3;
-  // If message exceeds a certain threshold, it will be nullified,
-  // but its size will be set in message_size so we can know if
-  // a tag had a message in the first place.
+  // message is the message of the tag. If message exceeds a certain
+  // threshold, it will be nullified, but its size will be set in
+  // message_size so we can know if a tag had a message in the first place.
   bytes message = 4;
-  // This comment is left unintentionally blank.
+  // message_size ...
   int64 message_size = 5;
-  // This comment is left unintentionally blank.
+  // tagger ...
   CommitAuthor tagger = 6;
-  // This comment is left unintentionally blank.
+  // signature_type ...
   SignatureType signature_type = 7;
 }
 
-// This comment is left unintentionally blank.
+// User ...
 message User {
-  // This comment is left unintentionally blank.
+  // gl_id ...
   string gl_id = 1;
-  // This comment is left unintentionally blank.
+  // name ...
   bytes name = 2;
-  // This comment is left unintentionally blank.
+  // email ...
   bytes email = 3;
-  // This comment is left unintentionally blank.
+  // gl_username ...
   string gl_username = 4;
-  // Timezone is the timezone as configured by the user in the web interface. This
+  // timezone is the timezone as configured by the user in the web interface. This
   // timezone may be used when new commits are created via RPC calls.
   string timezone = 5;
 }
 
-// This comment is left unintentionally blank.
+// ObjectPool ...
 message ObjectPool {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(gitaly.repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// PaginationParameter ...
 message PaginationParameter {
-  // Instructs pagination to start sending results after the provided page
+  // page_token instructs pagination to start sending results after the provided page
   // token appears. A page token allows for a generic pattern to uniquely
   // identify a result or 'page'. Each paginated RPC may interpret a page
   // token differently.
   string page_token = 1;
-  // When fully consuming the response the client will receive _at most_
-  // `limit` number of resulting objects. Note that the number of response
-  // messages might be much lower, as some response messages already send
-  // multiple objects per message.
+  // limit is the maximum number of objects the client will receive. When fully consuming
+  // the response the client will receive _at most_ `limit` number of resulting objects.
+  // Note that the number of response messages might be much lower, as some response
+  // messages already send multiple objects per message.
   // When the limit is smaller than 0, it will be normalized to 2147483647
   // on the server side. When limit is not set, it defaults to 0, and no
   // results are send in the response.
   int32 limit = 2;
 }
 
-// This comment is left unintentionally blank.
+// PaginationCursor ...
 message PaginationCursor {
-  // To the caller, this is an opaque token to indicate what the caller
+  // next_cursor is an opaque token provided to the caller to indicate what the caller
   // should present as a page_token to get subsequent results.
   string next_cursor = 1;
 }
 
-// https://git-scm.com/docs/git/#_options
+// GlobalOptions are additional git options as defined at https://git-scm.com/docs/git/#_options.
 message GlobalOptions {
-  // Treat pathspecs literally (i.e. no globbing, no pathspec magic)
+  // literal_pathspecs should be set to treat pathspecs literally (i.e. no globbing, no pathspec magic).
   bool literal_pathspecs = 1;
 }
 

@@ -22,13 +22,13 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SSHServiceClient interface {
-	// To forward 'git upload-pack' to Gitaly for SSH sessions
+	// SSHUploadPack is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions.
 	SSHUploadPack(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHUploadPackClient, error)
-	// To forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
+	// SSHUploadPackWithSidechannel is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels.
 	SSHUploadPackWithSidechannel(ctx context.Context, in *SSHUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*SSHUploadPackWithSidechannelResponse, error)
-	// To forward 'git receive-pack' to Gitaly for SSH sessions
+	// SSHReceivePack is an RPC to forward 'git receive-pack' to Gitaly for SSH sessions.
 	SSHReceivePack(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHReceivePackClient, error)
-	// To forward 'git upload-archive' to Gitaly for SSH sessions
+	// SSHUploadArchive is an RPC to forward 'git upload-archive' to Gitaly for SSH sessions.
 	SSHUploadArchive(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHUploadArchiveClient, error)
 }
 
@@ -146,13 +146,13 @@ func (x *sSHServiceSSHUploadArchiveClient) Recv() (*SSHUploadArchiveResponse, er
 // All implementations must embed UnimplementedSSHServiceServer
 // for forward compatibility
 type SSHServiceServer interface {
-	// To forward 'git upload-pack' to Gitaly for SSH sessions
+	// SSHUploadPack is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions.
 	SSHUploadPack(SSHService_SSHUploadPackServer) error
-	// To forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
+	// SSHUploadPackWithSidechannel is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels.
 	SSHUploadPackWithSidechannel(context.Context, *SSHUploadPackWithSidechannelRequest) (*SSHUploadPackWithSidechannelResponse, error)
-	// To forward 'git receive-pack' to Gitaly for SSH sessions
+	// SSHReceivePack is an RPC to forward 'git receive-pack' to Gitaly for SSH sessions.
 	SSHReceivePack(SSHService_SSHReceivePackServer) error
-	// To forward 'git upload-archive' to Gitaly for SSH sessions
+	// SSHUploadArchive is an RPC to forward 'git upload-archive' to Gitaly for SSH sessions.
 	SSHUploadArchive(SSHService_SSHUploadArchiveServer) error
 	mustEmbedUnimplementedSSHServiceServer()
 }

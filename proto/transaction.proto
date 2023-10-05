@@ -42,9 +42,9 @@ service RefTransaction {
 
 }
 
-// This comment is left unintentionally blank.
+// VoteTransactionRequest ...
 message VoteTransactionRequest {
-  // This comment is left unintentionally blank.
+  // Phase ...
   enum Phase {
     // UNKNOWN_PHASE is the unknown voting phase. This value has been the
     // default because phases have been introduced. Eventually, using this
@@ -62,43 +62,43 @@ message VoteTransactionRequest {
     SYNCHRONIZED_PHASE = 3;  // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   };
 
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1[(target_repository)=true];
-  // ID of the transaction we're processing
+  // transaction_id is the ID of the transaction we're processing.
   uint64 transaction_id = 2;
-  // Name of the Gitaly node that's voting on a transaction.
+  // node is the name of the Gitaly node that's voting on a transaction.
   string node = 3;
-  // SHA1 of the references that are to be updated
+  // reference_updates_hash is the SHA1 of the references that are to be updated.
   bytes reference_updates_hash = 4;
-  // Phase is the voting phase.
+  // phase is the voting phase.
   Phase phase = 5;
 }
 
-// This comment is left unintentionally blank.
+// VoteTransactionResponse ...
 message VoteTransactionResponse {
-  // The outcome of the given transaction telling the client whether the
+  // TransactionState is the outcome of the given transaction telling the client whether the
   // transaction should be committed or rolled back.
   enum TransactionState {
-    // This comment is left unintentionally blank.
+    // COMMIT ...
     COMMIT = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // This comment is left unintentionally blank.
+    // ABORT ...
     ABORT = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // This comment is left unintentionally blank.
+    // STOP ...
     STOP = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // This comment is left unintentionally blank.
+  // state ...
   TransactionState state = 1;
 }
 
-// This comment is left unintentionally blank.
+// StopTransactionRequest ...
 message StopTransactionRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1[(target_repository)=true];
-  // ID of the transaction we're processing
+  // transaction_id is the ID of the transaction we're processing.
   uint64 transaction_id = 2;
 }
 
-// This comment is left unintentionally blank.
+// StopTransactionResponse ...
 message StopTransactionResponse {
 }

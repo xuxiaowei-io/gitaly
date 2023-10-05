@@ -76,7 +76,7 @@ func (UserRevertResponse_CreateTreeError) EnumDescriptor() ([]byte, []int) {
 	return file_operations_proto_rawDescGZIP(), []int{27, 0}
 }
 
-// This comment is left unintentionally blank.
+// ActionType ...
 type UserCommitFilesActionHeader_ActionType int32
 
 const (
@@ -141,19 +141,19 @@ func (UserCommitFilesActionHeader_ActionType) EnumDescriptor() ([]byte, []int) {
 	return file_operations_proto_rawDescGZIP(), []int{28, 0}
 }
 
-// This comment is left unintentionally blank.
+// UserCreateBranchRequest ...
 type UserCreateBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// branch_name ...
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// user ...
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
-	// This comment is left unintentionally blank.
+	// start_point ...
 	StartPoint []byte `protobuf:"bytes,4,opt,name=start_point,json=startPoint,proto3" json:"start_point,omitempty"`
 }
 
@@ -217,13 +217,13 @@ func (x *UserCreateBranchRequest) GetStartPoint() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// UserCreateBranchResponse ...
 type UserCreateBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// branch ...
 	Branch *Branch `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
 }
 
@@ -330,28 +330,28 @@ type isUserCreateBranchError_Error interface {
 }
 
 type UserCreateBranchError_CustomHook struct {
-	// CustomHookError is set if any custom hook which has running as part of
+	// custom_hookError is set if any custom hook which has running as part of
 	// this RPC call has returned a non-zero exit code.
 	CustomHook *CustomHookError `protobuf:"bytes,1,opt,name=custom_hook,json=customHook,proto3,oneof"`
 }
 
 func (*UserCreateBranchError_CustomHook) isUserCreateBranchError_Error() {}
 
-// This comment is left unintentionally blank.
+// UserUpdateBranchRequest ...
 type UserUpdateBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// branch_name ...
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// user ...
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
-	// This comment is left unintentionally blank.
+	// newrev ...
 	Newrev []byte `protobuf:"bytes,4,opt,name=newrev,proto3" json:"newrev,omitempty"`
-	// This comment is left unintentionally blank.
+	// oldrev ...
 	Oldrev []byte `protobuf:"bytes,5,opt,name=oldrev,proto3" json:"oldrev,omitempty"`
 }
 
@@ -422,13 +422,13 @@ func (x *UserUpdateBranchRequest) GetOldrev() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateBranchResponse ...
 type UserUpdateBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// pre_receive_error ...
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
@@ -477,13 +477,13 @@ type UserDeleteBranchRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository to delete the branch in.
+	// repository is the repository to delete the branch in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// BranchName is the name of the branch that shall be deleted. This is expected to be the branch
+	// branch_name is the name of the branch that shall be deleted. This is expected to be the branch
 	// name only, e.g. in case you want to delete `refs/heads/main` the request needs to only contain
 	// `main` as the branch name.
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// User is the user on whose behalf we should delete the branch. This information is used to
+	// user is the user on whose behalf we should delete the branch. This information is used to
 	// perform access checks against the Rails `/internal/allowed` API. This user is also exposed to
 	// any custom hooks executed as part of this RPC call.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
@@ -676,18 +676,18 @@ type isUserDeleteBranchError_Error interface {
 }
 
 type UserDeleteBranchError_AccessCheck struct {
-	// AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+	// access_checkError is set if the RPC failed because `/internal/allowed` failed.
 	AccessCheck *AccessCheckError `protobuf:"bytes,1,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
 type UserDeleteBranchError_ReferenceUpdate struct {
-	// ReferenceUpdateError is set if the RPC failed because updating the
+	// reference_updateError is set if the RPC failed because updating the
 	// reference to the new object ID has failed.
 	ReferenceUpdate *ReferenceUpdateError `protobuf:"bytes,2,opt,name=reference_update,json=referenceUpdate,proto3,oneof"`
 }
 
 type UserDeleteBranchError_CustomHook struct {
-	// CustomHook is set if any custom hook which has running as part of this RPC call has returned
+	// custom_hook is set if any custom hook which has running as part of this RPC call has returned
 	// a non-zero exit code.
 	CustomHook *CustomHookError `protobuf:"bytes,3,opt,name=custom_hook,json=customHook,proto3,oneof"`
 }
@@ -698,17 +698,17 @@ func (*UserDeleteBranchError_ReferenceUpdate) isUserDeleteBranchError_Error() {}
 
 func (*UserDeleteBranchError_CustomHook) isUserDeleteBranchError_Error() {}
 
-// This comment is left unintentionally blank.
+// UserDeleteTagRequest ...
 type UserDeleteTagRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// tag_name ...
 	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// user ...
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 	// expected_old_oid is the object ID which tag is expected to point to.
 	// This is used as a safety guard to avoid races when tag has been
@@ -780,13 +780,13 @@ func (x *UserDeleteTagRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserDeleteTagResponse ...
 type UserDeleteTagResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// pre_receive_error ...
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
@@ -835,22 +835,22 @@ type UserCreateTagRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which the tag shall be created.
+	// repository is the repository in which the tag shall be created.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// TagName is the name of the tag that shall be created. Note that this should be set to the name
+	// tag_name is the name of the tag that shall be created. Note that this should be set to the name
 	// only: if you want to create a tag `refs/heads/v1.0`, you need to pass `v1.0` as TagName.
 	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
-	// User is the user as which the tag shall be created. This user is used to perform access checks
+	// user is the user as which the tag shall be created. This user is used to perform access checks
 	// against Rails' `/internal/allowed` endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
-	// TargetRevision is the revision that the newly created tag should be pointing to. Note that if
+	// target_revision is the revision that the newly created tag should be pointing to. Note that if
 	// the revision points to a tag, that tag will be peeled to the commit it is pointing to. If the
-	// TargetRevision does not point to a commit then the RPC will return an error.
+	// target_revision does not point to a commit then the RPC will return an error.
 	TargetRevision []byte `protobuf:"bytes,4,opt,name=target_revision,json=targetRevision,proto3" json:"target_revision,omitempty"`
-	// Message is the message of the tag. If it is empty, a lightweight tag is created. Otherwise, an
+	// message is the message of the tag. If it is empty, a lightweight tag is created. Otherwise, an
 	// annotated tag is created.
 	Message []byte `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
-	// Timestamp is the optional timestamp to use for the created tag tags. If it's not set, the
+	// timestamp is the optional timestamp to use for the created tag tags. If it's not set, the
 	// current time will be used. It's only used if an annotated tag is being created.
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 }
@@ -979,7 +979,7 @@ func (x *UserCreateTagResponse) GetTag() *Tag {
 }
 
 // UserCreateTagError includes error descriptions which may be set as error details in case
-// UserCreateTag fails.
+// userCreateTag fails.
 type UserCreateTagError struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1066,24 +1066,24 @@ type isUserCreateTagError_Error interface {
 }
 
 type UserCreateTagError_AccessCheck struct {
-	// AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+	// access_checkError is set if the RPC failed because `/internal/allowed` failed.
 	AccessCheck *AccessCheckError `protobuf:"bytes,1,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
 type UserCreateTagError_ReferenceUpdate struct {
-	// ReferenceUpdateError is set if the RPC failed because updating the
+	// reference_updateError is set if the RPC failed because updating the
 	// reference to the new object ID has failed.
 	ReferenceUpdate *ReferenceUpdateError `protobuf:"bytes,2,opt,name=reference_update,json=referenceUpdate,proto3,oneof"`
 }
 
 type UserCreateTagError_CustomHook struct {
-	// CustomHook is set if any custom hook which has running as part of this RPC call has returned
+	// custom_hook is set if any custom hook which has running as part of this RPC call has returned
 	// a non-zero exit code.
 	CustomHook *CustomHookError `protobuf:"bytes,3,opt,name=custom_hook,json=customHook,proto3,oneof"`
 }
 
 type UserCreateTagError_ReferenceExists struct {
-	// ReferenceExistsError is set if the tag reference exists already.
+	// reference_existsError is set if the tag reference exists already.
 	ReferenceExists *ReferenceExistsError `protobuf:"bytes,4,opt,name=reference_exists,json=referenceExists,proto3,oneof"`
 }
 
@@ -1095,7 +1095,9 @@ func (*UserCreateTagError_CustomHook) isUserCreateTagError_Error() {}
 
 func (*UserCreateTagError_ReferenceExists) isUserCreateTagError_Error() {}
 
-// This comment is left unintentionally blank.
+// UserMergeBranchRequest ...
+// The first set of parameters must only be set in the first message to declare
+// parameters for the merge.
 type UserMergeBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1220,17 +1222,18 @@ func (x *UserMergeBranchRequest) GetApply() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// UserMergeBranchResponse ...
 type UserMergeBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// First message
-	// The merge commit the branch will be updated to. The caller can still abort the merge.
+	// commit_id is the merge commit the branch will be updated to.
+	// The caller can still abort the merge.
+	// First message.
 	CommitId string `protobuf:"bytes,1,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
+	// branch_update if set, is the merge has been applied to the branch.
 	// Second message
-	// If set, the merge has been applied to the branch.
 	BranchUpdate *OperationBranchUpdate `protobuf:"bytes,3,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
 }
 
@@ -1368,24 +1371,24 @@ type isUserMergeBranchError_Error interface {
 }
 
 type UserMergeBranchError_AccessCheck struct {
-	// AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+	// access_checkError is set if the RPC failed because `/internal/allowed` failed.
 	AccessCheck *AccessCheckError `protobuf:"bytes,1,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
 type UserMergeBranchError_ReferenceUpdate struct {
-	// ReferenceUpdateError is set if the RPC failed because updating the
+	// reference_updateError is set if the RPC failed because updating the
 	// reference to the new object ID has failed.
 	ReferenceUpdate *ReferenceUpdateError `protobuf:"bytes,2,opt,name=reference_update,json=referenceUpdate,proto3,oneof"`
 }
 
 type UserMergeBranchError_CustomHook struct {
-	// CustomHook is set if any custom hook which has running as part of this RPC call has returned
+	// custom_hook is set if any custom hook which has running as part of this RPC call has returned
 	// a non-zero exit code.
 	CustomHook *CustomHookError `protobuf:"bytes,3,opt,name=custom_hook,json=customHook,proto3,oneof"`
 }
 
 type UserMergeBranchError_MergeConflict struct {
-	// MergeConflictError is set if merging the revisions has resulted in conflicting files.
+	// merge_conflictError is set if merging the revisions has resulted in conflicting files.
 	MergeConflict *MergeConflictError `protobuf:"bytes,4,opt,name=merge_conflict,json=mergeConflict,proto3,oneof"`
 }
 
@@ -1397,7 +1400,7 @@ func (*UserMergeBranchError_CustomHook) isUserMergeBranchError_Error() {}
 
 func (*UserMergeBranchError_MergeConflict) isUserMergeBranchError_Error() {}
 
-// This comment is left unintentionally blank.
+// UserMergeToRefRequest ...
 type UserMergeToRefRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1421,10 +1424,9 @@ type UserMergeToRefRequest struct {
 	// first_parent_ref is the name of the reference which should be used as the
 	// first parent of the computed merge. Overrides `branch`.
 	FirstParentRef []byte `protobuf:"bytes,7,opt,name=first_parent_ref,json=firstParentRef,proto3" json:"first_parent_ref,omitempty"`
-	// It used to be possible to set an allow_conflicts field to allow the merge
-	// to go ahead when there were conflicts. The code would simply write the
-	// conflict markers in the code. This has since been deprecated in Rails and
-	// is no longer needed.
+	// allow_conflicts if set, used to allow the merge to go ahead when there were
+	// conflicts.  The code would simply write the conflict markers in the code.
+	// This has since been deprecated in Rails and is no longer needed.
 	//
 	// Deprecated: Marked as deprecated in operations.proto.
 	AllowConflicts bool `protobuf:"varint,8,opt,name=allow_conflicts,json=allowConflicts,proto3" json:"allow_conflicts,omitempty"`
@@ -1549,7 +1551,7 @@ func (x *UserMergeToRefRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserMergeToRefResponse ...
 type UserMergeToRefResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1604,22 +1606,22 @@ type UserRebaseToRefRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which the rebase shall be computed.
+	// repository is the repository in which the rebase shall be computed.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// User is the user as which the rebased commits shall be created.
+	// user is the user as which the rebased commits shall be created.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	// SourceSha is the object ID of the commit to be rebased.
+	// source_sha is the object ID of the commit to be rebased.
 	SourceSha string `protobuf:"bytes,3,opt,name=source_sha,json=sourceSha,proto3" json:"source_sha,omitempty"`
-	// TargetRef is the fully qualified reference that will be overwritten or created
+	// target_ref is the fully qualified reference that will be overwritten or created
 	// with the rebased commits.
 	TargetRef []byte `protobuf:"bytes,5,opt,name=target_ref,json=targetRef,proto3" json:"target_ref,omitempty"`
-	// FirstParentRef is the name of the reference on top of which SourceSha
+	// first_parent_ref is the name of the reference on top of which SourceSha
 	// should be rebased.
 	FirstParentRef []byte `protobuf:"bytes,7,opt,name=first_parent_ref,json=firstParentRef,proto3" json:"first_parent_ref,omitempty"`
-	// Timestamp is the optional timestamp to use for the rebased commits as
+	// timestamp is the optional timestamp to use for the rebased commits as
 	// committer date. If it's not set, the current time will be used.
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	// ExpectedOldOid is the object ID to which TargetRef is expected to point.
+	// expected_old_oid is the object ID to which TargetRef is expected to point.
 	// This is used as a safety guard to avoid races when TargetRef has been
 	// updated meanwhile to point to a different object ID.
 	//
@@ -1717,7 +1719,7 @@ type UserRebaseToRefResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// CommitId is the object ID of the HEAD of the rebased ref.
+	// commit_id is the object ID of the HEAD of the rebased ref.
 	CommitId string `protobuf:"bytes,1,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
 }
 
@@ -1924,15 +1926,15 @@ func (x *UserFFBranchRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserFFBranchResponse ...
 type UserFFBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// branch_update ...
 	BranchUpdate *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
-	// This comment is left unintentionally blank.
+	// pre_receive_error ...
 	PreReceiveError string `protobuf:"bytes,2,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
@@ -1982,7 +1984,7 @@ func (x *UserFFBranchResponse) GetPreReceiveError() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserCherryPickRequest ...
 type UserCherryPickRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2127,7 +2129,7 @@ func (x *UserCherryPickRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserCherryPickResponse ...
 type UserCherryPickResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2263,13 +2265,13 @@ type isUserCherryPickError_Error interface {
 }
 
 type UserCherryPickError_CherryPickConflict struct {
-	// CherryPickConflict is returned if there is a conflict when applying the cherry
+	// cherry_pick_conflict is returned if there is a conflict when applying the cherry
 	// pick.
 	CherryPickConflict *MergeConflictError `protobuf:"bytes,1,opt,name=cherry_pick_conflict,json=cherryPickConflict,proto3,oneof"`
 }
 
 type UserCherryPickError_TargetBranchDiverged struct {
-	// TargetBranchDiverged is returned whenever the tip commit of the branch we're
+	// target_branch_diverged is returned whenever the tip commit of the branch we're
 	// about to apply the new commit on is not a direct ancestor of the newly created
 	// cherry-picked commit. This may happen either due to a race where the reference
 	// is modified while we compute the cherry-picked commit, or alternatively if the
@@ -2279,12 +2281,12 @@ type UserCherryPickError_TargetBranchDiverged struct {
 }
 
 type UserCherryPickError_ChangesAlreadyApplied struct {
-	// ChangesAlreadyApplied is returned if the result after applying the cherry pick is empty.
+	// changes_already_applied is returned if the result after applying the cherry pick is empty.
 	ChangesAlreadyApplied *ChangesAlreadyAppliedError `protobuf:"bytes,3,opt,name=changes_already_applied,json=changesAlreadyApplied,proto3,oneof"`
 }
 
 type UserCherryPickError_AccessCheck struct {
-	// AccessCheck is returned in case GitLab's `/internal/allowed` endpoint rejected
+	// access_check is returned in case GitLab's `/internal/allowed` endpoint rejected
 	// the change.
 	AccessCheck *AccessCheckError `protobuf:"bytes,4,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
@@ -2297,7 +2299,7 @@ func (*UserCherryPickError_ChangesAlreadyApplied) isUserCherryPickError_Error() 
 
 func (*UserCherryPickError_AccessCheck) isUserCherryPickError_Error() {}
 
-// This comment is left unintentionally blank.
+// UserRevertRequest ...
 type UserRevertRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2441,7 +2443,7 @@ func (x *UserRevertRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserRevertResponse ...
 type UserRevertResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2556,8 +2558,8 @@ type UserCommitFilesActionHeader struct {
 	// execute_filemode determines whether the file is created with execute permissions.
 	// The field is only used in CREATE and CHMOD actions.
 	ExecuteFilemode bool `protobuf:"varint,5,opt,name=execute_filemode,json=executeFilemode,proto3" json:"execute_filemode,omitempty"`
-	// Move actions that change the file path, but not its content, should set
-	// infer_content to true instead of populating the content field. Ignored for
+	// infer_content should be set to true for move actions that change the file path, but not
+	// its content. It should be set instead of populating the content field. Ignored for
 	// other action types.
 	InferContent bool `protobuf:"varint,6,opt,name=infer_content,json=inferContent,proto3" json:"infer_content,omitempty"`
 }
@@ -2887,7 +2889,7 @@ func (x *UserCommitFilesRequestHeader) GetExpectedOldOid() string {
 	return ""
 }
 
-// UserCommitFiles is the request of UserCommitFiles.
+// UserCommitFilesRequest is the request of UserCommitFiles.
 type UserCommitFilesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3120,18 +3122,18 @@ type isUserCommitFilesError_Error interface {
 }
 
 type UserCommitFilesError_AccessCheck struct {
-	// AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+	// access_checkError is set if the RPC failed because `/internal/allowed` failed.
 	AccessCheck *AccessCheckError `protobuf:"bytes,1,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
 type UserCommitFilesError_IndexUpdate struct {
-	// IndexError is set to the error message when an operation conflicts with the repository
+	// index_update is set to the error message when an operation conflicts with the repository
 	// index, such as creating a file that already exists.
 	IndexUpdate *IndexError `protobuf:"bytes,2,opt,name=index_update,json=indexUpdate,proto3,oneof"`
 }
 
 type UserCommitFilesError_CustomHook struct {
-	// CustomHook is set if any custom hook which has running as part of this RPC call has returned
+	// custom_hook is set if any custom hook which has running as part of this RPC call has returned
 	// a non-zero exit code.
 	CustomHook *CustomHookError `protobuf:"bytes,3,opt,name=custom_hook,json=customHook,proto3,oneof"`
 }
@@ -3142,7 +3144,7 @@ func (*UserCommitFilesError_IndexUpdate) isUserCommitFilesError_Error() {}
 
 func (*UserCommitFilesError_CustomHook) isUserCommitFilesError_Error() {}
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableRequest ...
 type UserRebaseConfirmableRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3213,14 +3215,14 @@ type isUserRebaseConfirmableRequest_UserRebaseConfirmableRequestPayload interfac
 }
 
 type UserRebaseConfirmableRequest_Header_ struct {
-	// For each request stream there must be first a request with a header
+	// header must be the first request for each request stream
 	// containing details about the rebase to perform.
 	Header *UserRebaseConfirmableRequest_Header `protobuf:"bytes,1,opt,name=header,proto3,oneof"`
 }
 
 type UserRebaseConfirmableRequest_Apply struct {
-	// A second request must be made to confirm that the rebase should
-	// be applied to the branch.
+	// apply is the second request that must be made to confirm that
+	// the rebase should be applied to the branch.
 	Apply bool `protobuf:"varint,2,opt,name=apply,proto3,oneof"`
 }
 
@@ -3230,7 +3232,7 @@ func (*UserRebaseConfirmableRequest_Header_) isUserRebaseConfirmableRequest_User
 func (*UserRebaseConfirmableRequest_Apply) isUserRebaseConfirmableRequest_UserRebaseConfirmableRequestPayload() {
 }
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableResponse ...
 type UserRebaseConfirmableResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3320,14 +3322,14 @@ type isUserRebaseConfirmableResponse_UserRebaseConfirmableResponsePayload interf
 }
 
 type UserRebaseConfirmableResponse_RebaseSha struct {
-	// The first response will contain the rebase commit the branch will
-	// be updated to. The caller can still abort the rebase.
+	// rebase_sha is the commit the branch will be updated to, it will be present
+	// in the first response. The caller can still abort the rebase.
 	RebaseSha string `protobuf:"bytes,1,opt,name=rebase_sha,json=rebaseSha,proto3,oneof"`
 }
 
 type UserRebaseConfirmableResponse_RebaseApplied struct {
-	// The second response confirms that the rebase has been applied to
-	// the branch.
+	// rebase_applied confirms that the rebase has been applied to the branch.
+	// It is present in the second response.
 	RebaseApplied bool `protobuf:"varint,2,opt,name=rebase_applied,json=rebaseApplied,proto3,oneof"`
 }
 
@@ -3337,7 +3339,7 @@ func (*UserRebaseConfirmableResponse_RebaseSha) isUserRebaseConfirmableResponse_
 func (*UserRebaseConfirmableResponse_RebaseApplied) isUserRebaseConfirmableResponse_UserRebaseConfirmableResponsePayload() {
 }
 
-// This comment is left unintentionally blank.
+// UserSquashRequest ...
 type UserSquashRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3444,7 +3446,7 @@ func (x *UserSquashRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// UserSquashResponse ...
 type UserSquashResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3493,7 +3495,7 @@ func (x *UserSquashResponse) GetSquashSha() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableError ...
 type UserRebaseConfirmableError struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3564,14 +3566,14 @@ type isUserRebaseConfirmableError_Error interface {
 }
 
 type UserRebaseConfirmableError_RebaseConflict struct {
-	// RebaseConflict is returned in case rebasing commits on top of the start
+	// rebase_conflict is returned in case rebasing commits on top of the start
 	// commit fails with a merge conflict and in case merge squashing commits
 	// fails with a merge conflict.
 	RebaseConflict *MergeConflictError `protobuf:"bytes,1,opt,name=rebase_conflict,json=rebaseConflict,proto3,oneof"`
 }
 
 type UserRebaseConfirmableError_AccessCheck struct {
-	// AccessCheckError is returned in case GitLab's `/internal/allowed` endpoint rejected
+	// access_checkError is returned in case GitLab's `/internal/allowed` endpoint rejected
 	// the change.
 	AccessCheck *AccessCheckError `protobuf:"bytes,2,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
@@ -3652,13 +3654,13 @@ type isUserSquashError_Error interface {
 }
 
 type UserSquashError_ResolveRevision struct {
-	// ResolveRevision is returned in case resolving either the start or end
+	// resolve_revision is returned in case resolving either the start or end
 	// revision has failed.
 	ResolveRevision *ResolveRevisionError `protobuf:"bytes,1,opt,name=resolve_revision,json=resolveRevision,proto3,oneof"`
 }
 
 type UserSquashError_RebaseConflict struct {
-	// RebaseConflict is returned in case rebasing commits on top of the start
+	// rebase_conflict is returned in case rebasing commits on top of the start
 	// commit fails with a merge conflict.
 	RebaseConflict *MergeConflictError `protobuf:"bytes,2,opt,name=rebase_conflict,json=rebaseConflict,proto3,oneof"`
 }
@@ -3667,7 +3669,7 @@ func (*UserSquashError_ResolveRevision) isUserSquashError_Error() {}
 
 func (*UserSquashError_RebaseConflict) isUserSquashError_Error() {}
 
-// This comment is left unintentionally blank.
+// UserApplyPatchRequest ...
 type UserApplyPatchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3752,7 +3754,7 @@ func (*UserApplyPatchRequest_Header_) isUserApplyPatchRequest_UserApplyPatchRequ
 
 func (*UserApplyPatchRequest_Patches) isUserApplyPatchRequest_UserApplyPatchRequestPayload() {}
 
-// This comment is left unintentionally blank.
+// UserApplyPatchResponse ...
 type UserApplyPatchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3801,7 +3803,7 @@ func (x *UserApplyPatchResponse) GetBranchUpdate() *OperationBranchUpdate {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateSubmoduleRequest ...
 type UserUpdateSubmoduleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3924,7 +3926,7 @@ func (x *UserUpdateSubmoduleRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateSubmoduleResponse ...
 type UserUpdateSubmoduleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4005,7 +4007,7 @@ type UserRebaseConfirmableRequest_Header struct {
 	// user is the user to compute the rebase as. It will be used as
 	// "committer" of rebased commits.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	// RebaseId does nothing anymore.
+	// rebase_id does nothing anymore.
 	//
 	// Deprecated: Marked as deprecated in operations.proto.
 	RebaseId string `protobuf:"bytes,3,opt,name=rebase_id,json=rebaseId,proto3" json:"rebase_id,omitempty"`

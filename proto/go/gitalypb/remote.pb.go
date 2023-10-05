@@ -20,32 +20,32 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// This comment is left unintentionally blank.
+// UpdateRemoteMirrorRequest ...
 type UpdateRemoteMirrorRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository whose mirror repository to update.
+	// repository is the repository whose mirror repository to update.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Remote contains parameters required to connect to the remote repository.
+	// remote contains parameters required to connect to the remote repository.
 	// This allows Gitaly to use an in-memory remote and does not require any
 	// on-disk remote configuration.
 	Remote *UpdateRemoteMirrorRequest_Remote `protobuf:"bytes,7,opt,name=remote,proto3" json:"remote,omitempty"`
-	// OnlyBranchesMatching contains patterns to match branches against. Only the
+	// only_branches_matching contains patterns to match branches against. Only the
 	// matched brances are updated in the remote mirror. If no patterns are
 	// specified, all branches are updated. The patterns should only contain the
 	// branch name without the 'refs/heads/' prefix. "*" can be used as a
 	// wildcard to match anything. only_branches_matching can be streamed to the
 	// server over multiple messages. Optional.
 	OnlyBranchesMatching [][]byte `protobuf:"bytes,3,rep,name=only_branches_matching,json=onlyBranchesMatching,proto3" json:"only_branches_matching,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
-	// SshKey is the SSH key to use for accessing to the mirror repository.
+	// ssh_key is the SSH key to use for accessing to the mirror repository.
 	// Optional.
 	SshKey string `protobuf:"bytes,4,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
-	// KnownHosts specifies the identities used for strict host key checking.
+	// known_hosts specifies the identities used for strict host key checking.
 	// Optional.
 	KnownHosts string `protobuf:"bytes,5,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
-	// KeepDivergentRefs specifies whether or not to update diverged references
+	// keep_divergent_refs specifies whether or not to update diverged references
 	// in the mirror repository.
 	KeepDivergentRefs bool `protobuf:"varint,6,opt,name=keep_divergent_refs,json=keepDivergentRefs,proto3" json:"keep_divergent_refs,omitempty"`
 }
@@ -124,13 +124,13 @@ func (x *UpdateRemoteMirrorRequest) GetKeepDivergentRefs() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// UpdateRemoteMirrorResponse ...
 type UpdateRemoteMirrorResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// DivergentRefs contains a list of references that had diverged in the
+	// divergent_refs contains a list of references that had diverged in the
 	// mirror from the source repository.
 	DivergentRefs [][]byte `protobuf:"bytes,1,rep,name=divergent_refs,json=divergentRefs,proto3" json:"divergent_refs,omitempty"`
 }
@@ -174,15 +174,15 @@ func (x *UpdateRemoteMirrorResponse) GetDivergentRefs() [][]byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindRemoteRepositoryRequest ...
 type FindRemoteRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// remote ...
 	Remote string `protobuf:"bytes,1,opt,name=remote,proto3" json:"remote,omitempty"`
-	// This field is used to redirect request to proper storage where it can be handled.
+	// storage_name is used to redirect request to proper storage where it can be handled.
 	// As of now it doesn't matter what storage will be used, but it still must be a valid.
 	// For more details: https://gitlab.com/gitlab-org/gitaly/-/issues/2442
 	StorageName string `protobuf:"bytes,2,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
@@ -234,6 +234,7 @@ func (x *FindRemoteRepositoryRequest) GetStorageName() string {
 	return ""
 }
 
+// FindRemoteRepositoryResponse ...
 // This migth throw a GRPC Unavailable code, to signal the request failure
 // is transient.
 type FindRemoteRepositoryResponse struct {
@@ -241,7 +242,7 @@ type FindRemoteRepositoryResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// exists ...
 	Exists bool `protobuf:"varint,1,opt,name=exists,proto3" json:"exists,omitempty"`
 }
 
@@ -290,16 +291,16 @@ type FindRemoteRootRefRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Repository is the repository in which the request shall be executed in. If
+	// repository is the repository in which the request shall be executed in. If
 	// a remote name is given, then this is the repository in which the remote
 	// will be looked up.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// RemoteUrl specifies the remote repository URL which should be fetched from.
+	// remote_url specifies the remote repository URL which should be fetched from.
 	RemoteUrl string `protobuf:"bytes,3,opt,name=remote_url,json=remoteUrl,proto3" json:"remote_url,omitempty"`
-	// HttpAuthorizationHeader is the HTTP header which should be added to the
+	// http_authorization_header is the HTTP header which should be added to the
 	// request in order to authenticate against the repository.
 	HttpAuthorizationHeader string `protobuf:"bytes,4,opt,name=http_authorization_header,json=httpAuthorizationHeader,proto3" json:"http_authorization_header,omitempty"`
-	// ResolvedAddress holds the resolved IP address of the remote_url. This is
+	// resolved_address holds the resolved IP address of the remote_url. This is
 	// used to avoid DNS rebinding by mapping the url to the resolved address.
 	// Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
 	// IPv6 ("::ffff:192.0.2.1") forms are supported.
@@ -375,7 +376,7 @@ type FindRemoteRootRefResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Ref is the name of the remote root reference.
+	// ref is the name of the remote root reference.
 	Ref string `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
 }
 
@@ -418,18 +419,18 @@ func (x *FindRemoteRootRefResponse) GetRef() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// Remote ...
 type UpdateRemoteMirrorRequest_Remote struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// URL is the URL of the remote repository.
+	// url is the URL of the remote repository.
 	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	// HTTPAuthorizationHeader is an optional HTTP header used for
+	// http_authorization_header is an optional HTTP header used for
 	// authenticating against the remote repository.
 	HttpAuthorizationHeader string `protobuf:"bytes,2,opt,name=http_authorization_header,json=httpAuthorizationHeader,proto3" json:"http_authorization_header,omitempty"`
-	// ResolvedAddress holds the resolved IP address of the remote_url. This is
+	// resolved_address holds the resolved IP address of the remote_url. This is
 	// used to avoid DNS rebinding by mapping the url to the resolved address.
 	// Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
 	// IPv6 ("::ffff:192.0.2.1") forms are supported.

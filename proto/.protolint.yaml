@@ -1,5 +1,8 @@
 ---
 lint:
+  directories:
+    exclude:
+      - testproto
   rules:
     all_default: true
     remove:
@@ -14,3 +17,16 @@ lint:
       # disable it.
       - FIELD_NAMES_EXCLUDE_PREPOSITIONS
       - MESSAGE_NAMES_EXCLUDE_PREPOSITIONS
+  rules_option:
+    messages_have_comment:
+      should_follow_golang_style: true
+    services_have_comment:
+      should_follow_golang_style: true
+    rpcs_have_comment:
+      should_follow_golang_style: true
+    fields_have_comment:
+      should_follow_golang_style: true
+    enums_have_comment:
+      should_follow_golang_style: true
+    enum_fields_have_comment:
+      should_follow_golang_style: true

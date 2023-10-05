@@ -15,14 +15,14 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // '/allowed' endpoint.
 service OperationService {
 
-  // This comment is left unintentionally blank.
+  // UserCreateBranch ...
   rpc UserCreateBranch(UserCreateBranchRequest) returns (UserCreateBranchResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // This comment is left unintentionally blank.
+  // UserUpdateBranch ...
   rpc UserUpdateBranch(UserUpdateBranchRequest) returns (UserUpdateBranchResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -57,14 +57,14 @@ service OperationService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // UserDeleteTag ...
   rpc UserDeleteTag(UserDeleteTagRequest) returns (UserDeleteTagResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // UserMergeRef creates a merge commit and updates target_ref to point to that
+  // UserMergeToRef creates a merge commit and updates target_ref to point to that
   // new commit. The first parent of the merge commit (the main line) is taken
   // from first_parent_ref. The second parent is specified by its commit ID in source_sha.
   // If target_ref already exists it will be overwritten.
@@ -118,7 +118,7 @@ service OperationService {
   }
 
   // UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
-  // UserCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
+  // userCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
   // Following that, a variable number of actions can be sent to build a new commit. Each action consists of
   // a header followed by content if used by the action.
   rpc UserCommitFiles(stream UserCommitFilesRequest) returns (UserCommitFilesResponse) {
@@ -175,21 +175,21 @@ service OperationService {
 
 }
 
-// This comment is left unintentionally blank.
+// UserCreateBranchRequest ...
 message UserCreateBranchRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // branch_name ...
   bytes branch_name = 2;
-  // This comment is left unintentionally blank.
+  // user ...
   User user = 3;
-  // This comment is left unintentionally blank.
+  // start_point ...
   bytes start_point = 4;
 }
 
-// This comment is left unintentionally blank.
+// UserCreateBranchResponse ...
 message UserCreateBranchResponse {
-  // This comment is left unintentionally blank.
+  // branch ...
   Branch branch = 1;
 
   // PreReceiveError had previously been set when creation of the branch was refused by hooks.
@@ -202,41 +202,41 @@ message UserCreateBranchResponse {
 // defined error cases.
 message UserCreateBranchError {
   oneof error {
-    // CustomHookError is set if any custom hook which has running as part of
+    // custom_hookError is set if any custom hook which has running as part of
     // this RPC call has returned a non-zero exit code.
     CustomHookError custom_hook = 1;
   }
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateBranchRequest ...
 message UserUpdateBranchRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // branch_name ...
   bytes branch_name = 2;
-  // This comment is left unintentionally blank.
+  // user ...
   User user = 3;
-  // This comment is left unintentionally blank.
+  // newrev ...
   bytes newrev = 4;
-  // This comment is left unintentionally blank.
+  // oldrev ...
   bytes oldrev = 5;
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateBranchResponse ...
 message UserUpdateBranchResponse {
-  // This comment is left unintentionally blank.
+  // pre_receive_error ...
   string pre_receive_error = 1;
 }
 
 // UserDeleteBranchRequest is a request for the UserDeleteBranch RPC.
 message UserDeleteBranchRequest {
-  // Repository is the repository to delete the branch in.
+  // repository is the repository to delete the branch in.
   Repository repository = 1 [(target_repository)=true];
-  // BranchName is the name of the branch that shall be deleted. This is expected to be the branch
+  // branch_name is the name of the branch that shall be deleted. This is expected to be the branch
   // name only, e.g. in case you want to delete `refs/heads/main` the request needs to only contain
   // `main` as the branch name.
   bytes branch_name = 2;
-  // User is the user on whose behalf we should delete the branch. This information is used to
+  // user is the user on whose behalf we should delete the branch. This information is used to
   // perform access checks against the Rails `/internal/allowed` API. This user is also exposed to
   // any custom hooks executed as part of this RPC call.
   User user = 3;
@@ -263,24 +263,24 @@ message UserDeleteBranchResponse {
 // defined error cases.
 message UserDeleteBranchError {
   oneof error {
-    // AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+    // access_checkError is set if the RPC failed because `/internal/allowed` failed.
     AccessCheckError access_check = 1;
-    // ReferenceUpdateError is set if the RPC failed because updating the
+    // reference_updateError is set if the RPC failed because updating the
     // reference to the new object ID has failed.
     ReferenceUpdateError reference_update = 2;
-    // CustomHook is set if any custom hook which has running as part of this RPC call has returned
+    // custom_hook is set if any custom hook which has running as part of this RPC call has returned
     // a non-zero exit code.
     CustomHookError custom_hook = 3;
   }
 }
 
-// This comment is left unintentionally blank.
+// UserDeleteTagRequest ...
 message UserDeleteTagRequest {
-  // This comment is left unintentionally blank.
+  // repository ...
   Repository repository = 1 [(target_repository)=true];
-  // This comment is left unintentionally blank.
+  // tag_name ...
   bytes tag_name = 2;
-  // This comment is left unintentionally blank.
+  // user ...
   User user = 3;
   // expected_old_oid is the object ID which tag is expected to point to.
   // This is used as a safety guard to avoid races when tag has been
@@ -292,30 +292,30 @@ message UserDeleteTagRequest {
   string expected_old_oid = 4;
 }
 
-// This comment is left unintentionally blank.
+// UserDeleteTagResponse ...
 message UserDeleteTagResponse {
-  // This comment is left unintentionally blank.
+  // pre_receive_error ...
   string pre_receive_error = 1;
 }
 
 // UserCreateTagRequest is a request for the UserCreateTag RPC.
 message UserCreateTagRequest {
-  // Repository is the repository in which the tag shall be created.
+  // repository is the repository in which the tag shall be created.
   Repository repository = 1 [(target_repository)=true];
-  // TagName is the name of the tag that shall be created. Note that this should be set to the name
+  // tag_name is the name of the tag that shall be created. Note that this should be set to the name
   // only: if you want to create a tag `refs/heads/v1.0`, you need to pass `v1.0` as TagName.
   bytes tag_name = 2;
-  // User is the user as which the tag shall be created. This user is used to perform access checks
+  // user is the user as which the tag shall be created. This user is used to perform access checks
   // against Rails' `/internal/allowed` endpoint.
   User user = 3;
-  // TargetRevision is the revision that the newly created tag should be pointing to. Note that if
+  // target_revision is the revision that the newly created tag should be pointing to. Note that if
   // the revision points to a tag, that tag will be peeled to the commit it is pointing to. If the
-  // TargetRevision does not point to a commit then the RPC will return an error.
+  // target_revision does not point to a commit then the RPC will return an error.
   bytes target_revision = 4;
-  // Message is the message of the tag. If it is empty, a lightweight tag is created. Otherwise, an
+  // message is the message of the tag. If it is empty, a lightweight tag is created. Otherwise, an
   // annotated tag is created.
   bytes message = 5;
-  // Timestamp is the optional timestamp to use for the created tag tags. If it's not set, the
+  // timestamp is the optional timestamp to use for the created tag tags. If it's not set, the
   // current time will be used. It's only used if an annotated tag is being created.
   google.protobuf.Timestamp timestamp = 7;
 }
@@ -338,27 +338,26 @@ message UserCreateTagResponse {
 }
 
 // UserCreateTagError includes error descriptions which may be set as error details in case
-// UserCreateTag fails.
+// userCreateTag fails.
 message UserCreateTagError {
   oneof error {
-    // AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+    // access_checkError is set if the RPC failed because `/internal/allowed` failed.
     AccessCheckError access_check = 1;
-    // ReferenceUpdateError is set if the RPC failed because updating the
+    // reference_updateError is set if the RPC failed because updating the
     // reference to the new object ID has failed.
     ReferenceUpdateError reference_update = 2;
-    // CustomHook is set if any custom hook which has running as part of this RPC call has returned
+    // custom_hook is set if any custom hook which has running as part of this RPC call has returned
     // a non-zero exit code.
     CustomHookError custom_hook = 3;
-    // ReferenceExistsError is set if the tag reference exists already.
+    // reference_existsError is set if the tag reference exists already.
     ReferenceExistsError reference_exists = 4;
   }
 }
 
-// This comment is left unintentionally blank.
+// UserMergeBranchRequest ...
+// The first set of parameters must only be set in the first message to declare
+// parameters for the merge.
 message UserMergeBranchRequest {
-  // The following parameters must only be set in the first message to declare
-  // parameters for the merge.
-
   // repository is the repository to compute the merge for.
   Repository repository = 1 [(target_repository)=true];
   // user is the user to compute the merge as. Its name and mail address are
@@ -391,20 +390,21 @@ message UserMergeBranchRequest {
   bool apply = 6;
 }
 
-// This comment is left unintentionally blank.
+// UserMergeBranchResponse ...
 message UserMergeBranchResponse {
-  // First message
-  // The merge commit the branch will be updated to. The caller can still abort the merge.
+  // commit_id is the merge commit the branch will be updated to.
+  // The caller can still abort the merge.
+  // First message.
   string commit_id = 1;
 
   reserved 2;
+  // branch_update if set, is the merge has been applied to the branch.
   // Second message
-  // If set, the merge has been applied to the branch.
   OperationBranchUpdate branch_update = 3;
 
   // PreReceiveError had previously been set in case access checks refused the merge. This has been
   // changed to Instead we return a proper gRPC error with UserMergeBranchError details set to an
-  // AccessCheckError.
+  // access_checkError.
   reserved "pre_receive_error";
   reserved 4;
 }
@@ -413,20 +413,20 @@ message UserMergeBranchResponse {
 // details in case UserMergeBranch fails.
 message UserMergeBranchError {
   oneof error {
-    // AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+    // access_checkError is set if the RPC failed because `/internal/allowed` failed.
     AccessCheckError access_check = 1;
-    // ReferenceUpdateError is set if the RPC failed because updating the
+    // reference_updateError is set if the RPC failed because updating the
     // reference to the new object ID has failed.
     ReferenceUpdateError reference_update = 2;
-    // CustomHook is set if any custom hook which has running as part of this RPC call has returned
+    // custom_hook is set if any custom hook which has running as part of this RPC call has returned
     // a non-zero exit code.
     CustomHookError custom_hook = 3;
-    // MergeConflictError is set if merging the revisions has resulted in conflicting files.
+    // merge_conflictError is set if merging the revisions has resulted in conflicting files.
     MergeConflictError merge_conflict = 4;
   }
 }
 
-// This comment is left unintentionally blank.
+// UserMergeToRefRequest ...
 message UserMergeToRefRequest {
   // repository is the repository in which the merge shall be computed.
   Repository repository = 1 [(target_repository)=true];
@@ -447,10 +447,9 @@ message UserMergeToRefRequest {
   // first parent of the computed merge. Overrides `branch`.
   bytes first_parent_ref = 7;
 
-  // It used to be possible to set an allow_conflicts field to allow the merge
-  // to go ahead when there were conflicts. The code would simply write the
-  // conflict markers in the code. This has since been deprecated in Rails and
-  // is no longer needed.
+  // allow_conflicts if set, used to allow the merge to go ahead when there were
+  // conflicts.  The code would simply write the conflict markers in the code.
+  // This has since been deprecated in Rails and is no longer needed.
   bool allow_conflicts = 8 [deprecated = true];
 
   // timestamp is the optional timestamp to use for the merge commit. If it's
@@ -471,7 +470,7 @@ message UserMergeToRefRequest {
   string expected_old_oid = 10;
 }
 
-// This comment is left unintentionally blank.
+// UserMergeToRefResponse ...
 message UserMergeToRefResponse {
   // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
@@ -484,22 +483,22 @@ message UserMergeToRefResponse {
 
 // UserRebaseToRefRequest contains the request parameters for the UserRebaseToRef RPC
 message UserRebaseToRefRequest {
-  // Repository is the repository in which the rebase shall be computed.
+  // repository is the repository in which the rebase shall be computed.
   Repository repository = 1 [(target_repository)=true];
-  // User is the user as which the rebased commits shall be created.
+  // user is the user as which the rebased commits shall be created.
   User user = 2;
-  // SourceSha is the object ID of the commit to be rebased.
+  // source_sha is the object ID of the commit to be rebased.
   string source_sha = 3;
-  // TargetRef is the fully qualified reference that will be overwritten or created
+  // target_ref is the fully qualified reference that will be overwritten or created
   // with the rebased commits.
   bytes target_ref = 5;
-  // FirstParentRef is the name of the reference on top of which SourceSha
+  // first_parent_ref is the name of the reference on top of which SourceSha
   // should be rebased.
   bytes first_parent_ref = 7;
-  // Timestamp is the optional timestamp to use for the rebased commits as
+  // timestamp is the optional timestamp to use for the rebased commits as
   // committer date. If it's not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 9;
-  // ExpectedOldOid is the object ID to which TargetRef is expected to point.
+  // expected_old_oid is the object ID to which TargetRef is expected to point.
   // This is used as a safety guard to avoid races when TargetRef has been
   // updated meanwhile to point to a different object ID.
   //
@@ -512,7 +511,7 @@ message UserRebaseToRefRequest {
 
 // UserRebaseToRefResponse contains the response data for the UserRebaseToRef RPC
 message UserRebaseToRefResponse {
-  // CommitId is the object ID of the HEAD of the rebased ref.
+  // commit_id is the object ID of the HEAD of the rebased ref.
   string commit_id = 1;
 }
 
@@ -553,15 +552,15 @@ message UserFFBranchRequest {
   string expected_old_oid = 5;
 }
 
-// This comment is left unintentionally blank.
+// UserFFBranchResponse ...
 message UserFFBranchResponse {
-  // This comment is left unintentionally blank.
+  // branch_update ...
   OperationBranchUpdate branch_update = 1;
-  // This comment is left unintentionally blank.
+  // pre_receive_error ...
   string pre_receive_error = 2;
 }
 
-// This comment is left unintentionally blank.
+// UserCherryPickRequest ...
 message UserCherryPickRequest {
   // repository is the repository into which the cherry-pick shall be
   // performed.
@@ -600,7 +599,7 @@ message UserCherryPickRequest {
   string expected_old_oid = 10;
 }
 
-// This comment is left unintentionally blank.
+// UserCherryPickResponse ...
 message UserCherryPickResponse {
   // branch_update represents details about the updated branch.
   OperationBranchUpdate branch_update = 1;
@@ -609,7 +608,7 @@ message UserCherryPickResponse {
   // a structured error with the `cherry_pick_conflict` or `changes_already_applied` field set.
   reserved "create_tree_error";
   reserved 2;
-  // CommitError has previously been set when creating the commit failed. Instead, Gitaly returns a
+  // commitError has previously been set when creating the commit failed. Instead, Gitaly returns a
   // structured error with the `target_branch_diverged` field set.
   reserved "commit_error";
   reserved 3;
@@ -626,25 +625,25 @@ message UserCherryPickResponse {
 // UserCherryPickError is an error returned by the UserCherryPick RPC.
 message UserCherryPickError {
   oneof error {
-    // CherryPickConflict is returned if there is a conflict when applying the cherry
+    // cherry_pick_conflict is returned if there is a conflict when applying the cherry
     // pick.
     MergeConflictError cherry_pick_conflict = 1;
-    // TargetBranchDiverged is returned whenever the tip commit of the branch we're
+    // target_branch_diverged is returned whenever the tip commit of the branch we're
     // about to apply the new commit on is not a direct ancestor of the newly created
     // cherry-picked commit. This may happen either due to a race where the reference
     // is modified while we compute the cherry-picked commit, or alternatively if the
     // commit fetched from the start branch of the remote repository is not an ancestor
     // of of the local target branch.
     NotAncestorError target_branch_diverged = 2;
-    // ChangesAlreadyApplied is returned if the result after applying the cherry pick is empty.
+    // changes_already_applied is returned if the result after applying the cherry pick is empty.
     ChangesAlreadyAppliedError changes_already_applied = 3;
-    // AccessCheck is returned in case GitLab's `/internal/allowed` endpoint rejected
+    // access_check is returned in case GitLab's `/internal/allowed` endpoint rejected
     // the change.
     AccessCheckError access_check = 4;
   }
 }
 
-// This comment is left unintentionally blank.
+// UserRevertRequest ...
 message UserRevertRequest {
   // repository is the repository in which the revert shall be applied.
   Repository repository = 1 [(target_repository)=true];
@@ -682,7 +681,7 @@ message UserRevertRequest {
   string expected_old_oid = 10;
 }
 
-// This comment is left unintentionally blank.
+// UserRevertResponse ...
 message UserRevertResponse {
   // CreateTreeError represents an error which happened when computing the
   // revert.
@@ -713,7 +712,7 @@ message UserRevertResponse {
 
 // UserCommitFilesActionHeader contains the details of the action to be performed.
 message UserCommitFilesActionHeader {
-  // This comment is left unintentionally blank.
+  // ActionType ...
   enum ActionType {
     // CREATE creates a new file.
     CREATE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -750,8 +749,8 @@ message UserCommitFilesActionHeader {
   // execute_filemode determines whether the file is created with execute permissions.
   // The field is only used in CREATE and CHMOD actions.
   bool execute_filemode = 5;
-  // Move actions that change the file path, but not its content, should set
-  // infer_content to true instead of populating the content field. Ignored for
+  // infer_content should be set to true for move actions that change the file path, but not
+  // its content. It should be set instead of populating the content field. Ignored for
   // other action types.
   bool infer_content = 6;
 }
@@ -813,7 +812,7 @@ message UserCommitFilesRequestHeader {
   string expected_old_oid = 12;
 }
 
-// UserCommitFiles is the request of UserCommitFiles.
+// UserCommitFilesRequest is the request of UserCommitFiles.
 message UserCommitFilesRequest {
   oneof user_commit_files_request_payload {
     // header defines the details of where to commit, the details and which commit to use as the parent.
@@ -839,18 +838,18 @@ message UserCommitFilesResponse {
 // defined error cases.
 message UserCommitFilesError {
   oneof error {
-    // AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+    // access_checkError is set if the RPC failed because `/internal/allowed` failed.
     AccessCheckError access_check = 1;
-    // IndexError is set to the error message when an operation conflicts with the repository
+    // index_update is set to the error message when an operation conflicts with the repository
     // index, such as creating a file that already exists.
     IndexError index_update = 2;
-    // CustomHook is set if any custom hook which has running as part of this RPC call has returned
+    // custom_hook is set if any custom hook which has running as part of this RPC call has returned
     // a non-zero exit code.
     CustomHookError custom_hook = 3;
   }
 }
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableRequest ...
 message UserRebaseConfirmableRequest {
   // Header contains information to compute the rebase and must be sent as
   // first message.
@@ -861,7 +860,7 @@ message UserRebaseConfirmableRequest {
     // user is the user to compute the rebase as. It will be used as
     // "committer" of rebased commits.
     User user = 2;
-    // RebaseId does nothing anymore.
+    // rebase_id does nothing anymore.
     string rebase_id = 3 [deprecated=true];
     // branch is the branch onto which the rebase shall happen.
     bytes branch = 4;
@@ -884,23 +883,23 @@ message UserRebaseConfirmableRequest {
   }
 
   oneof user_rebase_confirmable_request_payload {
-    // For each request stream there must be first a request with a header
+    // header must be the first request for each request stream
     // containing details about the rebase to perform.
     Header header = 1;
-    // A second request must be made to confirm that the rebase should
-    // be applied to the branch.
+    // apply is the second request that must be made to confirm that
+    // the rebase should be applied to the branch.
     bool apply = 2;
   }
 }
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableResponse ...
 message UserRebaseConfirmableResponse {
   oneof user_rebase_confirmable_response_payload {
-    // The first response will contain the rebase commit the branch will
-    // be updated to. The caller can still abort the rebase.
+    // rebase_sha is the commit the branch will be updated to, it will be present
+    // in the first response. The caller can still abort the rebase.
     string rebase_sha = 1;
-    // The second response confirms that the rebase has been applied to
-    // the branch.
+    // rebase_applied confirms that the rebase has been applied to the branch.
+    // It is present in the second response.
     bool rebase_applied = 2;
   }
   // pre_receive_error contains an error message if the rebase failed because
@@ -910,7 +909,7 @@ message UserRebaseConfirmableResponse {
   string git_error = 4;
 }
 
-// This comment is left unintentionally blank.
+// UserSquashRequest ...
 message UserSquashRequest {
   // repository is the repository into which the squashed commit shall be
   // written.
@@ -935,7 +934,7 @@ message UserSquashRequest {
   reserved "squash_id";
 }
 
-// This comment is left unintentionally blank.
+// UserSquashResponse ...
 message UserSquashResponse {
   // squash_sha is the object ID of the squashed commit.
   string squash_sha = 1;
@@ -951,14 +950,14 @@ message UserSquashResponse {
   reserved "git_error";
 }
 
-// This comment is left unintentionally blank.
+// UserRebaseConfirmableError ...
 message UserRebaseConfirmableError {
   oneof error {
-    // RebaseConflict is returned in case rebasing commits on top of the start
+    // rebase_conflict is returned in case rebasing commits on top of the start
     // commit fails with a merge conflict and in case merge squashing commits
     // fails with a merge conflict.
     MergeConflictError rebase_conflict = 1;
-    // AccessCheckError is returned in case GitLab's `/internal/allowed` endpoint rejected
+    // access_checkError is returned in case GitLab's `/internal/allowed` endpoint rejected
     // the change.
     AccessCheckError access_check = 2;
   }
@@ -968,16 +967,16 @@ message UserRebaseConfirmableError {
 // fails.
 message UserSquashError {
   oneof error {
-    // ResolveRevision is returned in case resolving either the start or end
+    // resolve_revision is returned in case resolving either the start or end
     // revision has failed.
     ResolveRevisionError resolve_revision = 1;
-    // RebaseConflict is returned in case rebasing commits on top of the start
+    // rebase_conflict is returned in case rebasing commits on top of the start
     // commit fails with a merge conflict.
     MergeConflictError rebase_conflict = 2;
   }
 }
 
-// This comment is left unintentionally blank.
+// UserApplyPatchRequest ...
 message UserApplyPatchRequest {
   // Header contains information about how to apply the patches.
   message Header {
@@ -1010,13 +1009,13 @@ message UserApplyPatchRequest {
   }
 }
 
-// This comment is left unintentionally blank.
+// UserApplyPatchResponse ...
 message UserApplyPatchResponse {
   // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateSubmoduleRequest ...
 message UserUpdateSubmoduleRequest {
   // repository is the repository in which the submodule shall be updated.
   Repository repository = 1 [(target_repository)=true];
@@ -1047,7 +1046,7 @@ message UserUpdateSubmoduleRequest {
   string expected_old_oid = 8;
 }
 
-// This comment is left unintentionally blank.
+// UserUpdateSubmoduleResponse ...
 message UserUpdateSubmoduleResponse {
   // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;

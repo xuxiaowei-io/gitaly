@@ -22,9 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OperationServiceClient interface {
-	// This comment is left unintentionally blank.
+	// UserCreateBranch ...
 	UserCreateBranch(ctx context.Context, in *UserCreateBranchRequest, opts ...grpc.CallOption) (*UserCreateBranchResponse, error)
-	// This comment is left unintentionally blank.
+	// UserUpdateBranch ...
 	UserUpdateBranch(ctx context.Context, in *UserUpdateBranchRequest, opts ...grpc.CallOption) (*UserUpdateBranchResponse, error)
 	// UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
 	// hooks and contacts Rails to verify that the user is indeed allowed to delete that branch. The
@@ -44,9 +44,9 @@ type OperationServiceClient interface {
 	// UserCreateTag creates a new tag. This RPC knows to create both lightweight and annotated tags
 	// depending on whether a message is set.
 	UserCreateTag(ctx context.Context, in *UserCreateTagRequest, opts ...grpc.CallOption) (*UserCreateTagResponse, error)
-	// This comment is left unintentionally blank.
+	// UserDeleteTag ...
 	UserDeleteTag(ctx context.Context, in *UserDeleteTagRequest, opts ...grpc.CallOption) (*UserDeleteTagResponse, error)
-	// UserMergeRef creates a merge commit and updates target_ref to point to that
+	// UserMergeToRef creates a merge commit and updates target_ref to point to that
 	// new commit. The first parent of the merge commit (the main line) is taken
 	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
 	// If target_ref already exists it will be overwritten.
@@ -75,7 +75,7 @@ type OperationServiceClient interface {
 	// branch.
 	UserCherryPick(ctx context.Context, in *UserCherryPickRequest, opts ...grpc.CallOption) (*UserCherryPickResponse, error)
 	// UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
-	// UserCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
+	// userCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
 	// Following that, a variable number of actions can be sent to build a new commit. Each action consists of
 	// a header followed by content if used by the action.
 	UserCommitFiles(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserCommitFilesClient, error)
@@ -352,9 +352,9 @@ func (c *operationServiceClient) UserUpdateSubmodule(ctx context.Context, in *Us
 // All implementations must embed UnimplementedOperationServiceServer
 // for forward compatibility
 type OperationServiceServer interface {
-	// This comment is left unintentionally blank.
+	// UserCreateBranch ...
 	UserCreateBranch(context.Context, *UserCreateBranchRequest) (*UserCreateBranchResponse, error)
-	// This comment is left unintentionally blank.
+	// UserUpdateBranch ...
 	UserUpdateBranch(context.Context, *UserUpdateBranchRequest) (*UserUpdateBranchResponse, error)
 	// UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
 	// hooks and contacts Rails to verify that the user is indeed allowed to delete that branch. The
@@ -374,9 +374,9 @@ type OperationServiceServer interface {
 	// UserCreateTag creates a new tag. This RPC knows to create both lightweight and annotated tags
 	// depending on whether a message is set.
 	UserCreateTag(context.Context, *UserCreateTagRequest) (*UserCreateTagResponse, error)
-	// This comment is left unintentionally blank.
+	// UserDeleteTag ...
 	UserDeleteTag(context.Context, *UserDeleteTagRequest) (*UserDeleteTagResponse, error)
-	// UserMergeRef creates a merge commit and updates target_ref to point to that
+	// UserMergeToRef creates a merge commit and updates target_ref to point to that
 	// new commit. The first parent of the merge commit (the main line) is taken
 	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
 	// If target_ref already exists it will be overwritten.
@@ -405,7 +405,7 @@ type OperationServiceServer interface {
 	// branch.
 	UserCherryPick(context.Context, *UserCherryPickRequest) (*UserCherryPickResponse, error)
 	// UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
-	// UserCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
+	// userCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
 	// Following that, a variable number of actions can be sent to build a new commit. Each action consists of
 	// a header followed by content if used by the action.
 	UserCommitFiles(OperationService_UserCommitFilesServer) error

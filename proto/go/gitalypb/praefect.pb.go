@@ -256,7 +256,7 @@ func (*GetRepositoryMetadataRequest_RepositoryId) isGetRepositoryMetadataRequest
 
 func (*GetRepositoryMetadataRequest_Path_) isGetRepositoryMetadataRequest_Query() {}
 
-// GeRepositoryMetadataResponse contains the repository's cluster metadata.
+// GetRepositoryMetadataResponse contains the repository's cluster metadata.
 type GetRepositoryMetadataResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -475,17 +475,17 @@ func (x *SetReplicationFactorResponse) GetStorages() []string {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// SetAuthoritativeStorageRequest ...
 type SetAuthoritativeStorageRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// virtual_storage ...
 	VirtualStorage string `protobuf:"bytes,1,opt,name=virtual_storage,json=virtualStorage,proto3" json:"virtual_storage,omitempty"`
-	// This comment is left unintentionally blank.
+	// relative_path ...
 	RelativePath string `protobuf:"bytes,2,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
-	// This comment is left unintentionally blank.
+	// authoritative_storage ...
 	AuthoritativeStorage string `protobuf:"bytes,3,opt,name=authoritative_storage,json=authoritativeStorage,proto3" json:"authoritative_storage,omitempty"`
 }
 
@@ -542,7 +542,7 @@ func (x *SetAuthoritativeStorageRequest) GetAuthoritativeStorage() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// SetAuthoritativeStorageResponse ...
 type SetAuthoritativeStorageResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -581,15 +581,15 @@ func (*SetAuthoritativeStorageResponse) Descriptor() ([]byte, []int) {
 	return file_praefect_proto_rawDescGZIP(), []int{7}
 }
 
-// A request for data loss information
+// DatalossRequest is the request for data loss information
 type DatalossRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The virtual storage to get dataloss information for
+	// virtual_storage is the virtual storage to get dataloss information for.
 	VirtualStorage string `protobuf:"bytes,1,opt,name=virtual_storage,json=virtualStorage,proto3" json:"virtual_storage,omitempty"`
-	// include_partially_unavailable indicates whether to include repositories which are available but
+	// include_partially_replicated indicates whether to include repositories which are available but
 	// are unavailable on some assigned storages.
 	IncludePartiallyReplicated bool `protobuf:"varint,2,opt,name=include_partially_replicated,json=includePartiallyReplicated,proto3" json:"include_partially_replicated,omitempty"`
 }
@@ -640,7 +640,7 @@ func (x *DatalossRequest) GetIncludePartiallyReplicated() bool {
 	return false
 }
 
-// Contains information about a repository that may be behind
+// DatalossResponse contains information about a repository that may be behind
 // the primary.
 type DatalossResponse struct {
 	state         protoimpl.MessageState
@@ -690,7 +690,7 @@ func (x *DatalossResponse) GetRepositories() []*DatalossResponse_Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// DatalossCheckRequest ...
 //
 // Deprecated: Marked as deprecated in praefect.proto.
 type DatalossCheckRequest struct {
@@ -698,9 +698,9 @@ type DatalossCheckRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// virtual_storage ...
 	VirtualStorage string `protobuf:"bytes,1,opt,name=virtual_storage,json=virtualStorage,proto3" json:"virtual_storage,omitempty"`
-	// include_partially_unavailable indicates whether to include repositories which are available but
+	// include_partially_replicated indicates whether to include repositories which are available but
 	// are unavailable on some assigned storages.
 	IncludePartiallyReplicated bool `protobuf:"varint,2,opt,name=include_partially_replicated,json=includePartiallyReplicated,proto3" json:"include_partially_replicated,omitempty"`
 }
@@ -751,7 +751,7 @@ func (x *DatalossCheckRequest) GetIncludePartiallyReplicated() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// DatalossCheckResponse ...
 //
 // Deprecated: Marked as deprecated in praefect.proto.
 type DatalossCheckResponse struct {
@@ -802,13 +802,13 @@ func (x *DatalossCheckResponse) GetRepositories() []*DatalossCheckResponse_Repos
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// RepositoryReplicasRequest ...
 type RepositoryReplicasRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -851,15 +851,15 @@ func (x *RepositoryReplicasRequest) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// RepositoryReplicasResponse ...
 type RepositoryReplicasResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// primary ...
 	Primary *RepositoryReplicasResponse_RepositoryDetails `protobuf:"bytes,1,opt,name=primary,proto3" json:"primary,omitempty"`
-	// This comment is left unintentionally blank.
+	// replicas ...
 	Replicas []*RepositoryReplicasResponse_RepositoryDetails `protobuf:"bytes,2,rep,name=replicas,proto3" json:"replicas,omitempty"`
 }
 
@@ -967,7 +967,7 @@ func (x *MarkUnverifiedRequest_Storage) GetStorage() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// Path ...
 type GetRepositoryMetadataRequest_Path struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1025,7 +1025,7 @@ func (x *GetRepositoryMetadataRequest_Path) GetRelativePath() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// Replica ...
 type GetRepositoryMetadataResponse_Replica struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1120,19 +1120,19 @@ func (x *GetRepositoryMetadataResponse_Replica) GetVerifiedAt() *timestamppb.Tim
 	return nil
 }
 
-// status of a repository
+// Repository is the status of a repository
 type DatalossResponse_Repository struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// relative path of the repository with outdated replicas
+	// relative_path of the repository with outdated replicas
 	RelativePath string `protobuf:"bytes,1,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
 	// storages on which the repository is outdated
 	Storages []*DatalossResponse_Repository_Storage `protobuf:"bytes,2,rep,name=storages,proto3" json:"storages,omitempty"`
 	// unavailable indicates whether the repository is in unavailable.
 	Unavailable bool `protobuf:"varint,3,opt,name=unavailable,proto3" json:"unavailable,omitempty"`
-	// current primary storage of the repository
+	// primary is the current primary storage of the repository.
 	Primary string `protobuf:"bytes,4,opt,name=primary,proto3" json:"primary,omitempty"`
 }
 
@@ -1196,7 +1196,7 @@ func (x *DatalossResponse_Repository) GetPrimary() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// Storage ...
 type DatalossResponse_Repository_Storage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1281,19 +1281,19 @@ func (x *DatalossResponse_Repository_Storage) GetValidPrimary() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// Repository ...
 type DatalossCheckResponse_Repository struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// relative path of the repository with outdated replicas
+	// relative_path of the repository with outdated replicas
 	RelativePath string `protobuf:"bytes,1,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
 	// storages on which the repository is outdated
 	Storages []*DatalossCheckResponse_Repository_Storage `protobuf:"bytes,2,rep,name=storages,proto3" json:"storages,omitempty"`
 	// unavailable indicates whether the repository is in unavailable.
 	Unavailable bool `protobuf:"varint,3,opt,name=unavailable,proto3" json:"unavailable,omitempty"`
-	// current primary storage of the repository
+	// primary is the current primary storage of the repository.
 	Primary string `protobuf:"bytes,4,opt,name=primary,proto3" json:"primary,omitempty"`
 }
 
@@ -1357,7 +1357,7 @@ func (x *DatalossCheckResponse_Repository) GetPrimary() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// Storage ...
 type DatalossCheckResponse_Repository_Storage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1442,15 +1442,15 @@ func (x *DatalossCheckResponse_Repository_Storage) GetValidPrimary() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// RepositoryDetails ...
 type RepositoryReplicasResponse_RepositoryDetails struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// repository ...
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// checksum ...
 	Checksum string `protobuf:"bytes,2,opt,name=checksum,proto3" json:"checksum,omitempty"`
 }
 

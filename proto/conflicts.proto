@@ -33,75 +33,75 @@ service ConflictsService {
 
 // ListConflictFilesRequest is the request for the ListConflictFilesRequest rpc.
 message ListConflictFilesRequest {
-  // Repository is the repository for which we want to list the conflicted files.
+  // repository is the repository for which we want to list the conflicted files.
   Repository repository = 1 [(target_repository)=true];
-  // OurCommitOid is the tree-ish OID to merge into.
+  // our_commit_oid is the tree-ish OID to merge into.
   string our_commit_oid = 2;
-  // TheirCommitOid is the tree-ish OID to merge from.
+  // their_commit_oid is the tree-ish OID to merge from.
   string their_commit_oid = 3;
-  // AllowTreeConflicts will not cause the request to fail in case there are
+  // allow_tree_conflicts will not cause the request to fail in case there are
   // tree conflicts. If set to true, then responses may contain conflict files
   // where some of the paths are unset.
   bool allow_tree_conflicts = 4;
-  // SkipContent will skip the parsing and streaming of conflicted file's content.
+  // skip_content will skip the parsing and streaming of conflicted file's content.
   // This can be useful when we only want to know if there is a conflict and which files
   // are conflicted but don't care about the contents of the conflicted files.
   bool skip_content = 5;
 }
 
-// This comment is left unintentionally blank.
+// ConflictFileHeader ...
 message ConflictFileHeader {
   reserved 1;
-  // This comment is left unintentionally blank.
+  // commit_oid ...
   string commit_oid = 2;
-  // This comment is left unintentionally blank.
+  // their_path ...
   bytes their_path = 3;
-  // This comment is left unintentionally blank.
+  // our_path ...
   bytes our_path = 4;
-  // This comment is left unintentionally blank.
+  // our_mode ...
   int32 our_mode = 5;
-  // This comment is left unintentionally blank.
+  // ancestor_path ...
   bytes ancestor_path = 6;
 }
 
-// This comment is left unintentionally blank.
+// ConflictFile ...
 message ConflictFile {
   oneof conflict_file_payload {
-    // This comment is left unintentionally blank.
+    // header ...
     ConflictFileHeader header = 1;
-    // This comment is left unintentionally blank.
+    // content ...
     bytes content = 2;
   }
 }
 
-// This comment is left unintentionally blank.
+// ListConflictFilesResponse ...
 message ListConflictFilesResponse {
-  // This comment is left unintentionally blank.
+  // files ...
   repeated ConflictFile files = 1;
 }
 
 // ResolveConflictsRequestHeader is the first message that must be sent for
 // each ResolveConflicts call.
 message ResolveConflictsRequestHeader {
-  // Repository is the repository in which conflicts shall be resolved and
+  // repository is the repository in which conflicts shall be resolved and
   // where SourceBranch shall be updated with the resolved conflict.
   Repository repository = 1 [(gitaly.target_repository)=true];
-  // OurCommitOid is the OID of the commit representing the local commit.
+  // our_commit_oid is the OID of the commit representing the local commit.
   string our_commit_oid = 2;
-  // TargetRepository is the repository from which TheirCommitOid shall be
+  // target_repository is the repository from which TheirCommitOid shall be
   // retrieved.
   Repository target_repository = 3;
-  // TheirCommitOid is the OID of the commit representing the remote commit
+  // their_commit_oid is the OID of the commit representing the remote commit
   // which is to be merged into the local commit.
   string their_commit_oid = 4;
-  // SourceBranch is the branch on which the new commit shall be created.
+  // source_branch is the branch on which the new commit shall be created.
   bytes source_branch = 5;
-  // TargetBranch identifies the branch which will be fetched from
-  // TargetRepository in case TheirCommitOid does not exist in Repository.
+  // target_branch identifies the branch which will be fetched from
+  // target_repository in case TheirCommitOid does not exist in Repository.
   bytes target_branch = 6;
-  // CommitMessage is the message of the newly created merge commit.
+  // commit_message is the message of the newly created merge commit.
   bytes commit_message = 7;
-  // User is the user used as author and committer of the newly created merge
+  // user is the user used as author and committer of the newly created merge
   // commit.
   User user = 8;
   // timestamp is the optional timestamp to use for the commit as committer
@@ -115,9 +115,9 @@ message ResolveConflictsRequest {
   // must always be a ResolveConflictsRequestHeader, whereas all remaining
   // requests must be FilesJson requests.
   oneof resolve_conflicts_request_payload {
-    // Header is the initial message specifying parameters of the RPC call.
+    // header is the initial message specifying parameters of the RPC call.
     ResolveConflictsRequestHeader header = 1;
-    // FilesJson is a JSON-encoded list of conflicts resolutions.
+    // files_json is a JSON-encoded list of conflicts resolutions.
     bytes files_json = 2;
   }
 }
@@ -127,7 +127,7 @@ message ResolveConflictsRequest {
 // check ResolutionError to verify whether the merge commit was correctly
 // computed or not.
 message ResolveConflictsResponse {
-  // ResolutionError contains a description of why conflict resolution has
+  // resolution_error contains a description of why conflict resolution has
   // failed.
   string resolution_error = 1;
 }
