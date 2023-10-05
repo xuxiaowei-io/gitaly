@@ -141,19 +141,20 @@ func (UserCommitFilesActionHeader_ActionType) EnumDescriptor() ([]byte, []int) {
 	return file_operations_proto_rawDescGZIP(), []int{28, 0}
 }
 
-// UserCreateBranchRequest ...
+// UserCreateBranchRequest is a request for the UserCreateBranch RPC.
 type UserCreateBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository in which the branch should be created.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// branch_name ...
+	// branch_name is the name of the branch to create.
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// user ...
+	// user is used to perform access checks against Rails' `/internal/allowed` endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
-	// start_point ...
+	// start_point is the Git revision to start the branch at. See the gitrevisions(1)
+	// man pages for supported syntax.
 	StartPoint []byte `protobuf:"bytes,4,opt,name=start_point,json=startPoint,proto3" json:"start_point,omitempty"`
 }
 
@@ -217,13 +218,13 @@ func (x *UserCreateBranchRequest) GetStartPoint() []byte {
 	return nil
 }
 
-// UserCreateBranchResponse ...
+// UserCreateBranchResponse is a response for the UserCreateBranch RPC.
 type UserCreateBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// branch ...
+	// branch is the branch that was created.
 	Branch *Branch `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
 }
 

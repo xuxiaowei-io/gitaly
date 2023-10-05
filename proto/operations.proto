@@ -15,7 +15,14 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // '/allowed' endpoint.
 service OperationService {
 
-  // UserCreateBranch ...
+  // UserCreateBranch creates a single branch in the context of a specific user. It executes
+  // hooks and contacts Rails to verify that the user is allowed to create the branch. The
+  // following known error conditions may happen:
+  //
+  // - `FailedPrecondition` if the Git revision provided in start_point can't be found or updated.
+  // - `InvalidArgument` if the commit ID resolved from the start_point can't be parsed.
+  // - `PermissionDenied` with an embedded `UserCreateBranchError` if any custom hooks return a
+  //    non-zero exit code.
   rpc UserCreateBranch(UserCreateBranchRequest) returns (UserCreateBranchResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -175,21 +182,22 @@ service OperationService {
 
 }
 
-// UserCreateBranchRequest ...
+// UserCreateBranchRequest is a request for the UserCreateBranch RPC.
 message UserCreateBranchRequest {
-  // repository ...
+  // repository is the repository in which the branch should be created.
   Repository repository = 1 [(target_repository)=true];
-  // branch_name ...
+  // branch_name is the name of the branch to create.
   bytes branch_name = 2;
-  // user ...
+  // user is used to perform access checks against Rails' `/internal/allowed` endpoint.
   User user = 3;
-  // start_point ...
+  // start_point is the Git revision to start the branch at. See the gitrevisions(1)
+  // man pages for supported syntax.
   bytes start_point = 4;
 }
 
-// UserCreateBranchResponse ...
+// UserCreateBranchResponse is a response for the UserCreateBranch RPC.
 message UserCreateBranchResponse {
-  // branch ...
+  // branch is the branch that was created.
   Branch branch = 1;
 
   // PreReceiveError had previously been set when creation of the branch was refused by hooks.

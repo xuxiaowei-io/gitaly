@@ -22,7 +22,14 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OperationServiceClient interface {
-	// UserCreateBranch ...
+	// UserCreateBranch creates a single branch in the context of a specific user. It executes
+	// hooks and contacts Rails to verify that the user is allowed to create the branch. The
+	// following known error conditions may happen:
+	//
+	//   - `FailedPrecondition` if the Git revision provided in start_point can't be found or updated.
+	//   - `InvalidArgument` if the commit ID resolved from the start_point can't be parsed.
+	//   - `PermissionDenied` with an embedded `UserCreateBranchError` if any custom hooks return a
+	//     non-zero exit code.
 	UserCreateBranch(ctx context.Context, in *UserCreateBranchRequest, opts ...grpc.CallOption) (*UserCreateBranchResponse, error)
 	// UserUpdateBranch ...
 	UserUpdateBranch(ctx context.Context, in *UserUpdateBranchRequest, opts ...grpc.CallOption) (*UserUpdateBranchResponse, error)
@@ -352,7 +359,14 @@ func (c *operationServiceClient) UserUpdateSubmodule(ctx context.Context, in *Us
 // All implementations must embed UnimplementedOperationServiceServer
 // for forward compatibility
 type OperationServiceServer interface {
-	// UserCreateBranch ...
+	// UserCreateBranch creates a single branch in the context of a specific user. It executes
+	// hooks and contacts Rails to verify that the user is allowed to create the branch. The
+	// following known error conditions may happen:
+	//
+	//   - `FailedPrecondition` if the Git revision provided in start_point can't be found or updated.
+	//   - `InvalidArgument` if the commit ID resolved from the start_point can't be parsed.
+	//   - `PermissionDenied` with an embedded `UserCreateBranchError` if any custom hooks return a
+	//     non-zero exit code.
 	UserCreateBranch(context.Context, *UserCreateBranchRequest) (*UserCreateBranchResponse, error)
 	// UserUpdateBranch ...
 	UserUpdateBranch(context.Context, *UserUpdateBranchRequest) (*UserUpdateBranchResponse, error)
