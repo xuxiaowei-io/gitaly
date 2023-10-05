@@ -9,11 +9,9 @@ Set the title to: `Description of the original issue`
 ## Prior to starting the security release work
 
 - [ ] Read the [security process for developers] if you are not familiar with it.
-- [ ] Mark this [issue as related] to the Security Release tracking issue. You can find it on the topic of the `#releases` Slack channel.
 - [ ] Run `scripts/security-harness` in your local repository to prevent accidentally pushing to any remote besides `gitlab.com/gitlab-org/security`.
 - Fill out the [Links section](#links):
   - [ ] Next to **Issue on Gitaly**, add a link to the `gitlab-org/gitaly` issue that describes the security vulnerability.
-  - [ ] Next to **Security Release tracking issue**, add a link to the security release issue that will include this security issue.
 
 ## Development
 
@@ -33,6 +31,10 @@ After your merge request has been approved according to our [approval guidelines
 - [ ] On the "Related merge requests" section, ensure all MRs are linked to this issue.
    * This section should only list the merge requests created for this issue: One targeting `master` and the 3 backports.
 
+## Assigning to a release
+
+- [ ] When this issue is ready for release (Backports are approved and ready to be merged), apply the ~"security-target" label for it to be evaluated and linked to the next planned security release tracking issue.
+
 ## Documentation and final details
 
 - [ ] Ensure the [Links section](#links) is completed.
@@ -48,7 +50,6 @@ After your merge request has been approved according to our [approval guidelines
 | Description | Link |
 | -------- | -------- |
 | Issue on [Gitaly](https://gitlab.com/gitlab-org/gitaly/issues) | #TODO  |
-| Security Release tracking issue | #TODO  |
 
 ### Details
 
@@ -66,4 +67,4 @@ After your merge request has been approved according to our [approval guidelines
 [approval guidelines]: https://docs.gitlab.com/ee/development/code_review.html#approval-guidelines
 [issue as related]: https://docs.gitlab.com/ee/user/project/issues/related_issues.html#adding-a-related-issue
 
-/label ~"devops::systems" ~"group::gitaly" ~"security"
+/label ~"devops::systems" ~"group::gitaly" ~"security" ~"security-notifications"
