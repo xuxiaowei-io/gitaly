@@ -51,7 +51,7 @@ type RequestInfo struct {
 	methodOperation string
 	methodScope     string
 
-	repository  *gitalypb.Repository
+	Repository  *gitalypb.Repository
 	objectPool  *gitalypb.ObjectPool
 	storageName string
 }
@@ -183,7 +183,7 @@ func (i *RequestInfo) extractRequestInfo(request any) {
 	}
 
 	if repoScoped, ok := request.(repoScopedRequest); ok {
-		i.repository = repoScoped.GetRepository()
+		i.Repository = repoScoped.GetRepository()
 	}
 
 	if poolScoped, ok := request.(poolScopedRequest); ok {
@@ -221,7 +221,7 @@ func (i *RequestInfo) injectTags(tags grpcmwtags.Tags) {
 	// We handle the repository-related fields separately such that all fields will be set unconditionally,
 	// regardless of whether they are empty or not. This is done to retain all fields even if their values
 	// are empty.
-	if repo := i.repository; repo != nil {
+	if repo := i.Repository; repo != nil {
 		for key, value := range map[string]string{
 			"grpc.request.repoStorage":   repo.GetStorageName(),
 			"grpc.request.repoPath":      repo.GetRelativePath(),

@@ -369,7 +369,7 @@ func TestInterceptors(t *testing.T) {
 				methodScope:     "repository",
 				methodType:      "unary",
 				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
-				repository: &gitalypb.Repository{
+				Repository: &gitalypb.Repository{
 					StorageName:   "storage",
 					RelativePath:  "path",
 					GlProjectPath: "glProject",
@@ -484,7 +484,7 @@ func TestInterceptors(t *testing.T) {
 				methodScope:     "repository",
 				methodType:      "unary",
 				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
-				repository: &gitalypb.Repository{
+				Repository: &gitalypb.Repository{
 					StorageName:   "storage",
 					RelativePath:  "path",
 					GlProjectPath: "glProject",
@@ -543,7 +543,7 @@ func TestInterceptors(t *testing.T) {
 				methodScope:     "repository",
 				methodType:      "unary",
 				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
-				repository: &gitalypb.Repository{
+				Repository: &gitalypb.Repository{
 					StorageName:   "storage",
 					RelativePath:  "path",
 					GlProjectPath: "glProject",
@@ -594,7 +594,7 @@ func TestInterceptors(t *testing.T) {
 				methodScope:     "repository",
 				methodType:      "bidi_stream",
 				FullMethod:      "/gitaly.RepositoryService/CreateBundleFromRefList",
-				repository: &gitalypb.Repository{
+				Repository: &gitalypb.Repository{
 					StorageName:   "storage",
 					RelativePath:  "path",
 					GlProjectPath: "glProject",
