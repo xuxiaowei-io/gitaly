@@ -126,7 +126,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: &RequestInfo{
-				fullMethod:      "/gitaly.RepositoryService/UnknownMethod",
+				FullMethod:      "/gitaly.RepositoryService/UnknownMethod",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -142,7 +142,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: &RequestInfo{
-				fullMethod:      "/gitaly.RepositoryService/ObjectFormat",
+				FullMethod:      "/gitaly.RepositoryService/ObjectFormat",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -158,7 +158,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: &RequestInfo{
-				fullMethod:      "/gitaly.RepositoryService/CreateRepository",
+				FullMethod:      "/gitaly.RepositoryService/CreateRepository",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -174,7 +174,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: &RequestInfo{
-				fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+				FullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -190,7 +190,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: &RequestInfo{
-				fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+				FullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -206,7 +206,7 @@ func TestNewRequestInfo(t *testing.T) {
 			metadata:   metadata.Pairs(),
 			deadline:   false,
 			expectedInfo: &RequestInfo{
-				fullMethod:      "/gitaly.RemoteService/FindRemoteRepository",
+				FullMethod:      "/gitaly.RemoteService/FindRemoteRepository",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -260,7 +260,7 @@ func TestGRPCTags(t *testing.T) {
 
 		require.Equal(t, &RequestInfo{
 			correlationID:   correlationID,
-			fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+			FullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 			methodType:      "unary",
 			clientName:      clientName,
 			callSite:        "unknown",
@@ -325,7 +325,7 @@ func TestExtractServiceAndMethodName(t *testing.T) {
 			t.Parallel()
 
 			info := RequestInfo{
-				fullMethod: tc.fullMethodName,
+				FullMethod: tc.fullMethodName,
 			}
 
 			service, method := info.ExtractServiceAndMethodName()
@@ -368,7 +368,7 @@ func TestInterceptors(t *testing.T) {
 				methodOperation: "accessor",
 				methodScope:     "repository",
 				methodType:      "unary",
-				fullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
+				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
 				repository: &gitalypb.Repository{
 					StorageName:   "storage",
 					RelativePath:  "path",
@@ -405,7 +405,7 @@ func TestInterceptors(t *testing.T) {
 				methodOperation: "accessor",
 				methodScope:     "repository",
 				methodType:      "unary",
-				fullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
+				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
 			},
 			expectedTags: map[string]any{
 				"grpc.meta.deadline_type":    "none",
@@ -438,7 +438,7 @@ func TestInterceptors(t *testing.T) {
 				methodOperation: "mutator",
 				methodScope:     "repository",
 				methodType:      "unary",
-				fullMethod:      "/gitaly.ObjectPoolService/FetchIntoObjectPool",
+				FullMethod:      "/gitaly.ObjectPoolService/FetchIntoObjectPool",
 				objectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
 						StorageName:   "storage",
@@ -483,7 +483,7 @@ func TestInterceptors(t *testing.T) {
 				methodOperation: "accessor",
 				methodScope:     "repository",
 				methodType:      "unary",
-				fullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
+				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
 				repository: &gitalypb.Repository{
 					StorageName:   "storage",
 					RelativePath:  "path",
@@ -542,7 +542,7 @@ func TestInterceptors(t *testing.T) {
 				methodOperation: "accessor",
 				methodScope:     "repository",
 				methodType:      "unary",
-				fullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
+				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
 				repository: &gitalypb.Repository{
 					StorageName:   "storage",
 					RelativePath:  "path",
@@ -593,7 +593,7 @@ func TestInterceptors(t *testing.T) {
 				methodOperation: "accessor",
 				methodScope:     "repository",
 				methodType:      "bidi_stream",
-				fullMethod:      "/gitaly.RepositoryService/CreateBundleFromRefList",
+				FullMethod:      "/gitaly.RepositoryService/CreateBundleFromRefList",
 				repository: &gitalypb.Repository{
 					StorageName:   "storage",
 					RelativePath:  "path",
@@ -631,7 +631,7 @@ func TestInterceptors(t *testing.T) {
 				methodOperation: "accessor",
 				methodScope:     "repository",
 				methodType:      "bidi_stream",
-				fullMethod:      "/gitaly.RepositoryService/CreateBundleFromRefList",
+				FullMethod:      "/gitaly.RepositoryService/CreateBundleFromRefList",
 			},
 			expectedTags: map[string]any{
 				"grpc.meta.deadline_type":    "none",

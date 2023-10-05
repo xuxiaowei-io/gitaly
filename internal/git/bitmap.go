@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/packfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/requestinfohandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
@@ -81,11 +81,7 @@ func WarnIfTooManyBitmaps(ctx context.Context, locator storage.Locator, storageN
 	// The case where bitmapCount == 0 is likely to occur early in the life of a
 	// repository. We don't want to spam our logs with that, so we count but
 	// not log it.
-
-	grpcMethod, ok := grpcmwtags.Extract(ctx).Values()["grpc.request.fullMethod"].(string)
-	if !ok {
-		return
+	if info := requestinfohandler.Extract(ctx); info != nil {
+		badBitmapRequestCount.WithLabelValues(info.FullMethod, strconv.Itoa(bitmapCount)).Inc()
 	}
-
-	badBitmapRequestCount.WithLabelValues(grpcMethod, strconv.Itoa(bitmapCount)).Inc()
 }

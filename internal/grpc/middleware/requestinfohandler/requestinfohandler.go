@@ -39,7 +39,7 @@ var requests = promauto.NewCounterVec(
 // that we can obtain RPC-call specific information.
 type RequestInfo struct {
 	correlationID   string
-	fullMethod      string
+	FullMethod      string
 	methodType      string
 	clientName      string
 	remoteIP        string
@@ -86,7 +86,7 @@ func getFromMD(md metadata.MD, header string) string {
 // using `unknown` if a value is not set
 func newRequestInfo(ctx context.Context, fullMethod, grpcMethodType string) *RequestInfo {
 	info := &RequestInfo{
-		fullMethod:      fullMethod,
+		FullMethod:      fullMethod,
 		methodType:      grpcMethodType,
 		clientName:      unknownValue,
 		callSite:        unknownValue,
@@ -204,7 +204,7 @@ func (i *RequestInfo) injectTags(tags grpcmwtags.Tags) {
 		"grpc.meta.method_type":      i.methodType,
 		"grpc.meta.method_operation": i.methodOperation,
 		"grpc.meta.method_scope":     i.methodScope,
-		"grpc.request.fullMethod":    i.fullMethod,
+		"grpc.request.fullMethod":    i.FullMethod,
 		"grpc.request.StorageName":   i.storageName,
 		"remote_ip":                  i.remoteIP,
 		"user_id":                    i.userID,
@@ -265,7 +265,7 @@ func (i *RequestInfo) reportPrometheusMetrics(err error) {
 // ExtractServiceAndMethodName converts the full method name of the request into a server and method part.
 // Returns "unknown" in case they cannot be extracted.
 func (i *RequestInfo) ExtractServiceAndMethodName() (string, string) {
-	fullMethodName := strings.TrimPrefix(i.fullMethod, "/") // remove leading slash
+	fullMethodName := strings.TrimPrefix(i.FullMethod, "/") // remove leading slash
 	service, method, ok := strings.Cut(fullMethodName, "/")
 	if !ok {
 		return unknownValue, unknownValue
