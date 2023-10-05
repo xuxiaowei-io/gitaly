@@ -13,17 +13,17 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 service PraefectInfoService {
   option (intercepted) = true;
 
-  // RepositoryReplicas ...
+  // repositoryReplicas ...
   rpc RepositoryReplicas(RepositoryReplicasRequest) returns (RepositoryReplicasResponse);
 
-  // DatalossCheck provides information on repositories in Praefect that are in a degraded state and
+  // datalossCheck provides information on repositories in Praefect that are in a degraded state and
   // thus susceptible to dataloss. A repository is considered degraded when its replicas are
   // outdated and/or unavailable.
   rpc DatalossCheck(DatalossCheckRequest) returns (DatalossCheckResponse) {
     option deprecated = true;
   };
 
-  // Dataloss provides information on repositories in Praefect that are in a degraded state and 
+  // dataloss provides information on repositories in Praefect that are in a degraded state and 
   // thus susceptible to dataloss. A repository is considered degraded when its replicas are 
   // outdated and/or unavailable.
   rpc Dataloss(DatalossRequest) returns (stream DatalossResponse);
@@ -54,7 +54,7 @@ service PraefectInfoService {
 
 // MarkUnverifiedRequest specifies the replicas which to mark unverified.
 message MarkUnverifiedRequest {
-  // Storage identifies a single storage in a virtual storage.
+  // storage identifies a single storage in a virtual storage.
   message Storage {
     // virtual_storage is the virtual storage the storage is part of.
     string virtual_storage = 1;
@@ -82,7 +82,7 @@ message MarkUnverifiedResponse {
 
 // GetRepositoryMetadataRequest specifies the repository to retrieve metadata for.
 message GetRepositoryMetadataRequest {
-  // Path ...
+  // path ...
   message Path {
     // virtual_storage is the virtual storage where the repository is.
     string virtual_storage = 1;
@@ -177,7 +177,7 @@ message DatalossRequest {
 message DatalossResponse {
   // status of a repository
   message Repository {
-    // Storage ...
+    // storage ...
     message Storage {
       // name of the storage
       string name = 1;
@@ -206,7 +206,7 @@ message DatalossResponse {
   repeated Repository repositories = 2;
 }
 
-// DatalossCheckRequest ...
+// datalossCheckRequest ...
 message DatalossCheckRequest {
   option deprecated = true;
   // virtual_storage ...
@@ -216,12 +216,12 @@ message DatalossCheckRequest {
   bool include_partially_replicated = 2;
 }
 
-// DatalossCheckResponse ...
+// datalossCheckResponse ...
 message DatalossCheckResponse {
   option deprecated = true;
-  // Repository ...
+  // repository ...
   message Repository {
-    // Storage ...
+    // storage ...
     message Storage {
       // name of the storage
       string name = 1;
@@ -250,15 +250,15 @@ message DatalossCheckResponse {
   repeated Repository repositories = 2;
 }
 
-// RepositoryReplicasRequest ...
+// repositoryReplicasRequest ...
 message RepositoryReplicasRequest{
   // repository ...
   Repository repository = 1;
 }
 
-// RepositoryReplicasResponse ...
+// repositoryReplicasResponse ...
 message RepositoryReplicasResponse{
-  // RepositoryDetails ...
+  // repositoryDetails ...
   message RepositoryDetails {
     // repository ...
     Repository repository = 1;

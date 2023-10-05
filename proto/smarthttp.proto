@@ -56,29 +56,29 @@ service SmartHTTPService {
 
 // InfoRefsRequest is a request for the InfoRefsUploadPack and InfoRefsUploadPack rpcs.
 message InfoRefsRequest {
-  // Repository is the repository on which to operate.
+  // repository is the repository on which to operate.
   Repository repository = 1 [(target_repository)=true];
-  // GitConfigOptions are parameters to use with git -c (key=value pairs).
+  // git_config_options are parameters to use with git -c (key=value pairs).
   repeated string git_config_options = 2;
-  // GitProtocol is the git protocol version.
+  // git_protocol is the git protocol version.
   string git_protocol = 3;
 }
 
 // InfoRefsResponse is the response of InfoRefsUploadPack and InfoRefsUploadPack rpcs.
 // It is used to provide the client with the servers advertised refs.
 message InfoRefsResponse {
-  // Data is the raw data copied from the stdout of git-upload-pack(1) or
+  // data is the raw data copied from the stdout of git-upload-pack(1) or
   // git-receive-pack(1) when used with the `--advertise-refs` flag.
   bytes data = 1;
 }
 
 // PostUploadPackWithSidechannelRequest is the request for the PostUploadPackWithSidechannel rpc.
 message PostUploadPackWithSidechannelRequest {
-  // Repository is the repository on which to operate.
+  // repository is the repository on which to operate.
   Repository repository = 1 [(target_repository)=true];
-  // GitConfigOptions are parameters to use with git -c (key=value pairs).
+  // git_config_options are parameters to use with git -c (key=value pairs).
   repeated string git_config_options = 2;
-  // GitProtocol is the git protocol version.
+  // git_protocol is the git protocol version.
   string git_protocol = 3;
 }
 
@@ -93,29 +93,29 @@ message PostUploadPackWithSidechannelResponse {
 // PostReceivePackRequest is the request for the PostReceivePack rpc. It is a stream used to
 // transfer the raw data from the client to the servers stdin of git-receive-pack(1) process.
 message PostReceivePackRequest {
-  // Repository is the repository on which to operate.
+  // repository is the repository on which to operate.
   // It should only be present in the first message of the stream.
   Repository repository = 1 [(target_repository)=true];
-  // Data is the raw data to be copied to stdin of 'git receive-pack'.
+  // data is the raw data to be copied to stdin of 'git receive-pack'.
   bytes data = 2;
   // GlID is the GitLab ID of the user. This is used by Git {pre,post}-receive hooks.
   // It should only be present in the first message of the stream.
   string gl_id = 3;
-  // GlRepository refers to the GitLab repository. This is used by Git {pre,post}-receive hooks.
+  // gl_repository refers to the GitLab repository. This is used by Git {pre,post}-receive hooks.
   // It should only be present in the first message of the stream.
   string gl_repository = 4;
   // GlID is the GitLab Username of the user. This is used by Git {pre,post}-receive hooks.
   // It should only be present in the first message of the stream.
   string gl_username = 5;
-  // GitProtocol is the git protocol version.
+  // git_protocol is the git protocol version.
   string git_protocol = 6;
-  // GitConfigOptions are parameters to use with git -c (key=value pairs).
+  // git_config_options are parameters to use with git -c (key=value pairs).
   repeated string git_config_options = 7;
 }
 
 // PostReceivePackResponse is the response for the PostReceivePack rpc. It is a stream used to
 // transfer the raw data from the stdout of git-receive-pack(1) from the server to the client.
 message PostReceivePackResponse {
-  // Data is the raw data from the stdout of 'git receive-pack'.
+  // data is the raw data from the stdout of 'git receive-pack'.
   bytes data = 1;
 }

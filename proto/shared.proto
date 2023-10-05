@@ -21,7 +21,7 @@ enum ObjectType {
   TAG = 4; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 }
 
-// ObjectFormat is the object format that a Git repository can use.
+// object_format is the object format that a Git repository can use.
 enum ObjectFormat {
   // OBJECT_FORMAT_UNSPECIFIED is the default object type when it has not been explicitly requested
   // by the client. Defaults to OBJECT_FORMAT_SHA1.
@@ -32,7 +32,7 @@ enum ObjectFormat {
   OBJECT_FORMAT_SHA256 = 2;
 }
 
-// SignatureType ...
+// signatureType ...
 enum SignatureType {
   // NONE ...
   NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -45,7 +45,7 @@ enum SignatureType {
   // maybe add X509+TSA or other combinations at a later step
 }
 
-// Repository ...
+// repository ...
 message Repository {
   // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/issues/151
   reserved 1;
@@ -83,7 +83,7 @@ message CommitTrailer {
   bytes value = 2;
 }
 
-// CommitStatInfo includes the number of changed lines and files in the commit.
+// commitStatInfo includes the number of changed lines and files in the commit.
 message CommitStatInfo {
   // additions is the number of line additions in the commit.
   int32 additions = 1;
@@ -135,7 +135,7 @@ message GitCommit {
   string encoding = 13;
 }
 
-// CommitAuthor ...
+// commitAuthor ...
 message CommitAuthor {
   // name ...
   bytes name = 1;
@@ -147,7 +147,7 @@ message CommitAuthor {
   bytes timezone = 4;
 }
 
-// ExitStatus ...
+// exit_status ...
 message ExitStatus {
   // value ...
   int32 value = 1;
@@ -161,7 +161,7 @@ message Branch {
   GitCommit target_commit = 2;
 }
 
-// Tag ...
+// tag ...
 message Tag {
   // name ...
   bytes name = 1;
@@ -181,7 +181,7 @@ message Tag {
   SignatureType signature_type = 7;
 }
 
-// User ...
+// user ...
 message User {
   // gl_id ...
   string gl_id = 1;
@@ -191,12 +191,12 @@ message User {
   bytes email = 3;
   // gl_username ...
   string gl_username = 4;
-  // Timezone is the timezone as configured by the user in the web interface. This
+  // timezone is the timezone as configured by the user in the web interface. This
   // timezone may be used when new commits are created via RPC calls.
   string timezone = 5;
 }
 
-// ObjectPool ...
+// object_pool ...
 message ObjectPool {
   // repository ...
   Repository repository = 1 [(gitaly.repository)=true];
@@ -221,7 +221,7 @@ message PaginationParameter {
 
 // PaginationCursor ...
 message PaginationCursor {
-  // To the caller, this is an opaque token to indicate what the caller
+  // to the caller, this is an opaque token to indicate what the caller
   // should present as a page_token to get subsequent results.
   string next_cursor = 1;
 }
@@ -232,7 +232,7 @@ message GlobalOptions {
   bool literal_pathspecs = 1;
 }
 
-// SortDirection defines the sort direction.
+// sortDirection defines the sort direction.
 enum SortDirection {
   // ASCENDING sorts by the sort key in ascending order.
   ASCENDING = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH

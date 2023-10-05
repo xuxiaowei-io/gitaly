@@ -80,11 +80,11 @@ service BlobService {
 
 // GetBlobRequest is a request for the GetBlob RPC.
 message GetBlobRequest {
-  // Repository is the repository that shall be searched.
+  // repository is the repository that shall be searched.
   Repository repository = 1[(target_repository)=true];
-  // Oid is the object ID of the blob we want to get.
+  // oid is the object ID of the blob we want to get.
   string oid = 2;
-  // Limit is the maximum number of bytes we want to receive. Use '-1' to get the full blob no matter how big. Setting
+  // limit is the maximum number of bytes we want to receive. Use '-1' to get the full blob no matter how big. Setting
   // this to `0` will return no data.
   int64 limit = 3;
 }
@@ -92,31 +92,31 @@ message GetBlobRequest {
 // GetBlobResponse is a response for the GetBlob RPC. Multiple responses will be returned when the blob is large and
 // thus doesn't fit into a single response.
 message GetBlobResponse {
-  // Size is the size of the blob. Present only in first response message.
+  // size is the size of the blob. Present only in first response message.
   int64 size = 1;
-  // Data is a chunk of data.
+  // data is a chunk of data.
   bytes data = 2;
-  // Oid of the actual blob returned. Empty if no blob was found.
+  // oid of the actual blob returned. Empty if no blob was found.
   string oid = 3;
 }
 
 // GetBlobsRequest is a request for the GetBlobs RPC.
 message GetBlobsRequest {
-  // RevisionPath is a combination of revision and path. All objects reachable in the subdirectory of the treeish
+  // revisionPath is a combination of revision and path. All objects reachable in the subdirectory of the treeish
   // will be returned.
   message RevisionPath {
-    // Revision is the revision that identifies the tree-ish. Must not be empty.
+    // revision is the revision that identifies the tree-ish. Must not be empty.
     string revision = 1;
-    // Path is the path relative to the treeish revision that shall be searched for a blob. If the path is empty the
+    // path is the path relative to the treeish revision that shall be searched for a blob. If the path is empty the
     // root directory of the tree-ish will be searched.
     bytes path = 2;
   }
 
-  // Repository is the repository that shall be searched.
+  // repository is the repository that shall be searched.
   Repository repository = 1[(target_repository)=true];
-  // RevisionPaths identifies the set of revision/path pairs that shall be searched for blobs.
+  // revisionPaths identifies the set of revision/path pairs that shall be searched for blobs.
   repeated RevisionPath revision_paths = 2;
-  // Limit is the maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
+  // limit is the maximum number of bytes we want to receive. Use '-1' to get the full blobs no matter how big.
   int64 limit = 3;
 }
 
@@ -125,47 +125,47 @@ message GetBlobsRequest {
 // only have their data field set. Blobs which cannot be found will only have their path and revision set, but will
 // otherwise be empty.
 message GetBlobsResponse {
-  // Size is the size of the blob. Present only on the first message per blob
+  // size is the size of the blob. Present only on the first message per blob
   int64 size = 1;
-  // Data is a chunk of blob data, which could span over multiple messages.
+  // data is a chunk of blob data, which could span over multiple messages.
   bytes data = 2;
-  // Oid is the object ID of the current blob. Only present on the first message per blob. Empty if no blob was
+  // oid is the object ID of the current blob. Only present on the first message per blob. Empty if no blob was
   // found.
   string oid = 3;
-  // IsSubmodule indicates whether the blob is a submodule.
+  // is_submodule indicates whether the blob is a submodule.
   bool is_submodule = 4;
-  // Mode is the file mode of blob as present in the tree. It is typically one of:
+  // mode is the file mode of blob as present in the tree. It is typically one of:
   //
   // - 0o100644 for non-executable files.
   // - 0o100755 for executable files.
   // - 0o160000 for submodules.
   // - 0o040000 for subtrees.
   int32 mode = 5;
-  // Revision is the revision that this blob has been traversed from.
+  // revision is the revision that this blob has been traversed from.
   string revision = 6;
-  // Path is the path of the blob inside of the tree.
+  // path is the path of the blob inside of the tree.
   bytes path = 7;
-  // Type is the type of the "blob".
+  // type is the type of the "blob".
   ObjectType type = 8;
 }
 
 // ListBlobsRequest is a request for the ListBlobs RPC.
 message ListBlobsRequest {
-  // Repository is the repository in which blobs should be enumerated.
+  // repository is the repository in which blobs should be enumerated.
   Repository repository = 1 [(target_repository)=true];
-  // Revisions is the list of revisions to retrieve blobs from. These revisions
+  // revisions is the list of revisions to retrieve blobs from. These revisions
   // will be walked. Supports pseudo-revisions `--all` and `--not` as well as
   // negated revisions via `^revision`. Revisions cannot start with a leading
   // dash. Please consult gitrevisions(7) for more info. Must not be empty.
   repeated string revisions = 2;
-  // Limit is the maximum number of blobs to return. If set to its default
+  // limit is the maximum number of blobs to return. If set to its default
   // (`0`), then all found blobs wll be returned.
   uint32 limit = 3;
-  // BytesLimit is the maximum number of bytes to receive for each blob. If set
+  // bytes_limit is the maximum number of bytes to receive for each blob. If set
   // to `0`, then no blob data will be sent. If `-1`, then all blob data will
   // be sent without any limits.
   int64 bytes_limit = 4;
-  // WithPaths determines whether paths of blobs should be returned. When
+  // with_paths determines whether paths of blobs should be returned. When
   // set to `true`, paths are returned on a best-effort basis: a path will only
   // exist if the blob was traversed via a tree.
   bool with_paths = 5;
@@ -175,21 +175,21 @@ message ListBlobsRequest {
 message ListBlobsResponse {
   // Blob represents a Git blob object.
   message Blob {
-    // Oid is the object ID of the blob. Will only be set for the first
+    // oid is the object ID of the blob. Will only be set for the first
     // message of each specific blob.
     string oid = 1;
-    // Size is the size of the blob. Will only be set for the first message
+    // size is the size of the blob. Will only be set for the first message
     // of each specific blob.
     int64 size = 2;
-    // Data is the contents of the blob. This field is optional and depends on
+    // data is the contents of the blob. This field is optional and depends on
     // the BytesLimit in the original request.
     bytes data = 3;
-    // Path is the path of the blob. May be unset depending on how the blob had
+    // path is the path of the blob. May be unset depending on how the blob had
     // been traversed.
     bytes path = 4;
   }
 
-  // Blobs is the blobs which have been found. In case blob contents were
+  // blobs is the blobs which have been found. In case blob contents were
   // requested and contents of a blob exceed the maximum gRPC message size,
   // then this blob will be split up into multiple blob messages which span
   // across multiple responses. In that case, metadata of the blob will only be
@@ -199,12 +199,12 @@ message ListBlobsResponse {
 
 // ListAllBlobsRequest is a request for the ListAllBlobs RPC.
 message ListAllBlobsRequest {
-  // Repository is the repository in which blobs should be enumerated.
+  // repository is the repository in which blobs should be enumerated.
   Repository repository = 1 [(target_repository)=true];
-  // Limit is the maximum number of blobs to return. If set to its default
+  // limit is the maximum number of blobs to return. If set to its default
   // (`0`), then all found blobs wll be returned.
   uint32 limit = 2;
-  // BytesLimit is the maximum number of bytes to receive for each blob. If set
+  // bytes_limit is the maximum number of bytes to receive for each blob. If set
   // to `0`, then no blob data will be sent. If `-1`, then all blob data will
   // be sent without any limits.
   int64 bytes_limit = 3;
@@ -214,18 +214,18 @@ message ListAllBlobsRequest {
 message ListAllBlobsResponse {
   // Blob represents a Git blob object.
   message Blob {
-    // Oid is the object ID of the blob. Will only be set for the first
+    // oid is the object ID of the blob. Will only be set for the first
     // message of each specific blob.
     string oid = 1;
-    // Size is the size of the blob. Will only be set for the first message
+    // size is the size of the blob. Will only be set for the first message
     // of each specific blob.
     int64 size = 2;
-    // Data is the contents of the blob. This field is optional and depends on
+    // data is the contents of the blob. This field is optional and depends on
     // the BytesLimit in the original request.
     bytes data = 3;
   }
 
-  // Blobs is the blobs which have been found. In case blob contents were
+  // blobs is the blobs which have been found. In case blob contents were
   // requested and contents of a blob exceed the maximum gRPC message size,
   // then this blob will be split up into multiple blob messages which span
   // across multiple responses. In that case, metadata of the blob will only be
@@ -235,61 +235,61 @@ message ListAllBlobsResponse {
 
 // LFSPointer is a git blob which points to an LFS object.
 message LFSPointer {
-  // Size is the size of the blob. This is not the size of the LFS object
+  // size is the size of the blob. This is not the size of the LFS object
   // pointed to.
   int64 size = 1;
-  // Data is the bare data of the LFS pointer blob. It contains the pointer to
+  // data is the bare data of the LFS pointer blob. It contains the pointer to
   // the LFS data in the format specified by the LFS project.
   bytes data = 2;
-  // Oid is the object ID of the blob.
+  // oid is the object ID of the blob.
   string oid = 3;
 }
 
 // GetLFSPointersRequest is a request for the GetLFSPointers RPC.
 message GetLFSPointersRequest {
-  // Repository is the repository for which LFS pointers should be retrieved
+  // repository is the repository for which LFS pointers should be retrieved
   // from.
   Repository repository = 1[(target_repository)=true];
-  // BlobIds is the list of blobs to retrieve LFS pointers from. Must be a
+  // blob_ids is the list of blobs to retrieve LFS pointers from. Must be a
   // non-empty list of blobs IDs to fetch.
   repeated string blob_ids = 2;
 }
 
 // GetLFSPointersResponse is a response for the GetLFSPointers RPC.
 message GetLFSPointersResponse {
-  // LfsPointers is the list of LFS pointers which were requested.
+  // lfs_pointers is the list of LFS pointers which were requested.
   repeated LFSPointer lfs_pointers = 1;
 }
 
 // ListLFSPointersRequest is a request for the ListLFSPointers RPC.
 message ListLFSPointersRequest {
-  // Repository is the repository for which LFS pointers should be retrieved
+  // repository is the repository for which LFS pointers should be retrieved
   // from.
   Repository repository = 1[(target_repository)=true];
-  // Revisions is the list of revisions to retrieve LFS pointers from. Must be
+  // revisions is the list of revisions to retrieve LFS pointers from. Must be
   // a non-empty list.
   repeated string revisions = 2;
-  // Limit limits the number of LFS pointers returned.
+  // limit limits the number of LFS pointers returned.
   int32 limit = 3;
 }
 
 // ListLFSPointersResponse is a response for the ListLFSPointers RPC.
 message ListLFSPointersResponse {
-  // LfsPointers is the list of LFS pointers which were requested.
+  // lfs_pointers is the list of LFS pointers which were requested.
   repeated LFSPointer lfs_pointers = 1;
 }
 
 // ListAllLFSPointersRequest is a request for the ListAllLFSPointers RPC.
 message ListAllLFSPointersRequest {
-  // Repository is the repository for which LFS pointers should be retrieved
+  // repository is the repository for which LFS pointers should be retrieved
   // from.
   Repository repository = 1[(target_repository)=true];
-  // Limit limits the number of LFS pointers returned.
+  // limit limits the number of LFS pointers returned.
   int32 limit = 3;
 }
 
 // ListAllLFSPointersResponse is a response for the ListAllLFSPointers RPC.
 message ListAllLFSPointersResponse {
-  // LfsPointers is the list of LFS pointers which were requested.
+  // lfs_pointers is the list of LFS pointers which were requested.
   repeated LFSPointer lfs_pointers = 1;
 }

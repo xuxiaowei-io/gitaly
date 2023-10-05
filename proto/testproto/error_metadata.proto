@@ -4,12 +4,12 @@ package testproto;
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb/testproto";
 
-// ErrorMetadata is a key-value metadata item that may be attached to errors. We only use this
+// errorMetadata is a key-value metadata item that may be attached to errors. We only use this
 // infrastructure for testing purposes to assert that we add error metadata as expected that would
 // otherwise only get logged.
 message ErrorMetadata {
-  // Key is the key of the item.
+  // key is the key of the item.
   bytes key = 1;
-  // Value is the value of the item.
+  // value is the value of the item.
   bytes value = 2;
 }

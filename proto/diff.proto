@@ -64,9 +64,9 @@ service DiffService {
   }
 }
 
-// CommitDiffRequest ...
+// commitDiffRequest ...
 message CommitDiffRequest {
-  // DiffMode ...
+  // diff_mode ...
   enum DiffMode {
     // DEFAULT is the standard diff mode and results in a linewise diff for textfiles.
     DEFAULT = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
@@ -83,7 +83,7 @@ message CommitDiffRequest {
     // Only changes in amount of whitespace are ignored.
     WHITESPACE_CHANGES_IGNORE = 1;
     // WHITESPACE_CHANGES_IGNORE_ALL specifies to use the `--ignore-all-space` flag of git-diff(1).
-    // All whitespace characters are ignored when comparing lines.
+    // all whitespace characters are ignored when comparing lines.
     WHITESPACE_CHANGES_IGNORE_ALL = 2;
   }
 
@@ -109,7 +109,7 @@ message CommitDiffRequest {
   int32 max_lines = 9;
   // max_bytes ...
   int32 max_bytes = 10;
-  // Limitation of a single diff patch,
+  // limitation of a single diff patch,
   // patches surpassing this limit are pruned by default.
   // If this is 0 you will get back empty patches.
   int32 max_patch_bytes = 14;
@@ -121,7 +121,7 @@ message CommitDiffRequest {
   // safe_max_bytes ...
   int32 safe_max_bytes = 13;
 
-  // DiffMode is the mode used for generating the diff. Please refer to the enum declaration for supported modes.
+  // diff_mode is the mode used for generating the diff. Please refer to the enum declaration for supported modes.
   DiffMode diff_mode = 15;
 
   // Overrides max patch bytes for file extension.
@@ -129,11 +129,11 @@ message CommitDiffRequest {
   // For files with more than on extension (eg file.html.tmpl) only the last extension is matched.
   map<string, int32> max_patch_bytes_for_file_extension = 16;
 
-  // WhitespaceChanges states which whitespace changes should be included in the diff.
+  // whitespace_changes states which whitespace changes should be included in the diff.
   // Please refer to the enum declaration for supported modes.
   WhitespaceChanges whitespace_changes = 17;
 
-  // CollectAllPaths can be set when you want to get back all files,
+  // collect_all_paths can be set when you want to get back all files,
   // even when the enforced limits are hit. Responses sent when the limits
   // were hit will have the path filled in, have the `overflow_marker` set,
   // but have no patch data.
@@ -162,7 +162,7 @@ message CommitDiffResponse {
   bytes raw_patch_data = 9;
   // end_of_patch ...
   bool end_of_patch = 10;
-  // OverflowMarker Indicates if the diff file exceeded limitations, in which case
+  // overflow_marker Indicates if the diff file exceeded limitations, in which case
   // there will be no patch data sent, only information about the patch.
   bool overflow_marker = 11;
   // Indicates the patch surpassed a "safe" limit and was therefore pruned, but
@@ -173,7 +173,7 @@ message CommitDiffResponse {
   bool too_large = 13;
 }
 
-// CommitDeltaRequest ...
+// commitDeltaRequest ...
 message CommitDeltaRequest {
   // repository ...
   Repository repository = 1 [(target_repository)=true];
@@ -185,7 +185,7 @@ message CommitDeltaRequest {
   repeated bytes paths = 4;
 }
 
-// CommitDelta ...
+// commitDelta ...
 message CommitDelta {
   // from_path ...
   bytes from_path = 1;
@@ -201,7 +201,7 @@ message CommitDelta {
   int32 new_mode = 6;
 }
 
-// CommitDeltaResponse ...
+// commitDeltaResponse ...
 message CommitDeltaResponse {
   // deltas ...
   repeated CommitDelta deltas = 1;
@@ -271,7 +271,7 @@ message DiffStatsResponse {
 // to its parent. Merge commits will show files which are different to all of
 // its parents.
 message FindChangedPathsRequest {
-  // MergeCommitDiffMode controls which mode to use to produce diff output for merge commits
+  // merge_commit_diff_mode controls which mode to use to produce diff output for merge commits
   enum MergeCommitDiffMode {
     // MERGE_COMMIT_DIFF_MODE_UNSPECIFIED is the default value.
     // It is equivalent to DIFF_MODE_INCLUDE_MERGES.
@@ -297,7 +297,7 @@ message FindChangedPathsRequest {
       string right_tree_revision = 2;
     }
 
-    // CommitRequest compares a commit to its parents (or some other commits.)
+    // commitRequest compares a commit to its parents (or some other commits.)
     message CommitRequest {
       // commit_revision is the revision of the commit that should be compared. If no `parent_commit_revisions`
       // are given, then the commit will be compared against its parents. The revision needs to peel to a
@@ -326,7 +326,7 @@ message FindChangedPathsRequest {
   // requests specifies the requests of what to compare.
   repeated Request requests = 3;
 
-  // MergeCommitDiffMode controls how merge commits are treated.
+  // merge_commit_diff_mode controls how merge commits are treated.
   MergeCommitDiffMode merge_commit_diff_mode = 4;
 }
 
@@ -372,9 +372,9 @@ message ChangedPaths {
 
 // GetPatchIDRequest is a request for the GetPatchID RPC.
 message GetPatchIDRequest {
-  // Repository is the repository the patch ID shall be computed in.
+  // repository is the repository the patch ID shall be computed in.
   Repository repository = 1 [(target_repository)=true];
-  // OldRevision is the old revision that shall be used to compute the patch
+  // old_revision is the old revision that shall be used to compute the patch
   // from that will then be passed to git-patch-id(1). Accepts revisions as
   // specified in gitrevisions(5).
   bytes old_revision = 2;
@@ -386,7 +386,7 @@ message GetPatchIDRequest {
 
 // GetPatchIDResponse is a response for the GetPatchID RPC.
 message GetPatchIDResponse {
-  // PatchId is the patch ID that was generated by hashing the diff of the
+  // patch_id is the patch ID that was generated by hashing the diff of the
   // given old and new revision.
   string patch_id = 1;
 }

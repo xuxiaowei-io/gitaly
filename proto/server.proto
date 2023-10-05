@@ -31,7 +31,7 @@ message ServerInfoRequest {
 
 // ServerInfoResponse ...
 message ServerInfoResponse {
-  // StorageStatus ...
+  // storageStatus ...
   message StorageStatus {
     // storage_name ...
     string storage_name = 1;
@@ -61,7 +61,7 @@ message DiskStatisticsRequest {
 
 // DiskStatisticsResponse ...
 message DiskStatisticsResponse {
-  // StorageStatus ...
+  // storageStatus ...
   message StorageStatus {
     // When both available and used fields are equal 0 that means that
     // Gitaly was unable to determine storage stats.
@@ -78,24 +78,24 @@ message DiskStatisticsResponse {
 
 // ClockSyncedRequest contains settings to be used for the system clock synchronisation check.
 message ClockSyncedRequest {
-  // NtpHost is a URL to the external NTP service that should be used for clock sync check.
+  // ntp_host is a URL to the external NTP service that should be used for clock sync check.
   // Default is "pool.ntp.org"
   string ntp_host = 1;
   reserved "drift_threshold_millis";
   reserved 2;
-  // DriftThreshold is an allowed drift from the NTP service.
+  // drift_threshold is an allowed drift from the NTP service.
   google.protobuf.Duration drift_threshold = 3;
 }
 
 // ClockSyncedRequest represents result of the system clock synchronisation check.
 message ClockSyncedResponse {
-  // Synced is set to true if system clock has an affordable drift compared to NTP service.
+  // synced is set to true if system clock has an affordable drift compared to NTP service.
   bool synced = 1;
 }
 
 // ReadinessCheckRequest is used to verify if the service is in operational state.
 message ReadinessCheckRequest {
-  // Timeout is an amount of milliseconds for the check to run before give up and mark as failed.
+  // timeout is an amount of milliseconds for the check to run before give up and mark as failed.
   google.protobuf.Duration timeout = 1;
 }
 
@@ -109,19 +109,19 @@ message ReadinessCheckResponse {
   message Failure {
     // Response contains information about failed check.
     message Response {
-      // Name is a name of the check that was performed.
+      // name is a name of the check that was performed.
       string name = 1;
-      // ErrorMessage is a cause of the check failure.
+      // error_message is a cause of the check failure.
       string error_message = 2;
     }
-    // FailedChecks is a list of failed checks.
+    // failed_checks is a list of failed checks.
     repeated Response failed_checks = 1;
   }
 
   oneof Result {
-    // OkResponse is set when all checks pass.
+    // ok_response is set when all checks pass.
     Ok ok_response = 1;
-    // FailureResponse is set if at least one check failed.
+    // failure_response is set if at least one check failed.
     Failure failure_response = 2;
   }
 }

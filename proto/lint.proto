@@ -61,7 +61,7 @@ extend google.protobuf.FieldOptions {
   // will specify the location of the Repository field within
   // the request message.
   //
-  // Repository annotation is used mark field used as repository
+  // repository annotation is used mark field used as repository
   // when parent message is marked as target or additional repository
   bool repository = 91234;
   // Used to mark target repository

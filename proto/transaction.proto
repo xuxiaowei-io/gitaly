@@ -7,7 +7,7 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// RefTransaction is a service which provides RPCs to interact with reference
+// refTransaction is a service which provides RPCs to interact with reference
 // transactions. Reference transactions are used in the context of Gitaly
 // Cluster to ensure that all nodes part of a single transaction perform the
 // same change: given a set of changes, the changes are hashed and the hash is
@@ -44,7 +44,7 @@ service RefTransaction {
 
 // VoteTransactionRequest ...
 message VoteTransactionRequest {
-  // Phase ...
+  // phase ...
   enum Phase {
     // UNKNOWN_PHASE is the unknown voting phase. This value has been the
     // default because phases have been introduced. Eventually, using this
@@ -66,11 +66,11 @@ message VoteTransactionRequest {
   Repository repository = 1[(target_repository)=true];
   // ID of the transaction we're processing
   uint64 transaction_id = 2;
-  // Name of the Gitaly node that's voting on a transaction.
+  // name of the Gitaly node that's voting on a transaction.
   string node = 3;
   // SHA1 of the references that are to be updated
   bytes reference_updates_hash = 4;
-  // Phase is the voting phase.
+  // phase is the voting phase.
   Phase phase = 5;
 }
 

@@ -33,7 +33,7 @@ service HookService {
     };
   }
 
-  // ReferenceTransactionHook ...
+  // referenceTransactionHook ...
   rpc ReferenceTransactionHook(stream ReferenceTransactionHookRequest) returns (stream ReferenceTransactionHookResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -118,7 +118,7 @@ message UpdateHookResponse{
   ExitStatus exit_status = 3;
 }
 
-// ReferenceTransactionHookRequest ...
+// referenceTransactionHookRequest ...
 message ReferenceTransactionHookRequest {
   // State ...
   enum State {
@@ -140,7 +140,7 @@ message ReferenceTransactionHookRequest {
   State state = 4;
 }
 
-// ReferenceTransactionHookResponse ...
+// referenceTransactionHookResponse ...
 message ReferenceTransactionHookResponse {
   // stdout ...
   bytes stdout = 1;
@@ -156,13 +156,13 @@ message PackObjectsHookWithSidechannelRequest {
   Repository repository = 1 [(target_repository)=true];
   // args contains the arguments passed to the pack-objects hook, without the leading "git"
   repeated string args = 2;
-  // GlId is the user id of the initator of the fetch
+  // gl_id is the user id of the initator of the fetch
   string gl_id = 3;
-  // GlUsername is the username of the initator of the fetch
+  // gl_username is the username of the initator of the fetch
   string gl_username = 5;
-  // GitProtocol is the protocol used for the fetch
+  // git_protocol is the protocol used for the fetch
   string git_protocol = 6;
-  // RemoteIP is the original IP of the initator of the fetch. This field is used as the key for
+  // remoteIP is the original IP of the initator of the fetch. This field is used as the key for
   // concurrency limiting before we trigger git-pack-objects command
   string remote_ip = 7;
 }

@@ -10,28 +10,28 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
 // SSHService is a service that provides RPCs required for SSH-based Git clones.
 service SSHService {
-  // To forward 'git upload-pack' to Gitaly for SSH sessions
+  // to forward 'git upload-pack' to Gitaly for SSH sessions
   rpc SSHUploadPack(stream SSHUploadPackRequest) returns (stream SSHUploadPackResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // To forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
+  // to forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
   rpc SSHUploadPackWithSidechannel(SSHUploadPackWithSidechannelRequest) returns (SSHUploadPackWithSidechannelResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // To forward 'git receive-pack' to Gitaly for SSH sessions
+  // to forward 'git receive-pack' to Gitaly for SSH sessions
   rpc SSHReceivePack(stream SSHReceivePackRequest) returns (stream SSHReceivePackResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
-  // To forward 'git upload-archive' to Gitaly for SSH sessions
+  // to forward 'git upload-archive' to Gitaly for SSH sessions
   rpc SSHUploadArchive(stream SSHUploadArchiveRequest) returns (stream SSHUploadArchiveResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -89,7 +89,7 @@ message SSHReceivePackRequest {
   Repository repository = 1 [(target_repository)=true];
   // A chunk of raw data to be copied to 'git upload-pack' standard input
   bytes stdin = 2;
-  // Contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
+  // contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
   // for 'git receive-pack'
   string gl_id = 3;
   // gl_repository ...

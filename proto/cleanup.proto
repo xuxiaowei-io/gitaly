@@ -10,7 +10,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // CleanupService provides RPCs to clean up a repository's contents.
 service CleanupService {
 
-  // ApplyBfgObjectMapStream ...
+  // applyBfgObjectMapStream ...
   rpc ApplyBfgObjectMapStream(stream ApplyBfgObjectMapStreamRequest) returns (stream ApplyBfgObjectMapStreamResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -19,7 +19,7 @@ service CleanupService {
 
 }
 
-// ApplyBfgObjectMapStreamRequest ...
+// applyBfgObjectMapStreamRequest ...
 message ApplyBfgObjectMapStreamRequest {
   // Only available on the first message
   Repository repository = 1 [(target_repository)=true];
@@ -30,7 +30,7 @@ message ApplyBfgObjectMapStreamRequest {
   bytes object_map = 2;
 }
 
-// ApplyBfgObjectMapStreamResponse ...
+// applyBfgObjectMapStreamResponse ...
 message ApplyBfgObjectMapStreamResponse {
   // We send back each parsed entry in the request's object map so the client
   // can take action
