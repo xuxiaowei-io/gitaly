@@ -1,4 +1,4 @@
-package main
+package gitalybackup
 
 import (
 	"context"
