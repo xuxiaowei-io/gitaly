@@ -699,17 +699,18 @@ func (*UserDeleteBranchError_ReferenceUpdate) isUserDeleteBranchError_Error() {}
 
 func (*UserDeleteBranchError_CustomHook) isUserDeleteBranchError_Error() {}
 
-// UserDeleteTagRequest ...
+// UserDeleteTagRequest is a request for the UserDeleteTag RPC.
 type UserDeleteTagRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository from which the tag should be deleted.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// tag_name ...
+	// tag_name is the name of the tag to delete.
 	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
-	// user ...
+	// user as which the tag should be created. This is also used to perform access checks
+	// against Rails' `/internal/allowed` endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 	// expected_old_oid is the object ID which tag is expected to point to.
 	// This is used as a safety guard to avoid races when tag has been
@@ -781,13 +782,13 @@ func (x *UserDeleteTagRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// UserDeleteTagResponse ...
+// UserDeleteTagResponse is a response for the UserDeleteTag RPC.
 type UserDeleteTagResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// pre_receive_error ...
+	// pre_receive_error indicates an error that occurred while executing custom hooks.
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 

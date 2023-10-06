@@ -71,7 +71,14 @@ service OperationService {
     };
   }
 
-  // UserDeleteTag ...
+  // UserDeleteTag deletes an existing tag. It executes hooks and contacts Rails to verify that
+  // the user is allowed to delete the tag. The following known error conditions may happen:
+  //
+  // - `InvalidArgument` if the repository, tag_name, user, or expected_old_oid (if provided)
+  //   are invalid.
+  // - `FailedPrecondition` if the tag_name can't be found, or the ref couldn't be deleted due
+  //   to a concurrent write to the same ref.
+  // - `Internal` if the tag_name can't be resolved or an unknown error occurs.
   rpc UserDeleteTag(UserDeleteTagRequest) returns (UserDeleteTagResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -289,13 +296,14 @@ message UserDeleteBranchError {
   }
 }
 
-// UserDeleteTagRequest ...
+// UserDeleteTagRequest is a request for the UserDeleteTag RPC.
 message UserDeleteTagRequest {
-  // repository ...
+  // repository is the repository from which the tag should be deleted.
   Repository repository = 1 [(target_repository)=true];
-  // tag_name ...
+  // tag_name is the name of the tag to delete.
   bytes tag_name = 2;
-  // user ...
+  // user as which the tag should be created. This is also used to perform access checks
+  // against Rails' `/internal/allowed` endpoint.
   User user = 3;
   // expected_old_oid is the object ID which tag is expected to point to.
   // This is used as a safety guard to avoid races when tag has been
@@ -307,9 +315,9 @@ message UserDeleteTagRequest {
   string expected_old_oid = 4;
 }
 
-// UserDeleteTagResponse ...
+// UserDeleteTagResponse is a response for the UserDeleteTag RPC.
 message UserDeleteTagResponse {
-  // pre_receive_error ...
+  // pre_receive_error indicates an error that occurred while executing custom hooks.
   string pre_receive_error = 1;
 }
 

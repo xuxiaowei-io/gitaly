@@ -58,7 +58,14 @@ type OperationServiceClient interface {
 	// UserCreateTag creates a new tag. This RPC knows to create both lightweight and annotated tags
 	// depending on whether a message is set.
 	UserCreateTag(ctx context.Context, in *UserCreateTagRequest, opts ...grpc.CallOption) (*UserCreateTagResponse, error)
-	// UserDeleteTag ...
+	// UserDeleteTag deletes an existing tag. It executes hooks and contacts Rails to verify that
+	// the user is allowed to delete the tag. The following known error conditions may happen:
+	//
+	//   - `InvalidArgument` if the repository, tag_name, user, or expected_old_oid (if provided)
+	//     are invalid.
+	//   - `FailedPrecondition` if the tag_name can't be found, or the ref couldn't be deleted due
+	//     to a concurrent write to the same ref.
+	//   - `Internal` if the tag_name can't be resolved or an unknown error occurs.
 	UserDeleteTag(ctx context.Context, in *UserDeleteTagRequest, opts ...grpc.CallOption) (*UserDeleteTagResponse, error)
 	// UserMergeToRef creates a merge commit and updates target_ref to point to that
 	// new commit. The first parent of the merge commit (the main line) is taken
@@ -402,7 +409,14 @@ type OperationServiceServer interface {
 	// UserCreateTag creates a new tag. This RPC knows to create both lightweight and annotated tags
 	// depending on whether a message is set.
 	UserCreateTag(context.Context, *UserCreateTagRequest) (*UserCreateTagResponse, error)
-	// UserDeleteTag ...
+	// UserDeleteTag deletes an existing tag. It executes hooks and contacts Rails to verify that
+	// the user is allowed to delete the tag. The following known error conditions may happen:
+	//
+	//   - `InvalidArgument` if the repository, tag_name, user, or expected_old_oid (if provided)
+	//     are invalid.
+	//   - `FailedPrecondition` if the tag_name can't be found, or the ref couldn't be deleted due
+	//     to a concurrent write to the same ref.
+	//   - `Internal` if the tag_name can't be resolved or an unknown error occurs.
 	UserDeleteTag(context.Context, *UserDeleteTagRequest) (*UserDeleteTagResponse, error)
 	// UserMergeToRef creates a merge commit and updates target_ref to point to that
 	// new commit. The first parent of the merge commit (the main line) is taken
