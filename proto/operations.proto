@@ -109,11 +109,22 @@ service OperationService {
   // The merge commit is created with the given user as author/committer and
   // the given message.
   //
-  // This RPC requires confirmation to make any user-visible changes to the
-  // repository. The first request sent shall contain details about the
-  // requested merge, which will result in a response with the created merge
-  // commit ID. Only if a second message with `apply = true` is sent will the
-  // merge be applied.
+  // This is a two-stage RPC that requires confirmation to make user-visible
+  // changes to the repository:
+  // - The first request contains details about the requested merge, which
+  //   will result in a response with the created merge commit ID.
+  // - The second request should set `apply = true` to apply the merge.
+  //
+  // After the second request, it executes hooks and contacts Rails to verify
+  // that the user is allowed to update the branch. The following known error
+  // conditions may happen:
+  //
+  // - `InvalidArgument` if request fields can't be validated or resolved.
+  // - `NotFound` if the branch can't be found.
+  // - `FailedPrecondition` if there are merge conflicts, if the merge is
+  //   aborted by setting `apply = false` in the second request, or if the
+  //   merge fails due to a concurrent write to the same ref.
+  // - `PermissionDenied` if the user doesn't have permissions to merge a branch.
   rpc UserMergeBranch(stream UserMergeBranchRequest) returns (stream UserMergeBranchResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -377,9 +388,9 @@ message UserCreateTagError {
   }
 }
 
-// UserMergeBranchRequest ...
-// The first set of parameters must only be set in the first message to declare
-// parameters for the merge.
+// UserMergeBranchRequest is a request for the UserMergeBranch RPC.
+// All mandatory parameters except for `apply` should be set in the first
+// message.
 message UserMergeBranchRequest {
   // repository is the repository to compute the merge for.
   Repository repository = 1 [(target_repository)=true];
@@ -407,27 +418,24 @@ message UserMergeBranchRequest {
   // will return an error.
   string expected_old_oid = 8;
 
-  // apply must only be set in the second message. Only if this second message
-  // is sent and if apply is set to true will the branch be updated to point to
-  // the merge commit.
+  // apply is used in the second message. Setting it to true will proceed with
+  // the merge. Setting it to false will abort the merge.
   bool apply = 6;
 }
 
-// UserMergeBranchResponse ...
+// UserMergeBranchResponse is a response for the UserMergeBranch RPC.
 message UserMergeBranchResponse {
-  // commit_id is the merge commit the branch will be updated to.
-  // The caller can still abort the merge.
-  // First message.
+  // commit_id is the merge commit the branch will be updated to. This is sent
+  // as the response to the first request.
   string commit_id = 1;
 
   reserved 2;
-  // branch_update if set, is the merge has been applied to the branch.
-  // Second message
+  // branch_update contains the commit ID of the merge commit if the merge has
+  // been applied to the branch. This is sent as the response to the second
+  // request.
   OperationBranchUpdate branch_update = 3;
 
-  // PreReceiveError had previously been set in case access checks refused the merge. This has been
-  // changed to Instead we return a proper gRPC error with UserMergeBranchError details set to an
-  // access_checkError.
+  // Reserved for backwards compatibility. Structured errors are now used instead.
   reserved "pre_receive_error";
   reserved 4;
 }

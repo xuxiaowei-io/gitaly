@@ -1097,9 +1097,9 @@ func (*UserCreateTagError_CustomHook) isUserCreateTagError_Error() {}
 
 func (*UserCreateTagError_ReferenceExists) isUserCreateTagError_Error() {}
 
-// UserMergeBranchRequest ...
-// The first set of parameters must only be set in the first message to declare
-// parameters for the merge.
+// UserMergeBranchRequest is a request for the UserMergeBranch RPC.
+// All mandatory parameters except for `apply` should be set in the first
+// message.
 type UserMergeBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1130,9 +1130,8 @@ type UserMergeBranchRequest struct {
 	// zero object ID in case the branch should be created. Otherwise, this RPC
 	// will return an error.
 	ExpectedOldOid string `protobuf:"bytes,8,opt,name=expected_old_oid,json=expectedOldOid,proto3" json:"expected_old_oid,omitempty"`
-	// apply must only be set in the second message. Only if this second message
-	// is sent and if apply is set to true will the branch be updated to point to
-	// the merge commit.
+	// apply is used in the second message. Setting it to true will proceed with
+	// the merge. Setting it to false will abort the merge.
 	Apply bool `protobuf:"varint,6,opt,name=apply,proto3" json:"apply,omitempty"`
 }
 
@@ -1224,18 +1223,18 @@ func (x *UserMergeBranchRequest) GetApply() bool {
 	return false
 }
 
-// UserMergeBranchResponse ...
+// UserMergeBranchResponse is a response for the UserMergeBranch RPC.
 type UserMergeBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// commit_id is the merge commit the branch will be updated to.
-	// The caller can still abort the merge.
-	// First message.
+	// commit_id is the merge commit the branch will be updated to. This is sent
+	// as the response to the first request.
 	CommitId string `protobuf:"bytes,1,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	// branch_update if set, is the merge has been applied to the branch.
-	// Second message
+	// branch_update contains the commit ID of the merge commit if the merge has
+	// been applied to the branch. This is sent as the response to the second
+	// request.
 	BranchUpdate *OperationBranchUpdate `protobuf:"bytes,3,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
 }
 
