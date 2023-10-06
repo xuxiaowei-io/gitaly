@@ -31,7 +31,14 @@ type OperationServiceClient interface {
 	//   - `PermissionDenied` with an embedded `UserCreateBranchError` if any custom hooks return a
 	//     non-zero exit code.
 	UserCreateBranch(ctx context.Context, in *UserCreateBranchRequest, opts ...grpc.CallOption) (*UserCreateBranchResponse, error)
-	// UserUpdateBranch ...
+	// UserUpdateBranch updates a branch to point to a new revision. It executes hooks and
+	// contacts Rails to verify that the user is allowed to update the branch. The following
+	// known error conditions may happen:
+	//
+	//   - `InvalidArgument` if any of the request fields can't be validated.
+	//   - `Internal` if the newrev or oldrev are invalid in the context of the repository.
+	//   - `UserUpdateBranchResponse` with the `PreReceiveError` field set, if any custom hooks
+	//     return a non-zero exit code.
 	UserUpdateBranch(ctx context.Context, in *UserUpdateBranchRequest, opts ...grpc.CallOption) (*UserUpdateBranchResponse, error)
 	// UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
 	// hooks and contacts Rails to verify that the user is indeed allowed to delete that branch. The
@@ -368,7 +375,14 @@ type OperationServiceServer interface {
 	//   - `PermissionDenied` with an embedded `UserCreateBranchError` if any custom hooks return a
 	//     non-zero exit code.
 	UserCreateBranch(context.Context, *UserCreateBranchRequest) (*UserCreateBranchResponse, error)
-	// UserUpdateBranch ...
+	// UserUpdateBranch updates a branch to point to a new revision. It executes hooks and
+	// contacts Rails to verify that the user is allowed to update the branch. The following
+	// known error conditions may happen:
+	//
+	//   - `InvalidArgument` if any of the request fields can't be validated.
+	//   - `Internal` if the newrev or oldrev are invalid in the context of the repository.
+	//   - `UserUpdateBranchResponse` with the `PreReceiveError` field set, if any custom hooks
+	//     return a non-zero exit code.
 	UserUpdateBranch(context.Context, *UserUpdateBranchRequest) (*UserUpdateBranchResponse, error)
 	// UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
 	// hooks and contacts Rails to verify that the user is indeed allowed to delete that branch. The

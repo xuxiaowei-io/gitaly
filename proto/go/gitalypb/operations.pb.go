@@ -338,21 +338,21 @@ type UserCreateBranchError_CustomHook struct {
 
 func (*UserCreateBranchError_CustomHook) isUserCreateBranchError_Error() {}
 
-// UserUpdateBranchRequest ...
+// UserUpdateBranchRequest is a request for the UserUpdateBranch RPC.
 type UserUpdateBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to update the branch in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// branch_name ...
+	// branch_name is the name of the branch to update.
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// user ...
+	// user is used to perform access checks against Rails' `/internal/allowed` endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
-	// newrev ...
+	// newrev is the Git revision which the branch will point to.
 	Newrev []byte `protobuf:"bytes,4,opt,name=newrev,proto3" json:"newrev,omitempty"`
-	// oldrev ...
+	// oldrev is the Git revision which the branch currently points to.
 	Oldrev []byte `protobuf:"bytes,5,opt,name=oldrev,proto3" json:"oldrev,omitempty"`
 }
 
@@ -423,13 +423,13 @@ func (x *UserUpdateBranchRequest) GetOldrev() []byte {
 	return nil
 }
 
-// UserUpdateBranchResponse ...
+// UserUpdateBranchResponse is a response for the UserUpdateBranch RPC.
 type UserUpdateBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// pre_receive_error ...
+	// pre_receive_error indicates an error that occurred while executing custom hooks.
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
