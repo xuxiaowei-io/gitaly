@@ -1401,7 +1401,7 @@ func (*UserMergeBranchError_CustomHook) isUserMergeBranchError_Error() {}
 
 func (*UserMergeBranchError_MergeConflict) isUserMergeBranchError_Error() {}
 
-// UserMergeToRefRequest ...
+// UserMergeToRefRequest is a request for the UserMergeToRef RPC.
 type UserMergeToRefRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1555,7 +1555,7 @@ func (x *UserMergeToRefRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// UserMergeToRefResponse ...
+// UserMergeToRefResponse is a response for the UserMergeToRef RPC.
 type UserMergeToRefResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

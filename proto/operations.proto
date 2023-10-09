@@ -457,7 +457,7 @@ message UserMergeBranchError {
   }
 }
 
-// UserMergeToRefRequest ...
+// UserMergeToRefRequest is a request for the UserMergeToRef RPC.
 message UserMergeToRefRequest {
   // repository is the repository in which the merge shall be computed.
   Repository repository = 1 [(target_repository)=true];
@@ -501,7 +501,7 @@ message UserMergeToRefRequest {
   string expected_old_oid = 10;
 }
 
-// UserMergeToRefResponse ...
+// UserMergeToRefResponse is a response for the UserMergeToRef RPC.
 message UserMergeToRefResponse {
   // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
