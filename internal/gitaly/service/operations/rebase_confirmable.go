@@ -13,7 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-//nolint:revive // This is unintentionally missing documentation.
+// UserRebaseConfirmable rebases the given remote branch to the target branch.
 func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserRebaseConfirmableServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {

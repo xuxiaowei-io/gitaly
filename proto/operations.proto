@@ -881,7 +881,7 @@ message UserCommitFilesError {
   }
 }
 
-// UserRebaseConfirmableRequest ...
+// UserRebaseConfirmableRequest is a request for the UserRebaseConfirmable RPC.
 message UserRebaseConfirmableRequest {
   // Header contains information to compute the rebase and must be sent as
   // first message.
@@ -924,7 +924,7 @@ message UserRebaseConfirmableRequest {
   }
 }
 
-// UserRebaseConfirmableResponse ...
+// UserRebaseConfirmableResponse is a response for the UserRebaseConfirmable RPC.
 message UserRebaseConfirmableResponse {
   oneof user_rebase_confirmable_response_payload {
     // rebase_sha is the commit the branch will be updated to, it will be present
@@ -934,11 +934,12 @@ message UserRebaseConfirmableResponse {
     // It is present in the second response.
     bool rebase_applied = 2;
   }
-  // pre_receive_error contains an error message if the rebase failed because
-  // of an error raised by hooks.
-  string pre_receive_error = 3;
-  // git_error contains an error message if git operations have failed.
-  string git_error = 4;
+  // Deprecated in favour of `UserRebaseConfirmableError`.
+  reserved 3;
+  reserved "pre_receive_error";
+  // Deprecated in favour of `UserRebaseConfirmableError`.
+  reserved 4;
+  reserved "git_error";
 }
 
 // UserSquashRequest ...
@@ -982,7 +983,7 @@ message UserSquashResponse {
   reserved "git_error";
 }
 
-// UserRebaseConfirmableError ...
+// UserRebaseConfirmableError is a structured error for the UserRebaseConfirmable RPC.
 message UserRebaseConfirmableError {
   oneof error {
     // rebase_conflict is returned in case rebasing commits on top of the start
