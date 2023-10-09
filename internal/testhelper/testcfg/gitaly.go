@@ -106,6 +106,24 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 		require.FailNow(tb, "invalid configuration build setup: fix storages configured")
 	}
 
+	cfg.PackObjectsCache.Enabled = gc.packObjectsCacheEnabled
+
+	// The tests don't require GitLab API to be accessible, but as it is required to pass
+	// validation, so the artificial values are set to pass.
+	if cfg.Gitlab.URL == "" {
+		cfg.Gitlab.URL = "https://test.stub.gitlab.com"
+	}
+
+	if cfg.Gitlab.SecretFile == "" {
+		cfg.Gitlab.SecretFile = filepath.Join(root, "gitlab", "http.secret")
+		require.NoError(tb, os.MkdirAll(filepath.Dir(cfg.Gitlab.SecretFile), perm.SharedDir))
+		require.NoError(tb, os.WriteFile(cfg.Gitlab.SecretFile, nil, perm.PublicFile))
+	}
+
+	// cfg.SetDefaults() should only be called after cfg.Gitlab.SecretFile is set (so it doesn't override it with
+	// its own) and before cfg.Storages is set (so it doesn't attempt to attach a storage to cfg.DailyMaintenance).
+	require.NoError(tb, cfg.SetDefaults())
+
 	if len(cfg.Storages) == 0 {
 		storagesDir := filepath.Join(root, "storages.d")
 		require.NoError(tb, os.Mkdir(storagesDir, perm.SharedDir))
@@ -122,20 +140,6 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 			cfg.Storages[i].Name = storageName
 			cfg.Storages[i].Path = storagePath
 		}
-	}
-
-	cfg.PackObjectsCache.Enabled = gc.packObjectsCacheEnabled
-
-	// The tests don't require GitLab API to be accessible, but as it is required to pass
-	// validation, so the artificial values are set to pass.
-	if cfg.Gitlab.URL == "" {
-		cfg.Gitlab.URL = "https://test.stub.gitlab.com"
-	}
-
-	if cfg.Gitlab.SecretFile == "" {
-		cfg.Gitlab.SecretFile = filepath.Join(root, "gitlab", "http.secret")
-		require.NoError(tb, os.MkdirAll(filepath.Dir(cfg.Gitlab.SecretFile), perm.SharedDir))
-		require.NoError(tb, os.WriteFile(cfg.Gitlab.SecretFile, nil, perm.PublicFile))
 	}
 
 	require.NoError(tb, cfg.Validate())

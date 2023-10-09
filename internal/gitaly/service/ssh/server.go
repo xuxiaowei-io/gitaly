@@ -1,8 +1,6 @@
 package ssh
 
 import (
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -11,11 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
-)
-
-var (
-	defaultUploadPackRequestTimeout    = 10 * time.Minute
-	defaultUploadArchiveRequestTimeout = time.Minute
 )
 
 type server struct {
@@ -37,10 +30,10 @@ func NewServer(deps *service.Dependencies, serverOpts ...ServerOpt) gitalypb.SSH
 		gitCmdFactory: deps.GetGitCmdFactory(),
 		txManager:     deps.GetTxManager(),
 		uploadPackRequestTimeoutTickerFactory: func() helper.Ticker {
-			return helper.NewTimerTicker(defaultUploadPackRequestTimeout)
+			return helper.NewTimerTicker(deps.Cfg.Timeout.UploadPackNegotiation.Duration())
 		},
 		uploadArchiveRequestTimeoutTickerFactory: func() helper.Ticker {
-			return helper.NewTimerTicker(defaultUploadArchiveRequestTimeout)
+			return helper.NewTimerTicker(deps.Cfg.Timeout.UploadArchiveNegotiation.Duration())
 		},
 		packfileNegotiationMetrics: prometheus.NewCounterVec(
 			prometheus.CounterOpts{},

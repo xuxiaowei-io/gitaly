@@ -49,14 +49,77 @@ func TestLoadEmptyConfig(t *testing.T) {
 		PackObjectsCache:    defaultPackObjectsCacheConfig(),
 		PackObjectsLimiting: defaultPackObjectsLimiting(),
 	}
-	require.NoError(t, expectedCfg.setDefaults())
+	require.NoError(t, expectedCfg.SetDefaults())
 
 	// The runtime directory is a temporary path, so we need to take the value from the loaded
-	// config. Furthermore, because `setDefaults()` would append the PID, we can't do so before
+	// config. Furthermore, because `SetDefaults()` would append the PID, we can't do so before
 	// calling that function.
 	expectedCfg.RuntimeDir = cfg.RuntimeDir
 
 	require.Equal(t, expectedCfg, cfg)
+}
+
+func TestTimeout(t *testing.T) {
+	t.Parallel()
+
+	tcs := []struct {
+		Name            string
+		InputTOML       string
+		ExpectedConfig  Cfg
+		ExpectedLoadErr error
+	}{
+		{
+			Name:      "when no custom timeouts are provided",
+			InputTOML: "",
+			ExpectedConfig: Cfg{Timeout: TimeoutConfig{
+				UploadPackNegotiation:    duration.Duration(10 * time.Minute),
+				UploadArchiveNegotiation: duration.Duration(time.Minute),
+			}},
+		},
+		{
+			Name: "when custom timeouts are provided",
+			InputTOML: `
+[timeout]
+upload_pack_negotiation = "20m"
+upload_archive_negotiation = "5m"`,
+			ExpectedConfig: Cfg{Timeout: TimeoutConfig{
+				UploadPackNegotiation:    duration.Duration(20 * time.Minute),
+				UploadArchiveNegotiation: duration.Duration(5 * time.Minute),
+			}},
+		},
+		{
+			Name: "when timeouts are set to 0, the defaults are applied",
+			InputTOML: `
+[timeout]
+upload_pack_negotiation = 0
+upload_archive_negotiation = "0s"`,
+			ExpectedConfig: Cfg{Timeout: TimeoutConfig{
+				UploadPackNegotiation:    duration.Duration(10 * time.Minute),
+				UploadArchiveNegotiation: duration.Duration(time.Minute),
+			}},
+		},
+		{
+			Name: "when invalid timeouts are provided, Load returns an error",
+			InputTOML: `
+[timeout]
+upload_pack_negotiation = abc
+upload_archive_negotiation = -10`,
+			ExpectedLoadErr: errors.New("load toml: toml: incomplete number"),
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			cfg, err := Load(strings.NewReader(tc.InputTOML))
+			if tc.ExpectedLoadErr == nil {
+				require.NoError(t, err)
+				require.NoError(t, tc.ExpectedConfig.SetDefaults())
+				require.Equal(t, tc.ExpectedConfig.Timeout, cfg.Timeout)
+			} else {
+				require.EqualError(t, err, tc.ExpectedLoadErr.Error())
+			}
+		})
+	}
 }
 
 func TestLoadURLs(t *testing.T) {
@@ -74,7 +137,7 @@ relative_url_root = "/gitlab"`)
 			RelativeURLRoot: "/gitlab",
 		},
 	}
-	require.NoError(t, expectedCfg.setDefaults())
+	require.NoError(t, expectedCfg.SetDefaults())
 	require.Equal(t, expectedCfg.Gitlab, cfg.Gitlab)
 }
 
@@ -91,7 +154,7 @@ path = "/tmp/"`)
 			{Name: "default", Path: "/tmp"},
 		},
 	}
-	require.NoError(t, expectedCfg.setDefaults())
+	require.NoError(t, expectedCfg.SetDefaults())
 	require.Equal(t, expectedCfg.Storages, cfg.Storages)
 }
 
@@ -190,7 +253,7 @@ func TestLoadConfigCommand(t *testing.T) {
 			PackObjectsCache:    defaultPackObjectsCacheConfig(),
 			PackObjectsLimiting: defaultPackObjectsLimiting(),
 		}
-		require.NoError(t, cfg.setDefaults())
+		require.NoError(t, cfg.SetDefaults())
 		modify(cfg)
 		return *cfg
 	}
