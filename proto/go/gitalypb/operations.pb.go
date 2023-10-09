@@ -1989,7 +1989,7 @@ func (x *UserFFBranchResponse) GetPreReceiveError() string {
 	return ""
 }
 
-// UserCherryPickRequest ...
+// UserCherryPickRequest is a request for the UserCherryPick RPC.
 type UserCherryPickRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2134,7 +2134,7 @@ func (x *UserCherryPickRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// UserCherryPickResponse ...
+// UserCherryPickResponse is a response for the UserCherryPick RPC.
 type UserCherryPickResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

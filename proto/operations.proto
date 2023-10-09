@@ -592,7 +592,7 @@ message UserFFBranchResponse {
   string pre_receive_error = 2;
 }
 
-// UserCherryPickRequest ...
+// UserCherryPickRequest is a request for the UserCherryPick RPC.
 message UserCherryPickRequest {
   // repository is the repository into which the cherry-pick shall be
   // performed.
@@ -631,7 +631,7 @@ message UserCherryPickRequest {
   string expected_old_oid = 10;
 }
 
-// UserCherryPickResponse ...
+// UserCherryPickResponse is a response for the UserCherryPick RPC.
 message UserCherryPickResponse {
   // branch_update represents details about the updated branch.
   OperationBranchUpdate branch_update = 1;
