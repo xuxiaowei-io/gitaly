@@ -744,7 +744,7 @@ message UserRevertResponse {
 
 // UserCommitFilesActionHeader contains the details of the action to be performed.
 message UserCommitFilesActionHeader {
-  // ActionType ...
+  // ActionType is the type of action to perform.
   enum ActionType {
     // CREATE creates a new file.
     CREATE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH

@@ -76,7 +76,7 @@ func (UserRevertResponse_CreateTreeError) EnumDescriptor() ([]byte, []int) {
 	return file_operations_proto_rawDescGZIP(), []int{27, 0}
 }
 
-// ActionType ...
+// ActionType is the type of action to perform.
 type UserCommitFilesActionHeader_ActionType int32
 
 const (
