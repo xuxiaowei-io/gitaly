@@ -2,7 +2,6 @@ package remoterepo_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,7 +56,7 @@ func TestRepository_ObjectHash(t *testing.T) {
 
 	type setupData struct {
 		repo           *remoterepo.Repo
-		expectedErr    error
+		requireError   func(testing.TB, error)
 		expectedFormat string
 	}
 
@@ -121,11 +120,11 @@ func TestRepository_ObjectHash(t *testing.T) {
 
 				return setupData{
 					repo: repo,
-					expectedErr: testhelper.WithInterceptedMetadata(
-						structerr.NewInternal("detecting object hash: reading object format: exit status 128"),
-						"stderr",
-						fmt.Sprintf("error: invalid value for 'extensions.objectformat': 'blake2b'\nfatal: bad config line 5 in file %s/%s\n", repoPath, "config"),
-					),
+					requireError: func(tb testing.TB, actual error) {
+						testhelper.RequireStatusWithErrorMetadataRegexp(tb, structerr.NewInternal("detecting object hash: reading object format: exit status 128"), actual, map[string]string{
+							"stderr": "error: invalid value for 'extensions.objectformat': 'blake2b'\nfatal: bad config line 5 in file .+/config\n",
+						})
+					},
 				}
 			},
 		},
@@ -134,7 +133,12 @@ func TestRepository_ObjectHash(t *testing.T) {
 			setupData := tc.setup(t)
 
 			objectHash, err := setupData.repo.ObjectHash(ctx)
-			testhelper.RequireGrpcError(t, setupData.expectedErr, err)
+			if setupData.requireError != nil {
+				setupData.requireError(t, err)
+				return
+			}
+
+			require.NoError(t, err)
 			require.Equal(t, setupData.expectedFormat, objectHash.Format)
 		})
 	}
