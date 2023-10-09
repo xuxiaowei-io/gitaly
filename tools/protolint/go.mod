@@ -4,7 +4,7 @@ go 1.21
 
 toolchain go1.21.0
 
-require github.com/yoheimuta/protolint v0.46.0
+require github.com/yoheimuta/protolint v0.46.1
 
 require (
 	github.com/chavacava/garif v0.0.0-20230608123814-4bd63c2919ab // indirect
