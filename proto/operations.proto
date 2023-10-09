@@ -468,7 +468,7 @@ message UserMergeToRefRequest {
   // branch contains the name of the branch which should be used as the first
   // parent of the computed merge. It is deprecated in favor of
   // `first_parent_ref` and will be ignored in case it is set.
-  bytes branch = 4;
+  bytes branch = 4 [deprecated = true];
   // target_ref contains the fully qualified reference which should be updated
   // with the computed merge commit.
   bytes target_ref = 5;
