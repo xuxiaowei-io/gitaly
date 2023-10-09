@@ -1835,7 +1835,7 @@ func (x *OperationBranchUpdate) GetBranchCreated() bool {
 	return false
 }
 
-// UserFFBranchRequest contains parameters for the UserFFBranch RPC.
+// UserFFBranchRequest is a request for the UserFFBranch RPC.
 type UserFFBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1846,9 +1846,9 @@ type UserFFBranchRequest struct {
 	// user is the user which to perform the fast-forward merge as. This is used
 	// for authorization checks.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	// commit_id is the commit ID to update the branch to.
+	// commit_id is the commit ID to fast-forward the branch to.
 	CommitId string `protobuf:"bytes,3,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	// branch is the name of the branch that shall be update. This must be the
+	// branch is the name of the branch to fast-forward. This must be the
 	// branch name only and not a fully qualified reference, e.g. "master"
 	// instead of "refs/heads/master".
 	Branch []byte `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
@@ -1930,15 +1930,16 @@ func (x *UserFFBranchRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// UserFFBranchResponse ...
+// UserFFBranchResponse is a response for the UserFFBranch RPC.
 type UserFFBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// branch_update ...
+	// branch_update contains details of the fast-forwarded branch.
 	BranchUpdate *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
-	// pre_receive_error ...
+	// pre_receive_error is set in the case of an `Internal` error and contains
+	// details of the failed custom hook.
 	PreReceiveError string `protobuf:"bytes,2,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 

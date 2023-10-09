@@ -12,7 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-//nolint:revive // This is unintentionally missing documentation.
+// UserFFBranch tries to perform a fast-forward merge of a given commit into the given branch.
 func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequest) (*gitalypb.UserFFBranchResponse, error) {
 	if err := validateFFRequest(s.locator, in); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)

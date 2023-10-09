@@ -98,8 +98,8 @@ type OperationServiceClient interface {
 	//     merge fails due to a concurrent write to the same ref.
 	//   - `PermissionDenied` if the user doesn't have permissions to merge a branch.
 	UserMergeBranch(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserMergeBranchClient, error)
-	// UserFFBranch tries to perform a fast-forward merge of the given branch to
-	// the given commit. If the merge is not a fast-forward merge, the request
+	// UserFFBranch tries to perform a fast-forward merge of a given commit into
+	// the given branch. If the merge is not a fast-forward merge, the request
 	// will fail. The RPC will return an empty response in case updating the
 	// reference fails e.g. because of a race.
 	UserFFBranch(ctx context.Context, in *UserFFBranchRequest, opts ...grpc.CallOption) (*UserFFBranchResponse, error)
@@ -460,8 +460,8 @@ type OperationServiceServer interface {
 	//     merge fails due to a concurrent write to the same ref.
 	//   - `PermissionDenied` if the user doesn't have permissions to merge a branch.
 	UserMergeBranch(OperationService_UserMergeBranchServer) error
-	// UserFFBranch tries to perform a fast-forward merge of the given branch to
-	// the given commit. If the merge is not a fast-forward merge, the request
+	// UserFFBranch tries to perform a fast-forward merge of a given commit into
+	// the given branch. If the merge is not a fast-forward merge, the request
 	// will fail. The RPC will return an empty response in case updating the
 	// reference fails e.g. because of a race.
 	UserFFBranch(context.Context, *UserFFBranchRequest) (*UserFFBranchResponse, error)

@@ -131,8 +131,8 @@ service OperationService {
     };
   }
 
-  // UserFFBranch tries to perform a fast-forward merge of the given branch to
-  // the given commit. If the merge is not a fast-forward merge, the request
+  // UserFFBranch tries to perform a fast-forward merge of a given commit into
+  // the given branch. If the merge is not a fast-forward merge, the request
   // will fail. The RPC will return an empty response in case updating the
   // reference fails e.g. because of a race.
   rpc UserFFBranch(UserFFBranchRequest) returns (UserFFBranchResponse) {
@@ -559,16 +559,16 @@ message OperationBranchUpdate {
   bool branch_created = 3;
 }
 
-// UserFFBranchRequest contains parameters for the UserFFBranch RPC.
+// UserFFBranchRequest is a request for the UserFFBranch RPC.
 message UserFFBranchRequest {
   // repository is the repository for which to perform the fast-forward merge.
   Repository repository = 1 [(target_repository)=true];
   // user is the user which to perform the fast-forward merge as. This is used
   // for authorization checks.
   User user = 2;
-  // commit_id is the commit ID to update the branch to.
+  // commit_id is the commit ID to fast-forward the branch to.
   string commit_id = 3;
-  // branch is the name of the branch that shall be update. This must be the
+  // branch is the name of the branch to fast-forward. This must be the
   // branch name only and not a fully qualified reference, e.g. "master"
   // instead of "refs/heads/master".
   bytes branch = 4;
@@ -583,11 +583,12 @@ message UserFFBranchRequest {
   string expected_old_oid = 5;
 }
 
-// UserFFBranchResponse ...
+// UserFFBranchResponse is a response for the UserFFBranch RPC.
 message UserFFBranchResponse {
-  // branch_update ...
+  // branch_update contains details of the fast-forwarded branch.
   OperationBranchUpdate branch_update = 1;
-  // pre_receive_error ...
+  // pre_receive_error is set in the case of an `Internal` error and contains
+  // details of the failed custom hook.
   string pre_receive_error = 2;
 }
 
