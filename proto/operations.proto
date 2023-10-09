@@ -675,14 +675,14 @@ message UserCherryPickError {
   }
 }
 
-// UserRevertRequest ...
+// UserRevertRequest is a request for the UserRevert RPC.
 message UserRevertRequest {
   // repository is the repository in which the revert shall be applied.
   Repository repository = 1 [(target_repository)=true];
   // user is the user to perform the revert as. This is used both for
   // authorization and as author/committer for the revert commit.
   User user = 2;
-  // commit iis the commit to revert.
+  // commit is the commit to revert. Only the `id` field is required.
   GitCommit commit = 3;
   // branch_name is the name of the branch onto which the reverted commit shall
   // be committed.
@@ -713,7 +713,7 @@ message UserRevertRequest {
   string expected_old_oid = 10;
 }
 
-// UserRevertResponse ...
+// UserRevertResponse is a response for the UserRevert RPC.
 message UserRevertResponse {
   // CreateTreeError represents an error which happened when computing the
   // revert.

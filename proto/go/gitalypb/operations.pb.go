@@ -2304,7 +2304,7 @@ func (*UserCherryPickError_ChangesAlreadyApplied) isUserCherryPickError_Error() 
 
 func (*UserCherryPickError_AccessCheck) isUserCherryPickError_Error() {}
 
-// UserRevertRequest ...
+// UserRevertRequest is a request for the UserRevert RPC.
 type UserRevertRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2315,7 +2315,7 @@ type UserRevertRequest struct {
 	// user is the user to perform the revert as. This is used both for
 	// authorization and as author/committer for the revert commit.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	// commit iis the commit to revert.
+	// commit is the commit to revert. Only the `id` field is required.
 	Commit *GitCommit `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
 	// branch_name is the name of the branch onto which the reverted commit shall
 	// be committed.
@@ -2448,7 +2448,7 @@ func (x *UserRevertRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// UserRevertResponse ...
+// UserRevertResponse is a response for the UserRevert RPC.
 type UserRevertResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
