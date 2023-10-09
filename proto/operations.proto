@@ -1009,7 +1009,7 @@ message UserSquashError {
   }
 }
 
-// UserApplyPatchRequest ...
+// UserApplyPatchRequest is a request for the UserApplyPatch RPC.
 message UserApplyPatchRequest {
   // Header contains information about how to apply the patches.
   message Header {
@@ -1042,7 +1042,7 @@ message UserApplyPatchRequest {
   }
 }
 
-// UserApplyPatchResponse ...
+// UserApplyPatchResponse is a response for the UserApplyPatch RPC.
 message UserApplyPatchResponse {
   // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;

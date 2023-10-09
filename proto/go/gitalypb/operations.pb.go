@@ -3655,7 +3655,7 @@ func (*UserSquashError_ResolveRevision) isUserSquashError_Error() {}
 
 func (*UserSquashError_RebaseConflict) isUserSquashError_Error() {}
 
-// UserApplyPatchRequest ...
+// UserApplyPatchRequest is a request for the UserApplyPatch RPC.
 type UserApplyPatchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3740,7 +3740,7 @@ func (*UserApplyPatchRequest_Header_) isUserApplyPatchRequest_UserApplyPatchRequ
 
 func (*UserApplyPatchRequest_Patches) isUserApplyPatchRequest_UserApplyPatchRequestPayload() {}
 
-// UserApplyPatchResponse ...
+// UserApplyPatchResponse is a response for the UserApplyPatch RPC.
 type UserApplyPatchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
