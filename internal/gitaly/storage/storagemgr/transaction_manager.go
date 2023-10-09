@@ -299,6 +299,15 @@ func (txn *Transaction) RewriteRepository(repo *gitalypb.Repository) *gitalypb.R
 	return rewritten
 }
 
+// OriginalRepository returns the repository as it was before rewriting it to point to the snapshot.
+func (txn *Transaction) OriginalRepository(repo *gitalypb.Repository) *gitalypb.Repository {
+	original := proto.Clone(repo).(*gitalypb.Repository)
+	original.RelativePath = strings.TrimPrefix(repo.RelativePath, txn.snapshotBaseRelativePath+string(os.PathSeparator))
+	original.GitObjectDirectory = ""
+	original.GitAlternateObjectDirectories = nil
+	return original
+}
+
 // createRepositorySnapshot snapshots the repository's current state at snapshotPath. This is done by
 // recreating the repository's directory structure and hard linking the repository's files in their
 // correct locations there. This effectively does a copy-free clone of the repository. Since the files
