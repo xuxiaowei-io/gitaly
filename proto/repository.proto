@@ -400,6 +400,13 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // GetFileAttributes queries given file attributes as specified in .gitattributes file
+  rpc GetFileAttributes(GetFileAttributesRequest) returns (GetFileAttributesResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 // RepositoryExistsRequest ...
@@ -1298,4 +1305,33 @@ message RestoreRepositoryResponse {
   // SkippedError is returned when the repository restore has been skipped.
   message SkippedError {
   }
+}
+
+// GetFileAttributesRequest is a request for the GetFileAttributes RPC.
+message GetFileAttributesRequest {
+  // repository is the repository the file attributes shall be computed in.
+  Repository repository = 1 [(target_repository)=true];
+  // revision is the revision where the file attributes shall be computed in.
+  bytes revision = 2;
+  // attributes are the attributes that will be queried for.
+  repeated string attributes = 3;
+  // paths are the file paths that will be queried for.
+  repeated string paths = 4;
+}
+
+// GetFileAttributesResponse is a response for the GetFileAttributes RPC.
+message GetFileAttributesResponse {
+  // AttributeInfo is a specified git attribute for a given path.
+  message AttributeInfo {
+    // path is the file path for the current attribute value.
+    string path = 1;
+    // attribute is the name of the attribute.
+    string attribute = 2;
+    // value is the current value of the attribute.
+    // "set" is used when the attribute is true, and "unset" when it's false.
+    // See gitattributes(5) and git-check-attr(1) for more info.
+    string value = 3;
+  }
+  // attribute_infos is the list of attributes that matches the given GetFileAttributesRequest
+  repeated AttributeInfo attribute_infos = 1;
 }
