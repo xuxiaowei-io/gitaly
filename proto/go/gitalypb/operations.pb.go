@@ -3325,7 +3325,7 @@ func (*UserRebaseConfirmableResponse_RebaseSha) isUserRebaseConfirmableResponse_
 func (*UserRebaseConfirmableResponse_RebaseApplied) isUserRebaseConfirmableResponse_UserRebaseConfirmableResponsePayload() {
 }
 
-// UserSquashRequest ...
+// UserSquashRequest is a request for the UserSquash RPC.
 type UserSquashRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3432,7 +3432,7 @@ func (x *UserSquashRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
-// UserSquashResponse ...
+// UserSquashResponse is a response for the UserSquash RPC.
 type UserSquashResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
