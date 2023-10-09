@@ -192,6 +192,8 @@ type RepositoryServiceClient interface {
 	// The repository is restored synchronously. The source object-storage must
 	// be configured in config.backup.go_cloud_url
 	RestoreRepository(ctx context.Context, in *RestoreRepositoryRequest, opts ...grpc.CallOption) (*RestoreRepositoryResponse, error)
+	// GetFileAttributes queries given file attributes as specified in .gitattributes file
+	GetFileAttributes(ctx context.Context, in *GetFileAttributesRequest, opts ...grpc.CallOption) (*GetFileAttributesResponse, error)
 }
 
 type repositoryServiceClient struct {
@@ -979,6 +981,15 @@ func (c *repositoryServiceClient) RestoreRepository(ctx context.Context, in *Res
 	return out, nil
 }
 
+func (c *repositoryServiceClient) GetFileAttributes(ctx context.Context, in *GetFileAttributesRequest, opts ...grpc.CallOption) (*GetFileAttributesResponse, error) {
+	out := new(GetFileAttributesResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/GetFileAttributes", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RepositoryServiceServer is the server API for RepositoryService service.
 // All implementations must embed UnimplementedRepositoryServiceServer
 // for forward compatibility
@@ -1153,6 +1164,8 @@ type RepositoryServiceServer interface {
 	// The repository is restored synchronously. The source object-storage must
 	// be configured in config.backup.go_cloud_url
 	RestoreRepository(context.Context, *RestoreRepositoryRequest) (*RestoreRepositoryResponse, error)
+	// GetFileAttributes queries given file attributes as specified in .gitattributes file
+	GetFileAttributes(context.Context, *GetFileAttributesRequest) (*GetFileAttributesResponse, error)
 	mustEmbedUnimplementedRepositoryServiceServer()
 }
 
@@ -1291,6 +1304,9 @@ func (UnimplementedRepositoryServiceServer) BackupRepository(context.Context, *B
 }
 func (UnimplementedRepositoryServiceServer) RestoreRepository(context.Context, *RestoreRepositoryRequest) (*RestoreRepositoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestoreRepository not implemented")
+}
+func (UnimplementedRepositoryServiceServer) GetFileAttributes(context.Context, *GetFileAttributesRequest) (*GetFileAttributesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFileAttributes not implemented")
 }
 func (UnimplementedRepositoryServiceServer) mustEmbedUnimplementedRepositoryServiceServer() {}
 
@@ -2175,6 +2191,24 @@ func _RepositoryService_RestoreRepository_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RepositoryService_GetFileAttributes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFileAttributesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RepositoryServiceServer).GetFileAttributes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.RepositoryService/GetFileAttributes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RepositoryServiceServer).GetFileAttributes(ctx, req.(*GetFileAttributesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RepositoryService_ServiceDesc is the grpc.ServiceDesc for RepositoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2293,6 +2327,10 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RestoreRepository",
 			Handler:    _RepositoryService_RestoreRepository_Handler,
+		},
+		{
+			MethodName: "GetFileAttributes",
+			Handler:    _RepositoryService_GetFileAttributes_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
