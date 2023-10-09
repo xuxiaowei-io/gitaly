@@ -43,17 +43,17 @@ type CommitServiceClient interface {
 	// subtrees present under the tree with the option of recursive fetching.
 	GetTreeEntries(ctx context.Context, in *GetTreeEntriesRequest, opts ...grpc.CallOption) (CommitService_GetTreeEntriesClient, error)
 	// ListFiles lists all the files (including files in sub-dirs) present in the working tree
-	// for a given revision.
+	// of a given treeish.
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (CommitService_ListFilesClient, error)
 	// FindCommit finds a commit for a given commitish. Returns nil if the commit is not found.
 	FindCommit(ctx context.Context, in *FindCommitRequest, opts ...grpc.CallOption) (*FindCommitResponse, error)
 	// CommitStats provides the stats for a given commitish.
 	CommitStats(ctx context.Context, in *CommitStatsRequest, opts ...grpc.CallOption) (*CommitStatsResponse, error)
-	// FindAllCommits lists all the commits for the provided revision.
+	// FindAllCommits lists all the commits which can be traversed from the
+	// provided commitish.
 	FindAllCommits(ctx context.Context, in *FindAllCommitsRequest, opts ...grpc.CallOption) (CommitService_FindAllCommitsClient, error)
 	// FindCommits lists all the commits which are associated with the provided revision
-	// and paths. If no revision is provided, the commits on the default branch of the
-	// repository are listed.
+	// and paths.
 	FindCommits(ctx context.Context, in *FindCommitsRequest, opts ...grpc.CallOption) (CommitService_FindCommitsClient, error)
 	// CommitLanguages detects the source code languages of the whole tree for a
 	// given commit. Returns an error in case no languages could be detected.
@@ -66,25 +66,25 @@ type CommitServiceClient interface {
 	// The following special cases apply and have grown historically:
 	//
 	// - Absolute paths that or relative paths that escape the repository root will cause an error.
-	// - A nonexistent path inside the repostiory leads to a successful but empty response.
+	// - A nonexistent path inside the repository leads to a successful but empty response.
 	LastCommitForPath(ctx context.Context, in *LastCommitForPathRequest, opts ...grpc.CallOption) (*LastCommitForPathResponse, error)
-	// ListLastCommitsForTree ...
+	// ListLastCommitsForTree lists the last commits for a given tree.
 	ListLastCommitsForTree(ctx context.Context, in *ListLastCommitsForTreeRequest, opts ...grpc.CallOption) (CommitService_ListLastCommitsForTreeClient, error)
-	// CommitsByMessage ...
+	// CommitsByMessage list commits which match the provided query.
 	CommitsByMessage(ctx context.Context, in *CommitsByMessageRequest, opts ...grpc.CallOption) (CommitService_CommitsByMessageClient, error)
-	// ListCommitsByOid ...
+	// ListCommitsByOid lists the commits for the provided commitish object IDs.
 	ListCommitsByOid(ctx context.Context, in *ListCommitsByOidRequest, opts ...grpc.CallOption) (CommitService_ListCommitsByOidClient, error)
-	// ListCommitsByRefName ...
+	// ListCommitsByRefName lists the commits for the provided references.
 	ListCommitsByRefName(ctx context.Context, in *ListCommitsByRefNameRequest, opts ...grpc.CallOption) (CommitService_ListCommitsByRefNameClient, error)
-	// FilterShasWithSignatures ...
+	// FilterShasWithSignatures filters out signed commits.
 	FilterShasWithSignatures(ctx context.Context, opts ...grpc.CallOption) (CommitService_FilterShasWithSignaturesClient, error)
-	// GetCommitSignatures ...
+	// GetCommitSignatures parses the commit signature information for the provided commitish object IDs.
 	GetCommitSignatures(ctx context.Context, in *GetCommitSignaturesRequest, opts ...grpc.CallOption) (CommitService_GetCommitSignaturesClient, error)
-	// GetCommitMessages ...
+	// GetCommitMessages returns the commits messages for the provided commitish object IDs.
 	GetCommitMessages(ctx context.Context, in *GetCommitMessagesRequest, opts ...grpc.CallOption) (CommitService_GetCommitMessagesClient, error)
 	// CheckObjectsExist will check for the existence of revisions against a
 	// repository. It returns two sets of data. An array containing the revisions
-	// fromm the input that it found on the repository, and an array that contains all
+	// from the input that it found on the repository, and an array that contains all
 	// revisions from the input it did not find on the repository.
 	CheckObjectsExist(ctx context.Context, opts ...grpc.CallOption) (CommitService_CheckObjectsExistClient, error)
 }
@@ -695,17 +695,17 @@ type CommitServiceServer interface {
 	// subtrees present under the tree with the option of recursive fetching.
 	GetTreeEntries(*GetTreeEntriesRequest, CommitService_GetTreeEntriesServer) error
 	// ListFiles lists all the files (including files in sub-dirs) present in the working tree
-	// for a given revision.
+	// of a given treeish.
 	ListFiles(*ListFilesRequest, CommitService_ListFilesServer) error
 	// FindCommit finds a commit for a given commitish. Returns nil if the commit is not found.
 	FindCommit(context.Context, *FindCommitRequest) (*FindCommitResponse, error)
 	// CommitStats provides the stats for a given commitish.
 	CommitStats(context.Context, *CommitStatsRequest) (*CommitStatsResponse, error)
-	// FindAllCommits lists all the commits for the provided revision.
+	// FindAllCommits lists all the commits which can be traversed from the
+	// provided commitish.
 	FindAllCommits(*FindAllCommitsRequest, CommitService_FindAllCommitsServer) error
 	// FindCommits lists all the commits which are associated with the provided revision
-	// and paths. If no revision is provided, the commits on the default branch of the
-	// repository are listed.
+	// and paths.
 	FindCommits(*FindCommitsRequest, CommitService_FindCommitsServer) error
 	// CommitLanguages detects the source code languages of the whole tree for a
 	// given commit. Returns an error in case no languages could be detected.
@@ -718,25 +718,25 @@ type CommitServiceServer interface {
 	// The following special cases apply and have grown historically:
 	//
 	// - Absolute paths that or relative paths that escape the repository root will cause an error.
-	// - A nonexistent path inside the repostiory leads to a successful but empty response.
+	// - A nonexistent path inside the repository leads to a successful but empty response.
 	LastCommitForPath(context.Context, *LastCommitForPathRequest) (*LastCommitForPathResponse, error)
-	// ListLastCommitsForTree ...
+	// ListLastCommitsForTree lists the last commits for a given tree.
 	ListLastCommitsForTree(*ListLastCommitsForTreeRequest, CommitService_ListLastCommitsForTreeServer) error
-	// CommitsByMessage ...
+	// CommitsByMessage list commits which match the provided query.
 	CommitsByMessage(*CommitsByMessageRequest, CommitService_CommitsByMessageServer) error
-	// ListCommitsByOid ...
+	// ListCommitsByOid lists the commits for the provided commitish object IDs.
 	ListCommitsByOid(*ListCommitsByOidRequest, CommitService_ListCommitsByOidServer) error
-	// ListCommitsByRefName ...
+	// ListCommitsByRefName lists the commits for the provided references.
 	ListCommitsByRefName(*ListCommitsByRefNameRequest, CommitService_ListCommitsByRefNameServer) error
-	// FilterShasWithSignatures ...
+	// FilterShasWithSignatures filters out signed commits.
 	FilterShasWithSignatures(CommitService_FilterShasWithSignaturesServer) error
-	// GetCommitSignatures ...
+	// GetCommitSignatures parses the commit signature information for the provided commitish object IDs.
 	GetCommitSignatures(*GetCommitSignaturesRequest, CommitService_GetCommitSignaturesServer) error
-	// GetCommitMessages ...
+	// GetCommitMessages returns the commits messages for the provided commitish object IDs.
 	GetCommitMessages(*GetCommitMessagesRequest, CommitService_GetCommitMessagesServer) error
 	// CheckObjectsExist will check for the existence of revisions against a
 	// repository. It returns two sets of data. An array containing the revisions
-	// fromm the input that it found on the repository, and an array that contains all
+	// from the input that it found on the repository, and an array that contains all
 	// revisions from the input it did not find on the repository.
 	CheckObjectsExist(CommitService_CheckObjectsExistServer) error
 	mustEmbedUnimplementedCommitServiceServer()

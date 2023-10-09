@@ -69,7 +69,7 @@ service CommitService {
   }
 
   // ListFiles lists all the files (including files in sub-dirs) present in the working tree
-  // for a given revision.
+  // of a given treeish.
   rpc ListFiles(ListFilesRequest) returns (stream ListFilesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -90,7 +90,8 @@ service CommitService {
     };
   }
 
-  // FindAllCommits lists all the commits for the provided revision.
+  // FindAllCommits lists all the commits which can be traversed from the
+  // provided commitish.
   rpc FindAllCommits(FindAllCommitsRequest) returns (stream FindAllCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -98,8 +99,7 @@ service CommitService {
   }
 
   // FindCommits lists all the commits which are associated with the provided revision
-  // and paths. If no revision is provided, the commits on the default branch of the
-  // repository are listed.
+  // and paths.
   rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -127,56 +127,56 @@ service CommitService {
   // The following special cases apply and have grown historically:
   //
   // - Absolute paths that or relative paths that escape the repository root will cause an error.
-  // - A nonexistent path inside the repostiory leads to a successful but empty response.
+  // - A nonexistent path inside the repository leads to a successful but empty response.
   rpc LastCommitForPath(LastCommitForPathRequest) returns (LastCommitForPathResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // ListLastCommitsForTree ...
+  // ListLastCommitsForTree lists the last commits for a given tree.
   rpc ListLastCommitsForTree(ListLastCommitsForTreeRequest) returns (stream ListLastCommitsForTreeResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // CommitsByMessage ...
+  // CommitsByMessage list commits which match the provided query.
   rpc CommitsByMessage(CommitsByMessageRequest) returns (stream CommitsByMessageResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // ListCommitsByOid ...
+  // ListCommitsByOid lists the commits for the provided commitish object IDs.
   rpc ListCommitsByOid(ListCommitsByOidRequest) returns (stream ListCommitsByOidResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // ListCommitsByRefName ...
+  // ListCommitsByRefName lists the commits for the provided references.
   rpc ListCommitsByRefName(ListCommitsByRefNameRequest) returns (stream ListCommitsByRefNameResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // FilterShasWithSignatures ...
+  // FilterShasWithSignatures filters out signed commits.
   rpc FilterShasWithSignatures(stream FilterShasWithSignaturesRequest) returns (stream FilterShasWithSignaturesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // GetCommitSignatures ...
+  // GetCommitSignatures parses the commit signature information for the provided commitish object IDs.
   rpc GetCommitSignatures(GetCommitSignaturesRequest) returns (stream GetCommitSignaturesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // GetCommitMessages ...
+  // GetCommitMessages returns the commits messages for the provided commitish object IDs.
   rpc GetCommitMessages(GetCommitMessagesRequest) returns (stream GetCommitMessagesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -185,7 +185,7 @@ service CommitService {
 
   // CheckObjectsExist will check for the existence of revisions against a
   // repository. It returns two sets of data. An array containing the revisions
-  // fromm the input that it found on the repository, and an array that contains all
+  // from the input that it found on the repository, and an array that contains all
   // revisions from the input it did not find on the repository.
   rpc CheckObjectsExist(stream CheckObjectsExistRequest) returns (stream CheckObjectsExistResponse) {
     option (op_type) = {
@@ -534,41 +534,44 @@ message FindCommitResponse {
   GitCommit commit = 1;
 }
 
-// ListCommitsByOidRequest ...
+// ListCommitsByOidRequest is the request for the ListCommitsByOid RPC.
 message ListCommitsByOidRequest {
-  // repository ...
+  // repository is the repository to list commits from.
   Repository repository = 1 [(target_repository)=true];
-  // oid ...
+  // oid is a set of commitish object IDs to list commits for.
+  // If there is no commit against a provided object ID, no error is thrown. It is simply ignored.
   repeated string oid = 2; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 
-// ListCommitsByOidResponse ...
+// ListCommitsByOidResponse is the response for the ListCommitsByOid RPC.
 message ListCommitsByOidResponse {
-  // commits ...
+  // commits are the list of commits for the provided object IDs from the request.
   repeated GitCommit commits = 1;
 }
 
-// ListCommitsByRefNameRequest ...
+// ListCommitsByRefNameRequest is the request for the ListCommitsByRefName RPC.
 message ListCommitsByRefNameRequest {
-  // repository ...
+  // repository is the repository to list commits from.
   Repository repository = 1 [(target_repository)=true];
-  // ref_names ...
+  // ref_names is a set of references to obtain commits for.
+  // If there is no commit against a provided reference, no error is thrown. It is simply ignored.
   repeated bytes ref_names = 2;
 }
 
-// ListCommitsByRefNameResponse ...
+// ListCommitsByRefNameResponse is the response for the ListCommitsByRefName RPC.
 message ListCommitsByRefNameResponse {
   reserved 1;
 
-  // CommitForRef ...
+  // CommitForRef holds the commit for a given reference.
   message CommitForRef {
-    // commit ...
+    // commit is the commit object against the reference.
     GitCommit commit = 1;
-    // ref_name ...
+    // ref_name is a reference from the repository.
     bytes ref_name = 2;
   }
 
-  // commit_refs ...
+  // commit_refs is a list of CommitForRef objects which provides the commits
+  // against the requested references.
   repeated CommitForRef commit_refs = 2;
 }
 
@@ -647,7 +650,7 @@ message FindCommitsRequest {
   // before will only list commits which are older than the specified date.
   google.protobuf.Timestamp before = 10;
   // all is used to consider all refs (including HEAD) as the start point for the traversal.
-  // All and Revision options are mutually exclusive.
+  // `all` and `revision` options are mutually exclusive.
   bool all = 11;
   // first_parent ensures that only the first parent commit is followed in the traversal.
   bool first_parent = 12;
@@ -717,7 +720,7 @@ message CommitLanguagesResponse {
 
 // RawBlameRequest is a request for the RawBlame RPC.
 message RawBlameRequest {
-  // repository is the repositroy where to perform the blame.
+  // repository is the repository to perform the blame on.
   Repository repository = 1 [(target_repository)=true];
   // revision is the commitish at which to start the blame.
   bytes revision = 2;
@@ -744,7 +747,7 @@ message RawBlameError {
     uint64 actual_lines = 1;
   }
 
-  // error ...
+  // error denotes the type of error encountered.
   oneof error {
     // path_not_found is returned when the blamed path cannot be found in the revision.
     PathNotFoundError path_not_found = 1;
@@ -776,107 +779,96 @@ message LastCommitForPathResponse {
   GitCommit commit = 1;
 }
 
-// ListLastCommitsForTreeRequest ...
+// ListLastCommitsForTreeRequest is the request for the ListLastCommitsForTree RPC.
 message ListLastCommitsForTreeRequest {
-  // repository ...
+  // repository is the repository to run the query in.
   Repository repository = 1 [(target_repository)=true];
-  // revision ...
+  // revision is the treeish to retrieve commits against.
   string revision = 2;
-  // path ...
+  // path is the relative path to further filter against the treeish revision. This path can either point to a blob
+  // or to a tree. The path must be relative and must not escape the repository root. If the path is empty or "/", then
+  // it will be replaced with the root of of the repository.
   bytes path = 3;
-  // limit ...
+  // limit is the number of tree entries to limit the response to.
   int32 limit = 4;
-  // offset ...
+  // offset is the offset of the tree entries from which to start the response.
   int32 offset = 5;
-  // literal_pathspec ...
+  // literal_pathspec is deprecated.
   bool literal_pathspec = 6 [deprecated = true];
-  // global_options ...
+  // global_options contains the global options used to modify the behaviour of Git.
   GlobalOptions global_options = 7;
 }
 
-// ListLastCommitsForTreeResponse ...
+// ListLastCommitsForTreeResponse is the response for the ListLastCommitsForTree RPC.
 message ListLastCommitsForTreeResponse {
-  // CommitForTree ...
+  // CommitForTree denotes the last commit for associated path.
   message CommitForTree {
     reserved 1;
 
-    // commit ...
+    // commit is the commit that has last modified the path.
     GitCommit commit = 2;
     reserved 3;
-    // path_bytes ...
+    // path_bytes is the path associated with the commit.
     bytes path_bytes = 4;
   }
 
-  // commits ...
+  // commits is a set of CommitForTree objects.
   repeated CommitForTree commits = 1;
 }
 
-// CommitsByMessageRequest ...
+// CommitsByMessageRequest is the request for the CommitsByMessage RPC.
 message CommitsByMessageRequest {
-  // repository ...
+  // repository is the repository to run the query in.
   Repository repository = 1 [(target_repository)=true];
-  // revision ...
+  // revision is the commitish to retrieve commits against.
   bytes revision = 2;
-  // offset ...
+  // offset is the offset from which to list commits.
   int32 offset = 3;
-  // limit ...
+  // limit is the maximum number of commits to list.
   int32 limit = 4;
-  // path ...
+  // path is the relative path to filter the commits to.
   bytes path = 5;
-  // query ...
+  // query is the search param to search commit messages against.
   string query = 6;
-  // global_options ...
+  // global_options contains the global options used to modify the behaviour of Git.
   GlobalOptions global_options = 7;
 }
 
 // CommitsByMessageResponse is the response for the CommitsByMessage RPC.
-// One 'page' of the paginated response of CommitsByMessage
+// One 'page' of the paginated response of CommitsByMessage.
 message CommitsByMessageResponse {
-  // commits ...
+  // commits is the list of commits which match the query from the request.
   repeated GitCommit commits = 1;
 }
 
-// FilterShasWithSignaturesRequest ...
+// FilterShasWithSignaturesRequest is the request for the FilterShasWithSignatures RPC.
 message FilterShasWithSignaturesRequest {
-  // repository ...
+  // repository is the repository to retrieve the commits from.
   Repository repository = 1 [(target_repository)=true];
-  // shas ...
+  // shas is a set of commitish object IDs. If there is no corresponding commit for a
+  // provided sha, no error will be thrown. Only signed commits will be returned in the
+  // response.
   repeated bytes shas = 2;
 }
 
-// FilterShasWithSignaturesResponse ...
+// FilterShasWithSignaturesResponse is the response for the FilterShasWithSignatures RPC.
 message FilterShasWithSignaturesResponse {
-  // shas ...
+  // shas is the filtered list of shas from the request which have an associated signed
+  // commit.
   repeated bytes shas = 1;
 }
 
-// ExtractCommitSignatureRequest ...
-message ExtractCommitSignatureRequest {
-  // repository ...
-  Repository repository = 1 [(target_repository)=true];
-  // commit_id ...
-  string commit_id = 2;
-}
-
-// ExtractCommitSignatureResponse is the response for the ExtractCommitSignature RPC.
-// Either of the 'signature' and 'signed_text' fields may be present. It
-// is up to the caller to stitch them together.
-message ExtractCommitSignatureResponse {
-  // signature ...
-  bytes signature = 1;
-  // signed_text ...
-  bytes signed_text = 2;
-}
-
-// GetCommitSignaturesRequest ...
+// GetCommitSignaturesRequest is the request for the GetCommitSignatures RPC.
 message GetCommitSignaturesRequest {
-  // repository ...
+  // repository is the repository to retrieve the commits from.
   Repository repository = 1 [(target_repository)=true];
-  // commit_ids ...
+  // commit_ids is the list of commitish object IDs for whom we want to retrieve
+  // signature information. If a commit doesn't have associated signature information
+  // it will be ommitted from the results.
   repeated string commit_ids = 2;
 }
 
-// GetCommitSignaturesResponse ...
+// GetCommitSignaturesResponse is the response for the GetCommitSignatures RPC.
 message GetCommitSignaturesResponse {
   // Signer of the commit. A commit can be signed either by a user or by Gitaly itself.
   enum Signer {
@@ -898,45 +890,46 @@ message GetCommitSignaturesResponse {
   Signer signer = 4;
 }
 
-// GetCommitMessagesRequest ...
+// GetCommitMessagesRequest is the request for the GetCommitMessages RPC.
 message GetCommitMessagesRequest {
-  // repository ...
+  // repository is the repository to retrieve the commits from.
   Repository repository = 1 [(target_repository)=true];
-  // commit_ids ...
+  // commit_ids is the list of commitish object IDs for whom we want to retrieve
+  // the commit message.
   repeated string commit_ids = 2;
 }
 
-// GetCommitMessagesResponse ...
+// GetCommitMessagesResponse is the response for the GetCommitMessages RPC.
 message GetCommitMessagesResponse {
-  // commit_id ...
-  // Only present for a new commit message
+  // commit_id is the commit object ID. A response with commit_id set, will be followed with
+  // response with the message field set with the commit message for that commit.
   string commit_id = 1;
-  // message ...
+  // message is the commit message for the commit.
   bytes message = 2;
 }
 
-// CheckObjectsExistRequest is a request for the CheckObjectsExist RPC. Only
-// the initial request must contain a repository, the repository of all
-// subsequent requests will be ignored.
+// CheckObjectsExistRequest is a request for the CheckObjectsExist RPC.
 message CheckObjectsExistRequest {
   // repository is the repository in which existence of objects and refs
-  // are checked.
+  // are checked. Only the initial request must contain a repository, the repository of all
+  // subsequent requests will be ignored.
   Repository repository = 1 [(target_repository)=true];
   // revisions contains the revisions that shall be checked for existence. This accepts all revisions
-  // as documented in gitrevisions(7)
+  // as documented in gitrevisions(7).
   repeated bytes revisions = 2;
 }
 
-// CheckObjectsExistResponse ...
+// CheckObjectsExistResponse is a response for the CheckObjectsExist RPC.
 message CheckObjectsExistResponse {
-  // RevisionExistence ...
+  // RevisionExistence lists a revision with information about its existence.
   message RevisionExistence {
-    // name ...
+    // name refers to the revision.
     bytes name = 1;
-    // exists ...
+    // exists is true if the revision exists in the repository.
     bool exists = 2;
   };
 
-  // revisions ...
+  // revisions is the list of RevisionExistence objects used to indicate which
+  // revisions exist.
   repeated RevisionExistence revisions = 1;
 }
