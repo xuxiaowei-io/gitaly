@@ -2131,11 +2131,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 	}
 
 	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-	})
+	relativePath := gittest.NewRepositoryName(t)
 
 	for _, tc := range []struct {
 		desc        string
@@ -2175,6 +2171,11 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				gitaly := gitaly
 
 				cfg := testcfg.Build(t, testcfg.WithStorages(gitaly))
+
+				_, _ = gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
 
 				operationServer := &mockOperationServer{
 					t:  t,
@@ -2226,7 +2227,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				// nodes will take part in transactions.
 				WithRepoStore: datastore.MockRepositoryStore{
 					GetReplicaPathFunc: func(ctx context.Context, repositoryID int64) (string, error) {
-						return repoProto.GetRelativePath(), nil
+						return relativePath, nil
 					},
 					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
 						return relativePath, datastructure.SetFromValues("primary", "secondary-1", "secondary-2"), nil
@@ -2243,7 +2244,10 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 
 			_, err := gitalypb.NewOperationServiceClient(praefectConn).UserCreateBranch(ctx,
 				&gitalypb.UserCreateBranchRequest{
-					Repository: repoProto,
+					Repository: &gitalypb.Repository{
+						StorageName:  testhelper.DefaultStorageName,
+						RelativePath: relativePath,
+					},
 				})
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
