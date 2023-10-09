@@ -227,6 +227,42 @@ The `testhelper` package provides functions to create configurations to run Gita
 - [Run Gitaly](https://gitlab.com/gitlab-org/gitaly/-/blob/aa098de7b267e3d6cb8a05e7862a1ad34f8f2ab5/internal/gitaly/service/ref/testhelper_test.go#L57)
 - [Clone test repository](https://gitlab.com/gitlab-org/gitaly/-/blob/aa098de7b267e3d6cb8a05e7862a1ad34f8f2ab5/internal/gitaly/service/ref/find_all_tags_test.go#L30)
 
+### Invoking gRPC endpoints locally
+
+Gitaly listens on a UNIX socket when operated locally via the GDK. You can use tools like
+[`grpcurl`](https://github.com/fullstorydev/grpcurl) and [`grpcgui`](https://github.com/fullstorydev/grpcui)
+to invoke Gitaly's gRPC endpoints locally. To do this:
+
+1. Identify the address of the socket:
+   - If using Praefect, the address is the value of the `socket_path` field in one of the `gitaly/gitaly-*.praefect.toml` files.
+   - Otherwise, the address is the value of the `socket_path` field in the `gitaly/gitaly.config.toml` file.
+1. Validate the address by performing a test request. For example, you can [list services](https://github.com/fullstorydev/grpcurl#listing-services)
+   provided by the server:
+
+   ```shell
+   $ grpcurl -plaintext -unix <socket address> list
+   
+   gitaly.BlobService
+   gitaly.CleanupService
+   gitaly.CommitService
+   gitaly.ConflictsService
+   gitaly.DiffService
+   gitaly.HookService
+   gitaly.InternalGitaly
+   gitaly.NamespaceService
+   gitaly.ObjectPoolService
+   gitaly.OperationService
+   gitaly.RefService
+   gitaly.RemoteService
+   gitaly.RepositoryService
+   gitaly.SSHService
+   gitaly.ServerService
+   gitaly.SmartHTTPService
+   grpc.health.v1.Health
+   grpc.reflection.v1.ServerReflection
+   grpc.reflection.v1alpha.ServerReflection
+   ```
+
 ## Rails tests
 
 To use your custom Gitaly when running Rails tests in GDK, go to the
