@@ -26,6 +26,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
+// stoppedTransactionManager is a wrapper type that prevents the transactionManager from
+// running. This is useful in tests that test certain order of operations.
+type stoppedTransactionManager struct{ transactionManager }
+
+func (stoppedTransactionManager) Run() error { return nil }
+
 func TestPartitionManager(t *testing.T) {
 	t.Parallel()
 
@@ -374,25 +380,20 @@ func TestPartitionManager(t *testing.T) {
 						housekeepingManager housekeeping.Manager,
 						relativePath, absoluteStateDir, stagingDir string,
 					) transactionManager {
-						txMgr := NewTransactionManager(
-							partitionID,
-							storageMgr.logger,
-							storageMgr.database,
-							storageMgr.path,
-							relativePath,
-							absoluteStateDir,
-							stagingDir,
-							commandFactory,
-							housekeepingManager,
-							storageMgr.repoFactory,
-						)
-
-						// Fake a preexisting apply notification. This ensures that we would
-						// block indefinitely waiting for the notifcation and thus allows us to
-						// assert that we can indeed cancel this via the context.
-						txMgr.snapshotLocks[0] = &snapshotLock{}
-
-						return txMgr
+						return stoppedTransactionManager{
+							transactionManager: NewTransactionManager(
+								partitionID,
+								storageMgr.logger,
+								storageMgr.database,
+								storageMgr.path,
+								relativePath,
+								absoluteStateDir,
+								stagingDir,
+								commandFactory,
+								housekeepingManager,
+								storageMgr.repoFactory,
+							),
+						}
 					},
 				}
 			},
