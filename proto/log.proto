@@ -39,20 +39,23 @@ message LogEntry {
   message RepositoryDeletion {
   }
 
+  // relative_path is the relative path of the repository the changes in the
+  // log entry are targeting.
+  string relative_path = 1;
   // reference_updates contains the reference updates this log
   // entry records. The logged reference updates have already passed
   // through verification and are applied without any further checks.
-  repeated ReferenceUpdate reference_updates = 1;
+  repeated ReferenceUpdate reference_updates = 2;
   // default_branch_update contains the information pertaining to updating
   // the default branch of the repo.
-  DefaultBranchUpdate default_branch_update = 2;
+  DefaultBranchUpdate default_branch_update = 3;
   // custom_hooks_update contains the custom hooks to set in the repository.
-  CustomHooksUpdate custom_hooks_update = 3;
+  CustomHooksUpdate custom_hooks_update = 4;
   // pack_prefix contains the prefix (`pack-<digest>`) of the pack and its index.
   // If pack_prefix is empty, the log entry has no associated pack.
-  string pack_prefix = 4;
+  string pack_prefix = 5;
   // repository_deletion, when set, indicates this log entry deletes the repository.
-  RepositoryDeletion repository_deletion = 5;
+  RepositoryDeletion repository_deletion = 6;
 }
 
 // LogIndex serializes a log index. It's used for storing a repository's

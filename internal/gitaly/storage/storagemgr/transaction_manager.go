@@ -156,6 +156,8 @@ type Transaction struct {
 	// to finish where needed.
 	finished chan struct{}
 
+	// relativePath is the relative path of the repository this transaction is targeting.
+	relativePath string
 	// stagingDirectory is the directory where the transaction stages its files prior
 	// to them being logged. It is cleaned up when the transaction finishes.
 	stagingDirectory string
@@ -211,10 +213,11 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 	mgr.mutex.Lock()
 
 	txn := &Transaction{
-		readOnly: opts.ReadOnly,
-		commit:   mgr.commit,
-		snapshot: Snapshot{ReadIndex: mgr.appendedLogIndex},
-		finished: make(chan struct{}),
+		readOnly:     opts.ReadOnly,
+		commit:       mgr.commit,
+		snapshot:     Snapshot{ReadIndex: mgr.appendedLogIndex},
+		finished:     make(chan struct{}),
+		relativePath: mgr.relativePath,
 	}
 
 	mgr.snapshotLocks[txn.snapshot.ReadIndex].activeSnapshotters.Add(1)
@@ -262,12 +265,13 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 		}
 
 		if err := mgr.createRepositorySnapshot(ctx,
-			filepath.Join(mgr.storagePath, txn.snapshotRelativePath(mgr.relativePath)),
+			mgr.getAbsolutePath(txn.relativePath),
+			mgr.getAbsolutePath(txn.snapshotRelativePath(txn.relativePath)),
 		); err != nil {
 			return nil, fmt.Errorf("create snapshot: %w", err)
 		}
 
-		txn.snapshotRepository = mgr.repositoryFactory.Build(txn.snapshotRelativePath(mgr.relativePath))
+		txn.snapshotRepository = mgr.repositoryFactory.Build(txn.snapshotRelativePath(txn.relativePath))
 		if !txn.readOnly {
 			txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
 			if err := os.MkdirAll(filepath.Join(txn.quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
@@ -305,7 +309,7 @@ func (txn *Transaction) RewriteRepository(repo *gitalypb.Repository) *gitalypb.R
 // correct locations there. This effectively does a copy-free clone of the repository. Since the files
 // are shared between the snapshot and the repository, they must not be modified. Git doesn't modify
 // existing files but writes new ones so this property is upheld.
-func (mgr *TransactionManager) createRepositorySnapshot(ctx context.Context, snapshotPath string) error {
+func (mgr *TransactionManager) createRepositorySnapshot(ctx context.Context, repositoryPath, snapshotPath string) error {
 	// This creates the parent directory hierarchy regardless of whether the repository exists or not. It also
 	// doesn't consider the permissions in the storage. While not 100% correct, we have no logic that cares about
 	// the storage hierarchy above repositories.
@@ -318,7 +322,7 @@ func (mgr *TransactionManager) createRepositorySnapshot(ctx context.Context, sna
 
 	mgr.stateLock.RLock()
 	defer mgr.stateLock.RUnlock()
-	if err := createDirectorySnapshot(ctx, mgr.repositoryPath, snapshotPath, map[string]struct{}{
+	if err := createDirectorySnapshot(ctx, repositoryPath, snapshotPath, map[string]struct{}{
 		// Don't include worktrees in the snapshot. All of the worktrees in the repository should be leftover
 		// state from before transaction management was introduced as the transactions would create their
 		// worktrees in the snapshot.
@@ -654,18 +658,13 @@ type TransactionManager struct {
 	// repositoryFactory is used to build localrepo.Repo instances.
 	repositoryFactory localrepo.StorageScopedFactory
 
-	// repositoryExists marks whether the repository exists or not. The repository may not exist if it has
-	// never been created, or if it has been deleted.
-	repositoryExists bool
-	// repository is the repository this TransactionManager is acting on.
-	repository *localrepo.Repo
-	// repositoryPath is the path to the repository this TransactionManager is acting on.
-	repositoryPath string
 	// storagePath is an absolute path to the root of the storage this TransactionManager
 	// is operating in.
 	storagePath string
 	// relativePath is the repository's relative path inside the storage.
 	relativePath string
+	// partitionID is the ID of the partition this manager is operating on. This is used to determine the database keys.
+	partitionID partitionID
 	// db is the handle to the key-value store used for storing the write-ahead log related state.
 	db database
 	// admissionQueue is where the incoming writes are waiting to be admitted to the transaction
@@ -703,6 +702,7 @@ type TransactionManager struct {
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
 func NewTransactionManager(
+	ptnID partitionID,
 	db *badger.DB,
 	storagePath,
 	relativePath,
@@ -720,10 +720,9 @@ func NewTransactionManager(
 		closed:               make(chan struct{}),
 		commandFactory:       cmdFactory,
 		repositoryFactory:    repositoryFactory,
-		repository:           repositoryFactory.Build(relativePath),
 		storagePath:          storagePath,
-		repositoryPath:       filepath.Join(storagePath, relativePath),
 		relativePath:         relativePath,
+		partitionID:          ptnID,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
 		initialized:          make(chan struct{}),
@@ -844,7 +843,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 	// in the main object database of the snapshot.
 	//
 	// This is pending https://gitlab.com/groups/gitlab-org/-/epics/11242.
-	quarantinedRepo, err := mgr.repository.Quarantine(transaction.quarantineDirectory)
+	quarantinedRepo, err := mgr.repositoryFactory.Build(mgr.relativePath).Quarantine(transaction.quarantineDirectory)
 	if err != nil {
 		return fmt.Errorf("quarantine: %w", err)
 	}
@@ -1023,13 +1022,19 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 	}
 
 	if err := func() (commitErr error) {
-		if !mgr.repositoryExists {
+		repositoryExists, err := mgr.doesRepositoryExist(transaction.relativePath)
+		if err != nil {
+			return fmt.Errorf("does repository exist: %w", err)
+		}
+
+		if !repositoryExists {
 			return ErrRepositoryNotFound
 		}
 
-		logEntry := &gitalypb.LogEntry{}
+		logEntry := &gitalypb.LogEntry{
+			RelativePath: transaction.relativePath,
+		}
 
-		var err error
 		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("verify references: %w", err)
@@ -1108,7 +1113,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	defer close(mgr.initialized)
 
 	var appliedLogIndex gitalypb.LogIndex
-	if err := mgr.readKey(keyAppliedLogIndex(mgr.relativePath), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
+	if err := mgr.readKey(keyAppliedLogIndex(mgr.partitionID), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
 		return fmt.Errorf("read applied log index: %w", err)
 	}
 
@@ -1122,7 +1127,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	// As the log indexes in the keys are encoded in big endian, the latest log entry can be found by taking
 	// the first key when iterating the log entry key space in reverse.
 	if err := mgr.db.View(func(txn databaseTransaction) error {
-		logPrefix := keyPrefixLogEntries(mgr.relativePath)
+		logPrefix := keyPrefixLogEntries(mgr.partitionID)
 
 		iterator := txn.NewIterator(badger.IteratorOptions{Reverse: true, Prefix: logPrefix})
 		defer iterator.Close()
@@ -1140,14 +1145,8 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		return fmt.Errorf("determine appended log index: %w", err)
 	}
 
-	if err := mgr.determineRepositoryExistence(); err != nil {
-		return fmt.Errorf("determine repository existence: %w", err)
-	}
-
-	if mgr.repositoryExists {
-		if err := mgr.createStateDirectory(); err != nil {
-			return fmt.Errorf("create state directory: %w", err)
-		}
+	if err := mgr.createStateDirectory(); err != nil {
+		return fmt.Errorf("create state directory: %w", err)
 	}
 
 	// Create a snapshot lock for the applied index as it is used for synchronizing
@@ -1170,40 +1169,22 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	return nil
 }
 
-// determineRepositoryExistence determines whether the repository exists or not by looking
-// at whether the directory exists and whether there is a deletion request logged.
-func (mgr *TransactionManager) determineRepositoryExistence() error {
-	stat, err := os.Stat(mgr.repositoryPath)
+// doesRepositoryExist returns whether the repository exists or not.
+func (mgr *TransactionManager) doesRepositoryExist(relativePath string) (bool, error) {
+	stat, err := os.Stat(mgr.getAbsolutePath(relativePath))
 	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("stat repository directory: %w", err)
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
 		}
+
+		return false, fmt.Errorf("stat repository directory: %w", err)
 	}
 
-	if stat != nil {
-		if !stat.IsDir() {
-			return errNotDirectory
-		}
-
-		mgr.repositoryExists = true
+	if !stat.IsDir() {
+		return false, errNotDirectory
 	}
 
-	// Check whether the last log entry is a repository deletion. If so,
-	// the repository has been deleted but the deletion wasn't yet applied.
-	// The deletion is the last entry always as no further writes are
-	// accepted if the repository doesn't exist.
-	if mgr.appliedLogIndex < mgr.appendedLogIndex {
-		logEntry, err := mgr.readLogEntry(mgr.appendedLogIndex)
-		if err != nil {
-			return fmt.Errorf("read log entry: %w", err)
-		}
-
-		if logEntry.RepositoryDeletion != nil {
-			mgr.repositoryExists = false
-		}
-	}
-
-	return nil
+	return true, nil
 }
 
 func (mgr *TransactionManager) createStateDirectory() error {
@@ -1230,12 +1211,17 @@ func (mgr *TransactionManager) createStateDirectory() error {
 	return nil
 }
 
+// getAbsolutePath returns the relative path's absolute path in the storage.
+func (mgr *TransactionManager) getAbsolutePath(relativePath string) string {
+	return filepath.Join(mgr.storagePath, relativePath)
+}
+
 // removePackedRefsLocks removes any packed-refs.lock and packed-refs.new files present in the manager's
 // repository. No grace period for the locks is given as any lockfiles present must be stale and can be
 // safely removed immediately.
-func (mgr *TransactionManager) removePackedRefsLocks(ctx context.Context) error {
+func (mgr *TransactionManager) removePackedRefsLocks(ctx context.Context, repositoryPath string) error {
 	for _, lock := range []string{".new", ".lock"} {
-		lockPath := filepath.Join(mgr.repositoryPath, "packed-refs"+lock)
+		lockPath := filepath.Join(repositoryPath, "packed-refs"+lock)
 
 		// We deliberately do not fsync this deletion. Should a crash occur before this is persisted
 		// to disk, the restarted transaction manager will simply remove them again.
@@ -1326,7 +1312,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		return nil, nil
 	}
 
-	quarantinedRepo, err := mgr.repository.Quarantine(transaction.quarantineDirectory)
+	quarantinedRepo, err := mgr.repositoryFactory.Build(transaction.relativePath).Quarantine(transaction.quarantineDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("quarantine: %w", err)
 	}
@@ -1419,15 +1405,15 @@ func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, tr
 }
 
 // applyDefaultBranchUpdate applies the default branch update to the repository from the log entry.
-func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, defaultBranch *gitalypb.LogEntry_DefaultBranchUpdate) error {
-	if defaultBranch == nil {
+func (mgr *TransactionManager) applyDefaultBranchUpdate(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	if logEntry.DefaultBranchUpdate == nil {
 		return nil
 	}
 
 	var stderr bytes.Buffer
-	if err := mgr.repository.ExecAndWait(ctx, git.Command{
+	if err := mgr.repositoryFactory.Build(logEntry.RelativePath).ExecAndWait(ctx, git.Command{
 		Name: "symbolic-ref",
-		Args: []string{"HEAD", string(defaultBranch.ReferenceName)},
+		Args: []string{"HEAD", string(logEntry.DefaultBranchUpdate.ReferenceName)},
 	}, git.WithStderr(&stderr), git.WithDisabledHooks()); err != nil {
 		return structerr.New("exec symbolic-ref: %w", err).WithMetadata("stderr", stderr.String())
 	}
@@ -1474,9 +1460,11 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 	// If we get an error due to existing stale reference locks, we should clear it up
 	// and retry running git-update-ref(1).
 	if errors.Is(err, updateref.ErrPackedRefsLocked) || errors.As(err, &updateref.AlreadyLockedError{}) {
+		repositoryPath := mgr.getAbsolutePath(repository.GetRelativePath())
+
 		// Before clearing stale reference locks, we add should ensure that housekeeping doesn't
 		// run git-pack-refs(1), which could create new reference locks. So we add an inhibitor.
-		success, cleanup, err := mgr.housekeepingManager.AddPackRefsInhibitor(ctx, mgr.repositoryPath)
+		success, cleanup, err := mgr.housekeepingManager.AddPackRefsInhibitor(ctx, repositoryPath)
 		if !success {
 			return nil, fmt.Errorf("add pack-refs inhibitor: %w", err)
 		}
@@ -1485,12 +1473,12 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 		// We ask housekeeping to cleanup stale reference locks. We don't add a grace period, because
 		// transaction manager is the only process which writes into the repository, so it is safe
 		// to delete these locks.
-		if err := mgr.housekeepingManager.CleanStaleData(ctx, log.FromContext(ctx), mgr.repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
+		if err := mgr.housekeepingManager.CleanStaleData(ctx, log.FromContext(ctx), repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
 			return nil, fmt.Errorf("running reflock cleanup: %w", err)
 		}
 
 		// Remove possible locks and temporary files covering `packed-refs`.
-		if err := mgr.removePackedRefsLocks(mgr.ctx); err != nil {
+		if err := mgr.removePackedRefsLocks(mgr.ctx, repositoryPath); err != nil {
 			return nil, fmt.Errorf("remove stale packed-refs locks: %w", err)
 		}
 
@@ -1516,9 +1504,6 @@ func (mgr *TransactionManager) appendLogEntry(nextLogIndex LogIndex, logEntry *g
 	mgr.mutex.Lock()
 	mgr.appendedLogIndex = nextLogIndex
 	mgr.snapshotLocks[nextLogIndex] = &snapshotLock{applied: make(chan struct{})}
-	if logEntry.RepositoryDeletion != nil {
-		mgr.repositoryExists = false
-	}
 	mgr.mutex.Unlock()
 
 	return nil
@@ -1544,25 +1529,25 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 		// If the repository is being deleted, just delete it without any other changes given
 		// they'd all be removed anyway. Reapplying the other changes after a crash would also
 		// not work if the repository was successfully deleted before the crash.
-		if err := mgr.applyRepositoryDeletion(ctx, logIndex); err != nil {
+		if err := mgr.applyRepositoryDeletion(ctx, logEntry); err != nil {
 			return fmt.Errorf("apply repository deletion: %w", err)
 		}
 	} else {
 		if logEntry.PackPrefix != "" {
-			if err := mgr.applyPackFile(ctx, logEntry.PackPrefix, logIndex); err != nil {
+			if err := mgr.applyPackFile(ctx, logIndex, logEntry); err != nil {
 				return fmt.Errorf("apply pack file: %w", err)
 			}
 		}
 
-		if err := mgr.applyReferenceUpdates(ctx, logEntry.ReferenceUpdates); err != nil {
+		if err := mgr.applyReferenceUpdates(ctx, logEntry); err != nil {
 			return fmt.Errorf("apply reference updates: %w", err)
 		}
 
-		if err := mgr.applyDefaultBranchUpdate(ctx, logEntry.DefaultBranchUpdate); err != nil {
+		if err := mgr.applyDefaultBranchUpdate(ctx, logEntry); err != nil {
 			return fmt.Errorf("writing default branch: %w", err)
 		}
 
-		if err := mgr.applyCustomHooks(ctx, logIndex, logEntry.CustomHooksUpdate); err != nil {
+		if err := mgr.applyCustomHooks(ctx, logEntry); err != nil {
 			return fmt.Errorf("apply custom hooks: %w", err)
 		}
 	}
@@ -1592,12 +1577,15 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 }
 
 // applyReferenceUpdates applies the applies the given reference updates to the repository.
-func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, updates []*gitalypb.LogEntry_ReferenceUpdate) error {
-	if len(updates) == 0 {
+func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	if len(logEntry.ReferenceUpdates) == 0 {
 		return nil
 	}
 
-	updater, err := mgr.prepareReferenceTransaction(ctx, updates, mgr.repository)
+	updater, err := mgr.prepareReferenceTransaction(ctx,
+		logEntry.ReferenceUpdates,
+		mgr.repositoryFactory.Build(logEntry.RelativePath),
+	)
 	if err != nil {
 		return fmt.Errorf("prepare reference transaction: %w", err)
 	}
@@ -1610,12 +1598,13 @@ func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, update
 }
 
 // applyRepositoryDeletion deletes the repository.
-func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, index LogIndex) error {
-	if err := os.RemoveAll(mgr.repositoryPath); err != nil {
+func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	repositoryPath := mgr.getAbsolutePath(logEntry.RelativePath)
+	if err := os.RemoveAll(repositoryPath); err != nil {
 		return fmt.Errorf("remove repository: %w", err)
 	}
 
-	if err := safe.NewSyncer().Sync(filepath.Dir(mgr.repositoryPath)); err != nil {
+	if err := safe.NewSyncer().Sync(filepath.Dir(repositoryPath)); err != nil {
 		return fmt.Errorf("sync: %w", err)
 	}
 
@@ -1625,8 +1614,8 @@ func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, inde
 // applyPackFile unpacks the objects from the pack file into the repository if the log entry
 // has an associated pack file. This is done by hard linking the pack and index from the
 // log into the repository's object directory.
-func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix string, logIndex LogIndex) error {
-	packDirectory := filepath.Join(mgr.repositoryPath, "objects", "pack")
+func (mgr *TransactionManager) applyPackFile(ctx context.Context, logIndex LogIndex, logEntry *gitalypb.LogEntry) error {
+	packDirectory := filepath.Join(mgr.getAbsolutePath(logEntry.RelativePath), "objects", "pack")
 	for _, fileExtension := range []string{
 		".pack",
 		".idx",
@@ -1634,7 +1623,7 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix str
 	} {
 		if err := os.Link(
 			filepath.Join(walFilesPathForLogIndex(mgr.stateDirectory, logIndex), "objects"+fileExtension),
-			filepath.Join(packDirectory, packPrefix+fileExtension),
+			filepath.Join(packDirectory, logEntry.PackPrefix+fileExtension),
 		); err != nil {
 			if !errors.Is(err, fs.ErrExist) {
 				return fmt.Errorf("link file: %w", err)
@@ -1656,12 +1645,12 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, packPrefix str
 // applyCustomHooks applies the custom hooks to the repository from the log entry. The hooks are extracted at
 // `<repo>/custom_hooks`. The custom hooks are fsynced prior to returning so it is safe to delete the log entry
 // afterwards.
-func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex LogIndex, update *gitalypb.LogEntry_CustomHooksUpdate) error {
-	if update == nil {
+func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logEntry *gitalypb.LogEntry) error {
+	if logEntry.CustomHooksUpdate == nil {
 		return nil
 	}
 
-	destinationDir := filepath.Join(mgr.repositoryPath, repoutil.CustomHooksDir)
+	destinationDir := filepath.Join(mgr.getAbsolutePath(logEntry.RelativePath), repoutil.CustomHooksDir)
 	if err := os.RemoveAll(destinationDir); err != nil {
 		return fmt.Errorf("remove directory: %w", err)
 	}
@@ -1670,7 +1659,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	if err := repoutil.ExtractHooks(ctx, bytes.NewReader(update.CustomHooksTar), destinationDir, true); err != nil {
+	if err := repoutil.ExtractHooks(ctx, bytes.NewReader(logEntry.CustomHooksUpdate.CustomHooksTar), destinationDir, true); err != nil {
 		return fmt.Errorf("extract hooks: %w", err)
 	}
 
@@ -1690,13 +1679,13 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 
 // deleteLogEntry deletes the log entry at the given index from the log.
 func (mgr *TransactionManager) deleteLogEntry(index LogIndex) error {
-	return mgr.deleteKey(keyLogEntry(mgr.relativePath, index))
+	return mgr.deleteKey(keyLogEntry(mgr.partitionID, index))
 }
 
 // readLogEntry returns the log entry from the given position in the log.
 func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry, error) {
 	var logEntry gitalypb.LogEntry
-	key := keyLogEntry(mgr.relativePath, index)
+	key := keyLogEntry(mgr.partitionID, index)
 
 	if err := mgr.readKey(key, &logEntry); err != nil {
 		return nil, fmt.Errorf("read key: %w", err)
@@ -1705,14 +1694,14 @@ func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry,
 	return &logEntry, nil
 }
 
-// storeLogEntry stores the log entry in the repository's write-ahead log at the given index.
+// storeLogEntry stores the log entry in the partition's write-ahead log at the given index.
 func (mgr *TransactionManager) storeLogEntry(index LogIndex, entry *gitalypb.LogEntry) error {
-	return mgr.setKey(keyLogEntry(mgr.relativePath, index), entry)
+	return mgr.setKey(keyLogEntry(mgr.partitionID, index), entry)
 }
 
-// storeAppliedLogIndex stores the repository's applied log index in the database.
+// storeAppliedLogIndex stores the partition's applied log index in the database.
 func (mgr *TransactionManager) storeAppliedLogIndex(index LogIndex) error {
-	return mgr.setKey(keyAppliedLogIndex(mgr.relativePath), index.toProto())
+	return mgr.setKey(keyAppliedLogIndex(mgr.partitionID), index.toProto())
 }
 
 // setKey marshals and stores a given protocol buffer message into the database under the given key.
@@ -1756,19 +1745,19 @@ func (mgr *TransactionManager) deleteKey(key []byte) error {
 	})
 }
 
-// keyAppliedLogIndex returns the database key storing a repository's last applied log entry's index.
-func keyAppliedLogIndex(repositoryID string) []byte {
-	return []byte(fmt.Sprintf("repository/%s/log/index/applied", repositoryID))
+// keyAppliedLogIndex returns the database key storing a partition's last applied log entry's index.
+func keyAppliedLogIndex(ptnID partitionID) []byte {
+	return []byte(fmt.Sprintf("partition/%s/log/index/applied", ptnID.MarshalBinary()))
 }
 
-// keyLogEntry returns the database key storing a repository's log entry at a given index.
-func keyLogEntry(repositoryID string, index LogIndex) []byte {
+// keyLogEntry returns the database key storing a partition's log entry at a given index.
+func keyLogEntry(ptnID partitionID, index LogIndex) []byte {
 	marshaledIndex := make([]byte, binary.Size(index))
 	binary.BigEndian.PutUint64(marshaledIndex, uint64(index))
-	return []byte(fmt.Sprintf("%s%s", keyPrefixLogEntries(repositoryID), marshaledIndex))
+	return []byte(fmt.Sprintf("%s%s", keyPrefixLogEntries(ptnID), marshaledIndex))
 }
 
 // keyPrefixLogEntries returns the key prefix holding repository's write-ahead log entries.
-func keyPrefixLogEntries(repositoryID string) []byte {
-	return []byte(fmt.Sprintf("repository/%s/log/entry/", repositoryID))
+func keyPrefixLogEntries(ptnID partitionID) []byte {
+	return []byte(fmt.Sprintf("partition/%s/log/entry/", ptnID.MarshalBinary()))
 }

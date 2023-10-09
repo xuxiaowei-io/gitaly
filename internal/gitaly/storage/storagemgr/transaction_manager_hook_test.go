@@ -109,8 +109,8 @@ type databaseTransactionHook struct {
 }
 
 var (
-	regexLogEntry = regexp.MustCompile("repository/.+/log/entry/")
-	regexLogIndex = regexp.MustCompile("repository/.+/log/index/applied")
+	regexLogEntry = regexp.MustCompile("partition/.+/log/entry/")
+	regexLogIndex = regexp.MustCompile("partition/.+/log/index/applied")
 )
 
 func (hook databaseTransactionHook) Get(key []byte) (*badger.Item, error) {
