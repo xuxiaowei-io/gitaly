@@ -1048,7 +1048,7 @@ message UserApplyPatchResponse {
   OperationBranchUpdate branch_update = 1;
 }
 
-// UserUpdateSubmoduleRequest ...
+// UserUpdateSubmoduleRequest is a request for the UserUpdateSubmodule RPC.
 message UserUpdateSubmoduleRequest {
   // repository is the repository in which the submodule shall be updated.
   Repository repository = 1 [(target_repository)=true];
@@ -1079,7 +1079,7 @@ message UserUpdateSubmoduleRequest {
   string expected_old_oid = 8;
 }
 
-// UserUpdateSubmoduleResponse ...
+// UserUpdateSubmoduleResponse is a response for the UserUpdateSubmodule RPC.
 message UserUpdateSubmoduleResponse {
   // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;

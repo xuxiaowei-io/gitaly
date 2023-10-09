@@ -3789,7 +3789,7 @@ func (x *UserApplyPatchResponse) GetBranchUpdate() *OperationBranchUpdate {
 	return nil
 }
 
-// UserUpdateSubmoduleRequest ...
+// UserUpdateSubmoduleRequest is a request for the UserUpdateSubmodule RPC.
 type UserUpdateSubmoduleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3912,7 +3912,7 @@ func (x *UserUpdateSubmoduleRequest) GetExpectedOldOid() string {
 	return ""
 }
 
-// UserUpdateSubmoduleResponse ...
+// UserUpdateSubmoduleResponse is a response for the UserUpdateSubmodule RPC.
 type UserUpdateSubmoduleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
