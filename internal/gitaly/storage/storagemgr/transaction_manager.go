@@ -783,6 +783,7 @@ func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Tran
 
 	if err := repoutil.ExtractHooks(
 		ctx,
+		mgr.logger,
 		bytes.NewReader(transaction.customHooksUpdate.CustomHooksTAR),
 		transaction.stagingDirectory,
 		false,
@@ -1663,7 +1664,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logEntry *g
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	if err := repoutil.ExtractHooks(ctx, bytes.NewReader(logEntry.CustomHooksUpdate.CustomHooksTar), destinationDir, true); err != nil {
+	if err := repoutil.ExtractHooks(ctx, mgr.logger, bytes.NewReader(logEntry.CustomHooksUpdate.CustomHooksTar), destinationDir, true); err != nil {
 		return fmt.Errorf("extract hooks: %w", err)
 	}
 

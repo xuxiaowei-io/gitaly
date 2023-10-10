@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const sumSize = sha1.Size
@@ -42,7 +43,7 @@ type Index struct {
 // ReadIndex opens a packfile .idx file and loads its contents into
 // memory. In doing so it will also open and read small amounts of data
 // from the .pack file itself.
-func ReadIndex(idxPath string) (*Index, error) {
+func ReadIndex(logger log.Logger, idxPath string) (*Index, error) {
 	reMatches := idxFileRegex.FindStringSubmatch(idxPath)
 	if len(reMatches) == 0 {
 		return nil, fmt.Errorf("invalid idx filename: %q", idxPath)
@@ -92,7 +93,7 @@ func ReadIndex(idxPath string) (*Index, error) {
 		return nil, err
 	}
 
-	showIndex, err := command.New(ctx, []string{"git", "show-index"}, command.WithStdin(f), command.WithSetupStdout())
+	showIndex, err := command.New(ctx, logger, []string{"git", "show-index"}, command.WithStdin(f), command.WithSetupStdout())
 	if err != nil {
 		return nil, err
 	}

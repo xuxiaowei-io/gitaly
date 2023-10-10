@@ -34,6 +34,7 @@ const CustomHooksDir = "custom_hooks"
 // hooks are present in the repository, the response will have no data.
 func GetCustomHooks(
 	ctx context.Context,
+	logger log.Logger,
 	repoPath string,
 	writer io.Writer,
 ) error {
@@ -41,7 +42,7 @@ func GetCustomHooks(
 		return nil
 	}
 
-	if err := archive.WriteTarball(ctx, writer, repoPath, CustomHooksDir); err != nil {
+	if err := archive.WriteTarball(ctx, logger, writer, repoPath, CustomHooksDir); err != nil {
 		return structerr.NewInternal("archiving hooks: %w", err)
 	}
 
@@ -51,7 +52,7 @@ func GetCustomHooks(
 // ExtractHooks unpacks a tar file containing custom hooks into a `custom_hooks`
 // directory at the specified path. If stripPrefix is set, the hooks are extracted directly
 // to the target directory instead of in a `custom_hooks` directory in the target directory.
-func ExtractHooks(ctx context.Context, reader io.Reader, path string, stripPrefix bool) error {
+func ExtractHooks(ctx context.Context, logger log.Logger, reader io.Reader, path string, stripPrefix bool) error {
 	// GNU tar does not accept an empty file as a valid tar archive and produces
 	// an error. Since an empty hooks tar is symbolic of a repository having no
 	// hooks, the reader is peeked to check if there is any data present.
@@ -68,7 +69,7 @@ func ExtractHooks(ctx context.Context, reader io.Reader, path string, stripPrefi
 	cmdArgs := []string{"-xf", "-", "-C", path, "--strip-components", stripComponents, CustomHooksDir}
 
 	var stderrBuilder strings.Builder
-	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...),
+	cmd, err := command.New(ctx, logger, append([]string{"tar"}, cmdArgs...),
 		command.WithStdin(buf),
 		command.WithStderr(&stderrBuilder))
 	if err != nil {
@@ -98,6 +99,7 @@ func ExtractHooks(ctx context.Context, reader io.Reader, path string, stripPrefi
 // hooks to be extracted to the specified Git repository.
 func SetCustomHooks(
 	ctx context.Context,
+	logger log.Logger,
 	locator storage.Locator,
 	txManager transaction.Manager,
 	reader io.Reader,
@@ -142,7 +144,7 @@ func SetCustomHooks(
 		}
 	}()
 
-	if err := ExtractHooks(ctx, reader, tmpDir.Path(), false); err != nil {
+	if err := ExtractHooks(ctx, logger, reader, tmpDir.Path(), false); err != nil {
 		return fmt.Errorf("extracting hooks: %w", err)
 	}
 

@@ -21,6 +21,7 @@ func (s *server) BackupRepository(ctx context.Context, in *gitalypb.BackupReposi
 
 	manager := backup.NewManagerLocal(
 		s.backupSink,
+		s.logger,
 		s.backupLocator,
 		s.locator,
 		s.gitCmdFactory,

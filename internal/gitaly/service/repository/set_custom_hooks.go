@@ -34,7 +34,7 @@ func (s *server) SetCustomHooks(stream gitalypb.RepositoryService_SetCustomHooks
 		return request.GetData(), err
 	})
 
-	if err := repoutil.SetCustomHooks(ctx, s.locator, s.txManager, reader, repo); err != nil {
+	if err := repoutil.SetCustomHooks(ctx, s.logger, s.locator, s.txManager, reader, repo); err != nil {
 		return structerr.NewInternal("setting custom hooks: %w", err)
 	}
 
@@ -68,7 +68,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 		return request.GetData(), err
 	})
 
-	if err := repoutil.SetCustomHooks(ctx, s.locator, s.txManager, reader, repo); err != nil {
+	if err := repoutil.SetCustomHooks(ctx, s.logger, s.locator, s.txManager, reader, repo); err != nil {
 		return structerr.NewInternal("setting custom hooks: %w", err)
 	}
 

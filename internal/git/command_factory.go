@@ -390,7 +390,7 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 	// This is required to avoid a cyclic dependency when we need to check the version in
 	// `newCommand()` itself.
 	var versionBuffer bytes.Buffer
-	cmd, err := command.New(ctx, []string{execEnv.BinaryPath, "version"},
+	cmd, err := command.New(ctx, cf.logger, []string{execEnv.BinaryPath, "version"},
 		command.WithEnvironment(execEnv.EnvironmentVariables),
 		command.WithStdout(&versionBuffer),
 	)
@@ -488,7 +488,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo storage.Repos
 		command.WithCgroup(cf.cgroupsManager, cgroupsAddCommandOpts...),
 		command.WithCommandGitVersion(cmdGitVersion.String()),
 	)
-	command, err := command.New(ctx, append([]string{execEnv.BinaryPath}, args...), commandOpts...)
+	command, err := command.New(ctx, cf.logger, append([]string{execEnv.BinaryPath}, args...), commandOpts...)
 	if err != nil {
 		return nil, err
 	}

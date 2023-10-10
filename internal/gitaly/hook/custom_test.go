@@ -163,6 +163,7 @@ func TestCustomHookPartialFailure(t *testing.T) {
 			mgr := GitLabHookManager{
 				cfg:     cfg,
 				locator: config.NewLocator(cfg),
+				logger:  testhelper.NewLogger(t),
 			}
 
 			caller, err := mgr.newCustomHooksExecutor(repo, tc.hook)
@@ -223,6 +224,7 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 	mgr := GitLabHookManager{
 		cfg:     cfg,
 		locator: config.NewLocator(cfg),
+		logger:  testhelper.NewLogger(t),
 	}
 	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "update")
 	require.NoError(t, err)
@@ -296,6 +298,7 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 	mgr := GitLabHookManager{
 		cfg:     cfg,
 		locator: config.NewLocator(cfg),
+		logger:  testhelper.NewLogger(t),
 	}
 	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "update")
 	require.NoError(t, err)
@@ -329,6 +332,7 @@ func TestMultilineStdin(t *testing.T) {
 	mgr := GitLabHookManager{
 		cfg:     cfg,
 		locator: config.NewLocator(cfg),
+		logger:  testhelper.NewLogger(t),
 	}
 
 	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "pre-receive")
@@ -368,6 +372,7 @@ func TestMultipleScriptsStdin(t *testing.T) {
 	mgr := GitLabHookManager{
 		cfg:     cfg,
 		locator: config.NewLocator(cfg),
+		logger:  testhelper.NewLogger(t),
 	}
 
 	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "pre-receive")
@@ -397,6 +402,7 @@ func callAndVerifyHooks(t *testing.T, cfg config.Cfg, locator storage.Locator, r
 	mgr := GitLabHookManager{
 		cfg:     cfg,
 		locator: locator,
+		logger:  testhelper.NewLogger(t),
 	}
 
 	callHooks, err := mgr.newCustomHooksExecutor(repo, hookName)

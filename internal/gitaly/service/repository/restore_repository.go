@@ -21,6 +21,7 @@ func (s *server) RestoreRepository(ctx context.Context, in *gitalypb.RestoreRepo
 
 	manager := backup.NewManagerLocal(
 		s.backupSink,
+		s.logger,
 		s.backupLocator,
 		s.locator,
 		s.gitCmdFactory,

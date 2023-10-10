@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -163,6 +164,7 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool) *Manager {
 // NewManagerLocal creates and returns a *Manager instance for operating on local repositories.
 func NewManagerLocal(
 	sink Sink,
+	logger log.Logger,
 	locator Locator,
 	storageLocator storage.Locator,
 	gitCmdFactory git.CommandFactory,
@@ -177,7 +179,7 @@ func NewManagerLocal(
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
 			localRepo := localrepo.New(storageLocator, gitCmdFactory, catfileCache, repo)
 
-			return newLocalRepository(storageLocator, gitCmdFactory, txManager, repoCounter, localRepo), nil
+			return newLocalRepository(logger, storageLocator, gitCmdFactory, txManager, repoCounter, localRepo), nil
 		},
 	}
 }

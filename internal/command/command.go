@@ -135,6 +135,8 @@ const (
 // terminated and reaped automatically when the context.Context that
 // created it is canceled.
 type Command struct {
+	logger log.Logger
+
 	reader       io.ReadCloser
 	writer       io.WriteCloser
 	stderrBuffer *stderrBuffer
@@ -160,7 +162,7 @@ type Command struct {
 // New creates a Command from the given executable name and arguments On success, the Command
 // contains a running subprocess. When ctx is canceled the embedded process will be terminated and
 // reaped automatically.
-func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, error) {
+func New(ctx context.Context, logger log.Logger, nameAndArgs []string, opts ...Option) (*Command, error) {
 	if ctx.Done() == nil {
 		panic("command spawned with context without Done() channel")
 	}
@@ -206,11 +208,11 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 
 	logPid := -1
 	defer func() {
-		log.FromContext(ctx).WithFields(log.Fields{
+		logger.WithFields(log.Fields{
 			"pid":  logPid,
 			"path": nameAndArgs[0],
 			"args": nameAndArgs[1:],
-		}).Debug("spawn")
+		}).DebugContext(ctx, "spawn")
 	}()
 
 	var spanName string
@@ -230,6 +232,7 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	cmd := exec.Command(nameAndArgs[0], nameAndArgs[1:]...)
 
 	command := &Command{
+		logger:          logger,
 		cmd:             cmd,
 		startTime:       time.Now(),
 		context:         ctx,
@@ -461,7 +464,7 @@ func (c *Command) logProcessComplete() {
 		fields["command.cgroup_path"] = c.cgroupPath
 	}
 
-	entry := log.FromContext(ctx).WithFields(fields)
+	entry := c.logger.WithFields(fields)
 
 	rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage)
 	if ok {
@@ -472,9 +475,9 @@ func (c *Command) logProcessComplete() {
 		})
 	}
 
-	entry.Debug("spawn complete")
+	entry.DebugContext(ctx, "spawn complete")
 	if c.stderrBuffer != nil && c.stderrBuffer.Len() > 0 {
-		entry.Error(c.stderrBuffer.String())
+		entry.ErrorContext(ctx, c.stderrBuffer.String())
 	}
 
 	if customFields := log.CustomFieldsFromContext(ctx); customFields != nil {

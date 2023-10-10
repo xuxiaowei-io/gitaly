@@ -48,7 +48,7 @@ func TestGetCustomHooks_successful(t *testing.T) {
 	}
 
 	var hooks bytes.Buffer
-	require.NoError(t, GetCustomHooks(ctx, repoPath, &hooks))
+	require.NoError(t, GetCustomHooks(ctx, testhelper.NewLogger(t), repoPath, &hooks))
 
 	reader := tar.NewReader(&hooks)
 	fileLength := 0
@@ -77,7 +77,7 @@ func TestGetCustomHooks_symlink(t *testing.T) {
 	require.NoError(t, os.Symlink(linkTarget, filepath.Join(repoPath, "custom_hooks")), "Could not create custom_hooks symlink")
 
 	var hooks bytes.Buffer
-	require.NoError(t, GetCustomHooks(ctx, repoPath, &hooks))
+	require.NoError(t, GetCustomHooks(ctx, testhelper.NewLogger(t), repoPath, &hooks))
 
 	reader := tar.NewReader(&hooks)
 	file, err := reader.Next()
@@ -101,7 +101,7 @@ func TestGetCustomHooks_nonexistentHooks(t *testing.T) {
 	})
 
 	var hooks bytes.Buffer
-	require.NoError(t, GetCustomHooks(ctx, repoPath, &hooks))
+	require.NoError(t, GetCustomHooks(ctx, testhelper.NewLogger(t), repoPath, &hooks))
 
 	reader := tar.NewReader(&hooks)
 	buf := bytes.NewBuffer(nil)
@@ -222,7 +222,7 @@ func TestExtractHooks(t *testing.T) {
 			ctx := testhelper.Context(t)
 
 			tmpDir := t.TempDir()
-			err := ExtractHooks(ctx, tc.archive, tmpDir, tc.stripPrefix)
+			err := ExtractHooks(ctx, testhelper.NewLogger(t), tc.archive, tmpDir, tc.stripPrefix)
 			if tc.expectedErrorMessage != "" {
 				require.ErrorContains(t, err, tc.expectedErrorMessage)
 			} else {
@@ -240,6 +240,7 @@ func TestSetCustomHooks_success(t *testing.T) {
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewTrackingManager()
+	logger := testhelper.NewLogger(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -257,7 +258,7 @@ func TestSetCustomHooks_success(t *testing.T) {
 	ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 
-	require.NoError(t, SetCustomHooks(ctx, locator, txManager, file, repo))
+	require.NoError(t, SetCustomHooks(ctx, logger, locator, txManager, file, repo))
 
 	voteHash, err := newDirectoryVote(filepath.Join(repoPath, CustomHooksDir))
 	require.NoError(t, err)
@@ -281,6 +282,7 @@ func TestSetCustomHooks_corruptTar(t *testing.T) {
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
 	txManager := &transaction.MockManager{}
+	logger := testhelper.NewLogger(t)
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -292,7 +294,7 @@ func TestSetCustomHooks_corruptTar(t *testing.T) {
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, file)
 
-	err = SetCustomHooks(ctx, locator, txManager, file, repo)
+	err = SetCustomHooks(ctx, logger, locator, txManager, file, repo)
 	require.ErrorContains(t, err, "extracting hooks: waiting for tar command completion: exit status ")
 }
 
@@ -395,7 +397,7 @@ func mustCreateCustomHooksArchive(t *testing.T, ctx context.Context, files []tes
 	file, err := os.Create(archivePath)
 	require.NoError(t, err)
 
-	err = archive.WriteTarball(ctx, file, hooksDir, dirName)
+	err = archive.WriteTarball(ctx, testhelper.NewLogger(t), file, hooksDir, dirName)
 	require.NoError(t, err)
 
 	return archivePath

@@ -28,7 +28,7 @@ func (s *server) GetCustomHooks(in *gitalypb.GetCustomHooksRequest, stream gital
 		return fmt.Errorf("get repo path: %w", err)
 	}
 
-	if err := repoutil.GetCustomHooks(ctx, repoPath, writer); err != nil {
+	if err := repoutil.GetCustomHooks(ctx, s.logger, repoPath, writer); err != nil {
 		return structerr.NewInternal("reading custom hooks: %w", err)
 	}
 
@@ -54,7 +54,7 @@ func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream
 		return fmt.Errorf("get repo path: %w", err)
 	}
 
-	if err := repoutil.GetCustomHooks(ctx, repoPath, writer); err != nil {
+	if err := repoutil.GetCustomHooks(ctx, s.logger, repoPath, writer); err != nil {
 		return structerr.NewInternal("reading custom hooks: %w", err)
 	}
 
