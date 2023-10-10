@@ -21,6 +21,21 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		return nil, err
 	}
 
+	if req.GetTimeout() > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.GetTimeout())*time.Second)
+		defer cancel()
+	}
+
+	tagsChanged, err := s.fetchRemote(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &gitalypb.FetchRemoteResponse{TagsChanged: tagsChanged}, nil
+}
+
+func (s *server) fetchRemote(ctx context.Context, req *gitalypb.FetchRemoteRequest) (bool, error) {
 	var stderr bytes.Buffer
 	opts := localrepo.FetchOpts{
 		Stderr:              &stderr,
@@ -35,59 +50,28 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		opts.Tags = localrepo.FetchOptsTagsNone
 	}
 
-	repo := s.localrepo(req.GetRepository())
-	remoteName := "inmemory"
-	remoteURL := req.GetRemoteParams().GetUrl()
-	var config []git.ConfigPair
-
-	for _, refspec := range s.getRefspecs(req.GetRemoteParams().GetMirrorRefmaps()) {
-		config = append(config, git.ConfigPair{
-			Key: "remote.inmemory.fetch", Value: refspec,
-		})
+	if err := buildCommandOpts(&opts, req); err != nil {
+		return false, err
 	}
-
-	if resolvedAddress := req.GetRemoteParams().GetResolvedAddress(); resolvedAddress != "" {
-		modifiedURL, resolveConfig, err := git.GetURLAndResolveConfig(remoteURL, resolvedAddress)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't get curloptResolve config: %w", err)
-		}
-
-		remoteURL = modifiedURL
-		config = append(config, resolveConfig...)
-	}
-
-	config = append(config, git.ConfigPair{Key: "remote.inmemory.url", Value: remoteURL})
-
-	if authHeader := req.GetRemoteParams().GetHttpAuthorizationHeader(); authHeader != "" {
-		config = append(config, git.ConfigPair{
-			Key:   fmt.Sprintf("http.%s.extraHeader", req.GetRemoteParams().GetUrl()),
-			Value: "Authorization: " + authHeader,
-		})
-	}
-
-	opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
 
 	sshCommand, cleanup, err := git.BuildSSHInvocation(ctx, s.logger, req.GetSshKey(), req.GetKnownHosts())
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	defer cleanup()
 
 	opts.Env = append(opts.Env, "GIT_SSH_COMMAND="+sshCommand)
 
-	if req.GetTimeout() > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.GetTimeout())*time.Second)
-		defer cancel()
-	}
+	repo := s.localrepo(req.GetRepository())
+	remoteName := "inmemory"
 
 	if err := repo.FetchRemote(ctx, remoteName, opts); err != nil {
 		errMsg := stderr.String()
 		if errMsg != "" {
-			return nil, structerr.NewInternal("fetch remote: %q: %w", errMsg, err)
+			return false, structerr.NewInternal("fetch remote: %q: %w", errMsg, err)
 		}
 
-		return nil, structerr.NewInternal("fetch remote: %w", err)
+		return false, structerr.NewInternal("fetch remote: %w", err)
 	}
 
 	// Ideally, we'd do the voting process via git-fetch(1) using the reference-transaction
@@ -116,15 +100,49 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 
 		return s.txManager.Vote(ctx, tx, vote, voting.UnknownPhase)
 	}); err != nil {
-		return nil, structerr.NewAborted("failed vote on refs: %w", err)
+		return false, structerr.NewAborted("failed vote on refs: %w", err)
 	}
 
-	out := &gitalypb.FetchRemoteResponse{TagsChanged: true}
+	tagsChanged := true
 	if req.GetCheckTagsChanged() {
-		out.TagsChanged = didTagsChange(&stderr)
+		tagsChanged = didTagsChange(&stderr)
 	}
 
-	return out, nil
+	return tagsChanged, nil
+}
+
+func buildCommandOpts(opts *localrepo.FetchOpts, req *gitalypb.FetchRemoteRequest) error {
+	remoteURL := req.GetRemoteParams().GetUrl()
+	var config []git.ConfigPair
+
+	for _, refspec := range getRefspecs(req.GetRemoteParams().GetMirrorRefmaps()) {
+		config = append(config, git.ConfigPair{
+			Key: "remote.inmemory.fetch", Value: refspec,
+		})
+	}
+
+	if resolvedAddress := req.GetRemoteParams().GetResolvedAddress(); resolvedAddress != "" {
+		modifiedURL, resolveConfig, err := git.GetURLAndResolveConfig(remoteURL, resolvedAddress)
+		if err != nil {
+			return fmt.Errorf("couldn't get curloptResolve config: %w", err)
+		}
+
+		remoteURL = modifiedURL
+		config = append(config, resolveConfig...)
+	}
+
+	config = append(config, git.ConfigPair{Key: "remote.inmemory.url", Value: remoteURL})
+
+	if authHeader := req.GetRemoteParams().GetHttpAuthorizationHeader(); authHeader != "" {
+		config = append(config, git.ConfigPair{
+			Key:   fmt.Sprintf("http.%s.extraHeader", req.GetRemoteParams().GetUrl()),
+			Value: "Authorization: " + authHeader,
+		})
+	}
+
+	opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
+
+	return nil
 }
 
 func didTagsChange(r io.Reader) bool {
@@ -160,7 +178,7 @@ func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) er
 	return nil
 }
 
-func (s *server) getRefspecs(refmaps []string) []string {
+func getRefspecs(refmaps []string) []string {
 	if len(refmaps) == 0 {
 		return []string{"refs/*:refs/*"}
 	}
