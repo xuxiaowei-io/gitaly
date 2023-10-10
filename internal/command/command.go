@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command/commandcounter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/requestinfohandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
@@ -587,20 +587,8 @@ func ExitStatus(err error) (int, bool) {
 }
 
 func methodFromContext(ctx context.Context) (service string, method string) {
-	tags := grpcmwtags.Extract(ctx)
-	ctxValue := tags.Values()["grpc.request.fullMethod"]
-	if ctxValue == nil {
-		return "", ""
-	}
-
-	if s, ok := ctxValue.(string); ok {
-		// Expect: "/foo.BarService/Qux"
-		split := strings.Split(s, "/")
-		if len(split) != 3 {
-			return "", ""
-		}
-
-		return split[1], split[2]
+	if info := requestinfohandler.Extract(ctx); info != nil {
+		return info.ExtractServiceAndMethodName()
 	}
 
 	return "", ""

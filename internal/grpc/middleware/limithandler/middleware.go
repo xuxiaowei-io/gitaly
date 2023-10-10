@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/requestinfohandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"google.golang.org/grpc"
@@ -19,15 +19,8 @@ type GetLockKey func(context.Context) string
 
 // LimitConcurrencyByRepo implements GetLockKey by using the repository path as lock.
 func LimitConcurrencyByRepo(ctx context.Context) string {
-	tags := grpcmwtags.Extract(ctx)
-	ctxValue := tags.Values()["grpc.request.repoPath"]
-	if ctxValue == nil {
-		return ""
-	}
-
-	s, ok := ctxValue.(string)
-	if ok {
-		return s
+	if info := requestinfohandler.Extract(ctx); info != nil {
+		return info.Repository.GetRelativePath()
 	}
 
 	return ""

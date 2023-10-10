@@ -34,13 +34,13 @@ func TestNewRequestInfo(t *testing.T) {
 		fullMethod   string
 		metadata     metadata.MD
 		deadline     bool
-		expectedInfo *requestInfo
+		expectedInfo *RequestInfo
 	}{
 		{
 			desc:     "empty metadata",
 			metadata: metadata.Pairs(),
 			deadline: false,
-			expectedInfo: &requestInfo{
+			expectedInfo: &RequestInfo{
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -54,7 +54,7 @@ func TestNewRequestInfo(t *testing.T) {
 			desc:     "context containing metadata",
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: false,
-			expectedInfo: &requestInfo{
+			expectedInfo: &RequestInfo{
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        "testsite",
@@ -68,7 +68,7 @@ func TestNewRequestInfo(t *testing.T) {
 			desc:     "context containing metadata and a deadline",
 			metadata: metadata.Pairs("call_site", "testsite"),
 			deadline: true,
-			expectedInfo: &requestInfo{
+			expectedInfo: &RequestInfo{
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        "testsite",
@@ -82,7 +82,7 @@ func TestNewRequestInfo(t *testing.T) {
 			desc:     "context containing metadata and a deadline type",
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: true,
-			expectedInfo: &requestInfo{
+			expectedInfo: &RequestInfo{
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -96,7 +96,7 @@ func TestNewRequestInfo(t *testing.T) {
 			desc:     "a context without deadline but with deadline type",
 			metadata: metadata.Pairs("deadline_type", "regular"),
 			deadline: false,
-			expectedInfo: &requestInfo{
+			expectedInfo: &RequestInfo{
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -110,7 +110,7 @@ func TestNewRequestInfo(t *testing.T) {
 			desc:     "with a context containing metadata",
 			metadata: metadata.Pairs("deadline_type", "regular", "client_name", "rails"),
 			deadline: true,
-			expectedInfo: &requestInfo{
+			expectedInfo: &RequestInfo{
 				methodType:      "unary",
 				clientName:      "rails",
 				callSite:        unknownValue,
@@ -125,8 +125,8 @@ func TestNewRequestInfo(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/UnknownMethod",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedInfo: &requestInfo{
-				fullMethod:      "/gitaly.RepositoryService/UnknownMethod",
+			expectedInfo: &RequestInfo{
+				FullMethod:      "/gitaly.RepositoryService/UnknownMethod",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -141,8 +141,8 @@ func TestNewRequestInfo(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/ObjectFormat",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedInfo: &requestInfo{
-				fullMethod:      "/gitaly.RepositoryService/ObjectFormat",
+			expectedInfo: &RequestInfo{
+				FullMethod:      "/gitaly.RepositoryService/ObjectFormat",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -157,8 +157,8 @@ func TestNewRequestInfo(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/CreateRepository",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedInfo: &requestInfo{
-				fullMethod:      "/gitaly.RepositoryService/CreateRepository",
+			expectedInfo: &RequestInfo{
+				FullMethod:      "/gitaly.RepositoryService/CreateRepository",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -173,8 +173,8 @@ func TestNewRequestInfo(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/OptimizeRepository",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedInfo: &requestInfo{
-				fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+			expectedInfo: &RequestInfo{
+				FullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -189,8 +189,8 @@ func TestNewRequestInfo(t *testing.T) {
 			fullMethod: "/gitaly.RepositoryService/OptimizeRepository",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedInfo: &requestInfo{
-				fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+			expectedInfo: &RequestInfo{
+				FullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -205,8 +205,8 @@ func TestNewRequestInfo(t *testing.T) {
 			fullMethod: "/gitaly.RemoteService/FindRemoteRepository",
 			metadata:   metadata.Pairs(),
 			deadline:   false,
-			expectedInfo: &requestInfo{
-				fullMethod:      "/gitaly.RemoteService/FindRemoteRepository",
+			expectedInfo: &RequestInfo{
+				FullMethod:      "/gitaly.RemoteService/FindRemoteRepository",
 				methodType:      "unary",
 				clientName:      unknownValue,
 				callSite:        unknownValue,
@@ -258,9 +258,9 @@ func TestGRPCTags(t *testing.T) {
 		tags := grpcmwtags.NewTags()
 		info.injectTags(tags)
 
-		require.Equal(t, &requestInfo{
+		require.Equal(t, &RequestInfo{
 			correlationID:   correlationID,
-			fullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
+			FullMethod:      "/gitaly.RepositoryService/OptimizeRepository",
 			methodType:      "unary",
 			clientName:      clientName,
 			callSite:        "unknown",
@@ -324,7 +324,11 @@ func TestExtractServiceAndMethodName(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			service, method := extractServiceAndMethodName(tc.fullMethodName)
+			info := RequestInfo{
+				FullMethod: tc.fullMethodName,
+			}
+
+			service, method := info.ExtractServiceAndMethodName()
 			require.Equal(t, tc.expectedService, service)
 			require.Equal(t, tc.expectedMethod, method)
 		})
@@ -339,6 +343,7 @@ func TestInterceptors(t *testing.T) {
 	for _, tc := range []struct {
 		desc         string
 		call         func(*testing.T, mockClient)
+		expectedInfo *RequestInfo
 		expectedTags map[string]any
 	}{
 		{
@@ -354,6 +359,22 @@ func TestInterceptors(t *testing.T) {
 				})
 
 				require.NoError(t, err)
+			},
+			expectedInfo: &RequestInfo{
+				clientName:      "unknown",
+				callSite:        "unknown",
+				authVersion:     "unknown",
+				deadlineType:    "none",
+				methodOperation: "accessor",
+				methodScope:     "repository",
+				methodType:      "unary",
+				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
+				Repository: &gitalypb.Repository{
+					StorageName:   "storage",
+					RelativePath:  "path",
+					GlProjectPath: "glProject",
+					GlRepository:  "glRepository",
+				},
 			},
 			expectedTags: map[string]any{
 				"grpc.meta.deadline_type":    "none",
@@ -375,6 +396,16 @@ func TestInterceptors(t *testing.T) {
 				})
 
 				require.NoError(t, err)
+			},
+			expectedInfo: &RequestInfo{
+				clientName:      "unknown",
+				callSite:        "unknown",
+				authVersion:     "unknown",
+				deadlineType:    "none",
+				methodOperation: "accessor",
+				methodScope:     "repository",
+				methodType:      "unary",
+				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
 			},
 			expectedTags: map[string]any{
 				"grpc.meta.deadline_type":    "none",
@@ -398,6 +429,23 @@ func TestInterceptors(t *testing.T) {
 				})
 
 				require.NoError(t, err)
+			},
+			expectedInfo: &RequestInfo{
+				clientName:      "unknown",
+				callSite:        "unknown",
+				authVersion:     "unknown",
+				deadlineType:    "none",
+				methodOperation: "mutator",
+				methodScope:     "repository",
+				methodType:      "unary",
+				FullMethod:      "/gitaly.ObjectPoolService/FetchIntoObjectPool",
+				objectPool: &gitalypb.ObjectPool{
+					Repository: &gitalypb.Repository{
+						StorageName:   "storage",
+						RelativePath:  "path",
+						GlProjectPath: "glProject",
+					},
+				},
 			},
 			expectedTags: map[string]any{
 				"grpc.meta.deadline_type":             "none",
@@ -426,6 +474,22 @@ func TestInterceptors(t *testing.T) {
 				})
 
 				require.NoError(t, err)
+			},
+			expectedInfo: &RequestInfo{
+				clientName:      "unknown",
+				callSite:        "unknown",
+				authVersion:     "unknown",
+				deadlineType:    "unknown",
+				methodOperation: "accessor",
+				methodScope:     "repository",
+				methodType:      "unary",
+				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
+				Repository: &gitalypb.Repository{
+					StorageName:   "storage",
+					RelativePath:  "path",
+					GlProjectPath: "glProject",
+					GlRepository:  "glRepository",
+				},
 			},
 			expectedTags: map[string]any{
 				// Note that there is no "deadline: none" field anymore. If we were
@@ -467,6 +531,25 @@ func TestInterceptors(t *testing.T) {
 
 				require.NoError(t, err)
 			},
+			expectedInfo: &RequestInfo{
+				clientName:      "clientName",
+				callSite:        "callSite",
+				authVersion:     "unknown",
+				remoteIP:        "remoteIP",
+				userID:          "userID",
+				userName:        "userName",
+				deadlineType:    "deadlineType",
+				methodOperation: "accessor",
+				methodScope:     "repository",
+				methodType:      "unary",
+				FullMethod:      "/gitaly.RepositoryService/RepositoryInfo",
+				Repository: &gitalypb.Repository{
+					StorageName:   "storage",
+					RelativePath:  "path",
+					GlProjectPath: "glProject",
+					GlRepository:  "glRepository",
+				},
+			},
 			expectedTags: map[string]any{
 				"grpc.meta.call_site":        "callSite",
 				"grpc.meta.deadline_type":    "deadlineType",
@@ -502,6 +585,22 @@ func TestInterceptors(t *testing.T) {
 				_, err = stream.Recv()
 				require.NoError(t, err)
 			},
+			expectedInfo: &RequestInfo{
+				clientName:      "unknown",
+				callSite:        "unknown",
+				authVersion:     "unknown",
+				deadlineType:    "none",
+				methodOperation: "accessor",
+				methodScope:     "repository",
+				methodType:      "bidi_stream",
+				FullMethod:      "/gitaly.RepositoryService/CreateBundleFromRefList",
+				Repository: &gitalypb.Repository{
+					StorageName:   "storage",
+					RelativePath:  "path",
+					GlProjectPath: "glProject",
+					GlRepository:  "glRepository",
+				},
+			},
 			expectedTags: map[string]any{
 				"grpc.meta.deadline_type":    "none",
 				"grpc.meta.method_operation": "accessor",
@@ -524,6 +623,16 @@ func TestInterceptors(t *testing.T) {
 				_, err = stream.Recv()
 				testhelper.RequireGrpcError(t, structerr.New("%w", io.EOF), err)
 			},
+			expectedInfo: &RequestInfo{
+				clientName:      "unknown",
+				callSite:        "unknown",
+				authVersion:     "unknown",
+				deadlineType:    "none",
+				methodOperation: "accessor",
+				methodScope:     "repository",
+				methodType:      "bidi_stream",
+				FullMethod:      "/gitaly.RepositoryService/CreateBundleFromRefList",
+			},
 			expectedTags: map[string]any{
 				"grpc.meta.deadline_type":    "none",
 				"grpc.meta.method_operation": "accessor",
@@ -538,6 +647,7 @@ func TestInterceptors(t *testing.T) {
 
 			tc.call(t, client)
 
+			require.Equal(t, tc.expectedInfo, server.info)
 			if tc.expectedTags == nil {
 				require.Equal(t, nil, tc.expectedTags)
 			} else {
@@ -551,6 +661,7 @@ type mockServer struct {
 	gitalypb.RepositoryServiceServer
 	gitalypb.ObjectPoolServiceServer
 	tags grpcmwtags.Tags
+	info *RequestInfo
 }
 
 type mockClient struct {
@@ -570,6 +681,7 @@ func setupServer(tb testing.TB, ctx context.Context) (*mockServer, mockClient) {
 			// This interceptor and the equivalent interceptor for the streaming gRPC calls is responsible
 			// for recording the tags that the preceding interceptor has injected.
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+				mockServer.info = Extract(ctx)
 				mockServer.tags = grpcmwtags.Extract(ctx)
 				return handler(ctx, req)
 			},
@@ -578,6 +690,7 @@ func setupServer(tb testing.TB, ctx context.Context) (*mockServer, mockClient) {
 			grpcmwtags.StreamServerInterceptor(),
 			StreamInterceptor,
 			func(server any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+				mockServer.info = Extract(stream.Context())
 				mockServer.tags = grpcmwtags.Extract(stream.Context())
 				return handler(server, stream)
 			},

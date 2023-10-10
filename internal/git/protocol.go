@@ -3,12 +3,11 @@ package git
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/requestinfohandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
@@ -61,20 +60,8 @@ func gitProtocolEnv(ctx context.Context, logger log.Logger, req RequestWithGitPr
 }
 
 func methodFromContext(ctx context.Context) (service string, method string) {
-	tags := grpcmwtags.Extract(ctx)
-	ctxValue := tags.Values()["grpc.request.fullMethod"]
-	if ctxValue == nil {
-		return "", ""
-	}
-
-	if s, ok := ctxValue.(string); ok {
-		// Expect: "/foo.BarService/Qux"
-		split := strings.Split(s, "/")
-		if len(split) != 3 {
-			return "", ""
-		}
-
-		return split[1], split[2]
+	if info := requestinfohandler.Extract(ctx); info != nil {
+		return info.ExtractServiceAndMethodName()
 	}
 
 	return "", ""

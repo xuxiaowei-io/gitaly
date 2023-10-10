@@ -10,7 +10,7 @@ import (
 
 	sentry "github.com/getsentry/sentry-go"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/requestinfohandler"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -106,14 +106,6 @@ func StreamLogHandler(opts ...Option) grpc.StreamServerInterceptor {
 	}
 }
 
-func stringMap(incoming map[string]interface{}) map[string]string {
-	result := make(map[string]string)
-	for i, v := range incoming {
-		result[i] = fmt.Sprintf("%v", v)
-	}
-	return result
-}
-
 func methodToCulprit(methodName string) string {
 	methodName = strings.TrimPrefix(methodName, "/gitaly.")
 	methodName = strings.Replace(methodName, "/", "::", 1)
@@ -149,11 +141,11 @@ func generateSentryEvent(ctx context.Context, method string, duration time.Durat
 		return nil
 	}
 
-	tags := grpcmwtags.Extract(ctx)
 	event := sentry.NewEvent()
-
-	for k, v := range stringMap(tags.Values()) {
-		event.Tags[k] = v
+	if info := requestinfohandler.Extract(ctx); info != nil {
+		for k, v := range info.Tags() {
+			event.Tags[k] = v
+		}
 	}
 
 	for k, v := range map[string]string{
