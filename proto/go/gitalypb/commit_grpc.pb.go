@@ -42,16 +42,18 @@ type CommitServiceClient interface {
 	// GetTreeEntries provides the tree entries for the provided path and revision. This includes
 	// subtrees present under the tree with the option of recursive fetching.
 	GetTreeEntries(ctx context.Context, in *GetTreeEntriesRequest, opts ...grpc.CallOption) (CommitService_GetTreeEntriesClient, error)
-	// ListFiles ...
+	// ListFiles lists all the files (including files in sub-dirs) present in the working tree
+	// for a given revision.
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (CommitService_ListFilesClient, error)
-	// FindCommit ...
+	// FindCommit finds a commit for a given commitish. Returns nil if the commit is not found.
 	FindCommit(ctx context.Context, in *FindCommitRequest, opts ...grpc.CallOption) (*FindCommitResponse, error)
-	// CommitStats ...
+	// CommitStats provides the stats for a given commitish.
 	CommitStats(ctx context.Context, in *CommitStatsRequest, opts ...grpc.CallOption) (*CommitStatsResponse, error)
-	// FindAllCommits ...
-	// Use a stream to paginate the result set
+	// FindAllCommits lists all the commits for the provided revision.
 	FindAllCommits(ctx context.Context, in *FindAllCommitsRequest, opts ...grpc.CallOption) (CommitService_FindAllCommitsClient, error)
-	// FindCommits ...
+	// FindCommits lists all the commits which are associated with the provided revision
+	// and paths. If no revision is provided, the commits on the default branch of the
+	// repository are listed.
 	FindCommits(ctx context.Context, in *FindCommitsRequest, opts ...grpc.CallOption) (CommitService_FindCommitsClient, error)
 	// CommitLanguages detects the source code languages of the whole tree for a
 	// given commit. Returns an error in case no languages could be detected.
@@ -692,16 +694,18 @@ type CommitServiceServer interface {
 	// GetTreeEntries provides the tree entries for the provided path and revision. This includes
 	// subtrees present under the tree with the option of recursive fetching.
 	GetTreeEntries(*GetTreeEntriesRequest, CommitService_GetTreeEntriesServer) error
-	// ListFiles ...
+	// ListFiles lists all the files (including files in sub-dirs) present in the working tree
+	// for a given revision.
 	ListFiles(*ListFilesRequest, CommitService_ListFilesServer) error
-	// FindCommit ...
+	// FindCommit finds a commit for a given commitish. Returns nil if the commit is not found.
 	FindCommit(context.Context, *FindCommitRequest) (*FindCommitResponse, error)
-	// CommitStats ...
+	// CommitStats provides the stats for a given commitish.
 	CommitStats(context.Context, *CommitStatsRequest) (*CommitStatsResponse, error)
-	// FindAllCommits ...
-	// Use a stream to paginate the result set
+	// FindAllCommits lists all the commits for the provided revision.
 	FindAllCommits(*FindAllCommitsRequest, CommitService_FindAllCommitsServer) error
-	// FindCommits ...
+	// FindCommits lists all the commits which are associated with the provided revision
+	// and paths. If no revision is provided, the commits on the default branch of the
+	// repository are listed.
 	FindCommits(*FindCommitsRequest, CommitService_FindCommitsServer) error
 	// CommitLanguages detects the source code languages of the whole tree for a
 	// given commit. Returns an error in case no languages could be detected.

@@ -68,36 +68,38 @@ service CommitService {
     };
   }
 
-  // ListFiles ...
+  // ListFiles lists all the files (including files in sub-dirs) present in the working tree
+  // for a given revision.
   rpc ListFiles(ListFilesRequest) returns (stream ListFilesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // FindCommit ...
+  // FindCommit finds a commit for a given commitish. Returns nil if the commit is not found.
   rpc FindCommit(FindCommitRequest) returns (FindCommitResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // CommitStats ...
+  // CommitStats provides the stats for a given commitish.
   rpc CommitStats(CommitStatsRequest) returns (CommitStatsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // FindAllCommits ...
-  // Use a stream to paginate the result set
+  // FindAllCommits lists all the commits for the provided revision.
   rpc FindAllCommits(FindAllCommitsRequest) returns (stream FindAllCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
-  // FindCommits ...
+  // FindCommits lists all the commits which are associated with the provided revision
+  // and paths. If no revision is provided, the commits on the default branch of the
+  // repository are listed.
   rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -262,7 +264,8 @@ message ListCommitsRequest {
   repeated bytes commit_message_patterns = 13;
 }
 
-// ListCommitsResponse is a response for the ListCommits RPC.
+// ListCommitsResponse is a response for the ListCommits RPC. The response will be
+// chunked into multiple message if the returned data exceeds gRPC message limits.
 message ListCommitsResponse {
   // commits is the list of commits found.
   repeated GitCommit commits = 1;
@@ -279,27 +282,29 @@ message ListAllCommitsRequest {
   PaginationParameter pagination_params = 2;
 }
 
-// ListAllCommitsResponse is a response for the ListAllCommits RPC.
+// ListAllCommitsResponse is a response for the ListAllCommits RPC. The response will be
+// chunked into multiple message if the returned data exceeds gRPC message limits.
 message ListAllCommitsResponse {
   // commits is the list of commits found.
   repeated GitCommit commits = 1;
 }
 
-// CommitStatsRequest ...
+
+// CommitStatsRequest is the request for the CommitStats RPC.
 message CommitStatsRequest {
-  // repository ...
+  // repository is the repository in which the commit is present.
   Repository repository = 1 [(target_repository)=true];
-  // revision ...
+  // revision is a commitish for which we want to get the stats.
   bytes revision = 2;
 }
 
-// CommitStatsResponse ...
+// CommitStatsResponse is the request for the CommitStats RPC.
 message CommitStatsResponse {
-  // oid is the commit. Empty means not found
+  // oid is the commit object ID. It is empty if the commit is not found.
   string oid = 1;
-  // additions ...
+  // additions refers to the number of lines added in the commit.
   int32 additions = 2;
-  // deletions ...
+  // deletions refers to the number of lines deleted in the commit.
   int32 deletions = 3;
 }
 
@@ -335,8 +340,8 @@ message TreeEntryRequest {
   int64 max_size = 5;
 }
 
-// TreeEntryResponse is a response for the TreeEntry RPC. Multiple responses may be sent in case the tree entry's data
-// exceeds the maximum allowed message length.
+// TreeEntryResponse is a response for the TreeEntry RPC. The response will be
+// chunked into multiple message if the returned data exceeds gRPC message limits.
 message TreeEntryResponse {
   // ObjectType is the type of the returned tree entry.
   //
@@ -388,7 +393,7 @@ message CountCommitsRequest {
   GlobalOptions global_options = 9;
 }
 
-// CountCommitsResponse is the response for the CountCommits RPC.
+// CountCommitsResponse is the response for the CountCommits RPC. 
 message CountCommitsResponse {
   // count denotes the number of commits found as per the given filters.
   int32 count = 1;
@@ -470,19 +475,19 @@ message GetTreeEntriesRequest {
   bool recursive = 4;
   // sort defines the sorting parameter.
   SortBy sort = 5;
-  // pagination_params contains params for pagination.
-  // The page token is the last commit OID that was sent. It's expected to be the
-  // full object ID to guard against ambigious OIDs.
+  // pagination_params allows implementation of pagination. The page token is
+  // the path of the last tree object that was sent.
   PaginationParameter pagination_params = 6;
   // skip_flat_paths is an option to skip the expensive operation of populating flat paths.
   bool skip_flat_paths = 7;
 }
 
-// GetTreeEntriesResponse ...
+// GetTreeEntriesResponse is the response for the GetTreeEntries RPC. The response will be
+// chunked into multiple message if the returned data exceeds gRPC message limits.
 message GetTreeEntriesResponse {
-  // entries ...
+  // entries denotes a list of tree entries.
   repeated TreeEntry entries = 1;
-  // pagination_cursor ...
+  // pagination_cursor is a cursor to implement paginated requests.
   PaginationCursor pagination_cursor = 2;
 }
 
@@ -497,34 +502,36 @@ message GetTreeEntriesError {
   }
 }
 
-// ListFilesRequest ...
+// ListFilesRequest is the request for the ListFiles RPC.
 message ListFilesRequest {
-  // repository ...
+  // repository is the repository to list the files from.
   Repository repository = 1 [(target_repository)=true];
-  // revision ...
+  // revision is a commitish against which we list all files.
   bytes revision = 2;
 }
 
-// ListFilesResponse is a single 'page' of the paginated response.
+// ListFilesResponse is the response for the ListFiles RPC. The response will be
+// chunked into multiple message if the returned data exceeds gRPC message limits.
 message ListFilesResponse {
-  // paths ...
-  // Remember to force encoding utf-8 on the client side
+  // paths is the list of paths found for the requested revision. Clients must
+  // remember to force utf-8 encoding.
   repeated bytes paths = 1;
 }
 
-// FindCommitRequest ...
+// FindCommitRequest is the request for the FindCommit RPC.
 message FindCommitRequest {
-  // repository ...
+  // repository is the repository in which we want to find the commit.
   Repository repository = 1 [(target_repository)=true];
-  // revision ...
+  // revision is a commitish which is to be resolved to a commit.
   bytes revision = 2;
-  // trailers ...
+  // trailers if set, parses and adds the trailing information of the commit.
   bool trailers = 3;
 }
 
-// FindCommitResponse ...
+// FindCommitResponse is the request for the FindCommit RPC. Returns empty response
+// if the commit is not found.
 message FindCommitResponse {
-  // commit is nil when the commit was not found
+  // commit is the requested commit, it is nil when the commit was not found.
   GitCommit commit = 1;
 }
 
@@ -566,81 +573,97 @@ message ListCommitsByRefNameResponse {
   repeated CommitForRef commit_refs = 2;
 }
 
-// FindAllCommitsRequest ...
+// FindAllCommitsRequest is the request for the FindAllCommits RPC.
 message FindAllCommitsRequest {
-  // Order ...
+  // Order is the order in which commits shoud be traversed.
   enum Order {
-    // NONE ...
+    // NONE denotes the default ordering where the commits are shown in
+    // reverse chronological order.
     NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // TOPO ...
+    // TOPO order will cause no parents to be shown before all of its children
+    // are shown. Furthermore, multiple lines of history will not be
+    // intermixed.
     TOPO = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // DATE ...
+    // DATE order will cause no parents to be shown before all of its children
+    // are shown. Otherwise, commits are shown in commit timestamp order. This
+    // can cause history to be shown intermixed.
     DATE = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // repository ...
+  // repository is the repository from which we will list the commits.
   Repository repository = 1 [(target_repository)=true];
-  // revision ...
-  // When nil, return all commits reachable by any branch in the repo
+  // revision is the commitish which is the starting point for the traversal. When nil,
+  // return all commits reachable by any branch in the repo.
   bytes revision = 2;
-  // max_count ...
+  // max_count is the maximum number of commits to list.
   int32 max_count = 3;
-  // skip ...
+  // skip is the number of commits to skip before starting to show the
+  // commit output.
   int32 skip = 4;
-  // order ...
+  // order is the order in which commits should be traversed. Refer to
+  // the enum's documentation for further information.
   Order order = 5;
 }
 
-// FindAllCommitsResponse is a single 'page' of the result set.
+// FindAllCommitsResponse is the response for the FindAllCommits RPC. The response will be
+// chunked into multiple message if the returned data exceeds gRPC message limits.
 message FindAllCommitsResponse {
-  // commits ...
+  // commits is a list of commits produced as per the request.
   repeated GitCommit commits = 1;
 }
 
-// FindCommitsRequest ...
+// FindCommitsRequest is the request for the FindCommits RPC.
 message FindCommitsRequest {
-  // Order ...
+  // Order is the order in which commits shoud be traversed.
   enum Order {
-    // NONE ...
+    // NONE defaults to reverse chronological order.
     NONE = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // TOPO ...
+    // TOPO order will cause no parents to be shown before all of its children
+    // are shown. Furthermore, multiple lines of history will not be
+    // intermixed.
     TOPO = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // repository ...
+  // repository is the repository from which the commits are listed.
   Repository repository = 1 [(target_repository)=true];
-  // revision ...
+  // revision is a commitish against which the commits for the provided
+  // paths are listed. If there is no revision provided, the default branch
+  // is considered. It is mutually exclusive with the `All` option.
   bytes revision = 2;
-  // limit ...
+  // limit is maximum number of commits to list.
   int32 limit = 3;
-  // offset ...
+  // offset is the number of commits to skip before starting the traversal.
   int32 offset = 4;
-  // paths ...
+  // paths is a list of non-empty paths for which we want to list commits.
   repeated bytes paths = 5;
-  // follow ...
+  // follow is used to list the history of a file beyond renames (works only for
+  // a single file).
   bool follow = 6;
-  // skip_merges ...
+  // skip_merges is used to skip merge commits.
   bool skip_merges = 7;
-  // disable_walk ...
-  bool disable_walk = 8;
-  // after ...
+  // disable_walk is no longer supported.
+  bool disable_walk = 8 [deprecated = true];
+  // after will only list commits which are more recent than the specified date.
   google.protobuf.Timestamp after = 9;
-  // before ...
+  // before will only list commits which are older than the specified date.
   google.protobuf.Timestamp before = 10;
-  // all and revision are mutually exclusive
+  // all is used to consider all refs (including HEAD) as the start point for the traversal.
+  // All and Revision options are mutually exclusive.
   bool all = 11;
-  // first_parent ...
+  // first_parent ensures that only the first parent commit is followed in the traversal.
   bool first_parent = 12;
-  // author ...
+  // author will only list commits whose author matches the given pattern,
+  // which is a regular expression.
   bytes author = 13;
-  // order ...
+  // order is the order in which commits should be traversed. Please refer to
+  // the enum's documentation for further information.
   Order order = 14;
-  // global_options ...
+  // global_options contains the global options used to modify the behaviour of Git.
   GlobalOptions global_options = 15;
-  // trailers ...
+  // trailers if set, parses and adds the trailing information of the commit.
   bool trailers = 16;
   // include_shortstat determines whether to include the number of lines and files
-  // changed in the commits. Populates the `short_stats` field.
+  // changed in the commits. Populates the `ShortStats` field.
   bool include_shortstat = 17;
   // include_referenced_by determines whether to include references that point to a
   // commit in the response. The field contains patterns that are matched against
@@ -651,9 +674,10 @@ message FindCommitsRequest {
   repeated bytes include_referenced_by = 18; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 
-// FindCommitsResponse is a single 'page' of the result set.
+// FindCommitsResponse is the response for the FindCommits RPC. The response will be
+// chunked into multiple message if the returned data exceeds gRPC message limits.
 message FindCommitsResponse {
-  // commits ...
+  // commits is a list of commits produced as per the request.
   repeated GitCommit commits = 1;
 }
 
@@ -661,7 +685,7 @@ message FindCommitsResponse {
 message CommitLanguagesRequest {
   // repository is the repository where to detect the languages in.
   Repository repository = 1 [(target_repository)=true];
-  // revision tells for which commit the languages should be detected. If it's
+  // revision tells for which commitish the languages should be detected. If it's
   // omitted, the HEAD commit of the default branch is used.
   bytes revision = 2;
 }
@@ -696,7 +720,7 @@ message CommitLanguagesResponse {
 message RawBlameRequest {
   // repository is the repositroy where to perform the blame.
   Repository repository = 1 [(target_repository)=true];
-  // revision is the committish at which to start the blame.
+  // revision is the commitish at which to start the blame.
   bytes revision = 2;
   // path is the path of the blob that should be blamed.
   bytes path = 3;
@@ -705,8 +729,8 @@ message RawBlameRequest {
   bytes range = 4;
 }
 
-// RawBlameResponse is a response for the RawBlame RPC. The response will be chunked into multiple message if the
-// returned data exceeds gRPC message limits.
+// RawBlameResponse is a response for the RawBlame RPC. The response will be
+// chunked into multiple message if the returned data exceeds gRPC message limits.
 message RawBlameResponse {
   // data is the raw data as generated by git-blame(1).
   bytes data = 1;
@@ -734,7 +758,7 @@ message RawBlameError {
 message LastCommitForPathRequest {
   // repository is the repository to run the query in.
   Repository repository = 1 [(target_repository)=true];
-  // revision is the committish that is used as the start commit to perform the search.
+  // revision is the commitish that is used as the start commit to perform the search.
   bytes revision = 2;
   // path is the path for which the last commit should be searched. This path can either point to a blob or to a
   // tree. The path must be relative and must not escape the repository root. If the path is empty or "/", then the
