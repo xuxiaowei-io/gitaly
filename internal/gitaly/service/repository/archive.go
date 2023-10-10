@@ -247,7 +247,7 @@ func (s *server) handleArchive(ctx context.Context, p archiveParams) error {
 	}
 
 	if len(p.compressArgs) > 0 {
-		command, err := command.New(ctx, p.compressArgs,
+		command, err := command.New(ctx, s.logger, p.compressArgs,
 			command.WithStdin(archiveCommand), command.WithStdout(p.writer),
 		)
 		if err != nil {

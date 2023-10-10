@@ -36,8 +36,8 @@ type errInvalidObjectMap error
 
 // newCleaner builds a new instance of Cleaner, which is used to apply a
 // filter-repo or BFG object map to a repository.
-func newCleaner(ctx context.Context, repo git.RepositoryExecutor, forEach forEachFunc) (*cleaner, error) {
-	table, err := buildLookupTable(ctx, repo)
+func newCleaner(ctx context.Context, logger log.Logger, repo git.RepositoryExecutor, forEach forEachFunc) (*cleaner, error) {
+	table, err := buildLookupTable(ctx, logger, repo)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (c *cleaner) processEntry(ctx context.Context, updater *updateref.Updater, 
 // an object that has been rewritten by the filter-repo or BFG (and so require
 // action). It is consulted once per line in the object map. Git is optimized
 // for ref -> SHA lookups, but we want the opposite!
-func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[string][]git.ReferenceName, error) {
+func buildLookupTable(ctx context.Context, logger log.Logger, repo git.RepositoryExecutor) (map[string][]git.ReferenceName, error) {
 	objectHash, err := repo.ObjectHash(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("detecting object hash: %w", err)
@@ -161,7 +161,6 @@ func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[str
 		return nil, err
 	}
 
-	logger := log.FromContext(ctx)
 	out := make(map[string][]git.ReferenceName)
 	scanner := bufio.NewScanner(cmd)
 
@@ -170,7 +169,7 @@ func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[str
 
 		objectName, refName, ok := strings.Cut(line, " ")
 		if !ok {
-			logger.WithFields(log.Fields{"line": line}).Warn("failed to parse git refs")
+			logger.WithFields(log.Fields{"line": line}).WarnContext(ctx, "failed to parse git refs")
 			return nil, fmt.Errorf("failed to parse git refs")
 		}
 

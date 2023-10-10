@@ -59,7 +59,7 @@ func runHooksServerWithTransactionRegistry(tb testing.TB, cfg config.Cfg, opts [
 
 	return testserver.RunGitalyServer(tb, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
 		if txRegistry != nil {
-			deps.GitalyHookManager = gitalyhook.NewManager(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager(), deps.GetGitlabClient(), txRegistry)
+			deps.GitalyHookManager = gitalyhook.NewManager(deps.GetCfg(), deps.GetLocator(), deps.GetLogger(), deps.GetGitCmdFactory(), deps.GetTxManager(), deps.GetGitlabClient(), txRegistry)
 		}
 
 		hookServer := NewServer(deps)

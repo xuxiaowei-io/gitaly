@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
@@ -286,6 +287,7 @@ func (rr *remoteRepository) newRefClient() gitalypb.RefServiceClient {
 }
 
 type localRepository struct {
+	logger        log.Logger
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	txManager     transaction.Manager
@@ -294,6 +296,7 @@ type localRepository struct {
 }
 
 func newLocalRepository(
+	logger log.Logger,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	txManager transaction.Manager,
@@ -301,6 +304,7 @@ func newLocalRepository(
 	repo *localrepo.Repo,
 ) *localRepository {
 	return &localRepository{
+		logger:        logger,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		txManager:     txManager,
@@ -337,7 +341,7 @@ func (r *localRepository) GetCustomHooks(ctx context.Context, out io.Writer) err
 		return fmt.Errorf("get repo path: %w", err)
 	}
 
-	if err := repoutil.GetCustomHooks(ctx, repoPath, out); err != nil {
+	if err := repoutil.GetCustomHooks(ctx, r.logger, repoPath, out); err != nil {
 		return fmt.Errorf("local repository: get custom hooks: %w", err)
 	}
 	return nil
@@ -402,6 +406,7 @@ func (r *localRepository) FetchBundle(ctx context.Context, reader io.Reader) err
 func (r *localRepository) SetCustomHooks(ctx context.Context, reader io.Reader) error {
 	if err := repoutil.SetCustomHooks(
 		ctx,
+		r.logger,
 		r.locator,
 		r.txManager,
 		reader,

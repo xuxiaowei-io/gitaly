@@ -4143,6 +4143,7 @@ func TestTransactionManager(t *testing.T) {
 
 			// Setup the repository with the exact same state as what was used to build the test cases.
 			setup := setupTest(t, relativePath)
+			logger := testhelper.NewLogger(t)
 
 			storageScopedFactory, err := setup.RepositoryFactory.ScopeByStorage(setup.Config.Storages[0].Name)
 			require.NoError(t, err)
@@ -4155,7 +4156,7 @@ func TestTransactionManager(t *testing.T) {
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, database)
 
-			txManager := transaction.NewManager(setup.Config, backchannel.NewRegistry())
+			txManager := transaction.NewManager(setup.Config, logger, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, txManager)
 
 			storagePath := setup.Config.Storages[0].Path
@@ -4168,7 +4169,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or closed.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(partitionID, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+				transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 				// managerErr is used for synchronizing manager closing and returning
 				// the error from Run.
 				managerErr chan error
@@ -4215,7 +4216,7 @@ func TestTransactionManager(t *testing.T) {
 					require.NoError(t, os.RemoveAll(stagingDir))
 					require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
-					transactionManager = NewTransactionManager(partitionID, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+					transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
 						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
@@ -4545,6 +4546,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			ctx := testhelper.Context(b)
 
 			cfg := testcfg.Build(b)
+			logger := testhelper.NewLogger(b)
 
 			cmdFactory := gittest.NewCommandFactory(b, cfg)
 			cache := catfile.NewCache(cfg)
@@ -4554,7 +4556,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			require.NoError(b, err)
 			defer testhelper.MustClose(b, database)
 
-			txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+			txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
 			var (
@@ -4608,7 +4610,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 
 				// Valid partition IDs are >=1.
 				partitionID := partitionID(i + 1)
-				manager := NewTransactionManager(partitionID, database, storagePath, repo.RelativePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
+				manager := NewTransactionManager(partitionID, logger, database, storagePath, repo.RelativePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 

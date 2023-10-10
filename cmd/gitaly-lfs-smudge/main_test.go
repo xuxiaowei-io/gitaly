@@ -183,7 +183,7 @@ func TestGitalyLFSSmudge(t *testing.T) {
 			env, logFile := tc.setup(t)
 
 			var stdout, stderr bytes.Buffer
-			cmd, err := command.New(ctx, []string{binary},
+			cmd, err := command.New(ctx, testhelper.SharedLogger(t), []string{binary},
 				command.WithStdin(tc.stdin),
 				command.WithStdout(&stdout),
 				command.WithStderr(&stderr),

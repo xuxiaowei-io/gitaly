@@ -253,6 +253,7 @@ func NewPartitionManager(
 		) *TransactionManager {
 			return NewTransactionManager(
 				partitionID,
+				logger,
 				storageMgr.database,
 				storageMgr.path,
 				relativePath,

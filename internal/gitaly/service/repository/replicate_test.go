@@ -167,7 +167,7 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 				// Set up custom hooks in source repository to verify that the hooks are getting
 				// created in the target repository as expected.
 				hooks := testhelper.MustCreateCustomHooksTar(t)
-				require.NoError(t, repoutil.ExtractHooks(ctx, hooks, sourcePath, false))
+				require.NoError(t, repoutil.ExtractHooks(ctx, testhelper.NewLogger(t), hooks, sourcePath, false))
 
 				return setupData{
 					source:              source,

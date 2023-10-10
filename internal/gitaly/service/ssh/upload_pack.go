@@ -79,7 +79,7 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 		return nil, 0, err
 	}
 
-	git.WarnIfTooManyBitmaps(ctx, s.locator, repo.StorageName, repoPath)
+	git.WarnIfTooManyBitmaps(ctx, s.logger, s.locator, repo.StorageName, repoPath)
 
 	config, err := git.ConvertConfigOptions(req.GetGitConfigOptions())
 	if err != nil {
@@ -125,7 +125,7 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 	// "flush" tells the server it can terminate, while "done" tells it to start
 	// generating a packfile. Add a timeout to the second case to mitigate
 	// use-after-check attacks.
-	if err := runUploadCommand(ctx, s.gitCmdFactory, repo, stdin, stdout, stderr, timeoutTicker, pktline.PktDone(), git.Command{
+	if err := s.runUploadCommand(ctx, repo, stdin, stdout, stderr, timeoutTicker, pktline.PktDone(), git.Command{
 		Name: "upload-pack",
 		Args: []string{repoPath},
 	}, commandOpts...); err != nil {

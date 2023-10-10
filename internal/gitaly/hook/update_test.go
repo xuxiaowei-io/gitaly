@@ -39,7 +39,7 @@ func TestUpdate_customHooks(t *testing.T) {
 	locator := config.NewLocator(cfg)
 
 	txManager := transaction.NewTrackingManager()
-	hookManager := NewManager(cfg, locator, gitCmdFactory, txManager, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, locator, testhelper.SharedLogger(t), gitCmdFactory, txManager, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	), NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
 
@@ -256,7 +256,7 @@ func TestUpdate_quarantine(t *testing.T) {
 	blobID, err := quarantinedRepo.WriteBlob(ctx, strings.NewReader("allyourbasearebelongtous"), localrepo.WriteBlobConfig{})
 	require.NoError(t, err)
 
-	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), testhelper.SharedLogger(t), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	), NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
 

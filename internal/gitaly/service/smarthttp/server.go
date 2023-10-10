@@ -31,7 +31,7 @@ func NewServer(deps *service.Dependencies, serverOpts ...ServerOpt) gitalypb.Sma
 			prometheus.CounterOpts{},
 			[]string{"git_negotiation_feature"},
 		),
-		infoRefCache: newInfoRefCache(deps.GetDiskCache()),
+		infoRefCache: newInfoRefCache(deps.GetLogger(), deps.GetDiskCache()),
 	}
 
 	for _, serverOpt := range serverOpts {

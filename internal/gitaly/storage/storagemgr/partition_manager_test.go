@@ -31,6 +31,7 @@ func TestPartitionManager(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	umask := testhelper.Umask()
+	logger := testhelper.NewLogger(t)
 
 	// steps defines execution steps in a test. Each test case can define multiple steps to exercise
 	// more complex behavior.
@@ -375,6 +376,7 @@ func TestPartitionManager(t *testing.T) {
 					) *TransactionManager {
 						txMgr := NewTransactionManager(
 							partitionID,
+							storageMgr.logger,
 							storageMgr.database,
 							storageMgr.path,
 							relativePath,
@@ -427,6 +429,7 @@ func TestPartitionManager(t *testing.T) {
 					) *TransactionManager {
 						txMgr := NewTransactionManager(
 							partitionID,
+							logger,
 							storageMgr.database,
 							storageMgr.path,
 							relativePath,
@@ -670,7 +673,7 @@ func TestPartitionManager(t *testing.T) {
 				)
 			}
 
-			txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+			txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
 			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.SharedLogger(t))
@@ -798,7 +801,7 @@ func TestPartitionManager_concurrentClose(t *testing.T) {
 
 	localRepoFactory := localrepo.NewFactory(config.NewLocator(cfg), cmdFactory, catfileCache)
 
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
 	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
 
 	partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, testhelper.SharedLogger(t))

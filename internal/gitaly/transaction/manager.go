@@ -56,14 +56,16 @@ type Manager interface {
 // PoolManager is an implementation of the Manager interface using a pool to
 // connect to the transaction hosts.
 type PoolManager struct {
+	logger            log.Logger
 	backchannels      *backchannel.Registry
 	conns             *client.Pool
 	votingDelayMetric prometheus.Histogram
 }
 
 // NewManager creates a new PoolManager to handle transactional voting.
-func NewManager(cfg config.Cfg, backchannels *backchannel.Registry) *PoolManager {
+func NewManager(cfg config.Cfg, logger log.Logger, backchannels *backchannel.Registry) *PoolManager {
 	return &PoolManager{
+		logger:       logger.WithField("component", "transaction.PoolManager"),
 		backchannels: backchannels,
 		conns: client.NewPool(client.WithDialOptions(append(
 			client.FailOnNonTempDialError(),
@@ -111,7 +113,7 @@ func (m *PoolManager) Vote(
 		return err
 	}
 
-	logger := m.log(ctx).WithFields(log.Fields{
+	logger := m.logger.WithFields(log.Fields{
 		"transaction.id":    tx.ID,
 		"transaction.voter": tx.Node,
 		"transaction.hash":  vote.String(),
@@ -135,7 +137,7 @@ func (m *PoolManager) Vote(
 			return fmt.Errorf("transaction timeout %s exceeded: %w", transactionTimeout, err)
 		}
 
-		logger.WithError(err).Error("vote failed")
+		logger.WithError(err).ErrorContext(ctx, "vote failed")
 		return err
 	}
 
@@ -143,10 +145,10 @@ func (m *PoolManager) Vote(
 	case gitalypb.VoteTransactionResponse_COMMIT:
 		return nil
 	case gitalypb.VoteTransactionResponse_ABORT:
-		logger.Error("transaction was aborted")
+		logger.ErrorContext(ctx, "transaction was aborted")
 		return ErrTransactionAborted
 	case gitalypb.VoteTransactionResponse_STOP:
-		logger.Error("transaction was stopped")
+		logger.ErrorContext(ctx, "transaction was stopped")
 		return ErrTransactionStopped
 	default:
 		return errors.New("invalid transaction state")
@@ -163,17 +165,13 @@ func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction) error {
 	if _, err := client.StopTransaction(ctx, &gitalypb.StopTransactionRequest{
 		TransactionId: tx.ID,
 	}); err != nil {
-		m.log(ctx).WithFields(log.Fields{
+		m.logger.WithFields(log.Fields{
 			"transaction.id":    tx.ID,
 			"transaction.voter": tx.Node,
-		}).Error("stopping transaction failed")
+		}).ErrorContext(ctx, "stopping transaction failed")
 
 		return err
 	}
 
 	return nil
-}
-
-func (m *PoolManager) log(ctx context.Context) log.Logger {
-	return log.FromContext(ctx).WithField("component", "transaction.PoolManager")
 }

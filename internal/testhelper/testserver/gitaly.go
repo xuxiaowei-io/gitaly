@@ -296,7 +296,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	if gsd.txMgr == nil {
-		gsd.txMgr = transaction.NewManager(cfg, gsd.backchannelReg)
+		gsd.txMgr = transaction.NewManager(cfg, gsd.logger, gsd.backchannelReg)
 	}
 
 	if gsd.gitCmdFactory == nil {
@@ -305,7 +305,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 
 	transactionRegistry := storagemgr.NewTransactionRegistry()
 	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient, hook.NewTransactionRegistry(transactionRegistry))
+		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.logger, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient, hook.NewTransactionRegistry(transactionRegistry))
 	}
 
 	if gsd.catfileCache == nil {

@@ -23,15 +23,17 @@ type ByteCountPerLanguage map[string]uint64
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
 	cfg          config.Cfg
+	logger       log.Logger
 	catfileCache catfile.Cache
 	repo         *localrepo.Repo
 }
 
 // New creates a new instance that can be used to calculate language stats for
 // the given repo.
-func New(cfg config.Cfg, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
+func New(cfg config.Cfg, logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
 	return &Instance{
 		cfg:          cfg,
+		logger:       logger,
 		catfileCache: catfileCache,
 		repo:         repo,
 	}
@@ -51,7 +53,7 @@ func Color(language string) string {
 func (inst *Instance) Stats(ctx context.Context, commitID git.ObjectID) (ByteCountPerLanguage, error) {
 	stats, err := initLanguageStats(inst.repo)
 	if err != nil {
-		log.FromContext(ctx).WithError(err).Info("linguist load from cache")
+		inst.logger.WithError(err).InfoContext(ctx, "linguist load from cache")
 	}
 	if stats.CommitID == commitID {
 		return stats.Totals, nil

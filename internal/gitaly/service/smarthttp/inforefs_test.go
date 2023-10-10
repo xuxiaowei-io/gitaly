@@ -453,12 +453,13 @@ func testInfoRefsUploadPackCache(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	locator := config.NewLocator(cfg)
-	cache := cache.New(cfg, locator, testhelper.SharedLogger(t))
+	logger := testhelper.NewLogger(t)
+	cache := cache.New(cfg, locator, logger)
 
 	streamer := mockStreamer{
 		Streamer: cache,
 	}
-	mockInfoRefCache := newInfoRefCache(&streamer)
+	mockInfoRefCache := newInfoRefCache(logger, &streamer)
 
 	gitalyServer := startSmartHTTPServer(t, cfg, withInfoRefCache(mockInfoRefCache))
 	cfg.SocketPath = gitalyServer.Address()

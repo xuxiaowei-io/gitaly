@@ -105,7 +105,7 @@ func TestManager_Create(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
+				return backup.NewManagerLocal(sink, testhelper.SharedLogger(t), locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
 			},
 		},
 	} {
@@ -280,7 +280,7 @@ func TestManager_Create_incremental(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
+				return backup.NewManagerLocal(sink, testhelper.SharedLogger(t), locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
 			},
 		},
 	} {
@@ -426,7 +426,7 @@ func TestManager_Restore_latest(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
+				return backup.NewManagerLocal(sink, testhelper.SharedLogger(t), locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
 			},
 		},
 	} {
@@ -769,7 +769,7 @@ func TestManager_Restore_specific(t *testing.T) {
 				tb.Cleanup(catfileCache.Stop)
 				txManager := transaction.NewTrackingManager()
 
-				return backup.NewManagerLocal(sink, locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
+				return backup.NewManagerLocal(sink, testhelper.SharedLogger(t), locator, storageLocator, gitCmdFactory, catfileCache, txManager, repoCounter)
 			},
 		},
 	} {
@@ -1039,7 +1039,7 @@ func mustCreateCustomHooksArchive(t *testing.T, ctx context.Context) string {
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, file)
 
-	require.NoError(t, archive.WriteTarball(ctx, file, tmpDir, "custom_hooks"))
+	require.NoError(t, archive.WriteTarball(ctx, testhelper.SharedLogger(t), file, tmpDir, "custom_hooks"))
 
 	return archivePath
 }

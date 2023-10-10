@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 const (
@@ -39,6 +41,8 @@ list-bitmap-reachable IDX_FILE BITMAP_COMMIT_ID
 )
 
 func main() {
+	logger := log.ConfigureCommand()
+
 	if len(os.Args) < 2 {
 		fatal(usage)
 	}
@@ -59,22 +63,22 @@ func main() {
 		if len(extraArgs) != 1 {
 			fatal(usage)
 		}
-		listBitmapPack(extraArgs[0])
+		listBitmapPack(logger, extraArgs[0])
 	case "map-bitmap-pack":
 		if len(extraArgs) != 1 {
 			fatal(usage)
 		}
-		mapBitmapPack(extraArgs[0])
+		mapBitmapPack(logger, extraArgs[0])
 	case "list-bitmap-commits":
 		if len(extraArgs) != 1 {
 			fatal(usage)
 		}
-		listBitmapCommits(extraArgs[0])
+		listBitmapCommits(logger, extraArgs[0])
 	case "list-bitmap-reachable":
 		if len(extraArgs) != 2 {
 			fatal(usage)
 		}
-		listBitmapReachable(extraArgs[0], extraArgs[1])
+		listBitmapReachable(logger, extraArgs[0], extraArgs[1])
 	default:
 		fatal(usage)
 	}

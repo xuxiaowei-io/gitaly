@@ -240,7 +240,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 	defer func() {
 		if returnedErr != nil {
 			if err := txn.finish(); err != nil {
-				log.FromContext(ctx).WithError(err).Error("failed finishing unsuccessful transaction begin")
+				mgr.logger.WithError(err).ErrorContext(ctx, "failed finishing unsuccessful transaction begin")
 			}
 		}
 	}()
@@ -638,6 +638,8 @@ type TransactionManager struct {
 	ctx context.Context
 	// close cancels ctx and stops the transaction processing.
 	close context.CancelFunc
+	// logger is the logger to use to write log messages.
+	logger log.Logger
 
 	// closing is closed when close is called. It unblock transactions that are waiting to be admitted.
 	closing <-chan struct{}
@@ -703,6 +705,7 @@ type TransactionManager struct {
 // NewTransactionManager returns a new TransactionManager for the given repository.
 func NewTransactionManager(
 	ptnID partitionID,
+	logger log.Logger,
 	db *badger.DB,
 	storagePath,
 	relativePath,
@@ -716,6 +719,7 @@ func NewTransactionManager(
 	return &TransactionManager{
 		ctx:                  ctx,
 		close:                cancel,
+		logger:               logger,
 		closing:              ctx.Done(),
 		closed:               make(chan struct{}),
 		commandFactory:       cmdFactory,
@@ -779,6 +783,7 @@ func (mgr *TransactionManager) stageHooks(ctx context.Context, transaction *Tran
 
 	if err := repoutil.ExtractHooks(
 		ctx,
+		mgr.logger,
 		bytes.NewReader(transaction.customHooksUpdate.CustomHooksTAR),
 		transaction.stagingDirectory,
 		false,
@@ -1473,7 +1478,7 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 		// We ask housekeeping to cleanup stale reference locks. We don't add a grace period, because
 		// transaction manager is the only process which writes into the repository, so it is safe
 		// to delete these locks.
-		if err := mgr.housekeepingManager.CleanStaleData(ctx, log.FromContext(ctx), repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
+		if err := mgr.housekeepingManager.CleanStaleData(ctx, mgr.logger, repository, housekeeping.OnlyStaleReferenceLockCleanup(0)); err != nil {
 			return nil, fmt.Errorf("running reflock cleanup: %w", err)
 		}
 
@@ -1659,7 +1664,7 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logEntry *g
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	if err := repoutil.ExtractHooks(ctx, bytes.NewReader(logEntry.CustomHooksUpdate.CustomHooksTar), destinationDir, true); err != nil {
+	if err := repoutil.ExtractHooks(ctx, mgr.logger, bytes.NewReader(logEntry.CustomHooksUpdate.CustomHooksTar), destinationDir, true); err != nil {
 		return fmt.Errorf("extract hooks: %w", err)
 	}
 

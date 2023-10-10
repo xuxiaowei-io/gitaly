@@ -289,7 +289,7 @@ func mustCreateCustomHooksArchive(t *testing.T, ctx context.Context, files []tes
 	file, err := os.Create(archivePath)
 	require.NoError(t, err)
 
-	err = archive.WriteTarball(ctx, file, hooksDir, dirName)
+	err = archive.WriteTarball(ctx, testhelper.NewLogger(t), file, hooksDir, dirName)
 	require.NoError(t, err)
 
 	return archivePath

@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -76,12 +75,12 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 	// Only the primary should execute hooks and increment reference counters.
 	if isPrimary(payload) {
 		if err := m.preReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
-			log.FromContext(ctx).WithError(err).Warn("stopping transaction because pre-receive hook failed")
+			m.logger.WithError(err).WarnContext(ctx, "stopping transaction because pre-receive hook failed")
 
 			// If the pre-receive hook declines the push, then we need to stop any
 			// secondaries voting on the transaction.
 			if err := m.stopTransaction(ctx, payload); err != nil {
-				log.FromContext(ctx).WithError(err).Error("failed stopping transaction in pre-receive hook")
+				m.logger.WithError(err).ErrorContext(ctx, "failed stopping transaction in pre-receive hook")
 			}
 
 			return err

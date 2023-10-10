@@ -81,7 +81,7 @@ func createObjectPool(
 
 	poolProto, poolProtoPath := gittest.CreateObjectPool(tb, ctx, cfg, source)
 
-	txManager := transaction.NewManager(cfg, nil)
+	txManager := transaction.NewManager(cfg, testhelper.SharedLogger(tb), nil)
 	catfileCache := catfile.NewCache(cfg)
 	tb.Cleanup(catfileCache.Stop)
 

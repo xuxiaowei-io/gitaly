@@ -451,7 +451,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
 
 	earlierDate := time.Date(2022, 12, 1, 0, 0, 0, 0, time.Local)
 	laterDate := time.Date(2022, 12, 1, 12, 0, 0, 0, time.Local)

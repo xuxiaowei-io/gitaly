@@ -14,11 +14,13 @@ import (
 )
 
 type infoRefCache struct {
+	logger   log.Logger
 	streamer cache.Streamer
 }
 
-func newInfoRefCache(streamer cache.Streamer) infoRefCache {
+func newInfoRefCache(logger log.Logger, streamer cache.Streamer) infoRefCache {
 	return infoRefCache{
+		logger:   logger.WithField("service", uploadPackSvc),
 		streamer: streamer,
 	}
 }
@@ -52,8 +54,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 		return missFn(w)
 	}
 
-	logger := log.FromContext(ctx).WithFields(log.Fields{"service": uploadPackSvc})
-	logger.Debug("Attempting to fetch cached response")
+	c.logger.DebugContext(ctx, "Attempting to fetch cached response")
 	countAttempt()
 
 	stream, err := c.streamer.GetStream(ctx, in.GetRepository(), in)
@@ -62,7 +63,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 		defer stream.Close()
 
 		countHit()
-		logger.Info("cache hit for UploadPack response")
+		c.logger.InfoContext(ctx, "cache hit for UploadPack response")
 
 		if _, err := io.Copy(w, stream); err != nil {
 			return structerr.NewInternal("cache copy: %w", err)
@@ -72,7 +73,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 
 	case cache.ErrReqNotFound:
 		countMiss()
-		logger.Info("cache miss for InfoRefsUploadPack response")
+		c.logger.InfoContext(ctx, "cache miss for InfoRefsUploadPack response")
 
 		var wg sync.WaitGroup
 		defer wg.Wait()
@@ -85,14 +86,14 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 
 			tr := io.TeeReader(pr, w)
 			if err := c.streamer.PutStream(ctx, in.Repository, in, tr); err != nil {
-				logger.WithError(err).Error("unable to store InfoRefsUploadPack response in cache")
+				c.logger.WithError(err).ErrorContext(ctx, "unable to store InfoRefsUploadPack response in cache")
 
 				// discard remaining bytes if caching stream
 				// failed so that tee reader is not blocked
 				_, err = io.Copy(io.Discard, tr)
 				if err != nil {
-					logger.WithError(err).
-						Error("unable to discard remaining InfoRefsUploadPack cache stream")
+					c.logger.WithError(err).
+						ErrorContext(ctx, "unable to discard remaining InfoRefsUploadPack cache stream")
 				}
 			}
 		}()
@@ -103,7 +104,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 
 	default:
 		countErr()
-		logger.WithError(err).Info("unable to fetch cached response")
+		c.logger.WithError(err).InfoContext(ctx, "unable to fetch cached response")
 
 		return missFn(w)
 	}

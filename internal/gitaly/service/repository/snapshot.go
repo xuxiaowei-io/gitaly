@@ -95,7 +95,7 @@ func (s *server) addAlternateFiles(ctx context.Context, repository *gitalypb.Rep
 		return err
 	}
 
-	altObjDirs, err := git.AlternateObjectDirectories(ctx, storageRoot, repoPath)
+	altObjDirs, err := git.AlternateObjectDirectories(ctx, s.logger, storageRoot, repoPath)
 	if err != nil {
 		s.logger.WithField("error", err).WarnContext(ctx, "error getting alternate object directories")
 		return nil

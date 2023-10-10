@@ -238,7 +238,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 	}
 
 	registry := backchannel.NewRegistry()
-	transactionManager := transaction.NewManager(cfg, registry)
+	transactionManager := transaction.NewManager(cfg, logger, registry)
 	prometheus.MustRegister(transactionManager)
 
 	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, transactionManager)
@@ -265,7 +265,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		}
 		prometheus.MustRegister(gitlabClient)
 
-		hm := hook.NewManager(cfg, locator, gitCmdFactory, transactionManager, gitlabClient, hook.NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
+		hm := hook.NewManager(cfg, locator, logger, gitCmdFactory, transactionManager, gitlabClient, hook.NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
 
 		hookManager = hm
 	}

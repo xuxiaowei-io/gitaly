@@ -11,7 +11,10 @@ import (
 )
 
 func TestObjectDirs(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	logger := testhelper.NewLogger(t)
 
 	altObjDirs := []string{
 		"testdata/objdirs/repo1/objects",
@@ -25,30 +28,36 @@ func TestObjectDirs(t *testing.T) {
 	repo := "testdata/objdirs/repo0"
 	objDirs := append([]string{filepath.Join(repo, "objects")}, altObjDirs...)
 
-	out, err := ObjectDirectories(ctx, "testdata/objdirs", repo)
+	out, err := ObjectDirectories(ctx, logger, "testdata/objdirs", repo)
 	require.NoError(t, err)
 	require.Equal(t, objDirs, out)
 
-	out, err = AlternateObjectDirectories(ctx, "testdata/objdirs", repo)
+	out, err = AlternateObjectDirectories(ctx, logger, "testdata/objdirs", repo)
 	require.NoError(t, err)
 	require.Equal(t, altObjDirs, out)
 }
 
 func TestObjectDirsNoAlternates(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	logger := testhelper.NewLogger(t)
 
 	repo := "testdata/objdirs/no-alternates"
-	out, err := ObjectDirectories(ctx, "testdata/objdirs", repo)
+	out, err := ObjectDirectories(ctx, logger, "testdata/objdirs", repo)
 	require.NoError(t, err)
 	require.Equal(t, []string{filepath.Join(repo, "objects")}, out)
 
-	out, err = AlternateObjectDirectories(ctx, "testdata/objdirs", repo)
+	out, err = AlternateObjectDirectories(ctx, logger, "testdata/objdirs", repo)
 	require.NoError(t, err)
 	require.Equal(t, []string{}, out)
 }
 
 func TestObjectDirsOutsideStorage(t *testing.T) {
+	t.Parallel()
+
 	tmp := testhelper.TempDir(t)
+	logger := testhelper.NewLogger(t)
 
 	storageRoot := filepath.Join(tmp, "storage-root")
 	repoPath := filepath.Join(storageRoot, "repo")
@@ -74,7 +83,7 @@ func TestObjectDirsOutsideStorage(t *testing.T) {
 			ctx := testhelper.Context(t)
 
 			require.NoError(t, os.WriteFile(alternatesFile, []byte(tc.alternates), perm.PrivateFile))
-			out, err := ObjectDirectories(ctx, storageRoot, repoPath)
+			out, err := ObjectDirectories(ctx, logger, storageRoot, repoPath)
 			require.Equal(t, expectedErr, err)
 			require.Nil(t, out)
 		})

@@ -84,7 +84,7 @@ func newResolvedHTTPClient(httpAddress, resolvedAddress string) (*http.Client, e
 	}, nil
 }
 
-func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSnapshotRequest) error {
+func (s *server) untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSnapshotRequest) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", in.HttpUrl, nil)
 	if err != nil {
 		return structerr.NewInvalidArgument("Bad HTTP URL: %w", err)
@@ -112,7 +112,7 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 		return structerr.NewInternal("HTTP server: %s", rsp.Status)
 	}
 
-	cmd, err := command.New(ctx, []string{"tar", "-C", path, "-xvf", "-"}, command.WithStdin(rsp.Body))
+	cmd, err := command.New(ctx, s.logger, []string{"tar", "-C", path, "-xvf", "-"}, command.WithStdin(rsp.Body))
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 		//
 		// NOTE: The received archive is trusted *a lot*. Before pointing this RPC
 		// at endpoints not under our control, it should undergo a lot of hardening.
-		if err := untar(ctx, path, in); err != nil {
+		if err := s.untar(ctx, path, in); err != nil {
 			return structerr.NewInternal("extracting snapshot: %w", err)
 		}
 

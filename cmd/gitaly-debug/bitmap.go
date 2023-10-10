@@ -6,10 +6,11 @@ import (
 	"os"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/packfile"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
-func listBitmapPack(idxFile string) {
-	idx, err := packfile.ReadIndex(idxFile)
+func listBitmapPack(logger log.Logger, idxFile string) {
+	idx, err := packfile.ReadIndex(logger, idxFile)
 	noError(err)
 
 	noError(idx.LabelObjectTypes())
@@ -23,8 +24,8 @@ func listBitmapPack(idxFile string) {
 	}
 }
 
-func mapBitmapPack(idxFile string) {
-	idx, err := packfile.ReadIndex(idxFile)
+func mapBitmapPack(logger log.Logger, idxFile string) {
+	idx, err := packfile.ReadIndex(logger, idxFile)
 	noError(err)
 
 	noError(idx.LabelObjectTypes())
@@ -52,8 +53,8 @@ func mapBitmapPack(idxFile string) {
 	}
 }
 
-func listBitmapCommits(idxFile string) {
-	idx, err := packfile.ReadIndex(idxFile)
+func listBitmapCommits(logger log.Logger, idxFile string) {
+	idx, err := packfile.ReadIndex(logger, idxFile)
 	noError(err)
 
 	noError(idx.LabelObjectTypes())
@@ -69,8 +70,8 @@ func listBitmapCommits(idxFile string) {
 	}
 }
 
-func listBitmapReachable(idxFile string, commitID string) {
-	idx, err := packfile.ReadIndex(idxFile)
+func listBitmapReachable(logger log.Logger, idxFile string, commitID string) {
+	idx, err := packfile.ReadIndex(logger, idxFile)
 	noError(err)
 
 	noError(idx.LabelObjectTypes())

@@ -35,7 +35,7 @@ func TestNew_environment(t *testing.T) {
 	extraVar := "FOOBAR=123456"
 
 	var buf bytes.Buffer
-	cmd, err := New(ctx, []string{"/usr/bin/env"}, WithStdout(&buf), WithEnvironment([]string{extraVar}))
+	cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"/usr/bin/env"}, WithStdout(&buf), WithEnvironment([]string{extraVar}))
 
 	require.NoError(t, err)
 	require.NoError(t, cmd.Wait())
@@ -123,7 +123,7 @@ func TestNew_exportedEnvironment(t *testing.T) {
 			t.Setenv(tc.key, tc.value)
 
 			var buf bytes.Buffer
-			cmd, err := New(ctx, []string{"/usr/bin/env"}, WithStdout(&buf))
+			cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"/usr/bin/env"}, WithStdout(&buf))
 			require.NoError(t, err)
 			require.NoError(t, cmd.Wait())
 
@@ -140,7 +140,7 @@ func TestNew_unexportedEnv(t *testing.T) {
 	t.Setenv(unexportedEnvKey, unexportedEnvVal)
 
 	var buf bytes.Buffer
-	cmd, err := New(ctx, []string{"/usr/bin/env"}, WithStdout(&buf))
+	cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"/usr/bin/env"}, WithStdout(&buf))
 	require.NoError(t, err)
 	require.NoError(t, cmd.Wait())
 
@@ -153,7 +153,7 @@ func TestNew_dontSpawnWithCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 	cancel()
 
-	cmd, err := New(ctx, nil)
+	cmd, err := New(ctx, testhelper.SharedLogger(t), nil)
 	require.Equal(t, err, ctx.Err())
 	require.Nil(t, cmd)
 }
@@ -162,7 +162,7 @@ func TestNew_rejectContextWithoutDone(t *testing.T) {
 	t.Parallel()
 
 	require.PanicsWithValue(t, "command spawned with context without Done() channel", func() {
-		_, err := New(testhelper.ContextWithoutCancel(), []string{"true"})
+		_, err := New(testhelper.ContextWithoutCancel(), testhelper.SharedLogger(t), []string{"true"})
 		require.NoError(t, err)
 	})
 }
@@ -180,7 +180,7 @@ func TestNew_spawnTimeout(t *testing.T) {
 	tick := time.After(spawnTimeout / 2)
 	errCh := make(chan error)
 	go func() {
-		_, err := New(ctx, []string{"true"}, WithSpawnTokenManager(spawnTokenManager))
+		_, err := New(ctx, testhelper.SharedLogger(t), []string{"true"}, WithSpawnTokenManager(spawnTokenManager))
 		errCh <- err
 	}()
 
@@ -214,7 +214,7 @@ func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cancel := context.WithCancel(ctx)
 
-	cmd, err := New(ctx, []string{"cat", "/dev/urandom"}, WithSetupStdout())
+	cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"cat", "/dev/urandom"}, WithSetupStdout())
 	require.NoError(t, err)
 
 	// Read one byte to ensure the process is running.
@@ -251,7 +251,7 @@ func TestNew_setupStdin(t *testing.T) {
 	stdin := "Test value"
 
 	var buf bytes.Buffer
-	cmd, err := New(ctx, []string{"cat"}, WithSetupStdin(), WithStdout(&buf))
+	cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"cat"}, WithSetupStdin(), WithStdout(&buf))
 	require.NoError(t, err)
 
 	_, err = fmt.Fprintf(cmd, "%s", stdin)
@@ -268,14 +268,14 @@ func TestCommand_read(t *testing.T) {
 
 	t.Run("without stdout set up", func(t *testing.T) {
 		require.PanicsWithValue(t, "command has no reader", func() {
-			cmd, err := New(ctx, []string{"echo", "test value"})
+			cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"echo", "test value"})
 			require.NoError(t, err)
 			_, _ = io.ReadAll(cmd)
 		})
 	})
 
 	t.Run("with stdout set up", func(t *testing.T) {
-		cmd, err := New(ctx, []string{"echo", "test value"}, WithSetupStdout())
+		cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"echo", "test value"}, WithSetupStdout())
 		require.NoError(t, err)
 
 		output, err := io.ReadAll(cmd)
@@ -291,7 +291,7 @@ func TestCommand_readPartial(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cmd, err := New(ctx, []string{"head", "-c", "1000000", "/dev/urandom"}, WithSetupStdout())
+	cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"head", "-c", "1000000", "/dev/urandom"}, WithSetupStdout())
 	require.NoError(t, err)
 	require.EqualError(t, cmd.Wait(), "signal: broken pipe")
 }
@@ -301,7 +301,7 @@ func TestNew_nulByteInArgument(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cmd, err := New(ctx, []string{"sh", "-c", "hello\x00world"})
+	cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"sh", "-c", "hello\x00world"})
 	require.Equal(t, fmt.Errorf("detected null byte in command argument %q", "hello\x00world"), err)
 	require.Nil(t, cmd)
 }
@@ -311,7 +311,7 @@ func TestNew_missingBinary(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cmd, err := New(ctx, []string{"command-non-existent"})
+	cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"command-non-existent"})
 	require.EqualError(t, err, "starting process [command-non-existent]: exec: \"command-non-existent\": executable file not found in $PATH")
 	require.Nil(t, cmd)
 }
@@ -330,10 +330,9 @@ func TestCommand_stderrLogging(t *testing.T) {
 	logger := testhelper.NewLogger(t)
 	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
+	cmd, err := New(ctx, logger, []string{binaryPath}, WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.EqualError(t, cmd.Wait(), "exit status 1")
@@ -355,10 +354,9 @@ func TestCommand_stderrLoggingTruncation(t *testing.T) {
 	logger := testhelper.NewLogger(t)
 	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
+	cmd, err := New(ctx, logger, []string{binaryPath}, WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.Error(t, cmd.Wait())
@@ -377,10 +375,9 @@ func TestCommand_stderrLoggingWithNulBytes(t *testing.T) {
 	logger := testhelper.NewLogger(t)
 	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
+	cmd, err := New(ctx, logger, []string{binaryPath}, WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.Error(t, cmd.Wait())
@@ -401,10 +398,9 @@ func TestCommand_stderrLoggingLongLine(t *testing.T) {
 	logger := testhelper.NewLogger(t)
 	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
+	cmd, err := New(ctx, logger, []string{binaryPath}, WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.Error(t, cmd.Wait())
@@ -449,10 +445,9 @@ func TestCommand_stderrLoggingMaxBytes(t *testing.T) {
 	logger := testhelper.NewLogger(t)
 	hook := testhelper.AddLoggerHook(logger)
 	ctx := testhelper.Context(t)
-	ctx = logger.ToContext(ctx)
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, []string{binaryPath}, WithStdout(&stdout))
+	cmd, err := New(ctx, logger, []string{binaryPath}, WithStdout(&stdout))
 	require.NoError(t, err)
 	require.Error(t, cmd.Wait())
 
@@ -472,13 +467,12 @@ func (m mockCgroupManager) AddCommand(*exec.Cmd, ...cgroups.AddCommandOption) (s
 func TestCommand_logMessage(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	logger := testhelper.NewLogger(t)
 	logger.LogrusEntry().Logger.SetLevel(logrus.DebugLevel) //nolint:staticcheck
 	hook := testhelper.AddLoggerHook(logger)
 
-	ctx := logger.ToContext(testhelper.Context(t))
-
-	cmd, err := New(ctx, []string{"echo", "hello world"},
+	cmd, err := New(ctx, logger, []string{"echo", "hello world"},
 		WithCgroup(mockCgroupManager{
 			path: "/sys/fs/cgroup/1",
 		}, nil),
@@ -500,7 +494,7 @@ func TestCommand_withFinalizer(t *testing.T) {
 		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 		finalizerCh := make(chan struct{})
-		_, err := New(ctx, []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
+		_, err := New(ctx, testhelper.SharedLogger(t), []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
 			close(finalizerCh)
 		}))
 		require.NoError(t, err)
@@ -514,7 +508,7 @@ func TestCommand_withFinalizer(t *testing.T) {
 		ctx := testhelper.Context(t)
 
 		finalizerCh := make(chan struct{})
-		cmd, err := New(ctx, []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
+		cmd, err := New(ctx, testhelper.SharedLogger(t), []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
 			close(finalizerCh)
 		}))
 		require.NoError(t, err)
@@ -531,6 +525,7 @@ func TestCommand_withFinalizer(t *testing.T) {
 		wg.Add(2)
 		cmd, err := New(
 			ctx,
+			testhelper.SharedLogger(t),
 			[]string{"echo"},
 			WithFinalizer(func(context.Context, *Command) { wg.Done() }),
 			WithFinalizer(func(context.Context, *Command) { wg.Done() }),
@@ -546,7 +541,7 @@ func TestCommand_withFinalizer(t *testing.T) {
 		//nolint:staticcheck
 		ctx = context.WithValue(ctx, "hello", "world")
 
-		_, err := New(ctx, []string{"echo"}, WithFinalizer(func(ctx context.Context, _ *Command) {
+		_, err := New(ctx, testhelper.SharedLogger(t), []string{"echo"}, WithFinalizer(func(ctx context.Context, _ *Command) {
 			require.Equal(t, "world", ctx.Value("hello"))
 		}))
 		require.NoError(t, err)
@@ -558,7 +553,7 @@ func TestCommand_withFinalizer(t *testing.T) {
 		ctx := testhelper.Context(t)
 
 		finalizerCh := make(chan struct{})
-		_, err := New(ctx, []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
+		_, err := New(ctx, testhelper.SharedLogger(t), []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
 			close(finalizerCh)
 		}))
 		require.NoError(t, err)

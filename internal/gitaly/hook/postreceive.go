@@ -11,7 +11,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -119,12 +118,12 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 
 	if isPrimary(payload) {
 		if err := m.postReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
-			log.FromContext(ctx).WithError(err).Warn("stopping transaction because post-receive hook failed")
+			m.logger.WithError(err).WarnContext(ctx, "stopping transaction because post-receive hook failed")
 
 			// If the post-receive hook declines the push, then we need to stop any
 			// secondaries voting on the transaction.
 			if err := m.stopTransaction(ctx, payload); err != nil {
-				log.FromContext(ctx).WithError(err).Error("failed stopping transaction in post-receive hook")
+				m.logger.WithError(err).ErrorContext(ctx, "failed stopping transaction in post-receive hook")
 			}
 
 			return err

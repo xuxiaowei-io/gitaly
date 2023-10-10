@@ -35,7 +35,7 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
 
 	pool, err := Create(
 		ctx,

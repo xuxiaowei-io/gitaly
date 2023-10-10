@@ -52,7 +52,7 @@ func TestDisconnect(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		txManager := transaction.NewManager(cfg, nil)
+		txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), nil)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 

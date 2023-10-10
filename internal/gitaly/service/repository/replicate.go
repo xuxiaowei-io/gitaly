@@ -221,7 +221,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := command.New(ctx, []string{"tar", "-C", targetPath, "-xvf", "-"},
+	cmd, err := command.New(ctx, s.logger, []string{"tar", "-C", targetPath, "-xvf", "-"},
 		command.WithStdin(snapshotReader),
 		command.WithStderr(stderr),
 	)
@@ -325,7 +325,7 @@ func (s *server) syncCustomHooks(ctx context.Context, source, target *gitalypb.R
 		return request.GetData(), err
 	})
 
-	if err := repoutil.SetCustomHooks(ctx, s.locator, s.txManager, reader, target); err != nil {
+	if err := repoutil.SetCustomHooks(ctx, s.logger, s.locator, s.txManager, reader, target); err != nil {
 		return fmt.Errorf("setting custom hooks: %w", err)
 	}
 
