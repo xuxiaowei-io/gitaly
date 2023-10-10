@@ -29,7 +29,7 @@ type voter struct {
 
 func runPraefectServerAndTxMgr(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *transactions.Manager, testhelper.Cleanup) {
 	conf := testConfig(1)
-	txMgr := transactions.NewManager(conf)
+	txMgr := transactions.NewManager(conf, testhelper.SharedLogger(tb))
 	cc, _, cleanup := RunPraefectServer(tb, ctx, conf, BuildOptions{
 		WithTxMgr:   txMgr,
 		WithNodeMgr: nullNodeMgr{}, // to suppress node address issues
@@ -255,7 +255,7 @@ func TestTransactionWithContextCancellation(t *testing.T) {
 func TestTransactionRegistrationWithInvalidNodesFails(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	txMgr := transactions.NewManager(config.Config{})
+	txMgr := transactions.NewManager(config.Config{}, testhelper.NewLogger(t))
 
 	_, _, err := txMgr.RegisterTransaction(ctx, []transactions.Voter{}, 1)
 	require.Equal(t, transactions.ErrMissingNodes, err)
@@ -303,7 +303,7 @@ func TestTransactionRegistrationWithInvalidThresholdFails(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	txMgr := transactions.NewManager(config.Config{})
+	txMgr := transactions.NewManager(config.Config{}, testhelper.NewLogger(t))
 
 	for _, tc := range tc {
 		t.Run(tc.desc, func(t *testing.T) {

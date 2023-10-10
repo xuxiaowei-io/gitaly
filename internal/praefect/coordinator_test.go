@@ -92,8 +92,10 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 				},
 			}
 
+			logger := testhelper.NewLogger(t)
+
 			coordinator := NewCoordinator(
-				testhelper.NewLogger(t),
+				logger,
 				datastore.NewPostgresReplicationEventQueue(db),
 				rs,
 				NewNodeManagerRouter(&nodes.MockManager{GetShardFunc: func(vs string) (nodes.Shard, error) {
@@ -104,7 +106,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 						}},
 					}, nil
 				}}, rs),
-				transactions.NewManager(conf),
+				transactions.NewManager(conf, logger),
 				conf,
 				protoregistry.GitalyProtoPreregistered,
 			)
@@ -163,9 +165,10 @@ func TestStreamDirectorMutator(t *testing.T) {
 	}
 
 	db := testdb.New(t)
-	txMgr := transactions.NewManager(conf)
+	logger := testhelper.SharedLogger(t)
+	txMgr := transactions.NewManager(conf, logger)
 
-	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil, testhelper.SharedLogger(t))
+	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil, logger)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -485,10 +488,11 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 		},
 	}
 
-	txMgr := transactions.NewManager(conf)
+	logger := testhelper.NewLogger(t)
+	txMgr := transactions.NewManager(conf, logger)
 
 	coordinator := NewCoordinator(
-		testhelper.NewLogger(t),
+		logger,
 		datastore.NewPostgresReplicationEventQueue(testdb.New(t)),
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
@@ -598,10 +602,11 @@ func TestStreamDirectorMutator_SecondaryErrorHandling(t *testing.T) {
 		},
 	}
 
-	txMgr := transactions.NewManager(conf)
+	logger := testhelper.NewLogger(t)
+	txMgr := transactions.NewManager(conf, logger)
 
 	coordinator := NewCoordinator(
-		testhelper.NewLogger(t),
+		logger,
 		datastore.NewPostgresReplicationEventQueue(testdb.New(t)),
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
@@ -704,12 +709,14 @@ func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
 		},
 	}
 
+	logger := testhelper.NewLogger(t)
+
 	coordinator := NewCoordinator(
-		testhelper.NewLogger(t),
+		logger,
 		&datastore.MockReplicationEventQueue{},
 		rs,
 		router,
-		transactions.NewManager(conf),
+		transactions.NewManager(conf, logger),
 		conf,
 		protoregistry.GitalyProtoPreregistered,
 	)
@@ -1066,15 +1073,15 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	entry := testhelper.SharedLogger(t)
+	logger := testhelper.SharedLogger(t)
 	rs := datastore.MockRepositoryStore{}
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(logger, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Minute)
 	defer nodeMgr.Stop()
 
-	txMgr := transactions.NewManager(conf)
+	txMgr := transactions.NewManager(conf, logger)
 
 	for _, tc := range []struct {
 		desc   string
@@ -1172,7 +1179,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	entry := testhelper.SharedLogger(t)
+	logger := testhelper.SharedLogger(t)
 
 	repoStore := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {
@@ -1180,12 +1187,12 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		},
 	}
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(logger, conf, nil, repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Minute)
 	defer nodeMgr.Stop()
 
-	txMgr := transactions.NewManager(conf)
+	txMgr := transactions.NewManager(conf, logger)
 
 	coordinator := NewCoordinator(
 		testhelper.NewLogger(t),
@@ -1565,11 +1572,12 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				conf.DefaultReplicationFactors(),
 			)
 
-			txMgr := transactions.NewManager(conf)
+			logger := testhelper.NewLogger(t)
+			txMgr := transactions.NewManager(conf, logger)
 			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 
 			coordinator := NewCoordinator(
-				testhelper.NewLogger(t),
+				logger,
 				queueInterceptor,
 				repositoryStore,
 				router,
@@ -1720,14 +1728,14 @@ func TestAbsentCorrelationID(t *testing.T) {
 	}
 	ctx := testhelper.Context(t)
 
-	entry := testhelper.SharedLogger(t)
+	logger := testhelper.SharedLogger(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(logger, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
 
-	txMgr := transactions.NewManager(conf)
+	txMgr := transactions.NewManager(conf, logger)
 	rs := datastore.MockRepositoryStore{}
 
 	coordinator := NewCoordinator(

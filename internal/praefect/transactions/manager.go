@@ -23,6 +23,7 @@ var ErrNotFound = errors.New("transaction not found")
 type Manager struct {
 	idSequence            uint64
 	lock                  sync.Mutex
+	logger                log.Logger
 	transactions          map[uint64]*transaction
 	counterMetric         *prometheus.CounterVec
 	delayMetric           *prometheus.HistogramVec
@@ -30,8 +31,9 @@ type Manager struct {
 }
 
 // NewManager creates a new transactions Manager.
-func NewManager(cfg config.Config) *Manager {
+func NewManager(cfg config.Config, logger log.Logger) *Manager {
 	return &Manager{
+		logger:       logger.WithField("component", "transactions.Manager"),
 		transactions: make(map[uint64]*transaction),
 		counterMetric: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -74,10 +76,6 @@ func (mgr *Manager) Collect(metrics chan<- prometheus.Metric) {
 	mgr.subtransactionsMetric.Collect(metrics)
 }
 
-func (mgr *Manager) log(ctx context.Context) log.Logger {
-	return log.FromContext(ctx).WithField("component", "transactions.Manager")
-}
-
 // CancelFunc is the transaction cancellation function returned by
 // `RegisterTransaction`. Calling it will cause the transaction to be removed
 // from the transaction manager.
@@ -103,10 +101,10 @@ func (mgr *Manager) RegisterTransaction(ctx context.Context, voters []Voter, thr
 	}
 	mgr.transactions[transactionID] = transaction
 
-	mgr.log(ctx).WithFields(log.Fields{
+	mgr.logger.WithFields(log.Fields{
 		"transaction.id":     transactionID,
 		"transaction.voters": voters,
-	}).Debug("RegisterTransaction")
+	}).DebugContext(ctx, "RegisterTransaction")
 
 	mgr.counterMetric.WithLabelValues("registered").Add(float64(len(voters)))
 
@@ -136,11 +134,11 @@ func (mgr *Manager) cancelTransaction(ctx context.Context, transaction *transact
 		}
 	}
 
-	mgr.log(ctx).WithFields(log.Fields{
+	mgr.logger.WithFields(log.Fields{
 		"transaction.id":              transaction.ID(),
 		"transaction.committed":       fmt.Sprintf("%d/%d", committed, len(state)),
 		"transaction.subtransactions": transaction.CountSubtransactions(),
-	}).Info("transaction completed")
+	}).InfoContext(ctx, "transaction completed")
 
 	return nil
 }
@@ -170,14 +168,14 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 		mgr.delayMetric.WithLabelValues("vote").Observe(delay.Seconds())
 	}()
 
-	logger := mgr.log(ctx).WithFields(log.Fields{
+	logger := mgr.logger.WithFields(log.Fields{
 		"transaction.id":    transactionID,
 		"transaction.voter": node,
 		"transaction.hash":  vote.String(),
 	})
 
 	mgr.counterMetric.WithLabelValues("started").Inc()
-	logger.Debug("VoteTransaction")
+	logger.DebugContext(ctx, "VoteTransaction")
 
 	if err := mgr.voteTransaction(ctx, transactionID, node, vote); err != nil {
 		var counterLabel string
@@ -188,13 +186,13 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 			// termination, so we should not log an error here.
 		} else if errors.Is(err, ErrTransactionFailed) {
 			counterLabel = "failed"
-			logger.WithError(err).Error("VoteTransaction: did not reach quorum")
+			logger.WithError(err).ErrorContext(ctx, "VoteTransaction: did not reach quorum")
 		} else if errors.Is(err, ErrTransactionCanceled) {
 			counterLabel = "canceled"
-			logger.WithError(err).Error("VoteTransaction: transaction was canceled")
+			logger.WithError(err).ErrorContext(ctx, "VoteTransaction: transaction was canceled")
 		} else {
 			counterLabel = "invalid"
-			logger.WithError(err).Error("VoteTransaction: failure")
+			logger.WithError(err).ErrorContext(ctx, "VoteTransaction: failure")
 		}
 
 		mgr.counterMetric.WithLabelValues(counterLabel).Inc()
@@ -202,7 +200,7 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 		return err
 	}
 
-	logger.Info("VoteTransaction: transaction committed")
+	logger.InfoContext(ctx, "VoteTransaction: transaction committed")
 	mgr.counterMetric.WithLabelValues("committed").Inc()
 
 	return nil
@@ -222,9 +220,9 @@ func (mgr *Manager) StopTransaction(ctx context.Context, transactionID uint64) e
 		return err
 	}
 
-	mgr.log(ctx).WithFields(log.Fields{
+	mgr.logger.WithFields(log.Fields{
 		"transaction.id": transactionID,
-	}).Debug("VoteTransaction: transaction stopped")
+	}).DebugContext(ctx, "VoteTransaction: transaction stopped")
 	mgr.counterMetric.WithLabelValues("stopped").Inc()
 
 	return nil

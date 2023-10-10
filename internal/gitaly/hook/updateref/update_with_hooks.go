@@ -24,6 +24,7 @@ import (
 // UpdaterWithHooks updates a ref with Git hooks.
 type UpdaterWithHooks struct {
 	cfg           config.Cfg
+	logger        log.Logger
 	locator       storage.Locator
 	hookManager   hook.Manager
 	gitCmdFactory git.CommandFactory
@@ -132,6 +133,7 @@ func (e Error) Error() string {
 // NewUpdaterWithHooks creates a new instance of a struct that will update a Git reference.
 func NewUpdaterWithHooks(
 	cfg config.Cfg,
+	logger log.Logger,
 	locator storage.Locator,
 	hookManager hook.Manager,
 	gitCmdFactory git.CommandFactory,
@@ -139,6 +141,7 @@ func NewUpdaterWithHooks(
 ) *UpdaterWithHooks {
 	return &UpdaterWithHooks{
 		cfg:           cfg,
+		logger:        logger,
 		locator:       locator,
 		hookManager:   hookManager,
 		gitCmdFactory: gitCmdFactory,
@@ -303,7 +306,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 		if errors.As(err, &customHookErr) {
 			// Only log the error when we've got a custom-hook error, but otherwise
 			// ignore it and continue with whatever we have been doing.
-			log.FromContext(ctx).WithError(err).Error("custom post-receive hook returned an error")
+			u.logger.WithError(err).ErrorContext(ctx, "custom post-receive hook returned an error")
 		} else {
 			return fmt.Errorf("running post-receive hooks: %w", wrapHookError(err, git.PostReceiveHook, stdout.String(), stderr.String()))
 		}

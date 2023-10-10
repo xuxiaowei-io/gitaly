@@ -44,13 +44,15 @@ var (
 // atomically created/renamed files. Read more about leaseKeyer's design:
 // https://gitlab.com/gitlab-org/gitaly/issues/1745
 type leaseKeyer struct {
+	logger   log.Logger
 	locator  storage.Locator
 	countErr func(error) error
 }
 
 // newLeaseKeyer initializes a new leaseKeyer
-func newLeaseKeyer(locator storage.Locator, countErr func(error) error) leaseKeyer {
+func newLeaseKeyer(logger log.Logger, locator storage.Locator, countErr func(error) error) leaseKeyer {
 	return leaseKeyer{
+		logger:   logger,
 		locator:  locator,
 		countErr: countErr,
 	}
@@ -92,9 +94,7 @@ func (keyer leaseKeyer) updateLatest(ctx context.Context, repo *gitalypb.Reposit
 		return "", err
 	}
 
-	log.FromContext(ctx).
-		WithField("diskcache", nextGenID).
-		Info("diskcache state change")
+	keyer.logger.WithField("diskcache", nextGenID).InfoContext(ctx, "diskcache state change")
 
 	return nextGenID, nil
 }

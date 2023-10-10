@@ -492,7 +492,7 @@ func TestVerifier(t *testing.T) {
 			db := testdb.New(t)
 			logger := testhelper.SharedLogger(t)
 			sidechannelRegistry := sidechannel.NewRegistry()
-			txManager := transactions.NewManager(config.Config{})
+			txManager := transactions.NewManager(config.Config{}, logger)
 			nodeSet, err := DialNodes(
 				ctx,
 				conf.VirtualStorages,

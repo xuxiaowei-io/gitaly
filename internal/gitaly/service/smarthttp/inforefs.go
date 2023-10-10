@@ -57,7 +57,7 @@ func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, r
 		"service": service,
 	}).DebugContext(ctx, "handleInfoRefs")
 
-	cmdOpts := []git.CmdOpt{git.WithGitProtocol(req), git.WithStdout(w)}
+	cmdOpts := []git.CmdOpt{git.WithGitProtocol(s.logger, req), git.WithStdout(w)}
 	if service == "receive-pack" {
 		cmdOpts = append(cmdOpts, git.WithRefTxHook(req.Repository))
 	}

@@ -95,7 +95,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		})
 	}
 
-	sshCommand, clean, err := git.BuildSSHInvocation(ctx, firstRequest.GetSshKey(), firstRequest.GetKnownHosts())
+	sshCommand, clean, err := git.BuildSSHInvocation(ctx, s.logger, firstRequest.GetSshKey(), firstRequest.GetKnownHosts())
 	if err != nil {
 		return fmt.Errorf("build ssh invocation: %w", err)
 	}

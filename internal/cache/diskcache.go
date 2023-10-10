@@ -184,7 +184,7 @@ func New(cfg config.Cfg, locator storage.Locator, logger log.Logger, opts ...Opt
 			},
 		),
 	}
-	cache.keyer = newLeaseKeyer(locator, cache.countErr)
+	cache.keyer = newLeaseKeyer(logger, locator, cache.countErr)
 
 	return cache
 }
@@ -242,9 +242,9 @@ func (c *DiskCache) GetStream(ctx context.Context, repo *gitalypb.Repository, re
 		return nil, err
 	}
 
-	log.FromContext(ctx).
+	c.logger.
 		WithField("stream_path", respPath).
-		Info("getting stream")
+		InfoContext(ctx, "getting stream")
 
 	respF, err := os.Open(respPath)
 	switch {
@@ -281,9 +281,9 @@ func (c *DiskCache) PutStream(ctx context.Context, repo *gitalypb.Repository, re
 		return err
 	}
 
-	log.FromContext(ctx).
+	c.logger.
 		WithField("stream_path", reqPath).
-		Info("putting stream")
+		InfoContext(ctx, "putting stream")
 
 	var n int64
 	isWinner := c.af.trackFile(reqPath)

@@ -39,7 +39,7 @@ func TestManager_CancelTransactionNodeVoter(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			manager := NewManager(config.Config{})
+			manager := NewManager(config.Config{}, testhelper.NewLogger(t))
 
 			var id uint64
 			if tc.register {

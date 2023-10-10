@@ -77,7 +77,7 @@ func TestServerFactory(t *testing.T) {
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 
 	rs := datastore.MockRepositoryStore{}
-	txMgr := transactions.NewManager(conf)
+	txMgr := transactions.NewManager(conf, logger)
 	sidechannelRegistry := sidechannel.NewRegistry()
 	clientHandshaker := backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(logger, transaction.NewServer(txMgr), sidechannelRegistry), backchannel.DefaultConfiguration())
 	nodeMgr, err := nodes.NewManager(logger, conf, nil, rs, &promtest.MockHistogramVec{}, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, sidechannelRegistry)

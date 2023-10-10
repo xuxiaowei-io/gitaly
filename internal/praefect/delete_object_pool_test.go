@@ -80,7 +80,7 @@ func TestDeleteObjectPoolHandler(t *testing.T) {
 		Streams: []grpc.StreamDesc{
 			{
 				StreamName: "DeleteObjectPool",
-				Handler: DeleteObjectPoolHandler(rs, Connections{
+				Handler: DeleteObjectPoolHandler(rs, logger, Connections{
 					"virtual-storage": {
 						"primary":   primaryConn,
 						"secondary": secondaryConn,

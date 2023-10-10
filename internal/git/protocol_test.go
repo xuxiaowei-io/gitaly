@@ -34,7 +34,7 @@ func TestGitProtocolEnv(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 
-			actual := gitProtocolEnv(ctx, tt.msg)
+			actual := gitProtocolEnv(ctx, testhelper.NewLogger(t), tt.msg)
 			require.Equal(t, tt.env, actual)
 		})
 	}

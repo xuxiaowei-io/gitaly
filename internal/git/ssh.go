@@ -13,7 +13,7 @@ import (
 
 // BuildSSHInvocation builds a command line to invoke SSH with the provided key and known hosts.
 // Both are optional.
-func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string, func(), error) {
+func BuildSSHInvocation(ctx context.Context, logger log.Logger, sshKey, knownHosts string) (string, func(), error) {
 	const sshCommand = "ssh"
 	if sshKey == "" && knownHosts == "" {
 		return sshCommand, func() {}, nil
@@ -26,7 +26,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 
 	cleanup := func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			log.FromContext(ctx).WithError(err).Error("failed to remove tmp directory with ssh key/config")
+			logger.WithError(err).ErrorContext(ctx, "failed to remove tmp directory with ssh key/config")
 		}
 	}
 

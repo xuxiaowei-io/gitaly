@@ -191,7 +191,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 			ctx := testhelper.Context(t)
 
-			txMgr := transactions.NewManager(conf)
+			txMgr := transactions.NewManager(conf, logger)
 
 			tx := db.Begin(t)
 			defer tx.Rollback(t)

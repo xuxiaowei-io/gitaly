@@ -251,7 +251,7 @@ func server(
 		}
 	}
 
-	transactionManager := transactions.NewManager(conf)
+	transactionManager := transactions.NewManager(conf, logger)
 	sidechannelRegistry := sidechannel.NewRegistry()
 
 	backchannelCfg := backchannel.DefaultConfiguration()
