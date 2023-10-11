@@ -794,7 +794,7 @@ func TestProxyWrites(t *testing.T) {
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
-				Name: "default",
+				Name: testhelper.DefaultStorageName,
 				Nodes: []*config.Node{
 					{
 						Storage: cfg0.Storages[0].Name,
@@ -821,11 +821,18 @@ func TestProxyWrites(t *testing.T) {
 	defer nodeMgr.Stop()
 	ctx := testhelper.Context(t)
 
-	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-	})
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+	relativePath := gittest.NewRepositoryName(t)
+	repo := &gitalypb.Repository{
+		StorageName:  testhelper.DefaultStorageName,
+		RelativePath: relativePath,
+	}
+	for _, cfg := range []gconfig.Cfg{cfg0, cfg1, cfg2} {
+		_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+			RelativePath:           relativePath,
+		})
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+	}
 
 	rs := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, *datastructure.Set[string], error) {

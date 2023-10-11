@@ -3,17 +3,15 @@ package transaction_test
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -45,8 +43,8 @@ func (s *testTransactionServer) StopTransaction(ctx context.Context, in *gitalyp
 func TestPoolManager_Vote(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	transactionServer, transactionServerAddr := runTransactionServer(t, cfg)
 	ctx := testhelper.Context(t)
+	transactionServer, transactionServerAddr := runTransactionServer(t, ctx)
 	logger := testhelper.NewLogger(t)
 
 	registry := backchannel.NewRegistry()
@@ -195,8 +193,8 @@ func TestPoolManager_Vote(t *testing.T) {
 func TestPoolManager_Stop(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	transactionServer, transactionServerAddr := runTransactionServer(t, cfg)
 	ctx := testhelper.Context(t)
+	transactionServer, transactionServerAddr := runTransactionServer(t, ctx)
 	logger := testhelper.NewLogger(t)
 
 	registry := backchannel.NewRegistry()
@@ -248,11 +246,22 @@ func TestPoolManager_Stop(t *testing.T) {
 	}
 }
 
-func runTransactionServer(t *testing.T, cfg config.Cfg) (*testTransactionServer, string) {
+func runTransactionServer(t *testing.T, ctx context.Context) (*testTransactionServer, string) {
 	transactionServer := &testTransactionServer{}
-	cfg.ListenAddr = "localhost:0" // pushes gRPC to listen on the TCP address
-	addr := testserver.RunGitalyServer(t, cfg, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRefTransactionServer(srv, transactionServer)
-	}, testserver.WithDisablePraefect())
-	return transactionServer, addr
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+
+	srv := grpc.NewServer()
+	gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+
+	serveErr := make(chan error)
+	t.Cleanup(func() {
+		require.NoError(t, <-serveErr)
+	})
+
+	go func() { serveErr <- srv.Serve(ln) }()
+	t.Cleanup(srv.Stop)
+
+	return transactionServer, "tcp://" + ln.Addr().String()
 }

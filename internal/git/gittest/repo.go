@@ -184,16 +184,16 @@ func CreateRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, config
 
 		tb.Cleanup(func() {
 			// The ctx parameter would be canceled by now as the tests defer the cancellation.
-			_, err := client.RemoveRepository(context.TODO(), &gitalypb.RemoveRepositoryRequest{
+			if _, err := client.RemoveRepository(context.TODO(), &gitalypb.RemoveRepositoryRequest{
 				Repository: repository,
-			})
+			}); err != nil {
+				if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+					// The tests may delete the repository, so this is not a failure.
+					return
+				}
 
-			if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
-				// The tests may delete the repository, so this is not a failure.
-				return
+				tb.Logf("failed removing repository: %q", err)
 			}
-
-			require.NoError(tb, err)
 		})
 
 		repoPath = filepath.Join(storage.Path, getReplicaPath(tb, ctx, conn, repository))
