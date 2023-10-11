@@ -272,10 +272,10 @@ func TestTransactionManager(t *testing.T) {
 		BeforeAppendLogEntry hookFunc
 		// BeforeDeleteLogEntry is called before a log entry is deleted.
 		BeforeDeleteLogEntry hookFunc
-		// beforeReadAppliedLogIndex is invoked before a the applied log index is read.
-		BeforeReadAppliedLogIndex hookFunc
-		// beforeStoreAppliedLogIndex is invoked before a the applied log index is stored.
-		BeforeStoreAppliedLogIndex hookFunc
+		// BeforeReadAppliedLSN is invoked before the applied LSN is read.
+		BeforeReadAppliedLSN hookFunc
+		// BeforeStoreAppliedLSN is invoked before the applied LSN is stored.
+		BeforeStoreAppliedLSN hookFunc
 		// WaitForTransactionsWhenClosing waits for a in-flight to finish before returning
 		// from Run.
 		WaitForTransactionsWhenClosing bool
@@ -316,7 +316,7 @@ func TestTransactionManager(t *testing.T) {
 		// Context is the context to use for the Begin call.
 		Context context.Context
 		// ExpectedSnapshot is the expected LSN this transaction should read the repsoitory's state at.
-		ExpectedSnapshotLSN LogIndex
+		ExpectedSnapshotLSN LSN
 		// ExpectedError is the error expected to be returned from the Begin call.
 		ExpectedError error
 	}
@@ -454,7 +454,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -477,7 +477,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -505,7 +505,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -556,7 +556,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 			},
 		},
@@ -601,7 +601,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 			},
 		},
@@ -635,7 +635,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -710,7 +710,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -768,7 +768,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -821,7 +821,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -866,7 +866,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -907,7 +907,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -943,7 +943,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -982,7 +982,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1028,7 +1028,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1084,7 +1084,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1120,7 +1120,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 			},
 		},
@@ -1144,7 +1144,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 			},
 		},
@@ -1181,7 +1181,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1225,7 +1225,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1268,7 +1268,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1311,7 +1311,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1354,7 +1354,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 			},
 		},
@@ -1377,7 +1377,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1426,7 +1426,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 			},
 		},
@@ -1450,7 +1450,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1495,7 +1495,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1540,7 +1540,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1590,7 +1590,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1624,7 +1624,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1655,7 +1655,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1688,7 +1688,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
@@ -1726,7 +1726,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{
 					Hooks: testHooks{
-						BeforeStoreAppliedLogIndex: func(hookContext) {
+						BeforeStoreAppliedLSN: func(hookContext) {
 							panic(errSimulatedCrash)
 						},
 					},
@@ -1749,7 +1749,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
@@ -1819,7 +1819,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
@@ -1864,7 +1864,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1903,7 +1903,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1945,7 +1945,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -1960,7 +1960,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{
 					Hooks: testHooks{
-						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
+						BeforeStoreAppliedLSN: func(hookCtx hookContext) {
 							panic(errSimulatedCrash)
 						},
 					},
@@ -1993,7 +1993,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2038,7 +2038,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2088,7 +2088,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2150,7 +2150,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				expectedState: StateAssertion{
 					Database: DatabaseState{
-						string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+						string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 					},
 					Repositories: RepositoryStates{
 						relativePath: {
@@ -2239,7 +2239,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2282,7 +2282,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2329,7 +2329,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2382,7 +2382,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2424,7 +2424,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2442,7 +2442,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{
 					Hooks: testHooks{
-						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
+						BeforeStoreAppliedLSN: func(hookCtx hookContext) {
 							panic(errSimulatedCrash)
 						},
 					},
@@ -2479,7 +2479,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Repositories: RepositoryStates{
 					relativePath: {
@@ -2627,7 +2627,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(3).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
@@ -2677,7 +2677,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -2775,7 +2775,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(3).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -2824,7 +2824,7 @@ func TestTransactionManager(t *testing.T) {
 				Prune{},
 				StartManager{
 					Hooks: testHooks{
-						BeforeStoreAppliedLogIndex: func(hookContext) {
+						BeforeStoreAppliedLSN: func(hookContext) {
 							panic(errSimulatedCrash)
 						},
 					},
@@ -2848,7 +2848,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -2933,7 +2933,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -2979,7 +2979,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
@@ -3009,7 +3009,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -3054,7 +3054,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -3137,7 +3137,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -3212,7 +3212,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -3245,7 +3245,7 @@ func TestTransactionManager(t *testing.T) {
 					//
 					// The Manager starts up and we expect the pack file to be gone at the end of the test.
 					ModifyRepository: func(_ testing.TB, _ config.Cfg, repoPath string) {
-						packFilePath := packFilePath(walFilesPathForLogIndex(repoPath, 1))
+						packFilePath := packFilePath(walFilesPathForLSN(repoPath, 1))
 						require.NoError(t, os.MkdirAll(filepath.Dir(packFilePath), perm.PrivateDir))
 						require.NoError(t, os.WriteFile(
 							packFilePath,
@@ -3281,7 +3281,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3308,7 +3308,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3335,7 +3335,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3364,7 +3364,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3393,7 +3393,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3435,7 +3435,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3445,7 +3445,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{
 					Hooks: testHooks{
-						BeforeStoreAppliedLogIndex: func(hookContext) {
+						BeforeStoreAppliedLSN: func(hookContext) {
 							panic(errSimulatedCrash)
 						},
 					},
@@ -3477,7 +3477,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3533,7 +3533,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
@@ -3579,7 +3579,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Repositories: RepositoryStates{},
 			},
@@ -3589,7 +3589,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{
 					Hooks: testHooks{
-						BeforeReadAppliedLogIndex: func(hookContext) {
+						BeforeReadAppliedLSN: func(hookContext) {
 							// Raise a panic when the manager is about to read the applied log
 							// index when initializing. In reality this would crash the server but
 							// in tests it serves as a way to abort the initialization in correct
@@ -3634,7 +3634,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 			},
 		},
@@ -3650,7 +3650,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 			},
 		},
@@ -3829,7 +3829,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(1).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -3942,7 +3942,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLogIndex(partitionID)): LogIndex(2).toProto(),
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -4129,9 +4129,9 @@ func TestTransactionManager(t *testing.T) {
 								inflightTransactions.Wait()
 							}
 						},
-						beforeDeleteLogEntry:       step.Hooks.BeforeDeleteLogEntry,
-						beforeReadAppliedLogIndex:  step.Hooks.BeforeReadAppliedLogIndex,
-						beforeStoreAppliedLogIndex: step.Hooks.BeforeStoreAppliedLogIndex,
+						beforeDeleteLogEntry:  step.Hooks.BeforeDeleteLogEntry,
+						beforeReadAppliedLSN:  step.Hooks.BeforeReadAppliedLSN,
+						beforeStoreAppliedLSN: step.Hooks.BeforeStoreAppliedLSN,
 					})
 
 					go func() {

@@ -4,10 +4,10 @@ package gitaly;
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
-// LogEntry is a single entry in a repository's write-ahead log.
+// LogEntry is a single entry in a partition's write-ahead log.
 //
 // Schema for :
-// - `repository/<repository_id>/log/entry/<log_index>`.
+// - `partition/<partition_id>/log/entry/<log_index>`.
 message LogEntry {
   // ReferenceUpdate models a single reference update.
   message ReferenceUpdate {
@@ -58,12 +58,12 @@ message LogEntry {
   RepositoryDeletion repository_deletion = 6;
 }
 
-// LogIndex serializes a log index. It's used for storing a repository's
-// applied log index in the database.
+// LSN serializes a log sequence number. It's used for storing a partition's
+// applied LSN in the database.
 //
 // Schema for:
-// - `repository/<repository_id>/log/index/applied`
-message LogIndex {
-  // log_index is an index pointing to a position in the log.
-  uint64 log_index = 1;
+// - `partition/<partition_id>/applied_lsn`
+message LSN {
+  // value is an LSN pointing to a position in the log.
+  uint64 value = 1;
 }
