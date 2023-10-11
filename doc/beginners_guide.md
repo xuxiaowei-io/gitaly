@@ -229,9 +229,9 @@ The `testhelper` package provides functions to create configurations to run Gita
 
 ### Invoking gRPC endpoints locally
 
-Gitaly listens on a UNIX socket when operated locally via the GDK. You can use tools like
+Gitaly listens on a UNIX socket when operated locally using GDK. You can use tools like
 [`grpcurl`](https://github.com/fullstorydev/grpcurl) and [`grpcgui`](https://github.com/fullstorydev/grpcui)
-to invoke Gitaly's gRPC endpoints locally. To do this:
+to invoke the gRPC endpoints of Gitaly locally:
 
 1. Identify the address of the socket:
    - If using Praefect, the address is the value of the `socket_path` field in one of the `gitaly/gitaly-*.praefect.toml` files.
