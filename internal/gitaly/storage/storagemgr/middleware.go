@@ -249,7 +249,7 @@ func transactionalizeRequest(ctx context.Context, logger log.Logger, txRegistry 
 		return transactionalizedRequest{}, err
 	}
 
-	tx, err := mgr.Begin(ctx, repo.StorageName, repo.RelativePath, TransactionOptions{ReadOnly: methodInfo.Operation == protoregistry.OpAccessor})
+	tx, err := mgr.Begin(ctx, repo.StorageName, repo.RelativePath, methodInfo.Operation == protoregistry.OpAccessor)
 	if err != nil {
 		return transactionalizedRequest{}, fmt.Errorf("begin transaction: %w", err)
 	}

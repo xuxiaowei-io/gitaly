@@ -200,19 +200,15 @@ type Transaction struct {
 	includedObjects          map[git.ObjectID]struct{}
 }
 
-// TransactionOptions configures transaction options when beginning a transaction.
-type TransactionOptions struct {
-	// ReadOnly indicates whether this is a read-only transaction. Read-only transactions are not
-	// configured with a quarantine directory and do not commit a log entry.
-	ReadOnly bool
-}
-
 // Begin opens a new transaction. The caller must call either Commit or Rollback to release
 // the resources tied to the transaction. The returned Transaction is not safe for concurrent use.
 //
 // The returned Transaction's read snapshot includes all writes that were committed prior to the
 // Begin call. Begin blocks until the committed writes have been applied to the repository.
-func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOptions) (_ *Transaction, returnedErr error) {
+//
+// readOnly indicates whether this is a read-only transaction. Read-only transactions are not
+// configured with a quarantine directory and do not commit a log entry.
+func (mgr *TransactionManager) Begin(ctx context.Context, readOnly bool) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
 	// and the LSNs are loaded.
 	select {
@@ -227,7 +223,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 	mgr.mutex.Lock()
 
 	txn := &Transaction{
-		readOnly:     opts.ReadOnly,
+		readOnly:     readOnly,
 		commit:       mgr.commit,
 		snapshotLSN:  mgr.appendedLSN,
 		finished:     make(chan struct{}),

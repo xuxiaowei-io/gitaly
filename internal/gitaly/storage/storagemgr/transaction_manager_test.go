@@ -313,8 +313,8 @@ func TestTransactionManager(t *testing.T) {
 		// TransactionID is the identifier given to the transaction created. This is used to identify
 		// the transaction in later steps.
 		TransactionID int
-		// TransactionOptions are the options to use in beginning this transaction.
-		TransactionOptions TransactionOptions
+		// ReadOnly indicates whether this is a read-only transaction.
+		ReadOnly bool
 		// Context is the context to use for the Begin call.
 		Context context.Context
 		// ExpectedSnapshot is the expected LSN this transaction should read the repsoitory's state at.
@@ -3688,9 +3688,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					ReadOnly: true,
 				},
 				Commit{},
 			},
@@ -3700,9 +3698,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					ReadOnly: true,
 				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
@@ -3717,9 +3713,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					ReadOnly: true,
 				},
 				Commit{
 					DefaultBranchUpdate: &DefaultBranchUpdate{
@@ -3734,9 +3728,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					ReadOnly: true,
 				},
 				Commit{
 					CustomHooksUpdate: &CustomHooksUpdate{
@@ -3751,9 +3743,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					ReadOnly: true,
 				},
 				Commit{
 					DeleteRepository: true,
@@ -3766,9 +3756,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					ReadOnly: true,
 				},
 				Commit{
 					IncludeObjects: []git.ObjectID{setup.Commits.First.OID},
@@ -4618,13 +4606,13 @@ func TestTransactionManager(t *testing.T) {
 						beginCtx = step.Context
 					}
 
-					transaction, err := transactionManager.Begin(beginCtx, step.TransactionOptions)
+					transaction, err := transactionManager.Begin(beginCtx, step.ReadOnly)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
 						require.Equal(t, step.ExpectedSnapshotLSN, transaction.SnapshotLSN())
 					}
 
-					if step.TransactionOptions.ReadOnly {
+					if step.ReadOnly {
 						require.Empty(t,
 							transaction.quarantineDirectory,
 							"read-only transaction should not have a quarantine directory",
@@ -4872,7 +4860,7 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 			// Begin a transaction to wait until the manager has applied all log entries currently
 			// committed. This ensures the disk state assertions run with all log entries fully applied
 			// to the repository.
-			tx, err := mgr.Begin(ctx, TransactionOptions{})
+			tx, err := mgr.Begin(ctx, false)
 			require.NoError(t, err)
 			require.NoError(t, tx.Rollback())
 
@@ -5018,7 +5006,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				require.NoError(b, err)
 
 				for j := 0; j < tc.concurrentUpdaters; j++ {
-					transaction, err := manager.Begin(ctx, TransactionOptions{})
+					transaction, err := manager.Begin(ctx, false)
 					require.NoError(b, err)
 					transaction.UpdateReferences(getReferenceUpdates(j, objectHash.ZeroOID, commit1))
 					require.NoError(b, transaction.Commit(ctx))
@@ -5037,7 +5025,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 					currentReferences := getReferenceUpdates(i, commit1, commit2)
 					nextReferences := getReferenceUpdates(i, commit2, commit1)
 
-					transaction, err := manager.Begin(ctx, TransactionOptions{})
+					transaction, err := manager.Begin(ctx, false)
 					require.NoError(b, err)
 					transaction.UpdateReferences(currentReferences)
 
@@ -5049,7 +5037,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 						defer transactionWG.Done()
 
 						for range transactionChan {
-							transaction, err := manager.Begin(ctx, TransactionOptions{})
+							transaction, err := manager.Begin(ctx, false)
 							require.NoError(b, err)
 							transaction.UpdateReferences(nextReferences)
 							assert.NoError(b, transaction.Commit(ctx))

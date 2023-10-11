@@ -29,7 +29,7 @@ var ErrPartitionManagerClosed = errors.New("partition manager closed")
 // transactionManager is the interface of TransactionManager as used by PartitionManager. See the
 // TransactionManager's documentation for more details.
 type transactionManager interface {
-	Begin(context.Context, TransactionOptions) (*Transaction, error)
+	Begin(context.Context, bool) (*Transaction, error)
 	Run() error
 	Close()
 	isClosing() bool
@@ -285,7 +285,10 @@ func stagingDirectoryPath(storagePath string) string {
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
 //
 // storageName and relativePath specify the target repository to begin a transaction against.
-func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath string, opts TransactionOptions) (*finalizableTransaction, error) {
+//
+// readOnly indicates whether this is a read-only transaction. Read-only transactions are not
+// configured with a quarantine directory and do not commit a log entry.
+func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath string, readOnly bool) (*finalizableTransaction, error) {
 	storageMgr, ok := pm.storages[storageName]
 	if !ok {
 		return nil, structerr.NewNotFound("unknown storage: %q", storageName)
@@ -395,7 +398,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath
 		ptn.pendingTransactionCount++
 		storageMgr.mu.Unlock()
 
-		transaction, err := ptn.transactionManager.Begin(ctx, opts)
+		transaction, err := ptn.transactionManager.Begin(ctx, readOnly)
 		if err != nil {
 			// The pending transaction count needs to be decremented since the transaction is no longer
 			// inflight. A transaction failing does not necessarily mean the transaction manager has
