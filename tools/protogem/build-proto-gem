@@ -95,6 +95,12 @@ def build_gem(output_dir, output_path)
       spec.homepage      = "https://gitlab.com/gitlab-org/gitaly"
       spec.license       = "MIT"
 
+      spec.metadata = {
+        "homepage_uri"    => "https://gitlab.com/gitlab-org/gitaly",
+        "bug_tracker_uri" => "https://gitlab.com/gitlab-org/gitaly/-/issues",
+        "source_code_uri" => "https://gitlab.com/gitlab-org/gitaly/-/tree/master/proto",
+      }
+
       spec.files         = Dir['**/*.rb']
       spec.require_paths = [prefix]
 
