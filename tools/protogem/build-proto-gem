@@ -87,8 +87,8 @@ def build_gem(output_dir, output_path)
     Gem::Specification.new do |spec|
       spec.name          = "gitaly"
       spec.version       = Gitaly::VERSION
-      spec.authors       = ["Jacob Vosmaer"]
-      spec.email         = ["jacob@gitlab.com"]
+      spec.authors       = ["GitLab Engineering"]
+      spec.email         = ["engineering@gitlab.com"]
 
       spec.summary       = %q{Auto-generated gRPC client for gitaly}
       spec.description   = %q{Auto-generated gRPC client for gitaly.}
