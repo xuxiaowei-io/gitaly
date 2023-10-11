@@ -283,13 +283,15 @@ func stagingDirectoryPath(storagePath string) string {
 // Begin gets the TransactionManager for the specified repository and starts a transaction. If a
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
-func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, opts TransactionOptions) (*finalizableTransaction, error) {
-	storageMgr, ok := pm.storages[repo.GetStorageName()]
+//
+// storageName and relativePath specify the target repository to begin a transaction against.
+func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath string, opts TransactionOptions) (*finalizableTransaction, error) {
+	storageMgr, ok := pm.storages[storageName]
 	if !ok {
-		return nil, structerr.NewNotFound("unknown storage: %q", repo.GetStorageName())
+		return nil, structerr.NewNotFound("unknown storage: %q", storageName)
 	}
 
-	relativePath, err := storage.ValidateRelativePath(storageMgr.path, repo.GetRelativePath())
+	relativePath, err := storage.ValidateRelativePath(storageMgr.path, relativePath)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}

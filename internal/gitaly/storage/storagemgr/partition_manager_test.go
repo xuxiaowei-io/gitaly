@@ -717,7 +717,7 @@ func TestPartitionManager(t *testing.T) {
 						beginCtx = step.ctx
 					}
 
-					txn, err := partitionManager.Begin(beginCtx, step.repo, TransactionOptions{})
+					txn, err := partitionManager.Begin(beginCtx, step.repo.GetStorageName(), step.repo.GetRelativePath(), TransactionOptions{})
 					require.Equal(t, step.expectedError, err)
 
 					blockOnPartitionClosing(t, partitionManager)
@@ -811,10 +811,7 @@ func TestPartitionManager_concurrentClose(t *testing.T) {
 	require.NoError(t, err)
 	defer partitionManager.Close()
 
-	tx, err := partitionManager.Begin(ctx, &gitalypb.Repository{
-		StorageName:  cfg.Storages[0].Name,
-		RelativePath: "relative-path",
-	}, TransactionOptions{})
+	tx, err := partitionManager.Begin(ctx, cfg.Storages[0].Name, "relative-path", TransactionOptions{})
 	require.NoError(t, err)
 
 	start := make(chan struct{})
