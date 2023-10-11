@@ -191,11 +191,13 @@ Thus, gRPC handlers should avoid using `Unavailable` status code.
 
 ### Use context-based logging
 
-The `ctxlogrus` package allows to extract a logger from the current
-`context.Context` structure. This should be the default logging facility, as it
-may carry additional context-sensitive information like the `correlation_id`
-that makes it easy to correlate a log entry with other entries of the same
-event.
+The context may contain additional information about the current calling context, like for example the correlation ID.
+This structured data can be added to the context via calls to `log.AddFields()` and is injected by default via our
+requestinfo gRPC middleware.
+
+This structured data can be extracted from the context into generated log message by using context-aware logging
+functions like `log.DebugContext()` and related functions. These functions should thus be used instead of the
+non-context-aware logging functions like `log.Debug()` whenever a context is available.
 
 ### Errors
 
