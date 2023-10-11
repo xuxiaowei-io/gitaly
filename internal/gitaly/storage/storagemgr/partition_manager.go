@@ -26,13 +26,22 @@ import (
 // ErrPartitionManagerClosed is returned when the PartitionManager stops processing transactions.
 var ErrPartitionManagerClosed = errors.New("partition manager closed")
 
+// transactionManager is the interface of TransactionManager as used by PartitionManager. See the
+// TransactionManager's documentation for more details.
+type transactionManager interface {
+	Begin(context.Context, TransactionOptions) (*Transaction, error)
+	Run() error
+	Close()
+	isClosing() bool
+}
+
 type transactionManagerFactory func(
 	partitionID partitionID,
 	storageMgr *storageManager,
 	cmdFactory git.CommandFactory,
 	housekeepingManager housekeeping.Manager,
 	relativePath, absoluteStateDir, stagingDir string,
-) *TransactionManager
+) transactionManager
 
 // PartitionManager is responsible for managing the lifecycle of each TransactionManager.
 type PartitionManager struct {
@@ -154,7 +163,7 @@ type partition struct {
 	// TransactionManager has closed and it is safe to start another one.
 	transactionManagerClosed chan struct{}
 	// transactionManager manages all transactions for the partition.
-	transactionManager *TransactionManager
+	transactionManager transactionManager
 	// pendingTransactionCount holds the current number of in flight transactions being processed by the manager.
 	pendingTransactionCount uint
 }
@@ -250,7 +259,7 @@ func NewPartitionManager(
 			cmdFactory git.CommandFactory,
 			housekeepingManager housekeeping.Manager,
 			relativePath, absoluteStateDir, stagingDir string,
-		) *TransactionManager {
+		) transactionManager {
 			return NewTransactionManager(
 				partitionID,
 				logger,
