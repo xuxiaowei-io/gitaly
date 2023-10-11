@@ -301,7 +301,7 @@ test:sha256:
   <<: *test_definition
   parallel:
     matrix:
-      - TEST_TARGET: [ test, test-with-praefect ]
+      - TEST_TARGET: [ test, test-with-praefect, test-wal, test-with-praefect-wal ]
         TEST_WITH_SHA256: "YesPlease"
 
 test:fips:
