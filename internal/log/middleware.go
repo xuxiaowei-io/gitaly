@@ -112,7 +112,7 @@ func PropagationMessageProducer(actual grpcmwlogrus.MessageProducer) grpcmwlogru
 			return
 		}
 		*mpp = messageProducerHolder{
-			logger: FromContext(ctx),
+			logger: fromContext(ctx),
 			actual: actual,
 			format: format,
 			level:  level,
@@ -169,7 +169,7 @@ func (lh PerRPCLogHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
 		// a logger we need to set logger manually into the context.
 		// It's needed because github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus.DefaultMessageProducer
 		// extracts logger from the context and use it to write the logs.
-		ctx = mpp.logger.ToContext(ctx)
+		ctx = mpp.logger.toContext(ctx)
 		mpp.actual(ctx, mpp.format, mpp.level, mpp.code, mpp.err, mpp.fields)
 		return
 	}
@@ -190,7 +190,7 @@ func UnaryLogDataCatcherServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp != nil {
-			mpp.fields = FromContext(ctx).entry.Data
+			mpp.fields = fromContext(ctx).entry.Data
 		}
 		return handler(ctx, req)
 	}
@@ -203,7 +203,7 @@ func StreamLogDataCatcherServerInterceptor() grpc.StreamServerInterceptor {
 		ctx := ss.Context()
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp != nil {
-			mpp.fields = FromContext(ctx).entry.Data
+			mpp.fields = fromContext(ctx).entry.Data
 		}
 		return handler(srv, ss)
 	}
