@@ -24,11 +24,6 @@ const _ = grpc.SupportPackageIsVersion7
 type PraefectInfoServiceClient interface {
 	// RepositoryReplicas ...
 	RepositoryReplicas(ctx context.Context, in *RepositoryReplicasRequest, opts ...grpc.CallOption) (*RepositoryReplicasResponse, error)
-	// Deprecated: Do not use.
-	// DatalossCheck provides information on repositories in Praefect that are in a degraded state and
-	// thus susceptible to dataloss. A repository is considered degraded when its replicas are
-	// outdated and/or unavailable.
-	DatalossCheck(ctx context.Context, in *DatalossCheckRequest, opts ...grpc.CallOption) (*DatalossCheckResponse, error)
 	// Dataloss provides information on repositories in Praefect that are in a degraded state and
 	// thus susceptible to dataloss. A repository is considered degraded when its replicas are
 	// outdated and/or unavailable.
@@ -64,16 +59,6 @@ func NewPraefectInfoServiceClient(cc grpc.ClientConnInterface) PraefectInfoServi
 func (c *praefectInfoServiceClient) RepositoryReplicas(ctx context.Context, in *RepositoryReplicasRequest, opts ...grpc.CallOption) (*RepositoryReplicasResponse, error) {
 	out := new(RepositoryReplicasResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.PraefectInfoService/RepositoryReplicas", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Deprecated: Do not use.
-func (c *praefectInfoServiceClient) DatalossCheck(ctx context.Context, in *DatalossCheckRequest, opts ...grpc.CallOption) (*DatalossCheckResponse, error) {
-	out := new(DatalossCheckResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.PraefectInfoService/DatalossCheck", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -154,11 +139,6 @@ func (c *praefectInfoServiceClient) GetRepositoryMetadata(ctx context.Context, i
 type PraefectInfoServiceServer interface {
 	// RepositoryReplicas ...
 	RepositoryReplicas(context.Context, *RepositoryReplicasRequest) (*RepositoryReplicasResponse, error)
-	// Deprecated: Do not use.
-	// DatalossCheck provides information on repositories in Praefect that are in a degraded state and
-	// thus susceptible to dataloss. A repository is considered degraded when its replicas are
-	// outdated and/or unavailable.
-	DatalossCheck(context.Context, *DatalossCheckRequest) (*DatalossCheckResponse, error)
 	// Dataloss provides information on repositories in Praefect that are in a degraded state and
 	// thus susceptible to dataloss. A repository is considered degraded when its replicas are
 	// outdated and/or unavailable.
@@ -190,9 +170,6 @@ type UnimplementedPraefectInfoServiceServer struct {
 
 func (UnimplementedPraefectInfoServiceServer) RepositoryReplicas(context.Context, *RepositoryReplicasRequest) (*RepositoryReplicasResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositoryReplicas not implemented")
-}
-func (UnimplementedPraefectInfoServiceServer) DatalossCheck(context.Context, *DatalossCheckRequest) (*DatalossCheckResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DatalossCheck not implemented")
 }
 func (UnimplementedPraefectInfoServiceServer) Dataloss(*DatalossRequest, PraefectInfoService_DatalossServer) error {
 	return status.Errorf(codes.Unimplemented, "method Dataloss not implemented")
@@ -236,24 +213,6 @@ func _PraefectInfoService_RepositoryReplicas_Handler(srv interface{}, ctx contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PraefectInfoServiceServer).RepositoryReplicas(ctx, req.(*RepositoryReplicasRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _PraefectInfoService_DatalossCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DatalossCheckRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PraefectInfoServiceServer).DatalossCheck(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.PraefectInfoService/DatalossCheck",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PraefectInfoServiceServer).DatalossCheck(ctx, req.(*DatalossCheckRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -361,10 +320,6 @@ var PraefectInfoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RepositoryReplicas",
 			Handler:    _PraefectInfoService_RepositoryReplicas_Handler,
-		},
-		{
-			MethodName: "DatalossCheck",
-			Handler:    _PraefectInfoService_DatalossCheck_Handler,
 		},
 		{
 			MethodName: "SetAuthoritativeStorage",
