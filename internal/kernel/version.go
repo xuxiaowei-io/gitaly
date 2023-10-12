@@ -39,7 +39,7 @@ func isAtLeast(expected, actual Version) bool {
 // the first call to getVersion, caching it, and using the cached version for all other calls.
 var (
 	cachedVersion Version
-	cachedError   error
+	errCached     error
 	cacheOnce     sync.Once
 )
 
@@ -47,14 +47,14 @@ func getVersion() (Version, error) {
 	cacheOnce.Do(func() {
 		release, err := getRelease()
 		if err != nil {
-			cachedError = err
+			errCached = err
 			return
 		}
 
-		cachedVersion, cachedError = parseRelease(release)
+		cachedVersion, errCached = parseRelease(release)
 	})
 
-	return cachedVersion, cachedError
+	return cachedVersion, errCached
 }
 
 var releaseRegexp = regexp.MustCompile(`^([0-9]+)\.([0-9]+)\.([0-9]+)`)

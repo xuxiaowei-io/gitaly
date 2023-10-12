@@ -1,6 +1,7 @@
 package watchers
 
 import (
+	"io"
 	"os/exec"
 	"testing"
 
@@ -31,4 +32,12 @@ func (m *testCgroupManager) Describe(ch chan<- *prometheus.Desc) {}
 func (m *testCgroupManager) Collect(ch chan<- prometheus.Metric) {}
 func (m *testCgroupManager) AddCommand(*exec.Cmd, ...cgroups.AddCommandOption) (string, error) {
 	return "", nil
+}
+
+func (m *testCgroupManager) SupportsCloneIntoCgroup() bool {
+	return true
+}
+
+func (m *testCgroupManager) CloneIntoCgroup(*exec.Cmd, ...cgroups.AddCommandOption) (string, io.Closer, error) {
+	return "", io.NopCloser(nil), nil
 }

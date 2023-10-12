@@ -210,6 +210,10 @@ func (cvh *cgroupV1Handler) stats() (Stats, error) {
 	}, nil
 }
 
+func (cvh *cgroupV1Handler) supportsCloneIntoCgroup() bool {
+	return false
+}
+
 func defaultSubsystems(root string) ([]cgroup1.Subsystem, error) {
 	subsystems := []cgroup1.Subsystem{
 		cgroup1.NewMemory(root, cgroup1.OptionalSwap()),

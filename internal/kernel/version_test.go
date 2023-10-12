@@ -85,6 +85,15 @@ func TestParseRelease(t *testing.T) {
 			}),
 		},
 		{
+			desc:    "minor overflows int",
+			release: "1.9223372036854775808.5-200.fc38.aarch64",
+			expectedError: structerr.New("parse minor: %w", &strconv.NumError{
+				Func: "Atoi",
+				Num:  "9223372036854775808",
+				Err:  errors.New("value out of range"),
+			}),
+		},
+		{
 			desc:            "everything after patch ignored",
 			release:         "17.10.50this-is-ignored",
 			expectedVersion: Version{Major: 17, Minor: 10},

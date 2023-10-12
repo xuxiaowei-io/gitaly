@@ -3,10 +3,15 @@
 package cgroups
 
 import (
+	"errors"
 	"fmt"
 	"hash/crc32"
+	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"syscall"
 
 	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -27,6 +32,7 @@ type cgroupHandler interface {
 	currentProcessCgroup() string
 	repoPath(groupID int) string
 	stats() (Stats, error)
+	supportsCloneIntoCgroup() bool
 }
 
 // CGroupManager is a manager class that implements specific methods related to cgroups
@@ -82,6 +88,45 @@ func (cgm *CGroupManager) Ready() bool {
 
 // AddCommand adds a Cmd to a cgroup
 func (cgm *CGroupManager) AddCommand(cmd *exec.Cmd, opts ...AddCommandOption) (string, error) {
+	if cmd.Process == nil {
+		return "", errors.New("cannot add command that has not yet been started")
+	}
+
+	cgroupPath := cgm.cgroupPathForCommand(cmd, opts)
+
+	return cgroupPath, cgm.handler.addToCgroup(cmd.Process.Pid, cgroupPath)
+}
+
+// SupportsCloneIntoCgroup returns whether this Manager supports the CloneIntoCgroup method.
+// CloneIntoCgroup requires CLONE_INTO_CGROUP which is only supported with cgroup version 2
+// with Linux 5.7 or newer.
+func (cgm *CGroupManager) SupportsCloneIntoCgroup() bool {
+	return cgm.handler.supportsCloneIntoCgroup()
+}
+
+// CloneIntoCgroup configures the cgroup parameters UseCgroupFD and CgroupFD in SysProcAttr
+// to start the command directly in the correct cgroup. On success, the function returns an io.Closer
+// that must be closed after the command has been started to close the cgroup's file descriptor.
+func (cgm *CGroupManager) CloneIntoCgroup(cmd *exec.Cmd, opts ...AddCommandOption) (string, io.Closer, error) {
+	cgroupPath := filepath.Join(cgm.cfg.Mountpoint, cgm.cgroupPathForCommand(cmd, opts))
+
+	file, err := os.Open(cgroupPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("open file: %w", err)
+	}
+
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+
+	cmd.SysProcAttr.UseCgroupFD = true
+	cmd.SysProcAttr.CgroupFD = int(file.Fd())
+
+	return cgroupPath, file, nil
+}
+
+// cgroupPathForCommand returns the path of the cgroup a given command should go in.
+func (cgm *CGroupManager) cgroupPathForCommand(cmd *exec.Cmd, opts []AddCommandOption) string {
 	var cfg addCommandCfg
 	for _, opt := range opts {
 		opt(&cfg)
@@ -96,14 +141,8 @@ func (cgm *CGroupManager) AddCommand(cmd *exec.Cmd, opts ...AddCommandOption) (s
 		[]byte(key),
 	)
 
-	if cmd.Process == nil {
-		return "", fmt.Errorf("cannot add command that has not yet been started")
-	}
-
 	groupID := uint(checksum) % cgm.cfg.Repositories.Count
-	cgroupPath := cgm.handler.repoPath(int(groupID))
-
-	return cgroupPath, cgm.handler.addToCgroup(cmd.Process.Pid, cgroupPath)
+	return cgm.handler.repoPath(int(groupID))
 }
 
 // Cleanup cleans up cgroups created in Setup.
