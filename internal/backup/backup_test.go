@@ -109,9 +109,15 @@ func TestManager_Create(t *testing.T) {
 			},
 		},
 	} {
+
+		type setupData struct {
+			repo     *gitalypb.Repository
+			repoPath string
+		}
+
 		for _, tc := range []struct {
 			desc               string
-			setup              func(tb testing.TB) (*gitalypb.Repository, string)
+			setup              func(tb testing.TB) setupData
 			createsRefList     bool
 			createsBundle      bool
 			createsCustomHooks bool
@@ -119,10 +125,14 @@ func TestManager_Create(t *testing.T) {
 		}{
 			{
 				desc: "no hooks",
-				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
+				setup: func(tb testing.TB) setupData {
 					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
-					return repo, repoPath
+
+					return setupData{
+						repo:     repo,
+						repoPath: repoPath,
+					}
 				},
 				createsRefList:     true,
 				createsBundle:      true,
@@ -130,12 +140,16 @@ func TestManager_Create(t *testing.T) {
 			},
 			{
 				desc: "hooks",
-				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
+				setup: func(tb testing.TB) setupData {
 					repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 					require.NoError(tb, os.Mkdir(filepath.Join(repoPath, "custom_hooks"), perm.PublicDir))
 					require.NoError(tb, os.WriteFile(filepath.Join(repoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), perm.PublicFile))
-					return repo, repoPath
+
+					return setupData{
+						repo:     repo,
+						repoPath: repoPath,
+					}
 				},
 				createsRefList:     true,
 				createsBundle:      true,
@@ -143,9 +157,13 @@ func TestManager_Create(t *testing.T) {
 			},
 			{
 				desc: "empty repo",
-				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
+				setup: func(tb testing.TB) setupData {
 					emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
-					return emptyRepo, repoPath
+
+					return setupData{
+						repo:     emptyRepo,
+						repoPath: repoPath,
+					}
 				},
 				createsRefList:     true,
 				createsBundle:      false,
@@ -153,11 +171,15 @@ func TestManager_Create(t *testing.T) {
 			},
 			{
 				desc: "nonexistent repo",
-				setup: func(tb testing.TB) (*gitalypb.Repository, string) {
+				setup: func(tb testing.TB) setupData {
 					emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 					nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
 					nonexistentRepo.RelativePath = gittest.NewRepositoryName(t)
-					return nonexistentRepo, repoPath
+
+					return setupData{
+						repo:     nonexistentRepo,
+						repoPath: repoPath,
+					}
 				},
 				createsRefList:     false,
 				createsBundle:      false,
@@ -166,7 +188,7 @@ func TestManager_Create(t *testing.T) {
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				repo, repoPath := tc.setup(t)
+				data := tc.setup(t)
 				backupRoot := testhelper.TempDir(t)
 				vanityRepo := &gitalypb.Repository{
 					RelativePath: "some/path.git",
@@ -187,7 +209,7 @@ func TestManager_Create(t *testing.T) {
 				fsBackup := managerTC.setup(t, sink, locator)
 				err = fsBackup.Create(ctx, &backup.CreateRequest{
 					Server:           storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
-					Repository:       repo,
+					Repository:       data.repo,
 					VanityRepository: vanityRepo,
 					BackupID:         backupID,
 				})
@@ -209,10 +231,10 @@ func TestManager_Create(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, perm.PrivateFile, bundleInfo.Mode().Perm(), "expecting restricted file permissions")
 
-					output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
+					output := gittest.Exec(t, cfg, "-C", data.repoPath, "bundle", "verify", bundlePath)
 					require.Contains(t, string(output), "The bundle records a complete history")
 
-					expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
+					expectedRefs := gittest.Exec(t, cfg, "-C", data.repoPath, "show-ref", "--head")
 					actualRefs := testhelper.MustReadFile(t, refsPath)
 					require.Equal(t, string(expectedRefs), string(actualRefs))
 				} else {
