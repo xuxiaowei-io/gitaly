@@ -7,6 +7,9 @@
 Gitaly is a Git [RPC](https://en.wikipedia.org/wiki/Remote_procedure_call)
 service for handling all the Git calls made by GitLab.
 
+For documentation generated from the protobuf definitions (in `proto/` directory),
+see [Gitaly RPC documentation](https://gitlab-org.gitlab.io/gitaly/).
+
 To see where it fits in please look at [GitLab's architecture](https://docs.gitlab.com/ce/development/architecture.html#system-layout).
 
 ## Project Goals
