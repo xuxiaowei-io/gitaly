@@ -22,15 +22,23 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DiffServiceClient interface {
-	// CommitDiff returns stream of CommitDiffResponse with patches chunked over messages.
+	// CommitDiff returns a diff between two different commits. The patch data is
+	// chunked across messages and get streamed back to the client.
 	CommitDiff(ctx context.Context, in *CommitDiffRequest, opts ...grpc.CallOption) (DiffService_CommitDiffClient, error)
-	// CommitDelta returns a stream so we can divide the response in chunks of deltas.
+	// CommitDelta returns the deltas between two different commits. A delta
+	// includes everthing that changed about a set of paths except for the actual
+	// diff.
 	CommitDelta(ctx context.Context, in *CommitDeltaRequest, opts ...grpc.CallOption) (DiffService_CommitDeltaClient, error)
-	// RawDiff ...
+	// RawDiff returns a diff between two commits. The output is the unmodified
+	// output from git-diff(1). This is not to be confused with git-diff(1)'s
+	// --raw mode.
 	RawDiff(ctx context.Context, in *RawDiffRequest, opts ...grpc.CallOption) (DiffService_RawDiffClient, error)
-	// RawPatch ...
+	// RawPatch returns a diff between two commits in a formatted patch.The output
+	// is the unmodified output from git-format-patch(1). This is not to be confused with
+	// git-diff(1)'s --raw mode.
 	RawPatch(ctx context.Context, in *RawPatchRequest, opts ...grpc.CallOption) (DiffService_RawPatchClient, error)
-	// DiffStats ...
+	// DiffStats returns the diff stats between two commits such as number of lines
+	// changed, etc.
 	DiffStats(ctx context.Context, in *DiffStatsRequest, opts ...grpc.CallOption) (DiffService_DiffStatsClient, error)
 	// FindChangedPaths returns a list of files changed along with the status of each file
 	FindChangedPaths(ctx context.Context, in *FindChangedPathsRequest, opts ...grpc.CallOption) (DiffService_FindChangedPathsClient, error)
@@ -254,15 +262,23 @@ func (c *diffServiceClient) GetPatchID(ctx context.Context, in *GetPatchIDReques
 // All implementations must embed UnimplementedDiffServiceServer
 // for forward compatibility
 type DiffServiceServer interface {
-	// CommitDiff returns stream of CommitDiffResponse with patches chunked over messages.
+	// CommitDiff returns a diff between two different commits. The patch data is
+	// chunked across messages and get streamed back to the client.
 	CommitDiff(*CommitDiffRequest, DiffService_CommitDiffServer) error
-	// CommitDelta returns a stream so we can divide the response in chunks of deltas.
+	// CommitDelta returns the deltas between two different commits. A delta
+	// includes everthing that changed about a set of paths except for the actual
+	// diff.
 	CommitDelta(*CommitDeltaRequest, DiffService_CommitDeltaServer) error
-	// RawDiff ...
+	// RawDiff returns a diff between two commits. The output is the unmodified
+	// output from git-diff(1). This is not to be confused with git-diff(1)'s
+	// --raw mode.
 	RawDiff(*RawDiffRequest, DiffService_RawDiffServer) error
-	// RawPatch ...
+	// RawPatch returns a diff between two commits in a formatted patch.The output
+	// is the unmodified output from git-format-patch(1). This is not to be confused with
+	// git-diff(1)'s --raw mode.
 	RawPatch(*RawPatchRequest, DiffService_RawPatchServer) error
-	// DiffStats ...
+	// DiffStats returns the diff stats between two commits such as number of lines
+	// changed, etc.
 	DiffStats(*DiffStatsRequest, DiffService_DiffStatsServer) error
 	// FindChangedPaths returns a list of files changed along with the status of each file
 	FindChangedPaths(*FindChangedPathsRequest, DiffService_FindChangedPathsServer) error
