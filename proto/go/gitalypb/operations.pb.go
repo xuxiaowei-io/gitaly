@@ -151,7 +151,8 @@ type UserCreateBranchRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// branch_name is the name of the branch to create.
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// user is used to perform access checks against Rails' `/internal/allowed` endpoint.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 	// start_point is the Git revision to start the branch at. See the gitrevisions(1)
 	// man pages for supported syntax.
@@ -348,7 +349,8 @@ type UserUpdateBranchRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// branch_name is the name of the branch to update.
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// user is used to perform access checks against Rails' `/internal/allowed` endpoint.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 	// newrev is the Git revision which the branch will point to.
 	Newrev []byte `protobuf:"bytes,4,opt,name=newrev,proto3" json:"newrev,omitempty"`
@@ -484,9 +486,8 @@ type UserDeleteBranchRequest struct {
 	// name only, e.g. in case you want to delete `refs/heads/main` the request needs to only contain
 	// `main` as the branch name.
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// user is the user on whose behalf we should delete the branch. This information is used to
-	// perform access checks against the Rails `/internal/allowed` API. This user is also exposed to
-	// any custom hooks executed as part of this RPC call.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 	// expected_old_oid is the object ID which branch is expected to point to.
 	// This is used as a safety guard to avoid races when branch has been
@@ -709,8 +710,8 @@ type UserDeleteTagRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// tag_name is the name of the tag to delete.
 	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
-	// user as which the tag should be created. This is also used to perform access checks
-	// against Rails' `/internal/allowed` endpoint.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 	// expected_old_oid is the object ID which tag is expected to point to.
 	// This is used as a safety guard to avoid races when tag has been
@@ -842,8 +843,8 @@ type UserCreateTagRequest struct {
 	// tag_name is the name of the tag that shall be created. Note that this should be set to the name
 	// only: if you want to create a tag `refs/heads/v1.0`, you need to pass `v1.0` as TagName.
 	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
-	// user is the user as which the tag shall be created. This user is used to perform access checks
-	// against Rails' `/internal/allowed` endpoint.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 	// target_revision is the revision that the newly created tag should be pointing to. Note that if
 	// the revision points to a tag, that tag will be peeled to the commit it is pointing to. If the
@@ -1107,8 +1108,8 @@ type UserMergeBranchRequest struct {
 
 	// repository is the repository to compute the merge for.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is the user to compute the merge as. Its name and mail address are
-	// used as author and committer of the merge.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// commit_id is the object ID (hash) of the object that shall be merged into
 	// the target branch.
@@ -1409,7 +1410,8 @@ type UserMergeToRefRequest struct {
 
 	// repository is the repository in which the merge shall be computed.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is the user as which the merge commit shall be created.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// source_sha is the object ID of the second parent of the computed merge.
 	SourceSha string `protobuf:"bytes,3,opt,name=source_sha,json=sourceSha,proto3" json:"source_sha,omitempty"`
@@ -1612,7 +1614,8 @@ type UserRebaseToRefRequest struct {
 
 	// repository is the repository in which the rebase shall be computed.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is the user as which the rebased commits shall be created.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// source_sha is the object ID of the commit to be rebased.
 	SourceSha string `protobuf:"bytes,3,opt,name=source_sha,json=sourceSha,proto3" json:"source_sha,omitempty"`
@@ -1843,8 +1846,8 @@ type UserFFBranchRequest struct {
 
 	// repository is the repository for which to perform the fast-forward merge.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is the user which to perform the fast-forward merge as. This is used
-	// for authorization checks.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// commit_id is the commit ID to fast-forward the branch to.
 	CommitId string `protobuf:"bytes,3,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
@@ -1998,8 +2001,8 @@ type UserCherryPickRequest struct {
 	// repository is the repository into which the cherry-pick shall be
 	// performed.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is the user to perform the cherry-pick as. This is used for
-	// authorization checks and as the committer of the computed cherry-pick.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// commit is the commit to cherry-pick onto the given branch.
 	Commit *GitCommit `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
@@ -2312,8 +2315,8 @@ type UserRevertRequest struct {
 
 	// repository is the repository in which the revert shall be applied.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is the user to perform the revert as. This is used both for
-	// authorization and as author/committer for the revert commit.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// commit is the commit to revert. Only the `id` field is required.
 	Commit *GitCommit `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
@@ -2738,7 +2741,8 @@ type UserCommitFilesRequestHeader struct {
 
 	// repository is the target repository where to apply the commit.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is the user peforming the call.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// branch_name is the name of the branch to point to the new commit. If start_sha and start_branch_name
 	// are not defined, the commit of branch_name is used as the parent commit.
@@ -3334,7 +3338,8 @@ type UserSquashRequest struct {
 	// repository is the repository into which the squashed commit shall be
 	// written.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is used for authorization checks.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// start_sha is the object ID of the start commit of the range which shall be
 	// squashed. Must be an ancestor of end_sha.
@@ -3797,8 +3802,8 @@ type UserUpdateSubmoduleRequest struct {
 
 	// repository is the repository in which the submodule shall be updated.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is used both for authorization and as author/committer of the
-	// resulting commit.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// commit_sha is the object ID the submodule shall be updated to.
 	CommitSha string `protobuf:"bytes,3,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
@@ -3990,8 +3995,8 @@ type UserRebaseConfirmableRequest_Header struct {
 	// repository is the repository in which the rebase will be computed and
 	// applied.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is the user to compute the rebase as. It will be used as
-	// "committer" of rebased commits.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// rebase_id does nothing anymore.
 	//
@@ -4121,7 +4126,8 @@ type UserApplyPatchRequest_Header struct {
 
 	// repository is the repository to which the patches shall be applied to.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// user is used for authentication.
+	// user to execute the action as. Also used to perform authentication and
+	// authorization via an external endpoint.
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// target_branch is the branch onto which the patches shall be applied.
 	TargetBranch []byte `protobuf:"bytes,3,opt,name=target_branch,json=targetBranch,proto3" json:"target_branch,omitempty"`

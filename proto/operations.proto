@@ -213,7 +213,8 @@ message UserCreateBranchRequest {
   Repository repository = 1 [(target_repository)=true];
   // branch_name is the name of the branch to create.
   bytes branch_name = 2;
-  // user is used to perform access checks against Rails' `/internal/allowed` endpoint.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 3;
   // start_point is the Git revision to start the branch at. See the gitrevisions(1)
   // man pages for supported syntax.
@@ -247,7 +248,8 @@ message UserUpdateBranchRequest {
   Repository repository = 1 [(target_repository)=true];
   // branch_name is the name of the branch to update.
   bytes branch_name = 2;
-  // user is used to perform access checks against Rails' `/internal/allowed` endpoint.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 3;
   // newrev is the Git revision which the branch will point to.
   bytes newrev = 4;
@@ -269,9 +271,8 @@ message UserDeleteBranchRequest {
   // name only, e.g. in case you want to delete `refs/heads/main` the request needs to only contain
   // `main` as the branch name.
   bytes branch_name = 2;
-  // user is the user on whose behalf we should delete the branch. This information is used to
-  // perform access checks against the Rails `/internal/allowed` API. This user is also exposed to
-  // any custom hooks executed as part of this RPC call.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 3;
   // expected_old_oid is the object ID which branch is expected to point to.
   // This is used as a safety guard to avoid races when branch has been
@@ -313,8 +314,8 @@ message UserDeleteTagRequest {
   Repository repository = 1 [(target_repository)=true];
   // tag_name is the name of the tag to delete.
   bytes tag_name = 2;
-  // user as which the tag should be created. This is also used to perform access checks
-  // against Rails' `/internal/allowed` endpoint.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 3;
   // expected_old_oid is the object ID which tag is expected to point to.
   // This is used as a safety guard to avoid races when tag has been
@@ -339,8 +340,8 @@ message UserCreateTagRequest {
   // tag_name is the name of the tag that shall be created. Note that this should be set to the name
   // only: if you want to create a tag `refs/heads/v1.0`, you need to pass `v1.0` as TagName.
   bytes tag_name = 2;
-  // user is the user as which the tag shall be created. This user is used to perform access checks
-  // against Rails' `/internal/allowed` endpoint.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 3;
   // target_revision is the revision that the newly created tag should be pointing to. Note that if
   // the revision points to a tag, that tag will be peeled to the commit it is pointing to. If the
@@ -394,8 +395,8 @@ message UserCreateTagError {
 message UserMergeBranchRequest {
   // repository is the repository to compute the merge for.
   Repository repository = 1 [(target_repository)=true];
-  // user is the user to compute the merge as. Its name and mail address are
-  // used as author and committer of the merge.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // commit_id is the object ID (hash) of the object that shall be merged into
   // the target branch.
@@ -461,7 +462,8 @@ message UserMergeBranchError {
 message UserMergeToRefRequest {
   // repository is the repository in which the merge shall be computed.
   Repository repository = 1 [(target_repository)=true];
-  // user is the user as which the merge commit shall be created.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // source_sha is the object ID of the second parent of the computed merge.
   string source_sha = 3;
@@ -516,7 +518,8 @@ message UserMergeToRefResponse {
 message UserRebaseToRefRequest {
   // repository is the repository in which the rebase shall be computed.
   Repository repository = 1 [(target_repository)=true];
-  // user is the user as which the rebased commits shall be created.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // source_sha is the object ID of the commit to be rebased.
   string source_sha = 3;
@@ -563,8 +566,8 @@ message OperationBranchUpdate {
 message UserFFBranchRequest {
   // repository is the repository for which to perform the fast-forward merge.
   Repository repository = 1 [(target_repository)=true];
-  // user is the user which to perform the fast-forward merge as. This is used
-  // for authorization checks.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // commit_id is the commit ID to fast-forward the branch to.
   string commit_id = 3;
@@ -597,8 +600,8 @@ message UserCherryPickRequest {
   // repository is the repository into which the cherry-pick shall be
   // performed.
   Repository repository = 1 [(target_repository)=true];
-  // user is the user to perform the cherry-pick as. This is used for
-  // authorization checks and as the committer of the computed cherry-pick.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // commit is the commit to cherry-pick onto the given branch.
   GitCommit commit = 3;
@@ -679,8 +682,8 @@ message UserCherryPickError {
 message UserRevertRequest {
   // repository is the repository in which the revert shall be applied.
   Repository repository = 1 [(target_repository)=true];
-  // user is the user to perform the revert as. This is used both for
-  // authorization and as author/committer for the revert commit.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // commit is the commit to revert. Only the `id` field is required.
   GitCommit commit = 3;
@@ -804,7 +807,8 @@ message UserCommitFilesAction {
 message UserCommitFilesRequestHeader {
   // repository is the target repository where to apply the commit.
   Repository repository = 1 [(target_repository)=true];
-  // user is the user peforming the call.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // branch_name is the name of the branch to point to the new commit. If start_sha and start_branch_name
   // are not defined, the commit of branch_name is used as the parent commit.
@@ -889,8 +893,8 @@ message UserRebaseConfirmableRequest {
     // repository is the repository in which the rebase will be computed and
     // applied.
     Repository repository = 1 [(target_repository)=true];
-    // user is the user to compute the rebase as. It will be used as
-    // "committer" of rebased commits.
+    // user to execute the action as. Also used to perform authentication and
+    // authorization via an external endpoint.
     User user = 2;
     // rebase_id does nothing anymore.
     string rebase_id = 3 [deprecated=true];
@@ -947,7 +951,8 @@ message UserSquashRequest {
   // repository is the repository into which the squashed commit shall be
   // written.
   Repository repository = 1 [(target_repository)=true];
-  // user is used for authorization checks.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // start_sha is the object ID of the start commit of the range which shall be
   // squashed. Must be an ancestor of end_sha.
@@ -1015,7 +1020,8 @@ message UserApplyPatchRequest {
   message Header {
     // repository is the repository to which the patches shall be applied to.
     Repository repository = 1 [(target_repository)=true];
-    // user is used for authentication.
+    // user to execute the action as. Also used to perform authentication and
+    // authorization via an external endpoint.
     User user = 2;
     // target_branch is the branch onto which the patches shall be applied.
     bytes target_branch = 3;
@@ -1052,8 +1058,8 @@ message UserApplyPatchResponse {
 message UserUpdateSubmoduleRequest {
   // repository is the repository in which the submodule shall be updated.
   Repository repository = 1 [(target_repository)=true];
-  // user is used both for authorization and as author/committer of the
-  // resulting commit.
+  // user to execute the action as. Also used to perform authentication and
+  // authorization via an external endpoint.
   User user = 2;
   // commit_sha is the object ID the submodule shall be updated to.
   string commit_sha = 3;
