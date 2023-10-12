@@ -256,6 +256,21 @@ func New(ctx context.Context, logger log.Logger, nameAndArgs []string, opts ...O
 	// Start the command in its own process group (nice for signalling)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
+	useCloneIntoCgroup := cfg.cgroupsManager != nil && cfg.cgroupsManager.SupportsCloneIntoCgroup() && featureflag.ExecCommandDirectlyInCgroup.IsEnabled(ctx)
+	if useCloneIntoCgroup {
+		// Configure the command to be executed in the correct cgroup.
+		cgroupPath, fd, err := cfg.cgroupsManager.CloneIntoCgroup(cmd, cfg.cgroupsAddCommandOpts...)
+		if err != nil {
+			return nil, fmt.Errorf("clone into cgroup: %w", err)
+		}
+		defer func() {
+			if err := fd.Close(); err != nil {
+				logger.WithError(err).ErrorContext(ctx, "failed to close cgroup file descriptor")
+			}
+		}()
+		command.cgroupPath = cgroupPath
+	}
+
 	// If requested, we will set up the command such that `Write()` can be called on it directly. Otherwise,
 	// we simply pass as stdin whatever the user has asked us to set up. If no `stdin` was set up, the command
 	// will implicitly read from `/dev/null`.
@@ -337,7 +352,7 @@ func New(ctx context.Context, logger log.Logger, nameAndArgs []string, opts ...O
 		}()
 	}()
 
-	if cfg.cgroupsManager != nil {
+	if cfg.cgroupsManager != nil && !useCloneIntoCgroup {
 		cgroupPath, err := cfg.cgroupsManager.AddCommand(command.cmd, cfg.cgroupsAddCommandOpts...)
 		if err != nil {
 			return nil, err
