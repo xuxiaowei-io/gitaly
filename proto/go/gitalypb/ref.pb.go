@@ -361,11 +361,8 @@ type FindLocalBranchesRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// sort_by ...
 	SortBy FindLocalBranchesRequest_SortBy `protobuf:"varint,2,opt,name=sort_by,json=sortBy,proto3,enum=gitaly.FindLocalBranchesRequest_SortBy" json:"sort_by,omitempty"`
-	// pagination_params is used for pagination of the objects.
-	// The page token is the branch name, with the `refs/heads/` prefix, for
-	// example "refs/heads/master". After the first branch name is encountered
-	// which lexicographically exceeds the page token, it will be the first result
-	// send as part of the response.
+	// pagination_params controls paging. Refer to PaginationParameter documentation for
+	// further info.
 	PaginationParams *PaginationParameter `protobuf:"bytes,3,opt,name=pagination_params,json=paginationParams,proto3" json:"pagination_params,omitempty"`
 }
 
@@ -777,10 +774,8 @@ type FindAllTagsRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// sort_by allows to request tags in particular order.
 	SortBy *FindAllTagsRequest_SortBy `protobuf:"bytes,2,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
-	// pagination_paramsi is used for pagination of the objects.
-	// The page token is the tags name, with the `refs/tags/` prefix, for
-	// example "refs/tags/v1.0.0". When the tag name matches the page token,
-	// the tag following it will be the first result send as part of the response.
+	// pagination_params controls paging. Refer to PaginationParameter documentation for
+	// further info.
 	PaginationParams *PaginationParameter `protobuf:"bytes,3,opt,name=pagination_params,json=paginationParams,proto3" json:"pagination_params,omitempty"`
 }
 

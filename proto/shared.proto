@@ -203,7 +203,7 @@ message ObjectPool {
   Repository repository = 1 [(gitaly.repository)=true];
 }
 
-// PaginationParameter ...
+// PaginationParameter controls pagination within RPCs.
 message PaginationParameter {
   // page_token instructs pagination to start sending results after the provided page
   // token appears. A page token allows for a generic pattern to uniquely
@@ -220,7 +220,7 @@ message PaginationParameter {
   int32 limit = 2;
 }
 
-// PaginationCursor ...
+// PaginationCursor defines the page token clients should use to fetch the next page.
 message PaginationCursor {
   // next_cursor is an opaque token provided to the caller to indicate what the caller
   // should present as a page_token to get subsequent results.
