@@ -177,7 +177,7 @@ func NewManagerLocal(
 		conns:   nil, // Will be removed once the restore operations are part of the Repository interface.
 		locator: locator,
 		repositoryFactory: func(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (Repository, error) {
-			localRepo := localrepo.New(storageLocator, gitCmdFactory, catfileCache, repo)
+			localRepo := localrepo.New(logger, storageLocator, gitCmdFactory, catfileCache, repo)
 
 			return newLocalRepository(logger, storageLocator, gitCmdFactory, txManager, repoCounter, localRepo), nil
 		},

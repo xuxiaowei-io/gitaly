@@ -51,7 +51,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 	if err := s.locator.ValidateRepository(repository); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
-	repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repository)
+	repo := localrepo.New(s.logger, s.locator, s.gitCmdFactory, s.catfileCache, repository)
 
 	headOID, err := repo.ResolveRevision(ctx, "HEAD")
 	if err != nil {

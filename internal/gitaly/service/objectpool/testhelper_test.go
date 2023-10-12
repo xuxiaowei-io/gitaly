@@ -81,16 +81,18 @@ func createObjectPool(
 
 	poolProto, poolProtoPath := gittest.CreateObjectPool(tb, ctx, cfg, source)
 
-	txManager := transaction.NewManager(cfg, testhelper.SharedLogger(tb), nil)
+	logger := testhelper.SharedLogger(tb)
+	txManager := transaction.NewManager(cfg, logger, nil)
 	catfileCache := catfile.NewCache(cfg)
 	tb.Cleanup(catfileCache.Stop)
 
 	pool, err := objectpool.FromProto(
+		logger,
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(tb, cfg),
 		catfileCache,
 		txManager,
-		housekeeping.NewManager(cfg.Prometheus, txManager),
+		housekeeping.NewManager(cfg.Prometheus, logger, txManager),
 		&gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,

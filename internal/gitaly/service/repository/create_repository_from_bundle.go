@@ -34,7 +34,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return request.GetData(), err
 	})
 
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, repo, func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.logger, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, repo, func(repo *gitalypb.Repository) error {
 		if err := s.localrepo(repo).CloneBundle(ctx, bundleReader); err != nil {
 			return structerr.NewInternal("cloning bundle: %w", err)
 		}

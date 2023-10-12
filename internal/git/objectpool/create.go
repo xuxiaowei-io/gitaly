@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
@@ -24,6 +25,7 @@ import (
 // The source repository will not join the object pool. Thus, its objects won't get deduplicated.
 func Create(
 	ctx context.Context,
+	logger log.Logger,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
@@ -82,7 +84,7 @@ func Create(
 		return nil, fmt.Errorf("cloning to pool: %w, stderr: %q", err, stderr.String())
 	}
 
-	objectPool, err := FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, proto)
+	objectPool, err := FromProto(logger, locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, proto)
 	if err != nil {
 		return nil, err
 	}

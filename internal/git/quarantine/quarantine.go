@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tempdir"
@@ -33,14 +34,14 @@ type Dir struct {
 
 // New creates a new quarantine directory and returns the directory. The repository is cleaned
 // up when the user invokes the Migrate() functionality on the Dir.
-func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator) (*Dir, error) {
+func New(ctx context.Context, repo *gitalypb.Repository, logger log.Logger, locator storage.Locator) (*Dir, error) {
 	repoPath, err := locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 	if err != nil {
 		return nil, structerr.NewInternal("getting repo path: %w", err)
 	}
 
 	quarantineDir, err := tempdir.NewWithPrefix(ctx, repo.GetStorageName(),
-		storage.QuarantineDirectoryPrefix(repo), locator)
+		storage.QuarantineDirectoryPrefix(repo), logger, locator)
 	if err != nil {
 		return nil, fmt.Errorf("creating quarantine: %w", err)
 	}

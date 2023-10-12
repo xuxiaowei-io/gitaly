@@ -52,11 +52,12 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	pool, err := objectpool.FromProto(
+		logger,
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		catfileCache,
 		txManager,
-		housekeeping.NewManager(cfg.Prometheus, txManager),
+		housekeeping.NewManager(cfg.Prometheus, logger, txManager),
 		&gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,

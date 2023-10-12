@@ -29,7 +29,7 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 
 	countingGitCmdFactory := gittest.NewCountingCommandFactory(t, cfg)
 
-	repo := localrepo.New(config.NewLocator(cfg), countingGitCmdFactory, nil, repoProto)
+	repo := localrepo.New(testhelper.NewLogger(t), config.NewLocator(cfg), countingGitCmdFactory, nil, repoProto)
 
 	// If this command did spawn git-worktree(1) we'd see an error. It doesn't though because it
 	// detects that there aren't any worktrees at all.

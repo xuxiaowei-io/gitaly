@@ -261,16 +261,17 @@ func TestObjectPool_logStats(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc           string
-		setup          func(t *testing.T) *ObjectPool
+		setup          func(t *testing.T, logger log.Logger) *ObjectPool
 		expectedFields log.Fields
 	}{
 		{
 			desc: "empty object pool",
-			setup: func(t *testing.T) *ObjectPool {
-				_, pool, _ := setupObjectPool(t, ctx)
+			setup: func(t *testing.T, logger log.Logger) *ObjectPool {
+				_, pool, _ := setupObjectPool(t, ctx, withLogger(logger))
 				return pool
 			},
 			expectedFields: log.Fields{
+				"when":                "now",
 				"references.dangling": referencedObjectTypes{},
 				"references.normal":   referencedObjectTypes{},
 				"repository_info": stats.RepositoryInfo{
@@ -280,12 +281,13 @@ func TestObjectPool_logStats(t *testing.T) {
 		},
 		{
 			desc: "normal reference",
-			setup: func(t *testing.T) *ObjectPool {
-				cfg, pool, _ := setupObjectPool(t, ctx)
+			setup: func(t *testing.T, logger log.Logger) *ObjectPool {
+				cfg, pool, _ := setupObjectPool(t, ctx, withLogger(logger))
 				gittest.WriteCommit(t, cfg, gittest.RepositoryPath(t, pool), gittest.WithBranch("main"))
 				return pool
 			},
 			expectedFields: log.Fields{
+				"when":                "now",
 				"references.dangling": referencedObjectTypes{},
 				"references.normal": referencedObjectTypes{
 					Commits: 1,
@@ -304,12 +306,13 @@ func TestObjectPool_logStats(t *testing.T) {
 		},
 		{
 			desc: "dangling reference",
-			setup: func(t *testing.T) *ObjectPool {
-				cfg, pool, _ := setupObjectPool(t, ctx)
+			setup: func(t *testing.T, logger log.Logger) *ObjectPool {
+				cfg, pool, _ := setupObjectPool(t, ctx, withLogger(logger))
 				gittest.WriteCommit(t, cfg, gittest.RepositoryPath(t, pool), gittest.WithReference("refs/dangling/commit"))
 				return pool
 			},
 			expectedFields: log.Fields{
+				"when": "now",
 				"references.dangling": referencedObjectTypes{
 					Commits: 1,
 				},
@@ -330,9 +333,9 @@ func TestObjectPool_logStats(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			logger := testhelper.NewLogger(t)
 			hook := testhelper.AddLoggerHook(logger)
-			pool := tc.setup(t)
+			pool := tc.setup(t, logger)
 
-			require.NoError(t, pool.logStats(ctx, logger))
+			require.NoError(t, pool.logStats(ctx, "now"))
 
 			logEntries := hook.AllEntries()
 			require.Len(t, logEntries, 1)

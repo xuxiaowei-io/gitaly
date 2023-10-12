@@ -16,10 +16,10 @@ import (
 // such as the cleanup of unneeded files and optimizations for the repository's data structures.
 type Manager interface {
 	// CleanStaleData removes any stale data in the repository as per the provided configuration.
-	CleanStaleData(context.Context, log.Logger, *localrepo.Repo, CleanStaleDataConfig) error
+	CleanStaleData(context.Context, *localrepo.Repo, CleanStaleDataConfig) error
 	// OptimizeRepository optimizes the repository's data structures such that it can be more
 	// efficiently served.
-	OptimizeRepository(context.Context, log.Logger, *localrepo.Repo, ...OptimizeRepositoryOption) error
+	OptimizeRepository(context.Context, *localrepo.Repo, ...OptimizeRepositoryOption) error
 	// AddPackRefsInhibitor allows clients to block housekeeping from running git-pack-refs(1).
 	AddPackRefsInhibitor(ctx context.Context, repoPath string) (bool, func(), error)
 }
@@ -205,6 +205,7 @@ func (s *repositoryStates) tryRunningPackRefs(repoPath string) (successful bool,
 
 // RepositoryManager is an implementation of the Manager interface.
 type RepositoryManager struct {
+	logger    log.Logger
 	txManager transaction.Manager
 
 	tasksTotal                             *prometheus.CounterVec
@@ -219,8 +220,9 @@ type RepositoryManager struct {
 }
 
 // NewManager creates a new RepositoryManager.
-func NewManager(promCfg gitalycfgprom.Config, txManager transaction.Manager) *RepositoryManager {
+func NewManager(promCfg gitalycfgprom.Config, logger log.Logger, txManager transaction.Manager) *RepositoryManager {
 	return &RepositoryManager{
+		logger:    logger.WithField("system", "housekeeping"),
 		txManager: txManager,
 
 		tasksTotal: prometheus.NewCounterVec(

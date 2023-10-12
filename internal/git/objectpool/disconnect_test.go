@@ -36,6 +36,7 @@ func TestDisconnect(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
+	logger := testhelper.SharedLogger(t)
 
 	type setupData struct {
 		repository      *localrepo.Repo
@@ -52,17 +53,18 @@ func TestDisconnect(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), nil)
+		txManager := transaction.NewManager(cfg, logger, nil)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 
 		pool, err := Create(
 			ctx,
+			logger,
 			config.NewLocator(cfg),
 			gittest.NewCommandFactory(t, cfg, git.WithSkipHooks()),
 			catfileCache,
 			txManager,
-			housekeeping.NewManager(cfg.Prometheus, txManager),
+			housekeeping.NewManager(cfg.Prometheus, logger, txManager),
 			&gitalypb.ObjectPool{
 				Repository: &gitalypb.Repository{
 					StorageName:  cfg.Storages[0].Name,
@@ -317,7 +319,7 @@ func TestDisconnect(t *testing.T) {
 				ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 			}
 
-			disconnectErr := Disconnect(ctx, setup.repository, setup.txManager)
+			disconnectErr := Disconnect(ctx, setup.repository, logger, setup.txManager)
 
 			altInfoAfter, err := stats.AlternatesInfoForRepository(repoPath)
 			require.NoError(t, err)
@@ -367,6 +369,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 
 	t.Run("pack files are missing", func(t *testing.T) {
 		cfg := testcfg.Build(t)
+		logger := testhelper.NewLogger(t)
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{SkipCreationViaService: true})
 
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -388,7 +391,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 		// Now we try to remove the alternates file. This is expected to fail due to the
 		// consistency check.
 		altBackup := altPath + ".backup"
-		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup, nil)
+		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup, logger, nil)
 		require.Error(t, err, "removeAlternatesIfOk should fail")
 		require.IsType(t, &connectivityError{}, err, "error must be because of fsck")
 
@@ -401,6 +404,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 
 	t.Run("commit graph exists but object is missing from odb", func(t *testing.T) {
 		cfg := testcfg.Build(t)
+		logger := testhelper.NewLogger(t)
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{SkipCreationViaService: true})
 
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -425,7 +429,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 		// Now when we try to remove the alternates file we should notice the corruption and
 		// abort.
 		altBackup := altPath + ".backup"
-		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup, nil)
+		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup, logger, nil)
 		require.Error(t, err, "removeAlternatesIfOk should fail")
 		require.IsType(t, &connectivityError{}, err, "error must be because of connectivity check")
 		connectivityErr := err.(*connectivityError)

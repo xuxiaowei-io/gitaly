@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -22,8 +23,28 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool, *localrepo.Repo) {
+type setupObjectPoolConfig struct {
+	logger log.Logger
+}
+
+type setupObjectPoolOption func(*setupObjectPoolConfig)
+
+func withLogger(logger log.Logger) setupObjectPoolOption {
+	return func(cfg *setupObjectPoolConfig) {
+		cfg.logger = logger
+	}
+}
+
+func setupObjectPool(t *testing.T, ctx context.Context, opts ...setupObjectPoolOption) (config.Cfg, *ObjectPool, *localrepo.Repo) {
 	t.Helper()
+
+	var setupCfg setupObjectPoolConfig
+	for _, opt := range opts {
+		opt(&setupCfg)
+	}
+	if setupCfg.logger == nil {
+		setupCfg.logger = testhelper.NewLogger(t)
+	}
 
 	cfg := testcfg.Build(t)
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -35,15 +56,16 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
-	txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
+	txManager := transaction.NewManager(cfg, setupCfg.logger, backchannel.NewRegistry())
 
 	pool, err := Create(
 		ctx,
+		setupCfg.logger,
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		catfileCache,
 		txManager,
-		housekeeping.NewManager(cfg.Prometheus, txManager),
+		housekeeping.NewManager(cfg.Prometheus, setupCfg.logger, txManager),
 		&gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  repo.GetStorageName(),

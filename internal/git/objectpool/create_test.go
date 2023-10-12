@@ -28,6 +28,7 @@ func TestCreate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
+	logger := testhelper.SharedLogger(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -38,15 +39,16 @@ func TestCreate(t *testing.T) {
 	createPool := func(t *testing.T, poolProto *gitalypb.ObjectPool) (*ObjectPool, string, error) {
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
-		txManager := transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry())
+		txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
 
 		pool, err := Create(
 			ctx,
+			logger,
 			config.NewLocator(cfg),
 			gittest.NewCommandFactory(t, cfg, git.WithSkipHooks()),
 			catfileCache,
 			txManager,
-			housekeeping.NewManager(cfg.Prometheus, txManager),
+			housekeeping.NewManager(cfg.Prometheus, logger, txManager),
 			poolProto,
 			repo,
 		)

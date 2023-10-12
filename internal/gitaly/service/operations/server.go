@@ -48,13 +48,13 @@ func NewServer(deps *service.Dependencies) *Server {
 }
 
 func (s *Server) localrepo(repo storage.Repository) *localrepo.Repo {
-	return localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repo)
+	return localrepo.New(s.logger, s.locator, s.gitCmdFactory, s.catfileCache, repo)
 }
 
 func (s *Server) quarantinedRepo(
 	ctx context.Context, repo *gitalypb.Repository,
 ) (*quarantine.Dir, *localrepo.Repo, error) {
-	quarantineDir, err := quarantine.New(ctx, repo, s.locator)
+	quarantineDir, err := quarantine.New(ctx, repo, s.logger, s.locator)
 	if err != nil {
 		return nil, nil, structerr.NewInternal("creating object quarantine: %w", err)
 	}

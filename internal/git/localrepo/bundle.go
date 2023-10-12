@@ -171,7 +171,7 @@ func (repo *Repo) FetchBundle(ctx context.Context, txManager transaction.Manager
 // createTempBundle copies reader onto the filesystem so that a path can be
 // passed to git. git-fetch does not support streaming a bundle over a pipe.
 func (repo *Repo) createTempBundle(ctx context.Context, reader io.Reader) (bundlPath string, returnErr error) {
-	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), repo.locator)
+	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), repo.logger, repo.locator)
 	if err != nil {
 		return "", fmt.Errorf("create temp bundle: %w", err)
 	}

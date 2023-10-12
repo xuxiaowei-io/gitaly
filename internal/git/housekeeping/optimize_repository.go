@@ -41,7 +41,6 @@ func WithOptimizationStrategyConstructor(strategyConstructor OptimizationStrateg
 // or not depends on a set of heuristics.
 func (m *RepositoryManager) OptimizeRepository(
 	ctx context.Context,
-	logger log.Logger,
 	repo *localrepo.Repo,
 	opts ...OptimizeRepositoryOption,
 ) error {
@@ -75,7 +74,7 @@ func (m *RepositoryManager) OptimizeRepository(
 	if err != nil {
 		return fmt.Errorf("deriving repository info: %w", err)
 	}
-	m.reportRepositoryInfo(ctx, logger, repositoryInfo)
+	m.reportRepositoryInfo(ctx, m.logger, repositoryInfo)
 
 	var strategy OptimizationStrategy
 	if cfg.StrategyConstructor == nil {
@@ -84,7 +83,7 @@ func (m *RepositoryManager) OptimizeRepository(
 		strategy = cfg.StrategyConstructor(repositoryInfo)
 	}
 
-	return m.optimizeFunc(ctx, m, logger, repo, strategy)
+	return m.optimizeFunc(ctx, m, m.logger, repo, strategy)
 }
 
 func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, logger log.Logger, info stats.RepositoryInfo) {
@@ -160,7 +159,7 @@ func optimizeRepository(
 	}()
 
 	timer := prometheus.NewTimer(m.tasksLatency.WithLabelValues("clean-stale-data"))
-	if err := m.CleanStaleData(ctx, logger, repo, DefaultStaleDataCleanup()); err != nil {
+	if err := m.CleanStaleData(ctx, repo, DefaultStaleDataCleanup()); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 	timer.ObserveDuration()

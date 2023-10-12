@@ -207,7 +207,7 @@ func TestRepo_CloneBundle(t *testing.T) {
 			}
 
 			data := tc.setup(t, ctx, cfg)
-			repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
+			repo := New(testhelper.NewLogger(t), config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
 			err := repo.CloneBundle(ctx, data.reader)
 			if data.expectedErr != nil {

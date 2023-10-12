@@ -51,5 +51,5 @@ func setupRepo(t *testing.T, opts ...setupRepoOption) (config.Cfg, *Repo, string
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, commandFactoryOpts...)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
-	return cfg, New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto), repoPath
+	return cfg, New(testhelper.NewLogger(t), config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto), repoPath
 }

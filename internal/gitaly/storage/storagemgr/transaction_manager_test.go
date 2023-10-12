@@ -195,8 +195,10 @@ func TestTransactionManager(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 
+		logger := testhelper.NewLogger(t)
 		locator := config.NewLocator(cfg)
 		localRepo := localrepo.New(
+			logger,
 			locator,
 			cmdFactory,
 			catfileCache,
@@ -227,7 +229,7 @@ func TestTransactionManager(t *testing.T) {
 			Config:            cfg,
 			ObjectHash:        objectHash,
 			CommandFactory:    cmdFactory,
-			RepositoryFactory: localrepo.NewFactory(locator, cmdFactory, catfileCache),
+			RepositoryFactory: localrepo.NewFactory(logger, locator, cmdFactory, catfileCache),
 			NonExistentOID:    nonExistentOID,
 			Commits: testCommits{
 				First: testCommit{
@@ -4157,7 +4159,7 @@ func TestTransactionManager(t *testing.T) {
 			defer testhelper.MustClose(t, database)
 
 			txManager := transaction.NewManager(setup.Config, logger, backchannel.NewRegistry())
-			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, txManager)
+			housekeepingManager := housekeeping.NewManager(setup.Config.Prometheus, logger, txManager)
 
 			storagePath := setup.Config.Storages[0].Path
 			stateDir := filepath.Join(storagePath, "state")
@@ -4557,7 +4559,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			defer testhelper.MustClose(b, database)
 
 			txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
-			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, txManager)
+			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, logger, txManager)
 
 			var (
 				// managerWG records the running TransactionManager.Run goroutines.
@@ -4583,7 +4585,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			}
 
 			repositoryFactory, err := localrepo.NewFactory(
-				config.NewLocator(cfg), cmdFactory, cache,
+				logger, config.NewLocator(cfg), cmdFactory, cache,
 			).ScopeByStorage(cfg.Storages[0].Name)
 			require.NoError(b, err)
 

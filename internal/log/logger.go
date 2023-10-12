@@ -86,8 +86,8 @@ func (l LogrusLogger) Error(msg string) {
 	l.entry.Error(msg)
 }
 
-// ToContext injects the logger into the given context so that it can be retrieved via `FromContext()`.
-func (l LogrusLogger) ToContext(ctx context.Context) context.Context {
+// toContext injects the logger into the given context so that it can be retrieved via `FromContext()`.
+func (l LogrusLogger) toContext(ctx context.Context) context.Context {
 	return ctxlogrus.ToContext(ctx, l.entry)
 }
 
@@ -125,16 +125,16 @@ func (l LogrusLogger) ErrorContext(ctx context.Context, msg string) {
 	l.log(ctx, logrus.ErrorLevel, msg)
 }
 
-// FromContext extracts the logger from the context. If no logger has been injected then this will return a discarding
+// fromContext extracts the logger from the context. If no logger has been injected then this will return a discarding
 // logger.
-func FromContext(ctx context.Context) LogrusLogger {
+func fromContext(ctx context.Context) LogrusLogger {
 	return LogrusLogger{
 		entry: ctxlogrus.Extract(ctx),
 	}
 }
 
-// AddFields adds the given log fields to the context so that it will be used by any context logger extracted via
-// `FromContext()`.
+// AddFields adds the given log fields to the context so that it will be used by any logging function like
+// `InfoContext()` that receives a context as input.
 func AddFields(ctx context.Context, fields Fields) {
 	ctxlogrus.AddFields(ctx, fields)
 }

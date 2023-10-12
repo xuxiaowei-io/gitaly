@@ -543,6 +543,7 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 	locator := config.NewLocator(cfg)
+	logger := testhelper.NewLogger(t)
 
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
@@ -565,9 +566,9 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
 	))
 
-	repo := localrepo.New(locator, gitCmdFactory, catfileCache, repoProto)
+	repo := localrepo.New(logger, locator, gitCmdFactory, catfileCache, repoProto)
 
-	linguist := New(cfg, testhelper.NewLogger(t), catfileCache, repo)
+	linguist := New(cfg, logger, catfileCache, repo)
 	_, err := linguist.Stats(ctx, commitID)
 
 	expectedErr := `linguist object iterator: ls-tree skip: new file instance: checking attribute:`

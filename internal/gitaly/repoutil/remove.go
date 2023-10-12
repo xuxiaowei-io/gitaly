@@ -21,12 +21,13 @@ import (
 // Remove will remove a repository in a race-free way with proper transactional semantics.
 func Remove(
 	ctx context.Context,
+	logger log.Logger,
 	locator storage.Locator,
 	txManager transaction.Manager,
 	repoCounter *counter.RepositoryCounter,
 	repository storage.Repository,
 ) error {
-	if err := remove(ctx, locator, txManager, repository, os.RemoveAll); err != nil {
+	if err := remove(ctx, logger, locator, txManager, repository, os.RemoveAll); err != nil {
 		return err
 	}
 
@@ -37,6 +38,7 @@ func Remove(
 
 func remove(
 	ctx context.Context,
+	logger log.Logger,
 	locator storage.Locator,
 	txManager transaction.Manager,
 	repository storage.Repository,
@@ -70,7 +72,7 @@ func remove(
 
 	// Lock the repository such that it cannot be created or removed by any concurrent
 	// RPC call.
-	unlock, err := Lock(ctx, locator, repository)
+	unlock, err := Lock(ctx, logger, locator, repository)
 	if err != nil {
 		if errors.Is(err, safe.ErrFileAlreadyLocked) {
 			return structerr.NewFailedPrecondition("repository is already locked")
@@ -100,7 +102,7 @@ func remove(
 
 	defer func() {
 		if err := removeAll(destDir); err != nil {
-			log.FromContext(ctx).WithError(err).Error("failed removing repository from temporary directory")
+			logger.WithError(err).ErrorContext(ctx, "failed removing repository from temporary directory")
 		}
 	}()
 

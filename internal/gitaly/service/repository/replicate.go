@@ -141,7 +141,7 @@ func validateReplicateRepository(locator storage.Locator, in *gitalypb.Replicate
 func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest, repoPath string) error {
 	// if the directory exists, remove it
 	if _, err := os.Stat(repoPath); err == nil {
-		tempDir, err := tempdir.NewWithoutContext(in.GetRepository().GetStorageName(), s.locator)
+		tempDir, err := tempdir.NewWithoutContext(in.GetRepository().GetStorageName(), s.logger, s.locator)
 		if err != nil {
 			return err
 		}
@@ -161,7 +161,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 }
 
 func (s *server) createFromSnapshot(ctx context.Context, source, target *gitalypb.Repository) error {
-	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, target, func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.logger, s.locator, s.gitCmdFactory, s.txManager, s.repositoryCounter, target, func(repo *gitalypb.Repository) error {
 		if err := s.extractSnapshot(ctx, source, repo); err != nil {
 			return fmt.Errorf("extracting snapshot: %w", err)
 		}
@@ -415,7 +415,7 @@ func (s *server) syncObjectPool(ctx context.Context, sourceRepoProto, targetRepo
 		// In the case where the source repository does not have any Git alternates, but the
 		// existing target repository does, the target repository should have its alternates
 		// disconnected to match the current state of the source repository.
-		if err := objectpool.Disconnect(ctx, targetRepo, s.txManager); err != nil {
+		if err := objectpool.Disconnect(ctx, targetRepo, s.logger, s.txManager); err != nil {
 			return fmt.Errorf("disconnect target from object pool: %w", err)
 		}
 
@@ -423,7 +423,7 @@ func (s *server) syncObjectPool(ctx context.Context, sourceRepoProto, targetRepo
 	}
 
 	// Check the target repository for an existing object pool link.
-	targetPool, err := objectpool.FromRepo(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetRepo)
+	targetPool, err := objectpool.FromRepo(s.logger, s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetRepo)
 	if err != nil && !errors.Is(err, objectpool.ErrAlternateObjectDirNotExist) {
 		return fmt.Errorf("get target object pool: %w", err)
 	}
@@ -452,7 +452,7 @@ func (s *server) syncObjectPool(ctx context.Context, sourceRepoProto, targetRepo
 	targetPoolProto.GetRepository().StorageName = targetRepoProto.GetStorageName()
 
 	// Check if object pool required for target repository already exists on the current node.
-	targetPool, err = objectpool.FromProto(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetPoolProto)
+	targetPool, err = objectpool.FromProto(s.logger, s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetPoolProto)
 	switch {
 	case errors.Is(err, objectpool.ErrInvalidPoolRepository):
 		// In the case where the source repository does link to an object pool, but the object pool
@@ -463,7 +463,7 @@ func (s *server) syncObjectPool(ctx context.Context, sourceRepoProto, targetRepo
 			return fmt.Errorf("replicate object pool: %w", err)
 		}
 
-		targetPool, err = objectpool.FromProto(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetPoolProto)
+		targetPool, err = objectpool.FromProto(s.logger, s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, targetPoolProto)
 		if err != nil {
 			return fmt.Errorf("get replicated object pool: %w", err)
 		}

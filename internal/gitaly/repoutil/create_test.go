@@ -35,6 +35,7 @@ func TestCreate(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
+	logger := testhelper.NewLogger(t)
 	txManager := &transaction.MockManager{}
 	locator := config.NewLocator(cfg)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -344,7 +345,7 @@ func TestCreate(t *testing.T) {
 			}
 
 			var tempRepo *gitalypb.Repository
-			require.Equal(t, tc.expectedErr, Create(ctx, locator, gitCmdFactory, txManager, repoCounter, repo, func(tr *gitalypb.Repository) error {
+			require.Equal(t, tc.expectedErr, Create(ctx, logger, locator, gitCmdFactory, txManager, repoCounter, repo, func(tr *gitalypb.Repository) error {
 				tempRepo = tr
 
 				// The temporary repository must have been created in Gitaly's

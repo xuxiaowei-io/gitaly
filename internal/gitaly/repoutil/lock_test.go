@@ -18,6 +18,7 @@ func TestLock(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
+	logger := testhelper.NewLogger(t)
 	locator := config.NewLocator(cfg)
 
 	repo := &gitalypb.Repository{
@@ -28,12 +29,12 @@ func TestLock(t *testing.T) {
 	repoPath, err := locator.GetRepoPath(repo, storage.WithRepositoryVerificationSkipped())
 	require.NoError(t, err)
 
-	unlock, err := Lock(ctx, locator, repo)
+	unlock, err := Lock(ctx, logger, locator, repo)
 	require.NoError(t, err)
 
 	require.FileExists(t, repoPath+".lock")
 
-	_, err = Lock(ctx, locator, repo)
+	_, err = Lock(ctx, logger, locator, repo)
 	require.ErrorIs(t, err, safe.ErrFileAlreadyLocked)
 
 	unlock()

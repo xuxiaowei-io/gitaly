@@ -241,7 +241,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 	transactionManager := transaction.NewManager(cfg, logger, registry)
 	prometheus.MustRegister(transactionManager)
 
-	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, transactionManager)
+	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, logger, transactionManager)
 	prometheus.MustRegister(housekeepingManager)
 
 	hookManager := hook.Manager(hook.DisabledManager{})
@@ -483,7 +483,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		ctx,
 		logger,
 		maintenance.DailyOptimizationWorker(cfg, maintenance.OptimizerFunc(func(ctx context.Context, logger log.Logger, repo storage.Repository) error {
-			return housekeepingManager.OptimizeRepository(ctx, logger, localrepo.New(locator, gitCmdFactory, catfileCache, repo))
+			return housekeepingManager.OptimizeRepository(ctx, localrepo.New(logger, locator, gitCmdFactory, catfileCache, repo))
 		})),
 	)
 	if err != nil {
