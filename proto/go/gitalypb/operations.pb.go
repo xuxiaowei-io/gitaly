@@ -678,7 +678,7 @@ type isUserDeleteBranchError_Error interface {
 }
 
 type UserDeleteBranchError_AccessCheck struct {
-	// access_checkError is set if the RPC failed because `/internal/allowed` failed.
+	// access_check is set if the RPC failed due to an external access check.
 	AccessCheck *AccessCheckError `protobuf:"bytes,1,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
@@ -1069,7 +1069,7 @@ type isUserCreateTagError_Error interface {
 }
 
 type UserCreateTagError_AccessCheck struct {
-	// access_checkError is set if the RPC failed because `/internal/allowed` failed.
+	// access_check is set if the RPC failed due to an external access check.
 	AccessCheck *AccessCheckError `protobuf:"bytes,1,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
@@ -1373,7 +1373,7 @@ type isUserMergeBranchError_Error interface {
 }
 
 type UserMergeBranchError_AccessCheck struct {
-	// access_checkError is set if the RPC failed because `/internal/allowed` failed.
+	// access_check is set if the RPC failed due to an external access check.
 	AccessCheck *AccessCheckError `protobuf:"bytes,1,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
@@ -2294,8 +2294,7 @@ type UserCherryPickError_ChangesAlreadyApplied struct {
 }
 
 type UserCherryPickError_AccessCheck struct {
-	// access_check is returned in case GitLab's `/internal/allowed` endpoint rejected
-	// the change.
+	// access_check is set if the RPC failed due to an external access check.
 	AccessCheck *AccessCheckError `protobuf:"bytes,4,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
@@ -3131,7 +3130,7 @@ type isUserCommitFilesError_Error interface {
 }
 
 type UserCommitFilesError_AccessCheck struct {
-	// access_checkError is set if the RPC failed because `/internal/allowed` failed.
+	// access_check is set if the RPC failed due to an external access check.
 	AccessCheck *AccessCheckError `protobuf:"bytes,1,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 
@@ -3564,8 +3563,7 @@ type UserRebaseConfirmableError_RebaseConflict struct {
 }
 
 type UserRebaseConfirmableError_AccessCheck struct {
-	// access_checkError is returned in case GitLab's `/internal/allowed` endpoint rejected
-	// the change.
+	// access_check is set if the RPC failed due to an external access check.
 	AccessCheck *AccessCheckError `protobuf:"bytes,2,opt,name=access_check,json=accessCheck,proto3,oneof"`
 }
 

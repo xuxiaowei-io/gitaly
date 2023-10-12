@@ -297,7 +297,7 @@ message UserDeleteBranchResponse {
 // defined error cases.
 message UserDeleteBranchError {
   oneof error {
-    // access_checkError is set if the RPC failed because `/internal/allowed` failed.
+    // access_check is set if the RPC failed due to an external access check.
     AccessCheckError access_check = 1;
     // reference_updateError is set if the RPC failed because updating the
     // reference to the new object ID has failed.
@@ -376,7 +376,7 @@ message UserCreateTagResponse {
 // userCreateTag fails.
 message UserCreateTagError {
   oneof error {
-    // access_checkError is set if the RPC failed because `/internal/allowed` failed.
+    // access_check is set if the RPC failed due to an external access check.
     AccessCheckError access_check = 1;
     // reference_updateError is set if the RPC failed because updating the
     // reference to the new object ID has failed.
@@ -445,7 +445,7 @@ message UserMergeBranchResponse {
 // details in case UserMergeBranch fails.
 message UserMergeBranchError {
   oneof error {
-    // access_checkError is set if the RPC failed because `/internal/allowed` failed.
+    // access_check is set if the RPC failed due to an external access check.
     AccessCheckError access_check = 1;
     // reference_updateError is set if the RPC failed because updating the
     // reference to the new object ID has failed.
@@ -508,8 +508,9 @@ message UserMergeToRefResponse {
   // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
 
-  // PreReceiveError had never been set because this RPC does not perform authentication via
-  // `/internal/allowed`. This field was thus removed without replacement.
+  // pre_receive_error had never been set because this RPC does not perform
+  // authentication and authorization via an external endpoint. This field was
+  // thus removed without replacement.
   reserved "pre_receive_error";
   reserved 2;
 }
@@ -672,8 +673,7 @@ message UserCherryPickError {
     NotAncestorError target_branch_diverged = 2;
     // changes_already_applied is returned if the result after applying the cherry pick is empty.
     ChangesAlreadyAppliedError changes_already_applied = 3;
-    // access_check is returned in case GitLab's `/internal/allowed` endpoint rejected
-    // the change.
+    // access_check is set if the RPC failed due to an external access check.
     AccessCheckError access_check = 4;
   }
 }
@@ -874,7 +874,7 @@ message UserCommitFilesResponse {
 // defined error cases.
 message UserCommitFilesError {
   oneof error {
-    // access_checkError is set if the RPC failed because `/internal/allowed` failed.
+    // access_check is set if the RPC failed due to an external access check.
     AccessCheckError access_check = 1;
     // index_update is set to the error message when an operation conflicts with the repository
     // index, such as creating a file that already exists.
@@ -995,8 +995,7 @@ message UserRebaseConfirmableError {
     // commit fails with a merge conflict and in case merge squashing commits
     // fails with a merge conflict.
     MergeConflictError rebase_conflict = 1;
-    // access_checkError is returned in case GitLab's `/internal/allowed` endpoint rejected
-    // the change.
+    // access_check is set if the RPC failed due to an external access check.
     AccessCheckError access_check = 2;
   }
 }
