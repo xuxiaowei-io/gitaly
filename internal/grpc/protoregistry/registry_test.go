@@ -162,7 +162,7 @@ func TestNewProtoRegistry_IsInterceptedMethod(t *testing.T) {
 		},
 		"PraefectInfoService": {
 			"RepositoryReplicas",
-			"DatalossCheck",
+			"Dataloss",
 			"SetAuthoritativeStorage",
 		},
 		"RefTransaction": {
