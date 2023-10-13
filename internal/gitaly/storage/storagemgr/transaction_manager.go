@@ -74,17 +74,17 @@ func (err ReferenceVerificationError) Error() string {
 	return fmt.Sprintf("expected %q to point to %q but it pointed to %q", err.ReferenceName, err.ExpectedOID, err.ActualOID)
 }
 
-// LogIndex points to a specific position in a repository's write-ahead log.
-type LogIndex uint64
+// LSN is a log sequence number that points to a specific position in the partition's write-ahead log.
+type LSN uint64
 
-// toProto returns the protobuf representation of LogIndex for serialization purposes.
-func (index LogIndex) toProto() *gitalypb.LogIndex {
-	return &gitalypb.LogIndex{LogIndex: uint64(index)}
+// toProto returns the protobuf representation of LSN for serialization purposes.
+func (lsn LSN) toProto() *gitalypb.LSN {
+	return &gitalypb.LSN{Value: uint64(lsn)}
 }
 
-// String returns a string representation of the LogIndex.
-func (index LogIndex) String() string {
-	return strconv.FormatUint(uint64(index), 10)
+// String returns a string representation of the LSN.
+func (lsn LSN) String() string {
+	return strconv.FormatUint(uint64(lsn), 10)
 }
 
 // ReferenceUpdate describes the state of a reference's old and new tip in an update.
@@ -113,12 +113,6 @@ type CustomHooksUpdate struct {
 // ReferenceUpdates contains references to update. Reference name is used as the key and the value
 // is the expected old tip and the desired new tip.
 type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
-
-// Snapshot contains the read snapshot details of a Transaction.
-type Snapshot struct {
-	// ReadIndex is the index of the log entry this Transaction is reading the data at.
-	ReadIndex LogIndex
-}
 
 type transactionState int
 
@@ -174,8 +168,9 @@ type Transaction struct {
 	// if this is a read-write transaction.
 	snapshotRepository *localrepo.Repo
 
-	// Snapshot contains the details of the Transaction's read snapshot.
-	snapshot Snapshot
+	// snapshotLSN is the log sequence number which this transaction is reading the repository's
+	// state at.
+	snapshotLSN LSN
 
 	skipVerificationFailures bool
 	initialReferenceValues   map[git.ReferenceName]git.ObjectID
@@ -200,7 +195,7 @@ type TransactionOptions struct {
 // Begin call. Begin blocks until the committed writes have been applied to the repository.
 func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOptions) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
-	// and the log indexes are loaded.
+	// and the LSNs are loaded.
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -215,14 +210,14 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 	txn := &Transaction{
 		readOnly:     opts.ReadOnly,
 		commit:       mgr.commit,
-		snapshot:     Snapshot{ReadIndex: mgr.appendedLogIndex},
+		snapshotLSN:  mgr.appendedLSN,
 		finished:     make(chan struct{}),
 		relativePath: mgr.relativePath,
 	}
 
-	mgr.snapshotLocks[txn.snapshot.ReadIndex].activeSnapshotters.Add(1)
-	defer mgr.snapshotLocks[txn.snapshot.ReadIndex].activeSnapshotters.Done()
-	readReady := mgr.snapshotLocks[txn.snapshot.ReadIndex].applied
+	mgr.snapshotLocks[txn.snapshotLSN].activeSnapshotters.Add(1)
+	defer mgr.snapshotLocks[txn.snapshotLSN].activeSnapshotters.Done()
+	readReady := mgr.snapshotLocks[txn.snapshotLSN].applied
 	mgr.mutex.Unlock()
 
 	txn.finish = func() error {
@@ -460,9 +455,9 @@ func (txn *Transaction) finishUnadmitted() error {
 	return txn.finish()
 }
 
-// Snapshot returns the details of the Transaction's read snapshot.
-func (txn *Transaction) Snapshot() Snapshot {
-	return txn.snapshot
+// SnapshotLSN returns the LSN of the Transaction's read snapshot.
+func (txn *Transaction) SnapshotLSN() LSN {
+	return txn.snapshotLSN
 }
 
 // SkipVerificationFailures configures the transaction to skip reference updates that fail verification.
@@ -620,15 +615,15 @@ type snapshotLock struct {
 // the repository on start up.
 //
 // TransactionManager maintains the write-ahead log in a key-value store. It maintains the following key spaces:
-// - `repository/<repository_id:string>/log/index/applied`
-//   - This key stores the index of the log entry that has been applied to the repository. This allows for
-//     determining how far a repository is in processing the log and which log entries need to be applied
-//     after starting up. Repository starts from log index 0 if there are no log entries recorded to have
+// - `partition/<partition_id>/applied_lsn`
+//   - This key stores the LSN of the log entry that has been applied to the repository. This allows for
+//     determining how far a partition is in processing the log and which log entries need to be applied
+//     after starting up. Partition starts from LSN 0 if there are no log entries recorded to have
 //     been applied.
 //
-// - `repository/<repository_id:string>/log/entry/<log_index:uint64>`
-//   - These keys hold the actual write-ahead log entries. A repository's first log entry starts at index 1
-//     and the log index keeps monotonically increasing from there on without gaps. The write-ahead log
+// - `partition/<partition_id:string>/log/entry/<log_index:uint64>`
+//   - These keys hold the actual write-ahead log entries. A partition's first log entry starts at LSN 1
+//     and the LSN keeps monotonically increasing from there on without gaps. The write-ahead log
 //     entries are processed in ascending order.
 //
 // The values in the database are marshaled protocol buffer messages. Numbers in the keys are encoded as big
@@ -679,7 +674,7 @@ type TransactionManager struct {
 	// initializationSuccessful is set if the TransactionManager initialized successfully. If it didn't,
 	// transactions will fail to begin.
 	initializationSuccessful bool
-	// mutex guards access to snapshotLocks and appendedLogIndex. These fields are accessed by both
+	// mutex guards access to snapshotLocks and appendedLSN. These fields are accessed by both
 	// Run and Begin which are ran in different goroutines.
 	mutex sync.Mutex
 
@@ -687,19 +682,19 @@ type TransactionManager struct {
 	// process targets the main repository and creates locks in it.
 	stateLock sync.RWMutex
 	// snapshotLocks contains state used for synchronizing snapshotters with the log application.
-	snapshotLocks map[LogIndex]*snapshotLock
+	snapshotLocks map[LSN]*snapshotLock
 
-	// appendedLogIndex holds the index of the last log entry appended to the log.
-	appendedLogIndex LogIndex
-	// appliedLogIndex holds the index of the last log entry applied to the repository
-	appliedLogIndex LogIndex
+	// appendedLSN holds the LSN of the last log entry appended to the partition's write-ahead log.
+	appendedLSN LSN
+	// appliedLSN holds the LSN of the last log entry applied to the partition.
+	appliedLSN LSN
 	// housekeepingManager access to the housekeeping.Manager.
 	housekeepingManager housekeeping.Manager
 
 	// awaitingTransactions contains transactions waiting for their log entry to be applied to
-	// the repository. It's keyed by the log index the transaction is waiting to be applied and the
+	// the partition. It's keyed by the LSN the transaction is waiting to be applied and the
 	// value is the resultChannel that is waiting the result.
-	awaitingTransactions map[LogIndex]resultChannel
+	awaitingTransactions map[LSN]resultChannel
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
@@ -730,11 +725,11 @@ func NewTransactionManager(
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
 		initialized:          make(chan struct{}),
-		snapshotLocks:        make(map[LogIndex]*snapshotLock),
+		snapshotLocks:        make(map[LSN]*snapshotLock),
 		stateDirectory:       stateDir,
 		stagingDirectory:     stagingDir,
 		housekeepingManager:  housekeepingManager,
-		awaitingTransactions: make(map[LogIndex]resultChannel),
+		awaitingTransactions: make(map[LSN]resultChannel),
 	}
 }
 
@@ -982,10 +977,10 @@ func (mgr *TransactionManager) Run() (returnedErr error) {
 	}
 
 	for {
-		if mgr.appliedLogIndex < mgr.appendedLogIndex {
-			logIndex := mgr.appliedLogIndex + 1
+		if mgr.appliedLSN < mgr.appendedLSN {
+			lsn := mgr.appliedLSN + 1
 
-			if err := mgr.applyLogEntry(mgr.ctx, logIndex); err != nil {
+			if err := mgr.applyLogEntry(mgr.ctx, lsn); err != nil {
 				return fmt.Errorf("apply log entry: %w", err)
 			}
 
@@ -1061,11 +1056,11 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			}
 		}
 
-		nextLogIndex := mgr.appendedLogIndex + 1
+		nextLSN := mgr.appendedLSN + 1
 		if transaction.packPrefix != "" {
 			logEntry.PackPrefix = transaction.packPrefix
 
-			removeFiles, err := mgr.storeWALFiles(mgr.ctx, nextLogIndex, transaction)
+			removeFiles, err := mgr.storeWALFiles(mgr.ctx, nextLSN, transaction)
 			cleanUps = append(cleanUps, func() error {
 				// The transaction's files might have been moved successfully in to the log.
 				// If anything fails before the transaction is committed, the files must be removed as otherwise
@@ -1088,13 +1083,13 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			logEntry.RepositoryDeletion = &gitalypb.LogEntry_RepositoryDeletion{}
 		}
 
-		return mgr.appendLogEntry(nextLogIndex, logEntry)
+		return mgr.appendLogEntry(nextLSN, logEntry)
 	}(); err != nil {
 		transaction.result <- err
 		return nil
 	}
 
-	mgr.awaitingTransactions[mgr.appendedLogIndex] = transaction.result
+	mgr.awaitingTransactions[mgr.appendedLSN] = transaction.result
 
 	return nil
 }
@@ -1113,23 +1108,23 @@ func (mgr *TransactionManager) isClosing() bool {
 }
 
 // initialize initializes the TransactionManager's state from the database. It loads the appendend and the applied
-// indexes and initializes the notification channels that synchronize transaction beginning with log entry applying.
+// LSNs and initializes the notification channels that synchronize transaction beginning with log entry applying.
 func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	defer close(mgr.initialized)
 
-	var appliedLogIndex gitalypb.LogIndex
-	if err := mgr.readKey(keyAppliedLogIndex(mgr.partitionID), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
-		return fmt.Errorf("read applied log index: %w", err)
+	var appliedLSN gitalypb.LSN
+	if err := mgr.readKey(keyAppliedLSN(mgr.partitionID), &appliedLSN); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
+		return fmt.Errorf("read applied LSN: %w", err)
 	}
 
-	mgr.appliedLogIndex = LogIndex(appliedLogIndex.LogIndex)
+	mgr.appliedLSN = LSN(appliedLSN.Value)
 
-	// The index of the last appended log entry is determined from the indexes of the latest entry in the log and
+	// The LSN of the last appended log entry is determined from the LSN of the latest entry in the log and
 	// the latest applied log entry. If there is a log entry, it is the latest appended log entry. If there are no
-	// log entries, the latest log entry must have been applied to the repository and pruned away, meaning the index
-	// of the last appended log entry is the same as the index if the last applied log entry.
+	// log entries, the latest log entry must have been applied to the repository and pruned away, meaning the LSN
+	// of the last appended log entry is the same as the LSN if the last applied log entry.
 	//
-	// As the log indexes in the keys are encoded in big endian, the latest log entry can be found by taking
+	// As the LSNs in the keys are encoded in big endian, the latest log entry can be found by taking
 	// the first key when iterating the log entry key space in reverse.
 	if err := mgr.db.View(func(txn databaseTransaction) error {
 		logPrefix := keyPrefixLogEntries(mgr.partitionID)
@@ -1137,35 +1132,35 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 		iterator := txn.NewIterator(badger.IteratorOptions{Reverse: true, Prefix: logPrefix})
 		defer iterator.Close()
 
-		mgr.appendedLogIndex = mgr.appliedLogIndex
+		mgr.appendedLSN = mgr.appliedLSN
 
 		// The iterator seeks to a key that is greater than or equal than seeked key. Since we are doing a reverse
 		// seek, we need to add 0xff to the prefix so the first iterated key is the latest log entry.
 		if iterator.Seek(append(logPrefix, 0xff)); iterator.Valid() {
-			mgr.appendedLogIndex = LogIndex(binary.BigEndian.Uint64(bytes.TrimPrefix(iterator.Item().Key(), logPrefix)))
+			mgr.appendedLSN = LSN(binary.BigEndian.Uint64(bytes.TrimPrefix(iterator.Item().Key(), logPrefix)))
 		}
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("determine appended log index: %w", err)
+		return fmt.Errorf("determine appended LSN: %w", err)
 	}
 
 	if err := mgr.createStateDirectory(); err != nil {
 		return fmt.Errorf("create state directory: %w", err)
 	}
 
-	// Create a snapshot lock for the applied index as it is used for synchronizing
+	// Create a snapshot lock for the applied LSN as it is used for synchronizing
 	// the snapshotters with the log application.
-	mgr.snapshotLocks[mgr.appliedLogIndex] = &snapshotLock{applied: make(chan struct{})}
-	close(mgr.snapshotLocks[mgr.appliedLogIndex].applied)
+	mgr.snapshotLocks[mgr.appliedLSN] = &snapshotLock{applied: make(chan struct{})}
+	close(mgr.snapshotLocks[mgr.appliedLSN].applied)
 
 	// Each unapplied log entry should have a snapshot lock as they are created in normal
 	// operation when committing a log entry. Recover these entries.
-	for i := mgr.appliedLogIndex + 1; i <= mgr.appendedLogIndex; i++ {
+	for i := mgr.appliedLSN + 1; i <= mgr.appendedLSN; i++ {
 		mgr.snapshotLocks[i] = &snapshotLock{applied: make(chan struct{})}
 	}
 
-	if err := mgr.removeStaleWALFiles(mgr.ctx, mgr.appendedLogIndex); err != nil {
+	if err := mgr.removeStaleWALFiles(mgr.ctx, mgr.appendedLSN); err != nil {
 		return fmt.Errorf("remove stale packs: %w", err)
 	}
 
@@ -1245,10 +1240,10 @@ func (mgr *TransactionManager) removePackedRefsLocks(ctx context.Context, reposi
 // removeStaleWALFiles removes files from the log directory that have no associated log entry.
 // Such files can be left around if transaction's files were moved in place successfully
 // but the manager was interrupted before successfully persisting the log entry itself.
-func (mgr *TransactionManager) removeStaleWALFiles(ctx context.Context, appendedIndex LogIndex) error {
+func (mgr *TransactionManager) removeStaleWALFiles(ctx context.Context, appendedLSN LSN) error {
 	// Log entries are appended one by one to the log. If a write is interrupted, the only possible stale
-	// pack would be for the next log index. Remove the pack if it exists.
-	possibleStaleFilesPath := walFilesPathForLogIndex(mgr.stateDirectory, appendedIndex+1)
+	// pack would be for the next LSN. Remove the pack if it exists.
+	possibleStaleFilesPath := walFilesPathForLSN(mgr.stateDirectory, appendedLSN+1)
 	if _, err := os.Stat(possibleStaleFilesPath); err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("remove: %w", err)
@@ -1272,10 +1267,10 @@ func (mgr *TransactionManager) removeStaleWALFiles(ctx context.Context, appended
 // storeWALFiles moves the transaction's logged files from the staging directory to their destination in the log.
 // It returns a function, even on errors, that must be called to clean up the files if committing the log entry
 // fails.
-func (mgr *TransactionManager) storeWALFiles(ctx context.Context, index LogIndex, transaction *Transaction) (func() error, error) {
+func (mgr *TransactionManager) storeWALFiles(ctx context.Context, lsn LSN, transaction *Transaction) (func() error, error) {
 	removeFiles := func() error { return nil }
 
-	destinationPath := walFilesPathForLogIndex(mgr.stateDirectory, index)
+	destinationPath := walFilesPathForLSN(mgr.stateDirectory, lsn)
 	if err := os.Rename(
 		transaction.walFilesPath(),
 		destinationPath,
@@ -1299,9 +1294,9 @@ func (mgr *TransactionManager) storeWALFiles(ctx context.Context, index LogIndex
 	return removeFiles, nil
 }
 
-// walFilesPathForLogIndex returns an absolute path to a given log entry's WAL files.
-func walFilesPathForLogIndex(stateDir string, index LogIndex) string {
-	return filepath.Join(stateDir, "wal", index.String())
+// walFilesPathForLSN returns an absolute path to a given log entry's WAL files.
+func walFilesPathForLSN(stateDir string, lsn LSN) string {
+	return filepath.Join(stateDir, "wal", lsn.String())
 }
 
 // packFilePath returns a log entry's pack file's absolute path in the wal files directory.
@@ -1501,22 +1496,22 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 
 // appendLogEntry appends the transaction to the write-ahead log. References that failed verification are skipped and thus not
 // logged nor applied later.
-func (mgr *TransactionManager) appendLogEntry(nextLogIndex LogIndex, logEntry *gitalypb.LogEntry) error {
-	if err := mgr.storeLogEntry(nextLogIndex, logEntry); err != nil {
+func (mgr *TransactionManager) appendLogEntry(nextLSN LSN, logEntry *gitalypb.LogEntry) error {
+	if err := mgr.storeLogEntry(nextLSN, logEntry); err != nil {
 		return fmt.Errorf("set log entry: %w", err)
 	}
 
 	mgr.mutex.Lock()
-	mgr.appendedLogIndex = nextLogIndex
-	mgr.snapshotLocks[nextLogIndex] = &snapshotLock{applied: make(chan struct{})}
+	mgr.appendedLSN = nextLSN
+	mgr.snapshotLocks[nextLSN] = &snapshotLock{applied: make(chan struct{})}
 	mgr.mutex.Unlock()
 
 	return nil
 }
 
-// applyLogEntry reads a log entry at the given index and applies it to the repository.
-func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIndex) error {
-	logEntry, err := mgr.readLogEntry(logIndex)
+// applyLogEntry reads a log entry at the given LSN and applies it to the repository.
+func (mgr *TransactionManager) applyLogEntry(ctx context.Context, lsn LSN) error {
+	logEntry, err := mgr.readLogEntry(lsn)
 	if err != nil {
 		return fmt.Errorf("read log entry: %w", err)
 	}
@@ -1524,10 +1519,10 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 	// Ensure all snapshotters have finished snapshotting the previous state before we apply
 	// the new state to the repository. No new snapshotters can arrive at this point. All
 	// new transactions would be waiting for the committed log entry we are about to apply.
-	previousIndex := logIndex - 1
-	mgr.snapshotLocks[previousIndex].activeSnapshotters.Wait()
+	previousLSN := lsn - 1
+	mgr.snapshotLocks[previousLSN].activeSnapshotters.Wait()
 	mgr.mutex.Lock()
-	delete(mgr.snapshotLocks, previousIndex)
+	delete(mgr.snapshotLocks, previousLSN)
 	mgr.mutex.Unlock()
 
 	if logEntry.RepositoryDeletion != nil {
@@ -1539,7 +1534,7 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 		}
 	} else {
 		if logEntry.PackPrefix != "" {
-			if err := mgr.applyPackFile(ctx, logIndex, logEntry); err != nil {
+			if err := mgr.applyPackFile(ctx, lsn, logEntry); err != nil {
 				return fmt.Errorf("apply pack file: %w", err)
 			}
 		}
@@ -1557,26 +1552,26 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 		}
 	}
 
-	if err := mgr.storeAppliedLogIndex(logIndex); err != nil {
-		return fmt.Errorf("set applied log index: %w", err)
+	if err := mgr.storeAppliedLSN(lsn); err != nil {
+		return fmt.Errorf("set applied LSN: %w", err)
 	}
 
-	if err := mgr.deleteLogEntry(logIndex); err != nil {
+	if err := mgr.deleteLogEntry(lsn); err != nil {
 		return fmt.Errorf("deleting log entry: %w", err)
 	}
 
-	mgr.appliedLogIndex = logIndex
+	mgr.appliedLSN = lsn
 
 	// There is no awaiter for a transaction if the transaction manager is recovering
 	// transactions from the log after starting up.
-	if resultChan, ok := mgr.awaitingTransactions[logIndex]; ok {
+	if resultChan, ok := mgr.awaitingTransactions[lsn]; ok {
 		resultChan <- nil
-		delete(mgr.awaitingTransactions, logIndex)
+		delete(mgr.awaitingTransactions, lsn)
 	}
 
 	// Notify the transactions waiting for this log entry to be applied prior to take their
 	// snapshot.
-	close(mgr.snapshotLocks[logIndex].applied)
+	close(mgr.snapshotLocks[lsn].applied)
 
 	return nil
 }
@@ -1619,7 +1614,7 @@ func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, logE
 // applyPackFile unpacks the objects from the pack file into the repository if the log entry
 // has an associated pack file. This is done by hard linking the pack and index from the
 // log into the repository's object directory.
-func (mgr *TransactionManager) applyPackFile(ctx context.Context, logIndex LogIndex, logEntry *gitalypb.LogEntry) error {
+func (mgr *TransactionManager) applyPackFile(ctx context.Context, lsn LSN, logEntry *gitalypb.LogEntry) error {
 	packDirectory := filepath.Join(mgr.getAbsolutePath(logEntry.RelativePath), "objects", "pack")
 	for _, fileExtension := range []string{
 		".pack",
@@ -1627,7 +1622,7 @@ func (mgr *TransactionManager) applyPackFile(ctx context.Context, logIndex LogIn
 		".rev",
 	} {
 		if err := os.Link(
-			filepath.Join(walFilesPathForLogIndex(mgr.stateDirectory, logIndex), "objects"+fileExtension),
+			filepath.Join(walFilesPathForLSN(mgr.stateDirectory, lsn), "objects"+fileExtension),
 			filepath.Join(packDirectory, logEntry.PackPrefix+fileExtension),
 		); err != nil {
 			if !errors.Is(err, fs.ErrExist) {
@@ -1682,15 +1677,15 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logEntry *g
 	return nil
 }
 
-// deleteLogEntry deletes the log entry at the given index from the log.
-func (mgr *TransactionManager) deleteLogEntry(index LogIndex) error {
-	return mgr.deleteKey(keyLogEntry(mgr.partitionID, index))
+// deleteLogEntry deletes the log entry at the given LSN from the log.
+func (mgr *TransactionManager) deleteLogEntry(lsn LSN) error {
+	return mgr.deleteKey(keyLogEntry(mgr.partitionID, lsn))
 }
 
 // readLogEntry returns the log entry from the given position in the log.
-func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry, error) {
+func (mgr *TransactionManager) readLogEntry(lsn LSN) (*gitalypb.LogEntry, error) {
 	var logEntry gitalypb.LogEntry
-	key := keyLogEntry(mgr.partitionID, index)
+	key := keyLogEntry(mgr.partitionID, lsn)
 
 	if err := mgr.readKey(key, &logEntry); err != nil {
 		return nil, fmt.Errorf("read key: %w", err)
@@ -1699,14 +1694,14 @@ func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry,
 	return &logEntry, nil
 }
 
-// storeLogEntry stores the log entry in the partition's write-ahead log at the given index.
-func (mgr *TransactionManager) storeLogEntry(index LogIndex, entry *gitalypb.LogEntry) error {
-	return mgr.setKey(keyLogEntry(mgr.partitionID, index), entry)
+// storeLogEntry stores the log entry in the partition's write-ahead log at the given LSN.
+func (mgr *TransactionManager) storeLogEntry(lsn LSN, entry *gitalypb.LogEntry) error {
+	return mgr.setKey(keyLogEntry(mgr.partitionID, lsn), entry)
 }
 
-// storeAppliedLogIndex stores the partition's applied log index in the database.
-func (mgr *TransactionManager) storeAppliedLogIndex(index LogIndex) error {
-	return mgr.setKey(keyAppliedLogIndex(mgr.partitionID), index.toProto())
+// storeAppliedLSN stores the partition's applied LSN in the database.
+func (mgr *TransactionManager) storeAppliedLSN(lsn LSN) error {
+	return mgr.setKey(keyAppliedLSN(mgr.partitionID), lsn.toProto())
 }
 
 // setKey marshals and stores a given protocol buffer message into the database under the given key.
@@ -1750,15 +1745,15 @@ func (mgr *TransactionManager) deleteKey(key []byte) error {
 	})
 }
 
-// keyAppliedLogIndex returns the database key storing a partition's last applied log entry's index.
-func keyAppliedLogIndex(ptnID partitionID) []byte {
-	return []byte(fmt.Sprintf("partition/%s/log/index/applied", ptnID.MarshalBinary()))
+// keyAppliedLSN returns the database key storing a partition's last applied log entry's LSN.
+func keyAppliedLSN(ptnID partitionID) []byte {
+	return []byte(fmt.Sprintf("partition/%s/applied_lsn", ptnID.MarshalBinary()))
 }
 
-// keyLogEntry returns the database key storing a partition's log entry at a given index.
-func keyLogEntry(ptnID partitionID, index LogIndex) []byte {
-	marshaledIndex := make([]byte, binary.Size(index))
-	binary.BigEndian.PutUint64(marshaledIndex, uint64(index))
+// keyLogEntry returns the database key storing a partition's log entry at a given LSN.
+func keyLogEntry(ptnID partitionID, lsn LSN) []byte {
+	marshaledIndex := make([]byte, binary.Size(lsn))
+	binary.BigEndian.PutUint64(marshaledIndex, uint64(lsn))
 	return []byte(fmt.Sprintf("%s%s", keyPrefixLogEntries(ptnID), marshaledIndex))
 }
 

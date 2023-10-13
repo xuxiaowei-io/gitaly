@@ -20,10 +20,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// LogEntry is a single entry in a repository's write-ahead log.
+// LogEntry is a single entry in a partition's write-ahead log.
 //
 // Schema for :
-// - `repository/<repository_id>/log/entry/<log_index>`.
+// - `partition/<partition_id>/log/entry/<log_index>`.
 type LogEntry struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -122,22 +122,22 @@ func (x *LogEntry) GetRepositoryDeletion() *LogEntry_RepositoryDeletion {
 	return nil
 }
 
-// LogIndex serializes a log index. It's used for storing a repository's
-// applied log index in the database.
+// LSN serializes a log sequence number. It's used for storing a partition's
+// applied LSN in the database.
 //
 // Schema for:
-// - `repository/<repository_id>/log/index/applied`
-type LogIndex struct {
+// - `partition/<partition_id>/applied_lsn`
+type LSN struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// log_index is an index pointing to a position in the log.
-	LogIndex uint64 `protobuf:"varint,1,opt,name=log_index,json=logIndex,proto3" json:"log_index,omitempty"`
+	// value is an LSN pointing to a position in the log.
+	Value uint64 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-func (x *LogIndex) Reset() {
-	*x = LogIndex{}
+func (x *LSN) Reset() {
+	*x = LSN{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_log_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -145,13 +145,13 @@ func (x *LogIndex) Reset() {
 	}
 }
 
-func (x *LogIndex) String() string {
+func (x *LSN) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LogIndex) ProtoMessage() {}
+func (*LSN) ProtoMessage() {}
 
-func (x *LogIndex) ProtoReflect() protoreflect.Message {
+func (x *LSN) ProtoReflect() protoreflect.Message {
 	mi := &file_log_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -163,14 +163,14 @@ func (x *LogIndex) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LogIndex.ProtoReflect.Descriptor instead.
-func (*LogIndex) Descriptor() ([]byte, []int) {
+// Deprecated: Use LSN.ProtoReflect.Descriptor instead.
+func (*LSN) Descriptor() ([]byte, []int) {
 	return file_log_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *LogIndex) GetLogIndex() uint64 {
+func (x *LSN) GetValue() uint64 {
 	if x != nil {
-		return x.LogIndex
+		return x.Value
 	}
 	return 0
 }
@@ -421,13 +421,12 @@ var file_log_proto_rawDesc = []byte{
 	0x74, 0x61, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0e, 0x63, 0x75, 0x73, 0x74, 0x6f,
 	0x6d, 0x48, 0x6f, 0x6f, 0x6b, 0x73, 0x54, 0x61, 0x72, 0x1a, 0x14, 0x0a, 0x12, 0x52, 0x65, 0x70,
 	0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x69, 0x6f, 0x6e, 0x22,
-	0x27, 0x0a, 0x08, 0x4c, 0x6f, 0x67, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x1b, 0x0a, 0x09, 0x6c,
-	0x6f, 0x67, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08,
-	0x6c, 0x6f, 0x67, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x42, 0x34, 0x5a, 0x32, 0x67, 0x69, 0x74, 0x6c,
-	0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2d, 0x6f, 0x72,
-	0x67, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2f, 0x76, 0x31, 0x36, 0x2f, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x70, 0x62, 0x62, 0x06,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x1b, 0x0a, 0x03, 0x4c, 0x53, 0x4e, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x42, 0x34, 0x5a, 0x32,
+	0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x69, 0x74, 0x6c, 0x61,
+	0x62, 0x2d, 0x6f, 0x72, 0x67, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2f, 0x76, 0x31, 0x36,
+	0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79,
+	0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -445,7 +444,7 @@ func file_log_proto_rawDescGZIP() []byte {
 var file_log_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_log_proto_goTypes = []interface{}{
 	(*LogEntry)(nil),                     // 0: gitaly.LogEntry
-	(*LogIndex)(nil),                     // 1: gitaly.LogIndex
+	(*LSN)(nil),                          // 1: gitaly.LSN
 	(*LogEntry_ReferenceUpdate)(nil),     // 2: gitaly.LogEntry.ReferenceUpdate
 	(*LogEntry_DefaultBranchUpdate)(nil), // 3: gitaly.LogEntry.DefaultBranchUpdate
 	(*LogEntry_CustomHooksUpdate)(nil),   // 4: gitaly.LogEntry.CustomHooksUpdate
@@ -482,7 +481,7 @@ func file_log_proto_init() {
 			}
 		}
 		file_log_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LogIndex); i {
+			switch v := v.(*LSN); i {
 			case 0:
 				return &v.state
 			case 1:

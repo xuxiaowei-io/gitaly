@@ -35,10 +35,10 @@ type hooks struct {
 	beforeDeferredClose hookFunc
 	// beforeDeleteLogEntry is invoked before a log entry is deleted from the database.
 	beforeDeleteLogEntry hookFunc
-	// beforeReadAppliedLogIndex is invoked before the applied log index is read from the database.
-	beforeReadAppliedLogIndex hookFunc
-	// beforeStoreAppliedLogIndex is invoked before a the applied log index is stored.
-	beforeStoreAppliedLogIndex hookFunc
+	// beforeReadAppliedLSN is invoked before the applied LSN is read from the database.
+	beforeReadAppliedLSN hookFunc
+	// beforeStoreAppliedLSN is invoked before a the applied LSN is stored.
+	beforeStoreAppliedLSN hookFunc
 }
 
 // installHooks installs the configured hooks into the transactionManager.
@@ -109,8 +109,8 @@ type databaseTransactionHook struct {
 }
 
 var (
-	regexLogEntry = regexp.MustCompile("partition/.+/log/entry/")
-	regexLogIndex = regexp.MustCompile("partition/.+/log/index/applied")
+	regexLogEntry   = regexp.MustCompile("partition/.+/log/entry/")
+	regexAppliedLSN = regexp.MustCompile("partition/.+/applied_lsn")
 )
 
 func (hook databaseTransactionHook) Get(key []byte) (*badger.Item, error) {
@@ -118,9 +118,9 @@ func (hook databaseTransactionHook) Get(key []byte) (*badger.Item, error) {
 		if hook.hooks.beforeReadLogEntry != nil {
 			hook.hooks.beforeReadLogEntry(hook.hookContext)
 		}
-	} else if regexLogIndex.Match(key) {
-		if hook.hooks.beforeReadAppliedLogIndex != nil {
-			hook.hooks.beforeReadAppliedLogIndex(hook.hookContext)
+	} else if regexAppliedLSN.Match(key) {
+		if hook.hooks.beforeReadAppliedLSN != nil {
+			hook.hooks.beforeReadAppliedLSN(hook.hookContext)
 		}
 	}
 
@@ -146,8 +146,8 @@ type writeBatchHook struct {
 }
 
 func (hook writeBatchHook) Set(key []byte, value []byte) error {
-	if regexLogIndex.Match(key) && hook.hooks.beforeStoreAppliedLogIndex != nil {
-		hook.hooks.beforeStoreAppliedLogIndex(hook.hookContext)
+	if regexAppliedLSN.Match(key) && hook.hooks.beforeStoreAppliedLSN != nil {
+		hook.hooks.beforeStoreAppliedLSN(hook.hookContext)
 	}
 
 	if regexLogEntry.Match(key) && hook.hooks.beforeStoreLogEntry != nil {
