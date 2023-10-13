@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,8 +31,11 @@ const (
 // StartCleaning starts tempdir cleanup in a goroutine.
 func StartCleaning(logger log.Logger, locator storage.Locator, storages []config.Storage, d time.Duration) {
 	dontpanic.Go(logger, func() {
+		// Multiple storage names may share a single path, ensure we walk each path only once.
+		uniqueStorages := dedupStorages(storages)
+
 		for {
-			cleanTempDir(logger, locator, storages)
+			cleanTempDir(logger, locator, uniqueStorages)
 			time.Sleep(d)
 		}
 	})
@@ -107,4 +111,27 @@ func clean(logger log.Logger, locator storage.Locator, storage config.Storage) e
 	}
 
 	return nil
+}
+
+func dedupStorages(storages []config.Storage) []config.Storage {
+	uniquePaths := make(map[string][]config.Storage)
+	for _, stg := range storages {
+		uniquePaths[stg.Path] = append(uniquePaths[stg.Path], stg)
+	}
+
+	// Sort by name so we consistently choose the same storage per path regardless of
+	// their order in the config.
+	for _, stgs := range uniquePaths {
+		sort.Slice(stgs, func(i, j int) bool {
+			return stgs[i].Name < stgs[j].Name
+		})
+	}
+
+	// Return only one storage per path.
+	dedupedStorages := make([]config.Storage, 0, len(uniquePaths))
+	for _, stgs := range uniquePaths {
+		dedupedStorages = append(dedupedStorages, stgs[0])
+	}
+
+	return dedupedStorages
 }
