@@ -141,9 +141,6 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 				},
 			)
 		} else if errors.As(err, &customHookErr) {
-			// When an error happens updating the reference, e.g. because of a
-			// race with another update, then we should tell the user that a
-			// precondition failed. A retry may fix this.
 			return structerr.NewPermissionDenied("%w", customHookErr).WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_CustomHook{

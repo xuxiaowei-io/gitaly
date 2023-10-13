@@ -28,7 +28,8 @@ func validateUserCreateBranchRequest(locator storage.Locator, in *gitalypb.UserC
 	return nil
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// UserCreateBranch creates a single branch in the context of a specific user. It executes
+// hooks and contacts Rails to verify that the user is allowed to create the branch.
 func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateBranchRequest) (*gitalypb.UserCreateBranchResponse, error) {
 	if err := validateUserCreateBranchRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)

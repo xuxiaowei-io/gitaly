@@ -36,7 +36,8 @@ func validateUserUpdateBranchGo(locator storage.Locator, req *gitalypb.UserUpdat
 	return nil
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// UserUpdateBranch updates a branch to point to a new revision. It executes hooks and
+// contacts Rails to verify that the user is allowed to update the branch.
 func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
 	// Validate the request
 	if err := validateUserUpdateBranchGo(s.locator, req); err != nil {

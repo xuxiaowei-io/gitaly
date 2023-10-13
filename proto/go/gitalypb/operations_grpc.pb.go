@@ -22,9 +22,23 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OperationServiceClient interface {
-	// UserCreateBranch ...
+	// UserCreateBranch creates a single branch in the context of a specific user. It executes
+	// hooks and contacts Rails to verify that the user is allowed to create the branch. The
+	// following known error conditions may happen:
+	//
+	//   - `FailedPrecondition` if the Git revision provided in start_point can't be found or updated.
+	//   - `InvalidArgument` if the commit ID resolved from the start_point can't be parsed.
+	//   - `PermissionDenied` with an embedded `UserCreateBranchError` if any custom hooks return a
+	//     non-zero exit code.
 	UserCreateBranch(ctx context.Context, in *UserCreateBranchRequest, opts ...grpc.CallOption) (*UserCreateBranchResponse, error)
-	// UserUpdateBranch ...
+	// UserUpdateBranch updates a branch to point to a new revision. It executes hooks and
+	// contacts Rails to verify that the user is allowed to update the branch. The following
+	// known error conditions may happen:
+	//
+	//   - `InvalidArgument` if any of the request fields can't be validated.
+	//   - `Internal` if the newrev or oldrev are invalid in the context of the repository.
+	//   - `UserUpdateBranchResponse` with the `PreReceiveError` field set, if any custom hooks
+	//     return a non-zero exit code.
 	UserUpdateBranch(ctx context.Context, in *UserUpdateBranchRequest, opts ...grpc.CallOption) (*UserUpdateBranchResponse, error)
 	// UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
 	// hooks and contacts Rails to verify that the user is indeed allowed to delete that branch. The
@@ -44,7 +58,14 @@ type OperationServiceClient interface {
 	// UserCreateTag creates a new tag. This RPC knows to create both lightweight and annotated tags
 	// depending on whether a message is set.
 	UserCreateTag(ctx context.Context, in *UserCreateTagRequest, opts ...grpc.CallOption) (*UserCreateTagResponse, error)
-	// UserDeleteTag ...
+	// UserDeleteTag deletes an existing tag. It executes hooks and contacts Rails to verify that
+	// the user is allowed to delete the tag. The following known error conditions may happen:
+	//
+	//   - `InvalidArgument` if the repository, tag_name, user, or expected_old_oid (if provided)
+	//     are invalid.
+	//   - `FailedPrecondition` if the tag_name can't be found, or the ref couldn't be deleted due
+	//     to a concurrent write to the same ref.
+	//   - `Internal` if the tag_name can't be resolved or an unknown error occurs.
 	UserDeleteTag(ctx context.Context, in *UserDeleteTagRequest, opts ...grpc.CallOption) (*UserDeleteTagResponse, error)
 	// UserMergeToRef creates a merge commit and updates target_ref to point to that
 	// new commit. The first parent of the merge commit (the main line) is taken
@@ -60,14 +81,25 @@ type OperationServiceClient interface {
 	// The merge commit is created with the given user as author/committer and
 	// the given message.
 	//
-	// This RPC requires confirmation to make any user-visible changes to the
-	// repository. The first request sent shall contain details about the
-	// requested merge, which will result in a response with the created merge
-	// commit ID. Only if a second message with `apply = true` is sent will the
-	// merge be applied.
+	// This is a two-stage RPC that requires confirmation to make user-visible
+	// changes to the repository:
+	//   - The first request contains details about the requested merge, which
+	//     will result in a response with the created merge commit ID.
+	//   - The second request should set `apply = true` to apply the merge.
+	//
+	// After the second request, it executes hooks and contacts Rails to verify
+	// that the user is allowed to update the branch. The following known error
+	// conditions may happen:
+	//
+	//   - `InvalidArgument` if request fields can't be validated or resolved.
+	//   - `NotFound` if the branch can't be found.
+	//   - `FailedPrecondition` if there are merge conflicts, if the merge is
+	//     aborted by setting `apply = false` in the second request, or if the
+	//     merge fails due to a concurrent write to the same ref.
+	//   - `PermissionDenied` if the user doesn't have permissions to merge a branch.
 	UserMergeBranch(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserMergeBranchClient, error)
-	// UserFFBranch tries to perform a fast-forward merge of the given branch to
-	// the given commit. If the merge is not a fast-forward merge, the request
+	// UserFFBranch tries to perform a fast-forward merge of a given commit into
+	// the given branch. If the merge is not a fast-forward merge, the request
 	// will fail. The RPC will return an empty response in case updating the
 	// reference fails e.g. because of a race.
 	UserFFBranch(ctx context.Context, in *UserFFBranchRequest, opts ...grpc.CallOption) (*UserFFBranchResponse, error)
@@ -352,9 +384,23 @@ func (c *operationServiceClient) UserUpdateSubmodule(ctx context.Context, in *Us
 // All implementations must embed UnimplementedOperationServiceServer
 // for forward compatibility
 type OperationServiceServer interface {
-	// UserCreateBranch ...
+	// UserCreateBranch creates a single branch in the context of a specific user. It executes
+	// hooks and contacts Rails to verify that the user is allowed to create the branch. The
+	// following known error conditions may happen:
+	//
+	//   - `FailedPrecondition` if the Git revision provided in start_point can't be found or updated.
+	//   - `InvalidArgument` if the commit ID resolved from the start_point can't be parsed.
+	//   - `PermissionDenied` with an embedded `UserCreateBranchError` if any custom hooks return a
+	//     non-zero exit code.
 	UserCreateBranch(context.Context, *UserCreateBranchRequest) (*UserCreateBranchResponse, error)
-	// UserUpdateBranch ...
+	// UserUpdateBranch updates a branch to point to a new revision. It executes hooks and
+	// contacts Rails to verify that the user is allowed to update the branch. The following
+	// known error conditions may happen:
+	//
+	//   - `InvalidArgument` if any of the request fields can't be validated.
+	//   - `Internal` if the newrev or oldrev are invalid in the context of the repository.
+	//   - `UserUpdateBranchResponse` with the `PreReceiveError` field set, if any custom hooks
+	//     return a non-zero exit code.
 	UserUpdateBranch(context.Context, *UserUpdateBranchRequest) (*UserUpdateBranchResponse, error)
 	// UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
 	// hooks and contacts Rails to verify that the user is indeed allowed to delete that branch. The
@@ -374,7 +420,14 @@ type OperationServiceServer interface {
 	// UserCreateTag creates a new tag. This RPC knows to create both lightweight and annotated tags
 	// depending on whether a message is set.
 	UserCreateTag(context.Context, *UserCreateTagRequest) (*UserCreateTagResponse, error)
-	// UserDeleteTag ...
+	// UserDeleteTag deletes an existing tag. It executes hooks and contacts Rails to verify that
+	// the user is allowed to delete the tag. The following known error conditions may happen:
+	//
+	//   - `InvalidArgument` if the repository, tag_name, user, or expected_old_oid (if provided)
+	//     are invalid.
+	//   - `FailedPrecondition` if the tag_name can't be found, or the ref couldn't be deleted due
+	//     to a concurrent write to the same ref.
+	//   - `Internal` if the tag_name can't be resolved or an unknown error occurs.
 	UserDeleteTag(context.Context, *UserDeleteTagRequest) (*UserDeleteTagResponse, error)
 	// UserMergeToRef creates a merge commit and updates target_ref to point to that
 	// new commit. The first parent of the merge commit (the main line) is taken
@@ -390,14 +443,25 @@ type OperationServiceServer interface {
 	// The merge commit is created with the given user as author/committer and
 	// the given message.
 	//
-	// This RPC requires confirmation to make any user-visible changes to the
-	// repository. The first request sent shall contain details about the
-	// requested merge, which will result in a response with the created merge
-	// commit ID. Only if a second message with `apply = true` is sent will the
-	// merge be applied.
+	// This is a two-stage RPC that requires confirmation to make user-visible
+	// changes to the repository:
+	//   - The first request contains details about the requested merge, which
+	//     will result in a response with the created merge commit ID.
+	//   - The second request should set `apply = true` to apply the merge.
+	//
+	// After the second request, it executes hooks and contacts Rails to verify
+	// that the user is allowed to update the branch. The following known error
+	// conditions may happen:
+	//
+	//   - `InvalidArgument` if request fields can't be validated or resolved.
+	//   - `NotFound` if the branch can't be found.
+	//   - `FailedPrecondition` if there are merge conflicts, if the merge is
+	//     aborted by setting `apply = false` in the second request, or if the
+	//     merge fails due to a concurrent write to the same ref.
+	//   - `PermissionDenied` if the user doesn't have permissions to merge a branch.
 	UserMergeBranch(OperationService_UserMergeBranchServer) error
-	// UserFFBranch tries to perform a fast-forward merge of the given branch to
-	// the given commit. If the merge is not a fast-forward merge, the request
+	// UserFFBranch tries to perform a fast-forward merge of a given commit into
+	// the given branch. If the merge is not a fast-forward merge, the request
 	// will fail. The RPC will return an empty response in case updating the
 	// reference fails e.g. because of a race.
 	UserFFBranch(context.Context, *UserFFBranchRequest) (*UserFFBranchResponse, error)

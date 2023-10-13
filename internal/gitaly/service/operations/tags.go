@@ -30,7 +30,7 @@ func validateUserDeleteTagRequest(locator storage.Locator, in *gitalypb.UserDele
 	return nil
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// UserDeleteTag deletes an existing tag.
 func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
 	if err := validateUserDeleteTagRequest(s.locator, req); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)

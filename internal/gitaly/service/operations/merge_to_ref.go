@@ -28,6 +28,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, fmt.Errorf("detecting object hash: %w", err)
 	}
 
+	//nolint:staticcheck // Branch is marked as deprecated in the protobuf
 	revision := git.Revision(request.Branch)
 	if request.FirstParentRef != nil {
 		revision = git.Revision(request.FirstParentRef)
@@ -135,6 +136,7 @@ func validateUserMergeToRefRequest(locator storage.Locator, in *gitalypb.UserMer
 		return err
 	}
 
+	//nolint:staticcheck // Branch is marked as deprecated in the protobuf
 	if len(in.FirstParentRef) == 0 && len(in.Branch) == 0 {
 		return errors.New("empty first parent ref and branch name")
 	}
