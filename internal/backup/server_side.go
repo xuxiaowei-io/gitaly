@@ -41,6 +41,7 @@ func (ss ServerSideAdapter) Create(ctx context.Context, req *CreateRequest) erro
 		Repository:       req.Repository,
 		VanityRepository: req.VanityRepository,
 		BackupId:         req.BackupID,
+		Incremental:      req.Incremental,
 	})
 	if err != nil {
 		st := status.Convert(err)

@@ -57,6 +57,25 @@ func TestCreateSubcommand(t *testing.T) {
 			},
 			ExpectedErrMessage: "create: pipeline: 1 failures encountered:\n - invalid: server-side create: could not dial source: invalid connection string: \"invalid\"\n",
 		},
+		{
+			Name: "when a server-side incremental backup is created",
+			Flags: func(path string) []string {
+				return []string{"-server-side", "-incremental", "-id", "the-new-backup"}
+			},
+			ServerOpts: func(ctx context.Context, backupRoot string) []testserver.GitalyServerOpt {
+				backupSink, err := backup.ResolveSink(ctx, backupRoot)
+				require.NoError(t, err)
+
+				backupLocator, err := backup.ResolveLocator("pointer", backupSink)
+				require.NoError(t, err)
+
+				return []testserver.GitalyServerOpt{
+					testserver.WithBackupSink(backupSink),
+					testserver.WithBackupLocator(backupLocator),
+				}
+			},
+			ExpectedErrMessage: "create: pipeline: 1 failures encountered:\n - invalid: server-side create: could not dial source: invalid connection string: \"invalid\"\n",
+		},
 	}
 
 	for _, tc := range tests {

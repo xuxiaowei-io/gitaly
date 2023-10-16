@@ -27,8 +27,9 @@ func TestServerSideAdapter_Create(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	type setupData struct {
-		repo     *gitalypb.Repository
-		backupID string
+		repo        *gitalypb.Repository
+		backupID    string
+		incremental bool
 	}
 
 	for _, tc := range []struct {
@@ -45,6 +46,19 @@ func TestServerSideAdapter_Create(t *testing.T) {
 				return setupData{
 					repo:     repo,
 					backupID: "abc123",
+				}
+			},
+		},
+		{
+			desc: "success - incremental",
+			setup: func(t *testing.T, ctx context.Context, cfg config.Cfg) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+
+				return setupData{
+					repo:        repo,
+					backupID:    "abc123",
+					incremental: true,
 				}
 			},
 		},
@@ -119,6 +133,7 @@ func TestServerSideAdapter_Create(t *testing.T) {
 				Repository:       data.repo,
 				VanityRepository: data.repo,
 				BackupID:         data.backupID,
+				Incremental:      data.incremental,
 			})
 			if tc.expectedErr != nil {
 				testhelper.RequireGrpcError(t, tc.expectedErr, err)

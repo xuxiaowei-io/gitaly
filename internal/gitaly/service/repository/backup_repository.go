@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
+// BackupRepository creates a full or incremental backup streamed directly to object-storage.
 func (s *server) BackupRepository(ctx context.Context, in *gitalypb.BackupRepositoryRequest) (*gitalypb.BackupRepositoryResponse, error) {
 	if s.backupSink == nil || s.backupLocator == nil {
 		return nil, structerr.NewFailedPrecondition("backup repository: server-side backups are not configured")
@@ -34,6 +35,7 @@ func (s *server) BackupRepository(ctx context.Context, in *gitalypb.BackupReposi
 		Repository:       in.Repository,
 		VanityRepository: in.VanityRepository,
 		BackupID:         in.BackupId,
+		Incremental:      in.Incremental,
 	})
 
 	switch {

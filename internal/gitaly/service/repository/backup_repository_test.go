@@ -24,10 +24,11 @@ func TestServerBackupRepository(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	type setupData struct {
-		cfg      config.Cfg
-		client   gitalypb.RepositoryServiceClient
-		repo     *gitalypb.Repository
-		backupID string
+		cfg         config.Cfg
+		client      gitalypb.RepositoryServiceClient
+		repo        *gitalypb.Repository
+		backupID    string
+		incremental bool
 	}
 
 	for _, tc := range []struct {
@@ -51,6 +52,26 @@ func TestServerBackupRepository(t *testing.T) {
 					client:   client,
 					repo:     repo,
 					backupID: "abc123",
+				}
+			},
+		},
+		{
+			desc: "success - incremental",
+			setup: func(t *testing.T, ctx context.Context, backupSink backup.Sink, backupLocator backup.Locator) setupData {
+				cfg, client := setupRepositoryService(t,
+					testserver.WithBackupSink(backupSink),
+					testserver.WithBackupLocator(backupLocator),
+				)
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+
+				return setupData{
+					cfg:         cfg,
+					client:      client,
+					repo:        repo,
+					backupID:    "abc123",
+					incremental: true,
 				}
 			},
 		},
@@ -169,6 +190,7 @@ func TestServerBackupRepository(t *testing.T) {
 				Repository:       data.repo,
 				VanityRepository: vanityRepo,
 				BackupId:         data.backupID,
+				Incremental:      data.incremental,
 			})
 			if tc.expectedErr != nil {
 				testhelper.RequireGrpcError(t, tc.expectedErr, err)

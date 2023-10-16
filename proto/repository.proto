@@ -383,7 +383,7 @@ service RepositoryService {
     };
   }
 
-  // BackupRepository creates a full backup streamed directly to
+  // BackupRepository creates a full or incremental backup streamed directly to
   // object-storage. The backup is created synchronously. The destination must
   // be configured in config.backup.go_cloud_url
   rpc BackupRepository(BackupRepositoryRequest) returns (BackupRepositoryResponse) {
@@ -1277,6 +1277,9 @@ message BackupRepositoryRequest {
   Repository vanity_repository = 2;
   // backup_id is the label used to identify this backup when restoring.
   string backup_id = 3;
+  // incremental controls whether an incremental backup should be performed. An incremental
+  // backup will attempt to locate a previous backup of this repository to base itself off.
+  bool incremental = 4;
 }
 
 // BackupRepositoryResponse is a response for the BackupRepository RPC.
