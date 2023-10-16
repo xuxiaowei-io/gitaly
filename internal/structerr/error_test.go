@@ -503,6 +503,28 @@ func TestError_Metadata(t *testing.T) {
 			{Key: "custom", Value: "error"},
 		})
 	})
+
+	t.Run("joined errors combine metadata", func(t *testing.T) {
+		joinedErr := errors.Join(
+			New("structerr").WithMetadata("foo", "bar"),
+			customWithMetadataError{},
+		)
+
+		err := New("top-level: %w", joinedErr).WithMetadata("bar", "foo")
+
+		require.Equal(t, Error{
+			err:  fmt.Errorf("top-level: %w", joinedErr),
+			code: codes.Unknown,
+			metadata: []MetadataItem{
+				{Key: "bar", Value: "foo"},
+			},
+		}, err)
+		requireItems(t, err, []MetadataItem{
+			{Key: "bar", Value: "foo"},
+			{Key: "custom", Value: "error"},
+			{Key: "foo", Value: "bar"},
+		})
+	})
 }
 
 func TestError_Details(t *testing.T) {

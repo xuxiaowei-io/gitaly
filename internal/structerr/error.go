@@ -353,28 +353,38 @@ type ErrorMetadater interface {
 // contain in case they are either a `structerr.Error` or in case they implement the `ErrorMetadater` interface. The
 // metadata will contain the combination of all added metadata of this error as well as any wrapped Errors.
 //
-// When the same metada key exists multiple times in the error chain, then the value that is
+// When the same metadata key exists multiple times in the error chain, then the value that is
 // highest up the callchain will be returned. This is done because in general, the higher up the
 // callchain one is the more context is available.
 func ExtractMetadata(err error) map[string]any {
 	metadata := map[string]any{}
-
-	for ; err != nil; err = errors.Unwrap(err) {
-		var metadataItems []MetadataItem
-		if structerr, ok := err.(Error); ok {
-			metadataItems = structerr.metadata
-		} else if errorMetadater, ok := err.(ErrorMetadater); ok {
-			metadataItems = errorMetadater.ErrorMetadata()
-		} else {
-			continue
-		}
-
-		for _, m := range metadataItems {
-			if _, exists := metadata[m.Key]; !exists {
-				metadata[m.Key] = m.Value
-			}
+	for _, m := range combineMetadataItems(err) {
+		if _, exists := metadata[m.Key]; !exists {
+			metadata[m.Key] = m.Value
 		}
 	}
 
 	return metadata
+}
+
+func combineMetadataItems(err error) []MetadataItem {
+	var metadataItems []MetadataItem
+
+	switch metadataErr := err.(type) {
+	case Error:
+		metadataItems = metadataErr.metadata
+	case ErrorMetadater:
+		metadataItems = metadataErr.ErrorMetadata()
+	}
+
+	switch wrapErr := err.(type) {
+	case interface{ Unwrap() error }:
+		metadataItems = append(metadataItems, combineMetadataItems(wrapErr.Unwrap())...)
+	case interface{ Unwrap() []error }:
+		for _, joinedErr := range wrapErr.Unwrap() {
+			metadataItems = append(metadataItems, combineMetadataItems(joinedErr)...)
+		}
+	}
+
+	return metadataItems
 }
