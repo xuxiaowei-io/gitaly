@@ -6,5 +6,5 @@ var InterceptReplicateRepository = NewFeatureFlag(
 	"intercept_replicate_repository",
 	"v16.3.0",
 	"https://gitlab.com/gitlab-org/gitaly/-/issues/5477",
-	false,
+	true,
 )
