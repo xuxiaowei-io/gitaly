@@ -198,13 +198,14 @@ func TestTrackRepositorySubcommand(t *testing.T) {
 				expectedOutput:       []string{"Added replication job to replicate repository to \"gitaly-2\".\n"},
 			},
 			{
-				desc:             "records already exist",
-				relativePath:     relativePathAlreadyExist,
-				repositoryExists: true,
+				desc:                 "records already exist",
+				relativePath:         relativePathAlreadyExist,
+				repositoryExists:     true,
+				replicateImmediately: true,
 				expectedOutput: []string{
 					"repository is already tracked in praefect database",
 					"Finished adding new repository to be tracked in praefect database.",
-					"Added replication job to replicate repository to \"gitaly-2\".\n",
+					"Finished replicating repository to \"gitaly-2\".\n",
 				},
 			},
 		}
