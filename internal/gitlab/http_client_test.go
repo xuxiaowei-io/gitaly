@@ -285,6 +285,13 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 		{
 			desc: "allowed",
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {
+				defer testhelper.MustClose(t, r.Body)
+
+				// Validate client sends repository relative path.
+				var reqBody allowedRequest
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&reqBody))
+				require.Equal(t, repo.RelativePath, reqBody.RelativePath)
+
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				_, err := w.Write([]byte(`{"status": true}`))
@@ -400,7 +407,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			c.latencyMetric = mockHistogramVec
 
 			allowed, message, err := c.Allowed(ctx, AllowedParams{
-				RepoPath:                      repo.RelativePath,
+				RepoPath:                      repoPath,
+				RelativePath:                  repo.RelativePath,
 				GitObjectDirectory:            repo.GitObjectDirectory,
 				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
 				GLRepository:                  "repo-1",

@@ -117,6 +117,7 @@ type allowedRequest struct {
 	Project      string `json:"project,omitempty"`
 	Changes      string `json:"changes,omitempty"`
 	Protocol     string `json:"protocol,omitempty"`
+	RelativePath string `json:"relative_path,omitempty"`
 	Env          string `json:"env,omitempty"`
 	Username     string `json:"username,omitempty"`
 	KeyID        string `json:"key_id,omitempty"`
@@ -167,6 +168,7 @@ func (c *HTTPClient) Allowed(ctx context.Context, params AllowedParams) (bool, s
 		Changes:      params.Changes,
 		Protocol:     params.GLProtocol,
 		Project:      strings.Replace(params.RepoPath, "'", "", -1),
+		RelativePath: params.RelativePath,
 		Env:          gitObjDirVars,
 	}
 
