@@ -278,6 +278,20 @@ func (rr *remoteRepository) SetCustomHooks(ctx context.Context, reader io.Reader
 	return nil
 }
 
+// ObjectHash detects the object hash used by the repository.
+func (rr *remoteRepository) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
+	repoClient := rr.newRepoClient()
+
+	response, err := repoClient.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
+		Repository: rr.repo,
+	})
+	if err != nil {
+		return git.ObjectHash{}, fmt.Errorf("remote repository: object hash: %w", err)
+	}
+
+	return git.ObjectHashByProto(response.Format)
+}
+
 func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
 	return gitalypb.NewRepositoryServiceClient(rr.conn)
 }
@@ -416,4 +430,14 @@ func (r *localRepository) SetCustomHooks(ctx context.Context, reader io.Reader) 
 		return fmt.Errorf("local repository: set custom hooks: %w", err)
 	}
 	return nil
+}
+
+// ObjectHash detects the object hash used by the repository.
+func (r *localRepository) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
+	hash, err := r.repo.ObjectHash(ctx)
+	if err != nil {
+		return git.ObjectHash{}, fmt.Errorf("local repository: object hash: %w", err)
+	}
+
+	return hash, nil
 }

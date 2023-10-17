@@ -104,6 +104,8 @@ type Repository interface {
 	FetchBundle(ctx context.Context, reader io.Reader) error
 	// SetCustomHooks updates the custom hooks for the repository.
 	SetCustomHooks(ctx context.Context, reader io.Reader) error
+	// ObjectHash detects the object hash used by the repository.
+	ObjectHash(ctx context.Context) (git.ObjectHash, error)
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -224,11 +226,17 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		backup = mgr.locator.BeginFull(ctx, req.VanityRepository, req.BackupID)
 	}
 
-	refs, err := repo.ListRefs(ctx)
+	hash, err := repo.ObjectHash(ctx)
 	switch {
 	case status.Code(err) == codes.NotFound:
 		return fmt.Errorf("manager: repository not found: %w", ErrSkipped)
 	case err != nil:
+		return fmt.Errorf("manager: %w", err)
+	}
+	backup.ObjectFormat = hash.Format
+
+	refs, err := repo.ListRefs(ctx)
+	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
