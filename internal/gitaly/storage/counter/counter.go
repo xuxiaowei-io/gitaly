@@ -116,12 +116,12 @@ func (c *RepositoryCounter) countRepositories(
 		}
 
 		logger.WithFields(log.Fields{
-			"storage_path":      storPath,
-			"counting_duration": time.Since(storageStart),
+			"storage_path":         storPath,
+			"counting_duration_ms": time.Since(storageStart).Milliseconds(),
 		}).Info("completed counting repositories")
 	}
 
-	logger.WithField("counting_duration", time.Since(totalStart)).Info("completed counting all repositories")
+	logger.WithField("counting_duration", time.Since(totalStart).Milliseconds()).Info("completed counting all repositories")
 }
 
 // Increment increases the repository count by one.

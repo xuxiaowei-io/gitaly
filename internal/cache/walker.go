@@ -173,7 +173,7 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 				return
 			}
 
-			logger.WithField("clear_duration", time.Since(start)).Info("cleared all cache object files")
+			logger.WithField("clear_duration_ms", time.Since(start).Milliseconds()).Info("cleared all cache object files")
 		})
 	}()
 
