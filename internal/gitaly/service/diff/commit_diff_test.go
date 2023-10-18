@@ -1093,12 +1093,22 @@ func TestCommitDiff_collapseGenerated(t *testing.T) {
 	}{
 		{
 			desc:    "forced by linguist-generated",
-			request: &gitalypb.CommitDiffRequest{},
+			request: &gitalypb.CommitDiffRequest{CollapseGenerated: true},
 			expectedResult: []diffAttributes{
 				{path: ".gitattributes", collapsed: false},
 				{path: "Gopkg.lock", collapsed: true},
 				{path: "abc.nib", collapsed: true},
 				{path: "abc.txt", collapsed: true},
+			},
+		},
+		{
+			desc:    "without CollapseGenerated",
+			request: &gitalypb.CommitDiffRequest{},
+			expectedResult: []diffAttributes{
+				{path: ".gitattributes", collapsed: false},
+				{path: "Gopkg.lock", collapsed: false},
+				{path: "abc.nib", collapsed: false},
+				{path: "abc.txt", collapsed: false},
 			},
 		},
 	} {
@@ -1124,7 +1134,7 @@ func TestCommitDiff_collapseGenerated(t *testing.T) {
 				require.Equal(t, expectedDiff.collapsed, diff.Collapsed, "%s collapsed", diff.FromPath)
 
 				if expectedDiff.collapsed {
-					require.Empty(t, diff.Patch, "patch")
+					require.Empty(t, diff.Patch, "%s patch", diff.FromPath)
 				}
 			}
 		})

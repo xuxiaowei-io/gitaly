@@ -99,26 +99,29 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 			TooLarge:       diff.TooLarge,
 		}
 
-		generated, err := linguist.IsGenerated(ctx, repo, git.Revision(leftSha), string(diff.ToPath), []byte(""))
-		if err != nil {
-			return structerr.NewAborted("send: %w", err)
-		}
+		patch := diff.Patch
 
-		if len(diff.Patch) <= s.MsgSizeThreshold {
-			if generated {
+		if in.CollapseGenerated {
+			linguistGenerated, err := linguist.IsGenerated(ctx, repo, git.Revision(leftSha), string(diff.FromPath), []byte(""))
+			if err != nil {
+				return structerr.NewAborted("send: %w", err)
+			}
+
+			if linguistGenerated {
 				response.Generated = true
 				response.Collapsed = true
-			} else {
-				response.RawPatchData = diff.Patch
+				patch = nil
 			}
+		}
+
+		if len(patch) <= s.MsgSizeThreshold {
+			response.RawPatchData = patch
 			response.EndOfPatch = true
 
 			if err := stream.Send(response); err != nil {
 				return structerr.NewAborted("send: %w", err)
 			}
 		} else {
-			patch := diff.Patch
-
 			for len(patch) > 0 {
 				if len(patch) > s.MsgSizeThreshold {
 					response.RawPatchData = patch[:s.MsgSizeThreshold]
