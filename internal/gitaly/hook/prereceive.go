@@ -129,6 +129,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 
 	params := gitlab.AllowedParams{
 		RepoPath:                      repoPath,
+		RelativePath:                  repo.RelativePath,
 		GitObjectDirectory:            repo.GitObjectDirectory,
 		GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
 		GLRepository:                  repo.GetGlRepository(),

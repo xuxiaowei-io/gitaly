@@ -339,6 +339,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 				require.Equal(t, "1234", params.GLID)
 				require.Equal(t, "web", params.GLProtocol)
 				require.Equal(t, "changes\n", params.Changes)
+				require.Equal(t, repo.RelativePath, params.RelativePath)
 				return true, "", nil
 			},
 			prereceive: func(t *testing.T, ctx context.Context, glRepo string) (bool, error) {

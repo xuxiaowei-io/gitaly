@@ -8,6 +8,8 @@ import (
 type AllowedParams struct {
 	// RepoPath is an absolute path to the repository.
 	RepoPath string
+	// RelativePath is the relative path to the repository.
+	RelativePath string
 	// GitObjectDirectory is a path to git object directory.
 	GitObjectDirectory string
 	// GitAlternateObjectDirectories are the paths to alternate object directories.
