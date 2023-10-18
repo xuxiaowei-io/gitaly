@@ -155,6 +155,11 @@ message CommitDiffRequest {
   // were hit will have the path filled in, have the `overflow_marker` set,
   // but have no patch data.
   bool collect_all_paths = 18;
+
+  // collaspe_generated can be set when you want to collapse generated files by default.
+  // Both collapsed and generated field of CommitDiffResponse will be set to true if the
+  // file is considered to have been generated.
+  bool collapse_generated = 19;
 }
 
 // CommitDiffResponse corresponds to a single changed file in a commit.
@@ -188,6 +193,9 @@ message CommitDiffResponse {
   // too_large indicates the patch was pruned since it surpassed a hard limit, and can
   // therefore not be expanded.
   bool too_large = 13;
+  // generated indicates the patch was pruned since the file is considered to have been
+  // generated automatically.
+  bool generated = 14;
 }
 
 // CommitDeltaRequest is a request for the CommitDelta RPC.

@@ -1060,6 +1060,76 @@ func TestCommitDiff_limits(t *testing.T) {
 		})
 	}
 }
+func TestCommitDiff_collapseGenerated(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupDiffService(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	leftCommit := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.txt linguist-generated\n"},
+			gittest.TreeEntry{Path: "abc.txt", Mode: "100644", Content: "old text\n"},
+			gittest.TreeEntry{Path: "abc.nib", Mode: "100644", Content: "find by my extension\n"},
+			gittest.TreeEntry{Path: "Gopkg.lock", Mode: "100644", Content: "find by my name\n"},
+		))
+
+	rightCommit := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "abc.txt", Mode: "100644", Content: "new text\n"},
+		))
+
+	type diffAttributes struct {
+		path                 string
+		collapsed, generated bool
+	}
+
+	for _, tc := range []struct {
+		desc           string
+		request        *gitalypb.CommitDiffRequest
+		expectedResult []diffAttributes
+	}{
+		{
+			desc:    "forced by linguist-generated",
+			request: &gitalypb.CommitDiffRequest{},
+			expectedResult: []diffAttributes{
+				{path: ".gitattributes", collapsed: false},
+				{path: "Gopkg.lock", collapsed: true},
+				{path: "abc.nib", collapsed: true},
+				{path: "abc.txt", collapsed: true},
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			request := tc.request
+			request.Repository = repo
+			request.LeftCommitId = leftCommit.String()
+			request.RightCommitId = rightCommit.String()
+
+			stream, err := client.CommitDiff(ctx, request)
+			require.NoError(t, err)
+
+			receivedDiffs := getDiffsFromCommitDiffClient(t, stream)
+			require.Equal(t, len(tc.expectedResult), len(receivedDiffs), "number of diffs received")
+
+			for i, diff := range receivedDiffs {
+				expectedDiff := tc.expectedResult[i]
+
+				require.Equal(t, expectedDiff.path, string(diff.FromPath), "%s path", diff.FromPath)
+				require.Equal(t, expectedDiff.collapsed, diff.Collapsed, "%s collapsed", diff.FromPath)
+
+				if expectedDiff.collapsed {
+					require.Empty(t, diff.Patch, "patch")
+				}
+			}
+		})
+	}
+}
 
 func TestCommitDiff_validation(t *testing.T) {
 	t.Parallel()

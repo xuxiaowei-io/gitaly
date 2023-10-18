@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -98,8 +99,18 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 			TooLarge:       diff.TooLarge,
 		}
 
+		generated, err := linguist.IsGenerated(ctx, repo, git.Revision(leftSha), string(diff.ToPath), []byte(""))
+		if err != nil {
+			return structerr.NewAborted("send: %w", err)
+		}
+
 		if len(diff.Patch) <= s.MsgSizeThreshold {
-			response.RawPatchData = diff.Patch
+			if generated {
+				response.Generated = true
+				response.Collapsed = true
+			} else {
+				response.RawPatchData = diff.Patch
+			}
 			response.EndOfPatch = true
 
 			if err := stream.Send(response); err != nil {

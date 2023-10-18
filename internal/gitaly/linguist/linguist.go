@@ -49,6 +49,22 @@ func Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
+func IsGenerated(ctx context.Context, repo git.RepositoryExecutor, revision git.Revision, filename string, content []byte) (bool, error) {
+	attrs := []string{linguistGenerated}
+	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, repo, revision, attrs)
+	if err != nil {
+		return false, err
+	}
+	defer finishAttr()
+
+	fileInstance, err := newFileInstance(filename, checkAttr)
+	if err != nil {
+		return false, fmt.Errorf("new file instance: %w", err)
+	}
+
+	return fileInstance.isGenerated(content), nil
+}
+
 // Stats returns the repository's language statistics.
 func (inst *Instance) Stats(ctx context.Context, commitID git.ObjectID) (ByteCountPerLanguage, error) {
 	stats, err := initLanguageStats(inst.repo)
