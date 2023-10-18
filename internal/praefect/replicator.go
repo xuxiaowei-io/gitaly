@@ -156,44 +156,7 @@ func (dr defaultReplicator) Destroy(ctx context.Context, event datastore.Replica
 }
 
 func (dr defaultReplicator) Rename(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
-	targetRepo := &gitalypb.Repository{
-		StorageName:  event.Job.TargetNodeStorage,
-		RelativePath: event.Job.RelativePath,
-	}
-
-	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
-
-	val, found := event.Job.Params["RelativePath"]
-	if !found {
-		return errors.New("no 'RelativePath' parameter for rename")
-	}
-
-	relativePath, ok := val.(string)
-	if !ok {
-		return fmt.Errorf("parameter 'RelativePath' has unexpected type: %T", relativePath)
-	}
-
-	if _, err := repoSvcClient.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
-		Repository:   targetRepo,
-		RelativePath: relativePath,
-	}); err != nil {
-		return err
-	}
-
-	// If the repository was moved but this fails, we'll have a stale record on the storage but it is missing from the
-	// virtual storage. We can later schedule a deletion to fix the situation. The newly named repository's record
-	// will be present once a replication job arrives for it.
-	if err := dr.rs.RenameRepository(ctx,
-		event.Job.VirtualStorage, event.Job.RelativePath, event.Job.TargetNodeStorage, relativePath); err != nil {
-		if !errors.Is(err, datastore.ErrRepositoryNotFound) {
-			return err
-		}
-
-		dr.log.WithField(correlation.FieldName, correlation.ExtractFromContext(ctx)).
-			WithError(err).
-			Info("replicated repository rename does not have a store entry")
-	}
-
+	// RenameRepository has been deprecated
 	return nil
 }
 
