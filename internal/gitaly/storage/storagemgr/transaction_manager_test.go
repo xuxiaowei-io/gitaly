@@ -26,6 +26,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/counter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -321,6 +323,20 @@ func TestTransactionManager(t *testing.T) {
 		ExpectedError error
 	}
 
+	// CreateRepository creates the transaction's repository..
+	type CreateRepository struct {
+		// TransactionID is the transaction for which to create the repository.
+		TransactionID int
+		// DefaultBranch is the default branch to set in the repository.
+		DefaultBranch git.ReferenceName
+		// References are the references to create in the repository.
+		References map[git.ReferenceName]git.ObjectID
+		// Packs are the objects that are written into the repository.
+		Packs [][]byte
+		// CustomHooks are the custom hooks to write into the repository.
+		CustomHooks []byte
+	}
+
 	// Commit calls Commit on a transaction.
 	type Commit struct {
 		// TransactionID identifies the transaction to commit.
@@ -342,6 +358,8 @@ func TestTransactionManager(t *testing.T) {
 		DefaultBranchUpdate *DefaultBranchUpdate
 		// CustomHooksUpdate is the custom hooks update to commit.
 		CustomHooksUpdate *CustomHooksUpdate
+		// CreateRepository creates the repository on commit.
+		CreateRepository bool
 		// DeleteRepository deletes the repository on commit.
 		DeleteRepository bool
 		// IncludeObjects includes objects in the transaction's logged pack.
@@ -3961,6 +3979,443 @@ func TestTransactionManager(t *testing.T) {
 				Repositories: RepositoryStates{},
 			},
 		},
+		{
+			desc: "create repository when it doesn't exist",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{},
+				CreateRepository{},
+				Commit{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						Objects: []git.ObjectID{},
+					},
+				},
+			},
+		},
+		{
+			desc: "create repository when it already exists",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 2,
+					ExpectedError: ErrRepositoryAlreadyExists,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						Objects: []git.ObjectID{},
+					},
+				},
+			},
+		},
+		{
+			desc: "create repository again after deletion",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					QuarantinedPacks: [][]byte{setup.Commits.First.Pack},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				Begin{
+					TransactionID:       3,
+					ExpectedSnapshotLSN: 2,
+				},
+				Commit{
+					TransactionID:    3,
+					DeleteRepository: true,
+				},
+				Begin{
+					TransactionID:       4,
+					ExpectedSnapshotLSN: 3,
+				},
+				CreateRepository{
+					TransactionID: 4,
+				},
+				Commit{
+					TransactionID: 4,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(4).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/2":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/2/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/2/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/2/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						Objects: []git.ObjectID{},
+					},
+				},
+			},
+		},
+		{
+			desc: "create repository with full state",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{},
+				CreateRepository{
+					DefaultBranch: "refs/heads/branch",
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main":   setup.Commits.First.OID,
+						"refs/heads/branch": setup.Commits.Second.OID,
+					},
+					Packs:       [][]byte{setup.Commits.First.Pack, setup.Commits.Second.Pack},
+					CustomHooks: validCustomHooks(t),
+				},
+				Commit{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/branch",
+						References: []git.Reference{
+							{Name: "refs/heads/branch", Target: setup.Commits.Second.OID.String()},
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "transactions are snapshot isolated from concurrent creations",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs:       [][]byte{setup.Commits.First.Pack},
+					CustomHooks: validCustomHooks(t),
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					ExpectedSnapshotLSN: 1,
+				},
+				Begin{
+					TransactionID:       3,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID:    3,
+					DeleteRepository: true,
+				},
+				Begin{
+					TransactionID:       4,
+					ExpectedSnapshotLSN: 2,
+				},
+				CreateRepository{
+					TransactionID: 4,
+					DefaultBranch: "refs/heads/other",
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/other": setup.Commits.Second.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack, setup.Commits.Second.Pack},
+				},
+				Commit{
+					TransactionID: 4,
+				},
+				// Transaction 2 has been open through out the repository deletion and creation. It should
+				// still see the original state of the repository before the deletion.
+				RepositoryAssertion{
+					TransactionID: 2,
+					Repositories: RepositoryStates{
+						relativePath: {
+							DefaultBranch: "refs/heads/main",
+							References: []git.Reference{
+								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+							},
+							Objects: []git.ObjectID{
+								setup.ObjectHash.EmptyTreeOID,
+								setup.Commits.First.OID,
+							},
+							CustomHooks: testhelper.DirectoryState{
+								"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/pre-receive": {
+									Mode:    umask.Mask(fs.ModePerm),
+									Content: []byte("hook content"),
+								},
+								"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+								"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+							},
+						},
+					},
+				},
+				Rollback{
+					TransactionID: 2,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/3":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/3/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/3/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					),
+					"/wal/3/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/other",
+						References: []git.Reference{
+							{Name: "refs/heads/other", Target: setup.Commits.Second.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "logged repository creation is respected",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{
+					Hooks: testHooks{
+						BeforeApplyLogEntry: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				CreateRepository{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+				Begin{
+					TransactionID:       2,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID:    2,
+					DeleteRepository: true,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{},
+			},
+		},
+		{
+			desc: "reapplying repository creation works",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{
+					Hooks: testHooks{
+						BeforeStoreAppliedLSN: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+				},
+				CreateRepository{
+					TransactionID: 1,
+					DefaultBranch: "refs/heads/branch",
+					Packs:         [][]byte{setup.Commits.First.Pack},
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					CustomHooks: validCustomHooks(t),
+				},
+				Commit{
+					TransactionID: 1,
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/branch",
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+						Objects: []git.ObjectID{
+							setup.Commits.First.OID,
+							setup.ObjectHash.EmptyTreeOID,
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "commit without creating a repository",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{},
+				Commit{},
+			},
+			expectedState: StateAssertion{
+				Repositories: RepositoryStates{},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -4269,6 +4724,46 @@ func TestTransactionManager(t *testing.T) {
 					require.ElementsMatch(t, step.ExpectedObjects, gittest.ListObjects(t, setup.Config, repoPath))
 				case RemoveRepository:
 					require.NoError(t, os.RemoveAll(repoPath))
+				case CreateRepository:
+					require.Contains(t, openTransactions, step.TransactionID, "test error: repository created in transaction before beginning it")
+
+					transaction := openTransactions[step.TransactionID]
+					require.NoError(t, repoutil.Create(
+						ctx,
+						logger,
+						config.NewLocator(setup.Config),
+						setup.CommandFactory,
+						nil,
+						counter.NewRepositoryCounter(setup.Config.Storages),
+						transaction.RewriteRepository(&gitalypb.Repository{
+							StorageName:  setup.Config.Storages[0].Name,
+							RelativePath: transaction.relativePath,
+						}),
+						func(repoProto *gitalypb.Repository) error {
+							repo := setup.RepositoryFactory.Build(repoProto)
+
+							if step.DefaultBranch != "" {
+								require.NoError(t, repo.SetDefaultBranch(ctx, nil, step.DefaultBranch))
+							}
+
+							for _, pack := range step.Packs {
+								require.NoError(t, repo.UnpackObjects(ctx, bytes.NewReader(pack)))
+							}
+
+							for name, oid := range step.References {
+								require.NoError(t, repo.UpdateRef(ctx, name, oid, setup.ObjectHash.ZeroOID))
+							}
+
+							if step.CustomHooks != nil {
+								require.NoError(t,
+									repoutil.SetCustomHooks(ctx, logger, config.NewLocator(setup.Config), nil, bytes.NewReader(step.CustomHooks), repo),
+								)
+							}
+
+							return nil
+						},
+						repoutil.WithObjectHash(setup.ObjectHash),
+					))
 				case RepositoryAssertion:
 					require.Contains(t, openTransactions, step.TransactionID, "test error: transaction's snapshot asserted before beginning it")
 					transaction := openTransactions[step.TransactionID]
@@ -4377,14 +4872,9 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 			// Begin a transaction to wait until the manager has applied all log entries currently
 			// committed. This ensures the disk state assertions run with all log entries fully applied
 			// to the repository.
-			if tx, err := mgr.Begin(ctx, TransactionOptions{}); err != nil {
-				// Since we already verified the manager was running by it processing the test transaction,
-				// the Begin call should succeed. The only expected error would be ErrRepositoryNotFound
-				// if the repository was deleted.
-				require.ErrorIs(t, err, ErrRepositoryNotFound)
-			} else {
-				require.NoError(t, tx.Rollback())
-			}
+			tx, err := mgr.Begin(ctx, TransactionOptions{})
+			require.NoError(t, err)
+			require.NoError(t, tx.Rollback())
 
 			return true, nil
 		case managerErr, closeChannel = <-managerErrChannel:

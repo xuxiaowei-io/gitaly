@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
@@ -32,6 +33,8 @@ import (
 )
 
 var (
+	// ErrRepositoryAlreadyExists is attempting to create a repository that already exists.
+	ErrRepositoryAlreadyExists = structerr.NewAlreadyExists("repository already exists")
 	// ErrRepositoryNotFound is returned when the repository doesn't exist.
 	ErrRepositoryNotFound = structerr.NewNotFound("repository not found")
 	// ErrTransactionProcessingStopped is returned when the TransactionManager stops processing transactions.
@@ -110,6 +113,12 @@ type CustomHooksUpdate struct {
 	CustomHooksTAR []byte
 }
 
+// repositoryCreation models a repository creation in a transaction.
+type repositoryCreation struct {
+	// objectHash defines the object format the repository is created with.
+	objectHash git.ObjectHash
+}
+
 // ReferenceUpdates contains references to update. Reference name is used as the key and the value
 // is the expected old tip and the desired new tip.
 type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
@@ -129,6 +138,9 @@ const (
 type Transaction struct {
 	// readOnly denotes whether or not this transaction is read-only.
 	readOnly bool
+	// repositoryExists indicates whether the target repository existed when this transaction began.
+	repositoryExists bool
+
 	// state records whether the transaction is still open. Transaction is open until either Commit()
 	// or Rollback() is called on it.
 	state transactionState
@@ -171,12 +183,19 @@ type Transaction struct {
 	// snapshotLSN is the log sequence number which this transaction is reading the repository's
 	// state at.
 	snapshotLSN LSN
+	// stagingRepository is a repository that is used to stage the transaction. If there are quarantined
+	// objects, it has the quarantine applied so the objects are available for verification and packing.
+	// Generally the staging repository is the actual repository instance. If the repository doesn't exist
+	// yet, the staging repository is a temporary repository that is deleted once the transaction has been
+	// finished.
+	stagingRepository *localrepo.Repo
 
 	skipVerificationFailures bool
 	initialReferenceValues   map[git.ReferenceName]git.ObjectID
 	referenceUpdates         ReferenceUpdates
 	defaultBranchUpdate      *DefaultBranchUpdate
 	customHooksUpdate        *CustomHooksUpdate
+	repositoryCreation       *repositoryCreation
 	deleteRepository         bool
 	includedObjects          map[git.ObjectID]struct{}
 }
@@ -266,16 +285,25 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 			return nil, fmt.Errorf("create snapshot: %w", err)
 		}
 
+		txn.repositoryExists, err = mgr.doesRepositoryExist(txn.snapshotRelativePath(txn.relativePath))
+		if err != nil {
+			return nil, fmt.Errorf("does repository exist: %w", err)
+		}
+
 		txn.snapshotRepository = mgr.repositoryFactory.Build(txn.snapshotRelativePath(txn.relativePath))
 		if !txn.readOnly {
-			txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
-			if err := os.MkdirAll(filepath.Join(txn.quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
-				return nil, fmt.Errorf("create quarantine directory: %w", err)
-			}
+			if txn.repositoryExists {
+				txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
+				if err := os.MkdirAll(filepath.Join(txn.quarantineDirectory, "pack"), perm.PrivateDir); err != nil {
+					return nil, fmt.Errorf("create quarantine directory: %w", err)
+				}
 
-			txn.snapshotRepository, err = txn.snapshotRepository.Quarantine(txn.quarantineDirectory)
-			if err != nil {
-				return nil, fmt.Errorf("quarantine: %w", err)
+				txn.snapshotRepository, err = txn.snapshotRepository.Quarantine(txn.quarantineDirectory)
+				if err != nil {
+					return nil, fmt.Errorf("quarantine: %w", err)
+				}
+			} else {
+				txn.quarantineDirectory = filepath.Join(mgr.storagePath, txn.snapshotRelativePath(txn.relativePath), "objects")
 			}
 		}
 
@@ -741,6 +769,23 @@ type resultChannel chan error
 func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transaction) error {
 	transaction.result = make(resultChannel, 1)
 
+	if !transaction.repositoryExists {
+		// Determine if the repository was created in this transaction and stage its state
+		// for committing if so.
+		if err := mgr.stageRepositoryCreation(ctx, transaction); err != nil {
+			if errors.Is(err, storage.ErrRepositoryNotFound) {
+				// The repository wasn't created as part of this transaction.
+				return nil
+			}
+
+			return fmt.Errorf("stage repository creation: %w", err)
+		}
+	}
+
+	if err := mgr.setupStagingRepository(ctx, transaction); err != nil {
+		return fmt.Errorf("setup staging repository: %w", err)
+	}
+
 	if err := mgr.stageHooks(ctx, transaction); err != nil {
 		return fmt.Errorf("stage hooks: %w", err)
 	}
@@ -766,6 +811,86 @@ func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transact
 	case <-mgr.closing:
 		return ErrTransactionProcessingStopped
 	}
+}
+
+// stageRepositoryCreation determines the repository's state following a creation. It reads the repository's
+// complete state and stages it into the transaction for committing.
+func (mgr *TransactionManager) stageRepositoryCreation(ctx context.Context, transaction *Transaction) error {
+	objectHash, err := transaction.snapshotRepository.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("object hash: %w", err)
+	}
+
+	transaction.repositoryCreation = &repositoryCreation{
+		objectHash: objectHash,
+	}
+
+	head, err := transaction.snapshotRepository.HeadReference(ctx)
+	if err != nil {
+		return fmt.Errorf("head reference: %w", err)
+	}
+
+	transaction.SetDefaultBranch(head)
+
+	references, err := transaction.snapshotRepository.GetReferences(ctx)
+	if err != nil {
+		return fmt.Errorf("get references: %w", err)
+	}
+
+	referenceUpdates := make(ReferenceUpdates, len(references))
+	for _, ref := range references {
+		referenceUpdates[ref.Name] = ReferenceUpdate{
+			OldOID: objectHash.ZeroOID,
+			NewOID: git.ObjectID(ref.Target),
+		}
+	}
+
+	transaction.referenceUpdates = referenceUpdates
+
+	var customHooks bytes.Buffer
+	if err := repoutil.GetCustomHooks(ctx, mgr.logger,
+		filepath.Join(mgr.storagePath, transaction.snapshotRepository.GetRelativePath()), &customHooks); err != nil {
+		return fmt.Errorf("get custom hooks: %w", err)
+	}
+
+	if customHooks.Len() > 0 {
+		transaction.SetCustomHooks(customHooks.Bytes())
+	}
+
+	return nil
+}
+
+// setupStagingRepository sets a repository that is used to stage the transaction. The staging repository
+// has the quarantine applied so the objects are available for packing and verifying the references.
+func (mgr *TransactionManager) setupStagingRepository(ctx context.Context, transaction *Transaction) error {
+	// If this is not a creation, the repository should already exist. Use it to stage the transaction.
+	stagingRepository := mgr.repositoryFactory.Build(transaction.relativePath)
+	if transaction.repositoryCreation != nil {
+		// The reference updates in the transaction are normally verified against the actual repository.
+		// If the repository doesn't exist yet, the reference updates are verified against an empty
+		// repository to ensure they'll apply when the log entry creates the repository. After the
+		// transaction is logged, the staging repository is removed, and the actual repository will be
+		// created when the log entry is applied.
+
+		relativePath, err := filepath.Rel(mgr.storagePath, filepath.Join(transaction.stagingDirectory, "staging.git"))
+		if err != nil {
+			return fmt.Errorf("rel: %w", err)
+		}
+
+		if err := mgr.createRepository(ctx, filepath.Join(mgr.storagePath, relativePath), transaction.repositoryCreation.objectHash.ProtoFormat); err != nil {
+			return fmt.Errorf("create staging repository: %w", err)
+		}
+
+		stagingRepository = mgr.repositoryFactory.Build(relativePath)
+	}
+
+	var err error
+	transaction.stagingRepository, err = stagingRepository.Quarantine(transaction.quarantineDirectory)
+	if err != nil {
+		return fmt.Errorf("quarantine: %w", err)
+	}
+
+	return nil
 }
 
 // stageHooks extracts the new hooks, if any, into <stagingDirectory>/custom_hooks. This is ensures the TAR
@@ -843,12 +968,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 	// in the main object database of the snapshot.
 	//
 	// This is pending https://gitlab.com/groups/gitlab-org/-/epics/11242.
-	quarantinedRepo, err := mgr.repositoryFactory.Build(mgr.relativePath).Quarantine(transaction.quarantineDirectory)
-	if err != nil {
-		return fmt.Errorf("quarantine: %w", err)
-	}
-
-	objectHash, err := quarantinedRepo.ObjectHash(ctx)
+	objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
 	if err != nil {
 		return fmt.Errorf("object hash: %w", err)
 	}
@@ -878,7 +998,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 	group.Go(func() (returnedErr error) {
 		defer func() { objectsWriter.CloseWithError(returnedErr) }()
 
-		if err := quarantinedRepo.WalkUnreachableObjects(ctx,
+		if err := transaction.stagingRepository.WalkUnreachableObjects(ctx,
 			strings.NewReader(strings.Join(heads, "\n")),
 			objectsWriter,
 		); err != nil {
@@ -895,7 +1015,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 			packWriter.CloseWithError(returnedErr)
 		}()
 
-		if err := quarantinedRepo.PackObjects(ctx, objectsReader, packWriter); err != nil {
+		if err := transaction.stagingRepository.PackObjects(ctx, objectsReader, packWriter); err != nil {
 			return fmt.Errorf("pack objects: %w", err)
 		}
 
@@ -912,7 +1032,7 @@ func (mgr *TransactionManager) packObjects(ctx context.Context, transaction *Tra
 		// index-pack places the pack, index, and reverse index into the repository's object directory.
 		// The staging repository is configured with a quarantine so we execute it there.
 		var stdout, stderr bytes.Buffer
-		if err := quarantinedRepo.ExecAndWait(ctx, git.Command{
+		if err := transaction.stagingRepository.ExecAndWait(ctx, git.Command{
 			Name:  "index-pack",
 			Flags: []git.Option{git.Flag{Name: "--stdin"}, git.Flag{Name: "--rev-index"}},
 			Args:  []string{filepath.Join(transaction.walFilesPath(), "objects.pack")},
@@ -1027,12 +1147,20 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			return fmt.Errorf("does repository exist: %w", err)
 		}
 
-		if !repositoryExists {
-			return ErrRepositoryNotFound
-		}
-
 		logEntry := &gitalypb.LogEntry{
 			RelativePath: transaction.relativePath,
+		}
+
+		if transaction.repositoryCreation != nil {
+			if repositoryExists {
+				return ErrRepositoryAlreadyExists
+			}
+
+			logEntry.RepositoryCreation = &gitalypb.LogEntry_RepositoryCreation{
+				ObjectFormat: transaction.repositoryCreation.objectHash.ProtoFormat,
+			}
+		} else if !repositoryExists {
+			return ErrRepositoryNotFound
 		}
 
 		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
@@ -1312,20 +1440,15 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		return nil, nil
 	}
 
-	quarantinedRepo, err := mgr.repositoryFactory.Build(transaction.relativePath).Quarantine(transaction.quarantineDirectory)
-	if err != nil {
-		return nil, fmt.Errorf("quarantine: %w", err)
-	}
-
 	var referenceUpdates []*gitalypb.LogEntry_ReferenceUpdate
 	for referenceName, update := range transaction.referenceUpdates {
 		if err := git.ValidateReference(string(referenceName)); err != nil {
 			return nil, InvalidReferenceFormatError{ReferenceName: referenceName}
 		}
 
-		actualOldTip, err := quarantinedRepo.ResolveRevision(ctx, referenceName.Revision())
+		actualOldTip, err := transaction.stagingRepository.ResolveRevision(ctx, referenceName.Revision())
 		if errors.Is(err, git.ErrReferenceNotFound) {
-			objectHash, err := quarantinedRepo.ObjectHash(ctx)
+			objectHash, err := transaction.stagingRepository.ObjectHash(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("object hash: %w", err)
 			}
@@ -1361,7 +1484,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		) == -1
 	})
 
-	if err := mgr.verifyReferencesWithGit(ctx, referenceUpdates, quarantinedRepo); err != nil {
+	if err := mgr.verifyReferencesWithGit(ctx, referenceUpdates, transaction.stagingRepository); err != nil {
 		return nil, fmt.Errorf("verify references with git: %w", err)
 	}
 
@@ -1533,6 +1656,10 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, lsn LSN) error
 			return fmt.Errorf("apply repository deletion: %w", err)
 		}
 	} else {
+		if err := mgr.applyRepositoryCreation(ctx, logEntry); err != nil {
+			return fmt.Errorf("apply repository creation: %w", err)
+		}
+
 		if logEntry.PackPrefix != "" {
 			if err := mgr.applyPackFile(ctx, lsn, logEntry); err != nil {
 				return fmt.Errorf("apply pack file: %w", err)
@@ -1592,6 +1719,63 @@ func (mgr *TransactionManager) applyReferenceUpdates(ctx context.Context, logEnt
 
 	if err := updater.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// applyRepositoryCreation applies a repository creation by creating a repository.
+func (mgr *TransactionManager) applyRepositoryCreation(ctx context.Context, entry *gitalypb.LogEntry) error {
+	if entry.RepositoryCreation == nil {
+		return nil
+	}
+
+	repositoryPath := mgr.getAbsolutePath(entry.RelativePath)
+
+	// Start with a clean state if we are reapplying the log entry after interruption.
+	if err := os.RemoveAll(repositoryPath); err != nil {
+		return fmt.Errorf("remove all: %w", err)
+	}
+
+	if err := mgr.createRepository(ctx, repositoryPath, entry.RepositoryCreation.ObjectFormat); err != nil {
+		return fmt.Errorf("create repository: %w", err)
+	}
+
+	syncer := safe.NewSyncer()
+	if err := syncer.SyncRecursive(repositoryPath); err != nil {
+		return fmt.Errorf("sync recursive: %w", err)
+	}
+
+	if err := syncer.SyncParent(repositoryPath); err != nil {
+		return fmt.Errorf("sync parent: %w", err)
+	}
+
+	return nil
+}
+
+// createRepository creates a repository at the given path with the given object format.
+func (mgr *TransactionManager) createRepository(ctx context.Context, repositoryPath string, objectFormat gitalypb.ObjectFormat) error {
+	objectHash, err := git.ObjectHashByProto(objectFormat)
+	if err != nil {
+		return fmt.Errorf("object hash by proto: %w", err)
+	}
+
+	stderr := &bytes.Buffer{}
+	cmd, err := mgr.commandFactory.NewWithoutRepo(ctx, git.Command{
+		Name: "init",
+		Flags: []git.Option{
+			git.Flag{Name: "--bare"},
+			git.Flag{Name: "--quiet"},
+			git.Flag{Name: "--object-format=" + objectHash.Format},
+		},
+		Args: []string{repositoryPath},
+	}, git.WithStderr(stderr))
+	if err != nil {
+		return fmt.Errorf("spawn git init: %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return structerr.New("wait git init: %w", err).WithMetadata("stderr", stderr.String())
 	}
 
 	return nil

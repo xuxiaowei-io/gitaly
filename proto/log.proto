@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package gitaly;
 
+import "shared.proto";
+
 option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 
 // LogEntry is a single entry in a partition's write-ahead log.
@@ -35,6 +37,12 @@ message LogEntry {
     bytes custom_hooks_tar = 1;
   }
 
+  // RepositoryCreation models a repository creation.
+  message RepositoryCreation {
+    // object_format defines the object format to use for the repository.
+    ObjectFormat object_format = 1;
+  }
+
   // RepositoryDeletion models a repository deletion.
   message RepositoryDeletion {
   }
@@ -56,6 +64,8 @@ message LogEntry {
   string pack_prefix = 5;
   // repository_deletion, when set, indicates this log entry deletes the repository.
   RepositoryDeletion repository_deletion = 6;
+  // repository_creation is set if this log entry creates a repository.
+  RepositoryCreation repository_creation = 7;
 }
 
 // LSN serializes a log sequence number. It's used for storing a partition's
