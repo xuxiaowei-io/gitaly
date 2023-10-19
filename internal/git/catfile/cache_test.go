@@ -215,9 +215,6 @@ func TestCache_ObjectReader(t *testing.T) {
 
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
-	version, err := repoExecutor.GitVersion(ctx)
-	require.NoError(t, err)
-
 	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 
@@ -249,13 +246,7 @@ func TestCache_ObjectReader(t *testing.T) {
 		// cache and wait for the cache to collect it.
 		cancel()
 
-		var allKeys []key
-		if version.CatfileSupportsNulTerminatedOutput() {
-			allKeys = keys(t, &cache.objectReaders)
-		} else {
-			allKeys = keys(t, &cache.objectContentReaders)
-		}
-
+		allKeys := keys(t, &cache.objectReaders)
 		require.Equal(t, []key{{
 			sessionID:   "1",
 			repoStorage: repo.GetStorageName(),
@@ -326,9 +317,6 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
-	version, err := repoExecutor.GitVersion(ctx)
-	require.NoError(t, err)
-
 	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 
@@ -359,13 +347,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 		// Cancel the process such it will be considered for return to the cache.
 		cancel()
 
-		var allKeys []key
-		if version.CatfileSupportsNulTerminatedOutput() {
-			allKeys = keys(t, &cache.objectReaders)
-		} else {
-			allKeys = keys(t, &cache.objectInfoReaders)
-		}
-
+		allKeys := keys(t, &cache.objectReaders)
 		require.Equal(t, []key{{
 			sessionID:   "1",
 			repoStorage: repo.GetStorageName(),

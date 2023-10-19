@@ -109,10 +109,3 @@ func (o *staticObject) Read(p []byte) (int, error) {
 func (o *staticObject) WriteTo(w io.Writer) (int64, error) {
 	return io.Copy(w, o.reader)
 }
-
-func catfileSupportsNul(t *testing.T, ctx context.Context, cfg config.Cfg) bool {
-	t.Helper()
-	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
-	require.NoError(t, err)
-	return gitVersion.CatfileSupportsNulTerminatedOutput()
-}
