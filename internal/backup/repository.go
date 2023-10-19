@@ -292,6 +292,21 @@ func (rr *remoteRepository) ObjectHash(ctx context.Context) (git.ObjectHash, err
 	return git.ObjectHashByProto(response.Format)
 }
 
+// HeadReference returns the current value of HEAD.
+func (rr *remoteRepository) HeadReference(ctx context.Context) (git.ReferenceName, error) {
+	refClient := rr.newRefClient()
+
+	response, err := refClient.FindDefaultBranchName(ctx, &gitalypb.FindDefaultBranchNameRequest{
+		Repository: rr.repo,
+		HeadOnly:   true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("remote repository: head reference: %w", err)
+	}
+
+	return git.ReferenceName(response.Name), nil
+}
+
 func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
 	return gitalypb.NewRepositoryServiceClient(rr.conn)
 }
@@ -440,4 +455,14 @@ func (r *localRepository) ObjectHash(ctx context.Context) (git.ObjectHash, error
 	}
 
 	return hash, nil
+}
+
+// HeadReference returns the current value of HEAD.
+func (r *localRepository) HeadReference(ctx context.Context) (git.ReferenceName, error) {
+	head, err := r.repo.HeadReference(ctx)
+	if err != nil {
+		return "", fmt.Errorf("local repository: head reference: %w", err)
+	}
+
+	return head, nil
 }

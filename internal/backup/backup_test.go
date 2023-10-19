@@ -134,9 +134,10 @@ func TestManager_Create(t *testing.T) {
 						repo:     repo,
 						repoPath: repoPath,
 						expectedBackup: &backup.Backup{
-							ID:           backupID,
-							Repository:   vanityRepo,
-							ObjectFormat: gittest.DefaultObjectHash.Format,
+							ID:            backupID,
+							Repository:    vanityRepo,
+							ObjectFormat:  gittest.DefaultObjectHash.Format,
+							HeadReference: git.DefaultRef.String(),
 							Steps: []backup.Step{
 								{
 									BundlePath:      joinBackupPath(t, "", vanityRepo, backupID, "001.bundle"),
@@ -163,9 +164,10 @@ func TestManager_Create(t *testing.T) {
 						repo:     repo,
 						repoPath: repoPath,
 						expectedBackup: &backup.Backup{
-							ID:           backupID,
-							Repository:   vanityRepo,
-							ObjectFormat: gittest.DefaultObjectHash.Format,
+							ID:            backupID,
+							Repository:    vanityRepo,
+							ObjectFormat:  gittest.DefaultObjectHash.Format,
+							HeadReference: git.DefaultRef.String(),
 							Steps: []backup.Step{
 								{
 									BundlePath:      joinBackupPath(t, "", vanityRepo, backupID, "001.bundle"),
@@ -189,9 +191,10 @@ func TestManager_Create(t *testing.T) {
 						repo:     emptyRepo,
 						repoPath: repoPath,
 						expectedBackup: &backup.Backup{
-							ID:           backupID,
-							Repository:   vanityRepo,
-							ObjectFormat: gittest.DefaultObjectHash.Format,
+							ID:            backupID,
+							Repository:    vanityRepo,
+							ObjectFormat:  gittest.DefaultObjectHash.Format,
+							HeadReference: git.DefaultRef.String(),
 							Steps: []backup.Step{
 								{
 									BundlePath:      joinBackupPath(t, "", vanityRepo, backupID, "001.bundle"),

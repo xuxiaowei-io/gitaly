@@ -49,6 +49,8 @@ type Backup struct {
 	Steps []Step `toml:"steps"`
 	// ObjectFormat is the name of the object hash used by the repository.
 	ObjectFormat string `toml:"object_format"`
+	// HeadReference is the reference that HEAD points to.
+	HeadReference string `toml:"head_reference,omitempty"`
 }
 
 // Step represents an incremental step that makes up a complete backup for a repository
@@ -106,6 +108,8 @@ type Repository interface {
 	SetCustomHooks(ctx context.Context, reader io.Reader) error
 	// ObjectHash detects the object hash used by the repository.
 	ObjectHash(ctx context.Context) (git.ObjectHash, error)
+	// HeadReference fetches the reference pointed to by HEAD.
+	HeadReference(ctx context.Context) (git.ReferenceName, error)
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -234,6 +238,12 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 	backup.ObjectFormat = hash.Format
+
+	headRef, err := repo.HeadReference(ctx)
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+	backup.HeadReference = headRef.String()
 
 	refs, err := repo.ListRefs(ctx)
 	if err != nil {
