@@ -802,8 +802,6 @@ func TestManager_Restore_latest(t *testing.T) {
 }
 
 func TestManager_Restore_specific(t *testing.T) {
-	gittest.SkipWithSHA256(t)
-
 	t.Parallel()
 
 	const backupID = "abc123"
@@ -888,6 +886,8 @@ func TestManager_Restore_specific(t *testing.T) {
 				{
 					desc: "single incremental",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						gittest.SkipWithSHA256(tb) // sha256 only works with manifest files
+
 						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						relativePath := stripRelativePath(tb, repo)
@@ -905,6 +905,8 @@ func TestManager_Restore_specific(t *testing.T) {
 				{
 					desc: "many incrementals",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						gittest.SkipWithSHA256(tb) // sha256 only works with manifest files
+
 						_, expectedRepoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
@@ -966,14 +968,15 @@ func TestManager_Restore_specific(t *testing.T) {
 						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
-							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): `object_format = 'sha1'
+							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): fmt.Sprintf(
+								`object_format = %q
 head_reference = 'refs/heads/banana'
 
 [[steps]]
 bundle_path = 'repo.bundle'
 ref_path = 'repo.refs'
 custom_hooks_path = 'custom_hooks.tar'
-`,
+`, gittest.DefaultObjectHash.Format),
 							"repo.refs": "",
 						})
 
@@ -988,14 +991,15 @@ custom_hooks_path = 'custom_hooks.tar'
 						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
-							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): `object_format = 'sha1'
+							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): fmt.Sprintf(
+								`object_format = %q
 head_reference = 'refs/heads/banana'
 
 [[steps]]
 bundle_path = 'repo.bundle'
 ref_path = 'repo.refs'
 custom_hooks_path = 'custom_hooks.tar'
-`,
+`, gittest.DefaultObjectHash.Format),
 							"repo.bundle": repoBundle,
 							"repo.refs":   repoRefs,
 						})
