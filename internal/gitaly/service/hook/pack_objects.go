@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagectx"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/stream"
@@ -44,7 +45,7 @@ var (
 )
 
 func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest, args *packObjectsArgs, stdinReader io.Reader, output io.Writer) error {
-	cacheKey, stdin, err := s.computeCacheKey(req, stdinReader)
+	cacheKey, stdin, err := s.computeCacheKey(ctx, req, stdinReader)
 	if err != nil {
 		return err
 	}
@@ -113,10 +114,19 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 // computeCacheKey returns the cache key used for caching pack-objects. A cache key is made up of
 // both the requested objects and essential parameters that could impact the content of the
 // generated packfile. Including any insignificant information could result in a lower cache hit rate.
-func (s *server) computeCacheKey(req *gitalypb.PackObjectsHookWithSidechannelRequest, stdinReader io.Reader) (string, io.ReadCloser, error) {
+func (s *server) computeCacheKey(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest, stdinReader io.Reader) (string, io.ReadCloser, error) {
 	cacheHash := sha256.New()
+
+	repository := req.Repository
+	storagectx.RunWithTransaction(ctx, func(tx storagectx.Transaction) {
+		// The cache uses the requests as the keys. As the request's repository in the RPC handler has been rewritten
+		// to point to the transaction's repository, the handler sees each request as different even if they point to
+		// the same repository. Restore the original request to ensure identical requests get the same key.
+		repository = tx.OriginalRepository(req.Repository)
+	})
+
 	cacheKeyPrefix, err := protojson.Marshal(&gitalypb.PackObjectsHookWithSidechannelRequest{
-		Repository:  req.Repository,
+		Repository:  repository,
 		Args:        req.Args,
 		GitProtocol: req.GitProtocol,
 	})

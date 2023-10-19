@@ -159,12 +159,26 @@ func TestReceivePack_success(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testhelper.ProtoEqual(t, &gitalypb.Repository{
-		StorageName:   cfg.Storages[0].Name,
-		RelativePath:  gittest.GetReplicaPath(t, ctx, cfg, remoteRepo),
-		GlProjectPath: remoteRepo.GlProjectPath,
-		GlRepository:  remoteRepo.GlRepository,
-	}, payload.Repo)
+	//
+	expectedRepo := gittest.RewrittenRepository(t, ctx, cfg, remoteRepo)
+	// The repository should have a relative path.
+	if testhelper.IsWALEnabled() {
+		// The repository should be quarantined.
+		require.NotEmpty(t, payload.Repo.GitObjectDirectory)
+		payload.Repo.GitObjectDirectory = "OVERRIDDEN"
+		expectedRepo.GitObjectDirectory = "OVERRIDDEN"
+		require.NotEmpty(t, payload.Repo.GitAlternateObjectDirectories)
+		payload.Repo.GitAlternateObjectDirectories = []string{"OVERRIDDEN"}
+		expectedRepo.GitAlternateObjectDirectories = []string{"OVERRIDDEN"}
+		// The following values may change so we don't want to assert them for equality.
+		require.NotEmpty(t, payload.Repo.RelativePath)
+		payload.Repo.RelativePath = "OVERRIDDEN"
+		expectedRepo.RelativePath = "OVERRIDDEN"
+	}
+
+	// Compare the repository up front so that we can use require.Equal for
+	// the remaining values.
+	testhelper.ProtoEqual(t, expectedRepo, payload.Repo)
 	payload.Repo = nil
 
 	// If running tests with Praefect, then the transaction would be set, but we have no way of
@@ -183,6 +197,11 @@ func TestReceivePack_success(t *testing.T) {
 	require.ElementsMatch(t, expectedFeatureFlags, payload.FeatureFlagsWithValue)
 	payload.FeatureFlagsWithValue = nil
 
+	var transactionID storage.TransactionID
+	if testhelper.IsWALEnabled() {
+		transactionID = 2
+	}
+
 	require.Equal(t, git.HooksPayload{
 		ObjectFormat:        gittest.DefaultObjectHash.Format,
 		RuntimeDir:          cfg.RuntimeDir,
@@ -194,6 +213,7 @@ func TestReceivePack_success(t *testing.T) {
 			Protocol: "ssh",
 		},
 		RequestedHooks: git.ReceivePackHooks,
+		TransactionID:  transactionID,
 	}, payload)
 }
 
@@ -401,6 +421,9 @@ func TestReceivePack_customHookFailure(t *testing.T) {
 }
 
 func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
+	testhelper.SkipWithWAL(t, `
+Object pools are not yet support with WAL. This test is testing with a pooled repository.`)
+
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testReceivePackHidesObjectPoolReferences)
 }

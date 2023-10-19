@@ -20,6 +20,16 @@ type GitalyServerFactory struct {
 	logger           log.Logger
 	externalServers  []*grpc.Server
 	internalServers  []*grpc.Server
+	txMiddleware     TransactionMiddleware
+}
+
+// TransactionMiddleware collects transaction middleware into a single struct that can be
+// provided to enable transactions.
+type TransactionMiddleware struct {
+	// UnaryInterceptor is the unary RPC interceptor that handles transaction logic.
+	UnaryInterceptor grpc.UnaryServerInterceptor
+	// StreamInterceptor is the stream RPC interceptor that handles transaction logic.
+	StreamInterceptor grpc.StreamServerInterceptor
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server's.
@@ -29,6 +39,7 @@ func NewGitalyServerFactory(
 	registry *backchannel.Registry,
 	cacheInvalidator cache.Invalidator,
 	limitHandlers []*limithandler.LimiterMiddleware,
+	txMiddleware TransactionMiddleware,
 ) *GitalyServerFactory {
 	return &GitalyServerFactory{
 		cfg:              cfg,
@@ -36,6 +47,7 @@ func NewGitalyServerFactory(
 		registry:         registry,
 		cacheInvalidator: cacheInvalidator,
 		limitHandlers:    limitHandlers,
+		txMiddleware:     txMiddleware,
 	}
 }
 
@@ -77,7 +89,7 @@ func (s *GitalyServerFactory) GracefulStop() {
 // CreateExternal creates a new external gRPC server. The external servers are closed
 // before the internal servers when gracefully shutting down.
 func (s *GitalyServerFactory) CreateExternal(secure bool, opts ...Option) (*grpc.Server, error) {
-	server, err := s.New(secure, opts...)
+	server, err := s.New(true, secure, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +101,7 @@ func (s *GitalyServerFactory) CreateExternal(secure bool, opts ...Option) (*grpc
 // CreateInternal creates a new internal gRPC server. Internal servers are closed
 // after the external ones when gracefully shutting down.
 func (s *GitalyServerFactory) CreateInternal(opts ...Option) (*grpc.Server, error) {
-	server, err := s.New(false, opts...)
+	server, err := s.New(false, false, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -30,6 +30,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -173,12 +174,25 @@ func runGitaly(tb testing.TB, cfg config.Cfg, registrar func(srv *grpc.Server, d
 	deps := gsd.createDependencies(tb, cfg)
 	tb.Cleanup(func() { testhelper.MustClose(tb, gsd.conns) })
 
+	var txMiddleware server.TransactionMiddleware
+	if deps.GetPartitionManager() != nil {
+		txMiddleware = server.TransactionMiddleware{
+			UnaryInterceptor: storagemgr.NewUnaryInterceptor(
+				deps.Logger, protoregistry.GitalyProtoPreregistered, deps.GetTransactionRegistry(), deps.GetPartitionManager(), deps.GetLocator(),
+			),
+			StreamInterceptor: storagemgr.NewStreamInterceptor(
+				deps.Logger, protoregistry.GitalyProtoPreregistered, deps.GetTransactionRegistry(), deps.GetPartitionManager(), deps.GetLocator(),
+			),
+		}
+	}
+
 	serverFactory := server.NewGitalyServerFactory(
 		cfg,
 		gsd.logger.WithField("test", tb.Name()),
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
 		[]*limithandler.LimiterMiddleware{deps.GetLimitHandler()},
+		txMiddleware,
 	)
 
 	if cfg.RuntimeDir != "" {
@@ -270,6 +284,7 @@ type gitalyServerDeps struct {
 	backupSink          backup.Sink
 	backupLocator       backup.Locator
 	signingKey          string
+	transactionRegistry *storagemgr.TransactionRegistry
 }
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
@@ -303,9 +318,12 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		gsd.gitCmdFactory = gittest.NewCommandFactory(tb, cfg)
 	}
 
-	transactionRegistry := storagemgr.NewTransactionRegistry()
+	if gsd.transactionRegistry == nil {
+		gsd.transactionRegistry = storagemgr.NewTransactionRegistry()
+	}
+
 	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.logger, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient, hook.NewTransactionRegistry(transactionRegistry))
+		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.logger, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient, hook.NewTransactionRegistry(gsd.transactionRegistry))
 	}
 
 	if gsd.catfileCache == nil {
@@ -385,7 +403,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		RepositoryCounter:   gsd.repositoryCounter,
 		UpdaterWithHooks:    gsd.updaterWithHooks,
 		HousekeepingManager: gsd.housekeepingManager,
-		TransactionRegistry: transactionRegistry,
+		TransactionRegistry: gsd.transactionRegistry,
 		PartitionManager:    partitionManager,
 		BackupSink:          gsd.backupSink,
 		BackupLocator:       gsd.backupLocator,
@@ -515,6 +533,14 @@ func WithBackupLocator(backupLocator backup.Locator) GitalyServerOpt {
 func WithSigningKey(signingKey string) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.signingKey = signingKey
+		return deps
+	}
+}
+
+// WithTransactionRegistry sets the transaction registry that will be used for Gitaly services.
+func WithTransactionRegistry(registry *storagemgr.TransactionRegistry) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.transactionRegistry = registry
 		return deps
 	}
 }

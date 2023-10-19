@@ -22,6 +22,9 @@ import (
 )
 
 func TestRepositorySize_poolMember(t *testing.T) {
+	testhelper.SkipWithWAL(t, `
+Object pools are not yet supported with transaction management.`)
+
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testRepositorySizePoolMember)
 }

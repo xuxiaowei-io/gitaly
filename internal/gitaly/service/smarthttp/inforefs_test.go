@@ -318,6 +318,9 @@ func testInfoRefsReceivePackSuccessful(t *testing.T, ctx context.Context) {
 }
 
 func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
+	testhelper.SkipWithWAL(t, `
+Object pools are not yet support with WAL. This test is testing with a pooled repository.`)
+
 	t.Parallel()
 	testhelper.NewFeatureSets(
 		featureflag.TransactionalLinkRepository,

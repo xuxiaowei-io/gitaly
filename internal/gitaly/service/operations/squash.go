@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagectx"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
@@ -198,6 +199,13 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 	); err != nil {
 		return "", structerr.NewAborted("committing vote on squashed commit: %w", err)
 	}
+
+	storagectx.RunWithTransaction(ctx, func(tx storagectx.Transaction) {
+		// Only referenced objects get committed as part of a transaction. Since this
+		// RPC doesn't reference the object, we have to manually mark it to be included
+		// in the final committed pack.
+		tx.IncludeObject(git.ObjectID(commitID))
+	})
 
 	return commitID, nil
 }

@@ -100,6 +100,11 @@ func TestGetSnapshot(t *testing.T) {
 		{
 			desc: "repository contains symlink",
 			setup: func(t *testing.T) setupData {
+				testhelper.SkipWithWAL(t, `
+The repositories generally shouldn't have symlinks in them and the TransactionManager never writes any
+symlinks. Symlinks are not supported when creating a snapshot of the repository. Disable the test as it
+doesn't seem to test a realistic scenario.`)
+
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				// Make packed-refs into a symlink so the RPC returns an error.

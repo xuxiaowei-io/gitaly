@@ -55,6 +55,10 @@ func TestRemoveRepository_validate(t *testing.T) {
 }
 
 func TestRemoveRepository_locking(t *testing.T) {
+	testhelper.SkipWithWAL(t, `
+Repository locks are not acquired with transaction management enabled. The test and the locking
+logic will be removed once transaction managements is always enabled.`)
+
 	t.Parallel()
 
 	ctx := testhelper.Context(t)

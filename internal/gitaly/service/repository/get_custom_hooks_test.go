@@ -87,6 +87,11 @@ func TestGetCustomHooks_successful(t *testing.T) {
 }
 
 func TestGetCustomHooks_symlink(t *testing.T) {
+	testhelper.SkipWithWAL(t, `
+The repositories generally shouldn't have symlinks in them and the TransactionManager never writes any
+symlinks. Symlinks are not supported when creating a snapshot of the repository. Disable the test as it
+doesn't seem to test a realistic scenario.`)
+
 	t.Parallel()
 
 	for _, tc := range []struct {

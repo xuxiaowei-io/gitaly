@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
@@ -44,6 +45,11 @@ func TestSetHooksSubcommand(t *testing.T) {
 	client := newRepositoryClient(t, ctx, cfg, serverSocketPath)
 
 	configPath := testcfg.WriteTemporaryGitalyConfigFile(t, cfg)
+
+	expectedMode := umask.Mask(fs.ModePerm)
+	if testhelper.IsWALEnabled() {
+		expectedMode = perm.PrivateDir
+	}
 
 	for _, tc := range []struct {
 		desc          string
@@ -126,7 +132,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 			},
 			hooks: &bytes.Buffer{},
 			expectedState: testhelper.DirectoryState{
-				"custom_hooks/": {Mode: umask.Mask(fs.ModePerm)},
+				"custom_hooks/": {Mode: expectedMode},
 			},
 		},
 		{
@@ -141,7 +147,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedState: testhelper.DirectoryState{
-				"custom_hooks/":            {Mode: umask.Mask(fs.ModePerm)},
+				"custom_hooks/":            {Mode: expectedMode},
 				"custom_hooks/pre-commit":  {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-commit content")},
 				"custom_hooks/pre-push":    {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-push content")},
 				"custom_hooks/pre-receive": {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-receive content")},
@@ -165,7 +171,7 @@ func TestSetHooksSubcommand(t *testing.T) {
 			},
 			hooks: testhelper.MustCreateCustomHooksTar(t),
 			expectedState: testhelper.DirectoryState{
-				"custom_hooks/":            {Mode: umask.Mask(fs.ModePerm)},
+				"custom_hooks/":            {Mode: expectedMode},
 				"custom_hooks/pre-commit":  {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-commit content")},
 				"custom_hooks/pre-push":    {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-push content")},
 				"custom_hooks/pre-receive": {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-receive content")},

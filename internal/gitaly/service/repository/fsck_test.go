@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestFsck(t *testing.T) {
@@ -76,6 +79,15 @@ func TestFsck(t *testing.T) {
 				// identify it as a proper repository anymore.
 				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "objects")))
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects"), nil, perm.SharedFile))
+
+				if testhelper.IsWALEnabled() {
+					return setupData{
+						repo: repo,
+						expectedErr: status.Error(codes.Internal,
+							fmt.Sprintf("begin transaction: get partition: assign partition ID: get alternate partition ID: read alternates file: open: open %s/objects/info/alternates: not a directory", repoPath),
+						),
+					}
+				}
 
 				return setupData{
 					repo: repo,

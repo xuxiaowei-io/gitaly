@@ -94,7 +94,22 @@ func TestPostReceivePack_successful(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testhelper.ProtoEqual(t, gittest.RewrittenRepository(t, ctx, cfg, repo), payload.Repo)
+	expectedRepo := gittest.RewrittenRepository(t, ctx, cfg, repo)
+	if testhelper.IsWALEnabled() {
+		// The repository should be quarantined.
+		require.NotEmpty(t, payload.Repo.GitObjectDirectory)
+		payload.Repo.GitObjectDirectory = "OVERRIDDEN"
+		expectedRepo.GitObjectDirectory = "OVERRIDDEN"
+		require.NotEmpty(t, payload.Repo.GitAlternateObjectDirectories)
+		payload.Repo.GitAlternateObjectDirectories = []string{"OVERRIDDEN"}
+		expectedRepo.GitAlternateObjectDirectories = []string{"OVERRIDDEN"}
+		// The following values may change so we don't want to assert them for equality.
+		require.NotEmpty(t, payload.Repo.RelativePath)
+		payload.Repo.RelativePath = "OVERRIDDEN"
+		expectedRepo.RelativePath = "OVERRIDDEN"
+	}
+
+	testhelper.ProtoEqual(t, expectedRepo, payload.Repo)
 	payload.Repo = nil
 
 	// If running tests with Praefect, then the transaction would be set, but we have no way of
@@ -113,6 +128,11 @@ func TestPostReceivePack_successful(t *testing.T) {
 	require.ElementsMatch(t, expectedFeatureFlags, payload.FeatureFlagsWithValue)
 	payload.FeatureFlagsWithValue = nil
 
+	var transactionID storage.TransactionID
+	if testhelper.IsWALEnabled() {
+		transactionID = 1
+	}
+
 	require.Equal(t, git.HooksPayload{
 		ObjectFormat:        gittest.DefaultObjectHash.Format,
 		RuntimeDir:          cfg.RuntimeDir,
@@ -124,6 +144,7 @@ func TestPostReceivePack_successful(t *testing.T) {
 			Protocol: "http",
 		},
 		RequestedHooks: git.ReceivePackHooks,
+		TransactionID:  transactionID,
 	}, payload)
 }
 
