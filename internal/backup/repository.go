@@ -209,11 +209,12 @@ func (rr *remoteRepository) Remove(ctx context.Context) error {
 }
 
 // Create creates the repository.
-func (rr *remoteRepository) Create(ctx context.Context, hash git.ObjectHash) error {
+func (rr *remoteRepository) Create(ctx context.Context, hash git.ObjectHash, defaultBranch string) error {
 	repoClient := rr.newRepoClient()
 	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
-		Repository:   rr.repo,
-		ObjectFormat: hash.ProtoFormat,
+		Repository:    rr.repo,
+		ObjectFormat:  hash.ProtoFormat,
+		DefaultBranch: []byte(defaultBranch),
 	}); err != nil {
 		return fmt.Errorf("remote repository: create: %w", err)
 	}
@@ -403,7 +404,7 @@ func (r *localRepository) Remove(ctx context.Context) error {
 }
 
 // Create creates the repository.
-func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash) error {
+func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash, defaultBranch string) error {
 	if err := repoutil.Create(
 		ctx,
 		r.logger,
@@ -414,6 +415,7 @@ func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash) error
 		r.repo,
 		func(repository *gitalypb.Repository) error { return nil },
 		repoutil.WithObjectHash(hash),
+		repoutil.WithBranchName(defaultBranch),
 	); err != nil {
 		return fmt.Errorf("local repository: create: %w", err)
 	}

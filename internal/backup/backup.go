@@ -100,7 +100,7 @@ type Repository interface {
 	// repository cannot be found.
 	Remove(ctx context.Context) error
 	// Create creates the repository.
-	Create(ctx context.Context, hash git.ObjectHash) error
+	Create(ctx context.Context, hash git.ObjectHash, defaultBranch string) error
 	// FetchBundle fetches references from a bundle. Refs will be mirrored to
 	// the repository.
 	FetchBundle(ctx context.Context, reader io.Reader) error
@@ -303,7 +303,9 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if err := repo.Create(ctx, hash); err != nil {
+	defaultBranch, _ := git.ReferenceName(backup.HeadReference).Branch()
+
+	if err := repo.Create(ctx, hash, defaultBranch); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 

@@ -868,12 +868,13 @@ func TestManager_Restore_specific(t *testing.T) {
 			backupRoot := testhelper.TempDir(t)
 
 			for _, tc := range []struct {
-				desc          string
-				setup         func(tb testing.TB) (*gitalypb.Repository, *git.Checksum)
-				alwaysCreate  bool
-				expectExists  bool
-				expectedPaths []string
-				expectedErrAs error
+				desc                  string
+				setup                 func(tb testing.TB) (*gitalypb.Repository, *git.Checksum)
+				alwaysCreate          bool
+				expectExists          bool
+				expectedPaths         []string
+				expectedErrAs         error
+				expectedHeadReference git.ReferenceName
 			}{
 				{
 					desc: "missing backup",
@@ -959,6 +960,28 @@ func TestManager_Restore_specific(t *testing.T) {
 					},
 					expectExists: true,
 				},
+				{
+					desc: "manifest, empty backup",
+					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+						testhelper.WriteFiles(tb, backupRoot, map[string]any{
+							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): `object_format = 'sha1'
+head_reference = 'refs/heads/banana'
+
+[[steps]]
+bundle_path = 'repo.bundle'
+ref_path = 'repo.refs'
+custom_hooks_path = 'custom_hooks.tar'
+`,
+							"repo.refs": "",
+						})
+
+						return repo, new(git.Checksum)
+					},
+					expectExists:          true,
+					expectedHeadReference: "refs/heads/banana",
+				},
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
 					repo, expectedChecksum := tc.setup(t)
@@ -1003,9 +1026,17 @@ func TestManager_Restore_specific(t *testing.T) {
 						// the repository through Praefect. In order to get to the correct disk paths, we need
 						// to get the replica path of the rewritten repository.
 						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+
 						for _, p := range tc.expectedPaths {
 							require.FileExists(t, filepath.Join(repoPath, p))
 						}
+					}
+
+					if len(tc.expectedHeadReference) > 0 {
+						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+
+						ref := gittest.GetSymbolicRef(t, cfg, repoPath, "HEAD")
+						require.Equal(t, tc.expectedHeadReference, git.ReferenceName(ref.Target))
 					}
 				})
 			}
