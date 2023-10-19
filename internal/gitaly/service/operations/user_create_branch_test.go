@@ -232,15 +232,6 @@ func TestUserCreateBranch_startPoint(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsService(t, ctx)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
-	), gittest.WithBranch("master"))
-
-	localrepo := localrepo.NewTestRepo(t, cfg, repo)
-	commit, err := localrepo.ReadCommit(ctx, commitID.Revision())
-	require.NoError(t, err)
 
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3331
 	// The `startPoint` parameter automagically resolves branch names, so
@@ -273,6 +264,16 @@ func TestUserCreateBranch_startPoint(t *testing.T) {
 
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+				gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+			), gittest.WithBranch("master"))
+
+			localrepo := localrepo.NewTestRepo(t, cfg, repo)
+			commit, err := localrepo.ReadCommit(ctx, commitID.Revision())
+			require.NoError(t, err)
 
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
 				gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
