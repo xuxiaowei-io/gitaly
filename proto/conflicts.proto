@@ -49,34 +49,38 @@ message ListConflictFilesRequest {
   bool skip_content = 5;
 }
 
-// ConflictFileHeader ...
+// ConflictFileHeader contains parsed conflicted file information from the `git-merge-tree(1)`
+// output for an individual file.
 message ConflictFileHeader {
   reserved 1;
-  // commit_oid ...
+  // commit_oid is the tree-ish revision being merged into.
   string commit_oid = 2;
-  // their_path ...
+  // their_path is the path of the conflicted file being merged from.
   bytes their_path = 3;
-  // our_path ...
+  // our_path is the path of the conflicted file being merged into.
   bytes our_path = 4;
-  // our_mode ...
+  // our_mode is the mode of the conflicted file being merged into.
   int32 our_mode = 5;
-  // ancestor_path ...
+  // ancestor_path is path of the conflicted file for the merge base.
   bytes ancestor_path = 6;
 }
 
-// ConflictFile ...
+// ConflictFile contains conflicted file information.
 message ConflictFile {
   oneof conflict_file_payload {
-    // header ...
+    // header contains the header information about a conflicted file.
     ConflictFileHeader header = 1;
-    // content ...
+    // content is the content data from the conflicted file. The file data may be broken into chunks
+    // and sent in the stream following a file header. if skip_content is set in the request,
+    // conflicted file content is not streamed.
     bytes content = 2;
   }
 }
 
-// ListConflictFilesResponse ...
+// ListConflictFilesResponse is the response for the ListConflicts RPC.
 message ListConflictFilesResponse {
-  // files ...
+  // files is a list of conflicted file information being sent in the stream. This information
+  // contains conflicted file headers and optionally the conflicted file content.
   repeated ConflictFile files = 1;
 }
 
