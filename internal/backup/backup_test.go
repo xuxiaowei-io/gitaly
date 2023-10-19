@@ -879,7 +879,7 @@ func TestManager_Restore_specific(t *testing.T) {
 				{
 					desc: "missing backup",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						return repo, nil
 					},
@@ -888,7 +888,7 @@ func TestManager_Restore_specific(t *testing.T) {
 				{
 					desc: "single incremental",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
@@ -905,9 +905,9 @@ func TestManager_Restore_specific(t *testing.T) {
 				{
 					desc: "many incrementals",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-						_, expectedRepoPath := gittest.CreateRepository(t, ctx, cfg)
+						_, expectedRepoPath := gittest.CreateRepository(tb, ctx, cfg)
 
-						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						root := gittest.WriteCommit(tb, cfg, expectedRepoPath,
 							gittest.WithBranch("master"),
@@ -926,7 +926,7 @@ func TestManager_Restore_specific(t *testing.T) {
 							"refs/heads/master",
 							"refs/heads/other",
 						)
-						refs1 := gittest.Exec(t, cfg, "-C", expectedRepoPath, "show-ref", "--head")
+						refs1 := gittest.Exec(tb, cfg, "-C", expectedRepoPath, "show-ref", "--head")
 
 						master2 := gittest.WriteCommit(tb, cfg, expectedRepoPath,
 							gittest.WithBranch("master"),
@@ -939,7 +939,7 @@ func TestManager_Restore_specific(t *testing.T) {
 							"refs/heads/master",
 							"refs/heads/other",
 						)
-						refs2 := gittest.Exec(t, cfg, "-C", expectedRepoPath, "show-ref", "--head")
+						refs2 := gittest.Exec(tb, cfg, "-C", expectedRepoPath, "show-ref", "--head")
 
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
@@ -963,7 +963,7 @@ func TestManager_Restore_specific(t *testing.T) {
 				{
 					desc: "manifest, empty backup",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
 							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): `object_format = 'sha1'
@@ -985,7 +985,7 @@ custom_hooks_path = 'custom_hooks.tar'
 				{
 					desc: "manifest",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
 							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): `object_format = 'sha1'
@@ -1000,7 +1000,7 @@ custom_hooks_path = 'custom_hooks.tar'
 							"repo.refs":   repoRefs,
 						})
 
-						checksum := gittest.ChecksumRepo(t, cfg, repoPath)
+						checksum := gittest.ChecksumRepo(tb, cfg, repoPath)
 						// Negate off the default branch since the manifest is
 						// explicitly setting a different unborn branch that
 						// will not be part of the checksum.
