@@ -982,6 +982,35 @@ custom_hooks_path = 'custom_hooks.tar'
 					expectExists:          true,
 					expectedHeadReference: "refs/heads/banana",
 				},
+				{
+					desc: "manifest",
+					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+						testhelper.WriteFiles(tb, backupRoot, map[string]any{
+							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): `object_format = 'sha1'
+head_reference = 'refs/heads/banana'
+
+[[steps]]
+bundle_path = 'repo.bundle'
+ref_path = 'repo.refs'
+custom_hooks_path = 'custom_hooks.tar'
+`,
+							"repo.bundle": repoBundle,
+							"repo.refs":   repoRefs,
+						})
+
+						checksum := gittest.ChecksumRepo(t, cfg, repoPath)
+						// Negate off the default branch since the manifest is
+						// explicitly setting a different unborn branch that
+						// will not be part of the checksum.
+						checksum.Add(git.NewReference("HEAD", commitID))
+
+						return repo, checksum
+					},
+					expectExists:          true,
+					expectedHeadReference: "refs/heads/banana",
+				},
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
 					repo, expectedChecksum := tc.setup(t)
