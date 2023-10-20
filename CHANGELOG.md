@@ -1,5 +1,31 @@
 # Gitaly changelog
 
+## 16.5.0 (2023-10-20)
+
+### Added (2 changes)
+
+- [These changes add the GetFileAttributes RPC. It allows the client to read a set](gitlab-org/gitaly@e56c6aa341869bf27e34e3a7b6df9750b6774662) ([merge request](gitlab-org/gitaly!6360))
+- [backup: Use manifests on restore when available](gitlab-org/gitaly@f34c1c8ba5156eb1f50479c2f152d224876d0a90) ([merge request](gitlab-org/gitaly!6410))
+
+### Changed (2 changes)
+
+- [backup: Skip restore when a backup is not found](gitlab-org/gitaly@f6a5b42dc35197534a0f1675d090e957e31c7805) ([merge request](gitlab-org/gitaly!6433))
+- [backup: Write backup manifest files](gitlab-org/gitaly@b584d322dd8a379b92ef7eb33bc22a20700e73a3) ([merge request](gitlab-org/gitaly!6391))
+
+### Deprecated (2 changes)
+
+- [proto: Deprecate UserRebaseConfirmable errors](gitlab-org/gitaly@e6357b86cd025b6c9495452bdbfa6dc51161129d) ([merge request](gitlab-org/gitaly!6443))
+- [proto: Mark `branch` as a deprecated field](gitlab-org/gitaly@d7c63984f02607c754bc8de6e44d3262fd1028b9) ([merge request](gitlab-org/gitaly!6443))
+
+### Removed (1 change)
+
+- [command: Always close stdout on context cancellation](gitlab-org/gitaly@e016bd1625e737a1f7aa89c63d37f93390d02617) ([merge request](gitlab-org/gitaly!6419))
+
+### Performance (2 changes)
+
+- [gitaly: Don't block on preloading licensedb](gitlab-org/gitaly@d96964bf6fe4a17adfded56a28bc276377351bc8) ([merge request](gitlab-org/gitaly!6397))
+- [packed_binaries: Extract binaries in parallel](gitlab-org/gitaly@2f5d4f93bdd27d3299f9ccc005ee7bcca35efcc9) ([merge request](gitlab-org/gitaly!6401))
+
 ## 16.4.1 (2023-09-28)
 
 No changes.
