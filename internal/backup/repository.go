@@ -209,11 +209,12 @@ func (rr *remoteRepository) Remove(ctx context.Context) error {
 }
 
 // Create creates the repository.
-func (rr *remoteRepository) Create(ctx context.Context, hash git.ObjectHash) error {
+func (rr *remoteRepository) Create(ctx context.Context, hash git.ObjectHash, defaultBranch string) error {
 	repoClient := rr.newRepoClient()
 	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
-		Repository:   rr.repo,
-		ObjectFormat: hash.ProtoFormat,
+		Repository:    rr.repo,
+		ObjectFormat:  hash.ProtoFormat,
+		DefaultBranch: []byte(defaultBranch),
 	}); err != nil {
 		return fmt.Errorf("remote repository: create: %w", err)
 	}
@@ -222,13 +223,13 @@ func (rr *remoteRepository) Create(ctx context.Context, hash git.ObjectHash) err
 
 // FetchBundle fetches references from a bundle. Refs will be mirrored to the
 // repository.
-func (rr *remoteRepository) FetchBundle(ctx context.Context, reader io.Reader) error {
+func (rr *remoteRepository) FetchBundle(ctx context.Context, reader io.Reader, updateHead bool) error {
 	repoClient := rr.newRepoClient()
 	stream, err := repoClient.FetchBundle(ctx)
 	if err != nil {
 		return fmt.Errorf("remote repository: fetch bundle: %w", err)
 	}
-	request := &gitalypb.FetchBundleRequest{Repository: rr.repo, UpdateHead: true}
+	request := &gitalypb.FetchBundleRequest{Repository: rr.repo, UpdateHead: updateHead}
 	bundle := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 		if err := stream.Send(request); err != nil {
@@ -290,6 +291,21 @@ func (rr *remoteRepository) ObjectHash(ctx context.Context) (git.ObjectHash, err
 	}
 
 	return git.ObjectHashByProto(response.Format)
+}
+
+// HeadReference returns the current value of HEAD.
+func (rr *remoteRepository) HeadReference(ctx context.Context) (git.ReferenceName, error) {
+	refClient := rr.newRefClient()
+
+	response, err := refClient.FindDefaultBranchName(ctx, &gitalypb.FindDefaultBranchNameRequest{
+		Repository: rr.repo,
+		HeadOnly:   true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("remote repository: head reference: %w", err)
+	}
+
+	return git.ReferenceName(response.Name), nil
 }
 
 func (rr *remoteRepository) newRepoClient() gitalypb.RepositoryServiceClient {
@@ -388,7 +404,7 @@ func (r *localRepository) Remove(ctx context.Context) error {
 }
 
 // Create creates the repository.
-func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash) error {
+func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash, defaultBranch string) error {
 	if err := repoutil.Create(
 		ctx,
 		r.logger,
@@ -399,6 +415,7 @@ func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash) error
 		r.repo,
 		func(repository *gitalypb.Repository) error { return nil },
 		repoutil.WithObjectHash(hash),
+		repoutil.WithBranchName(defaultBranch),
 	); err != nil {
 		return fmt.Errorf("local repository: create: %w", err)
 	}
@@ -407,9 +424,9 @@ func (r *localRepository) Create(ctx context.Context, hash git.ObjectHash) error
 
 // FetchBundle fetches references from a bundle. Refs will be mirrored to the
 // repository.
-func (r *localRepository) FetchBundle(ctx context.Context, reader io.Reader) error {
+func (r *localRepository) FetchBundle(ctx context.Context, reader io.Reader, updateHead bool) error {
 	err := r.repo.FetchBundle(ctx, r.txManager, reader, &localrepo.FetchBundleOpts{
-		UpdateHead: true,
+		UpdateHead: updateHead,
 	})
 	if err != nil {
 		return fmt.Errorf("local repository: fetch bundle: %w", err)
@@ -440,4 +457,14 @@ func (r *localRepository) ObjectHash(ctx context.Context) (git.ObjectHash, error
 	}
 
 	return hash, nil
+}
+
+// HeadReference returns the current value of HEAD.
+func (r *localRepository) HeadReference(ctx context.Context) (git.ReferenceName, error) {
+	head, err := r.repo.HeadReference(ctx)
+	if err != nil {
+		return "", fmt.Errorf("local repository: head reference: %w", err)
+	}
+
+	return head, nil
 }

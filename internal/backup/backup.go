@@ -49,6 +49,8 @@ type Backup struct {
 	Steps []Step `toml:"steps"`
 	// ObjectFormat is the name of the object hash used by the repository.
 	ObjectFormat string `toml:"object_format"`
+	// HeadReference is the reference that HEAD points to.
+	HeadReference string `toml:"head_reference,omitempty"`
 }
 
 // Step represents an incremental step that makes up a complete backup for a repository
@@ -98,14 +100,16 @@ type Repository interface {
 	// repository cannot be found.
 	Remove(ctx context.Context) error
 	// Create creates the repository.
-	Create(ctx context.Context, hash git.ObjectHash) error
+	Create(ctx context.Context, hash git.ObjectHash, defaultBranch string) error
 	// FetchBundle fetches references from a bundle. Refs will be mirrored to
 	// the repository.
-	FetchBundle(ctx context.Context, reader io.Reader) error
+	FetchBundle(ctx context.Context, reader io.Reader, updateHead bool) error
 	// SetCustomHooks updates the custom hooks for the repository.
 	SetCustomHooks(ctx context.Context, reader io.Reader) error
 	// ObjectHash detects the object hash used by the repository.
 	ObjectHash(ctx context.Context) (git.ObjectHash, error)
+	// HeadReference fetches the reference pointed to by HEAD.
+	HeadReference(ctx context.Context) (git.ReferenceName, error)
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
@@ -235,6 +239,12 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	}
 	backup.ObjectFormat = hash.Format
 
+	headRef, err := repo.HeadReference(ctx)
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+	backup.HeadReference = headRef.String()
+
 	refs, err := repo.ListRefs(ctx)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -293,7 +303,9 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if err := repo.Create(ctx, hash); err != nil {
+	defaultBranch, defaultBranchKnown := git.ReferenceName(backup.HeadReference).Branch()
+
+	if err := repo.Create(ctx, hash, defaultBranch); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
@@ -323,7 +335,7 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		// Git bundles can not be created for empty repositories. Since empty
 		// repository backups do not contain a bundle, skip bundle restoration.
 		if len(refs) > 0 {
-			if err := mgr.restoreBundle(ctx, repo, step.BundlePath); err != nil {
+			if err := mgr.restoreBundle(ctx, repo, step.BundlePath, !defaultBranchKnown); err != nil {
 				return fmt.Errorf("manager: %w", err)
 			}
 		}
@@ -470,14 +482,14 @@ func (mgr *Manager) readRefs(ctx context.Context, path string) ([]git.Reference,
 	return refs, nil
 }
 
-func (mgr *Manager) restoreBundle(ctx context.Context, repo Repository, path string) error {
+func (mgr *Manager) restoreBundle(ctx context.Context, repo Repository, path string, updateHead bool) error {
 	reader, err := mgr.sink.GetReader(ctx, path)
 	if err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
 	defer reader.Close()
 
-	if err := repo.FetchBundle(ctx, reader); err != nil {
+	if err := repo.FetchBundle(ctx, reader, updateHead); err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
 	return nil

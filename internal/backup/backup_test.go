@@ -134,9 +134,10 @@ func TestManager_Create(t *testing.T) {
 						repo:     repo,
 						repoPath: repoPath,
 						expectedBackup: &backup.Backup{
-							ID:           backupID,
-							Repository:   vanityRepo,
-							ObjectFormat: gittest.DefaultObjectHash.Format,
+							ID:            backupID,
+							Repository:    vanityRepo,
+							ObjectFormat:  gittest.DefaultObjectHash.Format,
+							HeadReference: git.DefaultRef.String(),
 							Steps: []backup.Step{
 								{
 									BundlePath:      joinBackupPath(t, "", vanityRepo, backupID, "001.bundle"),
@@ -163,9 +164,10 @@ func TestManager_Create(t *testing.T) {
 						repo:     repo,
 						repoPath: repoPath,
 						expectedBackup: &backup.Backup{
-							ID:           backupID,
-							Repository:   vanityRepo,
-							ObjectFormat: gittest.DefaultObjectHash.Format,
+							ID:            backupID,
+							Repository:    vanityRepo,
+							ObjectFormat:  gittest.DefaultObjectHash.Format,
+							HeadReference: git.DefaultRef.String(),
 							Steps: []backup.Step{
 								{
 									BundlePath:      joinBackupPath(t, "", vanityRepo, backupID, "001.bundle"),
@@ -189,9 +191,10 @@ func TestManager_Create(t *testing.T) {
 						repo:     emptyRepo,
 						repoPath: repoPath,
 						expectedBackup: &backup.Backup{
-							ID:           backupID,
-							Repository:   vanityRepo,
-							ObjectFormat: gittest.DefaultObjectHash.Format,
+							ID:            backupID,
+							Repository:    vanityRepo,
+							ObjectFormat:  gittest.DefaultObjectHash.Format,
+							HeadReference: git.DefaultRef.String(),
 							Steps: []backup.Step{
 								{
 									BundlePath:      joinBackupPath(t, "", vanityRepo, backupID, "001.bundle"),
@@ -799,8 +802,6 @@ func TestManager_Restore_latest(t *testing.T) {
 }
 
 func TestManager_Restore_specific(t *testing.T) {
-	gittest.SkipWithSHA256(t)
-
 	t.Parallel()
 
 	const backupID = "abc123"
@@ -865,17 +866,18 @@ func TestManager_Restore_specific(t *testing.T) {
 			backupRoot := testhelper.TempDir(t)
 
 			for _, tc := range []struct {
-				desc          string
-				setup         func(tb testing.TB) (*gitalypb.Repository, *git.Checksum)
-				alwaysCreate  bool
-				expectExists  bool
-				expectedPaths []string
-				expectedErrAs error
+				desc                  string
+				setup                 func(tb testing.TB) (*gitalypb.Repository, *git.Checksum)
+				alwaysCreate          bool
+				expectExists          bool
+				expectedPaths         []string
+				expectedErrAs         error
+				expectedHeadReference git.ReferenceName
 			}{
 				{
 					desc: "missing backup",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						return repo, nil
 					},
@@ -884,7 +886,9 @@ func TestManager_Restore_specific(t *testing.T) {
 				{
 					desc: "single incremental",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						gittest.SkipWithSHA256(tb) // sha256 only works with manifest files
+
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
@@ -901,9 +905,11 @@ func TestManager_Restore_specific(t *testing.T) {
 				{
 					desc: "many incrementals",
 					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-						_, expectedRepoPath := gittest.CreateRepository(t, ctx, cfg)
+						gittest.SkipWithSHA256(tb) // sha256 only works with manifest files
 
-						repo, _ := gittest.CreateRepository(t, ctx, cfg)
+						_, expectedRepoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
 
 						root := gittest.WriteCommit(tb, cfg, expectedRepoPath,
 							gittest.WithBranch("master"),
@@ -922,7 +928,7 @@ func TestManager_Restore_specific(t *testing.T) {
 							"refs/heads/master",
 							"refs/heads/other",
 						)
-						refs1 := gittest.Exec(t, cfg, "-C", expectedRepoPath, "show-ref", "--head")
+						refs1 := gittest.Exec(tb, cfg, "-C", expectedRepoPath, "show-ref", "--head")
 
 						master2 := gittest.WriteCommit(tb, cfg, expectedRepoPath,
 							gittest.WithBranch("master"),
@@ -935,7 +941,7 @@ func TestManager_Restore_specific(t *testing.T) {
 							"refs/heads/master",
 							"refs/heads/other",
 						)
-						refs2 := gittest.Exec(t, cfg, "-C", expectedRepoPath, "show-ref", "--head")
+						refs2 := gittest.Exec(tb, cfg, "-C", expectedRepoPath, "show-ref", "--head")
 
 						relativePath := stripRelativePath(tb, repo)
 						testhelper.WriteFiles(tb, backupRoot, map[string]any{
@@ -955,6 +961,59 @@ func TestManager_Restore_specific(t *testing.T) {
 						return repo, checksum
 					},
 					expectExists: true,
+				},
+				{
+					desc: "manifest, empty backup",
+					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
+
+						testhelper.WriteFiles(tb, backupRoot, map[string]any{
+							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): fmt.Sprintf(
+								`object_format = %q
+head_reference = 'refs/heads/banana'
+
+[[steps]]
+bundle_path = 'repo.bundle'
+ref_path = 'repo.refs'
+custom_hooks_path = 'custom_hooks.tar'
+`, gittest.DefaultObjectHash.Format),
+							"repo.refs": "",
+						})
+
+						return repo, new(git.Checksum)
+					},
+					expectExists:          true,
+					expectedHeadReference: "refs/heads/banana",
+				},
+				{
+					desc: "manifest",
+					setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
+						repo, _ := gittest.CreateRepository(tb, ctx, cfg)
+
+						testhelper.WriteFiles(tb, backupRoot, map[string]any{
+							filepath.Join("manifests", repo.GetStorageName(), repo.GetRelativePath(), backupID+".toml"): fmt.Sprintf(
+								`object_format = %q
+head_reference = 'refs/heads/banana'
+
+[[steps]]
+bundle_path = 'repo.bundle'
+ref_path = 'repo.refs'
+custom_hooks_path = 'custom_hooks.tar'
+`, gittest.DefaultObjectHash.Format),
+							"repo.bundle": repoBundle,
+							"repo.refs":   repoRefs,
+						})
+
+						checksum := gittest.ChecksumRepo(tb, cfg, repoPath)
+						// Negate off the default branch since the manifest is
+						// explicitly setting a different unborn branch that
+						// will not be part of the checksum.
+						checksum.Add(git.NewReference("HEAD", commitID))
+
+						return repo, checksum
+					},
+					expectExists:          true,
+					expectedHeadReference: "refs/heads/banana",
 				},
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
@@ -1000,9 +1059,17 @@ func TestManager_Restore_specific(t *testing.T) {
 						// the repository through Praefect. In order to get to the correct disk paths, we need
 						// to get the replica path of the rewritten repository.
 						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+
 						for _, p := range tc.expectedPaths {
 							require.FileExists(t, filepath.Join(repoPath, p))
 						}
+					}
+
+					if len(tc.expectedHeadReference) > 0 {
+						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+
+						ref := gittest.GetSymbolicRef(t, cfg, repoPath, "HEAD")
+						require.Equal(t, tc.expectedHeadReference, git.ReferenceName(ref.Target))
 					}
 				})
 			}
