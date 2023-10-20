@@ -184,7 +184,7 @@ type RepositoryServiceClient interface {
 	FullPath(ctx context.Context, in *FullPathRequest, opts ...grpc.CallOption) (*FullPathResponse, error)
 	// RemoveAll deletes all repositories on a specified storage.
 	RemoveAll(ctx context.Context, in *RemoveAllRequest, opts ...grpc.CallOption) (*RemoveAllResponse, error)
-	// BackupRepository creates a full backup streamed directly to
+	// BackupRepository creates a full or incremental backup streamed directly to
 	// object-storage. The backup is created synchronously. The destination must
 	// be configured in config.backup.go_cloud_url
 	BackupRepository(ctx context.Context, in *BackupRepositoryRequest, opts ...grpc.CallOption) (*BackupRepositoryResponse, error)
@@ -1156,7 +1156,7 @@ type RepositoryServiceServer interface {
 	FullPath(context.Context, *FullPathRequest) (*FullPathResponse, error)
 	// RemoveAll deletes all repositories on a specified storage.
 	RemoveAll(context.Context, *RemoveAllRequest) (*RemoveAllResponse, error)
-	// BackupRepository creates a full backup streamed directly to
+	// BackupRepository creates a full or incremental backup streamed directly to
 	// object-storage. The backup is created synchronously. The destination must
 	// be configured in config.backup.go_cloud_url
 	BackupRepository(context.Context, *BackupRepositoryRequest) (*BackupRepositoryResponse, error)

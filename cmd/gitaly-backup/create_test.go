@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"io"
@@ -21,108 +22,109 @@ import (
 )
 
 func TestCreateSubcommand(t *testing.T) {
-	cfg := testcfg.Build(t)
+	tests := []struct {
+		Name               string
+		Flags              func(backupRoot string) []string
+		ServerOpts         func(ctx context.Context, backupRoot string) []testserver.GitalyServerOpt
+		ExpectedErrMessage string
+	}{
+		{
+			Name: "when a local backup is created",
+			Flags: func(backupRoot string) []string {
+				return []string{"-path", backupRoot, "-id", "the-new-backup"}
+			},
+			ServerOpts: func(ctx context.Context, backupRoot string) []testserver.GitalyServerOpt {
+				return nil
+			},
+			ExpectedErrMessage: "create: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n",
+		},
+		{
+			Name: "when a server-side backup is created",
+			Flags: func(path string) []string {
+				return []string{"-server-side", "-id", "the-new-backup"}
+			},
+			ServerOpts: func(ctx context.Context, backupRoot string) []testserver.GitalyServerOpt {
+				backupSink, err := backup.ResolveSink(ctx, backupRoot)
+				require.NoError(t, err)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll)
+				backupLocator, err := backup.ResolveLocator("pointer", backupSink)
+				require.NoError(t, err)
 
-	ctx := testhelper.Context(t)
-	path := testhelper.TempDir(t)
+				return []testserver.GitalyServerOpt{
+					testserver.WithBackupSink(backupSink),
+					testserver.WithBackupLocator(backupLocator),
+				}
+			},
+			ExpectedErrMessage: "create: pipeline: 1 failures encountered:\n - invalid: server-side create: could not dial source: invalid connection string: \"invalid\"\n",
+		},
+		{
+			Name: "when a server-side incremental backup is created",
+			Flags: func(path string) []string {
+				return []string{"-server-side", "-incremental", "-id", "the-new-backup"}
+			},
+			ServerOpts: func(ctx context.Context, backupRoot string) []testserver.GitalyServerOpt {
+				backupSink, err := backup.ResolveSink(ctx, backupRoot)
+				require.NoError(t, err)
 
-	var repos []*gitalypb.Repository
-	for i := 0; i < 5; i++ {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
-		repos = append(repos, repo)
+				backupLocator, err := backup.ResolveLocator("pointer", backupSink)
+				require.NoError(t, err)
+
+				return []testserver.GitalyServerOpt{
+					testserver.WithBackupSink(backupSink),
+					testserver.WithBackupLocator(backupLocator),
+				}
+			},
+			ExpectedErrMessage: "create: pipeline: 1 failures encountered:\n - invalid: server-side create: could not dial source: invalid connection string: \"invalid\"\n",
+		},
 	}
 
-	var stdin bytes.Buffer
+	for _, tc := range tests {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+			path := testhelper.TempDir(t)
 
-	encoder := json.NewEncoder(&stdin)
-	for _, repo := range repos {
-		require.NoError(t, encoder.Encode(map[string]string{
-			"address":         cfg.SocketPath,
-			"token":           cfg.Auth.Token,
-			"storage_name":    repo.StorageName,
-			"relative_path":   repo.RelativePath,
-			"gl_project_path": repo.GlProjectPath,
-		}))
-	}
+			cfg := testcfg.Build(t)
+			cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll, tc.ServerOpts(ctx, path)...)
 
-	require.NoError(t, encoder.Encode(map[string]string{
-		"address":       "invalid",
-		"token":         "invalid",
-		"relative_path": "invalid",
-	}))
+			var repos []*gitalypb.Repository
+			for i := 0; i < 5; i++ {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+				repos = append(repos, repo)
+			}
 
-	cmd := createSubcommand{backupPath: path}
+			var stdin bytes.Buffer
+			encoder := json.NewEncoder(&stdin)
 
-	fs := flag.NewFlagSet("create", flag.ContinueOnError)
-	cmd.Flags(fs)
+			for _, repo := range repos {
+				require.NoError(t, encoder.Encode(map[string]string{
+					"address":         cfg.SocketPath,
+					"token":           cfg.Auth.Token,
+					"storage_name":    repo.StorageName,
+					"relative_path":   repo.RelativePath,
+					"gl_project_path": repo.GlProjectPath,
+				}))
+			}
 
-	require.NoError(t, fs.Parse([]string{"-path", path, "-id", "the-new-backup"}))
-	require.EqualError(t,
-		cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
-		"create: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
+			require.NoError(t, encoder.Encode(map[string]string{
+				"address":       "invalid",
+				"token":         "invalid",
+				"relative_path": "invalid",
+			}))
 
-	for _, repo := range repos {
-		bundlePath := filepath.Join(path, strings.TrimSuffix(repo.RelativePath, ".git"), "the-new-backup", "001.bundle")
-		require.FileExists(t, bundlePath)
-	}
-}
+			cmd := createSubcommand{}
+			fs := flag.NewFlagSet("create", flag.ContinueOnError)
+			cmd.Flags(fs)
+			require.NoError(t, fs.Parse(tc.Flags(path)))
 
-func TestCreateSubcommand_serverSide(t *testing.T) {
-	ctx := testhelper.Context(t)
+			require.EqualError(t,
+				cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
+				tc.ExpectedErrMessage)
 
-	backupRoot := testhelper.TempDir(t)
-	backupSink, err := backup.ResolveSink(ctx, backupRoot)
-	require.NoError(t, err)
-
-	backupLocator, err := backup.ResolveLocator("pointer", backupSink)
-	require.NoError(t, err)
-
-	cfg := testcfg.Build(t)
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, setup.RegisterAll,
-		testserver.WithBackupSink(backupSink),
-		testserver.WithBackupLocator(backupLocator),
-	)
-
-	var repos []*gitalypb.Repository
-	for i := 0; i < 5; i++ {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
-		repos = append(repos, repo)
-	}
-
-	var stdin bytes.Buffer
-
-	encoder := json.NewEncoder(&stdin)
-	for _, repo := range repos {
-		require.NoError(t, encoder.Encode(map[string]string{
-			"address":         cfg.SocketPath,
-			"token":           cfg.Auth.Token,
-			"storage_name":    repo.StorageName,
-			"relative_path":   repo.RelativePath,
-			"gl_project_path": repo.GlProjectPath,
-		}))
-	}
-
-	require.NoError(t, encoder.Encode(map[string]string{
-		"address":       "invalid",
-		"token":         "invalid",
-		"relative_path": "invalid",
-	}))
-
-	cmd := createSubcommand{}
-	fs := flag.NewFlagSet("create", flag.ContinueOnError)
-	cmd.Flags(fs)
-
-	require.NoError(t, fs.Parse([]string{"-server-side", "-id", "the-new-backup"}))
-	require.EqualError(t,
-		cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
-		"create: pipeline: 1 failures encountered:\n - invalid: server-side create: could not dial source: invalid connection string: \"invalid\"\n")
-
-	for _, repo := range repos {
-		bundlePath := filepath.Join(backupRoot, strings.TrimSuffix(repo.RelativePath, ".git"), "the-new-backup", "001.bundle")
-		require.FileExists(t, bundlePath)
+			for _, repo := range repos {
+				bundlePath := filepath.Join(path, strings.TrimSuffix(repo.RelativePath, ".git"), "the-new-backup", "001.bundle")
+				require.FileExists(t, bundlePath)
+			}
+		})
 	}
 }
