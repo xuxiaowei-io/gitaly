@@ -96,8 +96,8 @@ func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
 
 	mergeBaseOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first commit"))
 
-	validTargetRef := []byte("refs/merge-requests/x/merge")
-	validTargetRefOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("commit to target ref"))
+	validTargetRef := "refs/merge-requests/x/merge"
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("commit to target ref"), gittest.WithReference(validTargetRef))
 	validSourceOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("commit source SHA"), gittest.WithParents(mergeBaseOID))
 	validSourceSha := validSourceOID.String()
 	validFirstParentRef := []byte("refs/heads/main")
@@ -107,7 +107,7 @@ func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
 		desc           string
 		repo           *gitalypb.Repository
 		user           *gitalypb.User
-		targetRef      []byte
+		targetRef      string
 		sourceSha      string
 		firstParentRef []byte
 		expectedOldOID string
@@ -158,7 +158,7 @@ func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
 			desc:           "invalid target ref",
 			repo:           repo,
 			user:           gittest.TestUser,
-			targetRef:      []byte("refs/heads/branch"),
+			targetRef:      "refs/heads/branch",
 			sourceSha:      validSourceSha,
 			firstParentRef: validFirstParentRef,
 			expectedError:  structerr.NewInvalidArgument("%w", errors.New("invalid TargetRef")),
@@ -186,7 +186,7 @@ func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
 			desc:           "ambiguous target reference",
 			repo:           repo,
 			user:           gittest.TestUser,
-			targetRef:      []byte("refs/merge-requests/x/m*"),
+			targetRef:      "refs/merge-requests/x/m*",
 			sourceSha:      validSourceSha,
 			firstParentRef: validFirstParentRef,
 			expectedError:  structerr.NewInvalidArgument(`target reference is ambiguous: reference is ambiguous: conflicts with "refs/merge-requests/x/merge"`),
@@ -195,16 +195,13 @@ func testUserRebaseToRefFailure(t *testing.T, ctx context.Context) {
 
 	for _, tc := range testCases {
 		tc := tc
-
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			// reset target ref between tests
-			gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(validTargetRef), validTargetRefOID)
 
 			request := &gitalypb.UserRebaseToRefRequest{
 				Repository:     tc.repo,
 				User:           tc.user,
-				TargetRef:      tc.targetRef,
+				TargetRef:      []byte(tc.targetRef),
 				SourceSha:      tc.sourceSha,
 				FirstParentRef: tc.firstParentRef,
 				ExpectedOldOid: tc.expectedOldOID,
