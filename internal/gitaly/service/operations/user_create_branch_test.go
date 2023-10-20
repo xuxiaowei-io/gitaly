@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -28,29 +29,27 @@ func TestUserCreateBranch_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsService(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-
-	startPoint := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
-	))
-
-	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	startPointCommit, err := localRepo.ReadCommit(ctx, startPoint.Revision())
-	require.NoError(t, err)
-
-	testCases := []struct {
-		desc           string
+	type setupData struct {
 		branchName     string
 		startPoint     string
 		expectedBranch *gitalypb.Branch
+	}
+
+	testCases := []struct {
+		desc  string
+		setup func(git.ObjectID, *gitalypb.GitCommit) setupData
 	}{
 		{
-			desc:       "valid branch",
-			branchName: "new-branch",
-			startPoint: startPoint.String(),
-			expectedBranch: &gitalypb.Branch{
-				Name:         []byte("new-branch"),
-				TargetCommit: startPointCommit,
+			desc: "valid branch",
+			setup: func(startPoint git.ObjectID, startPointCommit *gitalypb.GitCommit) setupData {
+				return setupData{
+					branchName: "new-branch",
+					startPoint: startPoint.String(),
+					expectedBranch: &gitalypb.Branch{
+						Name:         []byte("new-branch"),
+						TargetCommit: startPointCommit,
+					},
+				}
 			},
 		},
 		// On input like heads/foo and refs/heads/foo we don't
@@ -59,21 +58,29 @@ func TestUserCreateBranch_successful(t *testing.T) {
 		// prepend refs/heads/*, so you get
 		// refs/heads/heads/foo and refs/heads/refs/heads/foo
 		{
-			desc:       "valid branch",
-			branchName: "heads/new-branch",
-			startPoint: startPoint.String(),
-			expectedBranch: &gitalypb.Branch{
-				Name:         []byte("heads/new-branch"),
-				TargetCommit: startPointCommit,
+			desc: "valid branch",
+			setup: func(startPoint git.ObjectID, startPointCommit *gitalypb.GitCommit) setupData {
+				return setupData{
+					branchName: "heads/new-branch",
+					startPoint: startPoint.String(),
+					expectedBranch: &gitalypb.Branch{
+						Name:         []byte("heads/new-branch"),
+						TargetCommit: startPointCommit,
+					},
+				}
 			},
 		},
 		{
-			desc:       "valid branch",
-			branchName: "refs/heads/new-branch",
-			startPoint: startPoint.String(),
-			expectedBranch: &gitalypb.Branch{
-				Name:         []byte("refs/heads/new-branch"),
-				TargetCommit: startPointCommit,
+			desc: "valid branch",
+			setup: func(startPoint git.ObjectID, startPointCommit *gitalypb.GitCommit) setupData {
+				return setupData{
+					branchName: "refs/heads/new-branch",
+					startPoint: startPoint.String(),
+					expectedBranch: &gitalypb.Branch{
+						Name:         []byte("refs/heads/new-branch"),
+						TargetCommit: startPointCommit,
+					},
+				}
 			},
 		},
 	}
@@ -84,21 +91,29 @@ func TestUserCreateBranch_successful(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			branchName := tc.branchName
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+			startPoint := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+				gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+			))
+
+			localRepo := localrepo.NewTestRepo(t, cfg, repo)
+			startPointCommit, err := localRepo.ReadCommit(ctx, startPoint.Revision())
+			require.NoError(t, err)
+
+			setup := tc.setup(startPoint, startPointCommit)
+
+			branchName := setup.branchName
 			request := &gitalypb.UserCreateBranchRequest{
 				Repository: repo,
 				BranchName: []byte(branchName),
-				StartPoint: []byte(tc.startPoint),
+				StartPoint: []byte(setup.startPoint),
 				User:       gittest.TestUser,
 			}
 
 			response, err := client.UserCreateBranch(ctx, request)
-			if tc.expectedBranch != nil {
-				defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", branchName)
-			}
-
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedBranch, response.Branch)
+			require.Equal(t, setup.expectedBranch, response.Branch)
 
 			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
 			require.Contains(t, string(branches), "refs/heads/"+branchName)
@@ -217,15 +232,6 @@ func TestUserCreateBranch_startPoint(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsService(t, ctx)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
-	), gittest.WithBranch("master"))
-
-	localrepo := localrepo.NewTestRepo(t, cfg, repo)
-	commit, err := localrepo.ReadCommit(ctx, commitID.Revision())
-	require.NoError(t, err)
 
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3331
 	// The `startPoint` parameter automagically resolves branch names, so
@@ -258,6 +264,16 @@ func TestUserCreateBranch_startPoint(t *testing.T) {
 
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+				gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+			), gittest.WithBranch("master"))
+
+			localrepo := localrepo.NewTestRepo(t, cfg, repo)
+			commit, err := localrepo.ReadCommit(ctx, commitID.Revision())
+			require.NoError(t, err)
 
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
 				gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
