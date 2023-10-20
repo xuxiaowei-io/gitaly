@@ -3,6 +3,8 @@ package git
 import (
 	"bufio"
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 )
@@ -188,4 +190,104 @@ func parseFetchStatusLine(line []byte) (FetchStatusLine, bool) {
 	out.Reason = strings.Join(reason, " ")
 
 	return out, true
+}
+
+// FetchPorcelainStatusLine represents a line of status output from `git fetch` when the porcelain
+// option is enabled.
+type FetchPorcelainStatusLine struct {
+	Type      RefUpdateType
+	OldOID    ObjectID
+	NewOID    ObjectID
+	Reference string
+}
+
+// FetchPorcelainScanner scans the output of `git fetch` when the porcelain option is enabled,
+// allowing information about references to be gathered.
+type FetchPorcelainScanner struct {
+	scanner  *bufio.Scanner
+	lastLine FetchPorcelainStatusLine
+	hash     ObjectHash
+	err      error
+}
+
+// NewFetchPorcelainScanner returns a FetchPorcelainScanner.
+func NewFetchPorcelainScanner(r io.Reader, hash ObjectHash) *FetchPorcelainScanner {
+	return &FetchPorcelainScanner{scanner: bufio.NewScanner(r), hash: hash}
+}
+
+// Scan parses the next fetch status line from the fetch command output.
+func (f *FetchPorcelainScanner) Scan() bool {
+	if f.scanner.Scan() {
+		line, err := parseFetchPorcelainStatusLine(f.scanner.Bytes(), f.hash)
+		if err != nil {
+			f.err = err
+			return false
+		}
+
+		f.lastLine = line
+		return true
+	}
+
+	if f.scanner.Err() != nil {
+		f.err = f.scanner.Err()
+	}
+
+	return false
+}
+
+// Err returns any error encountered while scanning.
+func (f *FetchPorcelainScanner) Err() error {
+	return f.err
+}
+
+// StatusLine returns the status line information from the last scanned line.
+func (f *FetchPorcelainScanner) StatusLine() FetchPorcelainStatusLine {
+	return f.lastLine
+}
+
+// parseFetchPorcelainStatusLine parses a fetch status line.
+// The line format is as follows: <flag> <old-object-id> <new-object-id> <local-reference>
+// Each token is delimited by a single space and each line ends with a new-line. Further format
+// documentation can be found at https://git-scm.com/docs/git-fetch#_output.
+func parseFetchPorcelainStatusLine(line []byte, hash ObjectHash) (FetchPorcelainStatusLine, error) {
+	var status FetchPorcelainStatusLine
+
+	// Unfortunately, the reference update type must be checked and parsed first. This is because
+	// one of the possible values of the reference update type is <space>, which is also the same
+	// character used as the delimiter for the remaining tokens in the status line. Therefore, the
+	// line length is checked to make sure there will not be an out-of-bounds error when checking
+	// for the remaining tokens and the update reference type is parsed/validated.
+	if len(line) < 3 || line[1] != ' ' {
+		return FetchPorcelainStatusLine{}, errors.New("invalid status line")
+	}
+
+	// First character in the line represents the status of the reference.
+	status.Type = RefUpdateType(line[0])
+	if !status.Type.Valid() {
+		return FetchPorcelainStatusLine{}, fmt.Errorf("invalid reference update type: %q", status.Type)
+	}
+
+	// The remaining tokens in the status line can be safely split by the <space> delimiter.
+	refStatus := bytes.Split(line[2:], []byte(" "))
+	if len(refStatus) != 3 {
+		return FetchPorcelainStatusLine{}, errors.New("invalid status line")
+	}
+
+	var err error
+	status.OldOID, err = hash.FromHex(string(refStatus[0]))
+	if err != nil {
+		return FetchPorcelainStatusLine{}, fmt.Errorf("constructing old OID: %w", err)
+	}
+
+	status.NewOID, err = hash.FromHex(string(refStatus[1]))
+	if err != nil {
+		return FetchPorcelainStatusLine{}, fmt.Errorf("constructing new OID: %w", err)
+	}
+
+	status.Reference = string(refStatus[2])
+	if err := ValidateReference(status.Reference); err != nil {
+		return FetchPorcelainStatusLine{}, fmt.Errorf("validating reference: %w", err)
+	}
+
+	return status, nil
 }

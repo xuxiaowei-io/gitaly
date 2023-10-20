@@ -172,6 +172,53 @@ func TestRepo_FetchRemote(t *testing.T) {
 		require.False(t, contains, "remote tracking branch should be pruned as it no longer exists on the remote")
 	})
 
+	t.Run("with dry-run", func(t *testing.T) {
+		repo, _ := initBareWithRemote(t, "origin")
+
+		var stderr bytes.Buffer
+		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{Stderr: &stderr, DryRun: true}))
+
+		require.Empty(t, stderr.String(), "it should not produce output as it is called with --quiet flag by default")
+
+		// Prior to the fetch, the repository did not contain any references. Consequently, we do
+		// not expect the repository to contain any references because the fetch performed was a
+		// dry-run.
+		refs, err := repo.GetReferences(ctx)
+		require.NoError(t, err)
+		require.Len(t, refs, 0)
+	})
+
+	t.Run("with porcelain", func(t *testing.T) {
+		repo, _ := initBareWithRemote(t, "origin")
+
+		// The porcelain fetch option write output to stdout in an easy-to-parse format. By default,
+		// output is suppressed by the --quiet flag. The Verbose option must also be enabled to
+		// receive output.
+		var stdout bytes.Buffer
+		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{
+			Stdout:    &stdout,
+			Porcelain: true,
+			Verbose:   true,
+		}))
+
+		hash, err := repo.ObjectHash(ctx)
+		require.NoError(t, err)
+		scanner := git.NewFetchPorcelainScanner(&stdout, hash)
+
+		// Scan the output for expected references.
+		require.True(t, scanner.Scan())
+		require.Equal(t, git.RefUpdateTypeFetched, scanner.StatusLine().Type)
+		require.Equal(t, "refs/remotes/origin/main", scanner.StatusLine().Reference)
+		require.True(t, scanner.Scan())
+		require.Equal(t, git.RefUpdateTypeFetched, scanner.StatusLine().Type)
+		require.Equal(t, "refs/tags/v1.0.0", scanner.StatusLine().Reference)
+
+		// Since the remote only contains two references, there should be nothing left in the buffer
+		// to scan.
+		require.False(t, scanner.Scan())
+		require.Nil(t, scanner.Err())
+	})
+
 	t.Run("with no tags", func(t *testing.T) {
 		repo, testRepoPath := initBareWithRemote(t, "origin")
 
