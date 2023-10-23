@@ -24,6 +24,8 @@ type Instance struct {
 	logger       log.Logger
 	catfileCache catfile.Cache
 	repo         *localrepo.Repo
+	ctx          context.Context
+	checkAttrCmd *gitattributes.CheckAttrCmd
 }
 
 // New creates a new instance that can be used to calculate language stats for
@@ -36,6 +38,23 @@ func New(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *I
 	}
 }
 
+func NewWithGitAttributes(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo, ctx context.Context, revision git.Revision) (*Instance, func(), error) {
+	attrs := []string{linguistGenerated}
+
+	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, repo, revision, attrs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &Instance{
+		logger:       logger,
+		catfileCache: catfileCache,
+		repo:         repo,
+		ctx:          ctx,
+		checkAttrCmd: checkAttr,
+	}, finishAttr, nil
+}
+
 // Color returns the color Linguist has assigned to language.
 func Color(language string) string {
 	if color := enry.GetColor(language); color != "#cccccc" {
@@ -46,26 +65,19 @@ func Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
-func (inst *Instance) IsGenerated(ctx context.Context, revision git.Revision, filename string, oid string) (bool, error) {
-	attrs := []string{linguistGenerated}
-	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, inst.repo, revision, attrs)
-	if err != nil {
-		return false, err
-	}
-	defer finishAttr()
-
-	fileInstance, err := newFileInstance(filename, checkAttr)
+func (inst *Instance) IsGenerated(filename string, oid string) (bool, error) {
+	fileInstance, err := newFileInstance(filename, inst.checkAttrCmd)
 	if err != nil {
 		return false, fmt.Errorf("new file instance: %w", err)
 	}
 
-	objectReader, cancel, err := inst.catfileCache.ObjectReader(ctx, inst.repo)
+	objectReader, cancel, err := inst.catfileCache.ObjectReader(inst.ctx, inst.repo)
 	if err != nil {
 		return false, fmt.Errorf("create object reader: %w", err)
 	}
 	defer cancel()
 
-	blob, err := objectReader.Object(ctx, git.Revision(oid))
+	blob, err := objectReader.Object(inst.ctx, git.Revision(oid))
 	if err != nil {
 		return false, fmt.Errorf("read object: %w", err)
 	}

@@ -85,6 +85,13 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
 
+	linguistInstance, checkAttrFinish, err := linguist.NewWithGitAttributes(s.logger, s.catfileCache, repo, ctx, git.Revision(leftSha))
+	if err != nil {
+		return structerr.NewAborted("send: %w", err)
+	}
+
+	defer checkAttrFinish()
+
 	return s.eachDiff(ctx, repo, cmd, limits, func(diff *diff.Diff) error {
 		response := &gitalypb.CommitDiffResponse{
 			FromPath:       diff.FromPath,
@@ -102,8 +109,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 		patch := diff.Patch
 
 		if in.CollapseGenerated && in.CollapseDiffs {
-			instance := linguist.New(s.logger, s.catfileCache, repo)
-			linguistGenerated, err := instance.IsGenerated(ctx, git.Revision(leftSha), string(diff.FromPath), diff.FromID)
+			linguistGenerated, err := linguistInstance.IsGenerated(string(diff.FromPath), diff.FromID)
 			if err != nil {
 				return structerr.NewAborted("send: %w", err)
 			}
