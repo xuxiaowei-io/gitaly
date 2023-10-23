@@ -7,5 +7,5 @@ var ReplicateRepositoryObjectPool = NewFeatureFlag(
 	"replicate_repository_object_pool",
 	"v16.2.0",
 	"https://gitlab.com/gitlab-org/gitaly/-/issues/5088",
-	false,
+	true,
 )
