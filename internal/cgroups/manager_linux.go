@@ -40,6 +40,7 @@ type CGroupManager struct {
 	cfg     cgroupscfg.Config
 	pid     int
 	enabled bool
+	repoRes *specs.LinuxResources
 
 	handler cgroupHandler
 }
@@ -65,6 +66,7 @@ func newCgroupManagerWithMode(cfg cgroupscfg.Config, logger log.Logger, pid int,
 		cfg:     cfg,
 		pid:     pid,
 		handler: handler,
+		repoRes: configRepositoryResources(cfg),
 	}
 }
 
@@ -73,7 +75,7 @@ func (cgm *CGroupManager) Setup() error {
 	if err := cgm.handler.setupParent(cgm.configParentResources()); err != nil {
 		return err
 	}
-	if err := cgm.handler.setupRepository(cgm.configRepositoryResources()); err != nil {
+	if err := cgm.handler.setupRepository(cgm.repoRes); err != nil {
 		return err
 	}
 	cgm.enabled = true
@@ -191,23 +193,23 @@ func (cgm *CGroupManager) configParentResources() *specs.LinuxResources {
 	return &parentResources
 }
 
-func (cgm *CGroupManager) configRepositoryResources() *specs.LinuxResources {
+func configRepositoryResources(cfg cgroupscfg.Config) *specs.LinuxResources {
 	cfsPeriodUs := cfsPeriodUs
 	var reposResources specs.LinuxResources
 	// Leave them `nil` so it takes kernel default unless cfg value above `0`.
 	reposResources.CPU = &specs.LinuxCPU{}
 
-	if cgm.cfg.Repositories.CPUShares > 0 {
-		reposResources.CPU.Shares = &cgm.cfg.Repositories.CPUShares
+	if cfg.Repositories.CPUShares > 0 {
+		reposResources.CPU.Shares = &cfg.Repositories.CPUShares
 	}
 
-	if cgm.cfg.Repositories.CPUQuotaUs > 0 {
-		reposResources.CPU.Quota = &cgm.cfg.Repositories.CPUQuotaUs
+	if cfg.Repositories.CPUQuotaUs > 0 {
+		reposResources.CPU.Quota = &cfg.Repositories.CPUQuotaUs
 		reposResources.CPU.Period = &cfsPeriodUs
 	}
 
-	if cgm.cfg.Repositories.MemoryBytes > 0 {
-		reposResources.Memory = &specs.LinuxMemory{Limit: &cgm.cfg.Repositories.MemoryBytes}
+	if cfg.Repositories.MemoryBytes > 0 {
+		reposResources.Memory = &specs.LinuxMemory{Limit: &cfg.Repositories.MemoryBytes}
 	}
 	return &reposResources
 }
