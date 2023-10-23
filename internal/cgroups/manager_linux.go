@@ -24,7 +24,7 @@ import (
 const cfsPeriodUs uint64 = 100000
 
 type cgroupHandler interface {
-	setupParent(reposResources *specs.LinuxResources) error
+	setupParent(parentResources *specs.LinuxResources) error
 	setupRepository(reposResources *specs.LinuxResources) error
 	addToCgroup(pid int, cgroupPath string) error
 	collect(ch chan<- prometheus.Metric)
