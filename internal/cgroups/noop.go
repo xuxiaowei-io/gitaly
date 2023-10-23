@@ -1,6 +1,7 @@
 package cgroups
 
 import (
+	"io"
 	"os/exec"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,6 +28,16 @@ func (cg *NoopManager) Setup() error {
 //nolint:revive // This is unintentionally missing documentation.
 func (cg *NoopManager) AddCommand(*exec.Cmd, ...AddCommandOption) (string, error) {
 	return "", nil
+}
+
+// SupportsCloneIntoCgroup returns false.
+func (cg *NoopManager) SupportsCloneIntoCgroup() bool {
+	return false
+}
+
+// CloneIntoCgroup does nothing.
+func (cg *NoopManager) CloneIntoCgroup(*exec.Cmd, ...AddCommandOption) (string, io.Closer, error) {
+	return "", io.NopCloser(nil), nil
 }
 
 //nolint:revive // This is unintentionally missing documentation.

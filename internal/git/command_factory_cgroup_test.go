@@ -1,6 +1,7 @@
 package git_test
 
 import (
+	"io"
 	"os/exec"
 	"testing"
 
@@ -20,6 +21,15 @@ type mockCgroupsManager struct {
 func (m *mockCgroupsManager) AddCommand(c *exec.Cmd, _ ...cgroups.AddCommandOption) (string, error) {
 	m.commands = append(m.commands, c)
 	return "", nil
+}
+
+func (m *mockCgroupsManager) SupportsCloneIntoCgroup() bool {
+	return true
+}
+
+func (m *mockCgroupsManager) CloneIntoCgroup(c *exec.Cmd, _ ...cgroups.AddCommandOption) (string, io.Closer, error) {
+	m.commands = append(m.commands, c)
+	return "", io.NopCloser(nil), nil
 }
 
 func TestNewCommandAddsToCgroup(t *testing.T) {

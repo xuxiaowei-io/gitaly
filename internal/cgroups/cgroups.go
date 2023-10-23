@@ -1,6 +1,7 @@
 package cgroups
 
 import (
+	"io"
 	"os/exec"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -65,6 +66,14 @@ type Manager interface {
 	Ready() bool
 	// AddCommand adds a Cmd to a cgroup.
 	AddCommand(*exec.Cmd, ...AddCommandOption) (string, error)
+	// SupportsCloneIntoCgroup returns whether this Manager supports the CloneIntoCgroup method.
+	// CloneIntoCgroup requires CLONE_INTO_CGROUP which is only supported with cgroups version 2
+	// with Linux 5.7 or newer.
+	SupportsCloneIntoCgroup() bool
+	// CloneIntoCgroup configures the cgroup parameters UseCgroupFD and CgroupFD in SysProcAttr
+	// to start the command directly in the correct cgroup. On success, the function returns an io.Closer
+	// that must be closed after the command has been started to close the cgroup's file descriptor.
+	CloneIntoCgroup(*exec.Cmd, ...AddCommandOption) (string, io.Closer, error)
 	// Cleanup cleans up cgroups created in Setup.
 	// It is expected to be called once at Gitaly shutdown from any
 	// instance of the Manager.

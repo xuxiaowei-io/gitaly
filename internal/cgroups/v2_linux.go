@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/kernel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
@@ -23,15 +24,23 @@ type cgroupV2Handler struct {
 	logger log.Logger
 
 	*cgroupsMetrics
-	pid int
+	pid             int
+	cloneIntoCgroup bool
 }
 
 func newV2Handler(cfg cgroupscfg.Config, logger log.Logger, pid int) *cgroupV2Handler {
+	cloneIntoCgroup, err := kernel.IsAtLeast(kernel.Version{Major: 5, Minor: 7})
+	if err != nil {
+		// Log the error for now as we're only rolling out functionality behind feature flag.
+		logger.WithError(err).Error("failed detecting kernel version, CLONE_INTO_CGROUP support disabled")
+	}
+
 	return &cgroupV2Handler{
-		cfg:            cfg,
-		logger:         logger,
-		pid:            pid,
-		cgroupsMetrics: newV2CgroupsMetrics(),
+		cfg:             cfg,
+		logger:          logger,
+		pid:             pid,
+		cgroupsMetrics:  newV2CgroupsMetrics(),
+		cloneIntoCgroup: cloneIntoCgroup,
 	}
 }
 
@@ -188,6 +197,10 @@ func (cvh *cgroupV2Handler) stats() (Stats, error) {
 		stats.ParentStats.OOMKills = metrics.MemoryEvents.OomKill
 	}
 	return stats, nil
+}
+
+func (cvh *cgroupV2Handler) supportsCloneIntoCgroup() bool {
+	return cvh.cloneIntoCgroup
 }
 
 func pruneOldCgroupsV2(cfg cgroupscfg.Config, logger log.Logger) {

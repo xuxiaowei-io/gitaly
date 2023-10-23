@@ -464,6 +464,14 @@ func (m mockCgroupManager) AddCommand(*exec.Cmd, ...cgroups.AddCommandOption) (s
 	return m.path, nil
 }
 
+func (m mockCgroupManager) SupportsCloneIntoCgroup() bool {
+	return true
+}
+
+func (m mockCgroupManager) CloneIntoCgroup(*exec.Cmd, ...cgroups.AddCommandOption) (string, io.Closer, error) {
+	return m.path, io.NopCloser(nil), nil
+}
+
 func TestCommand_logMessage(t *testing.T) {
 	t.Parallel()
 
