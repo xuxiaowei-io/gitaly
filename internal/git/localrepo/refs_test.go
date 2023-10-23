@@ -72,6 +72,79 @@ func TestRepo_ContainsRef(t *testing.T) {
 	}
 }
 
+func TestRepo_ResolveRevision(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		desc        string
+		setup       func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID
+		revision    string
+		expectedErr error
+	}{
+		{
+			desc: "branch",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID {
+				return gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			},
+			revision: "main",
+		},
+		{
+			desc: "tag",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID {
+				return gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/1.0.0"))
+			},
+			revision: "1.0.0",
+		},
+		{
+			desc: "branch parent",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID {
+				parent := gittest.WriteCommit(t, cfg, repoPath)
+
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(parent),
+					gittest.WithBranch("main"),
+				)
+
+				return parent
+			},
+			revision: "main^",
+		},
+		{
+			desc: "peel branch to tree",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID {
+				treeID := gittest.WriteTree(t, cfg, repoPath,
+					[]gittest.TreeEntry{
+						{Path: "foo.bar", Mode: "100644", Content: "Hello world"},
+					})
+
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTree(treeID),
+					gittest.WithBranch("main"))
+
+				return treeID
+			},
+			revision: "main^{tree}",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testhelper.Context(t)
+			cfg, repo, repoPath := setupRepo(t)
+			expectedID := tc.setup(t, cfg, repoPath)
+
+			ref, err := repo.ResolveRevision(ctx, git.Revision(tc.revision))
+			require.Equal(t, tc.expectedErr, err)
+			if err == nil {
+				require.Equal(t, expectedID, ref)
+			}
+		})
+	}
+}
+
 func TestRepo_GetReference(t *testing.T) {
 	t.Parallel()
 
