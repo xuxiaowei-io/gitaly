@@ -71,6 +71,14 @@ func (inst *Instance) IsGenerated(filename string, oid string) (bool, error) {
 		return false, fmt.Errorf("new file instance: %w", err)
 	}
 
+	if fileInstance.attrs.IsUnset(linguistGenerated) {
+		return false, nil
+	}
+
+	if fileInstance.attrs.IsSet(linguistGenerated) {
+		return true, nil
+	}
+
 	objectReader, cancel, err := inst.catfileCache.ObjectReader(inst.ctx, inst.repo)
 	if err != nil {
 		return false, fmt.Errorf("create object reader: %w", err)
@@ -87,7 +95,7 @@ func (inst *Instance) IsGenerated(filename string, oid string) (bool, error) {
 		return false, fmt.Errorf("read content: %w", err)
 	}
 
-	return fileInstance.isGenerated(content), nil
+	return enry.IsGenerated(filename, content), nil
 }
 
 // Stats returns the repository's language statistics.
