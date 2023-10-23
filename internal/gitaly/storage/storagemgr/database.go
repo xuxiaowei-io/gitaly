@@ -78,6 +78,7 @@ type Database interface {
 	View(func(DatabaseTransaction) error) error
 	Update(func(DatabaseTransaction) error) error
 	GetSequence([]byte, uint64) (Sequence, error)
+	RunValueLogGC(float64) error
 	Close() error
 }
 
