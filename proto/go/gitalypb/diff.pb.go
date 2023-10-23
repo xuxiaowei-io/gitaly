@@ -300,7 +300,7 @@ type CommitDiffRequest struct {
 	// were hit will have the path filled in, have the `overflow_marker` set,
 	// but have no patch data.
 	CollectAllPaths bool `protobuf:"varint,18,opt,name=collect_all_paths,json=collectAllPaths,proto3" json:"collect_all_paths,omitempty"`
-	// collaspe_generated can be set when you want to collapse generated files by default.
+	// collapse_generated can be set when you want to collapse generated files by default.
 	// Both collapsed and generated field of CommitDiffResponse will be set to true if the
 	// file is considered to have been generated.
 	CollapseGenerated bool `protobuf:"varint,19,opt,name=collapse_generated,json=collapseGenerated,proto3" json:"collapse_generated,omitempty"`

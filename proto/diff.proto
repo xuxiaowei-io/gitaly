@@ -156,7 +156,7 @@ message CommitDiffRequest {
   // but have no patch data.
   bool collect_all_paths = 18;
 
-  // collaspe_generated can be set when you want to collapse generated files by default.
+  // collapse_generated can be set when you want to collapse generated files by default.
   // Both collapsed and generated field of CommitDiffResponse will be set to true if the
   // file is considered to have been generated.
   bool collapse_generated = 19;
